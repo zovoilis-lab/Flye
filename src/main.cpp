@@ -1,19 +1,27 @@
 
 #include "kmer_index.h"
 #include "fasta.h"
+#include <iostream>
 
 int main(int argc, char** argv)
 {
 	FastaReader fReader(argv[1]);
-	std::vector<FastaRecord> fastaRecords;
-	fReader.GetSequences(fastaRecords);
+	VertexIndex& vertexIndex = VertexIndex::getInstance();
+	vertexIndex.setKmerSize(16);
 
-	KmerIndex& kmerIndex = KmerIndex::getIndex();
-	kmerIndex.setKmerSize(16);
-	for (auto rec : fastaRecords)
 	{
-		kmerIndex.addFastaSequence(rec);
+		std::vector<FastaRecord> fastaRecords;
+		fReader.GetSequences(fastaRecords);
+		for (auto rec : fastaRecords)
+		{
+			vertexIndex.addFastaSequence(rec);
+		}
 	}
-	kmerIndex.outputCounts();
+
+	vertexIndex.applyKmerThresholds(8, 20);
+	vertexIndex.outputCounts();
+	vertexIndex.buildReadIndex();
+
+	std::cout << vertexIndex.getIndexByRead().at(100)[0].position << std::endl;
 	return 0;
 }

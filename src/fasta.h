@@ -4,8 +4,7 @@
 //* See file LICENSE for details.
 //****************************************************************************
 
-#ifndef _FASTA_READER_H_
-#define _FASTA_READER_H_
+#pragma once
 
 #include <sstream>
 #include <fstream>
@@ -14,13 +13,16 @@
 
 struct FastaRecord
 {
+	typedef int32_t ReadIdType;
+
 	FastaRecord() {}
-	FastaRecord(const std::string& sequence, const std::string& description, size_t id):
+	FastaRecord(const std::string& sequence, const std::string& description, 
+				ReadIdType id):
 		id_(id), sequence_(sequence), description_(description)
 	{
 	}
 	
-	size_t id_;
+	ReadIdType id_;
 	std::string sequence_;
 	std::string description_;		
 };
@@ -41,5 +43,3 @@ private:
 	std::ifstream inputStream_;
 	std::string fileName_;
 };
-
-#endif 

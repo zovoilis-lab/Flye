@@ -33,7 +33,7 @@ namespace
 Kmer::Kmer(const std::string& dnaString):
 	_representation(0)
 {
-	if (dnaString.length() != KmerIndex::getIndex().getKmerSize())
+	if (dnaString.length() != VertexIndex::getInstance().getKmerSize())
 	{
 		throw std::runtime_error("Kmer length inconsistency");
 	}
@@ -51,7 +51,7 @@ Kmer Kmer::appendRight(char dnaSymbol) const
 	newKmer._representation <<= 2;
 	newKmer._representation += dnaToNumber(dnaSymbol);
 
-	KmerRepr kmerSize = KmerIndex::getIndex().getKmerSize();
+	KmerRepr kmerSize = VertexIndex::getInstance().getKmerSize();
 	KmerRepr kmerMask = ((KmerRepr)1 << kmerSize * 2) - 1;
 	newKmer._representation &= kmerMask;
 
@@ -63,7 +63,7 @@ Kmer Kmer::appendLeft(char dnaSymbol) const
 	Kmer newKmer(*this);
 	newKmer._representation >>= 2;
 
-	KmerRepr kmerSize = KmerIndex::getIndex().getKmerSize();
+	KmerRepr kmerSize = VertexIndex::getInstance().getKmerSize();
 	KmerRepr shift = kmerSize * 2 - 2;
 	newKmer._representation += dnaToNumber(dnaSymbol) << shift;
 
@@ -77,7 +77,7 @@ Kmer Kmer::reverseComplement() const
 	Kmer::KmerRepr tmpRepr = _representation;
 	KmerRepr mask = 3;
 
-	for (unsigned int i = 0; i < KmerIndex::getIndex().getKmerSize(); ++i)
+	for (unsigned int i = 0; i < VertexIndex::getInstance().getKmerSize(); ++i)
 	{
 		newKmer._representation <<= 2;
 		newKmer._representation += ~(mask & tmpRepr);
@@ -91,7 +91,7 @@ std::string Kmer::dnaRepresentation() const
 	std::string repr;
 	KmerRepr mask = 3;
 	KmerRepr tempRepr = _representation;
-	for (unsigned int i = 0; i < KmerIndex::getIndex().getKmerSize(); ++i)
+	for (unsigned int i = 0; i < VertexIndex::getInstance().getKmerSize(); ++i)
 	{
 		repr.push_back(numberToDna(tempRepr & mask));
 		tempRepr >>= 2;
@@ -100,38 +100,68 @@ std::string Kmer::dnaRepresentation() const
 	return repr;
 }
 
-KmerIndex::KmerIndex():
+VertexIndex::VertexIndex():
 	_kmerSize(0)
 {}
 
-void KmerIndex::setKmerSize(unsigned int size)
+void VertexIndex::setKmerSize(unsigned int size)
 {
 	_kmerSize = size;
 }
 
-void KmerIndex::addFastaSequence(const FastaRecord& fastaRecord)
+void VertexIndex::addFastaSequence(const FastaRecord& fastaRecord)
 {
 	if (fastaRecord.sequence_.length() < _kmerSize) return;
 
+	uint32_t position = 0;
 	Kmer curKmer(fastaRecord.sequence_.substr(0, _kmerSize));
-	_kmerCount[curKmer] += 1;
-	_kmerCount[curKmer.reverseComplement()] += 1;
+	_kmerIndex[curKmer].push_back(ReadPosition(fastaRecord.id_, position));
+	//_kmerCount[curKmer.reverseComplement()] += 1;
 	for (size_t pos = _kmerSize; pos < fastaRecord.sequence_.length(); ++pos)
 	{
+		position += 1;
 		curKmer = curKmer.appendRight(fastaRecord.sequence_[pos]);
-		_kmerCount[curKmer] += 1;
-		_kmerCount[curKmer.reverseComplement()] += 1;
+		_kmerIndex[curKmer].push_back(ReadPosition(fastaRecord.id_, position));
+		//_kmerCount[curKmer.reverseComplement()] += 1;
 	}
 }
 
-void KmerIndex::outputCounts()
+void VertexIndex::applyKmerThresholds(unsigned int minCoverage, 
+									  unsigned int maxCoverage)
 {
-	for (auto hashPair : _kmerCount)
+	for (auto itKmers = _kmerIndex.begin(); itKmers != _kmerIndex.end();)
 	{
-		//if (hashPair.second > 0)
+		if (itKmers->second.size() < minCoverage || 
+			itKmers->second.size() > maxCoverage)
+		{
+			itKmers = _kmerIndex.erase(itKmers);
+		}
+		else
+		{
+			++itKmers;
+		}
+	}
+}
+
+void VertexIndex::buildReadIndex()
+{
+	for (auto kmerHash: _kmerIndex)
+	{
+		for (auto kmerPosPair : kmerHash.second)
+		{
+			_readIndex[kmerPosPair.readId]
+				.push_back(KmerPosition(kmerHash.first, kmerPosPair.position));
+		}
+	}
+}
+
+void VertexIndex::outputCounts() const
+{
+	for (auto hashPair : _kmerIndex)
+	{
 		{
 			std::cout << hashPair.first.dnaRepresentation() << "\t" 
-					  << hashPair.second << std::endl;
+					  << hashPair.second.size() << std::endl;
 		}
 	}
 }

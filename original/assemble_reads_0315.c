@@ -487,9 +487,10 @@ int test_chimeric_read(int current_read, struct read_state* Reads, struct kmer_s
 			if (active_count[temp_other_read] == 0)
 			{
 				//start path
-				//Q: if conditions -- why not symmetric?
-				if (((cur_read_pos < MAX_OVERHANG) && (other_read_pos < Reads[temp_other_read].len - MIN_OVERLAP + MAX_OVERHANG)) || 
-					((other_read_pos < MAX_OVERHANG) && (cur_read_pos < Reads[current_read].len - MIN_OVERLAP))) 
+				if (((cur_read_pos < MAX_OVERHANG) && 
+					(other_read_pos < Reads[temp_other_read].len - MIN_OVERLAP + MAX_OVERHANG)) || 
+					((other_read_pos < MAX_OVERHANG) &&
+					(cur_read_pos < Reads[current_read].len - MIN_OVERLAP + MAX_OVERHANG))) 
 				{
 					active_count[temp_other_read]++;
 					left_i[temp_other_read][0] = cur_read_pos;

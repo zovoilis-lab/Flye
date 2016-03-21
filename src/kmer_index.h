@@ -2,6 +2,7 @@
 
 #include <string>
 #include <unordered_map>
+#include <vector>
 
 #include "fasta.h"
 
@@ -31,26 +32,56 @@ private:
 	KmerRepr _representation;
 };
 
-class KmerIndex
+
+class VertexIndex
 {
 public:
-	static KmerIndex& getIndex()
+	static VertexIndex& getInstance()
 	{
-		static KmerIndex instance;
+		static VertexIndex instance;
 		return instance;
 	}
-	KmerIndex(const KmerIndex&) = delete;
-	void operator=(const KmerIndex&) = delete;
+	VertexIndex(const VertexIndex&) = delete;
+	void operator=(const VertexIndex&) = delete;
+
+	struct ReadPosition
+	{
+		ReadPosition(FastaRecord::ReadIdType readId, uint32_t position):
+			readId(readId), position(position) {}
+		FastaRecord::ReadIdType readId;
+		uint32_t position;
+	};
+	struct KmerPosition
+	{
+		KmerPosition(Kmer kmer, uint32_t position):
+			kmer(kmer), position(position) {}
+		Kmer kmer;
+		uint32_t position;
+	};
+
+	typedef std::unordered_map<Kmer, std::vector<ReadPosition>, 
+					   		   Kmer::KmerHash> KmerIndex;
+	typedef std::unordered_map<FastaRecord::ReadIdType, 
+					   		   std::vector<KmerPosition>> ReadIndex;
 
 	void 		 setKmerSize(unsigned int size);
-	//void 		 applyLimits(unsigned int minCoverage, unsigned int maxCoverage);
-	unsigned int getKmerSize() const {return _kmerSize;}
+	void 		 applyKmerThresholds(unsigned int minCoverage, 
+							 		 unsigned int maxCoverage);
+	unsigned int getKmerSize() const 
+		{return _kmerSize;}
 	void 		 addFastaSequence(const FastaRecord& fastaRecord);
-	void 		 outputCounts();
+	void 		 buildReadIndex();
 
+	const KmerIndex&  getIndexByKmer() const
+		{return _kmerIndex;}
+	const ReadIndex&  getIndexByRead() const
+		{return _readIndex;}
+
+	void outputCounts() const;
 private:
-	KmerIndex();
+	VertexIndex();
 
 	unsigned int _kmerSize;
-	std::unordered_map<Kmer, int, Kmer::KmerHash> _kmerCount;
+	KmerIndex _kmerIndex;
+	ReadIndex _readIndex;
 };
