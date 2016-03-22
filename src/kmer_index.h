@@ -46,17 +46,17 @@ public:
 
 	struct ReadPosition
 	{
-		ReadPosition(FastaRecord::ReadIdType readId, uint32_t position):
+		ReadPosition(FastaRecord::ReadIdType readId, int32_t position):
 			readId(readId), position(position) {}
 		FastaRecord::ReadIdType readId;
-		uint32_t position;
+		int32_t position;
 	};
 	struct KmerPosition
 	{
-		KmerPosition(Kmer kmer, uint32_t position):
+		KmerPosition(Kmer kmer, int32_t position):
 			kmer(kmer), position(position) {}
 		Kmer kmer;
-		uint32_t position;
+		int32_t position;
 	};
 
 	typedef std::unordered_map<Kmer, std::vector<ReadPosition>, 

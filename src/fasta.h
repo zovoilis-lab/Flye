@@ -6,10 +6,8 @@
 
 #pragma once
 
-#include <sstream>
-#include <fstream>
-#include <iterator>
 #include <vector>
+#include <unordered_map>
 
 struct FastaRecord
 {
@@ -18,28 +16,39 @@ struct FastaRecord
 	FastaRecord() {}
 	FastaRecord(const std::string& sequence, const std::string& description, 
 				ReadIdType id):
-		id_(id), sequence_(sequence), description_(description)
+		id(id), sequence(sequence), description(description)
 	{
 	}
 	
-	ReadIdType id_;
-	std::string sequence_;
-	std::string description_;		
+	ReadIdType id;
+	std::string sequence;
+	std::string description;		
 };
 
-class FastaReader
+class SequenceContainer
 {
 public:
-	explicit FastaReader(const std::string& fileName): 
-		inputStream_(fileName.c_str()),
-		fileName_(fileName) {}
-	size_t 	GetSequences(std::vector<FastaRecord>& record);
-	size_t 	GetSequencesWithComplements(std::vector<FastaRecord>& record);
-	bool 	IsOk() const;
-private:
-	void ValidateSequence(std::string& sequence);
-	void ValidateHeader(std::string& header);
+	typedef std::unordered_map<FastaRecord::ReadIdType, 
+							   FastaRecord> SequenceIndex;
 
-	std::ifstream inputStream_;
-	std::string fileName_;
+	static SequenceContainer& getInstance()
+	{
+		static SequenceContainer container;
+		return container;
+	}
+	const SequenceIndex& getIndex() const
+		{return _seqIndex;}
+	void 	readFasta(const std::string& filename);
+
+private:
+	SequenceContainer() {}
+
+	size_t 	getSequences(std::vector<FastaRecord>& record, 
+						 const std::string& fileName);
+	size_t 	getSequencesWithComplements(std::vector<FastaRecord>& record, 
+										const std::string& fileName);
+	void 	validateSequence(const std::string& sequence);
+	void 	validateHeader(const std::string& header);
+
+	SequenceIndex _seqIndex;
 };

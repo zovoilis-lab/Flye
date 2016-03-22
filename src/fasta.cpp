@@ -6,6 +6,8 @@
 
 #include "fasta.h"
 #include <stdexcept>
+#include <fstream>
+#include <sstream>
 
 namespace
 {
@@ -43,19 +45,33 @@ namespace
 	}
 }
 
-size_t FastaReader::GetSequences(std::vector<FastaRecord> & record)
+void SequenceContainer::readFasta(const std::string& fileName)
+{
+	std::vector<FastaRecord> records;
+	this->getSequencesWithComplements(records, fileName);
+	for (auto& rec : records)
+	{
+		_seqIndex[rec.id] = rec;
+	}
+}
+
+size_t SequenceContainer::getSequences(std::vector<FastaRecord>& record, 
+									   const std::string& fileName)
 {
 	std::string buffer;
 	std::string sequence;
-	std::string header;
+	std::string header; 
+	std::ifstream inputStream(fileName);
 	int line = 1;
-	size_t seqId = record.size();
+
+	record.clear();
+	FastaRecord::ReadIdType seqId = 1;
 
 	try
 	{
-		while(!inputStream_.eof())
+		while(!inputStream.eof())
 		{
-			std::getline(inputStream_, buffer, '\n');
+			std::getline(inputStream, buffer, '\n');
 			if (*buffer.rbegin() == '\r') buffer.erase(buffer.size() - 1);
 			if (buffer.empty()) continue;
 
@@ -70,12 +86,12 @@ size_t FastaReader::GetSequences(std::vector<FastaRecord> & record)
 					sequence.clear();
 					header.clear();
 				}
-				ValidateHeader(buffer);
+				this->validateHeader(buffer);
 				header = buffer;
 			}
 			else
 			{
-				ValidateSequence(buffer);
+				this->validateSequence(buffer);
 				sequence += buffer;
 			}
 
@@ -88,30 +104,31 @@ size_t FastaReader::GetSequences(std::vector<FastaRecord> & record)
 	catch (ParseException & e)
 	{
 		std::stringstream ss;
-		ss << "parse error in " << fileName_ << " on line " << line << ": " << e.what();
+		ss << "parse error in " << fileName << " on line " << line << ": " << e.what();
 		throw std::runtime_error(ss.str());
 	}
 
 	return record.size();
 }
 
-size_t FastaReader::GetSequencesWithComplements(std::vector<FastaRecord>& records)
+size_t SequenceContainer::getSequencesWithComplements(std::vector<FastaRecord>& records,
+													  const std::string& fileName)
 {
-	this->GetSequences(records);
+	this->getSequences(records, fileName);
 	std::vector<FastaRecord> complements;
 	for (auto &record : records)
 	{
-		std::string header = "-" + record.description_;
-		record.description_ = "+" + record.description_;
+		std::string header = "-" + record.description;
+		record.description = "+" + record.description;
 		std::string revComplement;
-		reverseComplement(record.sequence_, revComplement);
-		complements.push_back(FastaRecord(revComplement, header, record.id_));
+		reverseComplement(record.sequence, revComplement);
+		complements.push_back(FastaRecord(revComplement, header, -record.id));
 	}
 	std::copy(complements.begin(), complements.end(), std::back_inserter(records));
 	return records.size();
 }
 
-void FastaReader::ValidateHeader(std::string & header)
+void SequenceContainer::validateHeader(const std::string& header)
 {
 	size_t delim = header.find(' ');
 	if (delim == std::string::npos)
@@ -123,25 +140,19 @@ void FastaReader::ValidateHeader(std::string & header)
 		--delim;
 	}
 
-	header = header.substr(1, delim);
-	if (header.empty()) throw ParseException("empty header");
+	std::string mainHeader = header.substr(1, delim);
+	if (mainHeader.empty()) throw ParseException("empty header");
 }
 
-void FastaReader::ValidateSequence(std::string & sequence)
+void SequenceContainer::validateSequence(const std::string& sequence)
 {
 	const std::string VALID_CHARS = "ACGTURYKMSWBDHWNX-";
 	for (size_t i = 0; i < sequence.length(); ++i)
 	{
-		char orig = sequence[i];
-		sequence[i] = toupper(sequence[i]);
-		if (VALID_CHARS.find(sequence[i]) == std::string::npos) 
+		if (VALID_CHARS.find(toupper(sequence[i])) == std::string::npos) 
 		{
-			throw ParseException((std::string("illegal character: ") + orig).c_str());
+			throw ParseException((std::string("illegal character: ") + 
+								  sequence[i]).c_str());
 		}
 	}
-}
-
-bool FastaReader::IsOk() const
-{
-	return inputStream_.good();
 }

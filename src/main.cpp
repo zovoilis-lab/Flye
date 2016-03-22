@@ -1,27 +1,30 @@
 
+#include <iostream>
+
 #include "kmer_index.h"
 #include "fasta.h"
-#include <iostream>
+#include "overlap.h"
 
 int main(int argc, char** argv)
 {
-	FastaReader fReader(argv[1]);
+	SequenceContainer& seqContainer = SequenceContainer::getInstance();
+	seqContainer.readFasta(argv[1]);
 	VertexIndex& vertexIndex = VertexIndex::getInstance();
-	vertexIndex.setKmerSize(16);
+	vertexIndex.setKmerSize(15);
 
 	{
-		std::vector<FastaRecord> fastaRecords;
-		fReader.GetSequences(fastaRecords);
-		for (auto rec : fastaRecords)
+		for (auto rec : seqContainer.getIndex())
 		{
-			vertexIndex.addFastaSequence(rec);
+			vertexIndex.addFastaSequence(rec.second);
 		}
 	}
 
-	vertexIndex.applyKmerThresholds(8, 20);
+	vertexIndex.applyKmerThresholds(8, 24);
 	vertexIndex.outputCounts();
 	vertexIndex.buildReadIndex();
 
-	std::cout << vertexIndex.getIndexByRead().at(100)[0].position << std::endl;
+	OverlapDetector ovlp(1000, 1000, 1000);
+	ovlp.findAllOverlaps(vertexIndex, seqContainer);
+
 	return 0;
 }

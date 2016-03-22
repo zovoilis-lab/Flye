@@ -6,22 +6,27 @@
 class OverlapDetector
 {
 public:
-	OverlapDetector(unsigned int maximumJump, unsigned int minimumOverlap,
-					unsigned int maximumOverhang):
+	OverlapDetector(int maximumJump, int minimumOverlap,
+					int maximumOverhang):
 		_maximumJump(maximumJump), _minimumOverlap(minimumOverlap),
 		_maximumOverhang(maximumOverhang) 
 	{}
 
-	void findAllOverlaps(const VertexIndex& vertexIndex);
+	void findAllOverlaps(const VertexIndex& vertexIndex, 
+						 const SequenceContainer& seqContainer);
 	
 private:
 	void getReadOverlaps(FastaRecord::ReadIdType readId, 
-						 const VertexIndex& vertexIndex);
-	bool goodStart(uint32_t currentPos, uint32_t extensionPos);
-	int  jumpTest(uint32_t currentPrev, uint32_t currentNext,
-				  uint32_t extensionPrev, uint32_t extensionNext);
+						 const VertexIndex& vertexIndex,
+						 const SequenceContainer& seqContainer);
+	bool 	 goodStart(int32_t currentPos, int32_t extensionPos, 
+				   int32_t currentLength);
 
-	unsigned int _maximumJump;
-	unsigned int _minimumOverlap;
-	unsigned int _maximumOverhang;
+	enum JumpRes {J_END, J_INCONS, J_CLOSE, J_FAR};
+	JumpRes jumpTest(int32_t currentPrev, int32_t currentNext,
+				  int32_t extensionPrev, int32_t extensionNext);
+
+	int _maximumJump;
+	int _minimumOverlap;
+	int _maximumOverhang;
 };

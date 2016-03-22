@@ -1,7 +1,8 @@
 #include "overlap.h"
 #include <set>
 
-void OverlapDetector::findAllOverlaps(const VertexIndex& vertexIndex)
+void OverlapDetector::findAllOverlaps(const VertexIndex& vertexIndex,
+									  const SequenceContainer& seqContainer)
 {
 }
 
@@ -9,23 +10,49 @@ namespace
 {
 	struct OverlapRange
 	{
-		OverlapRange(uint32_t curInit = 0, uint32_t extInit = 0): 
+		OverlapRange(int32_t curInit = 0, int32_t extInit = 0): 
 			curBegin(curInit), curEnd(curInit), 
 			extBegin(extInit), extEnd(extInit){}
 
 		//current read
-		uint32_t curBegin;
-		uint32_t curEnd;
+		int32_t curBegin;
+		int32_t curEnd;
 		//extension read
-		uint32_t extBegin;
-		uint32_t extEnd;
+		int32_t extBegin;
+		int32_t extEnd;
 	};
+}
+
+bool OverlapDetector::goodStart(int32_t curPos, int32_t extPos, int32_t curLen)
+{	
+	return extPos < _maximumOverhang && 
+		   curPos < curLen - _minimumOverlap + _minimumOverlap;
+}
+
+OverlapDetector::JumpRes 
+OverlapDetector::jumpTest(int32_t curPrev, int32_t curNext,
+						  int32_t extPrev, int32_t extNext)
+{
+	if (curPrev == curNext)
+		return J_INCONS;
+
+	if (curNext > curPrev || curNext - curPrev > _maximumJump)
+		return J_END;
+	
+	if (abs((curNext - curPrev) - (extNext - extPrev)) < _maximumJump / 8)
+		return J_CLOSE;
+
+	if (abs((curNext - curPrev) - (extNext - extPrev)) < _maximumJump / 2)
+		return J_FAR;
+
+	return J_INCONS;
 }
 
 //Getting all possible overlaps to the right direction
 //based on the shared kmers (common jump-paths)
 void OverlapDetector::getReadOverlaps(FastaRecord::ReadIdType currentReadId, 
-						 			  const VertexIndex& vertexIndex)
+						 			  const VertexIndex& vertexIndex,
+									  const SequenceContainer& seqContainer)
 {
 	auto& readIndex = vertexIndex.getIndexByRead();
 	auto& kmerIndex = vertexIndex.getIndexByKmer();
@@ -37,14 +64,18 @@ void OverlapDetector::getReadOverlaps(FastaRecord::ReadIdType currentReadId,
 	//for all kmers in this read
 	for (auto& curKmerPos : readIndex.at(currentReadId))
 	{
+		auto curLen = seqContainer.getIndex().at(currentReadId)
+												.sequence.length();
+		auto curPos = curKmerPos.position;
 		//for all other occurences of this kmer (extension candidates)
 		for (auto& extReadPos : kmerIndex.at(curKmerPos.kmer))
 		{
-			auto curPos = curKmerPos.position;
 			auto extPos = extReadPos.position;
+			auto extLen = seqContainer.getIndex().at(extReadPos.readId)
+													.sequence.length();
 			auto& extPaths = activePaths[extReadPos.readId];
 
-			if (extPaths.empty() && this->goodStart(curPos, extPos))
+			if (extPaths.empty() && this->goodStart(curPos, extPos, curLen))
 			{
 				extPaths.push_back(OverlapRange(curPos, extPos));
 				continue;
@@ -60,22 +91,22 @@ void OverlapDetector::getReadOverlaps(FastaRecord::ReadIdType currentReadId,
 			{
 				int jumpResult = this->jumpTest(extPaths[ovlpId].curEnd, curPos,
 												extPaths[ovlpId].extEnd, extPos);
-				uint32_t extLength = curPos - extPaths[ovlpId].extEnd;
+				int32_t extLength = curPos - extPaths[ovlpId].extEnd;
 
 				switch (jumpResult)
 				{
 					//TODO: check, if this affects the preformance
 					//maybe we really need to erase "dead ends"
-					//case 0:
+					//case J_END:
 					//	eraseMarks.insert(ovlpId);
 					//	break;
-					case 2:
+					case J_CLOSE:
 						eraseMarks.insert(ovlpId);
 						extendsClose = true;
 						if (extLength > curPos - extPaths[maxCloseId].curEnd)
 							maxCloseId = ovlpId;	
 						break;
-					case 3:
+					case J_FAR:
 						extendsFar = true;
 						if (extLength > curPos - extPaths[maxFarId].curEnd)
 							maxFarId = ovlpId;	
@@ -97,7 +128,8 @@ void OverlapDetector::getReadOverlaps(FastaRecord::ReadIdType currentReadId,
 				extPaths[-1].extEnd = extPos;
 			}
 			//if no extensions possible, start a new path
-			if (!extendsClose && !extendsFar && this->goodStart(curPos, extPos))
+			if (!extendsClose && !extendsFar && 
+				this->goodStart(curPos, extPos, curLen))
 				extPaths.push_back(OverlapRange(curPos, extPos));
 			//cleaning up
 			for (auto itEraseId = eraseMarks.rbegin(); 

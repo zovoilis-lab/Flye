@@ -111,17 +111,17 @@ void VertexIndex::setKmerSize(unsigned int size)
 
 void VertexIndex::addFastaSequence(const FastaRecord& fastaRecord)
 {
-	if (fastaRecord.sequence_.length() < _kmerSize) return;
+	if (fastaRecord.sequence.length() < _kmerSize) return;
 
-	uint32_t position = 0;
-	Kmer curKmer(fastaRecord.sequence_.substr(0, _kmerSize));
-	_kmerIndex[curKmer].push_back(ReadPosition(fastaRecord.id_, position));
+	int32_t position = 0;
+	Kmer curKmer(fastaRecord.sequence.substr(0, _kmerSize));
+	_kmerIndex[curKmer].push_back(ReadPosition(fastaRecord.id, position));
 	//_kmerCount[curKmer.reverseComplement()] += 1;
-	for (size_t pos = _kmerSize; pos < fastaRecord.sequence_.length(); ++pos)
+	for (size_t pos = _kmerSize; pos < fastaRecord.sequence.length(); ++pos)
 	{
 		position += 1;
-		curKmer = curKmer.appendRight(fastaRecord.sequence_[pos]);
-		_kmerIndex[curKmer].push_back(ReadPosition(fastaRecord.id_, position));
+		curKmer = curKmer.appendRight(fastaRecord.sequence[pos]);
+		_kmerIndex[curKmer].push_back(ReadPosition(fastaRecord.id, position));
 		//_kmerCount[curKmer.reverseComplement()] += 1;
 	}
 }
