@@ -147,7 +147,7 @@ void VertexIndex::buildReadIndex()
 {
 	for (auto kmerHash: _kmerIndex)
 	{
-		for (auto kmerPosPair : kmerHash.second)
+		for (auto& kmerPosPair : kmerHash.second)
 		{
 			_readIndex[kmerPosPair.readId]
 				.push_back(KmerPosition(kmerHash.first, kmerPosPair.position));

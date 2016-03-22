@@ -438,10 +438,10 @@ int test_chimeric_read(int current_read, struct read_state* Reads, struct kmer_s
 					   int min_coverage, int number_of_reads)
 {
 
-	static int left_i[MAX_READ_NUMBER][100];
-	static int left_j[MAX_READ_NUMBER][100];
-	static int right_i[MAX_READ_NUMBER][100];
-	static int right_j[MAX_READ_NUMBER][100];
+	int left_i[MAX_READ_NUMBER][100];
+	int left_j[MAX_READ_NUMBER][100];
+	int right_i[MAX_READ_NUMBER][100];
+	int right_j[MAX_READ_NUMBER][100];
 
 	int coverage[500];
 	int chimeric[500];
@@ -557,7 +557,7 @@ int test_chimeric_read(int current_read, struct read_state* Reads, struct kmer_s
 				active_count[temp_other_read]--;
 			}
 
-			//???
+			//extend
 			int temp_include_tag = 0;
 			for(int active_id = 0; active_id < active_count[temp_other_read]; active_id++)
 			{
@@ -605,6 +605,7 @@ int test_chimeric_read(int current_read, struct read_state* Reads, struct kmer_s
 				}
 			}
 
+			//if it doesn't extends anything, start a new path
 			if (temp_include_tag == 0)
 			{
 				if (((cur_read_pos < MAX_OVERHANG) && 
@@ -625,6 +626,7 @@ int test_chimeric_read(int current_read, struct read_state* Reads, struct kmer_s
 			}
 			else
 			{
+				//can do on later stages
 				for(int active_id = 0; active_id < active_count[temp_other_read]; active_id++)
 				{
 					if(test_overlay(Reads[current_read].len, left_i[temp_other_read][active_id],
