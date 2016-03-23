@@ -1,9 +1,16 @@
 #include "overlap.h"
 #include <set>
+#include <iostream>
+#include "utility.h"
 
 void OverlapDetector::findAllOverlaps(const VertexIndex& vertexIndex,
 									  const SequenceContainer& seqContainer)
 {
+	DEBUG_PRINT("Finding overlaps");
+	for (auto& seqHash : seqContainer.getIndex())
+	{
+		this->getReadOverlaps(seqHash.first, vertexIndex, seqContainer);
+	}
 }
 
 namespace
@@ -13,6 +20,7 @@ namespace
 		OverlapRange(int32_t curInit = 0, int32_t extInit = 0): 
 			curBegin(curInit), curEnd(curInit), 
 			extBegin(extInit), extEnd(extInit){}
+		int32_t curRange() {return curEnd - curBegin;}
 
 		//current read
 		int32_t curBegin;
@@ -35,17 +43,29 @@ OverlapDetector::jumpTest(int32_t curPrev, int32_t curNext,
 {
 	if (curPrev == curNext)
 		return J_INCONS;
-
-	if (curNext > curPrev || curNext - curPrev > _maximumJump)
+	if (curNext - curPrev > _maximumJump)
 		return J_END;
-	
 	if (abs((curNext - curPrev) - (extNext - extPrev)) < _maximumJump / 8)
 		return J_CLOSE;
-
 	if (abs((curNext - curPrev) - (extNext - extPrev)) < _maximumJump / 2)
 		return J_FAR;
 
 	return J_INCONS;
+}
+
+
+//Check if it is a proper overlap extension to the right
+bool OverlapDetector::overlapTest(int32_t curStart, int32_t curEnd, 
+								  int32_t curLen, int32_t extStart,
+								  int32_t extEnd)
+{
+	if (curEnd - curStart < _minimumOverlap)
+		return false;
+	if (abs((curEnd - curStart) - (extEnd - extStart)) > _maximumJump)
+		return false;
+	if (curLen - curEnd > _maximumOverhang || extStart > _maximumOverhang)
+		return false;
+	return true;
 }
 
 //Getting all possible overlaps to the right direction
@@ -61,18 +81,18 @@ void OverlapDetector::getReadOverlaps(FastaRecord::ReadIdType currentReadId,
 	std::unordered_map<FastaRecord::ReadIdType, 
 					   std::vector<OverlapRange>> activePaths;
 		
+	auto curLen = seqContainer.getIndex().at(currentReadId)
+											.sequence.length();
 	//for all kmers in this read
 	for (auto& curKmerPos : readIndex.at(currentReadId))
 	{
-		auto curLen = seqContainer.getIndex().at(currentReadId)
-												.sequence.length();
 		auto curPos = curKmerPos.position;
 		//for all other occurences of this kmer (extension candidates)
 		for (auto& extReadPos : kmerIndex.at(curKmerPos.kmer))
 		{
+			if (extReadPos.readId == currentReadId) continue;
+
 			auto extPos = extReadPos.position;
-			auto extLen = seqContainer.getIndex().at(extReadPos.readId)
-													.sequence.length();
 			auto& extPaths = activePaths[extReadPos.readId];
 
 			if (extPaths.empty() && this->goodStart(curPos, extPos, curLen))
@@ -91,7 +111,7 @@ void OverlapDetector::getReadOverlaps(FastaRecord::ReadIdType currentReadId,
 			{
 				int jumpResult = this->jumpTest(extPaths[ovlpId].curEnd, curPos,
 												extPaths[ovlpId].extEnd, extPos);
-				int32_t extLength = curPos - extPaths[ovlpId].extEnd;
+				int32_t extLength = curPos - extPaths[ovlpId].curEnd;
 
 				switch (jumpResult)
 				{
@@ -124,8 +144,8 @@ void OverlapDetector::getReadOverlaps(FastaRecord::ReadIdType currentReadId,
 			if (extendsFar)
 			{
 				extPaths.push_back(extPaths[maxFarId]);
-				extPaths[-1].curEnd = curPos;
-				extPaths[-1].extEnd = extPos;
+				extPaths.back().curEnd = curPos;
+				extPaths.back().extEnd = extPos;
 			}
 			//if no extensions possible, start a new path
 			if (!extendsClose && !extendsFar && 
@@ -141,11 +161,26 @@ void OverlapDetector::getReadOverlaps(FastaRecord::ReadIdType currentReadId,
 		}
 	} //end loop over kmers in current read
 	
-	for (auto ap : activePaths)
+	std::unordered_map<FastaRecord::ReadIdType, OverlapRange> detectedOverlaps;
+	for (auto& ap : activePaths)
 	{
-		//for each overlap
-		//check if it's good
-		//check if it's maximal
-		//record it
+		for (auto& ovlp : ap.second)
+			if (this->overlapTest(ovlp.curBegin, ovlp.curEnd, curLen,
+								  ovlp.extBegin, ovlp.extEnd) &&
+				detectedOverlaps[ap.first].curRange() < ovlp.curRange())
+				detectedOverlaps[ap.first] = ovlp;
 	}
+
+	std::cout << "Overlaps for " 
+			  << seqContainer.getIndex().at(currentReadId).description 
+			  << std::endl;
+	for (auto& ovlp : detectedOverlaps)
+	{
+		std::cout << "\twtih " 
+				  << seqContainer.getIndex().at(ovlp.first).description 
+				  << " : " << ovlp.second.curBegin << "," << ovlp.second.curEnd 
+				  << " : " << ovlp.second.extBegin << "," << ovlp.second.extEnd 
+				  << std::endl;
+	}
+	//return detectedOverlaps;
 }

@@ -1,7 +1,9 @@
-#include "kmer_index.h"
 #include <cassert>
 #include <stdexcept>
 #include <iostream>
+
+#include "kmer_index.h"
+#include "utility.h"
 
 namespace
 {
@@ -116,36 +118,48 @@ void VertexIndex::addFastaSequence(const FastaRecord& fastaRecord)
 	int32_t position = 0;
 	Kmer curKmer(fastaRecord.sequence.substr(0, _kmerSize));
 	_kmerIndex[curKmer].push_back(ReadPosition(fastaRecord.id, position));
-	//_kmerCount[curKmer.reverseComplement()] += 1;
 	for (size_t pos = _kmerSize; pos < fastaRecord.sequence.length(); ++pos)
 	{
 		position += 1;
 		curKmer = curKmer.appendRight(fastaRecord.sequence[pos]);
 		_kmerIndex[curKmer].push_back(ReadPosition(fastaRecord.id, position));
-		//_kmerCount[curKmer.reverseComplement()] += 1;
 	}
 }
 
 void VertexIndex::applyKmerThresholds(unsigned int minCoverage, 
 									  unsigned int maxCoverage)
 {
+	int removedCount = 0;
+	DEBUG_PRINT("Initial size: " << _kmerIndex.size());
 	for (auto itKmers = _kmerIndex.begin(); itKmers != _kmerIndex.end();)
 	{
 		if (itKmers->second.size() < minCoverage || 
 			itKmers->second.size() > maxCoverage)
 		{
 			itKmers = _kmerIndex.erase(itKmers);
+			++removedCount;
 		}
 		else
 		{
 			++itKmers;
 		}
 	}
+	//fighting memory fragmentation
+	//for (auto& indexPair : _kmerIndex)
+	//{
+	//	decltype(indexPair.second) tmpVector;
+	//	tmpVector.reserve(indexPair.second.size());
+	//	std::copy(indexPair.second.begin(), indexPair.second.end(), 
+	//			  std::back_inserter(tmpVector));
+	//	indexPair.second.swap(tmpVector);
+	//}
+	DEBUG_PRINT(_kmerIndex.size());
+	DEBUG_PRINT("Removed " << removedCount << " entries");
 }
 
 void VertexIndex::buildReadIndex()
 {
-	for (auto kmerHash: _kmerIndex)
+	for (auto& kmerHash: _kmerIndex)
 	{
 		for (auto& kmerPosPair : kmerHash.second)
 		{
@@ -153,11 +167,17 @@ void VertexIndex::buildReadIndex()
 				.push_back(KmerPosition(kmerHash.first, kmerPosPair.position));
 		}
 	}
+	for (auto& readHash : _readIndex)
+	{
+		std::sort(readHash.second.begin(), readHash.second.end(),
+					[](const KmerPosition& p1, const KmerPosition& p2)
+						{return p1.position < p2.position;});
+	}
 }
 
 void VertexIndex::outputCounts() const
 {
-	for (auto hashPair : _kmerIndex)
+	for (auto& hashPair : _kmerIndex)
 	{
 		{
 			std::cout << hashPair.first.dnaRepresentation() << "\t" 

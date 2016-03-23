@@ -128,7 +128,7 @@ size_t SequenceContainer::getSequencesWithComplements(std::vector<FastaRecord>& 
 	return records.size();
 }
 
-void SequenceContainer::validateHeader(const std::string& header)
+void SequenceContainer::validateHeader(std::string& header)
 {
 	size_t delim = header.find(' ');
 	if (delim == std::string::npos)
@@ -140,8 +140,8 @@ void SequenceContainer::validateHeader(const std::string& header)
 		--delim;
 	}
 
-	std::string mainHeader = header.substr(1, delim);
-	if (mainHeader.empty()) throw ParseException("empty header");
+	header = header.substr(1, delim);
+	if (header.empty()) throw ParseException("empty header");
 }
 
 void SequenceContainer::validateSequence(const std::string& sequence)

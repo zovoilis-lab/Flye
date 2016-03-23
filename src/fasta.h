@@ -48,7 +48,7 @@ private:
 	size_t 	getSequencesWithComplements(std::vector<FastaRecord>& record, 
 										const std::string& fileName);
 	void 	validateSequence(const std::string& sequence);
-	void 	validateHeader(const std::string& header);
+	void 	validateHeader(std::string& header);
 
 	SequenceIndex _seqIndex;
 };
