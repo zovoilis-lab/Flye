@@ -5,9 +5,17 @@
 #include "fasta.h"
 #include "overlap.h"
 #include "utility.h"
+#include "chimera.h"
 
 int main(int argc, char** argv)
 {
+	static const int MAX_JUMP = 1500;
+	static const int MIN_OVERLAP = 7000;
+	static const int MAX_OVERHANG = 1500;
+
+	static const int MIN_KMER_COUNT = 8;
+	static const int MAX_KMER_COUNT = 24;
+
 	SequenceContainer& seqContainer = SequenceContainer::getInstance();
 	DEBUG_PRINT("Reading FASTA");
 	seqContainer.readFasta(argv[1]);
@@ -21,13 +29,15 @@ int main(int argc, char** argv)
 	}
 
 	DEBUG_PRINT("Trimming index");
-	vertexIndex.applyKmerThresholds(8, 24);
+	vertexIndex.applyKmerThresholds(MIN_KMER_COUNT, MAX_KMER_COUNT);
 	DEBUG_PRINT("Building read index");
 	vertexIndex.buildReadIndex();
 
-	OverlapDetector ovlp(1500, 7000, 1500);
+	OverlapDetector ovlp(MAX_JUMP, MIN_OVERLAP, MAX_OVERHANG);
 	ovlp.findAllOverlaps(vertexIndex, seqContainer);
 
-	//vertexIndex.outputCounts();
+	ChimeraDetector chimDetect(MAX_OVERHANG, MAX_JUMP);
+	chimDetect.detectChimeras(ovlp, seqContainer);
+
 	return 0;
 }
