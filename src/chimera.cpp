@@ -20,11 +20,17 @@ void ChimeraDetector::detectChimeras(const OverlapDetector& ovlpDetector,
 				++total;
 		}
 
+		//for (int cov : localCoverage)
+		//	std::cout << cov << " ";
+		//std::cout << std::endl << std::endl;
+
 		float avgCoverage = float(total) / localCoverage.size();
 		bool chimeric = false;
-		for (int cov : localCoverage)
+		size_t flank = (_maximumJump + _maximumOverhang) / WINDOW;
+		for (size_t i = flank; i < localCoverage.size() - flank; ++i)
 		{
-			if (cov < 0.1 * avgCoverage)
+			if (localCoverage[i] < 0.1 * avgCoverage)
+			//if (localCoverage[i] <= 2)
 			{
 				chimeric = true;
 				break;
