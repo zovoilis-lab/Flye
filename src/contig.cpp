@@ -7,7 +7,7 @@
 
 void ContigGenerator::generateContigs()
 {
-	std::cerr << "Generating contig sequences\n";
+	LOG_PRINT("Generating contig sequences");
 	const auto& readPaths = _extender.getContigPaths();
 	for (const Extender::ReadPath& path : readPaths)
 	{
@@ -97,7 +97,7 @@ ContigGenerator::getSwitchPositions(FastaRecord::ReadIdType leftRead,
 	}
 	if (acceptedKmers.empty())
 	{
-		std::cerr << "Warning: no jump found!\n";
+		WARNING_PRINT("Warning: no jump found!");
 		return std::make_pair(prevSwitch, prevSwitch);
 	}
 

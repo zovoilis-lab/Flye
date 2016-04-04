@@ -22,20 +22,20 @@ int main(int argc, char** argv)
 	static const int COVERAGE = 20;
 
 	SequenceContainer& seqContainer = SequenceContainer::getInstance();
-	std::cerr << "Reading FASTA\n";
+	LOG_PRINT("Reading FASTA");
 	seqContainer.readFasta(argv[1]);
 	VertexIndex& vertexIndex = VertexIndex::getInstance();
 	vertexIndex.setKmerSize(15);
 
-	std::cerr << "Building kmer index\n";
+	LOG_PRINT("Building kmer index");
 	for (auto rec : seqContainer.getIndex())
 	{
 		vertexIndex.addFastaSequence(rec.second);
 	}
 
-	std::cerr << "Trimming index\n";
+	LOG_PRINT("Trimming index");
 	vertexIndex.applyKmerThresholds(MIN_KMER_COUNT, MAX_KMER_COUNT);
-	std::cerr << "Building read index\n";
+	LOG_PRINT("Building read index");
 	vertexIndex.buildReadIndex();
 
 	OverlapDetector ovlp(MAX_JUMP, MIN_OVERLAP, MAX_OVERHANG);

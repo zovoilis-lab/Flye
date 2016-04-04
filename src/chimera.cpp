@@ -7,7 +7,7 @@
 void ChimeraDetector::detectChimeras(const OverlapDetector& ovlpDetector,
 									 const SequenceContainer& seqContainer)
 {
-	std::cerr << "Detecting chimeric sequences\n";
+	LOG_PRINT("Detecting chimeric sequences");
 
 	static const int WINDOW = 100;
 	static const float COV_THRESHOLD = 0.1f;

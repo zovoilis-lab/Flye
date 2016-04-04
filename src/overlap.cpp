@@ -8,7 +8,7 @@
 void OverlapDetector::findAllOverlaps(const VertexIndex& vertexIndex,
 									  const SequenceContainer& seqContainer)
 {
-	DEBUG_PRINT("Finding overlaps");
+	LOG_PRINT("Finding overlaps");
 	for (auto& seqHash : seqContainer.getIndex())
 	{
 		auto detectedOverlaps = this->getReadOverlaps(seqHash.first, 

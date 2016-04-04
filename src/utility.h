@@ -23,6 +23,16 @@
 #define DEBUG_PRINT(x)
 #endif
 
+#ifdef _LOG
+#define LOG_PRINT(x) do {std::cerr << timestamp() << " " << x << std::endl;} \
+					   while(0)
+#else
+#define LOG_PRINT(x)
+#endif
+
+#define WARNING_PRINT(x) do {std::cerr << timestamp() << " [WARNING] " << x << std::endl;} \
+					   	 while(0)
+
 inline std::string timestamp(const char* format = "[%H:%M:%S]")
 {
 	std::time_t t = std::time(0);

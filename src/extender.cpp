@@ -8,7 +8,7 @@ void Extender::extendReads()
 {
 	//TODO: multiple chromosome support
 	//TODO: handle looped structures
-	std::cerr << "Extending reads\n";
+	LOG_PRINT("Extending reads");
 	FastaRecord::ReadIdType startRead = FastaRecord::ID_NONE;
 
 	int maxExtensions = std::numeric_limits<int>::min();
@@ -37,7 +37,7 @@ void Extender::extendReads()
 				    _seqContainer.getIndex().at(extRead).description);
 
 		if (extRead == FastaRecord::ID_NONE)
-			std::cerr << "No further extension found\n";
+			WARNING_PRINT("No further extension found");
 		if (extRead == startRead || extRead == FastaRecord::ID_NONE)
 			break;
 
