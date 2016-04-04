@@ -9,23 +9,28 @@
 class ContigGenerator
 {
 public:
-	ContigGenerator(const Extender& extender, 
+	ContigGenerator(int maxJump, const Extender& extender, 
 					const OverlapDetector& overlapDetector,
+					const VertexIndex& vertexIndex,
 					const SequenceContainer& seqContainer):
+		_maximumJump(maxJump),
 		_extender(extender), _overlapDetector(overlapDetector),
-		_seqContainer(seqContainer) {}
+		_vertexIndex(vertexIndex), _seqContainer(seqContainer) {}
 	
 	void generateContigs();
 	void outputContigs(const std::string& fileName);
 	
 private:
+	int _maximumJump;
+
 	const Extender& _extender;
 	const OverlapDetector& _overlapDetector;
+	const VertexIndex& _vertexIndex;
 	const SequenceContainer& _seqContainer;
 
-	std::tuple<int32_t, int32_t> getSwitchPositions(FastaRecord::ReadIdType leftRead, 
-													FastaRecord::ReadIdType rightRead,
-													int32_t prevSwitch);
+	std::pair<int32_t, int32_t> getSwitchPositions(FastaRecord::ReadIdType leftRead, 
+												   FastaRecord::ReadIdType rightRead,
+												   int32_t prevSwitch);
 
 	std::vector<std::vector<FastaRecord>> _contigs;
 };

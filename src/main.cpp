@@ -7,6 +7,7 @@
 #include "utility.h"
 #include "chimera.h"
 #include "extender.h"
+#include "contig.h"
 
 int main(int argc, char** argv)
 {
@@ -44,6 +45,11 @@ int main(int argc, char** argv)
 
 	Extender extender(ovlp, chimDetect, seqContainer);
 	extender.extendReads();
+
+	ContigGenerator contGen(MAX_JUMP, extender, ovlp, 
+							vertexIndex, seqContainer);
+	contGen.generateContigs();
+	contGen.outputContigs("genome.fasta");
 
 	return 0;
 }
