@@ -1,9 +1,14 @@
-#include "chimera.h"
 #include <vector>
+#include <iostream>
+
+#include "chimera.h"
+#include "utility.h"
 
 void ChimeraDetector::detectChimeras(const OverlapDetector& ovlpDetector,
 									 const SequenceContainer& seqContainer)
 {
+	std::cerr << "Detecting chimeric sequences\n";
+
 	static const int WINDOW = 100;
 	static const float COV_THRESHOLD = 0.1f;
 	for (auto& seqHash : seqContainer.getIndex())
@@ -35,8 +40,7 @@ void ChimeraDetector::detectChimeras(const OverlapDetector& ovlpDetector,
 		}
 		if (chimeric)
 		{
-			std::cout << "Chimeric: " << seqHash.second.description 
-					  << std::endl;
+			DEBUG_PRINT("Chimeric: " << seqHash.second.description);
 			_chimeras.insert(seqHash.first);
 		}
 	}

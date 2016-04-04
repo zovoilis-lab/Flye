@@ -7,7 +7,8 @@
 void Extender::extendReads()
 {
 	//TODO: multiple chromosome support
-	DEBUG_PRINT("Extending reads");
+	//TODO: handle looped structures
+	std::cerr << "Extending reads\n";
 	FastaRecord::ReadIdType startRead = FastaRecord::ID_NONE;
 
 	int maxExtensions = std::numeric_limits<int>::min();
@@ -28,16 +29,21 @@ void Extender::extendReads()
 	FastaRecord::ReadIdType curRead = startRead;
 	ReadPath curPath;
 	curPath.push_back(curRead);
+	std::unordered_set<FastaRecord::ReadIdType> visited;
 	while(true)
 	{
 		FastaRecord::ReadIdType extRead = this->stepRight(curRead, startRead);
-		std::cout << "Extension: " 
-		<< _seqContainer.getIndex().at(extRead).description << std::endl;
+		DEBUG_PRINT("Extension: " << 
+				    _seqContainer.getIndex().at(extRead).description);
 
 		if (extRead == FastaRecord::ID_NONE)
-			std::cout << "No further extension found\n";
+			std::cerr << "No further extension found\n";
 		if (extRead == startRead || extRead == FastaRecord::ID_NONE)
 			break;
+
+		if (visited.count(extRead))
+			throw std::runtime_error("Looped structure while extending");
+		visited.insert(extRead);
 
 		curRead = extRead;
 		curPath.push_back(curRead);

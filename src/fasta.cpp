@@ -156,3 +156,16 @@ void SequenceContainer::validateSequence(const std::string& sequence)
 		}
 	}
 }
+
+void SequenceContainer::writeFasta(const std::vector<FastaRecord>& records, 
+								   const std::string& fileName)
+{
+	static const size_t FASTA_SLICE = 80;
+	std::ofstream fout(fileName);
+	for (const FastaRecord& rec : records)
+	{
+		fout << ">" << rec.description << std::endl;
+		for (size_t c = 0; c < rec.sequence.length(); c += FASTA_SLICE)
+			fout << rec.sequence.substr(c, FASTA_SLICE) << std::endl;
+	}
+}

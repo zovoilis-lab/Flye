@@ -3,9 +3,11 @@
 #include <fstream>
 
 #include "contig.h"
+#include "utility.h"
 
 void ContigGenerator::generateContigs()
 {
+	std::cerr << "Generating contig sequences\n";
 	const auto& readPaths = _extender.getContigPaths();
 	for (const Extender::ReadPath& path : readPaths)
 	{
@@ -18,16 +20,22 @@ void ContigGenerator::generateContigs()
 
 		for (size_t i = 1; i < circPath.size() - 1; ++i)
 		{
-			auto curSwitch = this->getSwitchPositions(circPath[i - 1], circPath[i], 
+			auto curSwitch = this->getSwitchPositions(circPath[i], circPath[i + 1], 
 													  prevSwitch.second);
+			//if (curSwitch.first == -1)
+			//{
+			//	auto curSwitch = this->getSwitchPositions(circPath[i - 2], circPath[i], 
+			//											  prevSwitch.second);
+			//}
 			int32_t leftCut = prevSwitch.second;
 			int32_t rightCut = curSwitch.first;
+			prevSwitch = curSwitch;
 
-			std::string partSeq = _seqContainer.getIndex().at(circPath[i - 1])
+			std::string partSeq = _seqContainer.getIndex().at(circPath[i])
 								 .sequence.substr(leftCut, rightCut - leftCut);
 			std::string partName = 
 				"part_" + std::to_string(partId) + "_" +
-				_seqContainer.getIndex().at(circPath[i - 1]).description + 
+				_seqContainer.getIndex().at(circPath[i]).description + 
 				"[" + std::to_string(leftCut) + ":" + 
 				std::to_string(rightCut) + "]";
 			contigParts.push_back(FastaRecord(partSeq, partName, partId));
@@ -40,12 +48,13 @@ void ContigGenerator::generateContigs()
 
 void ContigGenerator::outputContigs(const std::string& fileName)
 {
-	std::ofstream fout(fileName);
-	for (auto& part : _contigs.front())
-	{
-		fout << ">" << part.description << std::endl 
-			 << part.sequence << std::endl;
-	}
+	//std::ofstream fout(fileName);
+	//for (auto& part : _contigs.front())
+	//{
+	//	fout << ">" << part.description << std::endl 
+	//		 << part.sequence << std::endl;
+	//}
+	SequenceContainer::writeFasta(_contigs.front(), fileName);
 }
 
 
@@ -54,19 +63,19 @@ ContigGenerator::getSwitchPositions(FastaRecord::ReadIdType leftRead,
 									FastaRecord::ReadIdType rightRead,
 									int32_t prevSwitch)
 {
-	int32_t ovlpShift = -1;
+	int32_t ovlpShift = 0;
 	for (auto& ovlp : _overlapDetector.getOverlapIndex().at(leftRead))
 	{
 		if (ovlp.extId == rightRead)
 		{
-			ovlpShift = (ovlp.extBegin - ovlp.curBegin + 
-						 ovlp.extEnd - ovlp.curEnd) / 2;
+			ovlpShift = (ovlp.curBegin - ovlp.extBegin + 
+						 ovlp.curEnd - ovlp.extEnd) / 2;
 			break;
 		}
 	}
-	assert(ovlpShift > 0);
 
 	std::vector<std::pair<int32_t, int32_t>> acceptedKmers;
+	//std::vector<int32_t> kmerShifts;
 	for (auto& leftKmer : _vertexIndex.getIndexByRead().at(leftRead))
 	{
 		if (leftKmer.position <= prevSwitch)
@@ -77,22 +86,27 @@ ContigGenerator::getSwitchPositions(FastaRecord::ReadIdType leftRead,
 			if (rightKmer.readId != rightRead)
 				continue;
 
-			int32_t kmerShift = rightKmer.position - leftKmer.position;
-			if (abs(kmerShift - ovlpShift) > _maximumJump / 2)
+			int32_t kmerShift = leftKmer.position - rightKmer.position;
+			//kmerShifts.push_back(kmerShift);
+			if (abs(kmerShift - ovlpShift) < _maximumJump / 2)
 			{
 				acceptedKmers.push_back(std::make_pair(leftKmer.position, 
 													   rightKmer.position));
 			}
 		}
 	}
-	assert(!shifts.empty());
+	if (acceptedKmers.empty())
+	{
+		std::cerr << "Warning: no jump found!\n";
+		return std::make_pair(prevSwitch, prevSwitch);
+	}
 
-	//return median by kmer shifts
+	//returna median among kmer shifts
 	std::nth_element(acceptedKmers.begin(), 
 					 acceptedKmers.begin() + acceptedKmers.size() / 2,
 					 acceptedKmers.end(),
 					 [](const std::pair<int32_t, int32_t>& a, 
 					 	const std::pair<int32_t, int32_t>& b)
-					 		{return a.second - a.first < b.second - b.first;});
+					 		{return a.first - a.second < b.first - b.second;});
 	return acceptedKmers[acceptedKmers.size() / 2];
 }

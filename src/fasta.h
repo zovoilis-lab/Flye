@@ -37,6 +37,9 @@ public:
 		static SequenceContainer container;
 		return container;
 	}
+	static void writeFasta(const std::vector<FastaRecord>& records,
+						   const std::string& fileName);
+
 	const SequenceIndex& getIndex() const
 		{return _seqIndex;}
 	void 	readFasta(const std::string& filename);

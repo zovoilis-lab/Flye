@@ -18,23 +18,24 @@ int main(int argc, char** argv)
 	//static const int MIN_KMER_COUNT = 3;
 	static const int MIN_KMER_COUNT = 8;
 	static const int MAX_KMER_COUNT = 24;
+	//static const int COVERAGE = 10;
 	static const int COVERAGE = 20;
 
 	SequenceContainer& seqContainer = SequenceContainer::getInstance();
-	DEBUG_PRINT("Reading FASTA");
+	std::cerr << "Reading FASTA\n";
 	seqContainer.readFasta(argv[1]);
 	VertexIndex& vertexIndex = VertexIndex::getInstance();
 	vertexIndex.setKmerSize(15);
 
-	DEBUG_PRINT("Building kmer index");
+	std::cerr << "Building kmer index\n";
 	for (auto rec : seqContainer.getIndex())
 	{
 		vertexIndex.addFastaSequence(rec.second);
 	}
 
-	DEBUG_PRINT("Trimming index");
+	std::cerr << "Trimming index\n";
 	vertexIndex.applyKmerThresholds(MIN_KMER_COUNT, MAX_KMER_COUNT);
-	DEBUG_PRINT("Building read index");
+	std::cerr << "Building read index\n";
 	vertexIndex.buildReadIndex();
 
 	OverlapDetector ovlp(MAX_JUMP, MIN_OVERLAP, MAX_OVERHANG);
