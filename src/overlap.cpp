@@ -1,7 +1,9 @@
-#include "overlap.h"
 #include <set>
 #include <iostream>
+#include <cassert>
+
 #include "utility.h"
+#include "overlap.h"
 
 void OverlapDetector::findAllOverlaps(const VertexIndex& vertexIndex,
 									  const SequenceContainer& seqContainer)
@@ -12,6 +14,7 @@ void OverlapDetector::findAllOverlaps(const VertexIndex& vertexIndex,
 		auto detectedOverlaps = this->getReadOverlaps(seqHash.first, 
 													  vertexIndex, seqContainer);
 		_overlapIndex[seqHash.first] = detectedOverlaps;
+		/*
 		std::cout << "Overlaps for " 
 				  << seqHash.second.description 
 				  << std::endl;
@@ -23,6 +26,7 @@ void OverlapDetector::findAllOverlaps(const VertexIndex& vertexIndex,
 					  << " : " << ovlp.extBegin << "," << ovlp.extEnd 
 					  << std::endl;
 		}
+		*/
 	}
 }
 
@@ -168,14 +172,26 @@ OverlapDetector::getReadOverlaps(FastaRecord::ReadIdType currentReadId,
 		OverlapRange maxOverlap(0, 0, 0, 0);
 		bool passedTest = false;
 		for (auto& ovlp : ap.second)
+		{
 			if (this->overlapTest(ovlp, curLen, extLen))
 			{
 				passedTest = true;
+				//auto curSeq = seqContainer.getIndex().at(ovlp.curId);
+				//auto extSeq = seqContainer.getIndex().at(ovlp.extId);
+
 				if (maxOverlap.curRange() < ovlp.curRange())
 					maxOverlap = ovlp;
 			}
-			if (passedTest)
-				detectedOverlaps.push_back(maxOverlap);
+		}
+		if (passedTest)
+		{
+			//if (abs(maxOverlap.curId) == abs(maxOverlap.extId))
+			//{
+			//	DEBUG_PRINT("Warning: reads overlaps with its complement: " << 
+			//				seqContainer.getIndex().at(maxOverlap.curId).description);
+			//}
+			detectedOverlaps.push_back(maxOverlap);
+		}
 	}
 	return detectedOverlaps;
 }

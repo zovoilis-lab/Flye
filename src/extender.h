@@ -16,13 +16,19 @@ public:
 
 	typedef std::vector<FastaRecord::ReadIdType> ReadPath;
 
-	std::vector<ReadPath> extendPaths();
+	void extendReads();
+	const std::vector<ReadPath>& getContigPaths() const
+		{return _contigPaths;}
 
 private:
 	const OverlapDetector& _ovlpDetector;
 	const ChimeraDetector& _chimDetector;
 	const SequenceContainer& _seqContainer;
 
-	void extendRead(FastaRecord::ReadIdType readId);
-	void stepRight(FastaRecord::ReadIdType readId);
+	FastaRecord::ReadIdType stepRight(FastaRecord::ReadIdType readId, 
+									  FastaRecord::ReadIdType startReadId);
+	bool isProperRightExtension(const OverlapDetector::OverlapRange& ovlp);
+	int  countRightExtensions(FastaRecord::ReadIdType readId);
+
+	std::vector<ReadPath> _contigPaths;
 };

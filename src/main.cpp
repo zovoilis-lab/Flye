@@ -6,6 +6,7 @@
 #include "overlap.h"
 #include "utility.h"
 #include "chimera.h"
+#include "extender.h"
 
 int main(int argc, char** argv)
 {
@@ -13,8 +14,10 @@ int main(int argc, char** argv)
 	static const int MIN_OVERLAP = 7000;
 	static const int MAX_OVERHANG = 1500;
 
+	//static const int MIN_KMER_COUNT = 3;
 	static const int MIN_KMER_COUNT = 8;
 	static const int MAX_KMER_COUNT = 24;
+	static const int COVERAGE = 20;
 
 	SequenceContainer& seqContainer = SequenceContainer::getInstance();
 	DEBUG_PRINT("Reading FASTA");
@@ -36,8 +39,11 @@ int main(int argc, char** argv)
 	OverlapDetector ovlp(MAX_JUMP, MIN_OVERLAP, MAX_OVERHANG);
 	ovlp.findAllOverlaps(vertexIndex, seqContainer);
 
-	ChimeraDetector chimDetect(MAX_OVERHANG, MAX_JUMP);
+	ChimeraDetector chimDetect(MAX_OVERHANG, MAX_JUMP, COVERAGE);
 	chimDetect.detectChimeras(ovlp, seqContainer);
+
+	Extender extender(ovlp, chimDetect, seqContainer);
+	extender.extendReads();
 
 	return 0;
 }

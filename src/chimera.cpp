@@ -5,6 +5,7 @@ void ChimeraDetector::detectChimeras(const OverlapDetector& ovlpDetector,
 									 const SequenceContainer& seqContainer)
 {
 	static const int WINDOW = 100;
+	static const float COV_THRESHOLD = 0.1f;
 	for (auto& seqHash : seqContainer.getIndex())
 	{
 		auto& overlaps = ovlpDetector.getOverlapIndex().at(seqHash.first);
@@ -20,16 +21,12 @@ void ChimeraDetector::detectChimeras(const OverlapDetector& ovlpDetector,
 				++total;
 		}
 
-		//for (int cov : localCoverage)
-		//	std::cout << cov << " ";
-		//std::cout << std::endl << std::endl;
-
-		float avgCoverage = float(total) / localCoverage.size();
+		//float avgCoverage = float(total) / localCoverage.size();
 		bool chimeric = false;
 		size_t flank = (_maximumJump + _maximumOverhang) / WINDOW;
 		for (size_t i = flank; i < localCoverage.size() - flank; ++i)
 		{
-			if (localCoverage[i] < 0.1 * avgCoverage)
+			if (localCoverage[i] < int(COV_THRESHOLD * _coverage))
 			//if (localCoverage[i] <= 2)
 			{
 				chimeric = true;
@@ -40,6 +37,7 @@ void ChimeraDetector::detectChimeras(const OverlapDetector& ovlpDetector,
 		{
 			std::cout << "Chimeric: " << seqHash.second.description 
 					  << std::endl;
+			_chimeras.insert(seqHash.first);
 		}
 	}
 }

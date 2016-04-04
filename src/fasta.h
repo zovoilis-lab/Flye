@@ -12,6 +12,7 @@
 struct FastaRecord
 {
 	typedef int32_t ReadIdType;
+	static const ReadIdType ID_NONE = 0;
 
 	FastaRecord() {}
 	FastaRecord(const std::string& sequence, const std::string& description, 
