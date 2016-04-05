@@ -5,7 +5,10 @@
 #include <vector>
 #include <iostream>
 
+#include <bf.h>
+
 #include "fasta.h"
+
 
 class Kmer
 {
@@ -81,6 +84,8 @@ public:
 	void outputCounts() const;
 private:
 	VertexIndex();
+
+	bf::basic_bloom_filter _bloomFilter;
 
 	unsigned int _kmerSize;
 	KmerIndex _kmerIndex;

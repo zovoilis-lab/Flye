@@ -103,6 +103,7 @@ std::string Kmer::dnaRepresentation() const
 }
 
 VertexIndex::VertexIndex():
+	_bloomFilter(decltype(_bloomFilter)(0.8, 100)),
 	_kmerSize(0)
 {}
 
@@ -131,8 +132,10 @@ void VertexIndex::applyKmerThresholds(unsigned int minCoverage,
 {
 	int removedCount = 0;
 	DEBUG_PRINT("Initial size: " << _kmerIndex.size());
+	std::unordered_map<int, int> histogram;
 	for (auto itKmers = _kmerIndex.begin(); itKmers != _kmerIndex.end();)
 	{
+		histogram[itKmers->second.size()] += 1;
 		if (itKmers->second.size() < minCoverage || 
 			itKmers->second.size() > maxCoverage)
 		{
@@ -143,6 +146,12 @@ void VertexIndex::applyKmerThresholds(unsigned int minCoverage,
 		{
 			++itKmers;
 		}
+	}
+	LOG_PRINT("Kmers histogram");
+	for (auto& hp : histogram)
+	{
+		if (hp.first < 10)
+			LOG_PRINT(hp.first << " " << hp.second);
 	}
 	//fighting memory fragmentation
 	//for (auto& indexPair : _kmerIndex)

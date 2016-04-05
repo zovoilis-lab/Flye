@@ -191,11 +191,11 @@ int move_right_read(int i, struct read_state * Reads, int start_read){
                         temp_read = Reads[i].overlap_read[j1];
                         if ((temp_read == start_read)&&(start_read != i)&&(Reads[start_read].len - Reads[i].overlap_end_pos2[j1] > Reads[i].len - Reads[i].overlap_end_pos1[j1] )){
 				candidate = start_read;
-				printf("read[%d].overlap[%d]=%d \n", i,j1, temp_read);
+				//printf("read[%d].overlap[%d]=%d \n", i,j1, temp_read);
 				return(candidate);
 			}
 			if ((check_right_extend(i, j1, Reads) == 1)&&(Reads[temp_read].chimeric_tag == 0) && (right_extend_number(temp_read, Reads) > 0 )){
-				printf("From Read[%d] -> (%d) Read[%d] (%d %d len %d) (%d %d len %d)\n", i, j1, temp_read, Reads[i].overlap_start_pos1[j1], Reads[i].overlap_end_pos1[j1], Reads[i].len, Reads[i].overlap_start_pos2[j1], Reads[i].overlap_end_pos2[j1], Reads[temp_read].len);
+				//printf("From Read[%d] -> (%d) Read[%d] (%d %d len %d) (%d %d len %d)\n", i, j1, temp_read, Reads[i].overlap_start_pos1[j1], Reads[i].overlap_end_pos1[j1], Reads[i].len, Reads[i].overlap_start_pos2[j1], Reads[i].overlap_end_pos2[j1], Reads[temp_read].len);
 				if (Reads[i].overlap_end_pos1[j1] - Reads[i].overlap_start_pos1[j1] > max_overlap){
 					max_overlap = Reads[i].overlap_end_pos1[j1] - Reads[i].overlap_start_pos1[j1];
 					candidate = temp_read;
@@ -939,7 +939,7 @@ int assemble_reads(struct read_state * Reads, struct kmer_state * kmer, int read
                 if (j != -1){
                         right_most_read = j;
                         assembled_reads[i] = j;
-                        printf("Next Right Read %d(%d)\n",j, i);// getchar();
+                        printf("Next Right Read %d(%s)\n",j, Reads[j].name);// getchar();
                         if (j == start_read){
                                 j = -2;
                                 printf("Circular Complex !\n");

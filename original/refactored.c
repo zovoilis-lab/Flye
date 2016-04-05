@@ -209,12 +209,16 @@ int move_right_read(int cur_read, struct read_state * Reads, int start_read)
 			if (check_right_extend(cur_read, ovlp_id, Reads) == 1 && 
 				Reads[temp_read].chimeric_tag == 0 && right_extend_number(temp_read, Reads) > 0)
 			{
-				printf("From Read[%d] -> (%d) Read[%d] (%d %d len %d) (%d %d len %d)\n", cur_read, ovlp_id, temp_read, 
-					   Reads[cur_read].overlap_start_pos1[ovlp_id], Reads[cur_read].overlap_end_pos1[ovlp_id], Reads[cur_read].len,
-					   Reads[cur_read].overlap_start_pos2[ovlp_id], Reads[cur_read].overlap_end_pos2[ovlp_id], Reads[temp_read].len);
-				if (Reads[cur_read].overlap_end_pos1[ovlp_id] - Reads[cur_read].overlap_start_pos1[ovlp_id] > max_overlap)
+				printf("From Read[%d] -> (%d) Read[%d] (%d %d len %d) (%d %d len %d)\n", cur_read, 
+					  ovlp_id, temp_read, Reads[cur_read].overlap_start_pos1[ovlp_id], 
+					  Reads[cur_read].overlap_end_pos1[ovlp_id], Reads[cur_read].len,
+					  Reads[cur_read].overlap_start_pos2[ovlp_id], Reads[cur_read].overlap_end_pos2[ovlp_id], 
+					  Reads[temp_read].len);
+				if (Reads[cur_read].overlap_end_pos1[ovlp_id] - Reads[cur_read].overlap_start_pos1[ovlp_id] > 
+					max_overlap)
 				{
-					max_overlap = Reads[cur_read].overlap_end_pos1[ovlp_id] - Reads[cur_read].overlap_start_pos1[ovlp_id];
+					max_overlap = Reads[cur_read].overlap_end_pos1[ovlp_id] - 
+													Reads[cur_read].overlap_start_pos1[ovlp_id];
 					candidate = temp_read;
 				}	
 			}		
@@ -228,9 +232,11 @@ int move_right_read(int cur_read, struct read_state * Reads, int start_read)
 				if (check_right_extend(cur_read, ovlp_id, Reads) == 1 &&
 					Reads[temp_read].chimeric_tag >= 0 && right_extend_number(temp_read, Reads) >= 0)
 				{
-					if (Reads[cur_read].overlap_end_pos1[ovlp_id] - Reads[cur_read].overlap_start_pos1[ovlp_id] > max_overlap)
+					if (Reads[cur_read].overlap_end_pos1[ovlp_id] - 
+						Reads[cur_read].overlap_start_pos1[ovlp_id] > max_overlap)
 					{
-						max_overlap = Reads[cur_read].overlap_end_pos1[ovlp_id] - Reads[cur_read].overlap_start_pos1[ovlp_id];
+						max_overlap = Reads[cur_read].overlap_end_pos1[ovlp_id] - 
+													Reads[cur_read].overlap_start_pos1[ovlp_id];
 						candidate = temp_read;
 					}
 				}
@@ -243,79 +249,88 @@ int move_right_read(int cur_read, struct read_state * Reads, int start_read)
 
 // computing the jumping position from Reads[current] to Reads[next], 
 // find out that Reads[current] pos x (=jump_from) aligns to Reads[next] pos y(=jump_to),  x > prev_jump in Reads[current] 
-int get_jumping_index(int current, int next, struct read_state * Reads, struct kmer_state * kmer, int *jump_from, int *jump_to, int prev_jump){
-	int j1,j;
+int get_jumping_index(int current, int next, struct read_state* Reads, 
+					  struct kmer_state* kmer, int* jump_from, int* jump_to, int prev_jump)
+{
+	//int j1,j;
 	int array_median[50000];
-	int array_count=0;
+	int array_count = 0;
 	int dis_median;
 	int temp_kmer_index;
-	int prev_pos = -100;
+	//int prev_pos = -100;
 	int diff = 100000;
 
-	for (j = 0; j < Reads[current].overlap_read_count ; j++)
+	for (int j = 0; j < Reads[current].overlap_read_count ; j++)
 	{
 		if (Reads[current].overlap_read[j] == next)
 		{
-			diff = (Reads[current].overlap_start_pos1[j] - Reads[current].overlap_start_pos2[j] + Reads[current].overlap_end_pos1[j] - Reads[current].overlap_end_pos2[j])/2;
+			diff = (Reads[current].overlap_start_pos1[j] - Reads[current].overlap_start_pos2[j] + 
+					Reads[current].overlap_end_pos1[j] - Reads[current].overlap_end_pos2[j])/2;
 		}
 	}
 
 	if (diff == 100000)
 	{
-		for (j = 0; j < Reads[next].overlap_read_count ; j++){
-			if (Reads[next].overlap_read[j] == current){
-				diff = -(Reads[next].overlap_start_pos1[j] - Reads[next].overlap_start_pos2[j] + Reads[next].overlap_end_pos1[j] - Reads[next].overlap_end_pos2[j])/2;
+		for (int j = 0; j < Reads[next].overlap_read_count; j++)
+		{
+			if (Reads[next].overlap_read[j] == current)
+			{
+				diff = -(Reads[next].overlap_start_pos1[j] - Reads[next].overlap_start_pos2[j] + 
+						Reads[next].overlap_end_pos1[j] - Reads[next].overlap_end_pos2[j])/2;
 			}
 		}
 	}
 
-	for (j = 0; j < Reads[current].kmer_count ; j++)
+	for (int j = 0; j < Reads[current].kmer_count ; j++)
 	{
 		temp_kmer_index = Reads[current].kmer_index[j];
 		if (kmer[temp_kmer_index].true_cov > 0)
 		{
-			for (j1 = 0; j1 < kmer[temp_kmer_index].true_cov ; j1++)
+			for (int kmer_id = 0; kmer_id < kmer[temp_kmer_index].true_cov ; kmer_id++)
 			{
-				if (kmer[temp_kmer_index].reads[j1] == next)
+				if (kmer[temp_kmer_index].reads[kmer_id] == next)
 				{
 					if (Reads[current].kmer_pos[j] > prev_jump)
 					{
-						if (((Reads[current].kmer_pos[j] - kmer[temp_kmer_index].reads_pos[j1] > diff-MAX_JUMP/2) && 
-							(Reads[current].kmer_pos[j] - kmer[temp_kmer_index].reads_pos[j1] < diff+MAX_JUMP/2)) ||
+						if (((Reads[current].kmer_pos[j] - kmer[temp_kmer_index].reads_pos[kmer_id] > diff - MAX_JUMP / 2) && 
+							 (Reads[current].kmer_pos[j] - kmer[temp_kmer_index].reads_pos[kmer_id] < diff + MAX_JUMP / 2)) ||
 							(diff == 100000))
 						{
-							array_median[array_count] = Reads[current].kmer_pos[j] - kmer[temp_kmer_index].reads_pos[j1];
+							array_median[array_count] = Reads[current].kmer_pos[j] - 
+														kmer[temp_kmer_index].reads_pos[kmer_id];
 							array_count++;
-							prev_pos = Reads[current].kmer_pos[j];
+							//prev_pos = Reads[current].kmer_pos[j];
 						}
 					}
-					printf("LINK [%d] [%d]: %d-%d=%d (%d) \n", current,next, Reads[current].kmer_pos[j], 
-						   kmer[temp_kmer_index].reads_pos[j1], Reads[current].kmer_pos[j]- kmer[temp_kmer_index].reads_pos[j1], diff);
+					//printf("LINK [%d] [%d]: %d-%d=%d (%d) \n", current,next, Reads[current].kmer_pos[j], 
+					//	   kmer[temp_kmer_index].reads_pos[kmer_id], 
+					//	   Reads[current].kmer_pos[j]- kmer[temp_kmer_index].reads_pos[kmer_id], diff);
                 }
             }
         }
     }
 
 	dis_median = get_median(array_median, array_count);
-	for (j = 0; j < Reads[current].kmer_count ; j++)
+	for (int j = 0; j < Reads[current].kmer_count ; j++)
 	{
 		temp_kmer_index = Reads[current].kmer_index[j];
-		if (kmer[temp_kmer_index].true_cov > 0)
+		if (kmer[temp_kmer_index].true_cov == 0)
+			continue;
+
+		for (int j1 = 0; j1 < kmer[temp_kmer_index].true_cov ; j1++)
 		{
-			for (j1 = 0; j1 < kmer[temp_kmer_index].true_cov ; j1++)
+			if (kmer[temp_kmer_index].reads[j1] != next)
+				continue;
+
+			if ((Reads[current].kmer_pos[j] > prev_jump) )
 			{
-				if (kmer[temp_kmer_index].reads[j1] == next)
+				if (abs_dis(dis_median, 
+					Reads[current].kmer_pos[j] - kmer[temp_kmer_index].reads_pos[j1]) < MAX_JUMP / 4)
 				{
-					if ((Reads[current].kmer_pos[j] > prev_jump) )
-					{
-						if (abs_dis(dis_median, Reads[current].kmer_pos[j] - kmer[temp_kmer_index].reads_pos[j1]) < MAX_JUMP/4)
-						{
-							(*jump_from) = Reads[current].kmer_pos[j];
-							(*jump_to) = kmer[temp_kmer_index].reads_pos[j1]; 
-							printf("MEDIAN [%d] [%d]: %d %d\n", current,next,(*jump_from), (*jump_to) );
-							return(0);
-						}
-                    }
+					(*jump_from) = Reads[current].kmer_pos[j];
+					(*jump_to) = kmer[temp_kmer_index].reads_pos[j1]; 
+					printf("MEDIAN [%d] [%d]: %d %d\n", current,next,(*jump_from), (*jump_to) );
+					return 0;
 				}
 			}
 		}
@@ -338,86 +353,92 @@ int check_overlap_read(int i, int j, struct read_state * Reads){
 }
 
 //print the circular genome into genome_file, and print read segments into assembly_file 
-int generate_circular_contig(int* assembled_reads,  struct read_state * Reads, struct kmer_state * kmer,char* assembly_file, char* genome_file){
-	int j1;
-	int start_read;
-	int current_read;
-	int next_read;
-	int jump_from, jump_to;
-	int start_read_right;
-	int start_read_left;
-	int prev_jump;
-	int temp_read;
-	int temp_read_left;
+int generate_circular_contig(int* assembled_reads,  struct read_state * Reads, 
+							 struct kmer_state * kmer,char* assembly_file, char* genome_file){
+	//int temp_read;
+	//int temp_read_left;
 	int temp_read_right;
 	int temp_read_pos;
-	int temp_next_index;
 	FILE *fw_assembly;
 	FILE *fw_genome;
 	fw_assembly = fopen(assembly_file, "w");
 	fw_genome = fopen(genome_file, "w");
-        fprintf(fw_genome, ">CircularGenome\n");
-	j1 = 0;
-	while (assembled_reads[j1]== -1){
-		j1++;
+	fprintf(fw_genome, ">CircularGenome\n");
+
+	int counter = 0;
+	while (assembled_reads[counter]== -1)
+	{
+		counter++;
 	}
-	start_read = assembled_reads[j1];
-	current_read = assembled_reads[j1];
-	prev_jump = 0.5* Reads[current_read].len;
-	temp_next_index = j1+1;
-        next_read = assembled_reads[temp_next_index];
+	int start_read = assembled_reads[counter];
+	int current_read = assembled_reads[counter];
+	int prev_jump = 0.5 * Reads[current_read].len;
+	int temp_next_index = counter + 1;
+    int next_read = assembled_reads[temp_next_index];
+
 	/*while(check_overlap_read(current_read, assembled_reads[temp_next_index+1], Reads) == 1){
                 next_read = assembled_reads[temp_next_index+1];
 		temp_next_index++;
 	}*/
-        get_jumping_index(current_read, next_read, Reads, kmer, &jump_from, &jump_to, prev_jump);
-	printf("jump from Read %d from pos %d(%d) to Read %d pos %d(%d)\n", current_read, jump_from, Reads[current_read].len, next_read, jump_to, Reads[next_read].len);//getchar();
-	start_read_right = jump_from;
+	int jump_from, jump_to;
+    get_jumping_index(current_read, next_read, Reads, kmer, &jump_from, &jump_to, prev_jump);
+	//printf("jump from Read %d from pos %d(%d) to Read %d pos %d(%d)\n", current_read, 
+	//	   jump_from, Reads[current_read].len, 
+	//	   next_read, jump_to, Reads[next_read].len);//getchar();
+	int start_read_right = jump_from;
 	current_read = next_read;
-	temp_read = next_read;
-	temp_read_left = jump_to;
+	int temp_read = next_read;
+	int temp_read_left = jump_to;
 	prev_jump = jump_to;
 	temp_next_index++;
-        next_read = assembled_reads[temp_next_index];
-	while (assembled_reads[temp_next_index] != -1){
+	next_read = assembled_reads[temp_next_index];
+	while (assembled_reads[temp_next_index] != -1)
+	{
 		/*while(check_overlap_read(current_read, assembled_reads[temp_next_index+1], Reads) == 1){
 			next_read = assembled_reads[temp_next_index+1];
 			temp_next_index++;
 		}*/	
 		get_jumping_index(current_read, next_read, Reads, kmer, &jump_from, &jump_to, prev_jump);
-		printf("jump from Read %d from pos %d(%d) to Read %d pos %d(%d)\n", current_read, jump_from, Reads[current_read].len, next_read, jump_to, Reads[next_read].len);//getchar();
+		//printf("jump from Read %d from pos %d(%d) to Read %d pos %d(%d)\n", current_read, jump_from, 
+		//		Reads[current_read].len, next_read, jump_to, Reads[next_read].len);//getchar();
 		temp_read_right = jump_from;
-		fprintf(fw_assembly, ">%d_%d\n", temp_read,temp_next_index);
-		printf("print Read %d from pos %d to %d\n", temp_read, temp_read_left, temp_read_right);//getchar();
-                for (temp_read_pos = temp_read_left; temp_read_pos < temp_read_right ; temp_read_pos++){
-	                fprintf(fw_genome, "%c", Reads[temp_read].nc[temp_read_pos]);
-	                fprintf(fw_assembly, "%c", Reads[temp_read].nc[temp_read_pos]);
-                }
+		fprintf(fw_assembly, ">%d_%d\n", temp_read, temp_next_index);
+		//printf("print Read %d from pos %d to %d\n", temp_read, temp_read_left, temp_read_right);//getchar();
+		for (temp_read_pos = temp_read_left; temp_read_pos < temp_read_right ; temp_read_pos++)
+		{
+			fprintf(fw_genome, "%c", Reads[temp_read].nc[temp_read_pos]);
+			fprintf(fw_assembly, "%c", Reads[temp_read].nc[temp_read_pos]);
+		}
 		fprintf(fw_assembly, "\n");
 		temp_read = next_read;
-                temp_read_left = jump_to;
-	        prev_jump = jump_to;
+		temp_read_left = jump_to;
+		prev_jump = jump_to;
 		current_read = next_read;
 		temp_next_index++;
-        	next_read = assembled_reads[temp_next_index];
+		next_read = assembled_reads[temp_next_index];
 	}
-        get_jumping_index(current_read, start_read, Reads, kmer, &jump_from, &jump_to, prev_jump);
-	printf("jump from Read %d from pos %d(%d) to Read %d pos %d(%d)\n", current_read, jump_from, Reads[current_read].len, start_read, jump_to, Reads[start_read].len);//getchar();
-        temp_read_right = jump_from;
+
+	get_jumping_index(current_read, start_read, Reads, kmer, &jump_from, &jump_to, prev_jump);
+	//printf("jump from Read %d from pos %d(%d) to Read %d pos %d(%d)\n", current_read, jump_from, 
+	//	   Reads[current_read].len, start_read, jump_to, Reads[start_read].len);//getchar();
+	temp_read_right = jump_from;
 	fprintf(fw_assembly, ">%d_last\n", temp_read);
 	//printf("print Last Read %d from pos %d to %d\n", temp_read, temp_read_left, temp_read_right);//getchar();
-	for (temp_read_pos = temp_read_left; temp_read_pos < temp_read_right ; temp_read_pos++){
-        	fprintf(fw_genome, "%c", Reads[temp_read].nc[temp_read_pos]);
-        	fprintf(fw_assembly, "%c", Reads[temp_read].nc[temp_read_pos]);
-        }
+	for (temp_read_pos = temp_read_left; temp_read_pos < temp_read_right ; temp_read_pos++)
+	{
+		fprintf(fw_genome, "%c", Reads[temp_read].nc[temp_read_pos]);
+		fprintf(fw_assembly, "%c", Reads[temp_read].nc[temp_read_pos]);
+	}
 	fprintf(fw_assembly, "\n");
-	start_read_left = jump_to;
+
+	int start_read_left = jump_to;
 	fprintf(fw_assembly, ">%d_start\n", start_read);
-	printf("print Start Read %d from pos %d to %d\n", start_read, start_read_left, start_read_right);//getchar();
-	for (temp_read_pos = start_read_left; temp_read_pos < start_read_right ; temp_read_pos++){
-                fprintf(fw_genome, "%c", Reads[start_read].nc[temp_read_pos]);
-                fprintf(fw_assembly, "%c", Reads[start_read].nc[temp_read_pos]);
-        }
+	//printf("print Start Read %d from pos %d to %d\n", start_read, start_read_left, start_read_right);//getchar();
+	for (temp_read_pos = start_read_left; temp_read_pos < start_read_right ; temp_read_pos++)
+	{
+		fprintf(fw_genome, "%c", Reads[start_read].nc[temp_read_pos]);
+		fprintf(fw_assembly, "%c", Reads[start_read].nc[temp_read_pos]);
+    }
 	fprintf(fw_assembly, "\n");
 	fclose(fw_genome);
 	fclose(fw_assembly);
@@ -1043,69 +1064,77 @@ int indexing_Reads_kmer(struct read_state * Reads, struct kmer_state * kmer, int
 
 
 //assembe all reads, and write the assembly in terms of reads to file assembly_reads, and in terms of preassembled-genome to file assembly_genome
-int assemble_reads(struct read_state * Reads, struct kmer_state * kmer, int read_index, int reads_cov, char* assembly_reads, char* assembly_genome){
+int assemble_reads(struct read_state * Reads, struct kmer_state * kmer, int read_index, 
+				   int reads_cov, char* assembly_reads, char* assembly_genome)
+{
 	int j, i, i1;
 	int start_read;
 	int right_most_read;
 	int assembled_reads[10000];
 
-        j=0;
-        while(j < read_index){ //find all overlapping reads w.r.t. each read j
-                if (j%2 == 0)
-                        test_chimeric_read(j, Reads, kmer,reads_cov, read_index );
-                j++;
-        }
+	j = 0;
+	while(j < read_index){ //find all overlapping reads w.r.t. each read j
+		if (j%2 == 0)
+			test_chimeric_read(j, Reads, kmer,reads_cov, read_index );
+		j++;
+	}
 
-        //j=0;
-        //while(j < read_index){ 
-        //        printf("Read[%d] -> Read[%d]  %d \n", j, move_right_read(j, Reads, 10), right_extend_number(j,Reads) );
-        //        j++;
-        //}
-
-
-        /*j = read_index % 1000;
-        while((Reads[j].chimeric_tag == 1)||(right_extend_number(j,Reads) < 5)){
-                j=j+1;
-		printf("Try Read[%d] %d\n", j+1, right_extend_number(j+1,Reads));
-        }
-        j = move_right_read(j, Reads, j);
-        start_read = j;*/
-        start_read = j = 38880;
-        Reads[j].visited_tag = 1;
-        printf("Start Read %d\n", j);//getchar();
-        for(i=0;i<10000;i++){
-                assembled_reads[i] = -1;
-        }
-        i = 2000;
-        while ((j >= 0)&&(i < 5000)){
-                j = move_right_read(j, Reads, start_read);
-                if (j != -1){
-                        right_most_read = j;
-                        assembled_reads[i] = j;
-                        printf("Next Right Read %d(%d)\n",j, i);// getchar();
-                        if (j == start_read){
-                                j = -2;
-                                while (assembled_reads[i1] != j){
-                                        assembled_reads[i1] = -1;
-                                        i1++;
-                                }
-                                if (assembled_reads[i1] == j)
-                                        assembled_reads[i1] = -1;
-                                j = -2;
-                                printf("Circular Complex !\n");
-                        }
-                }
-                i++;
-        }
-        if (j == -2){
-                printf("Contig: Circular Successful! %d \n");
-                generate_circular_contig(assembled_reads,  Reads, kmer, assembly_reads, assembly_genome);
-        }else if (j== -1){
-                printf("Contig: linear !!!\n");
-                generate_circular_contig(assembled_reads,  Reads, kmer, assembly_reads, assembly_genome);
-        }
+	//j=0;
+	//while(j < read_index){ 
+	//        printf("Read[%d] -> Read[%d]  %d \n", j, move_right_read(j, Reads, 10), 
+	//        right_extend_number(j,Reads) );
+	//        j++;
+	//}
 
 
+	/*j = read_index % 1000;
+	while((Reads[j].chimeric_tag == 1)||(right_extend_number(j,Reads) < 5)){
+			j=j+1;
+	printf("Try Read[%d] %d\n", j+1, right_extend_number(j+1,Reads));
+	}
+	j = move_right_read(j, Reads, j);
+	start_read = j;*/
+	start_read = j;
+	Reads[j].visited_tag = 1;
+	printf("Start Read %d\n", j);//getchar();
+	for(i=0;i<10000;i++){
+			assembled_reads[i] = -1;
+	}
+	i = 2000;
+	while ((j >= 0) && (i < 5000))
+	{
+		j = move_right_read(j, Reads, start_read);
+		if (j != -1)
+		{
+			right_most_read = j;
+			assembled_reads[i] = j;
+			printf("Next Right Read %d(%d)\n",j, i);// getchar();
+			if (j == start_read)
+			{
+				j = -2;
+				while (assembled_reads[i1] != j)
+				{
+					assembled_reads[i1] = -1;
+					i1++;
+				}
+				if (assembled_reads[i1] == j)
+					assembled_reads[i1] = -1;
+					j = -2;
+					printf("Circular Complex !\n");
+			}
+		}
+		i++;
+	}
+
+	if (j == -2)
+	{
+		printf("Contig: Circular Successful! %d \n");
+		generate_circular_contig(assembled_reads,  Reads, kmer, assembly_reads, assembly_genome);
+	}
+	else if (j== -1){
+		printf("Contig: linear !!!\n");
+		generate_circular_contig(assembled_reads,  Reads, kmer, assembly_reads, assembly_genome);
+	}
 }
 
 int main (int argc, char* argv[])
