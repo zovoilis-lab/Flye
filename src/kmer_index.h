@@ -5,8 +5,6 @@
 #include <vector>
 #include <iostream>
 
-#include <bf.h>
-
 #include "fasta.h"
 
 
@@ -23,12 +21,14 @@ public:
 
 	bool operator==(const Kmer& other) const
 		{return this->_representation == other._representation;}
+	size_t hash() const
+		{return _representation;}
 
 	struct KmerHash
 	{
 		std::size_t operator()(const Kmer& kmer) const
 		{
-			return std::hash<KmerRepr>()(kmer._representation);
+			return std::hash<KmerRepr>()(kmer.hash());
 		}
 	};
 
@@ -68,12 +68,12 @@ public:
 	typedef std::unordered_map<FastaRecord::ReadIdType, 
 					   		   std::vector<KmerPosition>> ReadIndex;
 
+	void		 buildKmerIndex(const SequenceContainer& seqContainer);
 	void 		 setKmerSize(unsigned int size);
 	void 		 applyKmerThresholds(unsigned int minCoverage, 
 							 		 unsigned int maxCoverage);
 	unsigned int getKmerSize() const 
 		{return _kmerSize;}
-	void 		 addFastaSequence(const FastaRecord& fastaRecord);
 	void 		 buildReadIndex();
 
 	const KmerIndex&  getIndexByKmer() const
@@ -84,10 +84,10 @@ public:
 	void outputCounts() const;
 private:
 	VertexIndex();
+	void addFastaSequence(const FastaRecord& fastaRecord);
 
-	bf::basic_bloom_filter _bloomFilter;
 
 	unsigned int _kmerSize;
-	KmerIndex _kmerIndex;
-	ReadIndex _readIndex;
+	KmerIndex 	 _kmerIndex;
+	ReadIndex 	 _readIndex;
 };

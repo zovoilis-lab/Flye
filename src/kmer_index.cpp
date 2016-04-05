@@ -1,6 +1,9 @@
 #include <cassert>
 #include <stdexcept>
 #include <iostream>
+#include <unordered_set>
+
+#include <bf.h>
 
 #include "kmer_index.h"
 #include "utility.h"
@@ -103,39 +106,102 @@ std::string Kmer::dnaRepresentation() const
 }
 
 VertexIndex::VertexIndex():
-	_bloomFilter(decltype(_bloomFilter)(0.8, 100)),
 	_kmerSize(0)
-{}
+{
+}
 
 void VertexIndex::setKmerSize(unsigned int size)
 {
 	_kmerSize = size;
 }
 
-void VertexIndex::addFastaSequence(const FastaRecord& fastaRecord)
+void VertexIndex::buildKmerIndex(const SequenceContainer& seqContainer)
 {
-	if (fastaRecord.sequence.length() < _kmerSize) return;
+	static const size_t BLOOM_CELLS = (size_t)1 << 31;
+	static const size_t BLOOM_WIDTH = 2;
+	static const size_t BLOOM_HASH = 7;
 
-	int32_t position = 0;
-	Kmer curKmer(fastaRecord.sequence.substr(0, _kmerSize));
-	_kmerIndex[curKmer].push_back(ReadPosition(fastaRecord.id, position));
-	for (size_t pos = _kmerSize; pos < fastaRecord.sequence.length(); ++pos)
+	bf::spectral_mi_bloom_filter bloomFilter(bf::make_hasher(BLOOM_HASH), 
+											  BLOOM_CELLS, BLOOM_WIDTH);
+	std::unordered_set<Kmer, Kmer::KmerHash> goodKmers;
+
+	//filling up bloom filter
+	LOG_PRINT("First pass:");
+	size_t counterDone = 0;
+	int prevPercent = -1;
+	for (auto& seqPair : seqContainer.getIndex())
 	{
-		position += 1;
-		curKmer = curKmer.appendRight(fastaRecord.sequence[pos]);
-		_kmerIndex[curKmer].push_back(ReadPosition(fastaRecord.id, position));
+		++counterDone;
+		if (seqPair.second.sequence.length() < _kmerSize) 
+			continue;
+
+		int percent = 10 * counterDone / seqContainer.getIndex().size();
+		if (percent > prevPercent)
+		{
+			std::cerr << percent * 10 << "% ";
+			prevPercent = percent;
+		}
+
+		Kmer curKmer(seqPair.second.sequence.substr(0, _kmerSize));
+		size_t pos = _kmerSize;
+		while (true)
+		{
+			if (bloomFilter.lookup(curKmer.hash()) < 3)
+			{
+				bloomFilter.add(curKmer.hash());
+			}
+			else
+			{
+				goodKmers.insert(curKmer);
+			}
+				
+			if (pos == seqPair.second.sequence.length())
+				break;
+			curKmer = curKmer.appendRight(seqPair.second.sequence[pos++]);
+		}
 	}
+	std::cerr << std::endl;
+
+	//adding only good kmers to index
+	LOG_PRINT("Second pass:");
+	counterDone = 0;
+	prevPercent = -1;
+	for (auto& seqPair : seqContainer.getIndex())
+	{
+		++counterDone;
+		if (seqPair.second.sequence.length() < _kmerSize) 
+			continue;
+
+		int percent = 10 * counterDone / seqContainer.getIndex().size();
+		if (percent > prevPercent)
+		{
+			std::cerr << percent * 10 << "% ";
+			prevPercent = percent;
+		}
+
+		Kmer curKmer(seqPair.second.sequence.substr(0, _kmerSize));
+		size_t pos = _kmerSize;
+		while (true)
+		{
+			if (goodKmers.count(curKmer))
+				_kmerIndex[curKmer].push_back(ReadPosition(seqPair.second.id, pos));
+
+			if (pos == seqPair.second.sequence.length())
+				break;
+			curKmer = curKmer.appendRight(seqPair.second.sequence[pos++]);
+		}
+	}
+	std::cerr << std::endl;
 }
+
 
 void VertexIndex::applyKmerThresholds(unsigned int minCoverage, 
 									  unsigned int maxCoverage)
 {
 	int removedCount = 0;
 	DEBUG_PRINT("Initial size: " << _kmerIndex.size());
-	std::unordered_map<int, int> histogram;
 	for (auto itKmers = _kmerIndex.begin(); itKmers != _kmerIndex.end();)
 	{
-		histogram[itKmers->second.size()] += 1;
 		if (itKmers->second.size() < minCoverage || 
 			itKmers->second.size() > maxCoverage)
 		{
@@ -146,12 +212,6 @@ void VertexIndex::applyKmerThresholds(unsigned int minCoverage,
 		{
 			++itKmers;
 		}
-	}
-	LOG_PRINT("Kmers histogram");
-	for (auto& hp : histogram)
-	{
-		if (hp.first < 10)
-			LOG_PRINT(hp.first << " " << hp.second);
 	}
 	//fighting memory fragmentation
 	//for (auto& indexPair : _kmerIndex)

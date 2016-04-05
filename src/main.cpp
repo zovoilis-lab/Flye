@@ -14,6 +14,7 @@ int main(int argc, char** argv)
 	static const int MAX_JUMP = 1500;
 	static const int MIN_OVERLAP = 7000;
 	static const int MAX_OVERHANG = 1500;
+	static const int KMER_SIZE = 15;
 
 	//static const int MIN_KMER_COUNT = 3;
 	static const int MIN_KMER_COUNT = 8;
@@ -25,13 +26,14 @@ int main(int argc, char** argv)
 	LOG_PRINT("Reading FASTA");
 	seqContainer.readFasta(argv[1]);
 	VertexIndex& vertexIndex = VertexIndex::getInstance();
-	vertexIndex.setKmerSize(15);
+	vertexIndex.setKmerSize(KMER_SIZE);
 
 	LOG_PRINT("Building kmer index");
-	for (auto rec : seqContainer.getIndex())
-	{
-		vertexIndex.addFastaSequence(rec.second);
-	}
+	vertexIndex.buildKmerIndex(seqContainer);
+	//for (auto rec : seqContainer.getIndex())
+	//{
+	//	vertexIndex.addFastaSequence(rec.second);
+	//}
 
 	LOG_PRINT("Trimming index");
 	vertexIndex.applyKmerThresholds(MIN_KMER_COUNT, MAX_KMER_COUNT);

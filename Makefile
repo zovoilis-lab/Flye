@@ -11,7 +11,7 @@ all:
 	make all -C ${LIBBF}
 	make all -C ${SRC}
 debug:
-	make all -C ${LIBBF}
+	make debug -C ${LIBBF}
 	make debug -C ${SRC}
 log:
 	make all -C ${LIBBF}
