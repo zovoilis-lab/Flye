@@ -213,15 +213,6 @@ void VertexIndex::applyKmerThresholds(unsigned int minCoverage,
 			++itKmers;
 		}
 	}
-	//fighting memory fragmentation
-	//for (auto& indexPair : _kmerIndex)
-	//{
-	//	decltype(indexPair.second) tmpVector;
-	//	tmpVector.reserve(indexPair.second.size());
-	//	std::copy(indexPair.second.begin(), indexPair.second.end(), 
-	//			  std::back_inserter(tmpVector));
-	//	indexPair.second.swap(tmpVector);
-	//}
 	DEBUG_PRINT(_kmerIndex.size());
 	DEBUG_PRINT("Removed " << removedCount << " entries");
 }

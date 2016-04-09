@@ -1,4 +1,4 @@
-SRC := $(shell pwd)/src
+SRC := $(shell pwd)/assemble
 
 export LIBBF = $(shell pwd)/libbf
 export BIN_DIR = $(shell pwd)

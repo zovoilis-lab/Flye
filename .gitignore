@@ -2,4 +2,4 @@
 *.o
 *.swp
 libbf/libbf.a
-abruijn
+assemble_reads

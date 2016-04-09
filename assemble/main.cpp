@@ -20,7 +20,7 @@ int main(int argc, char** argv)
 	static const int MIN_KMER_COUNT = 8;
 	static const int MAX_KMER_COUNT = 24;
 	//static const int COVERAGE = 10;
-	static const int COVERAGE = 20;
+	static const int COVERAGE = 25;
 
 	SequenceContainer& seqContainer = SequenceContainer::getInstance();
 	LOG_PRINT("Reading FASTA");
@@ -30,10 +30,6 @@ int main(int argc, char** argv)
 
 	LOG_PRINT("Building kmer index");
 	vertexIndex.buildKmerIndex(seqContainer);
-	//for (auto rec : seqContainer.getIndex())
-	//{
-	//	vertexIndex.addFastaSequence(rec.second);
-	//}
 
 	LOG_PRINT("Trimming index");
 	vertexIndex.applyKmerThresholds(MIN_KMER_COUNT, MAX_KMER_COUNT);

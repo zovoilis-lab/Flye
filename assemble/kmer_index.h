@@ -7,6 +7,7 @@
 
 #include "fasta.h"
 
+static_assert(sizeof(size_t) == 8, "32-bit architectures are not supported");
 
 class Kmer
 {

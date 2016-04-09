@@ -1,12 +1,12 @@
 CXXFLAGS += -Wall
-OUT_BIN := ${BIN_DIR}/abruijn
+OUT_BIN := ${BIN_DIR}/assemble_reads
 
 .PHONY: all clean debug
 
 all: CXXFLAGS += -O3 -DNDEBUG
 all: abruijn
 
-debug: CXXFLAGS += -g -D_GLIBCXX_DEBUG -D_DEBUG -D_DEBUG_LOG -D_LOG
+debug: CXXFLAGS += -g -Og -D_GLIBCXX_DEBUG -D_DEBUG -D_DEBUG_LOG -D_LOG
 debug: abruijn
 
 log: CXXFLAGS += -D_LOG -O2 -DNDEBUG
