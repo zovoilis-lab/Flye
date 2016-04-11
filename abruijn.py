@@ -19,6 +19,7 @@ Alignment = namedtuple("Alignment", ["qry_start", "qry_end", "qry_sign", "qry_le
                                      "qry_seq", "trg_seq", "err_rate"])
 class ProfileInfo:
     def __init__(self):
+        self.nucl = ""
         self.num_inserts = 0
         self.num_deletions = 0
         self.num_missmatch = 0
@@ -57,7 +58,7 @@ def compose_raw_genome(contig_parts, out_file):
     genome_seq = "".join(map(fragment_index.get, sorted(fragment_index)))
     genome_len = len(genome_seq)
     assert len(genome_seq) > CIRCULAR_WINDOW
-    #genome_seq += genome_seq[:CIRCULAR_WINDOW]
+    genome_seq += genome_seq[:CIRCULAR_WINDOW]
     fp.write_fasta_dict({"contig_1" : genome_seq}, out_file)
     return genome_len
 
@@ -68,48 +69,88 @@ def run_blasr(reference_file, reads_file, num_proc, out_file):
                            "-nproc", str(num_proc), "-out", out_file])
 
 
+def is_solid_kmer(profile, position, kmer_length):
+    MISSMATCH_RATE = 0.2
+    INS_RATE = 0.2
+    for i in xrange(position, position + kmer_length):
+        local_missmatch = float(profile[i].num_missmatch +
+                                profile[i].num_deletions) / profile[i].coverage
+        local_ins = float(profile[i].num_inserts) / profile[i].coverage
+        if local_missmatch > MISSMATCH_RATE or local_ins > INS_RATE:
+            return False
+    return True
+
+
+def is_gold_kmer(profile, position, kmer_length):
+    for i in xrange(position, position + kmer_length - 1):
+        if profile[i].nucl == profile[i + 1].nucl:
+            return False
+    return True
+
+
 def compute_profile(alignment, genome_len):
     print("Computing profile")
     MIN_ALIGNMENT = 5000
     profile = [ProfileInfo() for _ in xrange(genome_len)]
-    num_accepted = 0
     for aln in alignment:
-        #print(aln.err_rate, aln.trg_end - aln.trg_start)
         if aln.err_rate > 0.5 or aln.trg_end - aln.trg_start < MIN_ALIGNMENT:
             continue
-
-        num_accepted += 1
 
         if aln.trg_sign == "+":
             trg_seq, qry_seq = aln.trg_seq, aln.qry_seq
         else:
             trg_seq = fp.reverse_complement(aln.trg_seq)
             qry_seq = fp.reverse_complement(aln.qry_seq)
-        trg_start = aln.trg_start % genome_len
 
         trg_offset = 0
         for i in xrange(len(trg_seq)):
             if trg_seq[i] == "-":
                 trg_offset -= 1
-            trg_pos = trg_start + i + trg_offset
+            trg_pos = (aln.trg_start + i + trg_offset) % genome_len
 
             if trg_seq[i] == "-":
                 profile[trg_pos].num_inserts += 1
             else:
+                profile[trg_pos].nucl = trg_seq[i]
+                if profile[trg_pos].nucl == "N" and qry_seq[i] != "-":
+                    profile[trg_pos].nucl = qry_seq[i]
+
                 profile[trg_pos].coverage += 1
+
                 if qry_seq[i] == "-":
                     profile[trg_pos].num_deletions += 1
                 elif trg_seq[i] != qry_seq[i]:
                     profile[trg_pos].num_missmatch += 1
 
-    print(num_accepted)
     return profile
 
 
-def get_solid_regions(profile):
-    for i in xrange(len(profile)):
-        print(i, profile[i].coverage, profile[i].num_inserts,
-              profile[i].num_deletions, profile[i].num_missmatch)
+def get_partition(profile):
+    SOLID_LEN = 10
+    GOLD_LEN = 4
+    solid_flags = [False for _ in xrange(len(profile))]
+    prof_pos = 0
+    num_solid = 0
+    while prof_pos < len(profile) - SOLID_LEN:
+        if is_solid_kmer(profile, prof_pos, SOLID_LEN):
+            for i in xrange(prof_pos, prof_pos + SOLID_LEN):
+                solid_flags[i] = True
+            prof_pos += SOLID_LEN
+            num_solid += 1
+        else:
+            prof_pos += 1
+
+    partition = []
+    divided = False
+    for prof_pos in xrange(0, len(profile) - GOLD_LEN):
+        if solid_flags[prof_pos]:
+            if is_gold_kmer(profile, prof_pos, GOLD_LEN) and not divided:
+                divided = True
+                partition.append(prof_pos + GOLD_LEN / 2)
+        else:
+            divided = False
+
+    return partition
 
 
 def main():
@@ -123,7 +164,7 @@ def main():
     #run_blasr(RAW_GENOME, sys.argv[2], NUM_PROC, BLASR_AILNMENT)
     alignment = parse_blasr(BLASR_AILNMENT)
     profile = compute_profile(alignment, genome_len)
-    get_solid_regions(profile)
+    get_partition(profile)
 
     return 0
 
