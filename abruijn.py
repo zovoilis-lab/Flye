@@ -5,6 +5,7 @@ import sys
 import os
 import subprocess
 from collections import namedtuple
+import bisect
 
 import wrapper.fasta_parser as fp
 
@@ -42,7 +43,7 @@ def parse_blasr(filename):
             errors.append(err_rate)
 
     mean_err = float(sum(errors)) / len(errors)
-    print("Read error rate: {0:5.2f}".format(mean_err))
+    #print("Read error rate: {0:5.2f}".format(mean_err))
     return alignments
 
 
@@ -126,6 +127,7 @@ def compute_profile(alignment, genome_len):
 
 
 def get_partition(profile):
+    print("Partitioning genome")
     SOLID_LEN = 10
     GOLD_LEN = 4
     solid_flags = [False for _ in xrange(len(profile))]
@@ -153,9 +155,65 @@ def get_partition(profile):
     return partition
 
 
+def get_bubbles(alignment, partition, genome_len):
+    print("Forming bubble sequences")
+    MIN_ALIGNMENT = 5000
+    bubbles = [[] for _ in xrange(len(partition) + 1)]
+    for aln in alignment:
+        if aln.err_rate > 0.5 or aln.trg_end - aln.trg_start < MIN_ALIGNMENT:
+            continue
+
+        if aln.trg_sign == "+":
+            trg_seq, qry_seq = aln.trg_seq, aln.qry_seq
+        else:
+            trg_seq = fp.reverse_complement(aln.trg_seq)
+            qry_seq = fp.reverse_complement(aln.qry_seq)
+
+        trg_offset = 0
+        prev_bubble_id = bisect.bisect(partition, aln.trg_start % genome_len)
+        first_segment = True
+        branch_start = None
+        #current_seq = ""
+        for i in xrange(len(trg_seq)):
+            if trg_seq[i] == "-":
+                trg_offset -= 1
+            trg_pos = (aln.trg_start + i + trg_offset) % genome_len
+
+            bubble_id = bisect.bisect(partition, trg_pos)
+            if bubble_id != prev_bubble_id:
+                if not first_segment:
+                    bubbles[prev_bubble_id].append(qry_seq[branch_start:i]
+                                                            .replace("-", ""))
+                    #bubbles[prev_bubble_id].append(current_seq)
+                    #current_seq = ""
+                first_segment = False
+                prev_bubble_id = bubble_id
+                branch_start = i
+
+            #if not first_segment and qry_seq[i] != "-":
+            #    current_seq += qry_seq[i]
+
+    return bubbles
+
+
+def output_bubbles(bubbles, out_file):
+    with open(out_file, "w") as f:
+        for bubble_id, bubble in enumerate(bubbles):
+            if len(bubble) == 0:
+                print("Warrning: empty bubble {0}".format(bubble_id))
+                continue
+
+            consensus = bubble[0]   #TODO: a better consensus?
+            f.write(">bubble {0} {1}\n".format(bubble_id, len(bubble)))
+            f.write(consensus + "\n")
+            for branch_id, branch in enumerate(bubble):
+                f.write(">{0}\n".format(branch_id))
+                f.write(branch + "\n")
+
+
 def main():
-    if len(sys.argv) != 3:
-        print("Usage: abruijn.py pre_assembly reads_file")
+    if len(sys.argv) != 4:
+        print("Usage: abruijn.py pre_assembly reads_file out_file")
         return 1
 
     RAW_GENOME = "raw_genome.fasta"
@@ -164,7 +222,9 @@ def main():
     #run_blasr(RAW_GENOME, sys.argv[2], NUM_PROC, BLASR_AILNMENT)
     alignment = parse_blasr(BLASR_AILNMENT)
     profile = compute_profile(alignment, genome_len)
-    get_partition(profile)
+    partition = get_partition(profile)
+    bubbles = get_bubbles(alignment, partition, genome_len)
+    output_bubbles(bubbles, sys.argv[3])
 
     return 0
 
