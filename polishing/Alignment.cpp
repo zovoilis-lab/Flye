@@ -1,7 +1,8 @@
 #include "Alignment.h"
 #include <chrono>
 
-Alignment::Alignment(size_t size){ 
+Alignment::Alignment(size_t size)
+{ 
 	//ofstream file;
 	//file.open("test.txt");
 	//std::chrono::time_point<std::chrono::system_clock> now;
@@ -14,7 +15,8 @@ Alignment::Alignment(size_t size){
 	reverseScores.resize(size);
 }
 
-double Alignment::globalAlignment(std::string v, std::string w, ScoringMatrix* sm, int index) {
+double Alignment::globalAlignment(const std::string& v, const std::string& w,
+								  ScoringMatrix* sm, int index) {
 	unsigned int x = v.size() + 1;
 	unsigned int y = w.size() + 1;
 	arma::mat backtrack(x, y);
@@ -28,16 +30,16 @@ double Alignment::globalAlignment(std::string v, std::string w, ScoringMatrix* s
 
 	forwardScores[index] = scoreMat;
 
-	string string1;
-	string string2;
+	std::string string1;
+	std::string string2;
 	traceback(backtrack, v, w, string1, string2);
 	//writeStringsToFile(string1, string2, score);
 	//writeMatToFile(scoreMat);
 	//---------------------------------------------
 	//The reverse alignment returns the same score
 	//---------------------------------------------
-	string rev_v = v;
-	string rev_w = w;
+	std::string rev_v = v;
+	std::string rev_w = w;
 	std::reverse(rev_v.begin(), rev_v.end());
 	std::reverse(rev_w.begin(), rev_w.end());
 
@@ -53,7 +55,8 @@ double Alignment::globalAlignment(std::string v, std::string w, ScoringMatrix* s
 	return(score);
 }
 
-double Alignment::addDeletion(unsigned int wordIndex, unsigned int letterIndex) {
+double Alignment::addDeletion(unsigned int wordIndex, unsigned int letterIndex) 
+{
 	using namespace arma;
 	mat forwardScore = forwardScores[wordIndex];
 	mat reverseScore = reverseScores[wordIndex];
@@ -75,10 +78,10 @@ double Alignment::addDeletion(unsigned int wordIndex, unsigned int letterIndex) 
 }
 
 double Alignment::addSubstitution(unsigned int wordIndex, 
-	unsigned int letterIndex,
-	char base,
-	std::string read,
-	ScoringMatrix* sm) {
+								  unsigned int letterIndex,
+								  char base, const std::string& read,
+								  ScoringMatrix* sm) 
+{
 
 	//LetterIndex must start with 1 and go until (row.size - 1)
 	using namespace arma;
@@ -91,7 +94,7 @@ double Alignment::addSubstitution(unsigned int wordIndex,
 	//Fill sub
 	rowvec sub(read.size()+1);
 	sub[0] = front[0] + sm->getScore(base, '-');
-	for (int i = 0; i < read.size(); i++) {
+	for (size_t i = 0; i < read.size(); i++) {
 		double match = front[i] + sm->getScore(base, read[i]);
 		double insertion = front[i+1] + sm->getScore(base, '-');
 		sub[i+1] = std::max(match, insertion);
@@ -109,10 +112,10 @@ double Alignment::addSubstitution(unsigned int wordIndex,
 
 
 double Alignment::addInsertion(unsigned int wordIndex,
-	unsigned int pos, 
-	char base,
-	std::string read,
-	ScoringMatrix* sm) {
+							   unsigned int pos, 
+							   char base, const std::string& read,
+							   ScoringMatrix* sm) 
+{
 
 	//LetterIndex must start with 1 and go until (row.size - 1)
 	using namespace arma;
@@ -125,7 +128,7 @@ double Alignment::addInsertion(unsigned int wordIndex,
 	//Fill sub
 	rowvec sub(read.size() + 1);
 	sub[0] = front[0] + sm->getScore(base, '-');
-	for (int i = 0; i < read.size(); i++) {
+	for (size_t i = 0; i < read.size(); i++) {
 		double match = front[i] + sm->getScore(base, read[i]);
 		double insertion = front[i + 1] + sm->getScore(base, '-');
 		sub[i + 1] = std::max(match, insertion);
@@ -143,33 +146,30 @@ double Alignment::addInsertion(unsigned int wordIndex,
 
 
 
-double Alignment::getBacktrackMatrix(
-	std::string v, 
-	std::string w, 
-	ScoringMatrix* sm, 
-	arma::mat& backtrack,
-	arma::mat& s) {
-
+double Alignment::getBacktrackMatrix(const std::string& v, const std::string& w, 
+									 ScoringMatrix* sm, arma::mat& backtrack,
+									 arma::mat& s) 
+{
 	using namespace std;
-	double score;
+	double score = 0.0f;
 	
-	for (int i = 0; i < v.size(); i++) {
+	for (size_t i = 0; i < v.size(); i++) {
 		double score = sm->getScore(v[i], '-');
 		s(i+1,0) = s(i, 0) + score;
 		backtrack(i+1,0) = 1; //Del
 	}
 
 
-	for (int i = 0; i < w.size(); i++) {
+	for (size_t i = 0; i < w.size(); i++) {
 		double score = sm->getScore('-', w[i]);
 		s(0, i+1) = s(0, i) + score;
 		backtrack(0, i+1) = -1; //Ins
 	}
 
 
-	for (int i = 1; i < v.size()+1; i++){
+	for (size_t i = 1; i < v.size()+1; i++){
 		char key1 = v[i - 1];
-		for (int j = 1; j < w.size()+1; j++) {
+		for (size_t j = 1; j < w.size()+1; j++) {
 			char key2 = w[j - 1];
 
 			double left = s(i, j - 1) + sm->getScore('-', key2);
@@ -197,12 +197,13 @@ double Alignment::getBacktrackMatrix(
 		}
 	}
 
-	return(score);
+	return score;
 }
 
 
-void Alignment::traceback(arma::mat& backtrack, string v, string w,
-	string& o_v, string& o_w) {
+void Alignment::traceback(arma::mat& backtrack, const std::string& v, 
+						  const std::string& w, std::string& o_v, 
+						  std::string& o_w) {
 	int i = v.size();
 	int j = w.size();
 	o_v = "";
@@ -239,14 +240,16 @@ void Alignment::traceback(arma::mat& backtrack, string v, string w,
 
 Alignment::~Alignment() { }
 
-void Alignment::writeMatToFile(arma::mat& matrix) {
-	ofstream file;
+void Alignment::writeMatToFile(arma::mat& matrix) 
+{
+	std::ofstream file;
 	arma::mat scoreMat = matrix.t();
-	file.open("test.txt", ios::app);
-	for (int i = 0; i < scoreMat.n_rows; i++) {
-		for (int j = 0; j < scoreMat.n_cols; j++) {
-			file << fixed;
-			file << setw(4) << left << std::setprecision(2) <<scoreMat(i, j)  << "\t";
+	file.open("test.txt", std::ios::app);
+	for (size_t i = 0; i < scoreMat.n_rows; i++) {
+		for (size_t j = 0; j < scoreMat.n_cols; j++) {
+			file << std::fixed;
+			file << std::setw(4) << std::left << std::setprecision(2) 
+				 << scoreMat(i, j) << "\t";
 		}
 		file << "\n";
 	}
@@ -257,9 +260,11 @@ void Alignment::writeMatToFile(arma::mat& matrix) {
 	file.close();
 }
 
-void Alignment::writeStringsToFile(string v, string w, float score) {
-	ofstream file;
-	file.open("test.txt", ios::app);
+void Alignment::writeStringsToFile(const std::string& v, const std::string& w, 
+								   float score) 
+{
+	std::ofstream file;
+	file.open("test.txt", std::ios::app);
 	file << "--------------------------------\n";
 	file << "Score: " << score << "\n";
 	file <<  v  << "\n";
@@ -268,7 +273,8 @@ void Alignment::writeStringsToFile(string v, string w, float score) {
 	file.close();
 }
 
-void Alignment::clean() {
+void Alignment::clean() 
+{
 	forwardScores.clear();
 	reverseScores.clear();
 }

@@ -5,56 +5,50 @@
 #include "Alignment.h"
 #include <math.h>
 
-#include <omp.h>
-
-using namespace std;
-
-struct record {
+struct Record 
+{
 	std::string read;
-	double score;
 	std::string methodUsed;
+	double score;
 
-	//Describes deletion
-	int del_index;
+	int  del_index;
 
-	//Describes substitution
-	int sub_index;
+	int  sub_index;
 	char sub_letter;
 
-	//Describes insertion
-	int ins_index;
+	int  ins_index;
 	char ins_letter;
 
-	record() {
-		read = "";
-		score = 0.0;
-		del_index = -1;
-		sub_index = -1;
-		sub_letter = '*';
-		ins_index = -1;
-		ins_letter = '*';
-	}
+	Record():
+		score(0.0f), del_index(-1), sub_index(-1), sub_letter('*'),
+		ins_index(-1), ins_letter('*')	
+	{}
 };
 
 class Worker {
-	ScoringMatrix *scoreMat;
-	vector<string> reads;
-	//Alignment align;
-	int filePos;
-
-	void readFasta(vector<string>& reads, string path);
-	string readFastaSpecial(vector<string>& reads, string path);
-	vector<string> split(const string& str, char delim);
-	vector<string>& split(const string& str, char delim, vector<string>& e);
-	void progressUpdate(int start, int stop, int initial, int interval, double& prev);
-	void outputRecord(record rec);
-	void outputSeparator();
+public:
+	Worker(const std::string& scoreMatPath);
+	void runOneToAll(const std::string& candidate, Record& rec);
+	void run(const std::string& dataPath, const std::string& format);
+	void run(size_t start, size_t stop, 
+			 const std::string& dataPath, const std::string& format);
 
 public:
-	Worker(string scoreMatPath);
-	void runOneToAll(std::string candidate, record& rec);
-	void run(string dataPath, string format);
-	void run(size_t start, size_t stop, string dataPath, string format);
-	~Worker();
+	ScoringMatrix  _scoreMat;
+	std::vector<std::string> _reads;
+	int _filePos;
+	//Alignment align;
+
+	void readFasta(std::vector<std::string>& reads, 
+				   const std::string& path);
+	std::string readFastaSpecial(std::vector<std::string>& reads, 
+							     const std::string& path);
+	//std::vector<std::string> split(const std::string& str, char delim);
+	//std::vector<std::string> split(const std::string& str, char delim, 
+	//							   std::vector<std::string>& e);
+	void progressUpdate(int start, int stop, int initial, 
+						int interval, double& prev);
+	void outputRecord(Record rec);
+	void outputSeparator();
 };
 

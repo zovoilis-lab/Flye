@@ -161,7 +161,7 @@ int main(int argc, char* argv[]) {
 	std::cout << "Run time: " 
 			  << (std::clock() - startTimer) / (double)(CLOCKS_PER_SEC / 1000) 
 			  << " ms" << std::endl;
-	cin.get();
+	//std::cin.get();
 	return 0;
 }
 
