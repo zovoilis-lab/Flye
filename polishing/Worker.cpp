@@ -1,5 +1,6 @@
 #include "Worker.h"
 #include <chrono>
+#include <sstream>
 
 namespace
 {
@@ -51,15 +52,14 @@ void Worker::run(const std::string& dataPath, const std::string& format)
 					   prev_candidate.begin(), ::tolower);
 		this->runOneToAll(candidate, rec);
 		candidate = rec.read;
-		if (format == "verbose") {
+		if (format == "verbose")
 			this->outputRecord(rec);
-		}
 	}
 
 	//Record the rec
-	if (format == "short") {
+	if (format == "short")
 		this->outputRecord(rec);
-	}
+
 	this->outputSeparator();
 }
 
@@ -89,7 +89,7 @@ void Worker::run(size_t start, size_t stop, const std::string& dataPath,
 		while (candidate.compare(prev_candidate)) 
 		{
 			prev_candidate = candidate;
-			runOneToAll(candidate, rec);
+			this->runOneToAll(candidate, rec);
 			candidate = rec.read;
 			if (format == "verbose") 
 				outputRecord(rec);
@@ -104,12 +104,14 @@ void Worker::run(size_t start, size_t stop, const std::string& dataPath,
 	}
 }
 
-void Worker::runOneToAll(const std::string& candidate, Record& rec) {
+void Worker::runOneToAll(const std::string& candidate, Record& rec) 
+{
 	double score = 0;
 	Alignment align(_reads.size());
 	//Global
 	//#pragma omp parallel for schedule(dynamic) reduction(+ : score)
-	for (size_t i = 0; i < _reads.size(); ++i) {
+	for (size_t i = 0; i < _reads.size(); ++i) 
+	{
 		score += align.globalAlignment(candidate, _reads[i], &_scoreMat, i);
 	}
 
@@ -123,7 +125,8 @@ void Worker::runOneToAll(const std::string& candidate, Record& rec) {
 	//std::cout << "Global: " << candidate << " score: " << score << std::endl;
 
 	//Deletion
-	for (size_t del_index = 0; del_index < candidate.size(); del_index++) {
+	for (size_t del_index = 0; del_index < candidate.size(); del_index++) 
+	{
 		score = 0;
 
 		//#pragma omp parallel for schedule(dynamic) reduction(+ : score)
@@ -133,7 +136,8 @@ void Worker::runOneToAll(const std::string& candidate, Record& rec) {
 
 		//Test-------------------------------------------------
 		//std::string strI = candidate;
-		//std::cout << "Deletion: " << strI.erase(del_index, 1) << " score: " << score << std::endl;
+		//std::cout << "Deletion: " << strI.erase(del_index, 1) 
+		//			<< " score: " << score << std::endl;
 		//Test-------------------------------------------------
 
 		//Record if less
@@ -147,15 +151,14 @@ void Worker::runOneToAll(const std::string& candidate, Record& rec) {
 	}
 
 	//Substitution
-	char alphabet[4] = { 'A', 'C', 'G', 'T' };
+	char alphabet[4] = {'A', 'C', 'G', 'T'};
 	for (size_t sub_index = 0; sub_index < candidate.size(); sub_index++) 
 	{
 		//for each (char letter in alphabet) {
 		for (char letter : alphabet)
 		{
-			if (letter == toupper(candidate[sub_index])) {
+			if (letter == toupper(candidate[sub_index]))
 				continue;
-			}
 			score = 0;
 
 			//#pragma omp parallel for schedule(dynamic) reduction(+ : score)
@@ -167,11 +170,13 @@ void Worker::runOneToAll(const std::string& candidate, Record& rec) {
 			//Test-------------------------------------------------
 			//std::string strI = candidate;
 			//strI.erase(sub_index, 1);
-			//std::cout << "Substitution: " << strI.insert(sub_index, 1, letter) << " score: " << score << std::endl;
+			//std::cout << "Substitution: " << strI.insert(sub_index, 1, letter) 
+			//			<< " score: " << score << std::endl;
 			//Test-------------------------------------------------
 
 			//Record if less
-			if (score > rec.score) {
+			if (score > rec.score) 
+			{
 				std::string str = candidate;
 				rec.methodUsed = "substitution";
 				rec.score = score;
@@ -184,7 +189,8 @@ void Worker::runOneToAll(const std::string& candidate, Record& rec) {
 	}
 
 	//Insertion
-	for (size_t ins_index = 0; ins_index < candidate.size()+1; ins_index++) {
+	for (size_t ins_index = 0; ins_index < candidate.size()+1; ins_index++) 
+	{
 		for (char letter : alphabet)
 		{
 			score = 0;
@@ -198,7 +204,8 @@ void Worker::runOneToAll(const std::string& candidate, Record& rec) {
 
 			//Test-------------------------------------------------
 			//std::string strI = candidate;
-			//std::cout << "Insertion: " << strI.insert(ins_index, 1, letter) << " score: " << score << std::endl;
+			//std::cout << "Insertion: " << strI.insert(ins_index, 1, letter) 
+			//			<< " score: " << score << std::endl;
 			//Test-------------------------------------------------
 
 
@@ -216,7 +223,7 @@ void Worker::runOneToAll(const std::string& candidate, Record& rec) {
 	}	
 }
 
-void Worker::outputRecord(Record rec) {
+void Worker::outputRecord(const Record& rec) {
 	std::ofstream file;
 	file.open("results.txt", std::ios::app);
 
@@ -234,17 +241,18 @@ void Worker::outputRecord(Record rec) {
 	}
 	else if (rec.methodUsed == "substitution") {
 		file << "Char at index " << rec.sub_index << " was substituted with " 
-			<<"'"<< rec.sub_letter <<"'"<< ".\n";
+			<< "'" << rec.sub_letter << "'" << ".\n";
 	}
 	else if (rec.methodUsed == "insertion") {
-		file << "'"<<rec.ins_letter <<"'"<< " was inserted at index " << rec.ins_index << ".\n";
+		file << "'"<< rec.ins_letter << "'" 
+			 << " was inserted at index " << rec.ins_index << ".\n";
 	}
-	file << "\n";
-	//file << "\n";
+	file << std::endl;
 	file.close();
 }
 
-void Worker::outputSeparator() {
+void Worker::outputSeparator() 
+{
 	std::ofstream file;
 	file.open("results.txt", std::ios::app);
 	file << "------------------------------------------ \n";
@@ -328,4 +336,3 @@ void Worker::progressUpdate(int start, int stop, int initial,
 		prev += interval;
 	}
 }
-

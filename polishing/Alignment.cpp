@@ -11,12 +11,13 @@ Alignment::Alignment(size_t size)
 	//file << "File was produced at: " << std::ctime(&time);
 	//file << "\n";
 
-	forwardScores.resize(size);
-	reverseScores.resize(size);
+	_forwardScores.resize(size);
+	_reverseScores.resize(size);
 }
 
 double Alignment::globalAlignment(const std::string& v, const std::string& w,
-								  ScoringMatrix* sm, int index) {
+								  ScoringMatrix* sm, int index) 
+{
 	unsigned int x = v.size() + 1;
 	unsigned int y = w.size() + 1;
 	arma::mat backtrack(x, y);
@@ -25,14 +26,13 @@ double Alignment::globalAlignment(const std::string& v, const std::string& w,
 	arma::mat scoreMat(x, y);
 	scoreMat.fill(0);
 		
-	double score = getBacktrackMatrix(v, w, sm, backtrack, scoreMat);
-	
+	double score = this->getBacktrackMatrix(v, w, sm, backtrack, scoreMat);
 
-	forwardScores[index] = scoreMat;
+	_forwardScores[index] = scoreMat;
 
-	std::string string1;
-	std::string string2;
-	traceback(backtrack, v, w, string1, string2);
+	//std::string string1;
+	//std::string string2;
+	//this->traceback(backtrack, v, w, string1, string2);
 	//writeStringsToFile(string1, string2, score);
 	//writeMatToFile(scoreMat);
 	//---------------------------------------------
@@ -49,31 +49,30 @@ double Alignment::globalAlignment(const std::string& v, const std::string& w,
 	arma::mat scoreMatRev(x, y);
 	scoreMatRev.fill(0);
 
-	getBacktrackMatrix(rev_v, rev_w, sm, backtrackRev, scoreMatRev);
-	reverseScores[index] = scoreMatRev;
+	this->getBacktrackMatrix(rev_v, rev_w, sm, backtrackRev, scoreMatRev);
+	_reverseScores[index] = scoreMatRev;
 
-	return(score);
+	return score;
 }
 
 double Alignment::addDeletion(unsigned int wordIndex, unsigned int letterIndex) 
 {
-	using namespace arma;
-	mat forwardScore = forwardScores[wordIndex];
-	mat reverseScore = reverseScores[wordIndex];
+	const arma::mat& forwardScore = _forwardScores[wordIndex];
+	const arma::mat& reverseScore = _reverseScores[wordIndex];
 
 	//writeMatToFile(forwardScore);
 	//writeMatToFile(reverseScore);
 
 	//Forward matrix part
-	rowvec front = forwardScore.row(letterIndex-1);
+	arma::rowvec front = forwardScore.row(letterIndex - 1);
 
 	//Reverse matrix part
 	//Note: We subtract 2 because of zero indexing and an extra added row and column count
 	unsigned int index = (reverseScore.n_rows - 1) - letterIndex;
-	rowvec rev_row = reverseScore.row(index);
-	rowvec flipped = fliplr(rev_row);
+	arma::rowvec rev_row = reverseScore.row(index);
+	arma::rowvec flipped = fliplr(rev_row);
 
-	rowvec sum = front + flipped;
+	arma::rowvec sum = front + flipped;
 	return arma::max(sum);
 }
 
@@ -84,15 +83,15 @@ double Alignment::addSubstitution(unsigned int wordIndex,
 {
 
 	//LetterIndex must start with 1 and go until (row.size - 1)
-	using namespace arma;
-	mat forwardScore = forwardScores[wordIndex];
-	mat reverseScore = reverseScores[wordIndex];
+	//using namespace arma;
+	const arma::mat& forwardScore = _forwardScores[wordIndex];
+	const arma::mat& reverseScore = _reverseScores[wordIndex];
 
 	//Forward matrix part (Grabs a column before where we make a substitution)
-	rowvec front = forwardScore.row(letterIndex-1);
+	arma::rowvec front = forwardScore.row(letterIndex-1);
 	
 	//Fill sub
-	rowvec sub(read.size()+1);
+	arma::rowvec sub(read.size()+1);
 	sub[0] = front[0] + sm->getScore(base, '-');
 	for (size_t i = 0; i < read.size(); i++) {
 		double match = front[i] + sm->getScore(base, read[i]);
@@ -103,10 +102,10 @@ double Alignment::addSubstitution(unsigned int wordIndex,
 	//Reverse matrix part
 	//Note: We subtract 1 because of zero indexing and an extra added by size()
 	unsigned int index = (reverseScore.n_rows - 1) - letterIndex;
-	rowvec rev_row = reverseScore.row(index);
-	rowvec flipped = fliplr(rev_row);
+	arma::rowvec rev_row = reverseScore.row(index);
+	arma::rowvec flipped = fliplr(rev_row);
 
-	rowvec sum = sub + flipped;
+	arma::rowvec sum = sub + flipped;
 	return arma::max(sum);
 }
 
@@ -118,15 +117,15 @@ double Alignment::addInsertion(unsigned int wordIndex,
 {
 
 	//LetterIndex must start with 1 and go until (row.size - 1)
-	using namespace arma;
-	mat forwardScore = forwardScores[wordIndex];
-	mat reverseScore = reverseScores[wordIndex];
+	//using namespace arma;
+	const arma::mat& forwardScore = _forwardScores[wordIndex];
+	const arma::mat& reverseScore = _reverseScores[wordIndex];
 
 	//Forward matrix part (Grabs a column before where we make a substitution)
-	rowvec front = forwardScore.row(pos - 1);
+	arma::rowvec front = forwardScore.row(pos - 1);
 
 	//Fill sub
-	rowvec sub(read.size() + 1);
+	arma::rowvec sub(read.size() + 1);
 	sub[0] = front[0] + sm->getScore(base, '-');
 	for (size_t i = 0; i < read.size(); i++) {
 		double match = front[i] + sm->getScore(base, read[i]);
@@ -137,49 +136,52 @@ double Alignment::addInsertion(unsigned int wordIndex,
 	//Reverse matrix part
 	//Note: We subtract 1 because of zero indexing and an extra added by size()
 	unsigned int index = reverseScore.n_rows - pos;
-	rowvec rev_row = reverseScore.row(index);
-	rowvec flipped = fliplr(rev_row);
+	arma::rowvec rev_row = reverseScore.row(index);
+	arma::rowvec flipped = fliplr(rev_row);
 
-	rowvec sum = sub + flipped;
+	arma::rowvec sum = sub + flipped;
 	return arma::max(sum);
 }
-
 
 
 double Alignment::getBacktrackMatrix(const std::string& v, const std::string& w, 
 									 ScoringMatrix* sm, arma::mat& backtrack,
 									 arma::mat& s) 
 {
-	using namespace std;
+	//using namespace std;
 	double score = 0.0f;
 	
-	for (size_t i = 0; i < v.size(); i++) {
+	for (size_t i = 0; i < v.size(); i++) 
+	{
 		double score = sm->getScore(v[i], '-');
-		s(i+1,0) = s(i, 0) + score;
-		backtrack(i+1,0) = 1; //Del
+		s(i + 1, 0) = s(i, 0) + score;
+		backtrack(i + 1, 0) = 1; //Del
 	}
 
 
 	for (size_t i = 0; i < w.size(); i++) {
 		double score = sm->getScore('-', w[i]);
-		s(0, i+1) = s(0, i) + score;
+		s(0, i + 1) = s(0, i) + score;
 		backtrack(0, i+1) = -1; //Ins
 	}
 
 
-	for (size_t i = 1; i < v.size()+1; i++){
+	for (size_t i = 1; i < v.size() + 1; i++)
+	{
 		char key1 = v[i - 1];
-		for (size_t j = 1; j < w.size()+1; j++) {
+		for (size_t j = 1; j < w.size() + 1; j++) 
+		{
 			char key2 = w[j - 1];
 
 			double left = s(i, j - 1) + sm->getScore('-', key2);
 			double up = s(i - 1, j) + sm->getScore(key1, '-');
-			score = max(left, up);
+			score = std::max(left, up);
 
 			double cross = s(i - 1, j - 1) + sm->getScore(key1, key2);
-			score = max(score, cross);
+			score = std::max(score, cross);
 			s(i, j) = score;
 
+			/*
 			if (score == cross) {
 				if (v[i - 1] == w[j - 1]) {
 					backtrack(i, j) = 7; //Mat
@@ -194,6 +196,7 @@ double Alignment::getBacktrackMatrix(const std::string& v, const std::string& w,
 			else if (score == left) {
 				backtrack(i, j) = -1; //ins
 			}
+			*/
 		}
 	}
 
@@ -240,7 +243,7 @@ void Alignment::traceback(arma::mat& backtrack, const std::string& v,
 
 Alignment::~Alignment() { }
 
-void Alignment::writeMatToFile(arma::mat& matrix) 
+void Alignment::writeMatToFile(const arma::mat& matrix) 
 {
 	std::ofstream file;
 	arma::mat scoreMat = matrix.t();
@@ -275,6 +278,6 @@ void Alignment::writeStringsToFile(const std::string& v, const std::string& w,
 
 void Alignment::clean() 
 {
-	forwardScores.clear();
-	reverseScores.clear();
+	_forwardScores.clear();
+	_reverseScores.clear();
 }

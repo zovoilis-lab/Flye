@@ -29,8 +29,8 @@ public:
 	~Alignment();
 
 private:
-	std::vector<arma::mat> forwardScores;
-	std::vector<arma::mat> reverseScores;
+	std::vector<arma::mat> _forwardScores;
+	std::vector<arma::mat> _reverseScores;
 
 	//Global alignment help funcs:
 	double getBacktrackMatrix(const std::string& v, const std::string& w, 
@@ -42,7 +42,7 @@ private:
 				   std::string& o_w);
 
 	//Auxiliary funcs:
-	void writeMatToFile(arma::mat& scoreMat);
+	void writeMatToFile(const arma::mat& scoreMat);
 	void writeStringsToFile(const std::string& v, const std::string& w, 
 							float score);
 };

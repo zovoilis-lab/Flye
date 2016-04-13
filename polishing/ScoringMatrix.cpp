@@ -2,7 +2,30 @@
 #include <sstream>
 #include <vector>
 #include <cmath>
+#include <stdexcept>
 
+namespace
+{
+	int dnaToNum(char c)
+	{
+		c = toupper(c);
+		switch (c)
+		{
+		case 'A':
+			return 0;
+		case 'C':
+			return 1;
+		case 'T':
+			return 2;
+		case 'G':
+			return 3;
+		case '-':
+			return 4;
+		}
+		throw std::runtime_error("Unknown DNA base");
+		return -1;
+	}
+}
 
 ScoringMatrix::ScoringMatrix(int xrange, int yrange) {	
 
@@ -33,24 +56,24 @@ void ScoringMatrix::loadMatrix(std::string path) {
 			}
 
 			if (items[0] == "mat") {
-				int index = getIndex(items[1][0]); 
+				int index = dnaToNum(items[1][0]); 
 				double probability = std::stod(items[2]);
 				m_matrix[index][index] = std::log(probability);
 			}
 			else if (items[0] == "mis") {
-				int x = getIndex(items[1][0]);
-				int y = getIndex(items[1][items[1].size() - 1]);
+				int x = dnaToNum(items[1][0]);
+				int y = dnaToNum(items[1][items[1].size() - 1]);
 				double probability = std::stod(items[2]);
 				m_matrix[x][y] = std::log(probability);
 			}
 			else if (items[0] == "del") {
-				int x = getIndex(items[1][0]);
+				int x = dnaToNum(items[1][0]);
 				int y = m_yrange - 1;
 				double probability = std::stod(items[2]);
 				m_matrix[x][y] = std::log(probability);
 			}
 			else if (items[0] == "ins") {
-				int y = getIndex(items[1][0]);
+				int y = dnaToNum(items[1][0]);
 				int x = m_xrange - 1;
 				double probability = std::stod(items[2]);
 				m_matrix[x][y] = std::log(probability);
@@ -60,36 +83,9 @@ void ScoringMatrix::loadMatrix(std::string path) {
 	}
 }
 
-double ScoringMatrix::getScore(char v, char w) {
-	int x = getIndex(v);
-	int y = getIndex(w);
-	return m_matrix[x][y];
-}
-
-int ScoringMatrix::getIndex(char c) {
-	c = toupper(c);
-	int value = -1;
-	if (c == 'A') {
-		value = 0;
-	}
-	else if (c == 'C') {
-		value = 1;
-	}
-	else if (c == 'T') {
-		value = 2;
-	}
-	else if (c == 'G') {
-		value = 3;
-	}
-	else if (c == '-') {
-		value = 4;
-	}
-
-	if (value == -1) {
-		std::cout << "Error in get Index!\n";
-	}
-
-	return value;
+double ScoringMatrix::getScore(char v, char w) 
+{
+	return m_matrix[dnaToNum(v)][dnaToNum(w)];
 }
 
 void ScoringMatrix::printMatrix() {

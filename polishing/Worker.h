@@ -25,7 +25,8 @@ struct Record
 	{}
 };
 
-class Worker {
+class Worker 
+{
 public:
 	Worker(const std::string& scoreMatPath);
 	void runOneToAll(const std::string& candidate, Record& rec);
@@ -37,18 +38,14 @@ public:
 	ScoringMatrix  _scoreMat;
 	std::vector<std::string> _reads;
 	int _filePos;
-	//Alignment align;
 
 	void readFasta(std::vector<std::string>& reads, 
 				   const std::string& path);
 	std::string readFastaSpecial(std::vector<std::string>& reads, 
 							     const std::string& path);
-	//std::vector<std::string> split(const std::string& str, char delim);
-	//std::vector<std::string> split(const std::string& str, char delim, 
-	//							   std::vector<std::string>& e);
 	void progressUpdate(int start, int stop, int initial, 
 						int interval, double& prev);
-	void outputRecord(Record rec);
+	void outputRecord(const Record& rec);
 	void outputSeparator();
 };
 

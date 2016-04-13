@@ -15,9 +15,12 @@ all:
 debug:
 	make debug -C ${LIBBF}
 	make debug -C ${SRC}
+	make debug -C ${POLISH}
 log:
 	make all -C ${LIBBF}
+	make all -C ${POLISH}
 	make log -C ${SRC}
 clean: 
 	make clean -C ${LIBBF}
+	make clean -C ${POLISH}
 	make clean -C ${SRC}
