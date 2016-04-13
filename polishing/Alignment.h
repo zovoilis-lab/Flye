@@ -31,23 +31,23 @@ public:
 	void clean();
 	~Alignment();
 
-	typedef Matrix<double> IntMatrix;
+	typedef Matrix<double> FloatMatrix;
 
 private:
-	std::vector<IntMatrix> _forwardScores;
-	std::vector<IntMatrix> _reverseScores;
+	std::vector<FloatMatrix> _forwardScores;
+	std::vector<FloatMatrix> _reverseScores;
 
 	//Global alignment help funcs:
 	double getBacktrackMatrix(const std::string& v, const std::string& w, 
-							  ScoringMatrix* sm, IntMatrix& backtrack,
-							  IntMatrix& scoreMat);
+							  ScoringMatrix* sm, FloatMatrix& backtrack,
+							  FloatMatrix& scoreMat);
 
-	void traceback(IntMatrix& backtrack, const std::string& v, 
+	void traceback(FloatMatrix& backtrack, const std::string& v, 
 				   const std::string& w, std::string& o_v, 
 				   std::string& o_w);
 
 	//Auxiliary funcs:
-	void writeMatToFile(const IntMatrix& scoreMat);
+	void writeMatToFile(const FloatMatrix& scoreMat);
 	void writeStringsToFile(const std::string& v, const std::string& w, 
 							float score);
 };
