@@ -5,46 +5,48 @@
 #include "Alignment.h"
 #include <math.h>
 
-struct Record 
-{
-	std::string read;
-	std::string methodUsed;
-	double score;
 
-	int  del_index;
-
-	int  sub_index;
-	char sub_letter;
-
-	int  ins_index;
-	char ins_letter;
-
-	Record():
-		score(0.0f), del_index(-1), sub_index(-1), sub_letter('*'),
-		ins_index(-1), ins_letter('*')	
-	{}
-};
 
 class Worker 
 {
 public:
 	Worker(const std::string& scoreMatPath);
-	void runOneToAll(const std::string& candidate, Record& rec);
 	void run(const std::string& dataPath, const std::string& format);
-	void run(size_t start, size_t stop, 
-			 const std::string& dataPath, const std::string& format);
 
-public:
+	struct Record 
+	{
+		std::string read;
+		std::string methodUsed;
+		double score;
+
+		int  del_index;
+		int  sub_index;
+		char sub_letter;
+		int  ins_index;
+		char ins_letter;
+
+		Record():
+			score(0.0f), del_index(-1), sub_index(-1), sub_letter('*'),
+			ins_index(-1), ins_letter('*')	
+		{}
+	};
+
+	struct Bubble
+	{
+		std::string header;
+		int position;
+
+		std::string candidate;
+		std::vector<std::string> branches;
+	};
+private:
 	ScoringMatrix  _scoreMat;
-	std::vector<std::string> _reads;
-	int _filePos;
+	std::vector<Bubble> _bubbles;
 
-	void readFasta(std::vector<std::string>& reads, 
-				   const std::string& path);
-	std::string readFastaSpecial(std::vector<std::string>& reads, 
-							     const std::string& path);
-	void progressUpdate(int start, int stop, int initial, 
-						int interval, double& prev);
+	void runOneToAll(const std::string& candidate, 
+					 const std::vector<std::string>& branches,
+					 Record& rec);
+	void readBubbles(const std::string& fileName);
 	void outputRecord(const Record& rec);
 	void outputSeparator();
 };

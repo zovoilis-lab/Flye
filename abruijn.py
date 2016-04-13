@@ -182,8 +182,9 @@ def get_bubbles(alignment, partition, genome_len):
             bubble_id = bisect.bisect(partition, trg_pos)
             if bubble_id != prev_bubble_id:
                 if not first_segment:
-                    bubbles[prev_bubble_id].append(qry_seq[branch_start:i]
-                                                            .replace("-", ""))
+                    branch_seq = qry_seq[branch_start:i].replace("-", "")
+                    if len(branch_seq):
+                        bubbles[prev_bubble_id].append(branch_seq)
                     #bubbles[prev_bubble_id].append(current_seq)
                     #current_seq = ""
                 first_segment = False

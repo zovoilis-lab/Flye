@@ -4,23 +4,21 @@
 
 namespace
 {
-
-std::vector<std::string> 
-splitString(const std::string &s, char delim) 
-{
-	std::vector<std::string> elems;
-	std::stringstream ss(s);
-	std::string item;
-	while (std::getline(ss, item, delim)) {
-		elems.push_back(item);
+	std::vector<std::string> 
+	splitString(const std::string &s, char delim) 
+	{
+		std::vector<std::string> elems;
+		std::stringstream ss(s);
+		std::string item;
+		while (std::getline(ss, item, delim)) {
+			elems.push_back(item);
+		}
+		return elems;
 	}
-	return elems;
-}
 }
 
 Worker::Worker(const std::string& scoreMatPath):
-	_scoreMat(5, 5),
-	_filePos(0)
+	_scoreMat(5, 5)
 {
 	std::ofstream file;
 	file.open("results.txt");
@@ -35,84 +33,54 @@ Worker::Worker(const std::string& scoreMatPath):
 	_scoreMat.loadMatrix(scoreMatPath);
 }
 
-void Worker::run(const std::string& dataPath, const std::string& format) 
+
+void Worker::run(const std::string& dataPath, 
+				 const std::string& outFormat) 
 {
-	//Parse Fasta file (DNA)
-	this->readFasta(_reads, dataPath);
-
-	//Find the candidate
-	std::string candidate = _reads[0];
-	Record rec;
-	std::string prev_candidate = "";
-	this->outputSeparator();
-	
-	while(candidate.compare(prev_candidate)) {
-		prev_candidate = candidate;
-		std::transform(prev_candidate.begin(), prev_candidate.end(), 
-					   prev_candidate.begin(), ::tolower);
-		this->runOneToAll(candidate, rec);
-		candidate = rec.read;
-		if (format == "verbose")
-			this->outputRecord(rec);
-	}
-
-	//Record the rec
-	if (format == "short")
-		this->outputRecord(rec);
-
-	this->outputSeparator();
-}
-
-void Worker::run(size_t start, size_t stop, const std::string& dataPath, 
-				 const std::string& format) 
-{
-	size_t initial = start;
-	double interval = 5;
-	double prev = 0;
-
-	while (start < stop) {
-		this->progressUpdate(start, stop, initial, interval, prev);
-		
-		//Parse Fasta file (DNA)
-		//Find the candidate
-		std::string candidate = this->readFastaSpecial(_reads, dataPath);
-		if (_reads.size() == 0) 
+	this->readBubbles(dataPath);
+	int prevPercent = -1;
+	int counterDone = 0;
+	for (auto& bubble : _bubbles)
+	{
+		++counterDone;
+		int percent = 10 * counterDone / _bubbles.size();
+		if (percent > prevPercent)
 		{
-			return;
+			std::cerr << percent * 10 << "% ";
+			prevPercent = percent;
 		}
 
 		Record rec;
-		std::string prev_candidate = "";
+		std::string prevCandidate = "";
+		std::string curCandidate = bubble.candidate;
+		outputSeparator();
 
-		outputSeparator(); //---------
-
-		while (candidate.compare(prev_candidate)) 
+		while (curCandidate != prevCandidate)
 		{
-			prev_candidate = candidate;
-			this->runOneToAll(candidate, rec);
-			candidate = rec.read;
-			if (format == "verbose") 
+			prevCandidate = curCandidate;
+			this->runOneToAll(curCandidate, bubble.branches, rec);
+			curCandidate = rec.read;
+			if (outFormat == "verbose") 
 				outputRecord(rec);
 		}
 
 		//Record the rec
-		if (format == "short")
+		if (outFormat == "short")
 			outputRecord(rec);
-
-		outputSeparator(); //---------
-		start++;
+		outputSeparator();
 	}
 }
 
-void Worker::runOneToAll(const std::string& candidate, Record& rec) 
+void Worker::runOneToAll(const std::string& candidate, 
+						 const std::vector<std::string>& branches,
+						 Record& rec) 
 {
 	double score = 0;
-	Alignment align(_reads.size());
+	Alignment align(branches.size());
 	//Global
-	//#pragma omp parallel for schedule(dynamic) reduction(+ : score)
-	for (size_t i = 0; i < _reads.size(); ++i) 
+	for (size_t i = 0; i < branches.size(); ++i) 
 	{
-		score += align.globalAlignment(candidate, _reads[i], &_scoreMat, i);
+		score += align.globalAlignment(candidate, branches[i], &_scoreMat, i);
 	}
 
 	rec.methodUsed = "global";
@@ -121,24 +89,14 @@ void Worker::runOneToAll(const std::string& candidate, Record& rec)
 	std::transform(rec.read.begin(), rec.read.end(), 
 				   rec.read.begin(), ::tolower);
 
-	//Test
-	//std::cout << "Global: " << candidate << " score: " << score << std::endl;
-
 	//Deletion
 	for (size_t del_index = 0; del_index < candidate.size(); del_index++) 
 	{
 		score = 0;
 
-		//#pragma omp parallel for schedule(dynamic) reduction(+ : score)
-		for (size_t i = 0; i < _reads.size(); i++) {
+		for (size_t i = 0; i < branches.size(); i++) {
 			score += align.addDeletion(i, del_index + 1);
 		}
-
-		//Test-------------------------------------------------
-		//std::string strI = candidate;
-		//std::cout << "Deletion: " << strI.erase(del_index, 1) 
-		//			<< " score: " << score << std::endl;
-		//Test-------------------------------------------------
 
 		//Record if less
 		if (score > rec.score) {
@@ -154,25 +112,16 @@ void Worker::runOneToAll(const std::string& candidate, Record& rec)
 	char alphabet[4] = {'A', 'C', 'G', 'T'};
 	for (size_t sub_index = 0; sub_index < candidate.size(); sub_index++) 
 	{
-		//for each (char letter in alphabet) {
 		for (char letter : alphabet)
 		{
 			if (letter == toupper(candidate[sub_index]))
 				continue;
 			score = 0;
 
-			//#pragma omp parallel for schedule(dynamic) reduction(+ : score)
-			for (size_t i = 0; i < _reads.size(); i++) {
+			for (size_t i = 0; i < branches.size(); i++) {
 				score += align.addSubstitution(i, sub_index + 1, letter, 
-											   _reads[i], &_scoreMat);
+											   branches[i], &_scoreMat);
 			}
-
-			//Test-------------------------------------------------
-			//std::string strI = candidate;
-			//strI.erase(sub_index, 1);
-			//std::cout << "Substitution: " << strI.insert(sub_index, 1, letter) 
-			//			<< " score: " << score << std::endl;
-			//Test-------------------------------------------------
 
 			//Record if less
 			if (score > rec.score) 
@@ -194,20 +143,11 @@ void Worker::runOneToAll(const std::string& candidate, Record& rec)
 		for (char letter : alphabet)
 		{
 			score = 0;
-
-			//#pragma omp parallel for schedule(dynamic) reduction(+ : score)
-			for (size_t i = 0; i < _reads.size(); i++) 
+			for (size_t i = 0; i < branches.size(); i++) 
 			{
 				score += align.addInsertion(i, ins_index + 1, letter, 
-											_reads[i], &_scoreMat);		
+											branches[i], &_scoreMat);		
 			}
-
-			//Test-------------------------------------------------
-			//std::string strI = candidate;
-			//std::cout << "Insertion: " << strI.insert(ins_index, 1, letter) 
-			//			<< " score: " << score << std::endl;
-			//Test-------------------------------------------------
-
 
 			//Record if less
 			if (score > rec.score) 
@@ -223,7 +163,8 @@ void Worker::runOneToAll(const std::string& candidate, Record& rec)
 	}	
 }
 
-void Worker::outputRecord(const Record& rec) {
+void Worker::outputRecord(const Record& rec) 
+{
 	std::ofstream file;
 	file.open("results.txt", std::ios::app);
 
@@ -251,6 +192,7 @@ void Worker::outputRecord(const Record& rec) {
 	file.close();
 }
 
+
 void Worker::outputSeparator() 
 {
 	std::ofstream file;
@@ -259,80 +201,48 @@ void Worker::outputSeparator()
 	file.close();
 }
 
-void Worker::readFasta(std::vector<std::string>& reads, 
-					   const std::string& path) 
-{
-	std::string line;
-	std::ifstream file(path);
 
-	if (file.is_open()) {
-		while (getline(file, line)) {
-			if (line[0] == '>' || line == "") {
-				continue;
-			}
-			reads.push_back(line);
-		}
-	}
-}
-
-std::string Worker::readFastaSpecial(std::vector<std::string>& reads, 
-									 const std::string& path)
+void Worker::readBubbles(const std::string& fileName)
 {
-	std::string line;
-	std::ifstream file(path, std::ios::binary);
+	std::cerr << "Parsing bubbles file\n";
+	std::string buffer;
+	std::ifstream file(fileName);
 	std::string candidate;
-	reads.clear();
+	_bubbles.clear();
 
-	if (file.is_open()) {
-		//Get to the current bubble
-		file.seekg(_filePos, file.beg);
+	if (!file.is_open())
+		throw std::runtime_error("Error opening bubble file");
 
-		getline(file, line);
-		if (line == "") {
-			std::cerr << "End of the file reached. 'end' value might exceed number of bubbles. \n";
-			return "";
-		}
-		std::vector<std::string> elems = splitString(line, ' ');
+	while (!file.eof())
+	{
+		std::getline(file, buffer);
+		if (buffer.empty())
+			break;
+
+		std::vector<std::string> elems = splitString(buffer, ' ');
+		if (elems.size() < 3 || elems[0][0] != '>')
+			throw std::runtime_error("Error parsing bubbles file");
+		std::getline(file, candidate);
 		
-		std::string marker = elems[0];
-		//int index = stoi(elems[1]);
-		int numOfReads = stoi(elems[2]);
-		//int sizeOfCand = stoi(elems[3]);
+		Bubble bubble;
+		bubble.candidate = candidate;
+		bubble.header = elems[0].substr(1, std::string::npos);
+		bubble.position = std::stoi(elems[1]);
+		int numOfReads = std::stoi(elems[2]);
 
-		if (marker.compare(">current") == 0) {
-			getline(file, candidate);
-		}
-
-		//Get all appropriate string for the current bubble
 		int count = 0;
-		while (getline(file, line) && count < numOfReads) {
-			if (line[0] == '>' || line == "") {
-				continue;
-			}
-			reads.push_back(line);
+		while (count < numOfReads) 
+		{
+			if (buffer.empty())
+				break;
+			std::getline(file, buffer);
+			std::getline(file, buffer);
+			bubble.branches.push_back(buffer);
 			count++;
-			_filePos = file.tellg();
 		}
-	}
-	file.close();
-	return(candidate);
-}
+		if (count != numOfReads)
+			throw std::runtime_error("Error parsing bubbles file");
 
-//std::vector<std::string>& 
-//Worker::split(const std::string &s, char delim, std::vector<std::string> &elems) {
-//	
-//	return elems;
-//}
-
-void Worker::progressUpdate(int start, int stop, int initial, 
-							int interval, double& prev) 
-{
-	double done = start - initial;
-	double total = stop - initial;
-	double progress = done / total * 100;
-	if (progress >= prev) {
-		std::cout << "Completed: " << std::setw(2) 
-				  << progress << "%" << std::endl;
-		prev += interval;
+		_bubbles.push_back(std::move(bubble));
 	}
 }

@@ -13,12 +13,6 @@ Alignment::Alignment(size_t size):
 	//std::time_t time = std::chrono::system_clock::to_time_t(now);
 	//file << "File was produced at: " << std::ctime(&time);
 	//file << "\n";
-	
-	//FloatMatrix test(2, 2, 0);
-	//test.at(1, 1) = 42;
-
-	//_forwardScores.resize(size);
-	//_reverseScores.resize(size);
 }
 
 double Alignment::globalAlignment(const std::string& v, const std::string& w,
@@ -26,12 +20,8 @@ double Alignment::globalAlignment(const std::string& v, const std::string& w,
 {
 	unsigned int x = v.size() + 1;
 	unsigned int y = w.size() + 1;
-	//arma::mat backtrack(x, y);
-	//backtrack.fill(0);
 	FloatMatrix backtrack(x, y, 0);
-
 	FloatMatrix scoreMat(x, y, 0);
-	//scoreMat.fill(0);
 		
 	double score = this->getBacktrackMatrix(v, w, sm, backtrack, scoreMat);
 	_forwardScores[index] = scoreMat;
@@ -50,11 +40,7 @@ double Alignment::globalAlignment(const std::string& v, const std::string& w,
 	std::reverse(rev_w.begin(), rev_w.end());
 
 	FloatMatrix backtrackRev(x, y, 0);
-	//backtrackRev.fill(0);
-
 	FloatMatrix scoreMatRev(x, y, 0);
-	//scoreMatRev.fill(0);
-
 	this->getBacktrackMatrix(rev_v, rev_w, sm, backtrackRev, scoreMatRev);
 	_reverseScores[index] = scoreMatRev;
 

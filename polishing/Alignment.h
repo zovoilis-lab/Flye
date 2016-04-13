@@ -4,7 +4,6 @@
 #include <algorithm>
 #include <iomanip>
 #include <stdexcept>
-//#include <armadillo>
 
 #include "Matrix.h"
 #include "ScoringMatrix.h"
