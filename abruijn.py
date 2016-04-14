@@ -143,14 +143,18 @@ def get_partition(profile):
             prof_pos += 1
 
     partition = []
-    divided = False
+    #divided = False
+    prev_part = -SOLID_LEN
     for prof_pos in xrange(0, len(profile) - GOLD_LEN):
         if solid_flags[prof_pos]:
-            if is_gold_kmer(profile, prof_pos, GOLD_LEN) and not divided:
-                divided = True
+            #if is_gold_kmer(profile, prof_pos, GOLD_LEN) and not divided:
+            if (is_gold_kmer(profile, prof_pos, GOLD_LEN) and
+                prof_pos + GOLD_LEN / 2 - prev_part > SOLID_LEN):
+                #divided = True
+                prev_part = prof_pos + GOLD_LEN / 2
                 partition.append(prof_pos + GOLD_LEN / 2)
-        else:
-            divided = False
+        #else:
+        #    divided = False
 
     return partition
 
@@ -173,7 +177,6 @@ def get_bubbles(alignment, partition, genome_len):
         prev_bubble_id = bisect.bisect(partition, aln.trg_start % genome_len)
         first_segment = True
         branch_start = None
-        #current_seq = ""
         for i in xrange(len(trg_seq)):
             if trg_seq[i] == "-":
                 trg_offset -= 1
@@ -185,14 +188,10 @@ def get_bubbles(alignment, partition, genome_len):
                     branch_seq = qry_seq[branch_start:i].replace("-", "")
                     if len(branch_seq):
                         bubbles[prev_bubble_id].append(branch_seq)
-                    #bubbles[prev_bubble_id].append(current_seq)
-                    #current_seq = ""
+
                 first_segment = False
                 prev_bubble_id = bubble_id
                 branch_start = i
-
-            #if not first_segment and qry_seq[i] != "-":
-            #    current_seq += qry_seq[i]
 
     return bubbles
 
@@ -204,7 +203,7 @@ def output_bubbles(bubbles, out_file):
                 print("Warrning: empty bubble {0}".format(bubble_id))
                 continue
 
-            consensus = bubble[0]   #TODO: a better consensus?
+            consensus = sorted(bubble, key=lambda b: len(b))[len(bubble) / 2]
             f.write(">bubble {0} {1}\n".format(bubble_id, len(bubble)))
             f.write(consensus + "\n")
             for branch_id, branch in enumerate(bubble):

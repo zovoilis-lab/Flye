@@ -20,11 +20,10 @@ double Alignment::globalAlignment(const std::string& v, const std::string& w,
 {
 	unsigned int x = v.size() + 1;
 	unsigned int y = w.size() + 1;
-	FloatMatrix backtrack(x, y, 0);
 	FloatMatrix scoreMat(x, y, 0);
 		
-	double score = this->getBacktrackMatrix(v, w, sm, backtrack, scoreMat);
-	_forwardScores[index] = scoreMat;
+	double score = this->getBacktrackMatrix(v, w, sm, scoreMat);
+	_forwardScores[index] = std::move(scoreMat);
 
 	//std::string string1;
 	//std::string string2;
@@ -34,15 +33,12 @@ double Alignment::globalAlignment(const std::string& v, const std::string& w,
 	//---------------------------------------------
 	//The reverse alignment returns the same score
 	//---------------------------------------------
-	std::string rev_v = v;
-	std::string rev_w = w;
-	std::reverse(rev_v.begin(), rev_v.end());
-	std::reverse(rev_w.begin(), rev_w.end());
+	std::string rev_v(v.rbegin(), v.rend());
+	std::string rev_w(w.rbegin(), w.rend());
 
-	FloatMatrix backtrackRev(x, y, 0);
 	FloatMatrix scoreMatRev(x, y, 0);
-	this->getBacktrackMatrix(rev_v, rev_w, sm, backtrackRev, scoreMatRev);
-	_reverseScores[index] = scoreMatRev;
+	this->getBacktrackMatrix(rev_v, rev_w, sm, scoreMatRev);
+	_reverseScores[index] = std::move(scoreMatRev);
 
 	return score;
 }
@@ -109,7 +105,6 @@ double Alignment::addInsertion(unsigned int wordIndex,
 							   ScoringMatrix* sm) 
 {
 	//LetterIndex must start with 1 and go until (row.size - 1)
-	//using namespace arma;
 	const FloatMatrix& forwardScore = _forwardScores[wordIndex];
 	const FloatMatrix& reverseScore = _reverseScores[wordIndex];
 
@@ -137,24 +132,21 @@ double Alignment::addInsertion(unsigned int wordIndex,
 
 
 double Alignment::getBacktrackMatrix(const std::string& v, const std::string& w, 
-									 ScoringMatrix* sm, FloatMatrix& backtrack,
+									 ScoringMatrix* sm,
 									 FloatMatrix& scoreMat) 
 {
-	//using namespace std;
 	double score = 0.0f;
 	
 	for (size_t i = 0; i < v.size(); i++) 
 	{
 		double score = sm->getScore(v[i], '-');
 		scoreMat.at(i + 1, 0) = scoreMat.at(i, 0) + score;
-		backtrack.at(i + 1, 0) = 1; //Del
 	}
 
 
 	for (size_t i = 0; i < w.size(); i++) {
 		double score = sm->getScore('-', w[i]);
 		scoreMat.at(0, i + 1) = scoreMat.at(0, i) + score;
-		backtrack.at(0, i + 1) = -1; //Ins
 	}
 
 
@@ -172,23 +164,6 @@ double Alignment::getBacktrackMatrix(const std::string& v, const std::string& w,
 			double cross = scoreMat.at(i - 1, j - 1) + sm->getScore(key1, key2);
 			score = std::max(score, cross);
 			scoreMat.at(i, j) = score;
-
-			/*
-			if (score == cross) {
-				if (v[i - 1] == w[j - 1]) {
-					backtrack(i, j) = 7; //Mat
-				}
-				else {
-					backtrack(i, j) = 0; //Sub
-				}
-			}
-			else if (score == up) {
-				backtrack(i, j) = 1; //Del
-			}
-			else if (score == left) {
-				backtrack(i, j) = -1; //ins
-			}
-			*/
 		}
 	}
 

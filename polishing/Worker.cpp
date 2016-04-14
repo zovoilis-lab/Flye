@@ -86,14 +86,11 @@ void Worker::runOneToAll(const std::string& candidate,
 	rec.methodUsed = "global";
 	rec.score = score;
 	rec.read = candidate;
-	std::transform(rec.read.begin(), rec.read.end(), 
-				   rec.read.begin(), ::tolower);
 
 	//Deletion
 	for (size_t del_index = 0; del_index < candidate.size(); del_index++) 
 	{
 		score = 0;
-
 		for (size_t i = 0; i < branches.size(); i++) {
 			score += align.addDeletion(i, del_index + 1);
 		}
@@ -114,7 +111,7 @@ void Worker::runOneToAll(const std::string& candidate,
 	{
 		for (char letter : alphabet)
 		{
-			if (letter == toupper(candidate[sub_index]))
+			if (letter == candidate[sub_index])
 				continue;
 			score = 0;
 
@@ -143,8 +140,7 @@ void Worker::runOneToAll(const std::string& candidate,
 		for (char letter : alphabet)
 		{
 			score = 0;
-			for (size_t i = 0; i < branches.size(); i++) 
-			{
+			for (size_t i = 0; i < branches.size(); i++) {
 				score += align.addInsertion(i, ins_index + 1, letter, 
 											branches[i], &_scoreMat);		
 			}
@@ -223,6 +219,8 @@ void Worker::readBubbles(const std::string& fileName)
 		if (elems.size() < 3 || elems[0][0] != '>')
 			throw std::runtime_error("Error parsing bubbles file");
 		std::getline(file, candidate);
+		std::transform(candidate.begin(), candidate.end(), 
+				       candidate.begin(), ::toupper);
 		
 		Bubble bubble;
 		bubble.candidate = candidate;
@@ -237,6 +235,8 @@ void Worker::readBubbles(const std::string& fileName)
 				break;
 			std::getline(file, buffer);
 			std::getline(file, buffer);
+			std::transform(buffer.begin(), buffer.end(), 
+				       	   buffer.begin(), ::toupper);
 			bubble.branches.push_back(buffer);
 			count++;
 		}

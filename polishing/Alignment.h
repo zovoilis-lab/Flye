@@ -38,7 +38,7 @@ private:
 
 	//Global alignment help funcs:
 	double getBacktrackMatrix(const std::string& v, const std::string& w, 
-							  ScoringMatrix* sm, FloatMatrix& backtrack,
+							  ScoringMatrix* sm,
 							  FloatMatrix& scoreMat);
 
 	void traceback(FloatMatrix& backtrack, const std::string& v, 

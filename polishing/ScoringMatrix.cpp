@@ -4,39 +4,28 @@
 #include <cmath>
 #include <stdexcept>
 
-namespace
-{
-	int dnaToNum(char c)
-	{
-		c = toupper(c);
-		switch (c)
-		{
-		case 'A':
-			return 0;
-		case 'C':
-			return 1;
-		case 'T':
-			return 2;
-		case 'G':
-			return 3;
-		case '-':
-			return 4;
-		}
-		throw std::runtime_error("Unknown DNA base");
-		return -1;
-	}
-}
 
-ScoringMatrix::ScoringMatrix(int xrange, int yrange) {	
-
-	m_matrix = new double*[xrange];
+ScoringMatrix::ScoringMatrix(int xrange, int yrange):
+	_xrange(xrange), _yrange(yrange), _transTable(nullptr)
+{	
+	_matrix = new double*[xrange];
 	for (int i = 0; i < xrange; i++) {
-		m_matrix[i] = new double[yrange];
+		_matrix[i] = new double[yrange];
 	}
-	m_xrange = xrange;
-	m_yrange = yrange;
+	_matrix[_xrange - 1][_yrange - 1] = 0;
 
-	m_matrix[m_xrange - 1][m_yrange - 1] = 0;
+	_transTable = new int[256];	//256 chars
+	for (size_t i = 0; i < 256; ++i)
+		_transTable[i] = -1;
+	_transTable[(size_t)'A'] = 0;
+	_transTable[(size_t)'a'] = 0;
+	_transTable[(size_t)'C'] = 1;
+	_transTable[(size_t)'c'] = 1;
+	_transTable[(size_t)'T'] = 2;
+	_transTable[(size_t)'t'] = 2;
+	_transTable[(size_t)'G'] = 3;
+	_transTable[(size_t)'g'] = 3;
+	_transTable[(size_t)'-'] = 4;
 }
 
 void ScoringMatrix::loadMatrix(std::string path) {
@@ -58,25 +47,25 @@ void ScoringMatrix::loadMatrix(std::string path) {
 			if (items[0] == "mat") {
 				int index = dnaToNum(items[1][0]); 
 				double probability = std::stod(items[2]);
-				m_matrix[index][index] = std::log(probability);
+				_matrix[index][index] = std::log(probability);
 			}
 			else if (items[0] == "mis") {
 				int x = dnaToNum(items[1][0]);
 				int y = dnaToNum(items[1][items[1].size() - 1]);
 				double probability = std::stod(items[2]);
-				m_matrix[x][y] = std::log(probability);
+				_matrix[x][y] = std::log(probability);
 			}
 			else if (items[0] == "del") {
 				int x = dnaToNum(items[1][0]);
-				int y = m_yrange - 1;
+				int y = _yrange - 1;
 				double probability = std::stod(items[2]);
-				m_matrix[x][y] = std::log(probability);
+				_matrix[x][y] = std::log(probability);
 			}
 			else if (items[0] == "ins") {
 				int y = dnaToNum(items[1][0]);
-				int x = m_xrange - 1;
+				int x = _xrange - 1;
 				double probability = std::stod(items[2]);
-				m_matrix[x][y] = std::log(probability);
+				_matrix[x][y] = std::log(probability);
 			}	
 		}
 		file.close();
@@ -85,21 +74,23 @@ void ScoringMatrix::loadMatrix(std::string path) {
 
 double ScoringMatrix::getScore(char v, char w) 
 {
-	return m_matrix[dnaToNum(v)][dnaToNum(w)];
+	return _matrix[dnaToNum(v)][dnaToNum(w)];
 }
 
 void ScoringMatrix::printMatrix() {
-	for (int i = 0; i < m_xrange; i++) {
-		for (int j = 0; j < m_yrange; j++) {
+	for (int i = 0; i < _xrange; i++) {
+		for (int j = 0; j < _yrange; j++) {
 			std::cout << std::fixed;
-			std::cout << std::setw(4) << std::left << std::setprecision(2) << m_matrix[i][j] << "\t";
+			std::cout << std::setw(4) << std::left 
+					  << std::setprecision(2) << _matrix[i][j] << "\t";
 		}
 		std::cout << std::endl;
 	}
 }
 
 ScoringMatrix::~ScoringMatrix() {
-	for (int i = 0; i < m_xrange; i++) {
-		delete[] m_matrix[i];
+	for (int i = 0; i < _xrange; i++) {
+		delete[] _matrix[i];
 	}
+	delete[] _transTable;
 }

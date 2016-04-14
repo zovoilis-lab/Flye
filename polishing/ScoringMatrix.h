@@ -15,8 +15,12 @@ public:
 	~ScoringMatrix();
 
 private:
-	int m_xrange;
-	int m_yrange;
-	double** m_matrix;
+	int dnaToNum(char dna)
+		{return _transTable[(size_t)dna];}
+
+	int _xrange;
+	int _yrange;
+	int* _transTable;
+	double** _matrix;
 };
 
