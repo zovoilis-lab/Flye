@@ -1,88 +1,67 @@
-// SeqAlignment.cpp : Defines the entry point for the console application.
-//
-
 #include <ctime>
 #include <iostream>
+#include <getopt.h>
 
 #include "Worker.h"
 
-int main(int argc, char* argv[]) 
+
+bool parseArgs(int argc, char** argv, std::string& bubblesFile, 
+			   std::string& scoringMatrix, std::string& outConsensus, 
+			   std::string& outVerbose)
 {
-	const int longParamCount = 3 * 2 + 1;
-
-	std::string scoringMatPath = "";
-	std::string reads = "";
-	std::string type = "";
-	std::string format = "";
-
-	if (argc != longParamCount) {
-		std::cerr << "The number of parameters is incorrect." << std::endl;
-		return 1;
-	}
-
-	for (int i = 1; i < argc; ++i) 
+	auto printUsage = []()
 	{
-		//Scoring matrix
-		if (std::string(argv[i]) == "--scoringMatrix" 
-			|| std::string(argv[i]) == "-sm") 
-		{
-			if (i + 1 < argc)
-				scoringMatPath = std::string(argv[++i]);
-			else
-				std::cerr << "Wrong number of parameters!" << std::endl;
-			continue;
-		}
+		std::cerr << "Usage: polish bubbles_file scoring_matrix out_file "
+				  << "[-v verbose_log]\n\n"
+				  << "positional arguments:\n"
+				  << "\tbubbles_file\tpath to bubbles file\n"
+				  << "\tscoring_matrix\tpath to scoring matrix\n"
+				  << "\tout_file\tpath to output file\n"
+				  << "\noptional arguments:\n"
+				  << "\t-v verbose_log\tpath to the file "
+				  << "with verbose log [default = not set]\n";
+	};
 
-		//Reads
-		if (std::string(argv[i]) == "--reads" 
-			|| std::string(argv[i]) == "-r") 
+	const char* optString = "v:h";
+	int opt = 0;
+	while ((opt = getopt(argc, argv, optString)) != -1)
+	{
+		switch(opt)
 		{
-			if (i + 1 < argc)
-				reads = std::string(argv[++i]);
-			else
-				std::cerr << "Wrong number of parameters!" << std::endl;
-			continue;
-		}
-
-		//Format
-		if (std::string(argv[i]) == "--outputFormat" 
-			|| std::string(argv[i]) == "-of") 
-		{
-			if (i + 1 < argc)
-				format = std::string(argv[++i]);
-			else
-				std::cerr << "Wrong number of parameters!" << std::endl;
-
-			if (format != "short" && format != "verbose") 
-			{
-				std::cerr << "The parameter passed to the 'outputFormat' is incorrect! "
-							 "It should be 'short' or 'verbose'." << std::endl;
-				return 1;
-			}
-			continue;
+		case 'v':
+			outVerbose = optarg;
+			break;
+		case 'h':
+			printUsage();
+			return false;
 		}
 	}
-
-	std::clock_t startTimer;
-	startTimer = std::clock();
-
-	if (scoringMatPath.empty()) {
-		std::cerr << "The scoring matrix was not given." << std::endl;
-		return 1;
+	if (argc - optind != 3)
+	{
+		printUsage();
+		return false;
 	}
-	Worker worker(scoringMatPath);
-
-	if (reads.empty()) {
-		std::cerr << "The file with reads was not given." << std::endl;
-		return 1;
-	}
-
-	worker.run(reads, format); 
-
-	std::cout << "Run time: " 
-			  << (std::clock() - startTimer) / (double)(CLOCKS_PER_SEC / 1000) 
-			  << " ms" << std::endl;
-	return 0;
+	bubblesFile = *(argv + optind);
+	scoringMatrix = *(argv + optind + 1);
+	outConsensus = *(argv + optind + 2);
+	return true;
 }
 
+int main(int argc, char* argv[]) 
+{
+	std::string bubblesFile;
+	std::string scoringMatrix;
+	std::string outConsensus;
+	std::string outVerbose;
+	if (!parseArgs(argc, argv, bubblesFile, scoringMatrix, 
+				   outConsensus, outVerbose))
+		return 1;
 
+	Worker worker(scoringMatrix);
+	worker.run(bubblesFile); 
+	worker.writeConsensuses(outConsensus);
+	if (!outVerbose.empty())
+		worker.writeLog(outVerbose);
+
+	return 0;
+}

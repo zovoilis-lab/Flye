@@ -20,22 +20,11 @@ namespace
 Worker::Worker(const std::string& scoreMatPath):
 	_scoreMat(5, 5)
 {
-	std::ofstream file;
-	file.open("results.txt");
-	std::chrono::time_point<std::chrono::system_clock> now;
-	now = std::chrono::system_clock::now();
-	std::time_t time = std::chrono::system_clock::to_time_t(now);
-	file << "File was produced at: " << std::ctime(&time);
-	file << "\n";
-	file.close();
-
-	//Parse scoring matrix
 	_scoreMat.loadMatrix(scoreMatPath);
 }
 
 
-void Worker::run(const std::string& dataPath, 
-				 const std::string& outFormat) 
+void Worker::run(const std::string& dataPath) 
 {
 	this->readBubbles(dataPath);
 	int prevPercent = -1;
@@ -50,30 +39,24 @@ void Worker::run(const std::string& dataPath,
 			prevPercent = percent;
 		}
 
-		Record rec;
+		StepInfo rec;
 		std::string prevCandidate = "";
 		std::string curCandidate = bubble.candidate;
-		outputSeparator();
 
 		while (curCandidate != prevCandidate)
 		{
 			prevCandidate = curCandidate;
-			this->runOneToAll(curCandidate, bubble.branches, rec);
+			this->processCandidate(curCandidate, bubble.branches, rec);
 			curCandidate = rec.read;
-			if (outFormat == "verbose") 
-				outputRecord(rec);
+			bubble.polishSteps.push_back(rec);
 		}
-
-		//Record the rec
-		if (outFormat == "short")
-			outputRecord(rec);
-		outputSeparator();
+		bubble.candidate = curCandidate;
 	}
 }
 
-void Worker::runOneToAll(const std::string& candidate, 
-						 const std::vector<std::string>& branches,
-						 Record& rec) 
+void Worker::processCandidate(const std::string& candidate, 
+							  const std::vector<std::string>& branches,
+						 	  StepInfo& rec) 
 {
 	double score = 0;
 	Alignment align(branches.size());
@@ -159,42 +142,46 @@ void Worker::runOneToAll(const std::string& candidate,
 	}	
 }
 
-void Worker::outputRecord(const Record& rec) 
+void Worker::writeConsensuses(const std::string& fileName)
 {
-	std::ofstream file;
-	file.open("results.txt", std::ios::app);
-
-	file << std::fixed
-		 << std::setw(22) << std::left << "Consensus: " 
-		 << std::right << rec.read << "\n"
-		 << std::setw(22) << std::left << "Score: " << std::right 
-		 << std::setprecision(2) << rec.score << "\n"
-		 << std::setw(22) << std::left << "Last method applied: " 
-		 << std::right << rec.methodUsed << "\n";
-	
-
-	if (rec.methodUsed == "deletion") {
-		file << "Char at index: " << rec.del_index << " was deleted. \n";
+	std::ofstream fout(fileName);
+	for (auto& bubble : _bubbles)
+	{
+		fout << ">" << bubble.header << " " << bubble.position
+			 << " " << bubble.branches.size() << std::endl
+			 << bubble.candidate << std::endl;
 	}
-	else if (rec.methodUsed == "substitution") {
-		file << "Char at index " << rec.sub_index << " was substituted with " 
-			<< "'" << rec.sub_letter << "'" << ".\n";
-	}
-	else if (rec.methodUsed == "insertion") {
-		file << "'"<< rec.ins_letter << "'" 
-			 << " was inserted at index " << rec.ins_index << ".\n";
-	}
-	file << std::endl;
-	file.close();
 }
 
-
-void Worker::outputSeparator() 
+void Worker::writeLog(const std::string& fileName)
 {
-	std::ofstream file;
-	file.open("results.txt", std::ios::app);
-	file << "------------------------------------------ \n";
-	file.close();
+	std::ofstream fout(fileName);
+
+	for (auto& bubble : _bubbles)
+	{
+		for (auto& stepInfo : bubble.polishSteps)
+		{
+			fout << std::fixed
+				 << std::setw(22) << std::left << "Consensus: " 
+				 << std::right << stepInfo.read << std::endl
+				 << std::setw(22) << std::left << "Score: " << std::right 
+				 << std::setprecision(2) << stepInfo.score << std::endl
+				 << std::setw(22) << std::left << "Last method applied: " 
+				 << std::right << stepInfo.methodUsed << std::endl;
+
+			if (stepInfo.methodUsed == "deletion")
+				fout << "Char at index: " << stepInfo.del_index << " was deleted. \n";
+			else if (stepInfo.methodUsed == "substitution")
+				fout << "Char at index " << stepInfo.sub_index << " was substituted with " 
+					<< "'" << stepInfo.sub_letter << "'" << ".\n";
+			else if (stepInfo.methodUsed == "insertion")
+				fout << "'"<< stepInfo.ins_letter << "'" 
+					 << " was inserted at index " << stepInfo.ins_index << ".\n";
+
+			fout << std::endl;
+		}
+		fout << "-----------------\n";
+	}
 }
 
 

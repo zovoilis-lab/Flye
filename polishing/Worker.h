@@ -11,9 +11,11 @@ class Worker
 {
 public:
 	Worker(const std::string& scoreMatPath);
-	void run(const std::string& dataPath, const std::string& format);
+	void run(const std::string& dataPath);
+	void writeConsensuses(const std::string& fileName);
+	void writeLog(const std::string& fileName);
 
-	struct Record 
+	struct StepInfo 
 	{
 		std::string read;
 		std::string methodUsed;
@@ -25,7 +27,7 @@ public:
 		int  ins_index;
 		char ins_letter;
 
-		Record():
+		StepInfo():
 			score(0.0f), del_index(-1), sub_index(-1), sub_letter('*'),
 			ins_index(-1), ins_letter('*')	
 		{}
@@ -38,16 +40,15 @@ public:
 
 		std::string candidate;
 		std::vector<std::string> branches;
+		std::vector<StepInfo> polishSteps;
 	};
 private:
 	ScoringMatrix  _scoreMat;
 	std::vector<Bubble> _bubbles;
 
-	void runOneToAll(const std::string& candidate, 
-					 const std::vector<std::string>& branches,
-					 Record& rec);
+	void processCandidate(const std::string& candidate, 
+					  	 const std::vector<std::string>& branches,
+					  	 StepInfo& rec);
 	void readBubbles(const std::string& fileName);
-	void outputRecord(const Record& rec);
-	void outputSeparator();
 };
 
