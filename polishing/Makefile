@@ -1,5 +1,5 @@
 CXXFLAGS += -Wall
-OUT_BIN := ${BIN_DIR}/polish
+OUT_BIN := ${BIN_DIR}/abruijn-polish
 
 .PHONY: all clean debug
 

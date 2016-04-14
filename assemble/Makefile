@@ -1,5 +1,5 @@
 CXXFLAGS += -Wall
-OUT_BIN := ${BIN_DIR}/assemble_reads
+OUT_BIN := ${BIN_DIR}/abruijn-assemble
 
 .PHONY: all clean debug
 
