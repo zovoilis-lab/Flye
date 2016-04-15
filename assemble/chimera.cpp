@@ -11,28 +11,50 @@ void ChimeraDetector::detectChimeras(const OverlapDetector& ovlpDetector,
 
 	static const int WINDOW = 100;
 	static const float COV_THRESHOLD = 0.1f;
+	const size_t FLANK = (_maximumJump + _maximumOverhang) / WINDOW;
+
+	std::unordered_map<FastaRecord::ReadIdType, 
+					   std::vector<int>> localCoverage;
 	for (auto& seqHash : seqContainer.getIndex())
 	{
 		auto& overlaps = ovlpDetector.getOverlapIndex().at(seqHash.first);
 		int numWindows = seqHash.second.sequence.length() / WINDOW;
-		std::vector<int> localCoverage(numWindows, 0);
+		localCoverage[seqHash.first].assign(numWindows, 0);
 
-		int total = 0;
 		for (auto& ovlp : overlaps)
 		{
 			for (int pos = (ovlp.curBegin + _maximumJump) / WINDOW; 
 				 pos < (ovlp.curEnd - _maximumJump) / WINDOW; ++pos)
-				++localCoverage[pos];
-				++total;
+			{
+				++localCoverage[seqHash.first][pos];
+			}
 		}
+	}
 
-		//float avgCoverage = float(total) / localCoverage.size();
-		bool chimeric = false;
-		size_t flank = (_maximumJump + _maximumOverhang) / WINDOW;
-		for (size_t i = flank; i < localCoverage.size() - flank; ++i)
+	float covSum = 0;
+	int numWindows = 0;
+	for (auto& seqHash : seqContainer.getIndex())
+	{
+		for (size_t i = FLANK; 
+			 i < localCoverage[seqHash.first].size() - FLANK; ++i)
 		{
-			if (localCoverage[i] < int(COV_THRESHOLD * _coverage))
-			//if (localCoverage[i] <= 2)
+			covSum += localCoverage[seqHash.first][i];
+			++numWindows;
+		}
+	}
+	_coverage = covSum / numWindows;
+	//float estCov = covSum / numWindows;
+	//LOG_PRINT("Estimated coverage: " << estCov);
+	//_coverage = estCov;
+
+	for (auto& seqHash : seqContainer.getIndex())
+	{
+		bool chimeric = false;
+		for (size_t i = FLANK; 
+			 i < localCoverage[seqHash.first].size() - FLANK; ++i)
+		{
+			if (localCoverage[seqHash.first][i] < 
+				int(COV_THRESHOLD * _coverage))
 			{
 				chimeric = true;
 				break;

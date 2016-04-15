@@ -1,29 +1,40 @@
 from __future__ import print_function
 import os
+import sys
 from collections import namedtuple
 import subprocess
 
 import abruijn.fasta_parser as fp
+from abruijn.utils import which
 
 
-BLASR_BIN = "/home/fenderglass/Bioinf/tools/blasr/blasr.sh"
+BLASR_BIN = "blasr"
 CIRCULAR_WINDOW = 50000
 
 Alignment = namedtuple("Alignment", ["qry_start", "qry_end", "qry_sign", "qry_len",
                                      "trg_start", "trg_end", "trg_sign", "trg_len",
                                      "qry_seq", "trg_seq", "err_rate"])
 
+class AlignmentException(Exception):
+    pass
+
+
+def check_binaries():
+    if not which(BLASR_BIN):
+        raise AlignmentException("Blasr is not installed")
+
 
 def get_alignment(draft_file, reads_file, num_proc, work_dir):
-    raw_genome = os.path.join(work_dir, "raw_genome.fasta")
-    blasr_aln = os.path.join(work_dir, "blasr.m5")
+    print("Aligning reads and formin mini-alignments", file=sys.stderr)
+    raw_genome = os.path.join(work_dir, "draft_assembly.fasta")
+    blasr_aln = os.path.join(work_dir, "alignment.m5")
     genome_len = _compose_raw_genome(draft_file, raw_genome)
-    #_run_blasr(raw_genome, reads_file, num_proc, blasr_aln)
+    if not _run_blasr(raw_genome, reads_file, num_proc, blasr_aln):
+        raise AlignmentException("Error in alignment module, exiting")
     return _parse_blasr(blasr_aln), genome_len
 
 
 def _parse_blasr(filename):
-    print("Parsing blasr")
     alignments = []
     errors = []
     with open(filename, "r") as f:
@@ -60,8 +71,12 @@ def _compose_raw_genome(contig_parts, out_file):
 
 
 def _run_blasr(reference_file, reads_file, num_proc, out_file):
-    subprocess.check_call([BLASR_BIN, reads_file, reference_file, "-bestn", "1",
-                           "-minMatch", "15", "-maxMatch", "25", "-m", "5",
-                           "-nproc", str(num_proc), "-out", out_file])
-
-
+    try:
+        subprocess.check_call([BLASR_BIN, reads_file, reference_file,
+                               "-bestn", "1", "-minMatch", "15",
+                               "-maxMatch", "25", "-m", "5",
+                               "-nproc", str(num_proc), "-out", out_file])
+    except (subprocess.CalledProcessError, OSError) as e:
+        print("Error while running blasr: " + str(e))
+        return False
+    return True
