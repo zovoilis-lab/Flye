@@ -1,4 +1,4 @@
-ABruijn asssembler
+ABruijn assembler
 ==================
 
 Version: 0.0b
