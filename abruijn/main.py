@@ -23,10 +23,10 @@ def run(reads_file, work_dir, num_proc):
     print("Assembling reads", file=sys.stderr)
     asm.assemble(reads_file, preassembly)
     alignment, genome_len = aln.get_alignment(preassembly, reads_file,
-                                              NUM_PROC, work_dir)
+                                              num_proc, work_dir)
     bubbles = bbl.get_bubbles(alignment, genome_len)
     print("Polishing draft assembly", file=sys.stderr)
-    polished_seq = pol.polish(bubbles, NUM_PROC, work_dir)
+    polished_seq = pol.polish(bubbles, num_proc, work_dir)
     out_genome = os.path.join(work_dir, "contigs.fasta")
     fp.write_fasta_dict({"contig_1": polished_seq}, out_genome)
     print("Done! Your assembly is in file: " + out_genome, file=sys.stderr)
