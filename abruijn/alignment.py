@@ -1,13 +1,22 @@
-from __future__ import print_function
+#(c) 2016 by Authors
+#This file is a part of ABruijn program.
+#Released under the BSD license (see LICENSE file)
+
+"""
+Runs Blasr aligner and parses its output
+"""
+
 import os
 import sys
 from collections import namedtuple
 import subprocess
+import logging
 
 import abruijn.fasta_parser as fp
 from abruijn.utils import which
 
 
+logger = logging.getLogger()
 BLASR_BIN = "blasr"
 CIRCULAR_WINDOW = 50000
 
@@ -25,7 +34,7 @@ def check_binaries():
 
 
 def get_alignment(draft_file, reads_file, num_proc, work_dir):
-    print("Aligning reads and formin mini-alignments", file=sys.stderr)
+    logger.info("Aligning reads and forming mini-alignments")
     raw_genome = os.path.join(work_dir, "draft_assembly.fasta")
     blasr_aln = os.path.join(work_dir, "alignment.m5")
     genome_len = _compose_raw_genome(draft_file, raw_genome)
@@ -77,6 +86,6 @@ def _run_blasr(reference_file, reads_file, num_proc, out_file):
                                "-maxMatch", "25", "-m", "5",
                                "-nproc", str(num_proc), "-out", out_file])
     except (subprocess.CalledProcessError, OSError) as e:
-        print("Error while running blasr: " + str(e))
+        logger.error("While running blasr: " + str(e))
         return False
     return True

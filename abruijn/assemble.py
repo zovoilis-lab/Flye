@@ -1,3 +1,11 @@
+#(c) 2016 by Authors
+#This file is a part of ABruijn program.
+#Released under the BSD license (see LICENSE file)
+
+"""
+Runs assemble binary
+"""
+
 import subprocess
 
 from abruijn.utils import which

@@ -1,3 +1,11 @@
+#(c) 2016 by Authors
+#This file is a part of ABruijn program.
+#Released under the BSD license (see LICENSE file)
+
+"""
+Runs polishing binary in parallel and concatentes output
+"""
+
 import random
 import subprocess
 import os

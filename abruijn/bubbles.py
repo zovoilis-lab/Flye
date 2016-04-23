@@ -1,6 +1,17 @@
-from __future__ import print_function
-import abruijn.fasta_parser as fp
+#(c) 2016 by Authors
+#This file is a part of ABruijn program.
+#Released under the BSD license (see LICENSE file)
+
+"""
+Separates alignment into small bubbles for further correction
+"""
+
 import bisect
+import logging
+
+import abruijn.fasta_parser as fp
+
+logger = logging.getLogger()
 
 class ProfileInfo:
     def __init__(self):
@@ -18,16 +29,22 @@ class Bubble:
 
 
 def get_bubbles(alignment, genome_len):
+    """
+    The main function: takes an alignment and returns bubbles
+    """
     profile = _compute_profile(alignment, genome_len)
     partition = _get_partition(profile)
     return _get_bubble_seqs(alignment, partition, genome_len)
 
 
 def output_bubbles(bubbles, out_file):
+    """
+    Outputs list of bubbles into file
+    """
     with open(out_file, "w") as f:
         for bubble in bubbles:
             if len(bubble.branches) == 0:
-                print("Warrning: empty bubble {0}".format(bubble.bubble_id))
+                logger.warning("Empty bubble {0}".format(bubble.bubble_id))
                 continue
 
             consensus = sorted(bubble.branches,
@@ -41,6 +58,9 @@ def output_bubbles(bubbles, out_file):
 
 
 def _is_solid_kmer(profile, position, kmer_length):
+    """
+    Checks if the kmer at given position is solid
+    """
     MISSMATCH_RATE = 0.2
     INS_RATE = 0.2
     for i in xrange(position, position + kmer_length):
@@ -52,7 +72,10 @@ def _is_solid_kmer(profile, position, kmer_length):
     return True
 
 
-def _is_gold_kmer(profile, position, kmer_length):
+def _is_simple_kmer(profile, position, kmer_length):
+    """
+    Checks if the kmer at given position is simple
+    """
     for i in xrange(position, position + kmer_length - 1):
         if profile[i].nucl == profile[i + 1].nucl:
             return False
@@ -60,7 +83,10 @@ def _is_gold_kmer(profile, position, kmer_length):
 
 
 def _compute_profile(alignment, genome_len):
-    print("Computing profile")
+    """
+    Computes alignment profile
+    """
+    logger.debug("Computing profile")
     MIN_ALIGNMENT = 5000
     profile = [ProfileInfo() for _ in xrange(genome_len)]
     for aln in alignment:
@@ -97,7 +123,10 @@ def _compute_profile(alignment, genome_len):
 
 
 def _get_partition(profile):
-    print("Partitioning genome")
+    """
+    Partitions genome into sub-alignments at solid regions / simple kmers
+    """
+    logger.debug("Partitioning genome")
     SOLID_LEN = 10
     GOLD_LEN = 4
     solid_flags = [False for _ in xrange(len(profile))]
@@ -117,8 +146,8 @@ def _get_partition(profile):
     prev_part = -SOLID_LEN
     for prof_pos in xrange(0, len(profile) - GOLD_LEN):
         if solid_flags[prof_pos]:
-            #if is_gold_kmer(profile, prof_pos, GOLD_LEN) and not divided:
-            if (_is_gold_kmer(profile, prof_pos, GOLD_LEN) and
+            #if _is_simple_kmer(profile, prof_pos, GOLD_LEN) and not divided:
+            if (_is_simple_kmer(profile, prof_pos, GOLD_LEN) and
                 prof_pos + GOLD_LEN / 2 - prev_part > SOLID_LEN):
                 #divided = True
                 prev_part = prof_pos + GOLD_LEN / 2
@@ -130,9 +159,14 @@ def _get_partition(profile):
 
 
 def _get_bubble_seqs(alignment, partition, genome_len):
-    print("Forming bubble sequences")
+    """
+    Given genome landmarks, forms bubble sequences
+    """
+    logger.debug("Forming bubble sequences")
     MIN_ALIGNMENT = 5000
     bubbles = [Bubble(x) for x in xrange(len(partition) + 1)]
+    #logger.debug(partition[:10])
+    #logger.debug(partition[-10:])
     for aln in alignment:
         if aln.err_rate > 0.5 or aln.trg_end - aln.trg_start < MIN_ALIGNMENT:
             continue
@@ -150,12 +184,17 @@ def _get_bubble_seqs(alignment, partition, genome_len):
         for i in xrange(len(trg_seq)):
             if trg_seq[i] == "-":
                 trg_offset -= 1
+                continue
             trg_pos = (aln.trg_start + i + trg_offset) % genome_len
 
             bubble_id = bisect.bisect(partition, trg_pos)
             if bubble_id != prev_bubble_id:
                 if not first_segment:
                     branch_seq = qry_seq[branch_start:i].replace("-", "")
+                    #logger.debug("id " + str(prev_bubble_id))
+                    #logger.debug(branch_start)
+                    #logger.debug(i)
+                    #logger.debug(branch_seq)
                     if len(branch_seq):
                         bubbles[prev_bubble_id].branches.append(branch_seq)
 

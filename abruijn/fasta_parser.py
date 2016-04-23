@@ -1,5 +1,5 @@
-#(c) 2013-2014 by Authors
-#This file is a part of Ragout program.
+#(c) 2013-2016 by Authors
+#This file is a part of ABruijn program.
 #Released under the BSD license (see LICENSE file)
 
 """
@@ -19,7 +19,7 @@ def read_fasta_dict(filename):
     """
     Reads fasta file into dictionary. Also preforms some validation
     """
-    logger.info("Reading contigs file")
+    logger.debug("Reading contigs file")
 
     header = None
     seq = []
