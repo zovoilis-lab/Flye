@@ -34,16 +34,21 @@ def check_binaries():
 
 
 def get_alignment(draft_file, reads_file, num_proc, work_dir):
-    logger.info("Aligning reads and forming mini-alignments")
+    """
+    Runs blasr and return parsed alignment
+    """
+    logger.info("Running Blasr")
     raw_genome = os.path.join(work_dir, "draft_assembly.fasta")
     blasr_aln = os.path.join(work_dir, "alignment.m5")
     genome_len = _compose_raw_genome(draft_file, raw_genome)
-    if not _run_blasr(raw_genome, reads_file, num_proc, blasr_aln):
-        raise AlignmentException("Error in alignment module, exiting")
+    _run_blasr(raw_genome, reads_file, num_proc, blasr_aln)
     return _parse_blasr(blasr_aln), genome_len
 
 
 def _parse_blasr(filename):
+    """
+    Parse Blasr output
+    """
     alignments = []
     errors = []
     with open(filename, "r") as f:
@@ -81,11 +86,12 @@ def _compose_raw_genome(contig_parts, out_file):
 
 def _run_blasr(reference_file, reads_file, num_proc, out_file):
     try:
+        devnull = open(os.devnull, "w")
         subprocess.check_call([BLASR_BIN, reads_file, reference_file,
                                "-bestn", "1", "-minMatch", "15",
                                "-maxMatch", "25", "-m", "5",
-                               "-nproc", str(num_proc), "-out", out_file])
+                               "-nproc", str(num_proc), "-out", out_file],
+                               stdout=devnull)
     except (subprocess.CalledProcessError, OSError) as e:
         logger.error("While running blasr: " + str(e))
-        return False
-    return True
+        raise AlignmentException("Error in alignment module, exiting")

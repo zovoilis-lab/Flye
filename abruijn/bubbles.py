@@ -32,6 +32,7 @@ def get_bubbles(alignment, genome_len):
     """
     The main function: takes an alignment and returns bubbles
     """
+    logger.info("Separating draft genome into bubbles")
     profile = _compute_profile(alignment, genome_len)
     partition = _get_partition(profile)
     return _get_bubble_seqs(alignment, partition, genome_len)
@@ -53,6 +54,10 @@ def output_bubbles(bubbles, out_file):
                                                len(bubble.branches)))
             f.write(consensus + "\n")
             for branch_id, branch in enumerate(bubble.branches):
+                #rate = float(abs(len(branch) - len(consensus))) / len(consensus)
+                #if rate > 0.5:
+                #    logger.warning("Branch inconsistency with rate {0}, id {1}"
+                #                    .format(rate, bubble.bubble_id))
                 f.write(">{0}\n".format(branch_id))
                 f.write(branch + "\n")
 
@@ -142,18 +147,14 @@ def _get_partition(profile):
             prof_pos += 1
 
     partition = []
-    #divided = False
-    prev_part = -SOLID_LEN
+    prev_part = 0
     for prof_pos in xrange(0, len(profile) - GOLD_LEN):
         if solid_flags[prof_pos]:
-            #if _is_simple_kmer(profile, prof_pos, GOLD_LEN) and not divided:
             if (_is_simple_kmer(profile, prof_pos, GOLD_LEN) and
                 prof_pos + GOLD_LEN / 2 - prev_part > SOLID_LEN):
-                #divided = True
                 prev_part = prof_pos + GOLD_LEN / 2
                 partition.append(prof_pos + GOLD_LEN / 2)
-        #else:
-        #    divided = False
+    logger.debug("Partitioned into {0} segments".format(len(partition) + 1))
 
     return partition
 
@@ -165,8 +166,6 @@ def _get_bubble_seqs(alignment, partition, genome_len):
     logger.debug("Forming bubble sequences")
     MIN_ALIGNMENT = 5000
     bubbles = [Bubble(x) for x in xrange(len(partition) + 1)]
-    #logger.debug(partition[:10])
-    #logger.debug(partition[-10:])
     for aln in alignment:
         if aln.err_rate > 0.5 or aln.trg_end - aln.trg_start < MIN_ALIGNMENT:
             continue
@@ -191,10 +190,11 @@ def _get_bubble_seqs(alignment, partition, genome_len):
             if bubble_id != prev_bubble_id:
                 if not first_segment:
                     branch_seq = qry_seq[branch_start:i].replace("-", "")
-                    #logger.debug("id " + str(prev_bubble_id))
-                    #logger.debug(branch_start)
-                    #logger.debug(i)
-                    #logger.debug(branch_seq)
+                    #if prev_bubble_id == 0:
+                    #    logger.debug("id {0}, b {1}, e {2}, seq_len {3}, rb {4}"
+                    #                    .format(prev_bubble_id, branch_start,
+                    #                            i, len(branch_seq),
+                    #                            aln.trg_start + i + trg_offset))
                     if len(branch_seq):
                         bubbles[prev_bubble_id].branches.append(branch_seq)
 

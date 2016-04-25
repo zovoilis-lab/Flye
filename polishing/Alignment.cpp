@@ -1,3 +1,7 @@
+//(c) 2016 by Authors
+//This file is a part of ABruijn program.
+//Released under the BSD license (see LICENSE file)
+
 #include "Alignment.h"
 #include <chrono>
 
@@ -6,13 +10,6 @@ Alignment::Alignment(size_t size):
 	_forwardScores(size),
 	_reverseScores(size)
 { 
-	//ofstream file;
-	//file.open("test.txt");
-	//std::chrono::time_point<std::chrono::system_clock> now;
-	//now = std::chrono::system_clock::now();
-	//std::time_t time = std::chrono::system_clock::to_time_t(now);
-	//file << "File was produced at: " << std::ctime(&time);
-	//file << "\n";
 }
 
 double Alignment::globalAlignment(const std::string& v, const std::string& w,

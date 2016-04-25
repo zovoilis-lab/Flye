@@ -1,4 +1,4 @@
-//(c) 2013-2014 by Authors
+//(c) 2013-2016 by Authors
 //This file is a part of Ragout program.
 //Released under the BSD license (see LICENSE file)
 

@@ -26,9 +26,16 @@ class PolishException(Exception):
 def check_binaries():
     if not which(POLISH_BIN):
         raise PolishException("polish binary is not found. Did you run 'make'?")
+    try:
+        devnull = open(os.devnull, "w")
+        subprocess.check_call([POLISH_BIN, "-h"], stderr=devnull)
+    except subprocess.CalledProcessError as e:
+        raise PolishException("Some error inside native {0} module: {1}"
+                              .format(POLISH_BIN, e))
 
 
 def polish(bubbles, num_proc, work_dir):
+    logger.info("Polishing draft assembly")
     buckets = [[] for _ in xrange(num_proc)]
     for i in xrange(len(bubbles)):
         buckets[random.randint(0, num_proc - 1)].append(bubbles[i])
@@ -43,7 +50,7 @@ def _run_polish_bin(bubbles_in, subs_matrix, consensus_out, thread_error):
     """
     cmdline = [POLISH_BIN, bubbles_in, subs_matrix, consensus_out]
     try:
-        subprocess.check_call(cmdline, stdout=open(os.devnull, "w"))
+        subprocess.check_call(cmdline, stderr=open(os.devnull, "w"))
     except (subprocess.CalledProcessError, OSError) as e:
         print("Error while running polish binary: " + str(e))
         thread_error[0] = 1

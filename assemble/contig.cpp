@@ -1,3 +1,7 @@
+//(c) 2016 by Authors
+//This file is a part of ABruijn program.
+//Released under the BSD license (see LICENSE file)
+
 #include <cassert>
 #include <algorithm>
 #include <fstream>
@@ -16,20 +20,27 @@ void ContigGenerator::generateContigs()
 		Extender::ReadPath circPath = path;
 		circPath.push_back(path[0]);
 		circPath.push_back(path[1]);
-		auto prevSwitch = this->getSwitchPositions(circPath[0], circPath[1], 0);
+
+		int initPivot = _seqContainer.getIndex().at(circPath[0])
+												.sequence.length() / 2;
+		auto firstSwitch = this->getSwitchPositions(circPath[0], circPath[1], 
+													initPivot);
+		auto prevSwitch = firstSwitch;
 
 		for (size_t i = 1; i < circPath.size() - 1; ++i)
 		{
 			auto curSwitch = this->getSwitchPositions(circPath[i], circPath[i + 1], 
 													  prevSwitch.second);
-			//if (curSwitch.first == -1)
-			//{
-			//	auto curSwitch = this->getSwitchPositions(circPath[i - 2], circPath[i], 
-			//											  prevSwitch.second);
-			//}
 			int32_t leftCut = prevSwitch.second;
 			int32_t rightCut = curSwitch.first;
 			prevSwitch = curSwitch;
+
+			if (i == circPath.size() - 2)	//finishing circle
+			{
+				rightCut = firstSwitch.first;
+				if (rightCut - leftCut <= 0) 
+					throw std::runtime_error("Error finishing circle!");
+			}
 
 			std::string partSeq = _seqContainer.getIndex().at(circPath[i])
 								 .sequence.substr(leftCut, rightCut - leftCut);

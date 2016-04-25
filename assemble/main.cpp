@@ -22,7 +22,7 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 				  << "[-x max_kmer_cov] \n\n"
 				  << "positional arguments:\n"
 				  << "\treads file\tpath to fasta with reads\n"
-				  << "\tout_assemblt\tpath to output file\n"
+				  << "\tout_assembly\tpath to output file\n"
 				  << "\noptional arguments:\n"
 				  << "\t-k kmer_size\tk-mer size [default = 15] \n"
 				  << "\t-m min_kmer_cov\tminimum k-mer coverage "
@@ -52,7 +52,7 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 			break;
 		case 'h':
 			printUsage();
-			return false;
+			exit(0);
 		}
 	}
 	if (argc - optind != 2)

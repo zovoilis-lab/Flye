@@ -1,3 +1,7 @@
+//(c) 2016 by Authors
+//This file is a part of ABruijn program.
+//Released under the BSD license (see LICENSE file)
+
 #include <set>
 #include <iostream>
 #include <cassert>
@@ -14,19 +18,6 @@ void OverlapDetector::findAllOverlaps(const VertexIndex& vertexIndex,
 		auto detectedOverlaps = this->getReadOverlaps(seqHash.first, 
 													  vertexIndex, seqContainer);
 		_overlapIndex[seqHash.first] = detectedOverlaps;
-		/*
-		std::cout << "Overlaps for " 
-				  << seqHash.second.description 
-				  << std::endl;
-		for (auto& ovlp : detectedOverlaps)
-		{
-			std::cout << "\twtih " 
-					  << seqContainer.getIndex().at(ovlp.extId).description 
-					  << " : " << ovlp.curBegin << "," << ovlp.curEnd 
-					  << " : " << ovlp.extBegin << "," << ovlp.extEnd 
-					  << std::endl;
-		}
-		*/
 	}
 }
 

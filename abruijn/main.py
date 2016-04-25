@@ -10,38 +10,38 @@ from __future__ import print_function
 import sys
 import os
 import logging
+import argparse
 
 import abruijn.alignment as aln
 import abruijn.bubbles as bbl
 import abruijn.polish as pol
 import abruijn.fasta_parser as fp
 import abruijn.assemble as asm
+from abruijn.__version__ import __version__
 
 
 logger = logging.getLogger()
 
 
-def run(reads_file, work_dir, num_proc, debug):
+def run(args):
+    if not os.path.isdir(args.out_dir):
+        os.mkdir(args.out_dir)
+    work_dir = os.path.abspath(args.out_dir)
+
     log_file = os.path.join(work_dir, "abruijn.log")
-    enable_logging(log_file, debug)
+    enable_logging(log_file, args.debug)
 
     logger.info("Running ABruijn")
     aln.check_binaries()
     pol.check_binaries()
     asm.check_binaries()
 
-    if not os.path.isdir(work_dir):
-        os.mkdir(work_dir)
-    work_dir = os.path.abspath(work_dir)
-
     preassembly = os.path.join(work_dir, "read_edges.fasta")
-    logger.info("Assembling reads")
-    asm.assemble(reads_file, preassembly)
-    alignment, genome_len = aln.get_alignment(preassembly, reads_file,
-                                              num_proc, work_dir)
+    asm.assemble(args.reads, preassembly, args.kmer_size, args.min_cov)
+    alignment, genome_len = aln.get_alignment(preassembly, args.reads,
+                                              args.threads, work_dir)
     bubbles = bbl.get_bubbles(alignment, genome_len)
-    logger.info("Polishing draft assembly")
-    polished_seq = pol.polish(bubbles, num_proc, work_dir)
+    polished_seq = pol.polish(bubbles, args.threads, work_dir)
     out_genome = os.path.join(work_dir, "contigs.fasta")
     fp.write_fasta_dict({"contig_1": polished_seq}, out_genome)
     logger.info("Done! Your assembly is in file: " + out_genome)
@@ -69,17 +69,33 @@ def enable_logging(log_file, debug):
 
 
 def main():
-    DEBUG = True
-    NUM_PROC = 8
-    if len(sys.argv) != 3:
-        print("Usage: abruijn.py reads_file out_dir")
-        return 1
+    parser = argparse.ArgumentParser(description="ABruijn: assembly of long and"
+                                     "error-prone reads", formatter_class= \
+                                     argparse.ArgumentDefaultsHelpFormatter)
+
+    parser.add_argument("reads", metavar="reads",
+                        help="path to a file with reads in FASTA format")
+    parser.add_argument("-o", "--outdir", dest="out_dir",
+                        metavar="output_dir",
+                        help="output directory",
+                        default="abruijn-out")
+    parser.add_argument("--debug", action="store_true",
+                        dest="debug", default=False,
+                        help="enable debug output")
+    parser.add_argument("-t", "--threads", dest="threads", type=int,
+                        default=1, help="number of parallel threads")
+    parser.add_argument("-k", "--kmer-size", dest="kmer_size", type=int,
+                        default=15, help="kmer size")
+    parser.add_argument("-m", "--min-cov", dest="min_cov", type=int,
+                        default=8, help="minimum kmer coverage")
+    parser.add_argument("--version", action="version", version=__version__)
+    args = parser.parse_args()
 
     try:
-        run(sys.argv[1], sys.argv[2], NUM_PROC, DEBUG)
+        run(args)
     except (aln.AlignmentException, pol.PolishException,
             asm.AssembleException) as e:
-        print("Error: ", e, file=sys.stderr)
+        logger.error("Error: {0}".format(e))
         return 1
 
     return 0
