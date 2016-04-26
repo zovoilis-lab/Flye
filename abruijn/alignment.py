@@ -91,7 +91,7 @@ def _run_blasr(reference_file, reads_file, num_proc, out_file):
                                "-bestn", "1", "-minMatch", "15",
                                "-maxMatch", "25", "-m", "5",
                                "-nproc", str(num_proc), "-out", out_file],
-                               stdout=devnull)
+                               stderr=devnull)
     except (subprocess.CalledProcessError, OSError) as e:
         logger.error("While running blasr: " + str(e))
         raise AlignmentException("Error in alignment module, exiting")

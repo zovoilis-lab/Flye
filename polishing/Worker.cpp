@@ -56,6 +56,7 @@ void Worker::run(const std::string& dataPath)
 		}
 		bubble.candidate = curCandidate;
 	}
+	std::cerr << std::endl;
 }
 
 void Worker::processCandidate(const std::string& candidate, 

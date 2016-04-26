@@ -6,6 +6,7 @@
 Runs polishing binary in parallel and concatentes output
 """
 
+import logging
 import random
 import subprocess
 import os
@@ -17,6 +18,7 @@ from abruijn.utils import which
 
 POLISH_BIN = "abruijn-polish"
 SUBS_MATRIX = "subs_matrix.txt"
+logger = logging.getLogger()
 
 
 class PolishException(Exception):

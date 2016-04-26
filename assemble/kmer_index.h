@@ -6,6 +6,7 @@
 
 #include <string>
 #include <unordered_map>
+#include <map>
 #include <vector>
 #include <iostream>
 
@@ -80,6 +81,7 @@ public:
 	unsigned int getKmerSize() const 
 		{return _kmerSize;}
 	void 		 buildReadIndex();
+	int 		 estimateCoverageCutoff() const;
 
 	const KmerIndex&  getIndexByKmer() const
 		{return _kmerIndex;}
@@ -90,6 +92,7 @@ public:
 private:
 	VertexIndex();
 	void addFastaSequence(const FastaRecord& fastaRecord);
+	std::map<int, int> _kmerDistribution;
 
 
 	unsigned int _kmerSize;

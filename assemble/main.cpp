@@ -1,3 +1,6 @@
+//(c) 2016 by Authors
+//This file is a part of ABruijn program.
+//Released under the BSD license (see LICENSE file)
 
 #include <iostream>
 #include <getopt.h>
@@ -17,7 +20,7 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 	auto printUsage = [argv]()
 	{
 		std::cerr << "Usage: " << argv[0]
-				  << "reads_file out_assembly "
+				  << " reads_file out_assembly "
 				  << "[-k kmer_size] [-m min_kmer_cov] "
 				  << "[-x max_kmer_cov] \n\n"
 				  << "positional arguments:\n"
@@ -26,13 +29,13 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 				  << "\noptional arguments:\n"
 				  << "\t-k kmer_size\tk-mer size [default = 15] \n"
 				  << "\t-m min_kmer_cov\tminimum k-mer coverage "
-				  << "[default = 8] \n"
+				  << "[default = auto] \n"
 				  << "\t-x max_kmer_cov\tmaximum k-mer coverage "
 				  << "[default = 24] \n";
 	};
 
 	kmerSize = 15;
-	minKmer = 8;
+	minKmer = -1;
 	maxKmer = 24;
 
 	const char optString[] = "k:m:x:h";
@@ -93,6 +96,10 @@ int main(int argc, char** argv)
 	vertexIndex.buildKmerIndex(seqContainer);
 
 	LOG_PRINT("Trimming index");
+	if (minKmerCov == -1)
+	{
+		minKmerCov = vertexIndex.estimateCoverageCutoff();
+	}
 	vertexIndex.applyKmerThresholds(minKmerCov, maxKmerCov);
 	LOG_PRINT("Building read index");
 	vertexIndex.buildReadIndex();

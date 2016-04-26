@@ -188,7 +188,14 @@ void VertexIndex::buildKmerIndex(const SequenceContainer& seqContainer)
 		while (true)
 		{
 			if (goodKmers.count(curKmer))
-				_kmerIndex[curKmer].push_back(ReadPosition(seqPair.second.id, pos));
+			{
+				_kmerIndex[curKmer]
+					.push_back(ReadPosition(seqPair.second.id, pos));
+			}
+			else
+			{
+				_kmerDistribution[bloomFilter.lookup(curKmer.hash())] += 1;
+			}
 
 			if (pos == seqPair.second.sequence.length())
 				break;
@@ -196,6 +203,36 @@ void VertexIndex::buildKmerIndex(const SequenceContainer& seqContainer)
 		}
 	}
 	std::cerr << std::endl;
+	
+	for (auto kmer : _kmerIndex)
+	{
+		_kmerDistribution[kmer.second.size()] += 1;
+	}
+}
+
+
+int VertexIndex::estimateCoverageCutoff() const
+{
+	int cutoff = 1;
+	int prevFreq = std::numeric_limits<int>::max();
+	for (auto mapPair : _kmerDistribution)
+	{
+		if (mapPair.first < 40)
+		{
+			std::cerr << mapPair.first << "\t" << mapPair.second << std::endl;
+		}
+	}
+	for (auto mapPair : _kmerDistribution)
+	{
+		if (mapPair.second > prevFreq)
+		{
+			cutoff = mapPair.first - 1;
+			break;
+		}
+		prevFreq = mapPair.second;
+	}
+	LOG_PRINT("Estimated coverage cutoff: " << cutoff);
+	return cutoff;
 }
 
 
