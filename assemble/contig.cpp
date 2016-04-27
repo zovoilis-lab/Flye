@@ -15,6 +15,8 @@ void ContigGenerator::generateContigs()
 	const auto& readPaths = _extender.getContigPaths();
 	for (const Extender::ReadPath& path : readPaths)
 	{
+		if (path.size() < 3) continue;
+
 		std::vector<FastaRecord> contigParts;
 		FastaRecord::ReadIdType partId = 1;
 		Extender::ReadPath circPath = path;
@@ -65,7 +67,10 @@ void ContigGenerator::outputContigs(const std::string& fileName)
 	//	fout << ">" << part.description << std::endl 
 	//		 << part.sequence << std::endl;
 	//}
-	SequenceContainer::writeFasta(_contigs.front(), fileName);
+	if (!_contigs.empty())
+	{
+		SequenceContainer::writeFasta(_contigs.front(), fileName);
+	}
 }
 
 

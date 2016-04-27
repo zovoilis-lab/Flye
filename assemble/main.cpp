@@ -86,37 +86,45 @@ int main(int argc, char** argv)
 		return 1;
 	}
 
-	SequenceContainer& seqContainer = SequenceContainer::getInstance();
-	LOG_PRINT("Reading FASTA");
-	seqContainer.readFasta(readsFasta);
-	VertexIndex& vertexIndex = VertexIndex::getInstance();
-	vertexIndex.setKmerSize(kmerSize);
-
-	LOG_PRINT("Building kmer index");
-	vertexIndex.buildKmerIndex(seqContainer);
-
-	LOG_PRINT("Trimming index");
-	if (minKmerCov == -1)
+	try
 	{
-		minKmerCov = vertexIndex.estimateCoverageCutoff();
+		SequenceContainer& seqContainer = SequenceContainer::getInstance();
+		LOG_PRINT("Reading FASTA");
+		seqContainer.readFasta(readsFasta);
+		VertexIndex& vertexIndex = VertexIndex::getInstance();
+		vertexIndex.setKmerSize(kmerSize);
+
+		LOG_PRINT("Building kmer index");
+		vertexIndex.buildKmerIndex(seqContainer);
+
+		LOG_PRINT("Trimming index");
+		if (minKmerCov == -1)
+		{
+			minKmerCov = vertexIndex.estimateCoverageCutoff();
+		}
+		vertexIndex.applyKmerThresholds(minKmerCov, maxKmerCov);
+		LOG_PRINT("Building read index");
+		vertexIndex.buildReadIndex();
+
+		OverlapDetector ovlp(MAX_JUMP, MIN_OVERLAP, MAX_OVERHANG);
+		ovlp.findAllOverlaps(vertexIndex, seqContainer);
+
+		ChimeraDetector chimDetect(MAX_OVERHANG, MAX_JUMP);
+		chimDetect.detectChimeras(ovlp, seqContainer);
+
+		Extender extender(ovlp, chimDetect, seqContainer);
+		extender.extendReads();
+
+		ContigGenerator contGen(MAX_JUMP, extender, ovlp, 
+								vertexIndex, seqContainer);
+		contGen.generateContigs();
+		contGen.outputContigs(outAssembly);
 	}
-	vertexIndex.applyKmerThresholds(minKmerCov, maxKmerCov);
-	LOG_PRINT("Building read index");
-	vertexIndex.buildReadIndex();
-
-	OverlapDetector ovlp(MAX_JUMP, MIN_OVERLAP, MAX_OVERHANG);
-	ovlp.findAllOverlaps(vertexIndex, seqContainer);
-
-	ChimeraDetector chimDetect(MAX_OVERHANG, MAX_JUMP);
-	chimDetect.detectChimeras(ovlp, seqContainer);
-
-	Extender extender(ovlp, chimDetect, seqContainer);
-	extender.extendReads();
-
-	ContigGenerator contGen(MAX_JUMP, extender, ovlp, 
-							vertexIndex, seqContainer);
-	contGen.generateContigs();
-	contGen.outputContigs(outAssembly);
+	catch (std::runtime_error& e)
+	{
+		ERROR_PRINT(e.what());
+		return 1;
+	}
 
 	return 0;
 }

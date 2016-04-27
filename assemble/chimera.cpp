@@ -15,6 +15,7 @@ void ChimeraDetector::detectChimeras(const OverlapDetector& ovlpDetector,
 
 	static const int WINDOW = 100;
 	static const float COV_THRESHOLD = 0.1f;
+	static const float MAGIC_NUMBER = 2.5f;
 	const size_t FLANK = (_maximumJump + _maximumOverhang) / WINDOW;
 
 	std::unordered_map<FastaRecord::ReadIdType, 
@@ -46,10 +47,9 @@ void ChimeraDetector::detectChimeras(const OverlapDetector& ovlpDetector,
 			++numWindows;
 		}
 	}
-	_coverage = covSum / numWindows;
-	//float estCov = covSum / numWindows;
-	//LOG_PRINT("Estimated coverage: " << estCov);
-	//_coverage = estCov;
+	_coverage = (numWindows != 0) ? covSum / numWindows : 1;
+	_coverage *= MAGIC_NUMBER;
+	DEBUG_PRINT("Estimated coverage: " << _coverage);
 
 	for (auto& seqHash : seqContainer.getIndex())
 	{
@@ -58,7 +58,7 @@ void ChimeraDetector::detectChimeras(const OverlapDetector& ovlpDetector,
 			 i < localCoverage[seqHash.first].size() - FLANK; ++i)
 		{
 			if (localCoverage[seqHash.first][i] < 
-				int(COV_THRESHOLD * _coverage))
+				std::max(COV_THRESHOLD * _coverage, 2.0f))
 			{
 				chimeric = true;
 				break;
@@ -66,8 +66,9 @@ void ChimeraDetector::detectChimeras(const OverlapDetector& ovlpDetector,
 		}
 		if (chimeric)
 		{
-			DEBUG_PRINT("Chimeric: " << seqHash.second.description);
+			//DEBUG_PRINT("Chimeric: " << seqHash.second.description);
 			_chimeras.insert(seqHash.first);
 		}
 	}
+	LOG_PRINT(_chimeras.size() << " sequences were marked as chimeric");
 }

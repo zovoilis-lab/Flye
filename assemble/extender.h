@@ -32,6 +32,7 @@ private:
 	FastaRecord::ReadIdType stepRight(FastaRecord::ReadIdType readId, 
 									  FastaRecord::ReadIdType startReadId);
 	bool isProperRightExtension(const OverlapDetector::OverlapRange& ovlp);
+	float isBranching(FastaRecord::ReadIdType readId);
 	int  countRightExtensions(FastaRecord::ReadIdType readId);
 
 	std::vector<ReadPath> _contigPaths;

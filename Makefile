@@ -10,7 +10,7 @@ export LDFLAGS = -L${LIBBF} -lbf
 
 all: 
 	make all -C ${LIBBF}
-	make log -C ${ASSEMBLE}
+	make all -C ${ASSEMBLE}
 	make all -C ${POLISH}
 debug:
 	make debug -C ${LIBBF}

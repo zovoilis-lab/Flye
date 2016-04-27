@@ -6,6 +6,7 @@
 #include <stdexcept>
 #include <iostream>
 #include <unordered_set>
+#include <algorithm>
 
 #include <bf.h>
 

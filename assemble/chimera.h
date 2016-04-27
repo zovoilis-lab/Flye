@@ -26,5 +26,5 @@ private:
 	std::unordered_set<FastaRecord::ReadIdType> _chimeras;
 	int _maximumOverhang;
 	int _maximumJump;
-	int _coverage;
+	float _coverage;
 };
