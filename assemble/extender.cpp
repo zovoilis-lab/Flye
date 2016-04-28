@@ -85,9 +85,10 @@ void Extender::assembleContigs()
 		FastaRecord::ReadIdType startRead = FastaRecord::ID_NONE;
 		for (auto& indexPair : _seqContainer.getIndex())
 		{	
-			if (_visitedReads.count(indexPair.first) &&
+			if (_visitedReads.count(indexPair.first) ||
 				_chimDetector.isChimeric(indexPair.first)) continue;
 
+			/*
 			bool overlapsVisited = false;
 			for (auto& ovlp : _ovlpDetector.getOverlapIndex().at(indexPair.first))
 			{
@@ -98,6 +99,7 @@ void Extender::assembleContigs()
 				}
 			}
 			if (overlapsVisited) continue;
+			*/
 
 			if (this->countRightExtensions(indexPair.first) > maxExtension)
 			{
@@ -108,6 +110,17 @@ void Extender::assembleContigs()
 		if (startRead == FastaRecord::ID_NONE) break;
 
 		_contigPaths.push_back(this->extendRead(startRead));
+		for (auto& readId : _contigPaths.back().reads)
+		{
+			for (auto& ovlp : _ovlpDetector.getOverlapIndex().at(readId))
+			{
+				if (this->branchIndex(ovlp.extId) > 0.5)
+				{
+					_visitedReads.insert(ovlp.extId);
+					_visitedReads.insert(-ovlp.extId);
+				}
+			}
+		}
 	}
 }
 
