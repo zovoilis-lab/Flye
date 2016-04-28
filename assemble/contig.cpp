@@ -51,7 +51,7 @@ void ContigGenerator::generateContigs()
 			std::string partName = 
 				(path.circular ? "circular_" : "linear_") + 
 				std::to_string(_contigs.size()) +
-				"part_" + std::to_string(partId) + "_" +
+				"_part_" + std::to_string(partId) + "_" +
 				_seqContainer.getIndex().at(circPath[i]).description + 
 				"[" + std::to_string(leftCut) + ":" + 
 				std::to_string(rightCut) + "]";
@@ -119,10 +119,9 @@ ContigGenerator::getSwitchPositions(FastaRecord::ReadIdType leftRead,
 	}
 	if (acceptedKmers.empty())
 	{
-		WARNING_PRINT("Warning: no jump found! " <<
-					  _seqContainer.getIndex().at(leftRead).description <<
-				" : " << _seqContainer.getIndex().at(rightRead).description);
-		return std::make_pair(prevSwitch, prevSwitch);
+		throw std::runtime_error("Warning: no jump found! " +
+					_seqContainer.getIndex().at(leftRead).description +
+					" : " + _seqContainer.getIndex().at(rightRead).description);
 	}
 
 	//returna median among kmer shifts

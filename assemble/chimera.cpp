@@ -61,7 +61,7 @@ void ChimeraDetector::detectChimeras()
 			 i < localCoverage[seqHash.first].size() - FLANK; ++i)
 		{
 			if (localCoverage[seqHash.first][i] < 
-				std::max(COV_THRESHOLD * _coverage, 2.0f))
+				std::max(COV_THRESHOLD * _coverage, 1.0f))
 			{
 				chimeric = true;
 				break;

@@ -88,19 +88,6 @@ void Extender::assembleContigs()
 			if (_visitedReads.count(indexPair.first) ||
 				_chimDetector.isChimeric(indexPair.first)) continue;
 
-			/*
-			bool overlapsVisited = false;
-			for (auto& ovlp : _ovlpDetector.getOverlapIndex().at(indexPair.first))
-			{
-				if (_visitedReads.count(ovlp.extId))
-				{
-					overlapsVisited = true;
-					break;
-				}
-			}
-			if (overlapsVisited) continue;
-			*/
-
 			if (this->countRightExtensions(indexPair.first) > maxExtension)
 			{
 				maxExtension = this->countRightExtensions(indexPair.first);
@@ -110,6 +97,12 @@ void Extender::assembleContigs()
 		if (startRead == FastaRecord::ID_NONE) break;
 
 		_contigPaths.push_back(this->extendRead(startRead));
+		//std::reverse(_contigPaths.back().reads.begin(), 
+		//			 _contigPaths.back().reads.end());
+		//for (size_t i = 0; i < _contigPaths.back().reads.size(); ++i) 
+		//{
+		//	_contigPaths.back().reads[i] = -_contigPaths.back().reads[i];
+		//}
 		for (auto& readId : _contigPaths.back().reads)
 		{
 			for (auto& ovlp : _ovlpDetector.getOverlapIndex().at(readId))
