@@ -109,11 +109,11 @@ int main(int argc, char** argv)
 		OverlapDetector ovlp(MAX_JUMP, MIN_OVERLAP, MAX_OVERHANG);
 		ovlp.findAllOverlaps(vertexIndex, seqContainer);
 
-		ChimeraDetector chimDetect(MAX_OVERHANG, MAX_JUMP);
-		chimDetect.detectChimeras(ovlp, seqContainer);
+		ChimeraDetector chimDetect(MAX_OVERHANG, MAX_JUMP, ovlp, seqContainer);
+		chimDetect.detectChimeras();
 
 		Extender extender(ovlp, chimDetect, seqContainer);
-		extender.extendReads();
+		extender.assembleContigs();
 
 		ContigGenerator contGen(MAX_JUMP, extender, ovlp, 
 								vertexIndex, seqContainer);

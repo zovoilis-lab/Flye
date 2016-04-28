@@ -8,6 +8,18 @@
 #include "overlap.h"
 #include "chimera.h"
 
+struct ContigPath
+{
+	ContigPath(): 
+		circular(false) {}
+	ContigPath(ContigPath && other): 
+		circular(other.circular) 
+	{reads.swap(other.reads);}
+
+	std::vector<FastaRecord::ReadIdType> reads;
+	bool circular;
+};
+
 class Extender
 {
 public:
@@ -18,10 +30,10 @@ public:
 		_seqContainer(seqContainer)
 	{}
 
-	typedef std::vector<FastaRecord::ReadIdType> ReadPath;
+	//typedef std::vector<FastaRecord::ReadIdType> ReadPath;
 
-	void extendReads();
-	const std::vector<ReadPath>& getContigPaths() const
+	void assembleContigs();
+	const std::vector<ContigPath>& getContigPaths() const
 		{return _contigPaths;}
 
 private:
@@ -31,9 +43,12 @@ private:
 
 	FastaRecord::ReadIdType stepRight(FastaRecord::ReadIdType readId, 
 									  FastaRecord::ReadIdType startReadId);
-	bool isProperRightExtension(const OverlapDetector::OverlapRange& ovlp);
-	float isBranching(FastaRecord::ReadIdType readId);
-	int  countRightExtensions(FastaRecord::ReadIdType readId);
+	ContigPath extendRead(FastaRecord::ReadIdType readId);
 
-	std::vector<ReadPath> _contigPaths;
+	bool  isProperRightExtension(const OverlapDetector::OverlapRange& ovlp);
+	float branchIndex(FastaRecord::ReadIdType readId);
+	int   countRightExtensions(FastaRecord::ReadIdType readId);
+
+	std::vector<ContigPath> _contigPaths;
+	std::unordered_set<FastaRecord::ReadIdType>	_visitedReads;
 };

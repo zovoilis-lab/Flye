@@ -4,12 +4,15 @@
 
 #include <vector>
 #include <iostream>
+#include <unordered_set>
+#include <unordered_map>
 
 #include "chimera.h"
 #include "utility.h"
+#include "disjoint_set.h"
 
-void ChimeraDetector::detectChimeras(const OverlapDetector& ovlpDetector,
-									 const SequenceContainer& seqContainer)
+
+void ChimeraDetector::detectChimeras()
 {
 	LOG_PRINT("Detecting chimeric sequences");
 
@@ -20,9 +23,9 @@ void ChimeraDetector::detectChimeras(const OverlapDetector& ovlpDetector,
 
 	std::unordered_map<FastaRecord::ReadIdType, 
 					   std::vector<int>> localCoverage;
-	for (auto& seqHash : seqContainer.getIndex())
+	for (auto& seqHash : _seqContainer.getIndex())
 	{
-		auto& overlaps = ovlpDetector.getOverlapIndex().at(seqHash.first);
+		auto& overlaps = _ovlpDetector.getOverlapIndex().at(seqHash.first);
 		int numWindows = seqHash.second.sequence.length() / WINDOW;
 		localCoverage[seqHash.first].assign(numWindows, 0);
 
@@ -38,7 +41,7 @@ void ChimeraDetector::detectChimeras(const OverlapDetector& ovlpDetector,
 
 	float covSum = 0;
 	int numWindows = 0;
-	for (auto& seqHash : seqContainer.getIndex())
+	for (auto& seqHash : _seqContainer.getIndex())
 	{
 		for (size_t i = FLANK; 
 			 i < localCoverage[seqHash.first].size() - FLANK; ++i)
@@ -51,7 +54,7 @@ void ChimeraDetector::detectChimeras(const OverlapDetector& ovlpDetector,
 	_coverage *= MAGIC_NUMBER;
 	DEBUG_PRINT("Estimated coverage: " << _coverage);
 
-	for (auto& seqHash : seqContainer.getIndex())
+	for (auto& seqHash : _seqContainer.getIndex())
 	{
 		bool chimeric = false;
 		for (size_t i = FLANK; 
@@ -65,10 +68,40 @@ void ChimeraDetector::detectChimeras(const OverlapDetector& ovlpDetector,
 			}
 		}
 		if (chimeric)
+		//if (this->testRead(seqHash.first))
 		{
 			//DEBUG_PRINT("Chimeric: " << seqHash.second.description);
 			_chimeras.insert(seqHash.first);
 		}
 	}
 	LOG_PRINT(_chimeras.size() << " sequences were marked as chimeric");
+}
+
+bool ChimeraDetector::testRead(FastaRecord::ReadIdType readId)
+{
+	auto& overlaps = _ovlpDetector.getOverlapIndex().at(readId);
+	std::unordered_map<FastaRecord::ReadIdType,
+					   SetNode<FastaRecord::ReadIdType>*> extensions;
+    for (auto& ovlp : overlaps) 
+	{
+		extensions[ovlp.extId] = new SetNode<FastaRecord::ReadIdType>(ovlp.extId);
+	}
+
+	for (auto& extHash : extensions)
+	{
+		auto& extOverlaps = _ovlpDetector.getOverlapIndex().at(extHash.first);
+		for (auto& extOvlp : extOverlaps)
+		{
+			if (extensions.count(extOvlp.extId))
+			{
+				unionSet(extHash.second, extensions[extOvlp.extId]);
+			}
+		}
+	}
+
+	std::unordered_set<SetNode<FastaRecord::ReadIdType>*> clusters;
+	for (auto& extHash : extensions) clusters.insert(findSet(extHash.second));
+
+	//DEBUG_PRINT("Clusters: " << clusters.size());
+	return clusters.size() != 1;
 }

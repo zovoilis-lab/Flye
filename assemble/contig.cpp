@@ -13,15 +13,18 @@ void ContigGenerator::generateContigs()
 {
 	LOG_PRINT("Generating contig sequences");
 	const auto& readPaths = _extender.getContigPaths();
-	for (const Extender::ReadPath& path : readPaths)
+	for (const ContigPath& path : readPaths)
 	{
-		if (path.size() < 3) continue;
+		if (path.reads.size() < 2) continue;
 
 		std::vector<FastaRecord> contigParts;
 		FastaRecord::ReadIdType partId = 1;
-		Extender::ReadPath circPath = path;
-		circPath.push_back(path[0]);
-		circPath.push_back(path[1]);
+		auto circPath = path.reads;
+		if (path.circular)
+		{
+			circPath.push_back(path.reads[0]);
+			circPath.push_back(path.reads[1]);
+		}
 
 		int initPivot = _seqContainer.getIndex().at(circPath[0])
 												.sequence.length() / 2;
@@ -37,16 +40,17 @@ void ContigGenerator::generateContigs()
 			int32_t rightCut = curSwitch.first;
 			prevSwitch = curSwitch;
 
-			if (i == circPath.size() - 2)	//finishing circle
+			if (path.circular && i == circPath.size() - 2)	//finishing circle
 			{
 				rightCut = firstSwitch.first;
-				if (rightCut - leftCut <= 0) 
-					throw std::runtime_error("Error finishing circle!");
+				if (rightCut - leftCut <= 0) rightCut = leftCut;
 			}
 
 			std::string partSeq = _seqContainer.getIndex().at(circPath[i])
 								 .sequence.substr(leftCut, rightCut - leftCut);
 			std::string partName = 
+				(path.circular ? "circular_" : "linear_") + 
+				std::to_string(_contigs.size()) +
 				"part_" + std::to_string(partId) + "_" +
 				_seqContainer.getIndex().at(circPath[i]).description + 
 				"[" + std::to_string(leftCut) + ":" + 
@@ -67,10 +71,12 @@ void ContigGenerator::outputContigs(const std::string& fileName)
 	//	fout << ">" << part.description << std::endl 
 	//		 << part.sequence << std::endl;
 	//}
-	if (!_contigs.empty())
+	std::vector<FastaRecord> allSeqs;
+	for (auto& ctg : _contigs)
 	{
-		SequenceContainer::writeFasta(_contigs.front(), fileName);
+		allSeqs.insert(allSeqs.end(), ctg.begin(), ctg.end());
 	}
+	SequenceContainer::writeFasta(allSeqs, fileName);
 }
 
 
@@ -113,7 +119,9 @@ ContigGenerator::getSwitchPositions(FastaRecord::ReadIdType leftRead,
 	}
 	if (acceptedKmers.empty())
 	{
-		WARNING_PRINT("Warning: no jump found!");
+		WARNING_PRINT("Warning: no jump found! " <<
+					  _seqContainer.getIndex().at(leftRead).description <<
+				" : " << _seqContainer.getIndex().at(rightRead).description);
 		return std::make_pair(prevSwitch, prevSwitch);
 	}
 
