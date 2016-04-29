@@ -19,6 +19,18 @@ void OverlapDetector::findAllOverlaps(const VertexIndex& vertexIndex,
 													  vertexIndex, seqContainer);
 		_overlapIndex[seqHash.first] = detectedOverlaps;
 	}
+	/*for (auto& seqPair : _overlapIndex)
+	{
+		for (auto& ovlp : seqPair.second)
+		{
+			bool found = false;
+			for (auto& extOvlp : _overlapIndex[-ovlp.extId])
+			{
+				if (extOvlp.extId == -seqPair.first) found = true;
+			}
+			DEBUG_PRINT((found ? "found" : "not found"));
+		}
+	}*/
 }
 
 //pre-filtering (maybe it's not needed)
@@ -184,5 +196,6 @@ OverlapDetector::getReadOverlaps(FastaRecord::ReadIdType currentReadId,
 			detectedOverlaps.push_back(maxOverlap);
 		}
 	}
+
 	return detectedOverlaps;
 }

@@ -65,12 +65,6 @@ void ContigGenerator::generateContigs()
 
 void ContigGenerator::outputContigs(const std::string& fileName)
 {
-	//std::ofstream fout(fileName);
-	//for (auto& part : _contigs.front())
-	//{
-	//	fout << ">" << part.description << std::endl 
-	//		 << part.sequence << std::endl;
-	//}
 	std::vector<FastaRecord> allSeqs;
 	for (auto& ctg : _contigs)
 	{
