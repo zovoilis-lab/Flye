@@ -16,22 +16,26 @@ void ChimeraDetector::detectChimeras(const OverlapDetector& ovlpDetector,
 	static const int WINDOW = 100;
 	static const float COV_THRESHOLD = 0.1f;
 	static const float MAGIC_NUMBER = 2.5f;
-	const size_t FLANK = (_maximumJump + _maximumOverhang) / WINDOW;
+	const int FLANK = (_maximumJump + _maximumOverhang) / WINDOW;
 
 	std::unordered_map<FastaRecord::ReadIdType, 
 					   std::vector<int>> localCoverage;
 	for (auto& seqHash : seqContainer.getIndex())
 	{
-		auto& overlaps = ovlpDetector.getOverlapIndex().at(seqHash.first);
 		int numWindows = seqHash.second.sequence.length() / WINDOW;
-		localCoverage[seqHash.first].assign(numWindows, 0);
+		if (numWindows - 2 * FLANK <= 0) continue;
+		localCoverage[seqHash.first].assign(numWindows - 2 * FLANK, 0);
 
-		for (auto& ovlp : overlaps)
+		for (auto& ovlp : ovlpDetector.getOverlapIndex().at(seqHash.first))
 		{
 			for (int pos = (ovlp.curBegin + _maximumJump) / WINDOW; 
 				 pos < (ovlp.curEnd - _maximumJump) / WINDOW; ++pos)
 			{
-				++localCoverage[seqHash.first][pos];
+				if (pos - FLANK >= 0 && 
+					pos - FLANK < (int)localCoverage[seqHash.first].size())
+				{
+					++localCoverage[seqHash.first][pos - FLANK];
+				}
 			}
 		}
 	}
@@ -40,10 +44,9 @@ void ChimeraDetector::detectChimeras(const OverlapDetector& ovlpDetector,
 	int numWindows = 0;
 	for (auto& seqHash : seqContainer.getIndex())
 	{
-		for (size_t i = FLANK; 
-			 i < localCoverage[seqHash.first].size() - FLANK; ++i)
+		for (int cov : localCoverage[seqHash.first])
 		{
-			covSum += localCoverage[seqHash.first][i];
+			covSum += cov;
 			++numWindows;
 		}
 	}
@@ -54,11 +57,9 @@ void ChimeraDetector::detectChimeras(const OverlapDetector& ovlpDetector,
 	for (auto& seqHash : seqContainer.getIndex())
 	{
 		bool chimeric = false;
-		for (size_t i = FLANK; 
-			 i < localCoverage[seqHash.first].size() - FLANK; ++i)
+		for (int cov : localCoverage[seqHash.first])
 		{
-			if (localCoverage[seqHash.first][i] < 
-				std::max(COV_THRESHOLD * _coverage, 2.0f))
+			if (cov < std::max(COV_THRESHOLD * _coverage, 1.0f))
 			{
 				chimeric = true;
 				break;
