@@ -99,7 +99,8 @@ OverlapDetector::getReadOverlaps(FastaRecord::ReadIdType currentReadId,
 		//for all other occurences of this kmer (extension candidates)
 		for (auto& extReadPos : kmerIndex.at(curKmerPos.kmer))
 		{
-			if (extReadPos.readId == currentReadId) continue;
+			if (extReadPos.readId == currentReadId ||
+				extReadPos.readId == -currentReadId) continue;
 
 			int32_t extPos = extReadPos.position;
 			auto& extPaths = activePaths[extReadPos.readId];

@@ -32,10 +32,19 @@ void ContigGenerator::generateContigs()
 													initPivot);
 		auto prevSwitch = firstSwitch;
 
+		int readShift = 1;
 		for (size_t i = 1; i < circPath.size() - 1; ++i)
 		{
-			auto curSwitch = this->getSwitchPositions(circPath[i], circPath[i + 1], 
+			auto curSwitch = this->getSwitchPositions(circPath[i], 
+													  circPath[i + readShift], 
 													  prevSwitch.second);
+			//TODO: a better solution
+			if (curSwitch.first == prevSwitch.second)
+			{
+				prevSwitch.second = 0;
+				continue;
+			}
+
 			int32_t leftCut = prevSwitch.second;
 			int32_t rightCut = curSwitch.first;
 			prevSwitch = curSwitch;
@@ -79,7 +88,7 @@ ContigGenerator::getSwitchPositions(FastaRecord::ReadIdType leftRead,
 									FastaRecord::ReadIdType rightRead,
 									int32_t prevSwitch)
 {
-	int32_t ovlpShift = 0;
+	/*int32_t ovlpShift = 0;
 	for (auto& ovlp : _overlapDetector.getOverlapIndex().at(leftRead))
 	{
 		if (ovlp.extId == rightRead)
@@ -88,10 +97,9 @@ ContigGenerator::getSwitchPositions(FastaRecord::ReadIdType leftRead,
 						 ovlp.curEnd - ovlp.extEnd) / 2;
 			break;
 		}
-	}
+	}*/
 
 	std::vector<std::pair<int32_t, int32_t>> acceptedKmers;
-	//std::vector<int32_t> kmerShifts;
 	for (auto& leftKmer : _vertexIndex.getIndexByRead().at(leftRead))
 	{
 		if (leftKmer.position <= prevSwitch)
@@ -102,20 +110,20 @@ ContigGenerator::getSwitchPositions(FastaRecord::ReadIdType leftRead,
 			if (rightKmer.readId != rightRead)
 				continue;
 
-			int32_t kmerShift = leftKmer.position - rightKmer.position;
-			//kmerShifts.push_back(kmerShift);
-			if (abs(kmerShift - ovlpShift) < _maximumJump / 2)
-			{
-				acceptedKmers.push_back(std::make_pair(leftKmer.position, 
-													   rightKmer.position));
-			}
+			//int32_t kmerShift = leftKmer.position - rightKmer.position;
+			//if (abs(kmerShift - ovlpShift) < _maximumJump / 2)
+			//{
+			acceptedKmers.push_back(std::make_pair(leftKmer.position, 
+												   rightKmer.position));
+			//}
 		}
 	}
 	if (acceptedKmers.empty())
 	{
-		throw std::runtime_error("Warning: no jump found! " +
-					_seqContainer.getIndex().at(leftRead).description +
-					" : " + _seqContainer.getIndex().at(rightRead).description);
+		WARNING_PRINT("Warning: no jump found! " +
+					  _seqContainer.getIndex().at(leftRead).description +
+					  " : " + _seqContainer.getIndex().at(rightRead).description);
+		return std::make_pair(prevSwitch, prevSwitch);
 	}
 
 	//returna median among kmer shifts

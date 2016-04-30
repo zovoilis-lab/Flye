@@ -165,46 +165,54 @@ FastaRecord::ReadIdType Extender::stepRight(FastaRecord::ReadIdType readId,
 	for (auto& ovlp : overlaps)
 	{
 		assert(ovlp.curId != ovlp.extId);
-		if (this->isProperRightExtension(ovlp)) extensions.insert(ovlp.extId);
+		if (this->isProperRightExtension(ovlp) &&
+			this->countRightExtensions(ovlp.extId) > 0) 
+		{
+			extensions.insert(ovlp.extId);
+		}
 	}
 
 	//rank extension candidates
-	std::unordered_map<FastaRecord::ReadIdType, int> supportIndex;
+	std::unordered_map<FastaRecord::ReadIdType, 
+					   std::tuple<int, int, int>> supportIndex;
 	for (auto& extCandidate : extensions)
 	{
 		int leftSupport = 0;
 		int rightSupport = 0;
+		int ovlpSize = 0;
 		for (auto& ovlp : _ovlpDetector.getOverlapIndex().at(extCandidate))
 		{
+			if (ovlp.extId == readId) ovlpSize = ovlp.curRange();
 			if (!extensions.count(ovlp.extId)) continue;
 
 			if (this->isProperRightExtension(ovlp)) ++rightSupport;
 			if (this->isProperLeftExtension(ovlp)) ++leftSupport;
 		}
-		supportIndex[extCandidate] = std::min(leftSupport, rightSupport);
-		DEBUG_PRINT(leftSupport << " " << rightSupport 
-					<< " " << supportIndex[extCandidate]);
+		//supportIndex[extCandidate] = std::make_tuple(rightSupport, 
+		//											 leftSupport, ovlpSize);
+		int minSupport = std::min(leftSupport, rightSupport);
+		supportIndex[extCandidate] = std::make_tuple(minSupport, 
+													 rightSupport, ovlpSize);
+		DEBUG_PRINT(_seqContainer.getIndex().at(extCandidate).description
+					<< " " << leftSupport << " " << rightSupport);
 	}
 
-	//int32_t maxOverlap = std::numeric_limits<int32_t>::min();
-	int maxSupport = -1;
-	//int maxOverlap = -1;
+	auto bestSupport = std::make_tuple(0, 0, 0);
 	auto bestExtension = FastaRecord::ID_NONE;
-	//bool reliableExtension = false;
 	for (auto& extCandidate : extensions)
 	{
 		if (extCandidate == startReadId) return startReadId;
-		if (_visitedReads.count(extCandidate)) continue;
-		//if (supportIndex[extCandidate] == 0) continue;
-		//if (this->branchIndex(extCandidate) > 0.5) continue;
+		//if (_visitedReads.count(extCandidate)) continue;
 
-		//DEBUG_PRINT(supportIndex[extCandidate]);
-		if (supportIndex[extCandidate] > maxSupport)
+		if (supportIndex[extCandidate] > bestSupport)
 		{
-			maxSupport = supportIndex[extCandidate];
+			bestSupport = supportIndex[extCandidate];
 			bestExtension = extCandidate;
 		}
 	}
+
+	//if (supportIndex[extCandidate] == 0) continue;
+	//if (this->branchIndex(extCandidate) > 0.5) continue;
 
 	if (bestExtension != FastaRecord::ID_NONE)
 	{
@@ -215,20 +223,6 @@ FastaRecord::ReadIdType Extender::stepRight(FastaRecord::ReadIdType readId,
 			DEBUG_PRINT("Branching extension! " << 
 					_seqContainer.getIndex().at(bestExtension).description);
 	}
-	//DEBUG_PRINT("-------------");
-	/*if (bestExtension != FastaRecord::ID_NONE)
-	{
-		DEBUG_PRINT("Result: " << 
-					_seqContainer.getIndex().at(bestExtension).description);
-	}*/
-	/*if (bestExtension != FastaRecord::ID_NONE)
-	{
-		float ovlpIndex = this->branchIndex(bestExtension);
-		if (ovlpIndex < 0.5) 
-			DEBUG_PRINT("Making branching extension: " << ovlpIndex);
-	}*/
-	//if (!reliableExtension) DEBUG_PRINT("Making non-reliable extension!");
-
 	return bestExtension;
 }
 
