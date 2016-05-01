@@ -44,15 +44,15 @@ ContigPath Extender::extendRead(FastaRecord::Id startRead)
 			if (rightExtension)
 			{
 				DEBUG_PRINT("Changing direction");
-				break;
-				/*rightExtension = false;
+				//break;
+				rightExtension = false;
 				extRead = startRead.rc();
 				std::reverse(contigPath.reads.begin(), contigPath.reads.end());
 				for (size_t i = 0; i < contigPath.reads.size(); ++i) 
 				{
 					contigPath.reads[i] = contigPath.reads[i].rc();
 				}
-				contigPath.reads.pop_back();*/
+				contigPath.reads.pop_back();
 			}
 			else
 			{
@@ -193,8 +193,8 @@ FastaRecord::Id Extender::stepRight(FastaRecord::Id readId,
 		int minSupport = std::min(leftSupport, rightSupport);
 		supportIndex[extCandidate] = std::make_tuple(minSupport, 
 													 rightSupport, ovlpSize);
-		DEBUG_PRINT(_seqContainer.getIndex().at(extCandidate).description
-					<< " " << leftSupport << " " << rightSupport);
+		//DEBUG_PRINT(_seqContainer.getIndex().at(extCandidate).description
+		//			<< " " << leftSupport << " " << rightSupport);
 	}
 
 	auto bestSupport = std::make_tuple(0, 0, 0);
