@@ -45,8 +45,8 @@ private:
 									  FastaRecord::ReadIdType startReadId);
 	ContigPath extendRead(FastaRecord::ReadIdType readId);
 
-	bool  isProperRightExtension(const OverlapDetector::OverlapRange& ovlp);
-	bool  isProperLeftExtension(const OverlapDetector::OverlapRange& ovlp);
+	bool  isProperRightExtension(const OverlapRange& ovlp);
+	bool  isProperLeftExtension(const OverlapRange& ovlp);
 	float branchIndex(FastaRecord::ReadIdType readId);
 	int   countRightExtensions(FastaRecord::ReadIdType readId);
 

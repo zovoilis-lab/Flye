@@ -237,15 +237,15 @@ int Extender::countRightExtensions(FastaRecord::ReadIdType readId)
 }
 
 //Checks if read is extended to the right
-bool Extender::isProperRightExtension(const OverlapDetector::OverlapRange& ovlp)
+bool Extender::isProperRightExtension(const OverlapRange& ovlp)
 {
-	int32_t curLen = _seqContainer.getIndex().at(ovlp.curId).sequence.length();
-	int32_t extLen = _seqContainer.getIndex().at(ovlp.extId).sequence.length();
+	int32_t curLen = _seqContainer.seqLen(ovlp.curId);
+	int32_t extLen = _seqContainer.seqLen(ovlp.extId);
 	return extLen - ovlp.extEnd > curLen - ovlp.curEnd;
 }
 
 //Checks if read is extended to the left
-bool Extender::isProperLeftExtension(const OverlapDetector::OverlapRange& ovlp)
+bool Extender::isProperLeftExtension(const OverlapRange& ovlp)
 {
 	return ovlp.extBegin > ovlp.curBegin;
 }
