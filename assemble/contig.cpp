@@ -18,7 +18,7 @@ void ContigGenerator::generateContigs()
 		if (path.reads.size() < 2) continue;
 
 		std::vector<FastaRecord> contigParts;
-		FastaRecord::ReadIdType partId = 1;
+		int partNum = 1;
 		auto circPath = path.reads;
 		if (path.circular)
 		{
@@ -60,12 +60,13 @@ void ContigGenerator::generateContigs()
 			std::string partName = 
 				(path.circular ? "circular_" : "linear_") + 
 				std::to_string(_contigs.size()) +
-				"_part_" + std::to_string(partId) + "_" +
+				"_part_" + std::to_string(partNum) + "_" +
 				_seqContainer.getIndex().at(circPath[i]).description + 
 				"[" + std::to_string(leftCut) + ":" + 
 				std::to_string(rightCut) + "]";
-			contigParts.push_back(FastaRecord(partSeq, partName, partId));
-			++partId;
+			contigParts.push_back(FastaRecord(partSeq, partName, 
+											  FastaRecord::Id(partNum)));
+			++partNum;
 		}
 		_contigs.push_back(contigParts);
 	}
@@ -84,8 +85,8 @@ void ContigGenerator::outputContigs(const std::string& fileName)
 
 
 std::pair<int32_t, int32_t> 
-ContigGenerator::getSwitchPositions(FastaRecord::ReadIdType leftRead, 
-									FastaRecord::ReadIdType rightRead,
+ContigGenerator::getSwitchPositions(FastaRecord::Id leftRead, 
+									FastaRecord::Id rightRead,
 									int32_t prevSwitch)
 {
 	/*int32_t ovlpShift = 0;

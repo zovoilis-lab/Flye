@@ -20,17 +20,17 @@ public:
 	{}
 
 	void detectChimeras();
-	bool isChimeric(FastaRecord::ReadIdType readId) const
+	bool isChimeric(FastaRecord::Id readId) const
 		{return _chimeras.count(readId) != 0;}
 	int getCoverage() const {return _coverage;}
 
 private:
-	bool testRead(FastaRecord::ReadIdType readId);
+	bool testRead(FastaRecord::Id readId);
 
 	const OverlapDetector& _ovlpDetector;
 	const SequenceContainer& _seqContainer;
 
-	std::unordered_set<FastaRecord::ReadIdType> _chimeras;
+	std::unordered_set<FastaRecord::Id> _chimeras;
 	int _maximumOverhang;
 	int _maximumJump;
 	float _coverage;

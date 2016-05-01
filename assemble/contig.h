@@ -32,8 +32,8 @@ private:
 	const VertexIndex& _vertexIndex;
 	const SequenceContainer& _seqContainer;
 
-	std::pair<int32_t, int32_t> getSwitchPositions(FastaRecord::ReadIdType leftRead, 
-												   FastaRecord::ReadIdType rightRead,
+	std::pair<int32_t, int32_t> getSwitchPositions(FastaRecord::Id leftRead, 
+												   FastaRecord::Id rightRead,
 												   int32_t prevSwitch);
 
 	std::vector<std::vector<FastaRecord>> _contigs;

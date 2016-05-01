@@ -45,6 +45,10 @@ namespace
 	}
 }
 
+const FastaRecord::Id FastaRecord::ID_NONE = 
+			std::numeric_limits<uint32_t>::max();
+
+
 void SequenceContainer::readFasta(const std::string& fileName)
 {
 	std::vector<FastaRecord> records;
@@ -65,7 +69,7 @@ size_t SequenceContainer::getSequences(std::vector<FastaRecord>& record,
 	int line = 1;
 
 	record.clear();
-	FastaRecord::ReadIdType seqId = 1;
+	int seqNum = 0;
 
 	try
 	{
@@ -81,8 +85,8 @@ size_t SequenceContainer::getSequences(std::vector<FastaRecord>& record,
 				{
 					if (sequence.empty()) throw ParseException("empty sequence");
 
-					record.push_back(FastaRecord(sequence, header, seqId));
-					++seqId;
+					record.push_back(FastaRecord(sequence, header, FastaRecord::Id(seqNum)));
+					seqNum += 2;
 					sequence.clear();
 					header.clear();
 				}
@@ -99,7 +103,7 @@ size_t SequenceContainer::getSequences(std::vector<FastaRecord>& record,
 		}
 		
 		if (sequence.empty()) throw ParseException("empty sequence");
-		record.push_back(FastaRecord(sequence, header, seqId));
+		record.push_back(FastaRecord(sequence, header, FastaRecord::Id(seqNum)));
 	}
 	catch (ParseException & e)
 	{
@@ -122,7 +126,8 @@ size_t SequenceContainer::getSequencesWithComplements(std::vector<FastaRecord>& 
 		record.description = "+" + record.description;
 		std::string revComplement;
 		reverseComplement(record.sequence, revComplement);
-		complements.push_back(FastaRecord(revComplement, header, -record.id));
+		complements.push_back(FastaRecord(revComplement, header, 
+										  record.id.rc()));
 	}
 	std::copy(complements.begin(), complements.end(), std::back_inserter(records));
 	return records.size();

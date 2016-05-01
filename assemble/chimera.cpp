@@ -21,7 +21,7 @@ void ChimeraDetector::detectChimeras()
 	static const float MAGIC_NUMBER = 2.5f;
 	const int FLANK = (_maximumJump + _maximumOverhang) / WINDOW;
 
-	std::unordered_map<FastaRecord::ReadIdType, 
+	std::unordered_map<FastaRecord::Id, 
 					   std::vector<int>> localCoverage;
 	for (auto& seqHash : _seqContainer.getIndex())
 	{
@@ -78,14 +78,14 @@ void ChimeraDetector::detectChimeras()
 	LOG_PRINT(_chimeras.size() << " sequences were marked as chimeric");
 }
 
-bool ChimeraDetector::testRead(FastaRecord::ReadIdType readId)
+bool ChimeraDetector::testRead(FastaRecord::Id readId)
 {
 	auto& overlaps = _ovlpDetector.getOverlapIndex().at(readId);
-	std::unordered_map<FastaRecord::ReadIdType,
-					   SetNode<FastaRecord::ReadIdType>*> extensions;
+	std::unordered_map<FastaRecord::Id,
+					   SetNode<FastaRecord::Id>*> extensions;
     for (auto& ovlp : overlaps) 
 	{
-		extensions[ovlp.extId] = new SetNode<FastaRecord::ReadIdType>(ovlp.extId);
+		extensions[ovlp.extId] = new SetNode<FastaRecord::Id>(ovlp.extId);
 	}
 
 	for (auto& extHash : extensions)
@@ -100,7 +100,7 @@ bool ChimeraDetector::testRead(FastaRecord::ReadIdType readId)
 		}
 	}
 
-	std::unordered_set<SetNode<FastaRecord::ReadIdType>*> clusters;
+	std::unordered_set<SetNode<FastaRecord::Id>*> clusters;
 	for (auto& extHash : extensions) clusters.insert(findSet(extHash.second));
 
 	//DEBUG_PRINT("Clusters: " << clusters.size());

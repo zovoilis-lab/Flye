@@ -7,24 +7,10 @@
 #include "kmer_index.h"
 #include "fasta.h"
 
-/*
-namespace std
-{
-	template <>
-	struct hash<pair<FastaRecord::ReadIdType, FastaRecord::ReadIdType>> 
-	{
-		size_t operator() (const pair<FastaRecord::ReadIdType, 
-						   FastaRecord::ReadIdType>& h) const throw() 
-		{
-			 return std::hash<FastaRecord::ReadIdType>()(h.first) ^ 
-				 	std::hash<FastaRecord::ReadIdType>()(h.second);
-		}
-	};
-}*/
 
 struct OverlapRange
 {
-	OverlapRange(FastaRecord::ReadIdType curId, FastaRecord::ReadIdType extId, 
+	OverlapRange(FastaRecord::Id curId, FastaRecord::Id extId, 
 				 int32_t curInit, int32_t extInit): 
 		curId(curId), curBegin(curInit), curEnd(curInit), 
 		extId(extId), extBegin(extInit), extEnd(extInit){}
@@ -48,16 +34,16 @@ struct OverlapRange
 		extBegin = extLen - extBegin;
 		extEnd = extLen - extEnd;
 
-		curId = -curId;
-		extId = -extId;
+		curId = curId.rc();
+		extId = extId.rc();
 	}
 
 	//current read
-	FastaRecord::ReadIdType curId;
+	FastaRecord::Id curId;
 	int32_t curBegin;
 	int32_t curEnd;
 	//extension read
-	FastaRecord::ReadIdType extId;
+	FastaRecord::Id extId;
 	int32_t extBegin;
 	int32_t extEnd;
 };
@@ -76,11 +62,11 @@ public:
 
 	
 
-	typedef std::unordered_map<FastaRecord::ReadIdType, 
+	typedef std::unordered_map<FastaRecord::Id, 
 					   std::vector<OverlapRange>> OverlapIndex;
 	const OverlapIndex& getOverlapIndex() const {return _overlapIndex;}
 private:
-	std::vector<OverlapRange> getReadOverlaps(FastaRecord::ReadIdType readId, 
+	std::vector<OverlapRange> getReadOverlaps(FastaRecord::Id readId, 
 						 					  const VertexIndex& vertexIndex,
 						 					  const SequenceContainer& seqContainer);
 
@@ -97,8 +83,6 @@ private:
 	int _maximumOverhang;
 
 	OverlapIndex _overlapIndex;
-	//std::unordered_map<std::pair<FastaRecord::ReadIdType, 
-	//							 FastaRecord::ReadIdType>, bool> _overlapMatrix;
 	std::vector<std::vector<char>> _overlapMatrix;
 };
 

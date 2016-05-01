@@ -56,9 +56,9 @@ public:
 
 	struct ReadPosition
 	{
-		ReadPosition(FastaRecord::ReadIdType readId, int32_t position):
+		ReadPosition(FastaRecord::Id readId, int32_t position):
 			readId(readId), position(position) {}
-		FastaRecord::ReadIdType readId;
+		FastaRecord::Id readId;
 		int32_t position;
 	};
 	struct KmerPosition
@@ -71,7 +71,7 @@ public:
 
 	typedef std::unordered_map<Kmer, std::vector<ReadPosition>, 
 					   		   Kmer::KmerHash> KmerIndex;
-	typedef std::unordered_map<FastaRecord::ReadIdType, 
+	typedef std::unordered_map<FastaRecord::Id, 
 					   		   std::vector<KmerPosition>> ReadIndex;
 
 	void		 buildKmerIndex(const SequenceContainer& seqContainer);

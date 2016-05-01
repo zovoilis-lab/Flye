@@ -9,28 +9,51 @@
 #include <vector>
 #include <unordered_map>
 #include <string>
+#include <limits>
 
 struct FastaRecord
 {
-	typedef int32_t ReadIdType;
-	static const ReadIdType ID_NONE = 0;
+	struct Id
+	{
+		Id(uint32_t id): _id(id) {}
+		operator uint32_t () const {return _id;}
+		uint32_t rc() const		//reverse complement 
+			//{return (_id % 2 == 0) ? _id + 1 : _id - 1;}
+			{return _id + 1 - (_id % 2) * 2;}
+		size_t hash() const {return _id;}
+	private:
+		uint32_t _id;
+	};
+	static const Id ID_NONE; 
 
-	FastaRecord() {}
+	FastaRecord(): id(ID_NONE) {}
 	FastaRecord(const std::string& sequence, const std::string& description, 
-				ReadIdType id):
+				Id id):
 		id(id), sequence(sequence), description(description)
 	{
 	}
 	
-	ReadIdType id;
+	Id id;
 	std::string sequence;
 	std::string description;		
 };
 
+namespace std
+{
+	template <>
+	struct hash<FastaRecord::Id> 
+	{
+		size_t operator() (const FastaRecord::Id& h) const throw() 
+		{
+			 return std::hash<uint32_t>()(h.hash());
+		}
+	};
+}
+
 class SequenceContainer
 {
 public:
-	typedef std::unordered_map<FastaRecord::ReadIdType, 
+	typedef std::unordered_map<FastaRecord::Id, 
 							   FastaRecord> SequenceIndex;
 
 	static SequenceContainer& getInstance()
@@ -43,6 +66,8 @@ public:
 
 	const SequenceIndex& getIndex() const
 		{return _seqIndex;}
+	int32_t seqLen(FastaRecord::Id readId) const
+		{return _seqIndex.at(readId).sequence.length();}
 	void 	readFasta(const std::string& filename);
 
 private:

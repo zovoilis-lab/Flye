@@ -9,13 +9,13 @@
 #include "utility.h"
 #include "extender.h"
 
-ContigPath Extender::extendRead(FastaRecord::ReadIdType startRead)
+ContigPath Extender::extendRead(FastaRecord::Id startRead)
 {
 	ContigPath contigPath;
-	FastaRecord::ReadIdType curRead = startRead;
+	FastaRecord::Id curRead = startRead;
 	contigPath.reads.push_back(curRead);
 	_visitedReads.insert(curRead);
-	_visitedReads.insert(-curRead);
+	_visitedReads.insert(curRead.rc());
 	bool rightExtension = true;
 
 	DEBUG_PRINT("Start Read: " << 
@@ -23,7 +23,7 @@ ContigPath Extender::extendRead(FastaRecord::ReadIdType startRead)
 
 	while(true)
 	{
-		FastaRecord::ReadIdType extRead = this->stepRight(curRead, startRead);
+		FastaRecord::Id extRead = this->stepRight(curRead, startRead);
 		//if (_visitedReads.count(extRead)) throw std::runtime_error("AAA");
 
 		if (extRead == startRead)	//circular
@@ -46,11 +46,11 @@ ContigPath Extender::extendRead(FastaRecord::ReadIdType startRead)
 				DEBUG_PRINT("Changing direction");
 				break;
 				/*rightExtension = false;
-				extRead = -startRead;
+				extRead = startRead.rc();
 				std::reverse(contigPath.reads.begin(), contigPath.reads.end());
 				for (size_t i = 0; i < contigPath.reads.size(); ++i) 
 				{
-					contigPath.reads[i] = -contigPath.reads[i];
+					contigPath.reads[i] = contigPath.reads[i].rc();
 				}
 				contigPath.reads.pop_back();*/
 			}
@@ -65,7 +65,7 @@ ContigPath Extender::extendRead(FastaRecord::ReadIdType startRead)
 				    _seqContainer.getIndex().at(extRead).description);
 
 		_visitedReads.insert(extRead);
-		_visitedReads.insert(-extRead);
+		_visitedReads.insert(extRead.rc());
 		curRead = extRead;
 		contigPath.reads.push_back(curRead);
 
@@ -83,7 +83,7 @@ void Extender::assembleContigs()
 	{
 		//choose a read for extension
 		int maxExtension = 0;
-		FastaRecord::ReadIdType startRead = FastaRecord::ID_NONE;
+		FastaRecord::Id startRead = FastaRecord::ID_NONE;
 		for (auto& indexPair : _seqContainer.getIndex())
 		{	
 			if (_visitedReads.count(indexPair.first) ||
@@ -102,7 +102,7 @@ void Extender::assembleContigs()
 		//			 _contigPaths.back().reads.end());
 		//for (size_t i = 0; i < _contigPaths.back().reads.size(); ++i) 
 		//{
-		//	_contigPaths.back().reads[i] = -_contigPaths.back().reads[i];
+		//	_contigPaths.back().reads[i] = _contigPaths.back().reads[i].rc();
 		//}
 		for (auto& readId : _contigPaths.back().reads)
 		{
@@ -111,17 +111,17 @@ void Extender::assembleContigs()
 				//if (this->branchIndex(ovlp.extId) > 0.5)
 				//{
 					_visitedReads.insert(ovlp.extId);
-					_visitedReads.insert(-ovlp.extId);
+					_visitedReads.insert(ovlp.extId.rc());
 				//}
 			}
 		}
 	}
 }
 
-float Extender::branchIndex(FastaRecord::ReadIdType readId)
+float Extender::branchIndex(FastaRecord::Id readId)
 {
 	auto& overlaps = _ovlpDetector.getOverlapIndex().at(readId);
-	std::unordered_set<FastaRecord::ReadIdType> extensions;
+	std::unordered_set<FastaRecord::Id> extensions;
 	for (auto& ovlp : overlaps)
 	{
 		if (this->isProperRightExtension(ovlp) &&
@@ -156,11 +156,11 @@ float Extender::branchIndex(FastaRecord::ReadIdType readId)
 }
 
 //makes one extension to the right
-FastaRecord::ReadIdType Extender::stepRight(FastaRecord::ReadIdType readId, 
-										    FastaRecord::ReadIdType startReadId)
+FastaRecord::Id Extender::stepRight(FastaRecord::Id readId, 
+									FastaRecord::Id startReadId)
 {
 	auto& overlaps = _ovlpDetector.getOverlapIndex().at(readId);
-	std::unordered_set<FastaRecord::ReadIdType> extensions;
+	std::unordered_set<FastaRecord::Id> extensions;
 
 	for (auto& ovlp : overlaps)
 	{
@@ -173,7 +173,7 @@ FastaRecord::ReadIdType Extender::stepRight(FastaRecord::ReadIdType readId,
 	}
 
 	//rank extension candidates
-	std::unordered_map<FastaRecord::ReadIdType, 
+	std::unordered_map<FastaRecord::Id, 
 					   std::tuple<int, int, int>> supportIndex;
 	for (auto& extCandidate : extensions)
 	{
@@ -226,7 +226,7 @@ FastaRecord::ReadIdType Extender::stepRight(FastaRecord::ReadIdType readId,
 	return bestExtension;
 }
 
-int Extender::countRightExtensions(FastaRecord::ReadIdType readId)
+int Extender::countRightExtensions(FastaRecord::Id readId)
 {
 	int count = 0;
 	for (auto& ovlp : _ovlpDetector.getOverlapIndex().at(readId))

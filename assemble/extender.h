@@ -16,7 +16,7 @@ struct ContigPath
 		circular(other.circular) 
 	{reads.swap(other.reads);}
 
-	std::vector<FastaRecord::ReadIdType> reads;
+	std::vector<FastaRecord::Id> reads;
 	bool circular;
 };
 
@@ -30,8 +30,6 @@ public:
 		_seqContainer(seqContainer)
 	{}
 
-	//typedef std::vector<FastaRecord::ReadIdType> ReadPath;
-
 	void assembleContigs();
 	const std::vector<ContigPath>& getContigPaths() const
 		{return _contigPaths;}
@@ -41,15 +39,15 @@ private:
 	const ChimeraDetector& _chimDetector;
 	const SequenceContainer& _seqContainer;
 
-	FastaRecord::ReadIdType stepRight(FastaRecord::ReadIdType readId, 
-									  FastaRecord::ReadIdType startReadId);
-	ContigPath extendRead(FastaRecord::ReadIdType readId);
+	FastaRecord::Id stepRight(FastaRecord::Id readId, 
+									  FastaRecord::Id startReadId);
+	ContigPath extendRead(FastaRecord::Id readId);
 
 	bool  isProperRightExtension(const OverlapRange& ovlp);
 	bool  isProperLeftExtension(const OverlapRange& ovlp);
-	float branchIndex(FastaRecord::ReadIdType readId);
-	int   countRightExtensions(FastaRecord::ReadIdType readId);
+	float branchIndex(FastaRecord::Id readId);
+	int   countRightExtensions(FastaRecord::Id readId);
 
 	std::vector<ContigPath> _contigPaths;
-	std::unordered_set<FastaRecord::ReadIdType>	_visitedReads;
+	std::unordered_set<FastaRecord::Id>	_visitedReads;
 };
