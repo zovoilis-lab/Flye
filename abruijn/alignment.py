@@ -42,7 +42,7 @@ def get_alignment(draft_file, reads_file, num_proc, work_dir):
     raw_genome = os.path.join(work_dir, "draft_assembly.fasta")
     blasr_aln = os.path.join(work_dir, "alignment.m5")
     contigs_info = _compose_raw_genome(draft_file, raw_genome)
-    #_run_blasr(raw_genome, reads_file, num_proc, blasr_aln)
+    _run_blasr(raw_genome, reads_file, num_proc, blasr_aln)
     return _parse_blasr(blasr_aln), contigs_info
 
 
@@ -93,7 +93,7 @@ def _compose_raw_genome(contig_parts, out_file):
         contig_concat = "".join(map(lambda p: p[1], seqs_sorted))
         contig_len = len(contig_concat)
         if contig_types[contig_id] == "circular":
-            if len(genome_seq) > CIRCULAR_WINDOW:
+            if len(contig_concat) > CIRCULAR_WINDOW:
                 contig_concat += contig_concat[:CIRCULAR_WINDOW]
         contigs_fasta[contig_id] = contig_concat
         contigs_info[contig_id] = ContigInfo(contigs_info, contig_len,

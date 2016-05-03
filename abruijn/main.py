@@ -37,7 +37,7 @@ def run(args):
     asm.check_binaries()
 
     preassembly = os.path.join(work_dir, "read_edges.fasta")
-    #asm.assemble(args.reads, preassembly, args.kmer_size, args.min_cov)
+    asm.assemble(args.reads, preassembly, args.kmer_size, args.min_cov)
     alignment, contigs_info = aln.get_alignment(preassembly, args.reads,
                                                 args.threads, work_dir)
     bubbles = bbl.get_bubbles(alignment, contigs_info)
