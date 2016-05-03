@@ -71,7 +71,7 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 int main(int argc, char** argv)
 {
 	static const int MAX_JUMP = 1500;
-	static const int MIN_OVERLAP = 7000;
+	static const int MIN_OVERLAP = 4000;
 	static const int MAX_OVERHANG = 1500;
 
 	int kmerSize = 0;

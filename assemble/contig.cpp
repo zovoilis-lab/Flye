@@ -12,64 +12,100 @@
 void ContigGenerator::generateContigs()
 {
 	LOG_PRINT("Generating contig sequences");
-	const auto& readPaths = _extender.getContigPaths();
-	for (const ContigPath& path : readPaths)
+	for (const ContigPath& path : _extender.getContigPaths())
 	{
 		if (path.reads.size() < 2) continue;
 
 		std::vector<FastaRecord> contigParts;
-		int partNum = 1;
-		auto circPath = path.reads;
 		if (path.circular)
 		{
-			circPath.push_back(path.reads[0]);
-			circPath.push_back(path.reads[1]);
+			_contigs.push_back(this->generateCircular(path));
 		}
-
-		int initPivot = _seqContainer.getIndex().at(circPath[0])
-												.sequence.length() / 2;
-		auto firstSwitch = this->getSwitchPositions(circPath[0], circPath[1], 
-													initPivot);
-		auto prevSwitch = firstSwitch;
-
-		int readShift = 1;
-		for (size_t i = 1; i < circPath.size() - 1; ++i)
+		else
 		{
-			auto curSwitch = this->getSwitchPositions(circPath[i], 
-													  circPath[i + readShift], 
-													  prevSwitch.second);
-			//TODO: a better solution
-			if (curSwitch.first == prevSwitch.second)
-			{
-				prevSwitch.second = 0;
-				continue;
-			}
-
-			int32_t leftCut = prevSwitch.second;
-			int32_t rightCut = curSwitch.first;
-			prevSwitch = curSwitch;
-
-			if (path.circular && i == circPath.size() - 2)	//finishing circle
-			{
-				rightCut = firstSwitch.first;
-				if (rightCut - leftCut <= 0) rightCut = leftCut;
-			}
-
-			std::string partSeq = _seqContainer.getIndex().at(circPath[i])
-								 .sequence.substr(leftCut, rightCut - leftCut);
-			std::string partName = 
-				(path.circular ? "circular_" : "linear_") + 
-				std::to_string(_contigs.size()) +
-				"_part_" + std::to_string(partNum) + "_" +
-				_seqContainer.getIndex().at(circPath[i]).description + 
-				"[" + std::to_string(leftCut) + ":" + 
-				std::to_string(rightCut) + "]";
-			contigParts.push_back(FastaRecord(partSeq, partName, 
-											  FastaRecord::Id(partNum)));
-			++partNum;
+			_contigs.push_back(this->generateLinear(path));
 		}
-		_contigs.push_back(contigParts);
 	}
+}
+
+
+std::vector<FastaRecord> 
+ContigGenerator::generateLinear(const ContigPath& path)
+{
+	std::vector<FastaRecord> contigParts;
+	auto prevSwitch = std::make_pair(0, 0);
+	int partNum = 1;
+	for (size_t i = 0; i < path.reads.size(); ++i)
+	{
+		int32_t leftCut = prevSwitch.second;
+		int32_t rightCut = _seqContainer.seqLen(path.reads[i]);
+		if (i != path.reads.size() - 1)
+		{
+			auto curSwitch = this->getSwitchPositions(path.reads[i], 
+													  path.reads[i + 1], 
+													  prevSwitch.second);
+			rightCut = curSwitch.first;
+			prevSwitch = curSwitch;
+		}
+
+		std::string partSeq = _seqContainer.getIndex().at(path.reads[i])
+							 .sequence.substr(leftCut, rightCut - leftCut);
+		std::string partName = 
+			(path.circular ? "circular_" : "linear_") + 
+			std::to_string(_contigs.size()) +
+			"_part_" + std::to_string(partNum) + "_" +
+			_seqContainer.getIndex().at(path.reads[i]).description + 
+			"[" + std::to_string(leftCut) + ":" + 
+			std::to_string(rightCut) + "]";
+		contigParts.push_back(FastaRecord(partSeq, partName, 
+										  FastaRecord::Id(partNum)));
+		++partNum;
+	}
+	return contigParts;
+}
+
+std::vector<FastaRecord> 
+ContigGenerator::generateCircular(const ContigPath& path)
+{
+	std::vector<FastaRecord> contigParts;
+	auto circPath = path.reads;
+	circPath.push_back(path.reads[0]);
+	circPath.push_back(path.reads[1]);
+
+	int32_t initPivot = _seqContainer.seqLen(circPath[0]) / 2;
+	auto firstSwitch = this->getSwitchPositions(circPath[0], circPath[1], 
+												initPivot);
+	auto prevSwitch = firstSwitch;
+	int partNum = 1;
+	for (size_t i = 1; i < circPath.size() - 1; ++i)
+	{
+		auto curSwitch = this->getSwitchPositions(circPath[i], 
+												  circPath[i + 1], 
+												  prevSwitch.second);
+		int32_t leftCut = prevSwitch.second;
+		int32_t rightCut = curSwitch.first;
+		prevSwitch = curSwitch;
+
+		if (i == circPath.size() - 2)	//finishing circle
+		{
+			rightCut = firstSwitch.first;
+			if (rightCut - leftCut <= 0) rightCut = leftCut;
+		}
+
+		std::string partSeq = _seqContainer.getIndex().at(circPath[i])
+							 .sequence.substr(leftCut, rightCut - leftCut);
+		std::string partName = 
+			(path.circular ? "circular_" : "linear_") + 
+			std::to_string(_contigs.size()) +
+			"_part_" + std::to_string(partNum) + "_" +
+			_seqContainer.getIndex().at(circPath[i]).description + 
+			"[" + std::to_string(leftCut) + ":" + 
+			std::to_string(rightCut) + "]";
+		contigParts.push_back(FastaRecord(partSeq, partName, 
+										  FastaRecord::Id(partNum)));
+		++partNum;
+	}
+	return contigParts;
 }
 
 
@@ -89,7 +125,7 @@ ContigGenerator::getSwitchPositions(FastaRecord::Id leftRead,
 									FastaRecord::Id rightRead,
 									int32_t prevSwitch)
 {
-	/*int32_t ovlpShift = 0;
+	int32_t ovlpShift = 0;
 	for (auto& ovlp : _overlapDetector.getOverlapIndex().at(leftRead))
 	{
 		if (ovlp.extId == rightRead)
@@ -98,41 +134,48 @@ ContigGenerator::getSwitchPositions(FastaRecord::Id leftRead,
 						 ovlp.curEnd - ovlp.extEnd) / 2;
 			break;
 		}
-	}*/
+	}
 
-	std::vector<std::pair<int32_t, int32_t>> acceptedKmers;
+	std::vector<std::pair<int32_t, int32_t>> sharedKmers;
 	for (auto& leftKmer : _vertexIndex.getIndexByRead().at(leftRead))
 	{
-		if (leftKmer.position <= prevSwitch)
-			continue;
-
 		for (auto& rightKmer : _vertexIndex.getIndexByKmer().at(leftKmer.kmer))
 		{
-			if (rightKmer.readId != rightRead)
-				continue;
-
-			//int32_t kmerShift = leftKmer.position - rightKmer.position;
-			//if (abs(kmerShift - ovlpShift) < _maximumJump / 2)
-			//{
-			acceptedKmers.push_back(std::make_pair(leftKmer.position, 
-												   rightKmer.position));
-			//}
+			if (rightKmer.readId == rightRead &&
+				leftKmer.position > prevSwitch)
+			{
+				sharedKmers.push_back({leftKmer.position, 
+									   rightKmer.position});
+			}
 		}
 	}
-	if (acceptedKmers.empty())
+
+	//filter possible outliers
+	std::sort(sharedKmers.begin(), sharedKmers.end(), 
+			  [](const std::pair<int32_t, int32_t>& a, 
+				 const std::pair<int32_t, int32_t>& b)
+				 {return a.first - a.second < b.first - b.second;});
+	size_t leftQ = sharedKmers.size() / 4;
+	size_t rightQ = sharedKmers.size() * 3 / 4;
+
+	if (leftQ >= rightQ)
 	{
-		WARNING_PRINT("Warning: no jump found! " +
+		WARNING_PRINT("No jump found! " +
 					  _seqContainer.getIndex().at(leftRead).description +
 					  " : " + _seqContainer.getIndex().at(rightRead).description);
-		return std::make_pair(prevSwitch, prevSwitch);
+		return {prevSwitch + 1, prevSwitch - ovlpShift};
 	}
 
-	//returna median among kmer shifts
-	std::nth_element(acceptedKmers.begin(), 
-					 acceptedKmers.begin() + acceptedKmers.size() / 2,
-					 acceptedKmers.end(),
-					 [](const std::pair<int32_t, int32_t>& a, 
-					 	const std::pair<int32_t, int32_t>& b)
-					 		{return a.first - a.second < b.first - b.second;});
-	return acceptedKmers[acceptedKmers.size() / 2];
+	std::pair<int32_t, int32_t> bestLeft = {0, 0};
+	bool found = false;
+	for (size_t i = leftQ; i < rightQ; ++i)
+	{
+		if (!found || bestLeft.first > sharedKmers[i].first)
+		{
+			found = true;
+			bestLeft = sharedKmers[i];
+		}
+	}
+
+	return bestLeft;
 }

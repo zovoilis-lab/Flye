@@ -35,6 +35,8 @@ private:
 	std::pair<int32_t, int32_t> getSwitchPositions(FastaRecord::Id leftRead, 
 												   FastaRecord::Id rightRead,
 												   int32_t prevSwitch);
+	std::vector<FastaRecord> generateCircular(const ContigPath& path);
+	std::vector<FastaRecord> generateLinear(const ContigPath& path);
 
 	std::vector<std::vector<FastaRecord>> _contigs;
 };

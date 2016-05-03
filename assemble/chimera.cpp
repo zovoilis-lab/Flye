@@ -16,6 +16,15 @@ void ChimeraDetector::detectChimeras()
 {
 	LOG_PRINT("Detecting chimeric sequences");
 
+	for (auto& seqHash : _seqContainer.getIndex())
+	{
+		if (this->testRead(seqHash.first))
+		{
+			//DEBUG_PRINT("Chimeric: " << seqHash.second.description);
+			_chimeras.insert(seqHash.first);
+		}
+	}
+	/*
 	static const int WINDOW = 100;
 	static const float COV_THRESHOLD = 0.1f;
 	static const float MAGIC_NUMBER = 2.5f;
@@ -69,12 +78,11 @@ void ChimeraDetector::detectChimeras()
 			}
 		}
 		if (chimeric)
-		//if (this->testRead(seqHash.first))
 		{
 			//DEBUG_PRINT("Chimeric: " << seqHash.second.description);
 			_chimeras.insert(seqHash.first);
 		}
-	}
+	}*/
 	LOG_PRINT(_chimeras.size() << " sequences were marked as chimeric");
 }
 

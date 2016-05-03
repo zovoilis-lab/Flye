@@ -24,7 +24,6 @@ ContigPath Extender::extendRead(FastaRecord::Id startRead)
 	while(true)
 	{
 		FastaRecord::Id extRead = this->stepRight(curRead, startRead);
-		//if (_visitedReads.count(extRead)) throw std::runtime_error("AAA");
 
 		if (extRead == startRead)	//circular
 		{
@@ -33,18 +32,11 @@ ContigPath Extender::extendRead(FastaRecord::Id startRead)
 			break;
 		}
 
-		if (_visitedReads.count(extRead))	//loop
-		{
-			LOG_PRINT("Looped contig");
-			break;
-		}
-
-		if (extRead == FastaRecord::ID_NONE)	//dead end
+		if (_visitedReads.count(extRead) || extRead == FastaRecord::ID_NONE)
 		{
 			if (rightExtension)
 			{
 				DEBUG_PRINT("Changing direction");
-				//break;
 				rightExtension = false;
 				extRead = startRead.rc();
 				std::reverse(contigPath.reads.begin(), contigPath.reads.end());
@@ -68,8 +60,20 @@ ContigPath Extender::extendRead(FastaRecord::Id startRead)
 		_visitedReads.insert(extRead.rc());
 		curRead = extRead;
 		contigPath.reads.push_back(curRead);
-
 	}
+
+	for (auto& readId : contigPath.reads)
+	{
+		for (auto& ovlp : _ovlpDetector.getOverlapIndex().at(readId))
+		{
+			//if (this->branchIndex(ovlp.extId) > 0.5)
+			//{
+				_visitedReads.insert(ovlp.extId);
+				_visitedReads.insert(ovlp.extId.rc());
+			//}
+		}
+	}
+
 	LOG_PRINT("Made " << contigPath.reads.size() - 1 << " extensions");
 	return contigPath;
 }
@@ -97,25 +101,10 @@ void Extender::assembleContigs()
 		}
 		if (startRead == FastaRecord::ID_NONE) break;
 
-		_contigPaths.push_back(this->extendRead(startRead));
-		//std::reverse(_contigPaths.back().reads.begin(), 
-		//			 _contigPaths.back().reads.end());
-		//for (size_t i = 0; i < _contigPaths.back().reads.size(); ++i) 
-		//{
-		//	_contigPaths.back().reads[i] = _contigPaths.back().reads[i].rc();
-		//}
-		for (auto& readId : _contigPaths.back().reads)
-		{
-			for (auto& ovlp : _ovlpDetector.getOverlapIndex().at(readId))
-			{
-				//if (this->branchIndex(ovlp.extId) > 0.5)
-				//{
-					_visitedReads.insert(ovlp.extId);
-					_visitedReads.insert(ovlp.extId.rc());
-				//}
-			}
-		}
+		ContigPath path = this->extendRead(startRead);
+		if (path.reads.size() > 1) _contigPaths.push_back(std::move(path));
 	}
+	LOG_PRINT("Assembled " << _contigPaths.size() << " contigs");
 }
 
 float Extender::branchIndex(FastaRecord::Id readId)
@@ -188,11 +177,9 @@ FastaRecord::Id Extender::stepRight(FastaRecord::Id readId,
 			if (this->isProperRightExtension(ovlp)) ++rightSupport;
 			if (this->isProperLeftExtension(ovlp)) ++leftSupport;
 		}
-		//supportIndex[extCandidate] = std::make_tuple(rightSupport, 
-		//											 leftSupport, ovlpSize);
 		int minSupport = std::min(leftSupport, rightSupport);
-		supportIndex[extCandidate] = std::make_tuple(minSupport, 
-													 rightSupport, ovlpSize);
+		supportIndex[extCandidate] = std::make_tuple(minSupport, ovlpSize,
+													 rightSupport);
 		//DEBUG_PRINT(_seqContainer.getIndex().at(extCandidate).description
 		//			<< " " << leftSupport << " " << rightSupport);
 	}
@@ -202,7 +189,7 @@ FastaRecord::Id Extender::stepRight(FastaRecord::Id readId,
 	for (auto& extCandidate : extensions)
 	{
 		if (extCandidate == startReadId) return startReadId;
-		//if (_visitedReads.count(extCandidate)) continue;
+		if (this->branchIndex(extCandidate) < 0.5) continue;
 
 		if (supportIndex[extCandidate] > bestSupport)
 		{
@@ -211,11 +198,11 @@ FastaRecord::Id Extender::stepRight(FastaRecord::Id readId,
 		}
 	}
 
-	//if (supportIndex[extCandidate] == 0) continue;
-	//if (this->branchIndex(extCandidate) > 0.5) continue;
-
 	if (bestExtension != FastaRecord::ID_NONE)
 	{
+		if (std::get<2>(supportIndex[bestExtension]) == 0)
+			DEBUG_PRINT("No right support! " << 
+					_seqContainer.getIndex().at(bestExtension).description);
 		if (_chimDetector.isChimeric(bestExtension))
 			DEBUG_PRINT("Chimeric extension! " << 
 					_seqContainer.getIndex().at(bestExtension).description);
@@ -231,7 +218,8 @@ int Extender::countRightExtensions(FastaRecord::Id readId)
 	int count = 0;
 	for (auto& ovlp : _ovlpDetector.getOverlapIndex().at(readId))
 	{
-		if (this->isProperRightExtension(ovlp)) ++count;
+		if (!_visitedReads.count(ovlp.extId) &&
+			this->isProperRightExtension(ovlp)) ++count;
 	}
 	return count;
 }
