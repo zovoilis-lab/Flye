@@ -68,7 +68,7 @@ def _compose_sequence(consensus_files):
             for line in f:
                 if header:
                     tokens = line.strip().split(" ")
-                    ctg_id = tokens[0]
+                    ctg_id = tokens[0][1:]
                     ctg_pos = int(tokens[1])
                 else:
                     consensuses[ctg_id].append((ctg_pos, line.strip()))
