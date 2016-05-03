@@ -10,6 +10,7 @@ import logging
 import random
 import subprocess
 import os
+from collections import defaultdict
 from threading import Thread
 
 import abruijn.bubbles as bbl
@@ -59,22 +60,26 @@ def _run_polish_bin(bubbles_in, subs_matrix, consensus_out, thread_error):
 
 
 def _compose_sequence(consensus_files):
-    consensuses = {}
+    consensuses = defaultdict(list)
     for file_name in consensus_files:
         with open(file_name, "r") as f:
             header = True
             bubble_id = None
             for line in f:
                 if header:
-                    bubble_id = int(line.strip().split(" ")[1])
+                    tokens = line.strip().split(" ")
+                    ctg_id = tokens[0]
+                    ctg_pos = int(tokens[1])
                 else:
-                    consensuses[bubble_id] = line.strip()
+                    consensuses[ctg_id].append((ctg_pos, line.strip()))
                 header = not header
 
-    polished_seq = []
-    for b_id in sorted(consensuses):
-        polished_seq.append(consensuses[b_id])
-    return "".join(polished_seq)
+    polished_fasta = {}
+    for ctg_id, seqs in consensuses.iteritems():
+        sorted_seqs = map(lambda p: p[1], sorted(seqs, key=lambda p: p[0]))
+        polished_fasta[ctg_id] = "".join(sorted_seqs)
+
+    return polished_fasta
 
 
 def _run_parallel(buckets, work_dir):

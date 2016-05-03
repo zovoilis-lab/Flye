@@ -37,13 +37,13 @@ def run(args):
     asm.check_binaries()
 
     preassembly = os.path.join(work_dir, "read_edges.fasta")
-    asm.assemble(args.reads, preassembly, args.kmer_size, args.min_cov)
-    alignment, genome_len = aln.get_alignment(preassembly, args.reads,
-                                              args.threads, work_dir)
-    bubbles = bbl.get_bubbles(alignment, genome_len)
-    polished_seq = pol.polish(bubbles, args.threads, work_dir)
+    #asm.assemble(args.reads, preassembly, args.kmer_size, args.min_cov)
+    alignment, contigs_info = aln.get_alignment(preassembly, args.reads,
+                                                args.threads, work_dir)
+    bubbles = bbl.get_bubbles(alignment, contigs_info)
+    polished_seqs = pol.polish(bubbles, args.threads, work_dir)
     out_genome = os.path.join(work_dir, "contigs.fasta")
-    fp.write_fasta_dict({"contig_1": polished_seq}, out_genome)
+    fp.write_fasta_dict(polished_seqs, out_genome)
     logger.info("Done! Your assembly is in file: " + out_genome)
 
 

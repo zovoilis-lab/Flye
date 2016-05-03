@@ -8,6 +8,7 @@ Separates alignment into small bubbles for further correction
 
 import bisect
 import logging
+from collections import defaultdict
 
 import abruijn.fasta_parser as fp
 
@@ -23,19 +24,30 @@ class ProfileInfo:
 
 
 class Bubble:
-    def __init__(self, bubble_id):
+    def __init__(self, contig_id, bubble_id):
+        self.contig_id = contig_id
         self.bubble_id = bubble_id
         self.branches = []
 
 
-def get_bubbles(alignment, genome_len):
+def get_bubbles(alignment, contigs_info):
     """
     The main function: takes an alignment and returns bubbles
     """
     logger.info("Separating draft genome into bubbles")
-    profile = _compute_profile(alignment, genome_len)
-    partition = _get_partition(profile)
-    return _get_bubble_seqs(alignment, partition, genome_len)
+    aln_by_ctg = defaultdict(list)
+    for aln in alignment:
+        aln_by_ctg[aln.trg_id].append(aln)
+
+    bubbles = []
+    for ctg_id, ctg_aln in aln_by_ctg.iteritems():
+        logger.debug("Processing {0}".format(ctg_id))
+        profile = _compute_profile(ctg_aln, contigs_info[ctg_id].length)
+        partition = _get_partition(profile)
+        bubbles.extend(_get_bubble_seqs(ctg_aln, partition,
+                                        contigs_info[ctg_id].length,
+                                        ctg_id))
+    return bubbles
 
 
 def output_bubbles(bubbles, out_file):
@@ -45,13 +57,14 @@ def output_bubbles(bubbles, out_file):
     with open(out_file, "w") as f:
         for bubble in bubbles:
             if len(bubble.branches) == 0:
-                logger.warning("Empty bubble {0}".format(bubble.bubble_id))
+                logger.debug("Empty bubble {0}".format(bubble.bubble_id))
                 continue
 
             consensus = sorted(bubble.branches,
                                key=len)[len(bubble.branches) / 2]
-            f.write(">bubble {0} {1}\n".format(bubble.bubble_id,
-                                               len(bubble.branches)))
+            f.write(">{0} {1} {2}\n".format(bubble.contig_id,
+                                            bubble.bubble_id,
+                                            len(bubble.branches)))
             f.write(consensus + "\n")
             for branch_id, branch in enumerate(bubble.branches):
                 #rate = float(abs(len(branch) - len(consensus))) / len(consensus)
@@ -91,8 +104,9 @@ def _compute_profile(alignment, genome_len):
     """
     Computes alignment profile
     """
-    logger.debug("Computing profile")
     MIN_ALIGNMENT = 5000
+    logger.debug("Computing profile")
+
     profile = [ProfileInfo() for _ in xrange(genome_len)]
     for aln in alignment:
         if aln.err_rate > 0.5 or aln.trg_end - aln.trg_start < MIN_ALIGNMENT:
@@ -159,13 +173,14 @@ def _get_partition(profile):
     return partition
 
 
-def _get_bubble_seqs(alignment, partition, genome_len):
+def _get_bubble_seqs(alignment, partition, genome_len, ctg_id):
     """
     Given genome landmarks, forms bubble sequences
     """
     logger.debug("Forming bubble sequences")
-    MIN_ALIGNMENT = 5000
-    bubbles = [Bubble(x) for x in xrange(len(partition) + 1)]
+    MIN_ALIGNMENT = 1000
+
+    bubbles = [Bubble(ctg_id, x) for x in xrange(len(partition) + 1)]
     for aln in alignment:
         if aln.err_rate > 0.5 or aln.trg_end - aln.trg_start < MIN_ALIGNMENT:
             continue
@@ -190,11 +205,6 @@ def _get_bubble_seqs(alignment, partition, genome_len):
             if bubble_id != prev_bubble_id:
                 if not first_segment:
                     branch_seq = qry_seq[branch_start:i].replace("-", "")
-                    #if prev_bubble_id == 0:
-                    #    logger.debug("id {0}, b {1}, e {2}, seq_len {3}, rb {4}"
-                    #                    .format(prev_bubble_id, branch_start,
-                    #                            i, len(branch_seq),
-                    #                            aln.trg_start + i + trg_offset))
                     if len(branch_seq):
                         bubbles[prev_bubble_id].branches.append(branch_seq)
 
