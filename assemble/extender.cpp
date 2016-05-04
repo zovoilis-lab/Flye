@@ -21,6 +21,7 @@ ContigPath Extender::extendRead(FastaRecord::Id startRead)
 	DEBUG_PRINT("Start Read: " << 
 				_seqContainer.getIndex().at(startRead).description);
 
+	std::unordered_set<FastaRecord::Id> curPathVisited;
 	while(true)
 	{
 		FastaRecord::Id extRead = this->stepRight(curRead, startRead);
@@ -31,6 +32,10 @@ ContigPath Extender::extendRead(FastaRecord::Id startRead)
 			contigPath.circular = true;
 			break;
 		}
+
+		if (curPathVisited.count(extRead)) DEBUG_PRINT("Visited in this path");
+		if (_visitedReads.count(extRead)) DEBUG_PRINT("Visited globally");
+		if (extRead == FastaRecord::ID_NONE) DEBUG_PRINT("No extension found");
 
 		if (_visitedReads.count(extRead) || extRead == FastaRecord::ID_NONE)
 		{
@@ -58,6 +63,8 @@ ContigPath Extender::extendRead(FastaRecord::Id startRead)
 
 		_visitedReads.insert(extRead);
 		_visitedReads.insert(extRead.rc());
+		curPathVisited.insert(extRead);
+		curPathVisited.insert(extRead.rc());
 		curRead = extRead;
 		contigPath.reads.push_back(curRead);
 	}
@@ -133,7 +140,7 @@ float Extender::branchIndex(FastaRecord::Id readId)
 		}
 		ovlpIndices.push_back(ovlpIndex);
 	}
-	if (extensions.empty()) return 0.0f;
+	if (extensions.empty()) return 1.0f;
 
 	float total = 0;
 	for (int ovlpIndex : ovlpIndices)
@@ -178,10 +185,11 @@ FastaRecord::Id Extender::stepRight(FastaRecord::Id readId,
 			if (this->isProperLeftExtension(ovlp)) ++leftSupport;
 		}
 		int minSupport = std::min(leftSupport, rightSupport);
-		supportIndex[extCandidate] = std::make_tuple(minSupport, ovlpSize,
-													 rightSupport);
-		//DEBUG_PRINT(_seqContainer.getIndex().at(extCandidate).description
-		//			<< " " << leftSupport << " " << rightSupport);
+		supportIndex[extCandidate] = std::make_tuple(minSupport, rightSupport,
+													 ovlpSize);
+		DEBUG_PRINT("\t" << _seqContainer.getIndex().at(extCandidate).description
+					<< " " << leftSupport << " " << rightSupport << " "
+					<< this->branchIndex(extCandidate));
 	}
 
 	auto bestSupport = std::make_tuple(0, 0, 0);
@@ -189,7 +197,7 @@ FastaRecord::Id Extender::stepRight(FastaRecord::Id readId,
 	for (auto& extCandidate : extensions)
 	{
 		if (extCandidate == startReadId) return startReadId;
-		if (this->branchIndex(extCandidate) < 0.5) continue;
+		//if (this->branchIndex(extCandidate) < 0.5) continue;
 
 		if (supportIndex[extCandidate] > bestSupport)
 		{
@@ -198,8 +206,10 @@ FastaRecord::Id Extender::stepRight(FastaRecord::Id readId,
 		}
 	}
 
+
 	if (bestExtension != FastaRecord::ID_NONE)
 	{
+		//DEBUG_PRINT(this->branchIndex(bestExtension));
 		if (std::get<2>(supportIndex[bestExtension]) == 0)
 			DEBUG_PRINT("No right support! " << 
 					_seqContainer.getIndex().at(bestExtension).description);
@@ -208,7 +218,8 @@ FastaRecord::Id Extender::stepRight(FastaRecord::Id readId,
 					_seqContainer.getIndex().at(bestExtension).description);
 		if (this->branchIndex(bestExtension) < 0.5)
 			DEBUG_PRINT("Branching extension! " << 
-					_seqContainer.getIndex().at(bestExtension).description);
+						this->branchIndex(bestExtension) << " " << 
+						_seqContainer.getIndex().at(bestExtension).description);
 	}
 	return bestExtension;
 }
