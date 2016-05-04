@@ -18,7 +18,7 @@ import abruijn.fasta_parser as fp
 from abruijn.utils import which
 
 POLISH_BIN = "abruijn-polish"
-SUBS_MATRIX = "subs_matrix.txt"
+SUBS_MATRIX = "pacbio_error.txt"
 logger = logging.getLogger()
 
 
