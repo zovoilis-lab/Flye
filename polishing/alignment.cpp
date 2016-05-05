@@ -2,24 +2,25 @@
 //This file is a part of ABruijn program.
 //Released under the BSD license (see LICENSE file)
 
-#include "Alignment.h"
+#include "alignment.h"
 #include <chrono>
 
 
-Alignment::Alignment(size_t size):
+Alignment::Alignment(size_t size, const SubstitutionMatrix& sm):
 	_forwardScores(size),
-	_reverseScores(size)
+	_reverseScores(size),
+	_subsMatrix(sm)
 { 
 }
 
 double Alignment::globalAlignment(const std::string& v, const std::string& w,
-								  ScoringMatrix* sm, int index) 
+								  int index) 
 {
 	unsigned int x = v.size() + 1;
 	unsigned int y = w.size() + 1;
 	FloatMatrix scoreMat(x, y, 0);
 		
-	double score = this->getBacktrackMatrix(v, w, sm, scoreMat);
+	double score = this->getBacktrackMatrix(v, w, scoreMat);
 	_forwardScores[index] = std::move(scoreMat);
 
 	//std::string string1;
@@ -34,7 +35,7 @@ double Alignment::globalAlignment(const std::string& v, const std::string& w,
 	std::string rev_w(w.rbegin(), w.rend());
 
 	FloatMatrix scoreMatRev(x, y, 0);
-	this->getBacktrackMatrix(rev_v, rev_w, sm, scoreMatRev);
+	this->getBacktrackMatrix(rev_v, rev_w, scoreMatRev);
 	_reverseScores[index] = std::move(scoreMatRev);
 
 	return score;
@@ -66,8 +67,7 @@ double Alignment::addDeletion(unsigned int wordIndex, unsigned int letterIndex)
 
 double Alignment::addSubstitution(unsigned int wordIndex, 
 								  unsigned int letterIndex,
-								  char base, const std::string& read,
-								  ScoringMatrix* sm) 
+								  char base, const std::string& read) 
 {
 	//LetterIndex must start with 1 and go until (row.size - 1)
 	const FloatMatrix& forwardScore = _forwardScores[wordIndex];
@@ -77,11 +77,13 @@ double Alignment::addSubstitution(unsigned int wordIndex,
 	size_t revRow = reverseScore.nrows() - 1 - letterIndex;
 
 	std::vector<double> sub(read.size() + 1);
-	sub[0] = forwardScore.at(frontRow, 0) + sm->getScore(base, '-');
+	sub[0] = forwardScore.at(frontRow, 0) + _subsMatrix.getScore(base, '-');
 	for (size_t i = 0; i < read.size(); ++i)
 	{
-		double match = forwardScore.at(frontRow, i) + sm->getScore(base, read[i]);
-		double ins = forwardScore.at(frontRow, i + 1) + sm->getScore(base, '-');
+		double match = forwardScore.at(frontRow, i) + 
+						_subsMatrix.getScore(base, read[i]);
+		double ins = forwardScore.at(frontRow, i + 1) + 
+						_subsMatrix.getScore(base, '-');
 		sub[i + 1] = std::max(match, ins);
 	}
 
@@ -98,8 +100,7 @@ double Alignment::addSubstitution(unsigned int wordIndex,
 
 double Alignment::addInsertion(unsigned int wordIndex,
 							   unsigned int pos, 
-							   char base, const std::string& read,
-							   ScoringMatrix* sm) 
+							   char base, const std::string& read) 
 {
 	//LetterIndex must start with 1 and go until (row.size - 1)
 	const FloatMatrix& forwardScore = _forwardScores[wordIndex];
@@ -109,11 +110,13 @@ double Alignment::addInsertion(unsigned int wordIndex,
 	size_t revRow = reverseScore.nrows() - pos;
 
 	std::vector<double> sub(read.size() + 1);
-	sub[0] = forwardScore.at(frontRow, 0) + sm->getScore(base, '-');
+	sub[0] = forwardScore.at(frontRow, 0) + _subsMatrix.getScore(base, '-');
 	for (size_t i = 0; i < read.size(); ++i)
 	{
-		double match = forwardScore.at(frontRow, i) + sm->getScore(base, read[i]);
-		double ins = forwardScore.at(frontRow, i + 1) + sm->getScore(base, '-');
+		double match = forwardScore.at(frontRow, i) + 
+						_subsMatrix.getScore(base, read[i]);
+		double ins = forwardScore.at(frontRow, i + 1) + 
+						_subsMatrix.getScore(base, '-');
 		sub[i + 1] = std::max(match, ins);
 	}
 
@@ -128,21 +131,20 @@ double Alignment::addInsertion(unsigned int wordIndex,
 }
 
 
-double Alignment::getBacktrackMatrix(const std::string& v, const std::string& w, 
-									 ScoringMatrix* sm,
+double Alignment::getBacktrackMatrix(const std::string& v, const std::string& w,
 									 FloatMatrix& scoreMat) 
 {
 	double score = 0.0f;
 	
 	for (size_t i = 0; i < v.size(); i++) 
 	{
-		double score = sm->getScore(v[i], '-');
+		double score = _subsMatrix.getScore(v[i], '-');
 		scoreMat.at(i + 1, 0) = scoreMat.at(i, 0) + score;
 	}
 
 
 	for (size_t i = 0; i < w.size(); i++) {
-		double score = sm->getScore('-', w[i]);
+		double score = _subsMatrix.getScore('-', w[i]);
 		scoreMat.at(0, i + 1) = scoreMat.at(0, i) + score;
 	}
 
@@ -154,11 +156,14 @@ double Alignment::getBacktrackMatrix(const std::string& v, const std::string& w,
 		{
 			char key2 = w[j - 1];
 
-			double left = scoreMat.at(i, j - 1) + sm->getScore('-', key2);
-			double up = scoreMat.at(i - 1, j) + sm->getScore(key1, '-');
+			double left = scoreMat.at(i, j - 1) + 
+							_subsMatrix.getScore('-', key2);
+			double up = scoreMat.at(i - 1, j) + 
+							_subsMatrix.getScore(key1, '-');
 			score = std::max(left, up);
 
-			double cross = scoreMat.at(i - 1, j - 1) + sm->getScore(key1, key2);
+			double cross = scoreMat.at(i - 1, j - 1) + 
+							_subsMatrix.getScore(key1, key2);
 			score = std::max(score, cross);
 			scoreMat.at(i, j) = score;
 		}
@@ -170,7 +175,8 @@ double Alignment::getBacktrackMatrix(const std::string& v, const std::string& w,
 
 void Alignment::traceback(FloatMatrix& backtrack, const std::string& v, 
 						  const std::string& w, std::string& o_v, 
-						  std::string& o_w) {
+						  std::string& o_w) 
+{
 	int i = v.size();
 	int j = w.size();
 	o_v = "";
@@ -204,9 +210,6 @@ void Alignment::traceback(FloatMatrix& backtrack, const std::string& v,
 	std::reverse(o_w.begin(), o_w.end());
 }
 
-
-Alignment::~Alignment() { }
-
 void Alignment::writeMatToFile(const FloatMatrix& matrix) 
 {
 	std::ofstream file;
@@ -221,11 +224,6 @@ void Alignment::writeMatToFile(const FloatMatrix& matrix)
 		}
 		file << "\n";
 	}
-
-	file << "\n"; 
-	file << "\n";
-
-	file.close();
 }
 
 void Alignment::writeStringsToFile(const std::string& v, const std::string& w, 
@@ -236,13 +234,5 @@ void Alignment::writeStringsToFile(const std::string& v, const std::string& w,
 	file << "--------------------------------\n";
 	file << "Score: " << score << "\n";
 	file <<  v  << "\n";
-	file << w << "\n";
-	file << "\n";
-	file.close();
-}
-
-void Alignment::clean() 
-{
-	_forwardScores.clear();
-	_reverseScores.clear();
+	file << w;
 }

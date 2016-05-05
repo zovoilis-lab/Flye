@@ -8,23 +8,22 @@
 #include <fstream>
 #include <iostream>
 #include <iomanip>
+#include <vector>
 
-class ScoringMatrix 
+class SubstitutionMatrix 
 {
 public:
-	ScoringMatrix(int xrange, int yrange);
+	SubstitutionMatrix();
 	void loadMatrix(std::string path);
-	double getScore(char v, char w);
-	void printMatrix();
-	~ScoringMatrix();
+	double getScore(char v, char w) const;
+	void printMatrix() const;
 
 private:
-	int dnaToNum(char dna)
+	static int dnaToNum(char dna)
 		{return _transTable[(size_t)dna];}
+	static std::vector<int> _transTable;	
 
-	int _xrange;
-	int _yrange;
-	int* _transTable;
-	double** _matrix;
+	const int X_SIZE = 5;
+	const int Y_SIZE = 5;
+	std::vector<std::vector<double>> _matrix;
 };
-

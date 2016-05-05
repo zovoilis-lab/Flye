@@ -6,7 +6,7 @@
 #include <iostream>
 #include <getopt.h>
 
-#include "Worker.h"
+#include "bubble_processor.h"
 
 
 bool parseArgs(int argc, char** argv, std::string& bubblesFile, 
@@ -61,11 +61,11 @@ int main(int argc, char* argv[])
 				   outConsensus, outVerbose))
 		return 1;
 
-	Worker worker(scoringMatrix);
-	worker.run(bubblesFile); 
-	worker.writeConsensuses(outConsensus);
+	BubbleProcessor bp(scoringMatrix);
+	bp.polishAll(bubblesFile); 
+	bp.writeConsensuses(outConsensus);
 	if (!outVerbose.empty())
-		worker.writeLog(outVerbose);
+		bp.writeLog(outVerbose);
 
 	return 0;
 }

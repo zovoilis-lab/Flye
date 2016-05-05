@@ -2,37 +2,40 @@
 //This file is a part of ABruijn program.
 //Released under the BSD license (see LICENSE file)
 
-#include "ScoringMatrix.h"
+#include "subs_matrix.h"
 #include <sstream>
 #include <vector>
 #include <cmath>
 #include <stdexcept>
 
+std::vector<int> SubstitutionMatrix::_transTable;
 
-ScoringMatrix::ScoringMatrix(int xrange, int yrange):
-	_xrange(xrange), _yrange(yrange), _transTable(nullptr)
+SubstitutionMatrix::SubstitutionMatrix()
 {	
-	_matrix = new double*[xrange];
-	for (int i = 0; i < xrange; i++) {
-		_matrix[i] = new double[yrange];
+	static bool tableFilled = false;
+	if (!tableFilled)
+	{
+		tableFilled = true;
+		_transTable.assign(256, -1);	//256 chars
+		_transTable[(size_t)'A'] = 0;
+		_transTable[(size_t)'a'] = 0;
+		_transTable[(size_t)'C'] = 1;
+		_transTable[(size_t)'c'] = 1;
+		_transTable[(size_t)'T'] = 2;
+		_transTable[(size_t)'t'] = 2;
+		_transTable[(size_t)'G'] = 3;
+		_transTable[(size_t)'g'] = 3;
+		_transTable[(size_t)'-'] = 4;
 	}
-	_matrix[_xrange - 1][_yrange - 1] = 0;
 
-	_transTable = new int[256];	//256 chars
-	for (size_t i = 0; i < 256; ++i)
-		_transTable[i] = -1;
-	_transTable[(size_t)'A'] = 0;
-	_transTable[(size_t)'a'] = 0;
-	_transTable[(size_t)'C'] = 1;
-	_transTable[(size_t)'c'] = 1;
-	_transTable[(size_t)'T'] = 2;
-	_transTable[(size_t)'t'] = 2;
-	_transTable[(size_t)'G'] = 3;
-	_transTable[(size_t)'g'] = 3;
-	_transTable[(size_t)'-'] = 4;
+	for (int i = 0; i < X_SIZE; i++) 
+	{
+		_matrix.push_back(std::vector<double>(Y_SIZE, 0));
+	}
 }
 
-void ScoringMatrix::loadMatrix(std::string path) {
+void SubstitutionMatrix::loadMatrix(std::string path) 
+{
 	std::string line;
 	std::ifstream file(path);
 
@@ -61,13 +64,13 @@ void ScoringMatrix::loadMatrix(std::string path) {
 			}
 			else if (items[0] == "del") {
 				int x = dnaToNum(items[1][0]);
-				int y = _yrange - 1;
+				int y = Y_SIZE - 1;
 				double probability = std::stod(items[2]);
 				_matrix[x][y] = std::log(probability);
 			}
 			else if (items[0] == "ins") {
 				int y = dnaToNum(items[1][0]);
-				int x = _xrange - 1;
+				int x = X_SIZE - 1;
 				double probability = std::stod(items[2]);
 				_matrix[x][y] = std::log(probability);
 			}	
@@ -76,25 +79,19 @@ void ScoringMatrix::loadMatrix(std::string path) {
 	}
 }
 
-double ScoringMatrix::getScore(char v, char w) 
+double SubstitutionMatrix::getScore(char v, char w) const 
 {
 	return _matrix[dnaToNum(v)][dnaToNum(w)];
 }
 
-void ScoringMatrix::printMatrix() {
-	for (int i = 0; i < _xrange; i++) {
-		for (int j = 0; j < _yrange; j++) {
+void SubstitutionMatrix::printMatrix() const 
+{
+	for (int i = 0; i < X_SIZE; i++) {
+		for (int j = 0; j < Y_SIZE; j++) {
 			std::cout << std::fixed;
 			std::cout << std::setw(4) << std::left 
 					  << std::setprecision(2) << _matrix[i][j] << "\t";
 		}
 		std::cout << std::endl;
 	}
-}
-
-ScoringMatrix::~ScoringMatrix() {
-	for (int i = 0; i < _xrange; i++) {
-		delete[] _matrix[i];
-	}
-	delete[] _transTable;
 }
