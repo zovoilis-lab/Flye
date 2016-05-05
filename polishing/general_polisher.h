@@ -6,6 +6,7 @@
 
 #include "bubble.h"
 #include "subs_matrix.h"
+#include "alignment.h"
 
 class GeneralPolisher
 {
@@ -17,7 +18,8 @@ public:
 
 private:
 	StepInfo makeStep(const std::string& candidate, 
-					  const std::vector<std::string>& branches);
+					  const std::vector<std::string>& branches,
+					  Alignment& align);
 
 	const SubstitutionMatrix& _subsMatrix;
 };

@@ -10,10 +10,11 @@ void GeneralPolisher::polishBubble(Bubble& bubble)
 	std::string prevCandidate;
 	std::string curCandidate = bubble.candidate;
 
+	Alignment align(bubble.branches.size(), _subsMatrix);
 	while (curCandidate != prevCandidate)
 	{
 		prevCandidate = curCandidate;
-		StepInfo rec = this->makeStep(curCandidate, bubble.branches);
+		StepInfo rec = this->makeStep(curCandidate, bubble.branches, align);
 		curCandidate = rec.sequence;
 		bubble.polishSteps.push_back(rec);
 	}
@@ -21,9 +22,9 @@ void GeneralPolisher::polishBubble(Bubble& bubble)
 }
 
 StepInfo GeneralPolisher::makeStep(const std::string& candidate, 
-				   				   const std::vector<std::string>& branches) 
+				   				   const std::vector<std::string>& branches,
+								   Alignment& align) 
 {
-	Alignment align(branches.size(), _subsMatrix);
 	StepInfo stepResult;
 	
 	//Global

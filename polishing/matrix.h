@@ -4,6 +4,7 @@
 
 #include <cstdlib>
 #include <stdexcept>
+#include <cassert>
 
 template <class T>
 class Matrix
@@ -17,20 +18,26 @@ public:
 			for (size_t j = 0; j < _cols; ++j)
 				_matrix[i][j] = other._matrix[i][j];
 	}
-	Matrix(Matrix&& other)
+	Matrix(Matrix&& other):
+		Matrix()
 	{
-		_cols = other._cols;
-		_rows = other._rows;
-		_matrix = other._matrix;
-		other._matrix = nullptr;
+		std::swap(_cols, other._cols);
+		std::swap(_rows, other._rows);
+		std::swap(_matrix, other._matrix);
+	}
+	Matrix& operator=(Matrix && other)
+	{
+		std::swap(_cols, other._cols);
+		std::swap(_rows, other._rows);
+		std::swap(_matrix, other._matrix);
+		return *this;
 	}
 	Matrix& operator=(const Matrix& other)
 	{
 		Matrix temp(other);
-		_cols = temp._cols;
-		_rows = temp._rows;
-		_matrix = temp._matrix;
-		temp._matrix = nullptr;
+		std::swap(_cols, temp._cols);
+		std::swap(_rows, temp._rows);
+		std::swap(_matrix, temp._matrix);
 		return *this;
 	}
 

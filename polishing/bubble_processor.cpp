@@ -103,17 +103,20 @@ void BubbleProcessor::readBubbles(const std::string& fileName)
 	_bubbles.clear();
 
 	if (!file.is_open())
+	{
 		throw std::runtime_error("Error opening bubble file");
+	}
 
 	while (!file.eof())
 	{
 		std::getline(file, buffer);
-		if (buffer.empty())
-			break;
+		if (buffer.empty()) break;
 
 		std::vector<std::string> elems = splitString(buffer, ' ');
 		if (elems.size() < 3 || elems[0][0] != '>')
+		{
 			throw std::runtime_error("Error parsing bubbles file");
+		}
 		std::getline(file, candidate);
 		std::transform(candidate.begin(), candidate.end(), 
 				       candidate.begin(), ::toupper);
@@ -127,8 +130,8 @@ void BubbleProcessor::readBubbles(const std::string& fileName)
 		int count = 0;
 		while (count < numOfReads) 
 		{
-			if (buffer.empty())
-				break;
+			if (buffer.empty()) break;
+
 			std::getline(file, buffer);
 			std::getline(file, buffer);
 			std::transform(buffer.begin(), buffer.end(), 
@@ -137,7 +140,9 @@ void BubbleProcessor::readBubbles(const std::string& fileName)
 			count++;
 		}
 		if (count != numOfReads)
+		{
 			throw std::runtime_error("Error parsing bubbles file");
+		}
 
 		_bubbles.push_back(std::move(bubble));
 	}
