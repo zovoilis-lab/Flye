@@ -16,9 +16,7 @@ namespace
 		std::vector<std::string> elems;
 		std::stringstream ss(s);
 		std::string item;
-		while (std::getline(ss, item, delim)) {
-			elems.push_back(item);
-		}
+		while (std::getline(ss, item, delim)) elems.push_back(item);
 		return elems;
 	}
 }
@@ -32,9 +30,24 @@ BubbleProcessor::BubbleProcessor(const std::string& subsMatPath)
 void BubbleProcessor::polishAll(const std::string& dataPath) 
 {
 	this->readBubbles(dataPath);
-
 	GeneralPolisher gp(_subsMatrix);
-	gp.polishBubbles(_bubbles);
+
+	int prevPercent = -1;
+	int counterDone = 0;
+	for (auto& bubble : _bubbles)
+	{
+		++counterDone;
+		int percent = 10 * counterDone / _bubbles.size();
+		if (percent > prevPercent)
+		{
+			std::cerr << percent * 10 << "% ";
+			prevPercent = percent;
+		}
+
+		gp.polishBubble(bubble);
+		//hp.polishBubble(bubble);
+	}
+	std::cerr << std::endl;
 }
 
 

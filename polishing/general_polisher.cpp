@@ -5,33 +5,19 @@
 #include "general_polisher.h"
 #include "alignment.h"
 
-void GeneralPolisher::polishBubbles(std::vector<Bubble> bubbles)
+void GeneralPolisher::polishBubble(Bubble& bubble)
 {
-	int prevPercent = -1;
-	int counterDone = 0;
-	for (auto& bubble : bubbles)
+	std::string prevCandidate;
+	std::string curCandidate = bubble.candidate;
+
+	while (curCandidate != prevCandidate)
 	{
-		++counterDone;
-		int percent = 10 * counterDone / bubbles.size();
-		if (percent > prevPercent)
-		{
-			std::cerr << percent * 10 << "% ";
-			prevPercent = percent;
-		}
-
-		std::string prevCandidate;
-		std::string curCandidate = bubble.candidate;
-
-		while (curCandidate != prevCandidate)
-		{
-			prevCandidate = curCandidate;
-			StepInfo rec = this->makeStep(curCandidate, bubble.branches);
-			curCandidate = rec.sequence;
-			bubble.polishSteps.push_back(rec);
-		}
-		bubble.candidate = curCandidate;
+		prevCandidate = curCandidate;
+		StepInfo rec = this->makeStep(curCandidate, bubble.branches);
+		curCandidate = rec.sequence;
+		bubble.polishSteps.push_back(rec);
 	}
-	std::cerr << std::endl;
+	bubble.candidate = curCandidate;
 }
 
 StepInfo GeneralPolisher::makeStep(const std::string& candidate, 
@@ -53,7 +39,7 @@ StepInfo GeneralPolisher::makeStep(const std::string& candidate,
 	//Deletion
 	for (size_t del_index = 0; del_index < candidate.size(); del_index++) 
 	{
-		double score = 0;
+		score = 0;
 		for (size_t i = 0; i < branches.size(); i++) 
 		{
 			score += align.addDeletion(i, del_index + 1);
@@ -77,7 +63,7 @@ StepInfo GeneralPolisher::makeStep(const std::string& candidate,
 		{
 			if (letter == candidate[sub_index]) continue;
 
-			double score = 0;
+			score = 0;
 			for (size_t i = 0; i < branches.size(); i++) 
 			{
 				score += align.addSubstitution(i, sub_index + 1, letter, 
@@ -102,7 +88,7 @@ StepInfo GeneralPolisher::makeStep(const std::string& candidate,
 	{
 		for (char letter : alphabet)
 		{
-			double score = 0;
+			score = 0;
 			for (size_t i = 0; i < branches.size(); i++) 
 			{
 				score += align.addInsertion(i, ins_index + 1, letter, 
