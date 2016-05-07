@@ -16,7 +16,8 @@
 class BubbleProcessor 
 {
 public:
-	BubbleProcessor(const std::string& subsMatPath);
+	BubbleProcessor(const std::string& subsMatPath,
+					const std::string& hopoMatrixPath);
 
 	void polishAll(const std::string& dataPath);
 	void writeConsensuses(const std::string& fileName);
@@ -24,6 +25,7 @@ public:
 
 private:
 	SubstitutionMatrix  _subsMatrix;
+	HopoMatrix _hopoMatrix;
 	std::vector<Bubble> _bubbles;
 
 	void readBubbles(const std::string& fileName);

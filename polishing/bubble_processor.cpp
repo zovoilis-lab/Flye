@@ -3,27 +3,18 @@
 //Released under the BSD license (see LICENSE file)
 
 #include <chrono>
-#include <sstream>
 
 #include "bubble_processor.h"
 #include "general_polisher.h"
+#include "homo_polisher.h"
+#include "utility.h"
 
-namespace
-{
-	std::vector<std::string> 
-	splitString(const std::string &s, char delim) 
-	{
-		std::vector<std::string> elems;
-		std::stringstream ss(s);
-		std::string item;
-		while (std::getline(ss, item, delim)) elems.push_back(item);
-		return elems;
-	}
-}
 
-BubbleProcessor::BubbleProcessor(const std::string& subsMatPath)
+BubbleProcessor::BubbleProcessor(const std::string& subsMatPath,
+								 const std::string& hopoMatrixPath):
+	_subsMatrix(subsMatPath),
+	_hopoMatrix(hopoMatrixPath)
 {
-	_subsMatrix.loadMatrix(subsMatPath);
 }
 
 
@@ -31,6 +22,8 @@ void BubbleProcessor::polishAll(const std::string& dataPath)
 {
 	this->readBubbles(dataPath);
 	GeneralPolisher gp(_subsMatrix);
+
+	HomoPolisher hp(_subsMatrix, _hopoMatrix);
 
 	int prevPercent = -1;
 	int counterDone = 0;
@@ -45,7 +38,7 @@ void BubbleProcessor::polishAll(const std::string& dataPath)
 		}
 
 		gp.polishBubble(bubble);
-		//hp.polishBubble(bubble);
+		hp.polishBubble(bubble);
 	}
 	std::cerr << std::endl;
 }
@@ -65,6 +58,8 @@ void BubbleProcessor::writeConsensuses(const std::string& fileName)
 void BubbleProcessor::writeLog(const std::string& fileName)
 {
 	std::ofstream fout(fileName);
+	std::vector<std::string> methods = {"None", "Insertion", "Substitution",
+										"Deletion", "Homopolymer"};
 
 	for (auto& bubble : _bubbles)
 	{
@@ -76,7 +71,7 @@ void BubbleProcessor::writeLog(const std::string& fileName)
 				 << std::setw(22) << std::left << "Score: " << std::right 
 				 << std::setprecision(2) << stepInfo.score << std::endl
 				 << std::setw(22) << std::left << "Last method applied: " 
-				 << std::right << stepInfo.methodUsed << std::endl;
+				 << std::right << methods[stepInfo.methodUsed] << std::endl;
 
 			if (stepInfo.methodUsed == StepDel)
 				fout << "Char at index: " << stepInfo.changedIndex << " was deleted. \n";

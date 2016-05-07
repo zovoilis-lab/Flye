@@ -173,43 +173,6 @@ double Alignment::getBacktrackMatrix(const std::string& v, const std::string& w,
 }
 
 
-void Alignment::traceback(FloatMatrix& backtrack, const std::string& v, 
-						  const std::string& w, std::string& o_v, 
-						  std::string& o_w) 
-{
-	int i = v.size();
-	int j = w.size();
-	o_v = "";
-	o_w = "";
-
-	while (i != 0 || j != 0) {
-		if(backtrack.at(i, j) == 1){ //Del
-			o_v += v[i - 1];
-			o_w += '-';
-			i -= 1;
-		}
-		else if (backtrack.at(i, j) == -1) { //Ins
-			o_v += '-';
-			o_w += w[j - 1];
-			j -= 1;
-		}
-		else if (backtrack.at(i, j) == 7) { //Mat
-			o_v += v[i - 1];
-			o_w += w[j - 1];
-			i -= 1;
-			j -= 1;
-		}
-		else if (backtrack.at(i, j) == 0) { //Sub
-			o_v += v[i - 1];
-			o_w += w[j - 1];
-			i -= 1;
-			j -= 1;
-		}
-	}
-	std::reverse(o_v.begin(), o_v.end());
-	std::reverse(o_w.begin(), o_w.end());
-}
-
 void Alignment::writeMatToFile(const FloatMatrix& matrix) 
 {
 	std::ofstream file;

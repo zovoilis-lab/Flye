@@ -10,16 +10,18 @@
 
 
 bool parseArgs(int argc, char** argv, std::string& bubblesFile, 
-			   std::string& scoringMatrix, std::string& outConsensus, 
-			   std::string& outVerbose)
+			   std::string& scoringMatrix, std::string& hopoMatrix,
+			   std::string& outConsensus, std::string& outVerbose)
 {
 	auto printUsage = []()
 	{
-		std::cerr << "Usage: polish bubbles_file scoring_matrix out_file "
+		std::cerr << "Usage: polish bubbles_file subs_matrix "
+				  << "hopo_matrix out_file "
 				  << "[-v verbose_log]\n\n"
 				  << "positional arguments:\n"
 				  << "\tbubbles_file\tpath to bubbles file\n"
-				  << "\tscoring_matrix\tpath to scoring matrix\n"
+				  << "\tsubs_matrix\tpath to substitution matrix\n"
+				  << "\thopo_matrix\tpath to homopolymer matrix\n"
 				  << "\tout_file\tpath to output file\n"
 				  << "\noptional arguments:\n"
 				  << "\t-v verbose_log\tpath to the file "
@@ -40,14 +42,15 @@ bool parseArgs(int argc, char** argv, std::string& bubblesFile,
 			exit(0);
 		}
 	}
-	if (argc - optind != 3)
+	if (argc - optind != 4)
 	{
 		printUsage();
 		return false;
 	}
 	bubblesFile = *(argv + optind);
 	scoringMatrix = *(argv + optind + 1);
-	outConsensus = *(argv + optind + 2);
+	hopoMatrix = *(argv + optind + 2);
+	outConsensus = *(argv + optind + 3);
 	return true;
 }
 
@@ -55,13 +58,14 @@ int main(int argc, char* argv[])
 {
 	std::string bubblesFile;
 	std::string scoringMatrix;
+	std::string hopoMatrix;
 	std::string outConsensus;
 	std::string outVerbose;
 	if (!parseArgs(argc, argv, bubblesFile, scoringMatrix, 
-				   outConsensus, outVerbose))
+				   hopoMatrix, outConsensus, outVerbose))
 		return 1;
 
-	BubbleProcessor bp(scoringMatrix);
+	BubbleProcessor bp(scoringMatrix, hopoMatrix);
 	bp.polishAll(bubblesFile); 
 	bp.writeConsensuses(outConsensus);
 	if (!outVerbose.empty())

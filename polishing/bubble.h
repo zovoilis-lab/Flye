@@ -7,7 +7,7 @@
 #include <string>
 #include <vector>
 
-enum StepType {StepNone, StepIns, StepSub, StepDel};
+enum StepType {StepNone, StepIns, StepSub, StepDel, StepHopo};
 
 struct StepInfo 
 {

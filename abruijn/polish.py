@@ -60,6 +60,9 @@ def _run_polish_bin(bubbles_in, subs_matrix, consensus_out, thread_error):
 
 
 def _compose_sequence(consensus_files):
+    """
+    Concatenates bubbles consensuses into genome
+    """
     consensuses = defaultdict(list)
     for file_name in consensus_files:
         with open(file_name, "r") as f:
@@ -83,6 +86,9 @@ def _compose_sequence(consensus_files):
 
 
 def _run_parallel(buckets, work_dir):
+    """
+    Sets up multiple threads
+    """
     thread_error = [0]
     threads = []
     subs_matrix = os.path.join(os.environ["ABRUIJN_RES"], SUBS_MATRIX)
