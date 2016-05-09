@@ -182,8 +182,12 @@ void HomoPolisher::polishBubble(Bubble& bubble)
 	std::string newConsensus;
 	for (size_t i = 0; i < states.size(); ++i)
 	{
-		size_t len = this->mostLikelyLen(states[i], observations[i]);
-		newConsensus += std::string(len, states[i].nucl);
+		size_t length = states[i].length;
+		if (length > 1)	//only homopolymers
+		{
+			length = this->mostLikelyLen(states[i], observations[i]);
+		}
+		newConsensus += std::string(length, states[i].nucl);
 		/*if (len != (size_t)states[i].length)
 		{
 

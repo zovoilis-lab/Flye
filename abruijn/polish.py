@@ -17,8 +17,11 @@ import abruijn.bubbles as bbl
 import abruijn.fasta_parser as fp
 from abruijn.utils import which
 
+
 POLISH_BIN = "abruijn-polish"
-SUBS_MATRIX = "pacbio_error.txt"
+SUBS_MATRIX = "pacbio_substitutions.mat"
+HOPO_MATRIX = "pacbio_homopolymers.mat"
+
 logger = logging.getLogger()
 
 
@@ -47,11 +50,12 @@ def polish(bubbles, num_proc, work_dir):
     return _compose_sequence(out_files)
 
 
-def _run_polish_bin(bubbles_in, subs_matrix, consensus_out, thread_error):
+def _run_polish_bin(bubbles_in, subs_matrix, hopo_matrix,
+                    consensus_out, thread_error):
     """
     Invokes polishing binary
     """
-    cmdline = [POLISH_BIN, bubbles_in, subs_matrix, consensus_out]
+    cmdline = [POLISH_BIN, bubbles_in, subs_matrix, hopo_matrix, consensus_out]
     try:
         subprocess.check_call(cmdline, stderr=open(os.devnull, "w"))
     except (subprocess.CalledProcessError, OSError) as e:
@@ -92,6 +96,7 @@ def _run_parallel(buckets, work_dir):
     thread_error = [0]
     threads = []
     subs_matrix = os.path.join(os.environ["ABRUIJN_RES"], SUBS_MATRIX)
+    hopo_matrix = os.path.join(os.environ["ABRUIJN_RES"], HOPO_MATRIX)
     output_files = []
     for i, bucket in enumerate(buckets):
         instance_in = os.path.join(work_dir, "bubbles_part_{0}.fasta".format(i))
@@ -101,7 +106,8 @@ def _run_parallel(buckets, work_dir):
         output_files.append(instance_out)
 
         thread = Thread(target=_run_polish_bin, args=(instance_in, subs_matrix,
-                                                      instance_out, thread_error))
+                                                      hopo_matrix, instance_out,
+                                                      thread_error))
         thread.start()
         threads.append(thread)
 

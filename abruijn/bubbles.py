@@ -28,6 +28,7 @@ class Bubble:
         self.contig_id = contig_id
         self.bubble_id = bubble_id
         self.branches = []
+        self.consensus = ""
 
 
 def get_bubbles(alignment, contigs_info):
@@ -47,7 +48,10 @@ def get_bubbles(alignment, contigs_info):
         bubbles.extend(_get_bubble_seqs(ctg_aln, partition,
                                         contigs_info[ctg_id].length,
                                         ctg_id))
+    bubbles = _add_consensus(bubbles)
+
     return bubbles
+
 
 
 def output_bubbles(bubbles, out_file):
@@ -56,23 +60,43 @@ def output_bubbles(bubbles, out_file):
     """
     with open(out_file, "w") as f:
         for bubble in bubbles:
-            if len(bubble.branches) == 0:
-                logger.debug("Empty bubble {0}".format(bubble.bubble_id))
-                continue
-
-            consensus = sorted(bubble.branches,
-                               key=len)[len(bubble.branches) / 2]
             f.write(">{0} {1} {2}\n".format(bubble.contig_id,
                                             bubble.bubble_id,
                                             len(bubble.branches)))
-            f.write(consensus + "\n")
+            f.write(bubble.consensus + "\n")
             for branch_id, branch in enumerate(bubble.branches):
-                #rate = float(abs(len(branch) - len(consensus))) / len(consensus)
-                #if rate > 0.5:
-                #    logger.warning("Branch inconsistency with rate {0}, id {1}"
-                #                    .format(rate, bubble.bubble_id))
                 f.write(">{0}\n".format(branch_id))
                 f.write(branch + "\n")
+
+
+def _add_consensus(bubbles):
+    """
+    Adds consensus sequences and filters outliers
+    """
+    new_bubbles = []
+    for bubble in bubbles:
+        if len(bubble.branches) == 0:
+            logger.debug("Empty bubble {0}".format(bubble.bubble_id))
+            continue
+
+        consensus = sorted(bubble.branches,
+                           key=len)[len(bubble.branches) / 2]
+        bubble.consensus = consensus
+
+        new_branches = []
+        for branch in bubble.branches:
+            incons_rate = float(abs(len(branch) -
+                                    len(consensus))) / len(consensus)
+            if incons_rate < 0.5:
+                new_branches.append(branch)
+            #else:
+            #    logger.warning("Branch inconsistency with rate {0}, id {1}"
+            #                    .format(incons_rate, bubble.bubble_id))
+
+        bubble.branches = new_branches
+        new_bubbles.append(bubble)
+
+    return new_bubbles
 
 
 def _is_solid_kmer(profile, position, kmer_length):
