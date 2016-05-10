@@ -16,11 +16,12 @@ from threading import Thread
 import abruijn.bubbles as bbl
 import abruijn.fasta_parser as fp
 from abruijn.utils import which
+import abruijn.config as config
 
 
 POLISH_BIN = "abruijn-polish"
-SUBS_MATRIX = "pacbio_substitutions.mat"
-HOPO_MATRIX = "pacbio_homopolymers.mat"
+#SUBS_MATRIX = "nano_substitutions.mat"
+#HOPO_MATRIX = "nano_homopolymers.mat"
 
 logger = logging.getLogger()
 
@@ -40,13 +41,13 @@ def check_binaries():
                               .format(POLISH_BIN, e))
 
 
-def polish(bubbles, num_proc, work_dir):
+def polish(bubbles, num_proc, work_dir, profile):
     logger.info("Polishing draft assembly")
     buckets = [[] for _ in xrange(num_proc)]
     for i in xrange(len(bubbles)):
         buckets[random.randint(0, num_proc - 1)].append(bubbles[i])
 
-    out_files = _run_parallel(buckets, work_dir)
+    out_files = _run_parallel(buckets, work_dir, profile)
     return _compose_sequence(out_files)
 
 
@@ -89,14 +90,16 @@ def _compose_sequence(consensus_files):
     return polished_fasta
 
 
-def _run_parallel(buckets, work_dir):
+def _run_parallel(buckets, work_dir, profile):
     """
     Sets up multiple threads
     """
     thread_error = [0]
     threads = []
-    subs_matrix = os.path.join(os.environ["ABRUIJN_RES"], SUBS_MATRIX)
-    hopo_matrix = os.path.join(os.environ["ABRUIJN_RES"], HOPO_MATRIX)
+    subs_matrix = os.path.join(os.environ["ABRUIJN_RES"],
+                               config.vals["profiles"][profile]["subs_matrix"])
+    hopo_matrix = os.path.join(os.environ["ABRUIJN_RES"],
+                               config.vals["profiles"][profile]["hopo_matrix"])
     output_files = []
     for i, bucket in enumerate(buckets):
         instance_in = os.path.join(work_dir, "bubbles_part_{0}.fasta".format(i))

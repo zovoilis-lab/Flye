@@ -67,7 +67,8 @@ void SubstitutionMatrix::loadMatrix(const std::string& path)
 	}
 	while (std::getline(file, line))
 	{
-		if (line == "") continue;
+		if (line.empty()) continue;
+		if (line[line.length() - 1] == '\r') line.pop_back();
 
 		auto items = splitString(line, '\t');
 
@@ -235,6 +236,9 @@ void HopoMatrix::loadMatrix(const std::string& fileName)
 
 	while (std::getline(fin, buffer))
 	{
+		if (buffer.empty()) continue;
+		if (buffer[buffer.length() - 1] == '\r') buffer.pop_back();
+
 		auto tokens = splitString(buffer, '\t');
 		tokens[0].pop_back();
 		State state = State(expandHopo(tokens[0]));

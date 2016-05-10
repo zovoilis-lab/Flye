@@ -39,10 +39,11 @@ def run(args):
     preassembly = os.path.join(work_dir, "read_edges.fasta")
     asm.assemble(args.reads, preassembly, args.kmer_size, args.min_cov,
                  args.max_cov, args.coverage)
-    alignment, contigs_info = aln.get_alignment(preassembly, args.reads,
-                                                args.threads, work_dir)
+    alignment, contigs_info, profile = \
+            aln.get_alignment(preassembly, args.reads,
+                              args.threads, work_dir)
     bubbles = bbl.get_bubbles(alignment, contigs_info)
-    polished_seqs = pol.polish(bubbles, args.threads, work_dir)
+    polished_seqs = pol.polish(bubbles, args.threads, work_dir, profile)
     out_genome = os.path.join(work_dir, "contigs.fasta")
     fp.write_fasta_dict(polished_seqs, out_genome)
     logger.info("Done! Your assembly is in file: " + out_genome)

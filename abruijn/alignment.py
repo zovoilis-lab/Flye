@@ -14,6 +14,7 @@ import logging
 
 import abruijn.fasta_parser as fp
 from abruijn.utils import which
+import abruijn.config as config
 
 
 logger = logging.getLogger()
@@ -43,7 +44,20 @@ def get_alignment(draft_file, reads_file, num_proc, work_dir):
     blasr_aln = os.path.join(work_dir, "alignment.m5")
     contigs_info = _compose_raw_genome(draft_file, raw_genome)
     _run_blasr(raw_genome, reads_file, num_proc, blasr_aln)
-    return _parse_blasr(blasr_aln), contigs_info
+    alignment, mean_err = _parse_blasr(blasr_aln)
+    profile = _choose_profile(mean_err)
+    return alignment, contigs_info, profile
+
+
+def _choose_profile(err_rate):
+    if err_rate < config.vals["err_rate_threshold"]:
+        profile = "pacbio"
+    else:
+        profile = "nano"
+
+    logger.debug("Alignment error rate: {0}".format(err_rate))
+    logger.info("Chosen '{0}' polishing profile".format(profile))
+    return profile
 
 
 def _parse_blasr(filename):
@@ -64,9 +78,8 @@ def _parse_blasr(filename):
                                         tokens[18], err_rate))
             errors.append(err_rate)
 
-    #mean_err = float(sum(errors)) / len(errors)
-    #print("Read error rate: {0:5.2f}".format(mean_err))
-    return alignments
+    mean_err = float(sum(errors)) / len(errors)
+    return alignments, mean_err
 
 
 def _compose_raw_genome(contig_parts, out_file):
