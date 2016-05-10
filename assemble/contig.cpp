@@ -125,17 +125,6 @@ ContigGenerator::getSwitchPositions(FastaRecord::Id leftRead,
 									FastaRecord::Id rightRead,
 									int32_t prevSwitch)
 {
-	int32_t ovlpShift = 0;
-	for (auto& ovlp : _overlapDetector.getOverlapIndex().at(leftRead))
-	{
-		if (ovlp.extId == rightRead)
-		{
-			ovlpShift = (ovlp.curBegin - ovlp.extBegin + 
-						 ovlp.curEnd - ovlp.extEnd) / 2;
-			break;
-		}
-	}
-
 	std::vector<std::pair<int32_t, int32_t>> sharedKmers;
 	for (auto& leftKmer : _vertexIndex.getIndexByRead().at(leftRead))
 	{
@@ -163,7 +152,7 @@ ContigGenerator::getSwitchPositions(FastaRecord::Id leftRead,
 		WARNING_PRINT("No jump found! " +
 					  _seqContainer.getIndex().at(leftRead).description +
 					  " : " + _seqContainer.getIndex().at(rightRead).description);
-		return {prevSwitch + 1, prevSwitch - ovlpShift};
+		return {prevSwitch + 1, 0};
 	}
 
 	std::pair<int32_t, int32_t> bestLeft = {0, 0};

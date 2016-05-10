@@ -22,10 +22,16 @@ struct OverlapRange
 		std::swap(curId, extId);
 		std::swap(curBegin, extBegin);
 		std::swap(curEnd, extEnd);
+		leftShift = -leftShift;
+		rightShift = -rightShift;
 	}
 
 	void complement(int32_t curLen, int32_t extLen)
 	{
+		std::swap(leftShift, rightShift);
+		leftShift = -leftShift;
+		rightShift = -rightShift;
+
 		std::swap(curBegin, curEnd);
 		curBegin = curLen - curBegin;
 		curEnd = curLen - curEnd;
@@ -42,39 +48,38 @@ struct OverlapRange
 	FastaRecord::Id curId;
 	int32_t curBegin;
 	int32_t curEnd;
+	int32_t leftShift;
 	//extension read
 	FastaRecord::Id extId;
 	int32_t extBegin;
 	int32_t extEnd;
+	int32_t rightShift;
 };
 
 class OverlapDetector
 {
 public:
 	OverlapDetector(int maximumJump, int minimumOverlap,
-					int maximumOverhang):
+					int maximumOverhang, const VertexIndex& vi,
+					const SequenceContainer& seqCont):
 		_maximumJump(maximumJump), _minimumOverlap(minimumOverlap),
-		_maximumOverhang(maximumOverhang) 
+		_maximumOverhang(maximumOverhang), _vertexIndex(vi),
+		_seqContainer(seqCont)
 	{}
-	
-	void findAllOverlaps(const VertexIndex& vertexIndex, 
-						 const SequenceContainer& seqContainer);
-
-	
 
 	typedef std::unordered_map<FastaRecord::Id, 
 					   std::vector<OverlapRange>> OverlapIndex;
+	
+	void findAllOverlaps();
 	const OverlapIndex& getOverlapIndex() const {return _overlapIndex;}
 private:
-	std::vector<OverlapRange> getReadOverlaps(FastaRecord::Id readId, 
-						 					  const VertexIndex& vertexIndex,
-						 					  const SequenceContainer& seqContainer);
-
-	bool  goodStart(int32_t currentPos, int32_t extensionPos, 
-				   int32_t currentLength, int32_t extensionLength);
-	bool  overlapTest(const OverlapRange& ovlp, int32_t curLen, int32_t extLen);
-
 	enum JumpRes {J_END, J_INCONS, J_CLOSE, J_FAR};
+
+	std::vector<OverlapRange> getReadOverlaps(FastaRecord::Id readId);
+	void 	addOverlapShifts(OverlapRange& ovlp);
+	bool    goodStart(int32_t currentPos, int32_t extensionPos, 
+				      int32_t currentLength, int32_t extensionLength);
+	bool    overlapTest(const OverlapRange& ovlp, int32_t curLen, int32_t extLen);
 	JumpRes jumpTest(int32_t currentPrev, int32_t currentNext,
 				     int32_t extensionPrev, int32_t extensionNext);
 
@@ -84,5 +89,8 @@ private:
 
 	OverlapIndex _overlapIndex;
 	std::vector<std::vector<char>> _overlapMatrix;
+
+	const VertexIndex& _vertexIndex;
+	const SequenceContainer& _seqContainer;
 };
 

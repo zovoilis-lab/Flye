@@ -73,11 +73,8 @@ ContigPath Extender::extendRead(FastaRecord::Id startRead)
 	{
 		for (auto& ovlp : _ovlpDetector.getOverlapIndex().at(readId))
 		{
-			//if (this->branchIndex(ovlp.extId) > 0.5)
-			//{
-				_visitedReads.insert(ovlp.extId);
-				_visitedReads.insert(ovlp.extId.rc());
-			//}
+			_visitedReads.insert(ovlp.extId);
+			_visitedReads.insert(ovlp.extId.rc());
 		}
 	}
 
@@ -109,7 +106,7 @@ void Extender::assembleContigs()
 		if (startRead == FastaRecord::ID_NONE) break;
 
 		ContigPath path = this->extendRead(startRead);
-		if (path.reads.size() > 1) _contigPaths.push_back(std::move(path));
+		if (path.reads.size() > 2) _contigPaths.push_back(std::move(path));
 	}
 	LOG_PRINT("Assembled " << _contigPaths.size() << " contigs");
 }
@@ -181,12 +178,15 @@ FastaRecord::Id Extender::stepRight(FastaRecord::Id readId,
 			if (ovlp.extId == readId) ovlpSize = ovlp.curRange();
 			if (!extensions.count(ovlp.extId)) continue;
 
+			//auto revOvlp = ovlp;
+			//revOvlp.reverse();
+
 			if (this->isProperRightExtension(ovlp)) ++rightSupport;
 			if (this->isProperLeftExtension(ovlp)) ++leftSupport;
 		}
 		int minSupport = std::min(leftSupport, rightSupport);
-		supportIndex[extCandidate] = std::make_tuple(minSupport, rightSupport,
-													 ovlpSize);
+		supportIndex[extCandidate] = std::make_tuple(minSupport, ovlpSize,
+													 rightSupport);
 		DEBUG_PRINT("\t" << _seqContainer.getIndex().at(extCandidate).description
 					<< " " << leftSupport << " " << rightSupport << " "
 					<< this->branchIndex(extCandidate));
@@ -229,8 +229,10 @@ int Extender::countRightExtensions(FastaRecord::Id readId)
 	int count = 0;
 	for (auto& ovlp : _ovlpDetector.getOverlapIndex().at(readId))
 	{
-		if (!_visitedReads.count(ovlp.extId) &&
-			this->isProperRightExtension(ovlp)) ++count;
+
+		//if (!_visitedReads.count(ovlp.extId) &&
+		//	this->isProperRightExtension(ovlp)) ++count;
+		if (this->isProperRightExtension(ovlp)) ++count;
 	}
 	return count;
 }
@@ -238,13 +240,11 @@ int Extender::countRightExtensions(FastaRecord::Id readId)
 //Checks if read is extended to the right
 bool Extender::isProperRightExtension(const OverlapRange& ovlp)
 {
-	int32_t curLen = _seqContainer.seqLen(ovlp.curId);
-	int32_t extLen = _seqContainer.seqLen(ovlp.extId);
-	return extLen - ovlp.extEnd > curLen - ovlp.curEnd;
+	return ovlp.rightShift > _maximumJump;
 }
 
 //Checks if read is extended to the left
 bool Extender::isProperLeftExtension(const OverlapRange& ovlp)
 {
-	return ovlp.extBegin > ovlp.curBegin;
+	return ovlp.leftShift < _maximumJump;
 }

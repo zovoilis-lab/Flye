@@ -12,31 +12,33 @@
 #include "chimera.h"
 #include "extender.h"
 #include "contig.h"
+#include "parameters_estimator.h"
 
 bool parseArgs(int argc, char** argv, std::string& readsFasta, 
-			   std::string& outAssembly, int& kmerSize, int& minKmer,
-			   int& maxKmer)
+			   std::string& outAssembly, int& coverage,
+			   int& kmerSize, int& minKmer, int& maxKmer)
 {
 	auto printUsage = [argv]()
 	{
 		std::cerr << "Usage: " << argv[0]
-				  << " reads_file out_assembly "
+				  << " reads_file out_assembly coverage "
 				  << "[-k kmer_size] [-m min_kmer_cov] "
 				  << "[-x max_kmer_cov] \n\n"
 				  << "positional arguments:\n"
 				  << "\treads file\tpath to fasta with reads\n"
 				  << "\tout_assembly\tpath to output file\n"
+				  << "\tcoverage\testimated assembly coverage\n"
 				  << "\noptional arguments:\n"
 				  << "\t-k kmer_size\tk-mer size [default = 15] \n"
 				  << "\t-m min_kmer_cov\tminimum k-mer coverage "
 				  << "[default = auto] \n"
 				  << "\t-x max_kmer_cov\tmaximum k-mer coverage "
-				  << "[default = 24] \n";
+				  << "[default = auto] \n";
 	};
 
 	kmerSize = 15;
 	minKmer = -1;
-	maxKmer = 24;
+	maxKmer = -1;
 
 	const char optString[] = "k:m:x:h";
 	int opt = 0;
@@ -58,13 +60,15 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 			exit(0);
 		}
 	}
-	if (argc - optind != 2)
+	if (argc - optind != 3)
 	{
 		printUsage();
 		return false;
 	}
 	readsFasta = *(argv + optind);
 	outAssembly = *(argv + optind + 1);
+	coverage = atoi(*(argv + optind + 2));
+
 	return true;
 }
 
@@ -77,10 +81,11 @@ int main(int argc, char** argv)
 	int kmerSize = 0;
 	int minKmerCov = 0;
 	int maxKmerCov = 0;
+	int coverage = 0;
 	std::string readsFasta;
 	std::string outAssembly;
 
-	if (!parseArgs(argc, argv, readsFasta, outAssembly, 
+	if (!parseArgs(argc, argv, readsFasta, outAssembly, coverage,
 				   kmerSize, minKmerCov, maxKmerCov))
 	{
 		return 1;
@@ -97,22 +102,29 @@ int main(int argc, char** argv)
 		LOG_PRINT("Building kmer index");
 		vertexIndex.buildKmerIndex(seqContainer);
 
-		LOG_PRINT("Trimming index");
+		if (maxKmerCov == -1)
+		{
+			maxKmerCov = coverage;
+		}
 		if (minKmerCov == -1)
 		{
-			minKmerCov = vertexIndex.estimateCoverageCutoff();
+			ParametersEstimator estimator(vertexIndex, seqContainer);
+			minKmerCov = estimator.estimateMinKmerCount(coverage, maxKmerCov);
 		}
+
+
 		vertexIndex.applyKmerThresholds(minKmerCov, maxKmerCov);
 		LOG_PRINT("Building read index");
 		vertexIndex.buildReadIndex();
 
-		OverlapDetector ovlp(MAX_JUMP, MIN_OVERLAP, MAX_OVERHANG);
-		ovlp.findAllOverlaps(vertexIndex, seqContainer);
+		OverlapDetector ovlp(MAX_JUMP, MIN_OVERLAP, MAX_OVERHANG,
+							 vertexIndex, seqContainer);
+		ovlp.findAllOverlaps();
 
 		ChimeraDetector chimDetect(MAX_OVERHANG, MAX_JUMP, ovlp, seqContainer);
 		chimDetect.detectChimeras();
 
-		Extender extender(ovlp, chimDetect, seqContainer);
+		Extender extender(ovlp, chimDetect, seqContainer, MAX_JUMP);
 		extender.assembleContigs();
 
 		ContigGenerator contGen(MAX_JUMP, extender, ovlp, 

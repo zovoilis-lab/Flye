@@ -73,6 +73,7 @@ public:
 					   		   Kmer::KmerHash> KmerIndex;
 	typedef std::unordered_map<FastaRecord::Id, 
 					   		   std::vector<KmerPosition>> ReadIndex;
+	typedef std::map<int, int> KmerDistribution;
 
 	void		 buildKmerIndex(const SequenceContainer& seqContainer);
 	void 		 setKmerSize(unsigned int size);
@@ -81,21 +82,21 @@ public:
 	unsigned int getKmerSize() const 
 		{return _kmerSize;}
 	void 		 buildReadIndex();
-	int 		 estimateCoverageCutoff() const;
 
 	const KmerIndex&  getIndexByKmer() const
 		{return _kmerIndex;}
 	const ReadIndex&  getIndexByRead() const
 		{return _readIndex;}
+	const KmerDistribution& getKmerHist() const
+		{return _kmerDistribution;}
 
 	void outputCounts() const;
 private:
 	VertexIndex();
 	void addFastaSequence(const FastaRecord& fastaRecord);
-	std::map<int, int> _kmerDistribution;
-
 
 	unsigned int _kmerSize;
 	KmerIndex 	 _kmerIndex;
 	ReadIndex 	 _readIndex;
+	KmerDistribution _kmerDistribution;
 };

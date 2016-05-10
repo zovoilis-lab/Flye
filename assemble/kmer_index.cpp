@@ -131,7 +131,7 @@ void VertexIndex::buildKmerIndex(const SequenceContainer& seqContainer)
 	std::unordered_set<Kmer, Kmer::KmerHash> goodKmers;
 
 	//filling up bloom filter
-	LOG_PRINT("First pass:");
+	DEBUG_PRINT("First pass:");
 	size_t counterDone = 0;
 	int prevPercent = -1;
 	for (auto& seqPair : seqContainer.getIndex())
@@ -143,7 +143,7 @@ void VertexIndex::buildKmerIndex(const SequenceContainer& seqContainer)
 		int percent = 10 * counterDone / seqContainer.getIndex().size();
 		if (percent > prevPercent)
 		{
-			std::cerr << percent * 10 << "% ";
+			DEBUG_PRINT(percent * 10 << "%");
 			prevPercent = percent;
 		}
 
@@ -165,10 +165,9 @@ void VertexIndex::buildKmerIndex(const SequenceContainer& seqContainer)
 			curKmer = curKmer.appendRight(seqPair.second.sequence[pos++]);
 		}
 	}
-	std::cerr << std::endl;
 
 	//adding only good kmers to index
-	LOG_PRINT("Second pass:");
+	DEBUG_PRINT("Second pass:");
 	counterDone = 0;
 	prevPercent = -1;
 	for (auto& seqPair : seqContainer.getIndex())
@@ -180,7 +179,7 @@ void VertexIndex::buildKmerIndex(const SequenceContainer& seqContainer)
 		int percent = 10 * counterDone / seqContainer.getIndex().size();
 		if (percent > prevPercent)
 		{
-			std::cerr << percent * 10 << "% ";
+			DEBUG_PRINT(percent * 10 << "% ");
 			prevPercent = percent;
 		}
 
@@ -203,37 +202,11 @@ void VertexIndex::buildKmerIndex(const SequenceContainer& seqContainer)
 			curKmer = curKmer.appendRight(seqPair.second.sequence[pos++]);
 		}
 	}
-	std::cerr << std::endl;
 	
 	for (auto kmer : _kmerIndex)
 	{
 		_kmerDistribution[kmer.second.size()] += 1;
 	}
-}
-
-
-int VertexIndex::estimateCoverageCutoff() const
-{
-	int cutoff = 1;
-	int prevFreq = std::numeric_limits<int>::max();
-	for (auto mapPair : _kmerDistribution)
-	{
-		if (mapPair.first < 40)
-		{
-			std::cerr << mapPair.first << "\t" << mapPair.second << std::endl;
-		}
-	}
-	for (auto mapPair : _kmerDistribution)
-	{
-		if (mapPair.second > prevFreq)
-		{
-			cutoff = mapPair.first - 1;
-			break;
-		}
-		prevFreq = mapPair.second;
-	}
-	LOG_PRINT("Estimated coverage cutoff: " << cutoff);
-	return cutoff;
 }
 
 

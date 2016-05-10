@@ -32,10 +32,16 @@ def check_binaries():
                                 .format(ASSEMBLE_BIN, e))
 
 
-def assemble(reads_file, out_file, kmer_size, min_cov):
+def assemble(reads_file, out_file, kmer_size, min_kmer_count,
+             max_kmer_count, coverage):
     logger.info("Assembling reads")
-    cmdline = [ASSEMBLE_BIN, reads_file, out_file,
-               "-k", str(kmer_size), "-m", str(min_cov)]
+    cmdline = [ASSEMBLE_BIN, reads_file, out_file, str(coverage),
+               "-k", str(kmer_size)]
+    if min_kmer_count is not None:
+        cmdline.extend(["-m", min_kmer_count])
+    if max_kmer_count is not None:
+        cmdline.extend(["-x", max_kmer_count])
+
     proc = subprocess.Popen(cmdline, stderr=subprocess.PIPE)
     for line in iter(proc.stderr.readline, ""):
         logger.debug(line.strip())

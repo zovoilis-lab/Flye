@@ -37,7 +37,8 @@ def run(args):
     asm.check_binaries()
 
     preassembly = os.path.join(work_dir, "read_edges.fasta")
-    asm.assemble(args.reads, preassembly, args.kmer_size, args.min_cov)
+    asm.assemble(args.reads, preassembly, args.kmer_size, args.min_cov,
+                 args.max_cov, args.coverage)
     alignment, contigs_info = aln.get_alignment(preassembly, args.reads,
                                                 args.threads, work_dir)
     bubbles = bbl.get_bubbles(alignment, contigs_info)
@@ -70,24 +71,28 @@ def enable_logging(log_file, debug):
 
 def main():
     parser = argparse.ArgumentParser(description="ABruijn: assembly of long and"
-                                     "error-prone reads", formatter_class= \
-                                     argparse.ArgumentDefaultsHelpFormatter)
+                                     "error-prone reads")
 
     parser.add_argument("reads", metavar="reads",
                         help="path to a file with reads in FASTA format")
-    parser.add_argument("-o", "--outdir", dest="out_dir",
-                        metavar="output_dir",
-                        help="output directory",
-                        default="abruijn-out")
+    parser.add_argument("out_dir", metavar="out_dir",
+                        help="output directory")
+    parser.add_argument("coverage", metavar="coverage", type=int,
+                        help="estimated assembly coverage")
     parser.add_argument("--debug", action="store_true",
                         dest="debug", default=False,
                         help="enable debug output")
     parser.add_argument("-t", "--threads", dest="threads", type=int,
-                        default=1, help="number of parallel threads")
+                        default=1, help="number of parallel threads "
+                        "(default: 1)")
     parser.add_argument("-k", "--kmer-size", dest="kmer_size", type=int,
-                        default=15, help="kmer size")
+                        default=15, help="kmer size (default: 15)")
     parser.add_argument("-m", "--min-cov", dest="min_cov", type=int,
-                        default=8, help="minimum kmer coverage")
+                        default=None, help="minimum kmer coverage "
+                        "(default: auto)")
+    parser.add_argument("-x", "--max-cov", dest="max_cov", type=int,
+                        default=None, help="maximum kmer coverage "
+                        "(default: auto)")
     parser.add_argument("--version", action="version", version=__version__)
     args = parser.parse_args()
 
