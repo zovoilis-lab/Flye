@@ -10,14 +10,13 @@ int ParametersEstimator::estimateMinKmerCount(int coverage,
 {
 	const int MIN_CUTOFF = 4;
 
-	int totalReadLen = 0;
+	int kmersNeeded = 0;
 	for (auto& seqPair : _seqContainer.getIndex()) 
 	{
-		totalReadLen += _seqContainer.seqLen(seqPair.first);
+		kmersNeeded += _seqContainer.seqLen(seqPair.first) / coverage;
 	}
-	int kmersNeeded = totalReadLen / coverage;
 	LOG_PRINT("Genome size estimate: " << kmersNeeded / 2);
-
+	
 	int takenKmers = 0;
 	int cutoff = 0;
 	int repetitiveKmers = 0;

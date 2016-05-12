@@ -8,34 +8,42 @@
 #include <unordered_set>
 #include <algorithm>
 
-#include <bf.h>
-
 #include "kmer_index.h"
 #include "utility.h"
 
 namespace
 {
-	unsigned int dnaToNumber(char dnaChar)
+	static std::vector<size_t> table;
+	size_t dnaToId(char c)
 	{
-		switch(dnaChar)
-		{
-		case 'A':
-			return 0;
-		case 'C':
-			return 1;
-		case 'G':
-			return 2;
-		case 'T':
-			return 3;
-		default:
-			throw std::runtime_error("Processing non-DNA character");
-		}
+		return table[(size_t)c];
 	}
-
-	char numberToDna(unsigned int num)
+	struct TableFiller
 	{
-		static const char LETTERS[] = "ACGT";
-		if (num > 3) throw std::runtime_error("Error converting number to DNA");
+		TableFiller()
+		{
+			static bool tableFilled = false;
+			if (!tableFilled)
+			{
+				tableFilled = true;
+				table.assign(256, -1);	//256 chars
+				table[(size_t)'A'] = 0;
+				table[(size_t)'a'] = 0;
+				table[(size_t)'C'] = 1;
+				table[(size_t)'c'] = 1;
+				table[(size_t)'T'] = 2;
+				table[(size_t)'t'] = 2;
+				table[(size_t)'G'] = 3;
+				table[(size_t)'g'] = 3;
+				table[(size_t)'-'] = 4;
+			}
+		}
+	};
+	TableFiller filler;
+	char idToDna(unsigned int num)
+	{
+		static const char LETTERS[] = "ACTG-";
+		if (num > 4) throw std::runtime_error("Error converting number to DNA");
 		return LETTERS[num];
 	}
 }
@@ -51,49 +59,41 @@ Kmer::Kmer(const std::string& dnaString):
 	for (auto dnaChar : dnaString)	
 	{
 		_representation <<= 2;
-		_representation += dnaToNumber(dnaChar);
+		_representation += dnaToId(dnaChar);
 	}
 }
 
-Kmer Kmer::appendRight(char dnaSymbol) const
+void Kmer::appendRight(char dnaSymbol)
 {
-	Kmer newKmer(*this);
-	newKmer._representation <<= 2;
-	newKmer._representation += dnaToNumber(dnaSymbol);
+	_representation <<= 2;
+	_representation += dnaToId(dnaSymbol);
 
 	KmerRepr kmerSize = VertexIndex::getInstance().getKmerSize();
 	KmerRepr kmerMask = ((KmerRepr)1 << kmerSize * 2) - 1;
-	newKmer._representation &= kmerMask;
-
-	return newKmer;
+	_representation &= kmerMask;
 }
 
-Kmer Kmer::appendLeft(char dnaSymbol) const
+void Kmer::appendLeft(char dnaSymbol)
 {
-	Kmer newKmer(*this);
-	newKmer._representation >>= 2;
+	_representation >>= 2;
 
 	KmerRepr kmerSize = VertexIndex::getInstance().getKmerSize();
 	KmerRepr shift = kmerSize * 2 - 2;
-	newKmer._representation += dnaToNumber(dnaSymbol) << shift;
-
-	return newKmer;
+	_representation += dnaToId(dnaSymbol) << shift;
 }
 
-Kmer Kmer::reverseComplement() const
+void Kmer::reverseComplement()
 {
-	Kmer newKmer(*this);
-	newKmer._representation = 0;
-	Kmer::KmerRepr tmpRepr = _representation;
+	KmerRepr tmpRepr = _representation;
+	_representation = 0;
 	KmerRepr mask = 3;
 
 	for (unsigned int i = 0; i < VertexIndex::getInstance().getKmerSize(); ++i)
 	{
-		newKmer._representation <<= 2;
-		newKmer._representation += ~(mask & tmpRepr);
+		_representation <<= 2;
+		_representation += ~(mask & tmpRepr);
 		tmpRepr >>= 2;
 	}
-	return newKmer;
 }
 
 std::string Kmer::dnaRepresentation() const
@@ -103,7 +103,7 @@ std::string Kmer::dnaRepresentation() const
 	KmerRepr tempRepr = _representation;
 	for (unsigned int i = 0; i < VertexIndex::getInstance().getKmerSize(); ++i)
 	{
-		repr.push_back(numberToDna(tempRepr & mask));
+		repr.push_back(idToDna(tempRepr & mask));
 		tempRepr >>= 2;
 	}
 	repr.reserve();
@@ -120,15 +120,18 @@ void VertexIndex::setKmerSize(unsigned int size)
 	_kmerSize = size;
 }
 
-void VertexIndex::buildKmerIndex(const SequenceContainer& seqContainer)
+void VertexIndex::buildKmerIndex(const SequenceContainer& seqContainer,
+								 size_t hardThreshold)
 {
+	LOG_PRINT("Hard threshold set to " << hardThreshold);
+	if (hardThreshold == 0 || hardThreshold > 100) 
+	{
+		throw std::runtime_error("Wrong hard threshold value: " + 
+								 std::to_string(hardThreshold));
+	}
 	static const size_t BLOOM_CELLS = (size_t)1 << 31;
-	static const size_t BLOOM_WIDTH = 2;
-	static const size_t BLOOM_HASH = 7;
-
-	bf::spectral_mi_bloom_filter bloomFilter(bf::make_hasher(BLOOM_HASH), 
-											  BLOOM_CELLS, BLOOM_WIDTH);
-	std::unordered_set<Kmer, Kmer::KmerHash> goodKmers;
+	static const size_t BLOOM_HASH = 5;
+	CountingBloom bloomFilter(hardThreshold, BLOOM_HASH, BLOOM_CELLS);
 
 	//filling up bloom filter
 	DEBUG_PRINT("First pass:");
@@ -151,22 +154,13 @@ void VertexIndex::buildKmerIndex(const SequenceContainer& seqContainer)
 		size_t pos = _kmerSize;
 		while (true)
 		{
-			if (bloomFilter.lookup(curKmer.hash()) < 3)
-			{
-				bloomFilter.add(curKmer.hash());
-			}
-			else
-			{
-				goodKmers.insert(curKmer);
-			}
-				
-			if (pos == seqPair.second.sequence.length())
-				break;
-			curKmer = curKmer.appendRight(seqPair.second.sequence[pos++]);
+			bloomFilter.add(curKmer.hash());
+			if (pos == seqPair.second.sequence.length()) break;
+			curKmer.appendRight(seqPair.second.sequence[pos++]);
 		}
 	}
 
-	//adding only good kmers to index
+	//adding kmers that have passed the filter
 	DEBUG_PRINT("Second pass:");
 	counterDone = 0;
 	prevPercent = -1;
@@ -187,19 +181,19 @@ void VertexIndex::buildKmerIndex(const SequenceContainer& seqContainer)
 		size_t pos = _kmerSize;
 		while (true)
 		{
-			if (goodKmers.count(curKmer))
+			size_t count = bloomFilter.count(curKmer.hash(), hardThreshold - 1);
+			if (count >= hardThreshold)
 			{
 				_kmerIndex[curKmer]
 					.push_back(ReadPosition(seqPair.second.id, pos));
 			}
 			else
 			{
-				_kmerDistribution[bloomFilter.lookup(curKmer.hash())] += 1;
+				_kmerDistribution[count] += 1;
 			}
 
-			if (pos == seqPair.second.sequence.length())
-				break;
-			curKmer = curKmer.appendRight(seqPair.second.sequence[pos++]);
+			if (pos == seqPair.second.sequence.length()) break;
+			curKmer.appendRight(seqPair.second.sequence[pos++]);
 		}
 	}
 	

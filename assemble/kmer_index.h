@@ -10,6 +10,8 @@
 #include <vector>
 #include <iostream>
 
+#include <bf.h>
+
 #include "fasta.h"
 
 static_assert(sizeof(size_t) == 8, "32-bit architectures are not supported");
@@ -19,9 +21,9 @@ class Kmer
 public:
 	Kmer(const std::string& dnaString);
 
-	Kmer reverseComplement() const;
-	Kmer appendRight(char dnaSymbol) const;
-	Kmer appendLeft(char dnaSymbol) const;
+	void reverseComplement();
+	void appendRight(char dnaSymbol);
+	void appendLeft(char dnaSymbol);
 	std::string dnaRepresentation() const;
 	typedef uint64_t KmerRepr;
 
@@ -75,7 +77,8 @@ public:
 					   		   std::vector<KmerPosition>> ReadIndex;
 	typedef std::map<int, int> KmerDistribution;
 
-	void		 buildKmerIndex(const SequenceContainer& seqContainer);
+	void		 buildKmerIndex(const SequenceContainer& seqContainer,
+								size_t hardThreshold);
 	void 		 setKmerSize(unsigned int size);
 	void 		 applyKmerThresholds(unsigned int minCoverage, 
 							 		 unsigned int maxCoverage);
@@ -99,4 +102,42 @@ private:
 	KmerIndex 	 _kmerIndex;
 	ReadIndex 	 _readIndex;
 	KmerDistribution _kmerDistribution;
+};
+
+class CountingBloom
+{
+public:
+	CountingBloom(size_t maxCount, size_t numHash, size_t width):
+		_maxCount(maxCount)
+	{
+		for (size_t i = 0; i < maxCount; ++i)
+		{
+			_filters.emplace_back(bf::make_hasher(numHash), width);
+		}
+	}
+	template <typename T>
+	void add(const T& obj)
+	{
+		for (size_t i = 0; i < _maxCount; ++i)
+		{
+			if (!_filters[i].lookup(obj))
+			{
+				_filters[i].add(obj);
+				break;
+			}
+		}
+	}
+	template <typename T>
+	size_t count(const T& obj, size_t minCount = 0)
+	{
+		for (size_t i = minCount; i < _maxCount; ++i)
+		{
+			if (!_filters[i].lookup(obj)) return i;
+		}
+		return _maxCount;
+	}
+
+private:
+	std::vector<bf::basic_bloom_filter> _filters;
+	size_t _maxCount;
 };

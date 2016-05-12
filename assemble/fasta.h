@@ -18,7 +18,6 @@ struct FastaRecord
 		Id(uint32_t id): _id(id) {}
 		operator uint32_t () const {return _id;}
 		uint32_t rc() const		//reverse complement 
-			//{return (_id % 2 == 0) ? _id + 1 : _id - 1;}
 			{return _id + 1 - (_id % 2) * 2;}
 		size_t hash() const {return _id;}
 	private:
@@ -66,7 +65,7 @@ public:
 
 	const SequenceIndex& getIndex() const
 		{return _seqIndex;}
-	int32_t seqLen(FastaRecord::Id readId) const
+	size_t seqLen(FastaRecord::Id readId) const
 		{return _seqIndex.at(readId).sequence.length();}
 	void 	readFasta(const std::string& filename);
 

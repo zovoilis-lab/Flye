@@ -4,6 +4,8 @@
 
 #pragma once
 
+#include <unordered_set>
+
 #include "kmer_index.h"
 #include "fasta.h"
 
@@ -88,7 +90,17 @@ private:
 	int _maximumOverhang;
 
 	OverlapIndex _overlapIndex;
-	std::vector<std::vector<char>> _overlapMatrix;
+
+	typedef std::tuple<FastaRecord::Id, FastaRecord::Id> id_pair_t;
+	struct key_hash : public std::unary_function<id_pair_t, std::size_t>
+	{
+		 size_t operator()(const id_pair_t& k) const
+		 {
+		   	return ((size_t)std::get<0>(k).hash() << 32) ^ 
+					std::get<1>(k).hash();
+		 }
+	};
+	std::unordered_set<id_pair_t, key_hash> _overlapMatrix;
 
 	const VertexIndex& _vertexIndex;
 	const SequenceContainer& _seqContainer;

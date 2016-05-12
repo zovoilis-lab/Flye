@@ -78,7 +78,7 @@ ContigPath Extender::extendRead(FastaRecord::Id startRead)
 		}
 	}
 
-	LOG_PRINT("Made " << contigPath.reads.size() - 1 << " extensions");
+	DEBUG_PRINT("Made " << contigPath.reads.size() - 1 << " extensions");
 	return contigPath;
 }
 

@@ -77,6 +77,7 @@ int main(int argc, char** argv)
 	static const int MAX_JUMP = 1500;
 	static const int MIN_OVERLAP = 5000;
 	static const int MAX_OVERHANG = 1500;
+	static const int MAGIC_NUMBER = 10;
 
 	int kmerSize = 0;
 	int minKmerCov = 0;
@@ -100,7 +101,8 @@ int main(int argc, char** argv)
 		vertexIndex.setKmerSize(kmerSize);
 
 		LOG_PRINT("Building kmer index");
-		vertexIndex.buildKmerIndex(seqContainer);
+		size_t hardThreshold = coverage / MAGIC_NUMBER;
+		vertexIndex.buildKmerIndex(seqContainer, hardThreshold);
 
 		if (maxKmerCov == -1)
 		{
@@ -111,7 +113,6 @@ int main(int argc, char** argv)
 			ParametersEstimator estimator(vertexIndex, seqContainer);
 			minKmerCov = estimator.estimateMinKmerCount(coverage, maxKmerCov);
 		}
-
 
 		vertexIndex.applyKmerThresholds(minKmerCov, maxKmerCov);
 		LOG_PRINT("Building read index");
