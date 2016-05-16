@@ -11,12 +11,12 @@
 class ChimeraDetector
 {
 public:
-	ChimeraDetector(int maxOverhang, int maxJump, 
+	ChimeraDetector(int maxOverhang, int maxJump, int coverage,
 					const OverlapDetector& ovlpDetector,
 					const SequenceContainer& seqContainer):
 		_ovlpDetector(ovlpDetector), _seqContainer(seqContainer),
 		_maximumOverhang(maxOverhang), _maximumJump(maxJump),
-		_coverage(0)
+		_coverage(coverage)
 	{}
 
 	void detectChimeras();
@@ -25,7 +25,10 @@ public:
 	int getCoverage() const {return _coverage;}
 
 private:
-	bool testRead(FastaRecord::Id readId);
+	int  estimateOverlapCoverage();
+	bool testReadByCoverage(FastaRecord::Id readId);
+	bool testReadByClusters(FastaRecord::Id readId);
+	bool testSelfOverlap(FastaRecord::Id readId);
 
 	const OverlapDetector& _ovlpDetector;
 	const SequenceContainer& _seqContainer;

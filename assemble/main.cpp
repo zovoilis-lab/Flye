@@ -77,7 +77,7 @@ int main(int argc, char** argv)
 	static const int MAX_JUMP = 1500;
 	static const int MIN_OVERLAP = 5000;
 	static const int MAX_OVERHANG = 1500;
-	static const int MAGIC_NUMBER = 10;
+	static const int MAGIC_10 = 10;
 
 	int kmerSize = 0;
 	int minKmerCov = 0;
@@ -101,7 +101,7 @@ int main(int argc, char** argv)
 		vertexIndex.setKmerSize(kmerSize);
 
 		LOG_PRINT("Building kmer index");
-		size_t hardThreshold = coverage / MAGIC_NUMBER;
+		size_t hardThreshold = coverage / MAGIC_10;
 		vertexIndex.buildKmerIndex(seqContainer, hardThreshold);
 
 		if (maxKmerCov == -1)
@@ -122,7 +122,8 @@ int main(int argc, char** argv)
 							 vertexIndex, seqContainer);
 		ovlp.findAllOverlaps();
 
-		ChimeraDetector chimDetect(MAX_OVERHANG, MAX_JUMP, ovlp, seqContainer);
+		ChimeraDetector chimDetect(MAX_OVERHANG, MAX_JUMP, coverage,
+								   ovlp, seqContainer);
 		chimDetect.detectChimeras();
 
 		Extender extender(ovlp, chimDetect, seqContainer, MAX_JUMP);

@@ -21,8 +21,12 @@ void OverlapDetector::findAllOverlaps()
 
 	for (auto& seqHash : _seqContainer.getIndex())
 	{
-		auto detectedOverlaps = this->getReadOverlaps(seqHash.first);
 		_overlapIndex[seqHash.first];	//empty vector by default
+
+		if (_seqContainer.seqLen(seqHash.first) < (size_t)_minimumOverlap) 
+			continue;
+
+		auto detectedOverlaps = this->getReadOverlaps(seqHash.first);
 		for (auto ovlp : detectedOverlaps)
 		{
 			//detected overlap
@@ -98,6 +102,8 @@ bool OverlapDetector::overlapTest(const OverlapRange& ovlp, int32_t curLen,
 std::vector<OverlapRange> 
 OverlapDetector::getReadOverlaps(FastaRecord::Id currentReadId)
 {
+	const int MAX_PATHS = 20;
+
 	auto& readIndex = _vertexIndex.getIndexByRead();
 	auto& kmerIndex = _vertexIndex.getIndexByKmer();
 	if (!readIndex.count(currentReadId)) return std::vector<OverlapRange>();
@@ -114,8 +120,9 @@ OverlapDetector::getReadOverlaps(FastaRecord::Id currentReadId)
 		for (auto& extReadPos : kmerIndex.at(curKmerPos.kmer))
 		{
 			//don't want self-overlaps
-			if (extReadPos.readId == currentReadId ||
-				extReadPos.readId == currentReadId.rc()) continue;
+			//if (extReadPos.readId == currentReadId ||
+			//	extReadPos.readId == currentReadId.rc()) continue;
+			if (extReadPos.readId == currentReadId) continue;
 			//maybe it's already processed
 			if (_overlapMatrix.count(std::make_tuple(extReadPos.readId,
 							   						 currentReadId))) continue;
@@ -124,6 +131,8 @@ OverlapDetector::getReadOverlaps(FastaRecord::Id currentReadId)
 			auto& extPaths = activePaths[extReadPos.readId];
 			auto extLen = _seqContainer.getIndex().at(extReadPos.readId)
 														.sequence.length();
+
+			if (extLen < (size_t)_minimumOverlap) continue;
 
 			//searching for longest possible extension
 			size_t maxCloseId = 0;
@@ -182,6 +191,21 @@ OverlapDetector::getReadOverlaps(FastaRecord::Id currentReadId)
 				extPaths.push_back(OverlapRange(currentReadId, extReadPos.readId,
 												curPos, extPos));
 			}
+			//keep at most MAX_PATHS paths
+			if (extPaths.size() > MAX_PATHS)
+			{
+				size_t shortestId = 0;
+				int32_t shortestLength = extPaths[shortestId].curRange();
+				for (size_t i = 0; i < extPaths.size(); ++i)
+				{
+					if (extPaths[i].curRange() < shortestLength)
+					{
+						shortestLength = extPaths[i].curRange();
+						shortestId = i;
+					}
+				}
+				eraseMarks.insert(shortestId);
+			}
 			//cleaning up
 			for (auto itEraseId = eraseMarks.rbegin(); 
 				 itEraseId != eraseMarks.rend(); ++itEraseId)
@@ -195,6 +219,8 @@ OverlapDetector::getReadOverlaps(FastaRecord::Id currentReadId)
 	std::vector<OverlapRange> detectedOverlaps;
 	for (auto& ap : activePaths)
 	{
+		//if (ap.second.size() > 100)
+		//	DEBUG_PRINT("Pathset length: " << ap.second.size());
 		auto extLen = _seqContainer.seqLen(ap.first);
 		OverlapRange maxOverlap(0, 0, 0, 0);
 		bool passedTest = false;

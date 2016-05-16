@@ -222,7 +222,6 @@ void VertexIndex::applyKmerThresholds(unsigned int minCoverage,
 			++itKmers;
 		}
 	}
-	DEBUG_PRINT(_kmerIndex.size());
 	DEBUG_PRINT("Removed " << removedCount << " entries");
 }
 
