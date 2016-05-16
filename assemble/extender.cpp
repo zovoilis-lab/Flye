@@ -152,6 +152,7 @@ FastaRecord::Id Extender::stepRight(FastaRecord::Id readId,
 	{
 		assert(ovlp.curId != ovlp.extId);
 		if (this->isProperRightExtension(ovlp) &&
+			!_chimDetector.isChimeric(ovlp.extId) &&
 			this->countRightExtensions(ovlp.extId, false) > 0) 
 		{
 			if (ovlp.extId == startReadId) return startReadId;
@@ -159,59 +160,6 @@ FastaRecord::Id Extender::stepRight(FastaRecord::Id readId,
 		}
 	}
 	
-	/*
-	typedef std::tuple<int, FastaRecord::Id, int> QPair;
-	static auto cmp = [](const QPair& p1, const QPair& p2)
-		{return std::get<0>(p1) > std::get<0>(p2);};
-	std::priority_queue<QPair, std::vector<QPair>, decltype(cmp)> queue(cmp);
-
-	std::unordered_set<int> supportValues;
-	for (auto& extCandidate : extensions)
-	{
-		int leftSupport = 0;
-		int rightSupport = 0;
-		int ovlpSize = 0;
-		for (auto& ovlp : _ovlpDetector.getOverlapIndex().at(extCandidate))
-		{
-			if (ovlp.extId == readId) ovlpSize = ovlp.curRange();
-			if (!extensions.count(ovlp.extId)) continue;
-
-			if (this->isProperRightExtension(ovlp)) ++rightSupport;
-			if (this->isProperLeftExtension(ovlp)) ++leftSupport;
-		}
-		int minSupport = std::min(leftSupport, rightSupport);
-		supportValues.insert(minSupport);
-		DEBUG_PRINT(minSupport);
-		queue.push(std::make_tuple(minSupport, extCandidate, ovlpSize));
-	}
-
-	if (queue.empty()) return FastaRecord::ID_NONE;
-
-	int toDelete = std::get<0>(queue.top());
-	while(supportValues.size() > 1 &&
-		  queue.size() > (extensions.size() + 1) / 2)
-	{
-		while(std::get<0>(queue.top()) == toDelete)
-		{
-			DEBUG_PRINT("Erased: " << std::get<0>(queue.top()));
-			queue.pop();
-		}
-		supportValues.erase(toDelete);
-		toDelete = std::get<0>(queue.top());
-	}
-
-	FastaRecord::Id bestExtension = FastaRecord::ID_NONE;
-	int maxOverlap = 0;
-	while (!queue.empty())
-	{
-		if (std::get<2>(queue.top()) > maxOverlap)
-		{
-			maxOverlap = std::get<2>(queue.top());
-			bestExtension = std::get<1>(queue.top());
-		}
-		queue.pop();
-	}*/
-
 	//rank extension candidates
 	std::unordered_map<FastaRecord::Id, 
 					   std::tuple<int, int, int>> supportIndex;
@@ -234,8 +182,6 @@ FastaRecord::Id Extender::stepRight(FastaRecord::Id readId,
 		int branchingScore = 1 - (this->branchIndex(extCandidate) > 2);
 		int minSupport = std::min(leftSupport, rightSupport);
 		//minSupport = std::min(minSupport, 2);
-		//supportIndex[extCandidate] = std::make_tuple(minSupport, ovlpSize,
-		//											 rightSupport);
 		if (!curBranching)
 		{
 			supportIndex[extCandidate] = std::make_tuple(branchingScore, minSupport, 
@@ -266,8 +212,6 @@ FastaRecord::Id Extender::stepRight(FastaRecord::Id readId,
 
 	if (bestExtension != FastaRecord::ID_NONE)
 	{
-		//if (std::get<2>(supportIndex[bestExtension]) == 0)
-		//	DEBUG_PRINT("No right support! ");
 		if (_chimDetector.isChimeric(bestExtension))
 			DEBUG_PRINT("Chimeric extension! ");
 		if (this->branchIndex(bestExtension) > 2)

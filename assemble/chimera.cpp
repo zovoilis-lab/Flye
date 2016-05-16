@@ -21,8 +21,8 @@ void ChimeraDetector::detectChimeras()
 	for (auto& seqHash : _seqContainer.getIndex())
 	{
 		//if (this->testReadByClusters(seqHash.first))
-		if (this->testReadByCoverage(seqHash.first))
-		//if (this->testSelfOverlap(seqHash.first))
+		//if (this->testReadByCoverage(seqHash.first))
+		if (this->testSelfOverlap(seqHash.first))
 		{
 			//DEBUG_PRINT("Chimeric: " << seqHash.second.description);
 			_chimeras.insert(seqHash.first);
