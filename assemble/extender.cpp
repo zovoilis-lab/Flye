@@ -102,7 +102,7 @@ void Extender::assembleContigs()
 			if (!_visitedReads.count(indexPair.first) &&
 				!_chimDetector.isChimeric(indexPair.first) &&
 				this->countRightExtensions(indexPair.first, false) > 0 &&
-				this->branchIndex(indexPair.first) < 2)
+				this->branchIndex(indexPair.first) <= 2)
 			{
 				startRead = indexPair.first;
 				break;
@@ -238,11 +238,11 @@ int Extender::countRightExtensions(FastaRecord::Id readId,
 //Checks if read is extended to the right
 bool Extender::isProperRightExtension(const OverlapRange& ovlp)
 {
-	return ovlp.rightShift > 0;
+	return ovlp.rightShift > _maximumJump;
 }
 
 //Checks if read is extended to the left
 bool Extender::isProperLeftExtension(const OverlapRange& ovlp)
 {
-	return ovlp.leftShift < 0;
+	return ovlp.leftShift < -_maximumJump;
 }

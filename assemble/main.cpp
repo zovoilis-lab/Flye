@@ -75,7 +75,7 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 int main(int argc, char** argv)
 {
 	static const int MAX_JUMP = 1500;
-	static const int MIN_OVERLAP = 5000;
+	static const int MIN_OVERLAP = 4000;
 	static const int MAX_OVERHANG = 1500;
 	static const int MAGIC_10 = 10;
 
@@ -106,7 +106,7 @@ int main(int argc, char** argv)
 
 		if (maxKmerCov == -1)
 		{
-			maxKmerCov = coverage;
+			maxKmerCov = MAGIC_10 * coverage;
 		}
 		if (minKmerCov == -1)
 		{

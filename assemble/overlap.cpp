@@ -102,7 +102,7 @@ bool OverlapDetector::overlapTest(const OverlapRange& ovlp, int32_t curLen,
 std::vector<OverlapRange> 
 OverlapDetector::getReadOverlaps(FastaRecord::Id currentReadId)
 {
-	const int MAX_PATHS = 20;
+	const int MAX_PATHS = 100;
 
 	auto& readIndex = _vertexIndex.getIndexByRead();
 	auto& kmerIndex = _vertexIndex.getIndexByKmer();

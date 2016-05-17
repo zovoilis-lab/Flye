@@ -14,8 +14,6 @@
 
 void ChimeraDetector::detectChimeras()
 {
-	LOG_PRINT("Detecting chimeric sequences");
-
 	DEBUG_PRINT("Overlap-estimated coverage: " << 
 				this->estimateOverlapCoverage());
 	for (auto& seqHash : _seqContainer.getIndex())
@@ -29,7 +27,7 @@ void ChimeraDetector::detectChimeras()
 		}
 	}
 
-	LOG_PRINT(_chimeras.size() / 2 << " sequences were marked as unreliable");
+	LOG_PRINT(_chimeras.size() / 2 << " sequences were marked as chimeric");
 }
 
 int ChimeraDetector::estimateOverlapCoverage()
