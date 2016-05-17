@@ -6,7 +6,7 @@ OUT_BIN := ${BIN_DIR}/abruijn-assemble
 all: CXXFLAGS += -D_LOG -O3 -DNDEBUG
 all: abruijn
 
-debug: CXXFLAGS += -g -O2 -D_GLIBCXX_DEBUG -D_DEBUG -D_DEBUG_LOG -D_LOG
+debug: CXXFLAGS += -g -Og -D_GLIBCXX_DEBUG -D_DEBUG -D_DEBUG_LOG -D_LOG
 debug: abruijn
 
 log: CXXFLAGS += -D_DEBUG_LOG -D_LOG -O3 -DNDEBUG

@@ -130,7 +130,7 @@ void VertexIndex::buildKmerIndex(const SequenceContainer& seqContainer,
 								 std::to_string(hardThreshold));
 	}
 	static const size_t BLOOM_CELLS = (size_t)1 << 31;
-	static const size_t BLOOM_HASH = 5;
+	static const size_t BLOOM_HASH = 4;
 	CountingBloom bloomFilter(hardThreshold, BLOOM_HASH, BLOOM_CELLS);
 
 	//filling up bloom filter

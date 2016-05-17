@@ -33,7 +33,7 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 				  << "\t-m min_kmer_cov\tminimum k-mer coverage "
 				  << "[default = auto] \n"
 				  << "\t-x max_kmer_cov\tmaximum k-mer coverage "
-				  << "[default = auto] \n";
+				  << "[default = not set] \n";
 	};
 
 	kmerSize = 15;
@@ -101,12 +101,13 @@ int main(int argc, char** argv)
 		vertexIndex.setKmerSize(kmerSize);
 
 		LOG_PRINT("Building kmer index");
-		size_t hardThreshold = coverage / MAGIC_10;
+		//rough estimate
+		size_t hardThreshold = std::max(1, coverage / MAGIC_10);
 		vertexIndex.buildKmerIndex(seqContainer, hardThreshold);
 
 		if (maxKmerCov == -1)
 		{
-			maxKmerCov = MAGIC_10 * coverage;
+			maxKmerCov = std::numeric_limits<int>::max();
 		}
 		if (minKmerCov == -1)
 		{

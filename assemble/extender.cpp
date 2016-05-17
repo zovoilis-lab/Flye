@@ -151,12 +151,13 @@ FastaRecord::Id Extender::stepRight(FastaRecord::Id readId,
 	for (auto& ovlp : overlaps)
 	{
 		assert(ovlp.curId != ovlp.extId);
-		if (this->isProperRightExtension(ovlp) &&
-			!_chimDetector.isChimeric(ovlp.extId) &&
-			this->countRightExtensions(ovlp.extId, false) > 0) 
+		if (this->isProperRightExtension(ovlp)) 
 		{
 			if (ovlp.extId == startReadId) return startReadId;
-			extensions.insert(ovlp.extId);
+			if (this->countRightExtensions(ovlp.extId, false) > 0)
+			{
+				extensions.insert(ovlp.extId);
+			}
 		}
 	}
 	
@@ -238,11 +239,13 @@ int Extender::countRightExtensions(FastaRecord::Id readId,
 //Checks if read is extended to the right
 bool Extender::isProperRightExtension(const OverlapRange& ovlp)
 {
-	return ovlp.rightShift > _maximumJump;
+	return !_chimDetector.isChimeric(ovlp.extId) && 
+		   ovlp.rightShift > _maximumJump;
 }
 
 //Checks if read is extended to the left
 bool Extender::isProperLeftExtension(const OverlapRange& ovlp)
 {
-	return ovlp.leftShift < -_maximumJump;
+	return !_chimDetector.isChimeric(ovlp.extId) &&
+		   ovlp.leftShift < -_maximumJump;
 }

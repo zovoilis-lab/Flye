@@ -5,7 +5,7 @@ OUT_LIB := ${LIBBF}/libbf.a
 
 OBJECTS = $(patsubst %.cc, %.o, $(shell find . -name *.cc))
 
-debug: CXXFLAGS += -g -O3 -D_GLIBCXX_DEBUG -D_DEBUG
+debug: CXXFLAGS += -g -Og -D_GLIBCXX_DEBUG -D_DEBUG
 debug: bf
 
 all: CXXFLAGS += -O3 -DNDEBUG
