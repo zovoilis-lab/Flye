@@ -6,6 +6,7 @@
 #include <cassert>
 #include <algorithm>
 #include <queue>
+#include <iomanip>
 
 #include "utility.h"
 #include "extender.h"
@@ -79,8 +80,12 @@ ContigPath Extender::extendRead(FastaRecord::Id startRead)
 	{
 		for (auto& ovlp : _ovlpDetector.getOverlapIndex().at(readId))
 		{
-			_visitedReads.insert(ovlp.extId);
-			_visitedReads.insert(ovlp.extId.rc());
+			//if (!this->isBranching(ovlp.extId) && 
+			//	!this->isBranching(ovlp.extId.rc()))
+			//{
+				_visitedReads.insert(ovlp.extId);
+				_visitedReads.insert(ovlp.extId.rc());
+			//}
 		}
 	}
 
@@ -102,7 +107,7 @@ void Extender::assembleContigs()
 			if (!_visitedReads.count(indexPair.first) &&
 				!_chimDetector.isChimeric(indexPair.first) &&
 				this->countRightExtensions(indexPair.first, false) > 0 &&
-				this->branchIndex(indexPair.first) <= 2)
+				!this->isBranching(indexPair.first))
 			{
 				startRead = indexPair.first;
 				break;
@@ -126,18 +131,13 @@ float Extender::branchIndex(FastaRecord::Id readId)
 		if (this->isProperRightExtension(ovlp))
 		{
 			++curExtensions;
-			int newExt = this->countRightExtensions(ovlp.extId, true);
-			totalNewExt += newExt;
+			totalNewExt += this->countRightExtensions(ovlp.extId, true);
 		}
 	}
 	if (curExtensions == 0 || totalNewExt == 0) return 0.0f;
 
 	float avgNew = (float)totalNewExt / curExtensions;
 	float ratio = curExtensions / avgNew;
-	//if (ratio > 2.5)
-	//{
-	//	DEBUG_PRINT(curExtensions << " " << avgNew);
-	//}
 	return ratio;
 }
 
@@ -166,24 +166,25 @@ FastaRecord::Id Extender::stepRight(FastaRecord::Id readId,
 					   std::tuple<int, int, int>> supportIndex;
 
 	DEBUG_PRINT("Branch index " << this->branchIndex(readId));
-	bool curBranching = this->branchIndex(readId) > 2;
 	for (auto& extCandidate : extensions)
 	{
 		int leftSupport = 0;
 		int rightSupport = 0;
 		int ovlpSize = 0;
+		int ovlpShift = 0;
 		for (auto& ovlp : _ovlpDetector.getOverlapIndex().at(extCandidate))
 		{
 			if (ovlp.extId == readId) ovlpSize = ovlp.curRange();
+			if (ovlp.extId == readId) ovlpShift = -ovlp.rightShift;
 			if (!extensions.count(ovlp.extId)) continue;
 
 			if (this->isProperRightExtension(ovlp)) ++rightSupport;
 			if (this->isProperLeftExtension(ovlp)) ++leftSupport;
 		}
-		int branchingScore = 1 - (this->branchIndex(extCandidate) > 2);
+		int branchingScore = 1 - this->isBranching(extCandidate);
 		int minSupport = std::min(leftSupport, rightSupport);
 		//minSupport = std::min(minSupport, 2);
-		if (!curBranching)
+		if (!this->isBranching(readId))
 		{
 			supportIndex[extCandidate] = std::make_tuple(branchingScore, minSupport, 
 													 	 ovlpSize);
@@ -193,8 +194,10 @@ FastaRecord::Id Extender::stepRight(FastaRecord::Id readId,
 			supportIndex[extCandidate] = std::make_tuple(ovlpSize, 0, 0);
 		}
 		DEBUG_PRINT("\t" << _seqContainer.getIndex().at(extCandidate).description
-					<< " " << leftSupport << " " << rightSupport << " "
-					<< this->branchIndex(extCandidate) << " " << ovlpSize);
+					<< "\t" << leftSupport << "\t" << rightSupport << "\t"
+					<< std::fixed << std::setprecision(2) 
+					<< this->branchIndex(extCandidate) << "\t" << ovlpSize
+					<< "\t" << ovlpShift);
 	}
 
 	auto bestSupport = std::make_tuple(0, 0, 0);
@@ -215,7 +218,7 @@ FastaRecord::Id Extender::stepRight(FastaRecord::Id readId,
 	{
 		if (_chimDetector.isChimeric(bestExtension))
 			DEBUG_PRINT("Chimeric extension! ");
-		if (this->branchIndex(bestExtension) > 2)
+		if (this->isBranching(bestExtension))
 			DEBUG_PRINT("Branching extension! ");
 	}
 	return bestExtension;
@@ -236,16 +239,21 @@ int Extender::countRightExtensions(FastaRecord::Id readId,
 	return count;
 }
 
+bool Extender::isBranching(FastaRecord::Id readId)
+{
+	return this->branchIndex(readId) > 2.0f;
+}
+
 //Checks if read is extended to the right
 bool Extender::isProperRightExtension(const OverlapRange& ovlp)
 {
 	return !_chimDetector.isChimeric(ovlp.extId) && 
-		   ovlp.rightShift > _maximumJump;
+		   ovlp.rightShift > 0;
 }
 
 //Checks if read is extended to the left
 bool Extender::isProperLeftExtension(const OverlapRange& ovlp)
 {
 	return !_chimDetector.isChimeric(ovlp.extId) &&
-		   ovlp.leftShift < -_maximumJump;
+		   ovlp.leftShift < 0;
 }

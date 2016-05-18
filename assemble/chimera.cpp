@@ -34,7 +34,8 @@ int ChimeraDetector::estimateOverlapCoverage()
 {
 	static const float MAGIC_25 = 2.5f;
 	static const int WINDOW = 100;
-	const int FLANK = (_maximumJump + _maximumOverhang) / WINDOW;
+	//const int FLANK = (_maximumJump + _maximumOverhang) / WINDOW;
+	const int FLANK = _minimumOverlap / WINDOW;
 
 	std::unordered_map<FastaRecord::Id, 
 					   std::vector<int>> localCoverage;
@@ -46,8 +47,8 @@ int ChimeraDetector::estimateOverlapCoverage()
 
 		for (auto& ovlp : _ovlpDetector.getOverlapIndex().at(seqHash.first))
 		{
-			for (int pos = (ovlp.curBegin + _maximumJump) / WINDOW; 
-				 pos < (ovlp.curEnd - _maximumJump) / WINDOW; ++pos)
+			for (int pos = ovlp.curBegin / WINDOW; 
+				 pos < ovlp.curEnd / WINDOW; ++pos)
 			{
 				if (pos - FLANK >= 0 && 
 					pos - FLANK < (int)localCoverage[seqHash.first].size())

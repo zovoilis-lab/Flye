@@ -11,12 +11,13 @@
 class ChimeraDetector
 {
 public:
-	ChimeraDetector(int maxOverhang, int maxJump, int coverage,
+	ChimeraDetector(int maxOverhang, int maxJump,
+					int minOverlap, int coverage,
 					const OverlapDetector& ovlpDetector,
 					const SequenceContainer& seqContainer):
 		_ovlpDetector(ovlpDetector), _seqContainer(seqContainer),
 		_maximumOverhang(maxOverhang), _maximumJump(maxJump),
-		_coverage(coverage)
+		_minimumOverlap(minOverlap), _coverage(coverage)
 	{}
 
 	void detectChimeras();
@@ -36,5 +37,6 @@ private:
 	std::unordered_set<FastaRecord::Id> _chimeras;
 	int _maximumOverhang;
 	int _maximumJump;
+	int _minimumOverlap;
 	float _coverage;
 };

@@ -54,21 +54,23 @@ void OverlapDetector::findAllOverlaps()
 	_overlapMatrix.clear();
 }
 
-//pre-filtering (maybe it's not needed)
+//pre-filtering
 bool OverlapDetector::goodStart(int32_t curPos, int32_t extPos, 
 								int32_t curLen, int32_t extLen)
 {	
-	return 	(extPos < _maximumOverhang && curPos < curLen - _minimumOverlap) ||
-		   	(curPos < _maximumOverhang && extPos < extLen - _minimumOverlap);
+	return std::min(curPos, extPos) < _maximumOverhang && 
+		   extPos < extLen - _minimumOverlap &&
+		   curPos < curLen - _minimumOverlap;
 }
 
-//TODO: check if we need different stop results
 OverlapDetector::JumpRes 
 OverlapDetector::jumpTest(int32_t curPrev, int32_t curNext,
 						  int32_t extPrev, int32_t extNext)
 {
 	static const int CLOSE_FRAC = 8;
 	static const int FAR_FRAC = 2;
+	if (curNext - curPrev > _maximumJump) return J_END;
+
 	if (curNext - curPrev < _maximumJump && extNext - extPrev < _maximumJump)
 	{
 		if (abs((curNext - curPrev) - (extNext - extPrev)) 
@@ -78,7 +80,7 @@ OverlapDetector::jumpTest(int32_t curPrev, int32_t curNext,
 			< _maximumJump / FAR_FRAC)
 			return J_FAR;
 	}
-	return J_END;
+	return J_INCONS;
 }
 
 
@@ -120,8 +122,6 @@ OverlapDetector::getReadOverlaps(FastaRecord::Id currentReadId)
 		for (auto& extReadPos : kmerIndex.at(curKmerPos.kmer))
 		{
 			//don't want self-overlaps
-			//if (extReadPos.readId == currentReadId ||
-			//	extReadPos.readId == currentReadId.rc()) continue;
 			if (extReadPos.readId == currentReadId) continue;
 			//maybe it's already processed
 			if (_overlapMatrix.count(std::make_tuple(extReadPos.readId,
@@ -129,9 +129,7 @@ OverlapDetector::getReadOverlaps(FastaRecord::Id currentReadId)
 
 			int32_t extPos = extReadPos.position;
 			auto& extPaths = activePaths[extReadPos.readId];
-			auto extLen = _seqContainer.getIndex().at(extReadPos.readId)
-														.sequence.length();
-
+			auto extLen = _seqContainer.seqLen(extReadPos.readId);
 			if (extLen < (size_t)_minimumOverlap) continue;
 
 			//searching for longest possible extension
@@ -148,9 +146,8 @@ OverlapDetector::getReadOverlaps(FastaRecord::Id currentReadId)
 
 				switch (jumpResult)
 				{
-					//TODO: check, if this affects the performance
-					//maybe we really need to erase "dead ends"
 					case J_END:
+						break;
 					case J_INCONS:
 						break;
 					case J_CLOSE:
