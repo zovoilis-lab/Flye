@@ -39,13 +39,13 @@ ContigPath Extender::extendRead(FastaRecord::Id startRead)
 		{
 			DEBUG_PRINT("Extension: " << 
 				    	_seqContainer.getIndex().at(extRead).description);
+			if (curPathVisited.count(extRead)) DEBUG_PRINT("Visited in this path");
+			if (_visitedReads.count(extRead)) DEBUG_PRINT("Visited globally");
 		}
 		else
 		{
 			DEBUG_PRINT("No extension found");
 		}
-		if (curPathVisited.count(extRead)) DEBUG_PRINT("Visited in this path");
-		if (_visitedReads.count(extRead)) DEBUG_PRINT("Visited globally");
 
 		if (_visitedReads.count(extRead) || extRead == FastaRecord::ID_NONE)
 		{
@@ -72,22 +72,39 @@ ContigPath Extender::extendRead(FastaRecord::Id startRead)
 		_visitedReads.insert(extRead.rc());
 		curPathVisited.insert(extRead);
 		curPathVisited.insert(extRead.rc());
+
 		curRead = extRead;
 		contigPath.reads.push_back(curRead);
 	}
 
+	//marking visited reads
+	std::unordered_set<FastaRecord::Id> leftSupported;
+	std::unordered_set<FastaRecord::Id> rightSupported;
 	for (auto& readId : contigPath.reads)
 	{
 		for (auto& ovlp : _ovlpDetector.getOverlapIndex().at(readId))
 		{
-			//if (!this->isBranching(ovlp.extId) && 
-			//	!this->isBranching(ovlp.extId.rc()))
-			//{
-				_visitedReads.insert(ovlp.extId);
-				_visitedReads.insert(ovlp.extId.rc());
-			//}
+			if (this->isProperRightExtension(ovlp))
+			{
+				leftSupported.insert(ovlp.extId);
+				rightSupported.insert(ovlp.extId.rc());
+			}
+			if (this->isProperLeftExtension(ovlp))
+			{
+				rightSupported.insert(ovlp.extId);
+				leftSupported.insert(ovlp.extId.rc());
+			}
 		}
 	}
+	for (auto readId : leftSupported)
+	{
+		if (rightSupported.count(readId))
+		{
+			_visitedReads.insert(readId);
+			_visitedReads.insert(readId.rc());
+		}
+	}
+	//
 
 	DEBUG_PRINT("Made " << contigPath.reads.size() - 1 << " extensions");
 	return contigPath;
@@ -95,6 +112,7 @@ ContigPath Extender::extendRead(FastaRecord::Id startRead)
 
 void Extender::assembleContigs()
 {
+	const int MIN_CONTIG_SIZE = 20;	//TODO: a smarter filter
 	LOG_PRINT("Extending reads");
 	_visitedReads.clear();
 
@@ -116,7 +134,10 @@ void Extender::assembleContigs()
 		if (startRead == FastaRecord::ID_NONE) break;
 
 		ContigPath path = this->extendRead(startRead);
-		if (path.reads.size() > 2) _contigPaths.push_back(std::move(path));
+		if (path.reads.size() > MIN_CONTIG_SIZE)
+		{
+			_contigPaths.push_back(std::move(path));
+		}
 	}
 	LOG_PRINT("Assembled " << _contigPaths.size() << " contigs");
 }

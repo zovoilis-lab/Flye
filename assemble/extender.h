@@ -52,5 +52,6 @@ private:
 	int   countRightExtensions(FastaRecord::Id readId, bool countVisited);
 
 	std::vector<ContigPath> _contigPaths;
+
 	std::unordered_set<FastaRecord::Id>	_visitedReads;
 };
