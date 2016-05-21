@@ -25,24 +25,29 @@ public:
 	void appendRight(char dnaSymbol);
 	void appendLeft(char dnaSymbol);
 	std::string dnaRepresentation() const;
-	typedef uint64_t KmerRepr;
+	typedef size_t KmerRepr;
 
 	bool operator==(const Kmer& other) const
 		{return this->_representation == other._representation;}
 	size_t hash() const
 		{return _representation;}
 
-	struct KmerHash
-	{
-		std::size_t operator()(const Kmer& kmer) const
-		{
-			return std::hash<KmerRepr>()(kmer.hash());
-		}
-	};
-
 private:
 	KmerRepr _representation;
 };
+
+
+namespace std
+{
+	template <>
+	struct hash<Kmer>
+	{
+		std::size_t operator()(const Kmer& kmer) const
+		{
+			return std::hash<size_t>()(kmer.hash());
+		}
+	};
+}
 
 
 class VertexIndex
@@ -71,8 +76,7 @@ public:
 		int32_t position;
 	};
 
-	typedef std::unordered_map<Kmer, std::vector<ReadPosition>, 
-					   		   Kmer::KmerHash> KmerIndex;
+	typedef std::unordered_map<Kmer, std::vector<ReadPosition>> KmerIndex;
 	typedef std::unordered_map<FastaRecord::Id, 
 					   		   std::vector<KmerPosition>> ReadIndex;
 	typedef std::map<int, int> KmerDistribution;

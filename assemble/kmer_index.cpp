@@ -219,6 +219,7 @@ void VertexIndex::applyKmerThresholds(unsigned int minCoverage,
 		}
 		else
 		{
+			itKmers->second.shrink_to_fit();
 			++itKmers;
 		}
 	}
@@ -240,6 +241,7 @@ void VertexIndex::buildReadIndex()
 		std::sort(readHash.second.begin(), readHash.second.end(),
 					[](const KmerPosition& p1, const KmerPosition& p2)
 						{return p1.position < p2.position;});
+		readHash.second.shrink_to_fit();
 	}
 }
 

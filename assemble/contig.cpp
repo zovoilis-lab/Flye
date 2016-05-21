@@ -126,12 +126,12 @@ ContigGenerator::getSwitchPositions(FastaRecord::Id leftRead,
 									int32_t prevSwitch)
 {
 	//find repeats
-	std::unordered_map<Kmer, int, Kmer::KmerHash> leftCount;
+	std::unordered_map<Kmer, int> leftCount;
 	for (auto& leftKmer : _vertexIndex.getIndexByRead().at(leftRead))
 	{
 		leftCount[leftKmer.kmer] += 1;
 	}
-	std::unordered_map<Kmer, int, Kmer::KmerHash> rightCount;
+	std::unordered_map<Kmer, int> rightCount;
 	for (auto& rightKmer : _vertexIndex.getIndexByRead().at(rightRead))
 	{
 		rightCount[rightKmer.kmer] += 1;

@@ -269,12 +269,12 @@ bool Extender::isBranching(FastaRecord::Id readId)
 bool Extender::isProperRightExtension(const OverlapRange& ovlp)
 {
 	return !_chimDetector.isChimeric(ovlp.extId) && 
-		   ovlp.rightShift > 0;
+		   ovlp.rightShift > _maximumJump;
 }
 
 //Checks if read is extended to the left
 bool Extender::isProperLeftExtension(const OverlapRange& ovlp)
 {
 	return !_chimDetector.isChimeric(ovlp.extId) &&
-		   ovlp.leftShift < 0;
+		   ovlp.leftShift < -_maximumJump;
 }
