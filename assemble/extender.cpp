@@ -185,7 +185,7 @@ FastaRecord::Id Extender::stepRight(FastaRecord::Id readId,
 	
 	//rank extension candidates
 	std::unordered_map<FastaRecord::Id, 
-					   std::tuple<int, int, int>> supportIndex;
+					   std::tuple<int, int, int, int>> supportIndex;
 
 	DEBUG_PRINT("Branch index " << this->branchIndex(readId));
 	for (auto& extCandidate : extensions)
@@ -203,17 +203,18 @@ FastaRecord::Id Extender::stepRight(FastaRecord::Id readId,
 			if (this->isProperRightExtension(ovlp)) ++rightSupport;
 			if (this->isProperLeftExtension(ovlp)) ++leftSupport;
 		}
-		int branchingScore = 1 - this->isBranching(extCandidate);
 		int minSupport = std::min(leftSupport, rightSupport);
-		//minSupport = std::min(minSupport, 2);
+		int endsRepeat = 1 - this->isBranching(extCandidate);
 		if (!this->isBranching(readId))
 		{
-			supportIndex[extCandidate] = std::make_tuple(branchingScore, minSupport, 
-													 	 ovlpSize);
+			supportIndex[extCandidate] = std::make_tuple(endsRepeat, minSupport, 
+													 	 rightSupport, ovlpSize);
 		}
 		else
 		{
-			supportIndex[extCandidate] = std::make_tuple(ovlpSize, 0, 0);
+			int startsRepeat = 1 - this->isBranching(extCandidate.rc());
+			supportIndex[extCandidate] = std::make_tuple(startsRepeat, minSupport, 
+														 rightSupport, ovlpSize);
 		}
 		DEBUG_PRINT("\t" << _seqContainer.getIndex().at(extCandidate).description
 					<< "\t" << leftSupport << "\t" << rightSupport << "\t"
@@ -222,7 +223,7 @@ FastaRecord::Id Extender::stepRight(FastaRecord::Id readId,
 					<< "\t" << ovlpShift);
 	}
 
-	auto bestSupport = std::make_tuple(0, 0, 0);
+	auto bestSupport = std::make_tuple(0, 0, 0, 0);
 	auto bestExtension = FastaRecord::ID_NONE;
 	for (auto& extCandidate : extensions)
 	{
@@ -251,7 +252,6 @@ int Extender::countRightExtensions(FastaRecord::Id readId)
 	int count = 0;
 	for (auto& ovlp : _ovlpDetector.getOverlapIndex().at(readId))
 	{
-
 		if (this->isProperRightExtension(ovlp)) ++count;
 	}
 	return count;
