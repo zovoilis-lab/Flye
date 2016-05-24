@@ -38,7 +38,7 @@ def run(args):
 
     preassembly = os.path.join(work_dir, "read_edges.fasta")
     asm.assemble(args.reads, preassembly, args.kmer_size, args.min_cov,
-                 args.max_cov, args.coverage, args.debug)
+                 args.max_cov, args.coverage, args.debug, log_file)
     alignment, contigs_info, profile = \
             aln.get_alignment(preassembly, args.reads,
                               args.threads, work_dir)
@@ -62,7 +62,8 @@ def enable_logging(log_file, debug):
     if not debug:
         console_log.setLevel(logging.INFO)
 
-    file_handler = logging.FileHandler(log_file, mode="w")
+    open(log_file, "w").close()
+    file_handler = logging.FileHandler(log_file, mode="a")
     file_handler.setFormatter(log_formatter)
 
     logger.setLevel(logging.DEBUG)

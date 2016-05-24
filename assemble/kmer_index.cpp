@@ -180,7 +180,6 @@ void VertexIndex::buildKmerIndex(const SequenceContainer& seqContainer,
 			curKmer.appendRight(seqPair.second.sequence[pos++]);
 		}
 	}
-	std::cerr << std::endl;
 	
 	for (auto kmer : _kmerIndex)
 	{

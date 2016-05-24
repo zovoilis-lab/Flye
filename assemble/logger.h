@@ -7,6 +7,7 @@
 #include <iostream>
 #include <fstream>
 #include <ctime>
+#include <stdexcept>
 
 class Logger
 {
@@ -25,6 +26,7 @@ public:
 		{
 			throw std::runtime_error("Can't open log file");
 		}
+		_logFile << "-----------Begin assembly log------------\n";
 	}
 
 	void setDebugging(bool debug) {_debug = debug;}
@@ -97,6 +99,13 @@ private:
 	Logger():
 		_debug(false), _logFileSet(false)
 	{}
+	~Logger()
+	{
+		if (_logFileSet)
+		{
+			_logFile << "-----------End assembly log------------\n";
+		}
+	}
 
 	bool _debug;
 	bool _logFileSet;
@@ -110,6 +119,7 @@ public:
 		_finalCount(finalCount), _curCount(0), _prevPercent(-1),
 		_stopped(false)
 	{}
+
 	void advance(int step = 1)
 	{
 		if (_stopped) return;

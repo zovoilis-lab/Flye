@@ -15,15 +15,15 @@
 #include "logger.h"
 
 bool parseArgs(int argc, char** argv, std::string& readsFasta, 
-			   std::string& outAssembly, int& coverage,
+			   std::string& outAssembly, std::string& logFile, int& coverage,
 			   int& kmerSize, int& minKmer, int& maxKmer, bool& debug)
 {
 	auto printUsage = [argv]()
 	{
 		std::cerr << "Usage: " << argv[0]
-				  << " reads_file out_assembly coverage "
-				  << "[-k kmer_size] [-m min_kmer_cov] "
-				  << "[-x max_kmer_cov] [-d]\n\n"
+				  << "\treads_file out_assembly coverage \n\t\t\t\t"
+				  << "[-k kmer_size] [-m min_kmer_cov] \n\t\t\t\t"
+				  << "[-x max_kmer_cov] [-l log_file] [-d]\n\n"
 				  << "positional arguments:\n"
 				  << "\treads file\tpath to fasta with reads\n"
 				  << "\tout_assembly\tpath to output file\n"
@@ -33,17 +33,20 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 				  << "\t-m min_kmer_cov\tminimum k-mer coverage "
 				  << "[default = auto] \n"
 				  << "\t-x max_kmer_cov\tmaximum k-mer coverage "
-				  << "[default = not set] \n"
-				  << "\t-d \tenable debug output "
-				  << "[default = false] \n";
+				  << "[default = auto] \n"
+				  << "\t-d \t\tenable debug output "
+				  << "[default = false] \n"
+				  << "\t-l log_file\toutput log to file "
+				  << "[default = not set] \n";
 	};
 
 	kmerSize = 15;
 	minKmer = -1;
 	maxKmer = -1;
 	debug = false;
+	logFile = "";
 
-	const char optString[] = "k:m:x:hd";
+	const char optString[] = "k:m:x:l:hd";
 	int opt = 0;
 	while ((opt = getopt(argc, argv, optString)) != -1)
 	{
@@ -57,6 +60,9 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 			break;
 		case 'x':
 			maxKmer = atoi(optarg);
+			break;
+		case 'l':
+			logFile = optarg;
 			break;
 		case 'd':
 			debug = true;
@@ -92,16 +98,15 @@ int main(int argc, char** argv)
 	bool debugging = false;
 	std::string readsFasta;
 	std::string outAssembly;
+	std::string logFile;
 
-	if (!parseArgs(argc, argv, readsFasta, outAssembly, coverage,
-				   kmerSize, minKmerCov, maxKmerCov, debugging))
-	{
-		return 1;
-	}
+	if (!parseArgs(argc, argv, readsFasta, outAssembly, logFile, coverage,
+				   kmerSize, minKmerCov, maxKmerCov, debugging)) return 1;
 
 	try
 	{
 		Logger::get().setDebugging(debugging);
+		if (!logFile.empty()) Logger::get().setOutputFile(logFile);
 
 		SequenceContainer& seqContainer = SequenceContainer::getInstance();
 		Logger::get().debug() << "Reading FASTA";

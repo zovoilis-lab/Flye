@@ -12,7 +12,7 @@
 
 void OverlapDetector::findAllOverlaps()
 {
-	Logger::get().info() << "Finding overlaps";
+	Logger::get().info() << "Finding overlaps:";
 	_overlapMatrix.clear();
 
 	ProgressPercent ovlpProg(_seqContainer.getIndex().size());
@@ -49,7 +49,6 @@ void OverlapDetector::findAllOverlaps()
 			_overlapIndex[ovlp.curId].push_back(ovlp);
 		}
 	}
-	std::cerr << std::endl;
 	_overlapMatrix.clear();
 }
 

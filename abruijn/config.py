@@ -7,7 +7,7 @@ File with configurations
 """
 
 vals = {
-        "err_rate_threshold" : 0.2,
+        "err_rate_threshold" : 0.24,
         "profiles" : {
             "pacbio" : {
                 "subs_matrix" : "pacbio_substitutions.mat",
