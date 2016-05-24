@@ -9,9 +9,6 @@ all: abruijn
 debug: CXXFLAGS += -g -Og -D_GLIBCXX_DEBUG -D_DEBUG -D_DEBUG_LOG -D_LOG
 debug: abruijn
 
-log: CXXFLAGS += -D_DEBUG_LOG -D_LOG -O3 -DNDEBUG
-log: abruijn
-
 objects := ${patsubst %.cpp,%.o,${wildcard *.cpp}}
 abruijn: ${objects}
 	${CXX} ${objects} -o ${OUT_BIN} ${LDFLAGS}

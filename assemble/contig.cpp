@@ -7,11 +7,11 @@
 #include <fstream>
 
 #include "contig.h"
-#include "utility.h"
+#include "logger.h"
 
 void ContigGenerator::generateContigs()
 {
-	LOG_PRINT("Generating contig sequences");
+	Logger::get().info() << "Generating contig sequences";
 	for (const ContigPath& path : _extender.getContigPaths())
 	{
 		if (path.reads.size() < 2) continue;
@@ -163,9 +163,9 @@ ContigGenerator::getSwitchPositions(FastaRecord::Id leftRead,
 
 	if (leftQ >= rightQ)
 	{
-		WARNING_PRINT("No jump found! " +
+		Logger::get().warning() << "No jump found! " +
 					  _seqContainer.getIndex().at(leftRead).description +
-					  " : " + _seqContainer.getIndex().at(rightRead).description);
+					  " : " + _seqContainer.getIndex().at(rightRead).description;
 		return {prevSwitch + 1, 0};
 	}
 

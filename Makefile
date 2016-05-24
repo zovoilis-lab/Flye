@@ -16,10 +16,6 @@ debug:
 	make debug -C ${LIBBF}
 	make debug -C ${ASSEMBLE}
 	make debug -C ${POLISH}
-log:
-	make all -C ${LIBBF}
-	make all -C ${POLISH}
-	make log -C ${ASSEMBLE}
 clean: 
 	make clean -C ${LIBBF}
 	make clean -C ${POLISH}

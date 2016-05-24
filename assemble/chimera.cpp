@@ -8,33 +8,32 @@
 #include <unordered_map>
 
 #include "chimera.h"
-#include "utility.h"
+#include "logger.h"
 #include "disjoint_set.h"
 
 
 void ChimeraDetector::detectChimeras()
 {
-	DEBUG_PRINT("Overlap-estimated coverage: " << 
-				this->estimateOverlapCoverage());
+	Logger::get().debug() << "Overlap-estimated coverage: "
+						  << this->estimateOverlapCoverage();
 	for (auto& seqHash : _seqContainer.getIndex())
 	{
 		//if (this->testReadByClusters(seqHash.first))
 		//if (this->testReadByCoverage(seqHash.first))
 		if (this->testSelfOverlap(seqHash.first))
 		{
-			//DEBUG_PRINT("Chimeric: " << seqHash.second.description);
 			_chimeras.insert(seqHash.first);
 		}
 	}
 
-	LOG_PRINT(_chimeras.size() / 2 << " sequences were marked as chimeric");
+	Logger::get().debug() << _chimeras.size() / 2 
+						  << " sequences were marked as chimeric";
 }
 
 int ChimeraDetector::estimateOverlapCoverage()
 {
 	static const float MAGIC_25 = 2.5f;
 	static const int WINDOW = 100;
-	//const int FLANK = (_maximumJump + _maximumOverhang) / WINDOW;
 	const int FLANK = _minimumOverlap / WINDOW;
 
 	std::unordered_map<FastaRecord::Id, 
@@ -143,6 +142,5 @@ bool ChimeraDetector::testReadByClusters(FastaRecord::Id readId)
 	std::unordered_set<SetNode<FastaRecord::Id>*> clusters;
 	for (auto& extHash : extensions) clusters.insert(findSet(extHash.second));
 
-	//DEBUG_PRINT("Clusters: " << clusters.size());
 	return clusters.size() != 1;
 }

@@ -38,7 +38,7 @@ def run(args):
 
     preassembly = os.path.join(work_dir, "read_edges.fasta")
     asm.assemble(args.reads, preassembly, args.kmer_size, args.min_cov,
-                 args.max_cov, args.coverage)
+                 args.max_cov, args.coverage, args.debug)
     alignment, contigs_info, profile = \
             aln.get_alignment(preassembly, args.reads,
                               args.threads, work_dir)

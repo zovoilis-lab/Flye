@@ -8,7 +8,7 @@
 #include <queue>
 #include <iomanip>
 
-#include "utility.h"
+#include "logger.h"
 #include "extender.h"
 
 ContigPath Extender::extendRead(FastaRecord::Id startRead)
@@ -20,8 +20,8 @@ ContigPath Extender::extendRead(FastaRecord::Id startRead)
 	_visitedReads.insert(curRead.rc());
 	bool rightExtension = true;
 
-	DEBUG_PRINT("Start Read: " << 
-				_seqContainer.getIndex().at(startRead).description);
+	Logger::get().debug() << "Start Read: " << 
+				_seqContainer.getIndex().at(startRead).description;
 
 	std::unordered_set<FastaRecord::Id> curPathVisited;
 	while(true)
@@ -30,28 +30,30 @@ ContigPath Extender::extendRead(FastaRecord::Id startRead)
 
 		if (extRead == startRead)	//circular
 		{
-			DEBUG_PRINT("Circular contig");
+			Logger::get().debug() << "Circular contig";
 			contigPath.circular = true;
 			break;
 		}
 
 		if (extRead != FastaRecord::ID_NONE) 
 		{
-			DEBUG_PRINT("Extension: " << 
-				    	_seqContainer.getIndex().at(extRead).description);
-			if (curPathVisited.count(extRead)) DEBUG_PRINT("Visited in this path");
-			if (_visitedReads.count(extRead)) DEBUG_PRINT("Visited globally");
+			Logger::get().debug() << "Extension: " << 
+				    	_seqContainer.getIndex().at(extRead).description;
+			if (curPathVisited.count(extRead)) 
+				Logger::get().debug() << "Visited in this path";
+			if (_visitedReads.count(extRead)) 
+				Logger::get().debug() << "Visited globally";
 		}
 		else
 		{
-			DEBUG_PRINT("No extension found");
+			Logger::get().debug() << "No extension found"; 
 		}
 
 		if (_visitedReads.count(extRead) || extRead == FastaRecord::ID_NONE)
 		{
 			if (rightExtension)
 			{
-				DEBUG_PRINT("Changing direction");
+				Logger::get().debug() << "Changing direction";
 				rightExtension = false;
 				extRead = startRead.rc();
 				std::reverse(contigPath.reads.begin(), contigPath.reads.end());
@@ -63,7 +65,7 @@ ContigPath Extender::extendRead(FastaRecord::Id startRead)
 			}
 			else
 			{
-				DEBUG_PRINT("Linear contig");
+				Logger::get().debug() << "Linear contig";
 				break;
 			}
 		}
@@ -79,14 +81,15 @@ ContigPath Extender::extendRead(FastaRecord::Id startRead)
 
 
 
-	DEBUG_PRINT("Made " << contigPath.reads.size() - 1 << " extensions");
+	Logger::get().debug() << "Made " << contigPath.reads.size() - 1 
+						  << " extensions";
 	return contigPath;
 }
 
 void Extender::assembleContigs()
 {
 	const int MIN_CONTIG_SIZE = 20;	//TODO: a smarter filter
-	LOG_PRINT("Extending reads");
+	Logger::get().info() << "Extending reads";
 	_visitedReads.clear();
 
 	for (auto& indexPair : _seqContainer.getIndex())
@@ -140,7 +143,7 @@ void Extender::assembleContigs()
 		}
 	}
 
-	LOG_PRINT("Assembled " << _contigPaths.size() << " contigs");
+	Logger::get().info() << "Assembled " << _contigPaths.size() << " contigs";
 }
 
 float Extender::branchIndex(FastaRecord::Id readId)
@@ -187,7 +190,7 @@ FastaRecord::Id Extender::stepRight(FastaRecord::Id readId,
 	std::unordered_map<FastaRecord::Id, 
 					   std::tuple<int, int, int, int>> supportIndex;
 
-	DEBUG_PRINT("Branch index " << this->branchIndex(readId));
+	Logger::get().debug() << "Branch index " << this->branchIndex(readId);
 	for (auto& extCandidate : extensions)
 	{
 		int leftSupport = 0;
@@ -216,11 +219,12 @@ FastaRecord::Id Extender::stepRight(FastaRecord::Id readId,
 			supportIndex[extCandidate] = std::make_tuple(startsRepeat, minSupport, 
 														 rightSupport, ovlpSize);
 		}
-		DEBUG_PRINT("\t" << _seqContainer.getIndex().at(extCandidate).description
+		Logger::get().debug() << "\t" 
+				    << _seqContainer.getIndex().at(extCandidate).description
 					<< "\t" << leftSupport << "\t" << rightSupport << "\t"
 					<< std::fixed << std::setprecision(2) 
 					<< this->branchIndex(extCandidate) << "\t" << ovlpSize
-					<< "\t" << ovlpShift);
+					<< "\t" << ovlpShift;
 	}
 
 	auto bestSupport = std::make_tuple(0, 0, 0, 0);
@@ -240,9 +244,9 @@ FastaRecord::Id Extender::stepRight(FastaRecord::Id readId,
 	if (bestExtension != FastaRecord::ID_NONE)
 	{
 		if (_chimDetector.isChimeric(bestExtension))
-			DEBUG_PRINT("Chimeric extension! ");
+			Logger::get().debug() << "Chimeric extension! ";
 		if (this->isBranching(bestExtension))
-			DEBUG_PRINT("Branching extension! ");
+			Logger::get().debug() << "Branching extension! ";
 	}
 	return bestExtension;
 }

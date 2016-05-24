@@ -7,30 +7,22 @@
 #include <cassert>
 #include <algorithm>
 
-#include "utility.h"
+#include "logger.h"
 #include "overlap.h"
 
 void OverlapDetector::findAllOverlaps()
 {
-	LOG_PRINT("Finding overlaps");
+	Logger::get().info() << "Finding overlaps";
 	_overlapMatrix.clear();
 
-	size_t counterDone = 0;
-	int prevPercent = -1;
+	ProgressPercent ovlpProg(_seqContainer.getIndex().size());
 	for (auto& seqHash : _seqContainer.getIndex())
 	{
-		_overlapIndex[seqHash.first];	//empty vector by default
+		ovlpProg.advance();
 
+		_overlapIndex[seqHash.first];	//empty vector by default
 		if (_seqContainer.seqLen(seqHash.first) < (size_t)_minimumOverlap) 
 			continue;
-
-		++counterDone;
-		int percent = 10 * counterDone / _seqContainer.getIndex().size();
-		if (percent > prevPercent)
-		{
-			std::cerr << percent * 10 << "% ";
-			prevPercent = percent;
-		}
 
 		auto detectedOverlaps = this->getReadOverlaps(seqHash.first);
 		for (auto ovlp : detectedOverlaps)

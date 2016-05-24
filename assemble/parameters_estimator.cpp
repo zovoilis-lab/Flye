@@ -3,7 +3,7 @@
 //Released under the BSD license (see LICENSE file)
 
 #include "parameters_estimator.h"
-#include "utility.h"
+#include "logger.h"
 
 int ParametersEstimator::estimateMinKmerCount(int coverage, 
 											  int upperCutoff)
@@ -15,7 +15,7 @@ int ParametersEstimator::estimateMinKmerCount(int coverage,
 	{
 		kmersNeeded += _seqContainer.seqLen(seqPair.first) / coverage;
 	}
-	DEBUG_PRINT("Genome size estimate: " << kmersNeeded / 2);
+	Logger::get().debug() << "Genome size estimate: " << kmersNeeded / 2;
 	
 	int takenKmers = 0;
 	int cutoff = 0;
@@ -50,15 +50,15 @@ int ParametersEstimator::estimateMinKmerCount(int coverage,
 
 	if (cutoff < 4)
 	{
-		WARNING_PRINT("Unable to choose minimum kmer count cutoff. "
-					  "Check if the coverage parameter is correct. "
-					  "Running with default parameter t = " << MIN_CUTOFF);
+		Logger::get().warning() << "Unable to choose minimum kmer count cutoff."
+					  " Check if the coverage parameter is correct. "
+					  "Running with default parameter t = " << MIN_CUTOFF;
 		cutoff = 4;
 	}
 	
-	DEBUG_PRINT("Filtered " << repetitiveKmers << " repetitive kmers");
-	DEBUG_PRINT("Estimated minimum kmer coverage: " << cutoff <<
-			  ", " << takenKmers << " unique kmers selected");
-
+	Logger::get().debug() << "Filtered " << repetitiveKmers 
+						  << " repetitive kmers";
+	Logger::get().debug() << "Estimated minimum kmer coverage: " << cutoff 
+						  << ", " << takenKmers << " unique kmers selected";
 	return cutoff;
 }

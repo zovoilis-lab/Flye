@@ -8,22 +8,22 @@
 #include "kmer_index.h"
 #include "fasta.h"
 #include "overlap.h"
-#include "utility.h"
 #include "chimera.h"
 #include "extender.h"
 #include "contig.h"
 #include "parameters_estimator.h"
+#include "logger.h"
 
 bool parseArgs(int argc, char** argv, std::string& readsFasta, 
 			   std::string& outAssembly, int& coverage,
-			   int& kmerSize, int& minKmer, int& maxKmer)
+			   int& kmerSize, int& minKmer, int& maxKmer, bool& debug)
 {
 	auto printUsage = [argv]()
 	{
 		std::cerr << "Usage: " << argv[0]
 				  << " reads_file out_assembly coverage "
 				  << "[-k kmer_size] [-m min_kmer_cov] "
-				  << "[-x max_kmer_cov] \n\n"
+				  << "[-x max_kmer_cov] [-d]\n\n"
 				  << "positional arguments:\n"
 				  << "\treads file\tpath to fasta with reads\n"
 				  << "\tout_assembly\tpath to output file\n"
@@ -33,14 +33,17 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 				  << "\t-m min_kmer_cov\tminimum k-mer coverage "
 				  << "[default = auto] \n"
 				  << "\t-x max_kmer_cov\tmaximum k-mer coverage "
-				  << "[default = not set] \n";
+				  << "[default = not set] \n"
+				  << "\t-d \tenable debug output "
+				  << "[default = false] \n";
 	};
 
 	kmerSize = 15;
 	minKmer = -1;
 	maxKmer = -1;
+	debug = false;
 
-	const char optString[] = "k:m:x:h";
+	const char optString[] = "k:m:x:hd";
 	int opt = 0;
 	while ((opt = getopt(argc, argv, optString)) != -1)
 	{
@@ -54,6 +57,9 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 			break;
 		case 'x':
 			maxKmer = atoi(optarg);
+			break;
+		case 'd':
+			debug = true;
 			break;
 		case 'h':
 			printUsage();
@@ -83,19 +89,22 @@ int main(int argc, char** argv)
 	int minKmerCov = 0;
 	int maxKmerCov = 0;
 	int coverage = 0;
+	bool debugging = false;
 	std::string readsFasta;
 	std::string outAssembly;
 
 	if (!parseArgs(argc, argv, readsFasta, outAssembly, coverage,
-				   kmerSize, minKmerCov, maxKmerCov))
+				   kmerSize, minKmerCov, maxKmerCov, debugging))
 	{
 		return 1;
 	}
 
 	try
 	{
+		Logger::get().setDebugging(debugging);
+
 		SequenceContainer& seqContainer = SequenceContainer::getInstance();
-		LOG_PRINT("Reading FASTA");
+		Logger::get().debug() << "Reading FASTA";
 		seqContainer.readFasta(readsFasta);
 		VertexIndex& vertexIndex = VertexIndex::getInstance();
 		vertexIndex.setKmerSize(kmerSize);
@@ -135,7 +144,7 @@ int main(int argc, char** argv)
 	}
 	catch (std::runtime_error& e)
 	{
-		ERROR_PRINT(e.what());
+		Logger::get().error() << e.what();
 		return 1;
 	}
 

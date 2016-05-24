@@ -9,7 +9,7 @@
 #include <algorithm>
 
 #include "kmer_index.h"
-#include "utility.h"
+#include "logger.h"
 
 namespace
 {
@@ -123,7 +123,7 @@ void VertexIndex::setKmerSize(unsigned int size)
 void VertexIndex::buildKmerIndex(const SequenceContainer& seqContainer,
 								 size_t hardThreshold)
 {
-	DEBUG_PRINT("Hard threshold set to " << hardThreshold);
+	Logger::get().debug() << "Hard threshold set to " << hardThreshold;
 	if (hardThreshold == 0 || hardThreshold > 100) 
 	{
 		throw std::runtime_error("Wrong hard threshold value: " + 
@@ -134,21 +134,13 @@ void VertexIndex::buildKmerIndex(const SequenceContainer& seqContainer,
 	CountingBloom bloomFilter(hardThreshold, BLOOM_HASH, BLOOM_CELLS);
 
 	//filling up bloom filter
-	LOG_PRINT("Indexing kmers (1/2):");
-	size_t counterDone = 0;
-	int prevPercent = -1;
+	Logger::get().info() << "Indexing kmers (1/2):";
+	ProgressPercent bloomProg(seqContainer.getIndex().size());
 	for (auto& seqPair : seqContainer.getIndex())
 	{
-		++counterDone;
+		bloomProg.advance();
 		if (seqPair.second.sequence.length() < _kmerSize) 
 			continue;
-
-		int percent = 10 * counterDone / seqContainer.getIndex().size();
-		if (percent > prevPercent)
-		{
-			std::cerr << percent * 10 << "% ";
-			prevPercent = percent;
-		}
 
 		Kmer curKmer(seqPair.second.sequence.substr(0, _kmerSize));
 		size_t pos = _kmerSize;
@@ -159,24 +151,15 @@ void VertexIndex::buildKmerIndex(const SequenceContainer& seqContainer,
 			curKmer.appendRight(seqPair.second.sequence[pos++]);
 		}
 	}
-	std::cerr << std::endl;
 
 	//adding kmers that have passed the filter
-	LOG_PRINT("Indexing kmers (2/2):");
-	counterDone = 0;
-	prevPercent = -1;
+	Logger::get().info() << "Indexing kmers (2/2):";
+	ProgressPercent indexProg(seqContainer.getIndex().size());
 	for (auto& seqPair : seqContainer.getIndex())
 	{
-		++counterDone;
+		indexProg.advance();
 		if (seqPair.second.sequence.length() < _kmerSize) 
 			continue;
-
-		int percent = 10 * counterDone / seqContainer.getIndex().size();
-		if (percent > prevPercent)
-		{
-			std::cerr << percent * 10 << "% ";
-			prevPercent = percent;
-		}
 
 		Kmer curKmer(seqPair.second.sequence.substr(0, _kmerSize));
 		size_t pos = _kmerSize;
@@ -210,7 +193,7 @@ void VertexIndex::applyKmerThresholds(unsigned int minCoverage,
 									  unsigned int maxCoverage)
 {
 	int removedCount = 0;
-	DEBUG_PRINT("Initial size: " << _kmerIndex.size());
+	Logger::get().debug() << "Initial size: " << _kmerIndex.size();
 	for (auto itKmers = _kmerIndex.begin(); itKmers != _kmerIndex.end();)
 	{
 		if (itKmers->second.size() < minCoverage || 
@@ -225,12 +208,12 @@ void VertexIndex::applyKmerThresholds(unsigned int minCoverage,
 			++itKmers;
 		}
 	}
-	DEBUG_PRINT("Removed " << removedCount << " entries");
+	Logger::get().debug() << "Removed " << removedCount << " entries";
 }
 
 void VertexIndex::buildReadIndex()
 {
-	LOG_PRINT("Building read index");
+	Logger::get().info() << "Building read index";
 	for (auto& kmerHash: _kmerIndex)
 	{
 		for (auto& kmerPosPair : kmerHash.second)
