@@ -77,34 +77,7 @@ ContigPath Extender::extendRead(FastaRecord::Id startRead)
 		contigPath.reads.push_back(curRead);
 	}
 
-	//marking visited reads
-	std::unordered_set<FastaRecord::Id> leftSupported;
-	std::unordered_set<FastaRecord::Id> rightSupported;
-	for (auto& readId : contigPath.reads)
-	{
-		for (auto& ovlp : _ovlpDetector.getOverlapIndex().at(readId))
-		{
-			if (this->isProperRightExtension(ovlp))
-			{
-				leftSupported.insert(ovlp.extId);
-				rightSupported.insert(ovlp.extId.rc());
-			}
-			if (this->isProperLeftExtension(ovlp))
-			{
-				rightSupported.insert(ovlp.extId);
-				leftSupported.insert(ovlp.extId.rc());
-			}
-		}
-	}
-	for (auto readId : leftSupported)
-	{
-		if (rightSupported.count(readId))
-		{
-			_visitedReads.insert(readId);
-			_visitedReads.insert(readId.rc());
-		}
-	}
-	//
+
 
 	DEBUG_PRINT("Made " << contigPath.reads.size() - 1 << " extensions");
 	return contigPath;
@@ -116,29 +89,57 @@ void Extender::assembleContigs()
 	LOG_PRINT("Extending reads");
 	_visitedReads.clear();
 
-	while (true)
-	{
-		//choose a read for extension
-		FastaRecord::Id startRead = FastaRecord::ID_NONE;
-		for (auto& indexPair : _seqContainer.getIndex())
-		{	
-			if (!_visitedReads.count(indexPair.first) &&
-				!_chimDetector.isChimeric(indexPair.first) &&
-				this->countRightExtensions(indexPair.first, false) > 0 &&
-				!this->isBranching(indexPair.first))
-			{
-				startRead = indexPair.first;
-				break;
-			}
-		}
-		if (startRead == FastaRecord::ID_NONE) break;
+	for (auto& indexPair : _seqContainer.getIndex())
+	{	
+		if (_visitedReads.count(indexPair.first) ||
+			_chimDetector.isChimeric(indexPair.first) ||
+			this->countRightExtensions(indexPair.first) == 0 ||
+			this->isBranching(indexPair.first)) continue;
 
-		ContigPath path = this->extendRead(startRead);
+		//additionaly, should not overlap with any of visited reads
+		bool ovlpsVisited = false;
+		for (auto& ovlp : _ovlpDetector.getOverlapIndex().at(indexPair.first))
+		{
+			if (_visitedReads.count(ovlp.extId)) ovlpsVisited = true;
+		}
+		if (ovlpsVisited) continue;
+
+		ContigPath path = this->extendRead(indexPair.first);
 		if (path.reads.size() > MIN_CONTIG_SIZE)
 		{
+		
+			//marking visited reads
+			std::unordered_set<FastaRecord::Id> leftSupported;
+			std::unordered_set<FastaRecord::Id> rightSupported;
+			for (auto& readId : path.reads)
+			{
+				for (auto& ovlp : _ovlpDetector.getOverlapIndex().at(readId))
+				{
+					if (this->isProperRightExtension(ovlp))
+					{
+						leftSupported.insert(ovlp.extId);
+						rightSupported.insert(ovlp.extId.rc());
+					}
+					if (this->isProperLeftExtension(ovlp))
+					{
+						rightSupported.insert(ovlp.extId);
+						leftSupported.insert(ovlp.extId.rc());
+					}
+				}
+			}
+			for (auto readId : leftSupported)
+			{
+				if (rightSupported.count(readId))
+				{
+					_visitedReads.insert(readId);
+					_visitedReads.insert(readId.rc());
+				}
+			}
+			
 			_contigPaths.push_back(std::move(path));
 		}
 	}
+
 	LOG_PRINT("Assembled " << _contigPaths.size() << " contigs");
 }
 
@@ -152,7 +153,7 @@ float Extender::branchIndex(FastaRecord::Id readId)
 		if (this->isProperRightExtension(ovlp))
 		{
 			++curExtensions;
-			totalNewExt += this->countRightExtensions(ovlp.extId, true);
+			totalNewExt += this->countRightExtensions(ovlp.extId);
 		}
 	}
 	if (curExtensions == 0 || totalNewExt == 0) return 0.0f;
@@ -175,7 +176,7 @@ FastaRecord::Id Extender::stepRight(FastaRecord::Id readId,
 		if (this->isProperRightExtension(ovlp)) 
 		{
 			if (ovlp.extId == startReadId) return startReadId;
-			if (this->countRightExtensions(ovlp.extId, false) > 0)
+			if (this->countRightExtensions(ovlp.extId) > 0)
 			{
 				extensions.insert(ovlp.extId);
 			}
@@ -184,7 +185,7 @@ FastaRecord::Id Extender::stepRight(FastaRecord::Id readId,
 	
 	//rank extension candidates
 	std::unordered_map<FastaRecord::Id, 
-					   std::tuple<int, int, int>> supportIndex;
+					   std::tuple<int, int, int, int>> supportIndex;
 
 	DEBUG_PRINT("Branch index " << this->branchIndex(readId));
 	for (auto& extCandidate : extensions)
@@ -202,17 +203,18 @@ FastaRecord::Id Extender::stepRight(FastaRecord::Id readId,
 			if (this->isProperRightExtension(ovlp)) ++rightSupport;
 			if (this->isProperLeftExtension(ovlp)) ++leftSupport;
 		}
-		int branchingScore = 1 - this->isBranching(extCandidate);
 		int minSupport = std::min(leftSupport, rightSupport);
-		//minSupport = std::min(minSupport, 2);
+		int endsRepeat = 1 - this->isBranching(extCandidate);
 		if (!this->isBranching(readId))
 		{
-			supportIndex[extCandidate] = std::make_tuple(branchingScore, minSupport, 
-													 	 ovlpSize);
+			supportIndex[extCandidate] = std::make_tuple(endsRepeat, minSupport, 
+													 	 rightSupport, ovlpSize);
 		}
 		else
 		{
-			supportIndex[extCandidate] = std::make_tuple(ovlpSize, 0, 0);
+			int startsRepeat = 1 - this->isBranching(extCandidate.rc());
+			supportIndex[extCandidate] = std::make_tuple(startsRepeat, minSupport, 
+														 rightSupport, ovlpSize);
 		}
 		DEBUG_PRINT("\t" << _seqContainer.getIndex().at(extCandidate).description
 					<< "\t" << leftSupport << "\t" << rightSupport << "\t"
@@ -221,7 +223,7 @@ FastaRecord::Id Extender::stepRight(FastaRecord::Id readId,
 					<< "\t" << ovlpShift);
 	}
 
-	auto bestSupport = std::make_tuple(0, 0, 0);
+	auto bestSupport = std::make_tuple(0, 0, 0, 0);
 	auto bestExtension = FastaRecord::ID_NONE;
 	for (auto& extCandidate : extensions)
 	{
@@ -245,36 +247,31 @@ FastaRecord::Id Extender::stepRight(FastaRecord::Id readId,
 	return bestExtension;
 }
 
-int Extender::countRightExtensions(FastaRecord::Id readId, 
-								   bool countVisited)
+int Extender::countRightExtensions(FastaRecord::Id readId)
 {
 	int count = 0;
 	for (auto& ovlp : _ovlpDetector.getOverlapIndex().at(readId))
 	{
-
-		if (countVisited || !_visitedReads.count(ovlp.extId))
-		{
-			if (this->isProperRightExtension(ovlp)) ++count;
-		}
+		if (this->isProperRightExtension(ovlp)) ++count;
 	}
 	return count;
 }
 
 bool Extender::isBranching(FastaRecord::Id readId)
 {
-	return this->branchIndex(readId) > 2.0f;
+	return this->branchIndex(readId) > 2.5f;
 }
 
 //Checks if read is extended to the right
 bool Extender::isProperRightExtension(const OverlapRange& ovlp)
 {
 	return !_chimDetector.isChimeric(ovlp.extId) && 
-		   ovlp.rightShift > 0;
+		   ovlp.rightShift > _maximumJump;
 }
 
 //Checks if read is extended to the left
 bool Extender::isProperLeftExtension(const OverlapRange& ovlp)
 {
 	return !_chimDetector.isChimeric(ovlp.extId) &&
-		   ovlp.leftShift < 0;
+		   ovlp.leftShift < -_maximumJump;
 }

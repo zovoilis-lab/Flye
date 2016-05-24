@@ -36,8 +36,8 @@ public:
 		{return _contigPaths;}
 
 private:
-	const OverlapDetector& _ovlpDetector;
-	const ChimeraDetector& _chimDetector;
+	const OverlapDetector&   _ovlpDetector;
+	const ChimeraDetector&   _chimDetector;
 	const SequenceContainer& _seqContainer;
 	const int _maximumJump;
 
@@ -49,9 +49,8 @@ private:
 	bool  isProperLeftExtension(const OverlapRange& ovlp);
 	float branchIndex(FastaRecord::Id readId);
 	bool  isBranching(FastaRecord::Id readId);
-	int   countRightExtensions(FastaRecord::Id readId, bool countVisited);
+	int   countRightExtensions(FastaRecord::Id readId);
 
 	std::vector<ContigPath> _contigPaths;
-
 	std::unordered_set<FastaRecord::Id>	_visitedReads;
 };

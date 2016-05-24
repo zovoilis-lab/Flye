@@ -19,8 +19,9 @@ def _parse_blasr(filename):
     with open(filename, "r") as f:
         for line in f:
             tokens = line.strip().split()
+            read_name = tokens[0].rsplit("/", 1)[0]    #Blasr, whyyy??
             err_rate = 1 - float(tokens[17].count("|")) / len(tokens[17])
-            alignments.append(Alignment(tokens[0], tokens[5], int(tokens[2]),
+            alignments.append(Alignment(read_name, tokens[5], int(tokens[2]),
                                         int(tokens[3]), tokens[4],
                                         int(tokens[1]), int(tokens[7]),
                                         int(tokens[8]), tokens[9],
@@ -49,7 +50,6 @@ def label_reads(alignment):
 def rename(reads_in, rename_dict):
     unaln_id = 0
     for seq in SeqIO.parse(reads_in, "fasta"):
-        print seq.id, type(seq.id)
         if seq.id in rename_dict:
             seq.id = rename_dict[seq.id]
         else:

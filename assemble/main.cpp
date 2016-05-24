@@ -106,7 +106,7 @@ int main(int argc, char** argv)
 
 		if (maxKmerCov == -1)
 		{
-			maxKmerCov = std::numeric_limits<int>::max();
+			maxKmerCov = MAGIC_10 * coverage;
 		}
 		if (minKmerCov == -1)
 		{
