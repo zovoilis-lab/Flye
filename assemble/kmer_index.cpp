@@ -123,7 +123,7 @@ void VertexIndex::setKmerSize(unsigned int size)
 void VertexIndex::buildKmerIndex(const SequenceContainer& seqContainer,
 								 size_t hardThreshold)
 {
-	LOG_PRINT("Hard threshold set to " << hardThreshold);
+	DEBUG_PRINT("Hard threshold set to " << hardThreshold);
 	if (hardThreshold == 0 || hardThreshold > 100) 
 	{
 		throw std::runtime_error("Wrong hard threshold value: " + 
@@ -134,7 +134,7 @@ void VertexIndex::buildKmerIndex(const SequenceContainer& seqContainer,
 	CountingBloom bloomFilter(hardThreshold, BLOOM_HASH, BLOOM_CELLS);
 
 	//filling up bloom filter
-	DEBUG_PRINT("First pass:");
+	LOG_PRINT("Indexing kmers (1/2):");
 	size_t counterDone = 0;
 	int prevPercent = -1;
 	for (auto& seqPair : seqContainer.getIndex())
@@ -146,7 +146,7 @@ void VertexIndex::buildKmerIndex(const SequenceContainer& seqContainer,
 		int percent = 10 * counterDone / seqContainer.getIndex().size();
 		if (percent > prevPercent)
 		{
-			DEBUG_PRINT(percent * 10 << "%");
+			std::cerr << percent * 10 << "% ";
 			prevPercent = percent;
 		}
 
@@ -159,9 +159,10 @@ void VertexIndex::buildKmerIndex(const SequenceContainer& seqContainer,
 			curKmer.appendRight(seqPair.second.sequence[pos++]);
 		}
 	}
+	std::cerr << std::endl;
 
 	//adding kmers that have passed the filter
-	DEBUG_PRINT("Second pass:");
+	LOG_PRINT("Indexing kmers (2/2):");
 	counterDone = 0;
 	prevPercent = -1;
 	for (auto& seqPair : seqContainer.getIndex())
@@ -173,7 +174,7 @@ void VertexIndex::buildKmerIndex(const SequenceContainer& seqContainer,
 		int percent = 10 * counterDone / seqContainer.getIndex().size();
 		if (percent > prevPercent)
 		{
-			DEBUG_PRINT(percent * 10 << "% ");
+			std::cerr << percent * 10 << "% ";
 			prevPercent = percent;
 		}
 
@@ -196,6 +197,7 @@ void VertexIndex::buildKmerIndex(const SequenceContainer& seqContainer,
 			curKmer.appendRight(seqPair.second.sequence[pos++]);
 		}
 	}
+	std::cerr << std::endl;
 	
 	for (auto kmer : _kmerIndex)
 	{
@@ -227,6 +229,7 @@ void VertexIndex::applyKmerThresholds(unsigned int minCoverage,
 
 void VertexIndex::buildReadIndex()
 {
+	LOG_PRINT("Building read index");
 	for (auto& kmerHash: _kmerIndex)
 	{
 		for (auto& kmerPosPair : kmerHash.second)

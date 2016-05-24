@@ -20,8 +20,6 @@ import abruijn.config as config
 
 
 POLISH_BIN = "abruijn-polish"
-#SUBS_MATRIX = "nano_substitutions.mat"
-#HOPO_MATRIX = "nano_homopolymers.mat"
 
 logger = logging.getLogger()
 

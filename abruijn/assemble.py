@@ -42,11 +42,9 @@ def assemble(reads_file, out_file, kmer_size, min_kmer_count,
     if max_kmer_count is not None:
         cmdline.extend(["-x", max_kmer_count])
 
-    proc = subprocess.Popen(cmdline, stderr=subprocess.PIPE)
-    for line in iter(proc.stderr.readline, ""):
-        logger.debug(line.strip())
-    ret_code = proc.wait()
-    if ret_code:
+    try:
+        subprocess.check_call(cmdline)
+    except (subprocess.CalledProcessError, OSError) as e:
         logger.error("Non-zero return code when calling {0} module: {1}"
                      .format(ASSEMBLE_BIN, ret_code))
         raise AssembleException("Error in assemble binary: " + e)

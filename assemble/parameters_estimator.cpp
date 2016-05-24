@@ -15,7 +15,7 @@ int ParametersEstimator::estimateMinKmerCount(int coverage,
 	{
 		kmersNeeded += _seqContainer.seqLen(seqPair.first) / coverage;
 	}
-	LOG_PRINT("Genome size estimate: " << kmersNeeded / 2);
+	DEBUG_PRINT("Genome size estimate: " << kmersNeeded / 2);
 	
 	int takenKmers = 0;
 	int cutoff = 0;
@@ -56,8 +56,8 @@ int ParametersEstimator::estimateMinKmerCount(int coverage,
 		cutoff = 4;
 	}
 	
-	LOG_PRINT("Filtered " << repetitiveKmers << " repetitive kmers");
-	LOG_PRINT("Estimated minimum kmer coverage: " << cutoff <<
+	DEBUG_PRINT("Filtered " << repetitiveKmers << " repetitive kmers");
+	DEBUG_PRINT("Estimated minimum kmer coverage: " << cutoff <<
 			  ", " << takenKmers << " unique kmers selected");
 
 	return cutoff;

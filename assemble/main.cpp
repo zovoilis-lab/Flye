@@ -100,7 +100,6 @@ int main(int argc, char** argv)
 		VertexIndex& vertexIndex = VertexIndex::getInstance();
 		vertexIndex.setKmerSize(kmerSize);
 
-		LOG_PRINT("Building kmer index");
 		//rough estimate
 		size_t hardThreshold = std::max(1, coverage / MAGIC_10);
 		vertexIndex.buildKmerIndex(seqContainer, hardThreshold);
@@ -116,7 +115,6 @@ int main(int argc, char** argv)
 		}
 
 		vertexIndex.applyKmerThresholds(minKmerCov, maxKmerCov);
-		LOG_PRINT("Building read index");
 		vertexIndex.buildReadIndex();
 
 		OverlapDetector ovlp(MAX_JUMP, MIN_OVERLAP, MAX_OVERHANG,

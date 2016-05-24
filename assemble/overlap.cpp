@@ -15,16 +15,22 @@ void OverlapDetector::findAllOverlaps()
 	LOG_PRINT("Finding overlaps");
 	_overlapMatrix.clear();
 
-	//const size_t MATRIX_DIM = _seqContainer.getIndex().size();
-	//_overlapMatrix.resize(MATRIX_DIM);
-	//for (size_t i = 0; i < MATRIX_DIM; ++i) _overlapMatrix[i].assign(MATRIX_DIM, 0);
-
+	size_t counterDone = 0;
+	int prevPercent = -1;
 	for (auto& seqHash : _seqContainer.getIndex())
 	{
 		_overlapIndex[seqHash.first];	//empty vector by default
 
 		if (_seqContainer.seqLen(seqHash.first) < (size_t)_minimumOverlap) 
 			continue;
+
+		++counterDone;
+		int percent = 10 * counterDone / _seqContainer.getIndex().size();
+		if (percent > prevPercent)
+		{
+			std::cerr << percent * 10 << "% ";
+			prevPercent = percent;
+		}
 
 		auto detectedOverlaps = this->getReadOverlaps(seqHash.first);
 		for (auto ovlp : detectedOverlaps)
@@ -51,6 +57,7 @@ void OverlapDetector::findAllOverlaps()
 			_overlapIndex[ovlp.curId].push_back(ovlp);
 		}
 	}
+	std::cerr << std::endl;
 	_overlapMatrix.clear();
 }
 
