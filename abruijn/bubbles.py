@@ -106,6 +106,8 @@ def _is_solid_kmer(profile, position, kmer_length):
     MISSMATCH_RATE = 0.2
     INS_RATE = 0.2
     for i in xrange(position, position + kmer_length):
+        if profile[i].coverage == 0:
+            return False
         local_missmatch = float(profile[i].num_missmatch +
                                 profile[i].num_deletions) / profile[i].coverage
         local_ins = float(profile[i].num_inserts) / profile[i].coverage
