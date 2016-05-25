@@ -1,7 +1,7 @@
 ABruijn assembler
 ==================
 
-Version: 0.1b
+Version: 0.2b
 
 The software is currently under active development, so not all features
 are fully supported yet. Stay tuned for more stable releases!
@@ -27,7 +27,7 @@ Usage
                       [-x MAX_COV] [--version]
                       reads out_dir coverage
     
-    ABruijn: assembly of long anderror-prone reads
+    ABruijn: assembly of long and error-prone reads
     
     positional arguments:
       reads                 path to a file with reads in FASTA format
