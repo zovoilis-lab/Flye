@@ -147,7 +147,7 @@ namespace
 	}
 }
 
-void HomoPolisher::polishBubble(Bubble& bubble)
+void HomoPolisher::polishBubble(Bubble& bubble) const
 {
 	std::string prevCandidate;
 	std::string curCandidate = bubble.candidate;
@@ -212,7 +212,7 @@ void HomoPolisher::polishBubble(Bubble& bubble)
 
 size_t HomoPolisher::mostLikelyLen(HopoMatrix::State state,
 								   const std::vector<HopoMatrix::Observation>&
-								   								 observations)
+								   						   observations) const
 {
 	assert(!observations.empty());
 

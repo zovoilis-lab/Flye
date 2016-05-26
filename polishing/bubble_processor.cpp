@@ -3,44 +3,60 @@
 //Released under the BSD license (see LICENSE file)
 
 #include <chrono>
+#include <thread>
 
 #include "bubble_processor.h"
-#include "general_polisher.h"
-#include "homo_polisher.h"
-#include "utility.h"
 
 
 BubbleProcessor::BubbleProcessor(const std::string& subsMatPath,
 								 const std::string& hopoMatrixPath):
 	_subsMatrix(subsMatPath),
-	_hopoMatrix(hopoMatrixPath)
+	_hopoMatrix(hopoMatrixPath),
+	_generalPolisher(_subsMatrix),
+	_homoPolisher(_subsMatrix, _hopoMatrix)
 {
 }
 
 
-void BubbleProcessor::polishAll(const std::string& dataPath) 
+void BubbleProcessor::polishAll(const std::string& dataPath, int numThreads) 
 {
 	this->readBubbles(dataPath);
-	GeneralPolisher gp(_subsMatrix);
+	_progress.setFinalCount(_bubbles.size());
 
-	HomoPolisher hp(_subsMatrix, _hopoMatrix);
-
-	int prevPercent = -1;
-	int counterDone = 0;
-	for (auto& bubble : _bubbles)
+	std::vector<std::thread> threads(numThreads);
+	for (size_t i = 0; i < threads.size(); ++i)
 	{
-		++counterDone;
-		int percent = 10 * counterDone / _bubbles.size();
-		if (percent > prevPercent)
+		threads[i] = std::thread(&BubbleProcessor::parallelWorker, this);
+	}
+	for (size_t i = 0; i < threads.size(); ++i)
+	{
+		threads[i].join();
+	}
+}
+
+
+void BubbleProcessor::parallelWorker()
+{
+	_stateMutex.lock();
+	while (true)
+	{
+		if (_nextJob == _bubbles.size())
 		{
-			std::cerr << percent * 10 << "% ";
-			prevPercent = percent;
+			_stateMutex.unlock();
+			return;
 		}
 
-		gp.polishBubble(bubble);
-		hp.polishBubble(bubble);
+		_progress.advance();
+		size_t curJob = _nextJob++;
+		Bubble bubble = _bubbles[curJob];
+
+		_stateMutex.unlock();
+		_generalPolisher.polishBubble(bubble);
+		_homoPolisher.polishBubble(bubble);
+		_stateMutex.lock();
+		
+		_bubbles[curJob] = std::move(bubble);
 	}
-	std::cerr << std::endl;
 }
 
 
@@ -91,7 +107,6 @@ void BubbleProcessor::writeLog(const std::string& fileName)
 
 void BubbleProcessor::readBubbles(const std::string& fileName)
 {
-	std::cerr << "Parsing bubbles file\n";
 	std::string buffer;
 	std::ifstream file(fileName);
 	std::string candidate;

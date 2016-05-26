@@ -50,3 +50,38 @@ splitString(const std::string &s, char delim)
 	while (std::getline(ss, item, delim)) elems.push_back(item);
 	return elems;
 }
+
+class ProgressPercent
+{
+public:
+	ProgressPercent(int finalCount = 0):
+		_finalCount(finalCount), _curCount(0), _prevPercent(-1),
+		_stopped(false)
+	{}
+
+	void setFinalCount(int finalCount) {_finalCount = finalCount;}
+	void advance(int step = 1)
+	{
+		if (_stopped) return;
+
+		_curCount += step;
+		int percent = 10 * _curCount / _finalCount;
+		if (percent > _prevPercent)
+		{
+			std::cerr << percent * 10 << "% ";
+			_prevPercent = percent;
+		}
+
+		if (_prevPercent >= 10)
+		{
+			std::cerr << std::endl;
+			_stopped = true;
+		}
+	}
+
+private:
+	int _finalCount;
+	int _curCount;
+	int _prevPercent;
+	bool _stopped;
+};

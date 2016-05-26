@@ -5,7 +5,7 @@
 #include "general_polisher.h"
 #include "alignment.h"
 
-void GeneralPolisher::polishBubble(Bubble& bubble)
+void GeneralPolisher::polishBubble(Bubble& bubble) const
 {
 	std::string prevCandidate;
 	std::string curCandidate = bubble.candidate;
@@ -23,7 +23,7 @@ void GeneralPolisher::polishBubble(Bubble& bubble)
 
 StepInfo GeneralPolisher::makeStep(const std::string& candidate, 
 				   				   const std::vector<std::string>& branches,
-								   Alignment& align) 
+								   Alignment& align) const
 {
 	StepInfo stepResult;
 	
@@ -110,5 +110,3 @@ StepInfo GeneralPolisher::makeStep(const std::string& candidate,
 
 	return stepResult;
 }
-
-

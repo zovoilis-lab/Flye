@@ -14,11 +14,11 @@ public:
 				 const HopoMatrix& hopoMatrix):
 		_subsMatrix(subsMatrix), _hopoMatrix(hopoMatrix)
 	{}
-	void polishBubble(Bubble& bubble);
+	void polishBubble(Bubble& bubble) const;
 
 private:
 	size_t mostLikelyLen(HopoMatrix::State state, 
-						 const std::vector<HopoMatrix::Observation>& obs);
+						 const std::vector<HopoMatrix::Observation>& obs) const;
 
 	const SubstitutionMatrix& _subsMatrix;
 	const HopoMatrix& _hopoMatrix;

@@ -14,12 +14,12 @@ public:
 	GeneralPolisher(const SubstitutionMatrix& subsMatrix):
 		_subsMatrix(subsMatrix)
 	{}
-	void polishBubble(Bubble& bubble);
+	void polishBubble(Bubble& bubble) const;
 
 private:
 	StepInfo makeStep(const std::string& candidate, 
 					  const std::vector<std::string>& branches,
-					  Alignment& align);
+					  Alignment& align) const;
 
 	const SubstitutionMatrix& _subsMatrix;
 };

@@ -1,5 +1,5 @@
-CXXFLAGS += -Wall -std=c++11
-LDFLAGS += -std=c++11
+CXXFLAGS += -Wall -pthread -std=c++11
+LDFLAGS += -pthread -std=c++11
 OUT_BIN := ${BIN_DIR}/abruijn-polish
 
 .PHONY: all clean debug
