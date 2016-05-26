@@ -49,15 +49,13 @@ void OverlapDetector::parallelWorker()
 		_progress.advance();
 		FastaRecord::Id readId = _jobQueue[_nextJob++];
 		_overlapIndex[readId];	//empty vector by default
-		_fetchMutex.unlock();
-
-		//unlocked
 		if (_seqContainer.seqLen(readId) < (size_t)_minimumOverlap) 
 			continue;
-		auto detectedOverlaps = this->getReadOverlaps(readId);
-		//
 
+		_fetchMutex.unlock();
+		auto detectedOverlaps = this->getReadOverlaps(readId);
 		_fetchMutex.lock();
+		
 		for (auto ovlp : detectedOverlaps)
 		{
 			if (_overlapMatrix.count(std::make_tuple(ovlp.curId, ovlp.extId)))
