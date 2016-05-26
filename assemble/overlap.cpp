@@ -6,27 +6,64 @@
 #include <iostream>
 #include <cassert>
 #include <algorithm>
+#include <thread>
 
-#include "logger.h"
 #include "overlap.h"
 
-void OverlapDetector::findAllOverlaps()
+void OverlapDetector::findAllOverlaps(size_t numThreads)
 {
 	Logger::get().info() << "Finding overlaps:";
 	_overlapMatrix.clear();
+	_jobQueue.clear();
+	_nextJob = 0;
 
-	ProgressPercent ovlpProg(_seqContainer.getIndex().size());
 	for (auto& seqHash : _seqContainer.getIndex())
 	{
-		ovlpProg.advance();
+		_jobQueue.push_back(seqHash.first);
+	}
 
-		_overlapIndex[seqHash.first];	//empty vector by default
-		if (_seqContainer.seqLen(seqHash.first) < (size_t)_minimumOverlap) 
+	std::vector<std::thread> threads(numThreads);
+	for (size_t i = 0; i < threads.size(); ++i)
+	{
+		threads[i] = std::thread(&OverlapDetector::parallelWorker, this);
+	}
+	for (size_t i = 0; i < threads.size(); ++i)
+	{
+		threads[i].join();
+	}
+
+	_overlapMatrix.clear();
+}
+
+
+void OverlapDetector::parallelWorker()
+{
+	_fetchMutex.lock();
+	while (true)
+	{
+		if (_nextJob == _jobQueue.size())
+		{
+			_fetchMutex.unlock();
+			return;
+		}
+		_progress.advance();
+		FastaRecord::Id readId = _jobQueue[_nextJob++];
+		_overlapIndex[readId];	//empty vector by default
+		_fetchMutex.unlock();
+
+		//unlocked
+		if (_seqContainer.seqLen(readId) < (size_t)_minimumOverlap) 
 			continue;
+		auto detectedOverlaps = this->getReadOverlaps(readId);
+		//
 
-		auto detectedOverlaps = this->getReadOverlaps(seqHash.first);
+		_fetchMutex.lock();
 		for (auto ovlp : detectedOverlaps)
 		{
+			if (_overlapMatrix.count(std::make_tuple(ovlp.curId, ovlp.extId)))
+			{
+				continue;
+			}
 			//detected overlap
 			_overlapMatrix.insert(std::make_tuple(ovlp.curId, ovlp.extId));
 			_overlapIndex[ovlp.curId].push_back(ovlp);
@@ -49,12 +86,12 @@ void OverlapDetector::findAllOverlaps()
 			_overlapIndex[ovlp.curId].push_back(ovlp);
 		}
 	}
-	_overlapMatrix.clear();
 }
+
 
 //pre-filtering
 bool OverlapDetector::goodStart(int32_t curPos, int32_t extPos, 
-								int32_t curLen, int32_t extLen)
+								int32_t curLen, int32_t extLen) const
 {	
 	return std::min(curPos, extPos) < _maximumOverhang && 
 		   extPos < extLen - _minimumOverlap &&
@@ -63,7 +100,7 @@ bool OverlapDetector::goodStart(int32_t curPos, int32_t extPos,
 
 OverlapDetector::JumpRes 
 OverlapDetector::jumpTest(int32_t curPrev, int32_t curNext,
-						  int32_t extPrev, int32_t extNext)
+						  int32_t extPrev, int32_t extNext) const
 {
 	static const int CLOSE_FRAC = 8;
 	static const int FAR_FRAC = 2;
@@ -84,7 +121,7 @@ OverlapDetector::jumpTest(int32_t curPrev, int32_t curNext,
 
 //Check if it is a proper overlap
 bool OverlapDetector::overlapTest(const OverlapRange& ovlp, int32_t curLen, 
-								  int32_t extLen)
+								  int32_t extLen) const
 {
 	if (ovlp.curRange() < _minimumOverlap || ovlp.extRange() < _minimumOverlap)
 		return false;
@@ -100,7 +137,7 @@ bool OverlapDetector::overlapTest(const OverlapRange& ovlp, int32_t curLen,
 //Getting all possible overlaps
 //based on the shared kmers (common jump-paths)
 std::vector<OverlapRange> 
-OverlapDetector::getReadOverlaps(FastaRecord::Id currentReadId)
+OverlapDetector::getReadOverlaps(FastaRecord::Id currentReadId) const
 {
 	const int MAX_PATHS = 100;
 
@@ -248,7 +285,7 @@ namespace
 	}
 }
 
-void OverlapDetector::addOverlapShifts(OverlapRange& ovlp)
+void OverlapDetector::addOverlapShifts(OverlapRange& ovlp) const
 {
 	//get shared kmers inside the overlap
 	std::vector<int32_t> ovlpShifts;

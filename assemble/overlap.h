@@ -5,9 +5,11 @@
 #pragma once
 
 #include <unordered_set>
+#include <mutex>
 
 #include "kmer_index.h"
 #include "fasta.h"
+#include "logger.h"
 
 
 struct OverlapRange
@@ -64,32 +66,31 @@ public:
 	OverlapDetector(int maximumJump, int minimumOverlap,
 					int maximumOverhang, const VertexIndex& vi,
 					const SequenceContainer& seqCont):
-		_maximumJump(maximumJump), _minimumOverlap(minimumOverlap),
-		_maximumOverhang(maximumOverhang), _vertexIndex(vi),
-		_seqContainer(seqCont)
+		_maximumJump(maximumJump), 
+		_minimumOverlap(minimumOverlap),
+		_maximumOverhang(maximumOverhang), 
+		_vertexIndex(vi),
+		_seqContainer(seqCont), 
+		_progress(seqCont.getIndex().size()),
+		_nextJob(0)
 	{}
 
 	typedef std::unordered_map<FastaRecord::Id, 
 					   std::vector<OverlapRange>> OverlapIndex;
 	
-	void findAllOverlaps();
+	void findAllOverlaps(size_t numThreads);
 	const OverlapIndex& getOverlapIndex() const {return _overlapIndex;}
 private:
 	enum JumpRes {J_END, J_INCONS, J_CLOSE, J_FAR};
 
-	std::vector<OverlapRange> getReadOverlaps(FastaRecord::Id readId);
-	void 	addOverlapShifts(OverlapRange& ovlp);
+	std::vector<OverlapRange> getReadOverlaps(FastaRecord::Id readId) const;
+	void 	addOverlapShifts(OverlapRange& ovlp) const;
 	bool    goodStart(int32_t currentPos, int32_t extensionPos, 
-				      int32_t currentLength, int32_t extensionLength);
-	bool    overlapTest(const OverlapRange& ovlp, int32_t curLen, int32_t extLen);
+				      int32_t currentLength, int32_t extensionLength) const;
+	bool    overlapTest(const OverlapRange& ovlp, int32_t curLen, int32_t extLen) const;
 	JumpRes jumpTest(int32_t currentPrev, int32_t currentNext,
-				     int32_t extensionPrev, int32_t extensionNext);
-
-	int _maximumJump;
-	int _minimumOverlap;
-	int _maximumOverhang;
-
-	OverlapIndex _overlapIndex;
+				     int32_t extensionPrev, int32_t extensionNext) const;
+	void 	parallelWorker();
 
 	typedef std::tuple<FastaRecord::Id, FastaRecord::Id> id_pair_t;
 	struct key_hash : public std::unary_function<id_pair_t, std::size_t>
@@ -100,9 +101,19 @@ private:
 					std::get<1>(k).hash();
 		 }
 	};
+
+	const int _maximumJump;
+	const int _minimumOverlap;
+	const int _maximumOverhang;
+
+	OverlapIndex _overlapIndex;
 	std::unordered_set<id_pair_t, key_hash> _overlapMatrix;
 
 	const VertexIndex& _vertexIndex;
 	const SequenceContainer& _seqContainer;
-};
 
+	std::mutex _fetchMutex;
+	ProgressPercent _progress;
+	std::vector<FastaRecord::Id> _jobQueue;
+	size_t _nextJob;
+};

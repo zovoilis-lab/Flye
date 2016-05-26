@@ -16,14 +16,15 @@
 
 bool parseArgs(int argc, char** argv, std::string& readsFasta, 
 			   std::string& outAssembly, std::string& logFile, int& coverage,
-			   int& kmerSize, int& minKmer, int& maxKmer, bool& debug)
+			   int& kmerSize, int& minKmer, int& maxKmer, bool& debug,
+			   size_t& numThreads)
 {
 	auto printUsage = [argv]()
 	{
 		std::cerr << "Usage: " << argv[0]
 				  << "\treads_file out_assembly coverage \n\t\t\t\t"
 				  << "[-k kmer_size] [-m min_kmer_cov] \n\t\t\t\t"
-				  << "[-x max_kmer_cov] [-l log_file] [-d]\n\n"
+				  << "[-x max_kmer_cov] [-l log_file] [-t num_threads] [-d]\n\n"
 				  << "positional arguments:\n"
 				  << "\treads file\tpath to fasta with reads\n"
 				  << "\tout_assembly\tpath to output file\n"
@@ -37,16 +38,19 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 				  << "\t-d \t\tenable debug output "
 				  << "[default = false] \n"
 				  << "\t-l log_file\toutput log to file "
-				  << "[default = not set] \n";
+				  << "[default = not set] \n"
+				  << "\t-t num_threads\tnumber of parallel threads "
+				  << "[default = 1] \n";
 	};
 
 	kmerSize = 15;
 	minKmer = -1;
 	maxKmer = -1;
+	numThreads = 1;
 	debug = false;
 	logFile = "";
 
-	const char optString[] = "k:m:x:l:hd";
+	const char optString[] = "k:m:x:l:t:hd";
 	int opt = 0;
 	while ((opt = getopt(argc, argv, optString)) != -1)
 	{
@@ -60,6 +64,9 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 			break;
 		case 'x':
 			maxKmer = atoi(optarg);
+			break;
+		case 't':
+			numThreads = atoi(optarg);
 			break;
 		case 'l':
 			logFile = optarg;
@@ -96,12 +103,13 @@ int main(int argc, char** argv)
 	int maxKmerCov = 0;
 	int coverage = 0;
 	bool debugging = false;
+	size_t numThreads;
 	std::string readsFasta;
 	std::string outAssembly;
 	std::string logFile;
 
 	if (!parseArgs(argc, argv, readsFasta, outAssembly, logFile, coverage,
-				   kmerSize, minKmerCov, maxKmerCov, debugging)) return 1;
+				   kmerSize, minKmerCov, maxKmerCov, debugging, numThreads)) return 1;
 
 	try
 	{
@@ -133,7 +141,7 @@ int main(int argc, char** argv)
 
 		OverlapDetector ovlp(MAX_JUMP, MIN_OVERLAP, MAX_OVERHANG,
 							 vertexIndex, seqContainer);
-		ovlp.findAllOverlaps();
+		ovlp.findAllOverlaps(numThreads);
 
 		ChimeraDetector chimDetect(MAX_OVERHANG, MAX_JUMP, MIN_OVERLAP,
 								   coverage, ovlp, seqContainer);

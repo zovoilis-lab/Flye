@@ -1,4 +1,5 @@
-CXXFLAGS += -Wall
+CXXFLAGS += -Wall -std=c++11
+LDFLAGS += -std=c++11
 OUT_LIB := ${LIBBF}/libbf.a
 
 .PHONY: all clean

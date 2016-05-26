@@ -38,7 +38,8 @@ def run(args):
 
     preassembly = os.path.join(work_dir, "read_edges.fasta")
     asm.assemble(args.reads, preassembly, args.kmer_size, args.min_cov,
-                 args.max_cov, args.coverage, args.debug, log_file)
+                 args.max_cov, args.coverage, args.debug, log_file,
+                 args.threads)
     alignment, contigs_info, profile = \
             aln.get_alignment(preassembly, args.reads,
                               args.threads, work_dir)
@@ -73,7 +74,7 @@ def enable_logging(log_file, debug):
 
 def main():
     parser = argparse.ArgumentParser(description="ABruijn: assembly of long and"
-                                     "error-prone reads")
+                                     " error-prone reads")
 
     parser.add_argument("reads", metavar="reads",
                         help="path to a file with reads in FASTA format")

@@ -3,7 +3,7 @@ POLISH := $(shell pwd)/polishing
 
 export LIBBF = $(shell pwd)/libbf
 export BIN_DIR = $(shell pwd)/bin
-export CXXFLAGS = -std=c++11 -I${LIBBF}
+export CXXFLAGS = -I${LIBBF}
 export LDFLAGS = -L${LIBBF} -lbf
 
 .PHONY: clean all

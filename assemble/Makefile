@@ -1,4 +1,5 @@
-CXXFLAGS += -Wall
+CXXFLAGS += -Wall -pthread -std=c++11
+LDFLAGS += -pthread -std=c++11
 OUT_BIN := ${BIN_DIR}/abruijn-assemble
 
 .PHONY: all clean debug
