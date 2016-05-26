@@ -157,8 +157,8 @@ OverlapDetector::getReadOverlaps(FastaRecord::Id currentReadId) const
 			//don't want self-overlaps
 			if (extReadPos.readId == currentReadId) continue;
 			//maybe it's already processed
-			if (_overlapMatrix.count(std::make_tuple(extReadPos.readId,
-							   						 currentReadId))) continue;
+			//if (_overlapMatrix.count(std::make_tuple(extReadPos.readId,
+			//				   						 currentReadId))) continue;
 
 			int32_t extPos = extReadPos.position;
 			auto& extPaths = activePaths[extReadPos.readId];

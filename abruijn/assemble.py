@@ -47,6 +47,4 @@ def assemble(reads_file, out_file, kmer_size, min_kmer_count,
     try:
         subprocess.check_call(cmdline)
     except (subprocess.CalledProcessError, OSError) as e:
-        logger.error("Non-zero return code when calling {0} module: {1}"
-                     .format(ASSEMBLE_BIN, ret_code))
-        raise AssembleException("Error in assemble binary: " + e)
+        raise AssembleException("Error in assemble binary: " + str(e))
