@@ -13,7 +13,8 @@ BubbleProcessor::BubbleProcessor(const std::string& subsMatPath,
 	_subsMatrix(subsMatPath),
 	_hopoMatrix(hopoMatrixPath),
 	_generalPolisher(_subsMatrix),
-	_homoPolisher(_subsMatrix, _hopoMatrix)
+	_homoPolisher(_subsMatrix, _hopoMatrix),
+	_nextJob(0)
 {
 }
 
@@ -22,6 +23,7 @@ void BubbleProcessor::polishAll(const std::string& dataPath, int numThreads)
 {
 	this->readBubbles(dataPath);
 	_progress.setFinalCount(_bubbles.size());
+	_nextJob = 0;
 
 	std::vector<std::thread> threads(numThreads);
 	for (size_t i = 0; i < threads.size(); ++i)

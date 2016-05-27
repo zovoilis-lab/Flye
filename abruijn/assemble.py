@@ -22,7 +22,7 @@ class AssembleException(Exception):
 
 def check_binaries():
     if not which(ASSEMBLE_BIN):
-        raise AssembleException("Assemble binary not found. "
+        raise AssembleException("Assemble binary was not found. "
                                 "Did you run 'make'?")
     try:
         devnull = open(os.devnull, "w")

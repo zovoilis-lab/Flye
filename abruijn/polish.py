@@ -30,7 +30,8 @@ class PolishException(Exception):
 
 def check_binaries():
     if not which(POLISH_BIN):
-        raise PolishException("polish binary is not found. Did you run 'make'?")
+        raise PolishException("polishing binary was not found. "
+                              "Did you run 'make'?")
     try:
         devnull = open(os.devnull, "w")
         subprocess.check_call([POLISH_BIN, "-h"], stderr=devnull)
@@ -41,25 +42,32 @@ def check_binaries():
 
 def polish(bubbles, num_proc, work_dir, profile):
     logger.info("Polishing draft assembly")
-    buckets = [[] for _ in xrange(num_proc)]
-    for i in xrange(len(bubbles)):
-        buckets[random.randint(0, num_proc - 1)].append(bubbles[i])
 
-    out_files = _run_parallel(buckets, work_dir, profile)
-    return _compose_sequence(out_files)
+    subs_matrix = os.path.join(os.environ["ABRUIJN_RES"],
+                               config.vals["profiles"][profile]["subs_matrix"])
+    hopo_matrix = os.path.join(os.environ["ABRUIJN_RES"],
+                               config.vals["profiles"][profile]["hopo_matrix"])
+
+    bubbles_file = os.path.join(work_dir, "bubbles.fasta")
+    bbl.output_bubbles(bubbles, bubbles_file)
+    consensus_out = os.path.join(work_dir, "consensus.fasta")
+
+    _run_polish_bin(bubbles_file, subs_matrix, hopo_matrix,
+                    consensus_out, num_proc)
+    return _compose_sequence([consensus_out])
 
 
 def _run_polish_bin(bubbles_in, subs_matrix, hopo_matrix,
-                    consensus_out, thread_error):
+                    consensus_out, num_threads):
     """
     Invokes polishing binary
     """
-    cmdline = [POLISH_BIN, bubbles_in, subs_matrix, hopo_matrix, consensus_out]
+    cmdline = [POLISH_BIN, bubbles_in, subs_matrix,
+               hopo_matrix, consensus_out, "-t", str(num_threads)]
     try:
         subprocess.check_call(cmdline, stderr=open(os.devnull, "w"))
     except (subprocess.CalledProcessError, OSError) as e:
-        print("Error while running polish binary: " + str(e))
-        thread_error[0] = 1
+        raise PolishException("Error while running polish binary: " + str(e))
 
 
 def _compose_sequence(consensus_files):
@@ -86,36 +94,3 @@ def _compose_sequence(consensus_files):
         polished_fasta[ctg_id] = "".join(sorted_seqs)
 
     return polished_fasta
-
-
-def _run_parallel(buckets, work_dir, profile):
-    """
-    Sets up multiple threads
-    """
-    thread_error = [0]
-    threads = []
-    subs_matrix = os.path.join(os.environ["ABRUIJN_RES"],
-                               config.vals["profiles"][profile]["subs_matrix"])
-    hopo_matrix = os.path.join(os.environ["ABRUIJN_RES"],
-                               config.vals["profiles"][profile]["hopo_matrix"])
-    output_files = []
-    for i, bucket in enumerate(buckets):
-        instance_in = os.path.join(work_dir, "bubbles_part_{0}.fasta".format(i))
-        bbl.output_bubbles(bucket, instance_in)
-
-        instance_out = os.path.join(work_dir, "consensus_{0}.fasta".format(i))
-        output_files.append(instance_out)
-
-        thread = Thread(target=_run_polish_bin, args=(instance_in, subs_matrix,
-                                                      hopo_matrix, instance_out,
-                                                      thread_error))
-        thread.start()
-        threads.append(thread)
-
-    for t in threads:
-        t.join()
-
-    if thread_error[0] != 0:
-        raise PolishException("There were errors in polishing threads, exiting")
-
-    return output_files
