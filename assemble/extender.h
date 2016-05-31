@@ -4,6 +4,8 @@
 
 #pragma once
 
+#include <deque>
+
 #include "fasta.h"
 #include "overlap.h"
 #include "chimera.h"
@@ -52,5 +54,6 @@ private:
 	int   countRightExtensions(FastaRecord::Id readId);
 
 	std::vector<ContigPath> _contigPaths;
+	std::deque<int>			_coverageHistory;
 	std::unordered_set<FastaRecord::Id>	_visitedReads;
 };

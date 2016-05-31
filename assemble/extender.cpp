@@ -11,8 +11,23 @@
 #include "logger.h"
 #include "extender.h"
 
+namespace
+{
+	template <class T>
+	T median(const std::deque<T>& vals)
+	{
+		if (vals.empty()) return T();
+		std::deque<T> tmp = vals;
+		std::nth_element(tmp.begin(), tmp.begin() + tmp.size() / 2, 
+						 tmp.end());
+		return tmp[tmp.size() / 2];
+	}
+}
+
 ContigPath Extender::extendRead(FastaRecord::Id startRead)
 {
+	const size_t MAX_HISTORY = 3;
+
 	ContigPath contigPath;
 	FastaRecord::Id curRead = startRead;
 	contigPath.reads.push_back(curRead);
@@ -24,6 +39,9 @@ ContigPath Extender::extendRead(FastaRecord::Id startRead)
 				_seqContainer.getIndex().at(startRead).description;
 
 	std::unordered_set<FastaRecord::Id> curPathVisited;
+	_coverageHistory.clear();
+	_coverageHistory.push_back(this->countRightExtensions(startRead));
+
 	while(true)
 	{
 		FastaRecord::Id extRead = this->stepRight(curRead, startRead);
@@ -70,6 +88,9 @@ ContigPath Extender::extendRead(FastaRecord::Id startRead)
 			}
 		}
 
+		_coverageHistory.push_back(this->countRightExtensions(extRead));
+		if (_coverageHistory.size() > MAX_HISTORY) _coverageHistory.pop_front();
+
 		_visitedReads.insert(extRead);
 		_visitedReads.insert(extRead.rc());
 		curPathVisited.insert(extRead);
@@ -96,8 +117,8 @@ void Extender::assembleContigs()
 	{	
 		if (_visitedReads.count(indexPair.first) ||
 			_chimDetector.isChimeric(indexPair.first) ||
-			this->countRightExtensions(indexPair.first) == 0 ||
-			this->isBranching(indexPair.first)) continue;
+			this->countRightExtensions(indexPair.first) == 0) continue;
+			//this->isBranching(indexPair.first)) continue;
 
 		//additionaly, should not overlap with any of visited reads
 		bool ovlpsVisited = false;
@@ -148,6 +169,9 @@ void Extender::assembleContigs()
 
 float Extender::branchIndex(FastaRecord::Id readId)
 {
+	int curEstimate = median(_coverageHistory);
+	return (double)this->countRightExtensions(readId) / curEstimate;
+	/*
 	auto& overlaps = _ovlpDetector.getOverlapIndex().at(readId);
 	int totalNewExt = 0;;
 	int curExtensions = 0;
@@ -163,7 +187,7 @@ float Extender::branchIndex(FastaRecord::Id readId)
 
 	float avgNew = (float)totalNewExt / curExtensions;
 	float ratio = curExtensions / avgNew;
-	return ratio;
+	return ratio;*/
 }
 
 //makes one extension to the right
@@ -263,7 +287,7 @@ int Extender::countRightExtensions(FastaRecord::Id readId)
 
 bool Extender::isBranching(FastaRecord::Id readId)
 {
-	return this->branchIndex(readId) > 2.5f;
+	return this->branchIndex(readId) > 2.0f;
 }
 
 //Checks if read is extended to the right
