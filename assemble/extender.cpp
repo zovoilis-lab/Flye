@@ -22,11 +22,21 @@ namespace
 						 tmp.end());
 		return tmp[tmp.size() / 2];
 	}
+
+	template <class T>
+	T median(const std::vector<T>& vals)
+	{
+		if (vals.empty()) return T();
+		std::vector<T> tmp = vals;
+		std::nth_element(tmp.begin(), tmp.begin() + tmp.size() / 2, 
+						 tmp.end());
+		return tmp[tmp.size() / 2];
+	}
 }
 
 ContigPath Extender::extendRead(FastaRecord::Id startRead)
 {
-	const size_t MAX_HISTORY = 3;
+	const size_t MAX_HISTORY = 11;
 
 	ContigPath contigPath;
 	FastaRecord::Id curRead = startRead;
@@ -169,25 +179,53 @@ void Extender::assembleContigs()
 
 float Extender::branchIndex(FastaRecord::Id readId)
 {
-	int curEstimate = median(_coverageHistory);
-	return (double)this->countRightExtensions(readId) / curEstimate;
-	/*
+	//int curEstimate = median(_coverageHistory);
+	//return (double)this->countRightExtensions(readId) / curEstimate;
 	auto& overlaps = _ovlpDetector.getOverlapIndex().at(readId);
-	int totalNewExt = 0;;
+	//int totalNewExt = 0;;
 	int curExtensions = 0;
+	std::vector<double> numExtNew;
 	for (auto& ovlp : overlaps)
 	{
 		if (this->isProperRightExtension(ovlp))
 		{
 			++curExtensions;
-			totalNewExt += this->countRightExtensions(ovlp.extId);
+			//totalNewExt += this->countRightExtensions(ovlp.extId);
+			numExtNew.push_back(this->countRightExtensions(ovlp.extId));
 		}
 	}
-	if (curExtensions == 0 || totalNewExt == 0) return 0.0f;
+	if (curExtensions == 0 || numExtNew.empty()) return 0.0f;
 
-	float avgNew = (float)totalNewExt / curExtensions;
-	float ratio = curExtensions / avgNew;
-	return ratio;*/
+	float ratio = curExtensions / median(numExtNew);
+	return ratio;
+}
+
+float Extender::extensionIndex(FastaRecord::Id readId)
+{
+	std::unordered_set<FastaRecord::Id> extensions;
+	auto& overlaps = _ovlpDetector.getOverlapIndex().at(readId);
+
+	for (auto& ovlp : overlaps)
+	{
+		if (this->isProperRightExtension(ovlp) &&
+			this->countRightExtensions(ovlp.extId) > 0) 
+		{
+			extensions.insert(ovlp.extId);
+		}
+	}
+	
+	int maxCovered = 0;
+	for (auto& extCandidate : extensions)
+	{
+		int extCovered = 0;
+		for (auto& ovlp : _ovlpDetector.getOverlapIndex().at(extCandidate))
+		{
+			if (extensions.count(ovlp.extId) &&
+		   		ovlp.rightShift < 0) ++extCovered;
+		}
+		maxCovered = std::max(maxCovered, extCovered);
+	}
+	return (float)maxCovered / (extensions.size() - 1);
 }
 
 //makes one extension to the right
@@ -215,6 +253,7 @@ FastaRecord::Id Extender::stepRight(FastaRecord::Id readId,
 					   std::tuple<int, int, int, int>> supportIndex;
 
 	Logger::get().debug() << "Branch index " << this->branchIndex(readId);
+	Logger::get().debug() << "Extension index " << this->extensionIndex(readId);
 	for (auto& extCandidate : extensions)
 	{
 		int leftSupport = 0;
@@ -227,19 +266,27 @@ FastaRecord::Id Extender::stepRight(FastaRecord::Id readId,
 			if (ovlp.extId == readId) ovlpShift = -ovlp.rightShift;
 			if (!extensions.count(ovlp.extId)) continue;
 
+			auto revOvlp = ovlp;
+			revOvlp.reverse();
+
 			if (this->isProperRightExtension(ovlp)) ++rightSupport;
-			if (this->isProperLeftExtension(ovlp)) ++leftSupport;
+			if (this->isProperRightExtension(revOvlp)) ++leftSupport;
+			//if (this->isProperLeftExtension(ovlp)) ++leftSupport;
 		}
 		int minSupport = std::min(leftSupport, rightSupport);
-		int endsRepeat = 1 - this->isBranching(extCandidate);
-		if (!this->isBranching(readId))
+		//int endsRepeat = 1 - this->isBranching(extCandidate);
+		int endsRepeat = this->extensionIndex(extCandidate) > 0.6f;
+		endsRepeat = 1;
+		//if (!this->isBranching(readId))
+		if (this->extensionIndex(readId) > 0.6f)
 		{
 			supportIndex[extCandidate] = std::make_tuple(endsRepeat, minSupport, 
 													 	 rightSupport, ovlpSize);
 		}
 		else
 		{
-			int startsRepeat = 1 - this->isBranching(extCandidate.rc());
+			//int startsRepeat = 1 - this->isBranching(extCandidate.rc());
+			int startsRepeat = this->extensionIndex(extCandidate.rc()) > 0.6f;
 			supportIndex[extCandidate] = std::make_tuple(startsRepeat, minSupport, 
 														 rightSupport, ovlpSize);
 		}
@@ -247,7 +294,7 @@ FastaRecord::Id Extender::stepRight(FastaRecord::Id readId,
 				    << _seqContainer.getIndex().at(extCandidate).description
 					<< "\t" << leftSupport << "\t" << rightSupport << "\t"
 					<< std::fixed << std::setprecision(2) 
-					<< this->branchIndex(extCandidate) << "\t" << ovlpSize
+					<< this->extensionIndex(extCandidate) << "\t" << ovlpSize
 					<< "\t" << ovlpShift;
 	}
 

@@ -44,7 +44,7 @@ private:
 	const int _maximumJump;
 
 	FastaRecord::Id stepRight(FastaRecord::Id readId, 
-									  FastaRecord::Id startReadId);
+							  FastaRecord::Id startReadId);
 	ContigPath extendRead(FastaRecord::Id readId);
 
 	bool  isProperRightExtension(const OverlapRange& ovlp);
@@ -52,6 +52,7 @@ private:
 	float branchIndex(FastaRecord::Id readId);
 	bool  isBranching(FastaRecord::Id readId);
 	int   countRightExtensions(FastaRecord::Id readId);
+	float extensionIndex(FastaRecord::Id readId);
 
 	std::vector<ContigPath> _contigPaths;
 	std::deque<int>			_coverageHistory;

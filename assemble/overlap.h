@@ -113,6 +113,7 @@ private:
 	const SequenceContainer& _seqContainer;
 
 	std::mutex _fetchMutex;
+	mutable std::mutex _logMutex;
 	ProgressPercent _progress;
 	std::vector<FastaRecord::Id> _jobQueue;
 	size_t _nextJob;

@@ -228,6 +228,40 @@ void VertexIndex::buildReadIndex()
 						{return p1.position < p2.position;});
 		readHash.second.shrink_to_fit();
 	}
+
+	//distance spectrum
+	/*
+	std::unordered_map<Kmer, std::vector<int>> distances;
+	for (auto& readHash : _readIndex)
+	{
+		for (size_t i = 0; i < readHash.second.size() - 2; ++i)
+		{
+			int dLeft = readHash.second[i + 2].position - 
+						readHash.second[i + 1].position;
+			int dRight = readHash.second[i + 1].position - 
+						 readHash.second[i].position;
+			distances[readHash.second[i + 1].kmer].push_back(dLeft);
+			distances[readHash.second[i + 1].kmer].push_back(dRight);
+		}
+	}
+
+	std::map<int, int> spectrum;
+	for (auto& hash : distances)
+	{
+		double sum = 0.0f;
+		for(size_t i = 0; i < hash.second.size(); i++)
+		{
+   			sum += hash.second[i];
+		}
+		double dist = !hash.second.empty() ? sum / hash.second.size() : 0.0f;
+		int bin = dist / 10;
+		spectrum[bin] += 1;
+	}
+
+	for (auto& pair : spectrum)
+	{
+		std::cerr << pair.first << "\t" << pair.second << std::endl;
+	}*/
 }
 
 void VertexIndex::outputCounts() const

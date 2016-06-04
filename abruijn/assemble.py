@@ -38,9 +38,9 @@ def assemble(reads_file, out_file, kmer_size, min_kmer_count,
     cmdline = [ASSEMBLE_BIN, reads_file, out_file, str(coverage),
                "-k", str(kmer_size), "-l", log_file, "-t", str(num_threads)]
     if min_kmer_count is not None:
-        cmdline.extend(["-m", min_kmer_count])
+        cmdline.extend(["-m", str(min_kmer_count)])
     if max_kmer_count is not None:
-        cmdline.extend(["-x", max_kmer_count])
+        cmdline.extend(["-x", str(max_kmer_count)])
     if debug:
         cmdline.append("-d")
 
