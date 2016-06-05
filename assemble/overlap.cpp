@@ -309,8 +309,11 @@ namespace
 	template<typename T>
 	T median(std::vector<T>& vec)
 	{
-		std::nth_element(vec.begin(), vec.begin() + vec.size() / 2, 
-						 vec.end());
+		std::sort(vec.begin(), vec.end());
+		//NOTE: there's a bug in libstdc++ nth_element, 
+		//that sometimes leads to a segfault
+		//std::nth_element(vec.begin(), vec.begin() + vec.size() / 2, 
+		//				 vec.end());
 		return vec[vec.size() / 2];
 	}
 }

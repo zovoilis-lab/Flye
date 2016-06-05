@@ -55,6 +55,5 @@ private:
 	float extensionIndex(FastaRecord::Id readId);
 
 	std::vector<ContigPath> _contigPaths;
-	std::deque<int>			_coverageHistory;
 	std::unordered_set<FastaRecord::Id>	_visitedReads;
 };

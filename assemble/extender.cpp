@@ -14,30 +14,21 @@
 namespace
 {
 	template <class T>
-	T median(const std::deque<T>& vals)
-	{
-		if (vals.empty()) return T();
-		std::deque<T> tmp = vals;
-		std::nth_element(tmp.begin(), tmp.begin() + tmp.size() / 2, 
-						 tmp.end());
-		return tmp[tmp.size() / 2];
-	}
-
-	template <class T>
 	T median(const std::vector<T>& vals)
 	{
 		if (vals.empty()) return T();
 		std::vector<T> tmp = vals;
-		std::nth_element(tmp.begin(), tmp.begin() + tmp.size() / 2, 
-						 tmp.end());
+		std::sort(tmp.begin(), tmp.end());
+		//NOTE: there's a bug in libstdc++ nth_element, 
+		//that sometimes leads to a segfault
+		//std::nth_element(tmp.begin(), tmp.begin() + tmp.size() / 2, 
+		//				 tmp.end());
 		return tmp[tmp.size() / 2];
 	}
 }
 
 ContigPath Extender::extendRead(FastaRecord::Id startRead)
 {
-	const size_t MAX_HISTORY = 11;
-
 	ContigPath contigPath;
 	FastaRecord::Id curRead = startRead;
 	contigPath.reads.push_back(curRead);
@@ -49,8 +40,6 @@ ContigPath Extender::extendRead(FastaRecord::Id startRead)
 				_seqContainer.getIndex().at(startRead).description;
 
 	std::unordered_set<FastaRecord::Id> curPathVisited;
-	_coverageHistory.clear();
-	_coverageHistory.push_back(this->countRightExtensions(startRead));
 
 	while(true)
 	{
@@ -98,9 +87,6 @@ ContigPath Extender::extendRead(FastaRecord::Id startRead)
 			}
 		}
 
-		_coverageHistory.push_back(this->countRightExtensions(extRead));
-		if (_coverageHistory.size() > MAX_HISTORY) _coverageHistory.pop_front();
-
 		_visitedReads.insert(extRead);
 		_visitedReads.insert(extRead.rc());
 		curPathVisited.insert(extRead);
@@ -109,8 +95,6 @@ ContigPath Extender::extendRead(FastaRecord::Id startRead)
 		curRead = extRead;
 		contigPath.reads.push_back(curRead);
 	}
-
-
 
 	Logger::get().debug() << "Made " << contigPath.reads.size() - 1 
 						  << " extensions";
@@ -127,8 +111,8 @@ void Extender::assembleContigs()
 	{	
 		if (_visitedReads.count(indexPair.first) ||
 			_chimDetector.isChimeric(indexPair.first) ||
-			this->countRightExtensions(indexPair.first) == 0) continue;
-			//this->isBranching(indexPair.first)) continue;
+			this->countRightExtensions(indexPair.first) == 0 ||
+			this->isBranching(indexPair.first)) continue;
 
 		//additionaly, should not overlap with any of visited reads
 		bool ovlpsVisited = false;
@@ -179,10 +163,7 @@ void Extender::assembleContigs()
 
 float Extender::branchIndex(FastaRecord::Id readId)
 {
-	//int curEstimate = median(_coverageHistory);
-	//return (double)this->countRightExtensions(readId) / curEstimate;
 	auto& overlaps = _ovlpDetector.getOverlapIndex().at(readId);
-	//int totalNewExt = 0;;
 	int curExtensions = 0;
 	std::vector<double> numExtNew;
 	for (auto& ovlp : overlaps)
@@ -190,7 +171,6 @@ float Extender::branchIndex(FastaRecord::Id readId)
 		if (this->isProperRightExtension(ovlp))
 		{
 			++curExtensions;
-			//totalNewExt += this->countRightExtensions(ovlp.extId);
 			numExtNew.push_back(this->countRightExtensions(ovlp.extId));
 		}
 	}
@@ -213,6 +193,7 @@ float Extender::extensionIndex(FastaRecord::Id readId)
 			extensions.insert(ovlp.extId);
 		}
 	}
+	if (extensions.size() < 2) return 0.0f;
 	
 	int maxCovered = 0;
 	for (auto& extCandidate : extensions)
@@ -274,19 +255,15 @@ FastaRecord::Id Extender::stepRight(FastaRecord::Id readId,
 			//if (this->isProperLeftExtension(ovlp)) ++leftSupport;
 		}
 		int minSupport = std::min(leftSupport, rightSupport);
-		//int endsRepeat = 1 - this->isBranching(extCandidate);
-		int endsRepeat = this->extensionIndex(extCandidate) > 0.6f;
-		endsRepeat = 1;
-		//if (!this->isBranching(readId))
-		if (this->extensionIndex(readId) > 0.6f)
+		int endsRepeat = 1 - this->isBranching(extCandidate);
+		if (!this->isBranching(readId))
 		{
 			supportIndex[extCandidate] = std::make_tuple(endsRepeat, minSupport, 
 													 	 rightSupport, ovlpSize);
 		}
 		else
 		{
-			//int startsRepeat = 1 - this->isBranching(extCandidate.rc());
-			int startsRepeat = this->extensionIndex(extCandidate.rc()) > 0.6f;
+			int startsRepeat = 1 - this->isBranching(extCandidate.rc());
 			supportIndex[extCandidate] = std::make_tuple(startsRepeat, minSupport, 
 														 rightSupport, ovlpSize);
 		}
@@ -334,7 +311,8 @@ int Extender::countRightExtensions(FastaRecord::Id readId)
 
 bool Extender::isBranching(FastaRecord::Id readId)
 {
-	return this->branchIndex(readId) > 2.0f;
+	//return this->branchIndex(readId) > 2.0f;
+	return this->extensionIndex(readId) <= 0.6f;
 }
 
 //Checks if read is extended to the right
