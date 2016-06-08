@@ -256,6 +256,7 @@ FastaRecord::Id Extender::stepRight(FastaRecord::Id readId,
 		}
 		int minSupport = std::min(leftSupport, rightSupport);
 		int endsRepeat = 1 - this->isBranching(extCandidate);
+		endsRepeat = 1;
 		if (!this->isBranching(readId))
 		{
 			supportIndex[extCandidate] = std::make_tuple(endsRepeat, minSupport, 

@@ -236,10 +236,12 @@ void VertexIndex::buildReadIndex()
 	{
 		for (size_t i = 0; i < readHash.second.size() - 2; ++i)
 		{
-			int dLeft = readHash.second[i + 2].position - 
-						readHash.second[i + 1].position;
-			int dRight = readHash.second[i + 1].position - 
-						 readHash.second[i].position;
+			//int dLeft = readHash.second[i + 2].position - 
+			//			readHash.second[i + 1].position;
+			//int dRight = readHash.second[i + 1].position - 
+			//			 readHash.second[i].position;
+			int dLeft = _kmerIndex[readHash.second[i + 2].kmer].size();
+			int dRight = _kmerIndex[readHash.second[i].kmer].size();
 			distances[readHash.second[i + 1].kmer].push_back(dLeft);
 			distances[readHash.second[i + 1].kmer].push_back(dRight);
 		}
@@ -254,7 +256,7 @@ void VertexIndex::buildReadIndex()
    			sum += hash.second[i];
 		}
 		double dist = !hash.second.empty() ? sum / hash.second.size() : 0.0f;
-		int bin = dist / 10;
+		int bin = dist;
 		spectrum[bin] += 1;
 	}
 

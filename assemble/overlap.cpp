@@ -126,6 +126,7 @@ bool OverlapDetector::overlapTest(const OverlapRange& ovlp, int32_t curLen,
 		return false;
 	if (abs(ovlp.curRange() - ovlp.extRange()) > _maximumJump)
 		return false;
+	if (ovlp.curId == ovlp.extId.rc()) return true;	//FIXME: and adhoc solution for chimeras
 	if (std::min(ovlp.curBegin, ovlp.extBegin) > _maximumOverhang)
 		return false;
 	if (std::min(curLen - ovlp.curEnd, extLen - ovlp.extEnd) > _maximumOverhang)
@@ -138,7 +139,7 @@ bool OverlapDetector::overlapTest(const OverlapRange& ovlp, int32_t curLen,
 std::vector<OverlapRange> 
 OverlapDetector::getReadOverlaps(FastaRecord::Id currentReadId) const
 {
-	const int MAX_PATHS = 100;
+	//const int MAX_PATHS = 10000;
 
 	const auto& readIndex = _vertexIndex.getIndexByRead();
 	const auto& kmerIndex = _vertexIndex.getIndexByKmer();
@@ -220,14 +221,14 @@ OverlapDetector::getReadOverlaps(FastaRecord::Id currentReadId) const
 				extPaths.back().extEnd = extPos;
 			}
 			//if no extensions possible (or there are no active paths), start a new path
-			if (!extendsClose && !extendsFar && 
-				this->goodStart(curPos, extPos, curLen, extLen))
+			if (!extendsClose && !extendsFar)
+				//this->goodStart(curPos, extPos, curLen, extLen))
 			{
 				extPaths.push_back(OverlapRange(currentReadId, extReadPos.readId,
 												curPos, extPos));
 			}
 			//keep at most MAX_PATHS paths
-			if (extPaths.size() > MAX_PATHS)
+			/*if (extPaths.size() > MAX_PATHS)
 			{
 				size_t shortestId = 0;
 				int32_t shortestLength = extPaths[shortestId].curRange();
@@ -240,7 +241,7 @@ OverlapDetector::getReadOverlaps(FastaRecord::Id currentReadId) const
 					}
 				}
 				eraseMarks.insert(shortestId);
-			}
+			}*/
 			//cleaning up
 			for (auto itEraseId = eraseMarks.rbegin(); 
 				 itEraseId != eraseMarks.rend(); ++itEraseId)
@@ -293,11 +294,24 @@ OverlapDetector::getReadOverlaps(FastaRecord::Id currentReadId) const
 					<< " " << readIndex.at(currentReadId).size();
 		for (auto& ovlp : debugOverlaps)
 		{
+			auto extLen = _seqContainer.seqLen(ovlp.extId);
 			Logger::get().debug() << "\t" 
 					<< _seqContainer.getIndex().at(ovlp.extId).description
 					<< "\tcs:" << ovlp.curBegin << "\tcl:" << ovlp.curRange()
-					<< "\tes:" << ovlp.extBegin << "\tel:" << ovlp.extRange();
+					<< "\tes:" << ovlp.extBegin << "\tel:" << ovlp.extRange()
+					<< "\t" << this->overlapTest(ovlp, curLen, extLen);
 		}
+		/*
+		Logger::get().debug() << "-------";
+		for (auto& ovlp : detectedOverlaps)
+		{
+			auto extLen = _seqContainer.seqLen(ovlp.extId);
+			Logger::get().debug() << "\t" 
+					<< _seqContainer.getIndex().at(ovlp.extId).description
+					<< "\tcs:" << ovlp.curBegin << "\tcl:" << ovlp.curRange()
+					<< "\tes:" << ovlp.extBegin << "\tel:" << ovlp.extRange()
+					<< "\t" << this->overlapTest(ovlp, curLen, extLen);
+		}*/
 		_logMutex.unlock();
 	}
 
