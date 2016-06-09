@@ -88,13 +88,14 @@ void OverlapDetector::parallelWorker()
 
 
 //pre-filtering
+/*
 bool OverlapDetector::goodStart(int32_t curPos, int32_t extPos, 
 								int32_t curLen, int32_t extLen) const
 {	
 	return std::min(curPos, extPos) < _maximumOverhang && 
 		   extPos < extLen - _minimumOverlap &&
 		   curPos < curLen - _minimumOverlap;
-}
+}*/
 
 OverlapDetector::JumpRes 
 OverlapDetector::jumpTest(int32_t curPrev, int32_t curNext,
@@ -227,21 +228,6 @@ OverlapDetector::getReadOverlaps(FastaRecord::Id currentReadId) const
 				extPaths.push_back(OverlapRange(currentReadId, extReadPos.readId,
 												curPos, extPos));
 			}
-			//keep at most MAX_PATHS paths
-			/*if (extPaths.size() > MAX_PATHS)
-			{
-				size_t shortestId = 0;
-				int32_t shortestLength = extPaths[shortestId].curRange();
-				for (size_t i = 0; i < extPaths.size(); ++i)
-				{
-					if (extPaths[i].curRange() < shortestLength)
-					{
-						shortestLength = extPaths[i].curRange();
-						shortestId = i;
-					}
-				}
-				eraseMarks.insert(shortestId);
-			}*/
 			//cleaning up
 			for (auto itEraseId = eraseMarks.rbegin(); 
 				 itEraseId != eraseMarks.rend(); ++itEraseId)
@@ -257,8 +243,6 @@ OverlapDetector::getReadOverlaps(FastaRecord::Id currentReadId) const
 	std::vector<OverlapRange> debugOverlaps;
 	for (const auto& ap : activePaths)
 	{
-		//if (ap.second.size() > 100)
-		//	DEBUG_PRINT("Pathset length: " << ap.second.size());
 		auto extLen = _seqContainer.seqLen(ap.first);
 		OverlapRange maxOverlap(0, 0, 0, 0);
 		OverlapRange outputOverlap(0, 0, 0, 0);
@@ -273,7 +257,7 @@ OverlapDetector::getReadOverlaps(FastaRecord::Id currentReadId) const
 			if (outputOverlap.curRange() < ovlp.curRange()) outputOverlap = ovlp;
 		}
 
-		if (outputOverlap.curRange() > 1000)
+		if (outputOverlap.curRange() > 3000)
 		{
 			debugOverlaps.push_back(outputOverlap);
 		}
@@ -301,17 +285,6 @@ OverlapDetector::getReadOverlaps(FastaRecord::Id currentReadId) const
 					<< "\tes:" << ovlp.extBegin << "\tel:" << ovlp.extRange()
 					<< "\t" << this->overlapTest(ovlp, curLen, extLen);
 		}
-		/*
-		Logger::get().debug() << "-------";
-		for (auto& ovlp : detectedOverlaps)
-		{
-			auto extLen = _seqContainer.seqLen(ovlp.extId);
-			Logger::get().debug() << "\t" 
-					<< _seqContainer.getIndex().at(ovlp.extId).description
-					<< "\tcs:" << ovlp.curBegin << "\tcl:" << ovlp.curRange()
-					<< "\tes:" << ovlp.extBegin << "\tel:" << ovlp.extRange()
-					<< "\t" << this->overlapTest(ovlp, curLen, extLen);
-		}*/
 		_logMutex.unlock();
 	}
 

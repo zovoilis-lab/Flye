@@ -125,16 +125,11 @@ ContigGenerator::getSwitchPositions(FastaRecord::Id leftRead,
 									FastaRecord::Id rightRead,
 									int32_t prevSwitch)
 {
-	//find repeats
-	std::unordered_map<Kmer, int> leftCount;
-	for (auto& leftKmer : _vertexIndex.getIndexByRead().at(leftRead))
+	//find overlap
+	const OverlapRange* readsOvlp = nullptr;
+	for (auto& ovlp : _overlapDetector.getOverlapIndex().at(leftRead))
 	{
-		leftCount[leftKmer.kmer] += 1;
-	}
-	std::unordered_map<Kmer, int> rightCount;
-	for (auto& rightKmer : _vertexIndex.getIndexByRead().at(rightRead))
-	{
-		rightCount[rightKmer.kmer] += 1;
+		if (ovlp.extId == rightRead) readsOvlp = &ovlp;
 	}
 
 	std::vector<std::pair<int32_t, int32_t>> sharedKmers;
@@ -144,8 +139,7 @@ ContigGenerator::getSwitchPositions(FastaRecord::Id leftRead,
 		{
 			if (rightKmer.readId == rightRead &&
 				leftKmer.position > prevSwitch &&
-				leftCount[leftKmer.kmer] == 1 &&
-				rightCount[leftKmer.kmer] == 1)
+				readsOvlp->contains(leftKmer.position, rightKmer.position))
 			{
 				sharedKmers.push_back({leftKmer.position, 
 									   rightKmer.position});

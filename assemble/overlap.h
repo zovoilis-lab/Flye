@@ -48,6 +48,12 @@ struct OverlapRange
 		extId = extId.rc();
 	}
 
+	bool contains(int32_t curPos, int32_t extPos) const
+	{
+		return curBegin <= curPos && curPos <= curEnd &&
+			   extBegin <= extPos && extPos <= extEnd;
+	}
+
 	//current read
 	FastaRecord::Id curId;
 	int32_t curBegin;
@@ -85,8 +91,8 @@ private:
 
 	std::vector<OverlapRange> getReadOverlaps(FastaRecord::Id readId) const;
 	void 	addOverlapShifts(OverlapRange& ovlp) const;
-	bool    goodStart(int32_t currentPos, int32_t extensionPos, 
-				      int32_t currentLength, int32_t extensionLength) const;
+	//bool    goodStart(int32_t currentPos, int32_t extensionPos, 
+	//			      int32_t currentLength, int32_t extensionLength) const;
 	bool    overlapTest(const OverlapRange& ovlp, int32_t curLen, int32_t extLen) const;
 	JumpRes jumpTest(int32_t currentPrev, int32_t currentNext,
 				     int32_t extensionPrev, int32_t extensionNext) const;
