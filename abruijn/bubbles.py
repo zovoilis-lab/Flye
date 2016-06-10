@@ -126,6 +126,42 @@ def _is_simple_kmer(profile, position, kmer_length):
     return True
 
 
+def _shift_gaps(seq_trg, seq_qry):
+    """
+    Shifts all ambigious query gaps to the right
+    """
+    lst_trg, lst_qry = list("$" + seq_trg + "$"), list("$" + seq_qry + "$")
+    is_gap = False
+    gap_start = 0
+    for i in xrange(len(lst_trg)):
+        if is_gap and lst_qry[i] != "-":
+            is_gap = False
+            swap_left = gap_start - 1
+            swap_right = i - 1
+
+            #print "".join(lst_trg[gap_start - 1 : i + 1])
+            #print "".join(lst_qry[gap_start - 1 : i + 1])
+            #print ""
+
+            while (swap_left > 0 and swap_right >= gap_start and
+                   lst_qry[swap_left] == lst_trg[swap_right]):
+                #print "swapped"
+                lst_qry[swap_left], lst_qry[swap_right] = \
+                            lst_qry[swap_right], lst_qry[swap_left]
+                swap_left -= 1
+                swap_right -= 1
+
+            #print "".join(lst_trg[gap_start - 1 : i + 1])
+            #print "".join(lst_qry[gap_start - 1 : i + 1])
+            #print "--------------"
+
+        if not is_gap and lst_qry[i] == "-":
+            is_gap = True
+            gap_start = i
+
+    return "".join(lst_qry[1 : -1])
+
+
 def _compute_profile(alignment, genome_len):
     """
     Computes alignment profile
@@ -143,6 +179,7 @@ def _compute_profile(alignment, genome_len):
         else:
             trg_seq = fp.reverse_complement(aln.trg_seq)
             qry_seq = fp.reverse_complement(aln.qry_seq)
+        qry_seq = _shift_gaps(trg_seq, qry_seq)
 
         trg_offset = 0
         for i in xrange(len(trg_seq)):

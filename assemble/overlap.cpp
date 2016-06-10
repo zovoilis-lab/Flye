@@ -270,6 +270,7 @@ OverlapDetector::getReadOverlaps(FastaRecord::Id currentReadId) const
 	}
 
 
+	/*
 	if (!debugOverlaps.empty())
 	{
 		_logMutex.lock();
@@ -286,7 +287,7 @@ OverlapDetector::getReadOverlaps(FastaRecord::Id currentReadId) const
 					<< "\t" << this->overlapTest(ovlp, curLen, extLen);
 		}
 		_logMutex.unlock();
-	}
+	}*/
 
 	return detectedOverlaps;
 }

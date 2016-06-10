@@ -65,7 +65,7 @@ def _run_polish_bin(bubbles_in, subs_matrix, hopo_matrix,
     cmdline = [POLISH_BIN, bubbles_in, subs_matrix,
                hopo_matrix, consensus_out, "-t", str(num_threads)]
     try:
-        subprocess.check_call(cmdline, stderr=open(os.devnull, "w"))
+        subprocess.check_call(cmdline)
     except (subprocess.CalledProcessError, OSError) as e:
         raise PolishException("Error while running polish binary: " + str(e))
 
