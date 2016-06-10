@@ -103,8 +103,9 @@ ContigPath Extender::extendRead(FastaRecord::Id startRead)
 
 void Extender::assembleContigs()
 {
-	const int MIN_CONTIG_SIZE = 20;	//TODO: a smarter filter
 	Logger::get().info() << "Extending reads";
+	//FIXME: improve contig lengths filter
+	std::vector<size_t> contigLengths;
 	_visitedReads.clear();
 
 	for (auto& indexPair : _seqContainer.getIndex())
@@ -123,9 +124,12 @@ void Extender::assembleContigs()
 		if (ovlpsVisited) continue;
 
 		ContigPath path = this->extendRead(indexPair.first);
-		if (path.reads.size() > MIN_CONTIG_SIZE)
+
+		if (contigLengths.empty() || 
+			median(contigLengths) / 100 < path.reads.size())
 		{
-		
+			contigLengths.push_back(path.reads.size());
+
 			//marking visited reads
 			std::unordered_set<FastaRecord::Id> leftSupported;
 			std::unordered_set<FastaRecord::Id> rightSupported;
@@ -161,6 +165,7 @@ void Extender::assembleContigs()
 	Logger::get().info() << "Assembled " << _contigPaths.size() << " contigs";
 }
 
+/*
 float Extender::branchIndex(FastaRecord::Id readId)
 {
 	auto& overlaps = _ovlpDetector.getOverlapIndex().at(readId);
@@ -179,6 +184,7 @@ float Extender::branchIndex(FastaRecord::Id readId)
 	float ratio = curExtensions / median(numExtNew);
 	return ratio;
 }
+*/
 
 float Extender::extensionIndex(FastaRecord::Id readId)
 {
@@ -233,7 +239,7 @@ FastaRecord::Id Extender::stepRight(FastaRecord::Id readId,
 	std::unordered_map<FastaRecord::Id, 
 					   std::tuple<int, int, int, int>> supportIndex;
 
-	Logger::get().debug() << "Branch index " << this->branchIndex(readId);
+	//Logger::get().debug() << "Branch index " << this->branchIndex(readId);
 	Logger::get().debug() << "Extension index " << this->extensionIndex(readId);
 	for (auto& extCandidate : extensions)
 	{
@@ -255,11 +261,11 @@ FastaRecord::Id Extender::stepRight(FastaRecord::Id readId,
 			//if (this->isProperLeftExtension(ovlp)) ++leftSupport;
 		}
 		int minSupport = std::min(leftSupport, rightSupport);
-		int endsRepeat = 1 - this->isBranching(extCandidate);
-		endsRepeat = 1;
+		//int endsRepeat = 1 - this->isBranching(extCandidate);
+		//endsRepeat = 1;
 		if (!this->isBranching(readId))
 		{
-			supportIndex[extCandidate] = std::make_tuple(endsRepeat, minSupport, 
+			supportIndex[extCandidate] = std::make_tuple(1, minSupport, 
 													 	 rightSupport, ovlpSize);
 		}
 		else

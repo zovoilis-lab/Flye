@@ -231,19 +231,34 @@ void VertexIndex::buildReadIndex()
 
 	//distance spectrum
 	/*
+	const int POS_DIFF = 500;
 	std::unordered_map<Kmer, std::vector<int>> distances;
 	for (auto& readHash : _readIndex)
 	{
 		for (size_t i = 0; i < readHash.second.size() - 2; ++i)
 		{
-			//int dLeft = readHash.second[i + 2].position - 
-			//			readHash.second[i + 1].position;
-			//int dRight = readHash.second[i + 1].position - 
-			//			 readHash.second[i].position;
-			int dLeft = _kmerIndex[readHash.second[i + 2].kmer].size();
-			int dRight = _kmerIndex[readHash.second[i].kmer].size();
-			distances[readHash.second[i + 1].kmer].push_back(dLeft);
-			distances[readHash.second[i + 1].kmer].push_back(dRight);
+			//going right
+			for (size_t j = i + 1; j < readHash.second.size(); ++j)
+			{
+				if (readHash.second[j].position - 
+					readHash.second[i].position > POS_DIFF)
+				{
+					int dRight = _kmerIndex[readHash.second[j].kmer].size();
+					distances[readHash.second[i].kmer].push_back(dRight);
+					break;
+				}
+			}
+			//going left
+			for (int j = i; j >= 0; --j)
+			{
+				if (readHash.second[i].position - 
+					readHash.second[j].position > POS_DIFF)
+				{
+					int dLeft = _kmerIndex[readHash.second[j].kmer].size();
+					distances[readHash.second[i].kmer].push_back(dLeft);
+					break;
+				}
+			}
 		}
 	}
 
