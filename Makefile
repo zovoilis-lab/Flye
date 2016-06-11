@@ -2,8 +2,9 @@ ASSEMBLE := $(shell pwd)/assemble
 POLISH := $(shell pwd)/polishing
 
 export LIBBF = $(shell pwd)/libbf
+export LIBCUCKOO = $(shell pwd)/libcuckoo
 export BIN_DIR = $(shell pwd)/bin
-export CXXFLAGS = -I${LIBBF}
+export CXXFLAGS = -I${LIBBF} -I${LIBCUCKOO}
 export LDFLAGS = -L${LIBBF} -lbf
 
 .PHONY: clean all

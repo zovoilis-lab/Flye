@@ -10,7 +10,7 @@
 #include <vector>
 #include <iostream>
 
-#include <bf.h>
+#include <cuckoohash_map.hh>
 
 #include "fasta.h"
 
@@ -81,14 +81,14 @@ public:
 					   		   std::vector<KmerPosition>> ReadIndex;
 	typedef std::map<int, int> KmerDistribution;
 
-	void		 buildKmerIndex(const SequenceContainer& seqContainer,
-								size_t hardThreshold);
+	void		 countKmers(const SequenceContainer& seqContainer,
+							size_t hardThreshold);
+	void 		 buildIndex(const SequenceContainer& seqContainer,
+							int minCoverage, int maxCoverage);
 	void 		 setKmerSize(unsigned int size);
-	void 		 applyKmerThresholds(unsigned int minCoverage, 
-							 		 unsigned int maxCoverage);
+
 	unsigned int getKmerSize() const 
 		{return _kmerSize;}
-	void 		 buildReadIndex();
 
 	const KmerIndex&  getIndexByKmer() const
 		{return _kmerIndex;}
@@ -97,7 +97,6 @@ public:
 	const KmerDistribution& getKmerHist() const
 		{return _kmerDistribution;}
 
-	void outputCounts() const;
 private:
 	VertexIndex();
 	void addFastaSequence(const FastaRecord& fastaRecord);
@@ -105,43 +104,7 @@ private:
 	unsigned int _kmerSize;
 	KmerIndex 	 _kmerIndex;
 	ReadIndex 	 _readIndex;
-	KmerDistribution _kmerDistribution;
-};
 
-class CountingBloom
-{
-public:
-	CountingBloom(size_t maxCount, size_t numHash, size_t width):
-		_maxCount(maxCount)
-	{
-		for (size_t i = 0; i < maxCount; ++i)
-		{
-			_filters.emplace_back(bf::make_hasher(numHash), width);
-		}
-	}
-	template <typename T>
-	void add(const T& obj)
-	{
-		for (size_t i = 0; i < _maxCount; ++i)
-		{
-			if (!_filters[i].lookup(obj))
-			{
-				_filters[i].add(obj);
-				break;
-			}
-		}
-	}
-	template <typename T>
-	size_t count(const T& obj, size_t minCount = 0)
-	{
-		for (size_t i = minCount; i < _maxCount; ++i)
-		{
-			if (!_filters[i].lookup(obj)) return i;
-		}
-		return _maxCount;
-	}
-
-private:
-	std::vector<bf::basic_bloom_filter> _filters;
-	size_t _maxCount;
+	KmerDistribution 			 _kmerDistribution;
+	cuckoohash_map<size_t, size_t> _kmerCounts;
 };

@@ -8,6 +8,7 @@
 #include <unordered_set>
 #include <algorithm>
 
+
 #include "kmer_index.h"
 #include "logger.h"
 
@@ -120,8 +121,8 @@ void VertexIndex::setKmerSize(unsigned int size)
 	_kmerSize = size;
 }
 
-void VertexIndex::buildKmerIndex(const SequenceContainer& seqContainer,
-								 size_t hardThreshold)
+void VertexIndex::countKmers(const SequenceContainer& seqContainer,
+							 size_t hardThreshold)
 {
 	Logger::get().debug() << "Hard threshold set to " << hardThreshold;
 	if (hardThreshold == 0 || hardThreshold > 100) 
@@ -129,12 +130,12 @@ void VertexIndex::buildKmerIndex(const SequenceContainer& seqContainer,
 		throw std::runtime_error("Wrong hard threshold value: " + 
 								 std::to_string(hardThreshold));
 	}
-	static const size_t BLOOM_CELLS = (size_t)1 << 31;
-	static const size_t BLOOM_HASH = 4;
-	CountingBloom bloomFilter(hardThreshold, BLOOM_HASH, BLOOM_CELLS);
+
+	size_t COUNT_SIZE = 1024 * 1024 * 1024;
+	std::vector<unsigned char> preCounters(COUNT_SIZE, 0);
 
 	//filling up bloom filter
-	Logger::get().info() << "Indexing kmers (1/2):";
+	Logger::get().info() << "Counting kmers (1/2):";
 	ProgressPercent bloomProg(seqContainer.getIndex().size());
 	for (auto& seqPair : seqContainer.getIndex())
 	{
@@ -146,15 +147,20 @@ void VertexIndex::buildKmerIndex(const SequenceContainer& seqContainer,
 		size_t pos = _kmerSize;
 		while (true)
 		{
-			bloomFilter.add(curKmer.hash());
+			//bloomFilter.add(curKmer.hash());
+			if (preCounters[curKmer.hash() % COUNT_SIZE] != 
+				std::numeric_limits<unsigned char>::max())
+				++preCounters[curKmer.hash() % COUNT_SIZE];
 			if (pos == seqPair.second.sequence.length()) break;
 			curKmer.appendRight(seqPair.second.sequence[pos++]);
 		}
 	}
 
 	//adding kmers that have passed the filter
-	Logger::get().info() << "Indexing kmers (2/2):";
+	Logger::get().info() << "Counting kmers (2/2):";
 	ProgressPercent indexProg(seqContainer.getIndex().size());
+
+	auto increaseFn = [](size_t& num) {++num;}; 
 	for (auto& seqPair : seqContainer.getIndex())
 	{
 		indexProg.advance();
@@ -165,11 +171,12 @@ void VertexIndex::buildKmerIndex(const SequenceContainer& seqContainer,
 		size_t pos = _kmerSize;
 		while (true)
 		{
-			size_t count = bloomFilter.count(curKmer.hash(), hardThreshold - 1);
+			size_t count = preCounters[curKmer.hash() % COUNT_SIZE];
 			if (count >= hardThreshold)
 			{
-				_kmerIndex[curKmer]
-					.push_back(ReadPosition(seqPair.second.id, pos));
+				//_kmerIndex[curKmer]
+				//	.push_back(ReadPosition(seqPair.second.id, pos));
+				_kmerCounts.upsert(curKmer.hash(), increaseFn, 1);
 			}
 			else
 			{
@@ -181,38 +188,44 @@ void VertexIndex::buildKmerIndex(const SequenceContainer& seqContainer,
 		}
 	}
 	
-	for (auto kmer : _kmerIndex)
+	for (auto kmer : _kmerCounts.lock_table())
 	{
-		_kmerDistribution[kmer.second.size()] += 1;
+		_kmerDistribution[kmer.second] += 1;
 	}
 }
 
 
-void VertexIndex::applyKmerThresholds(unsigned int minCoverage, 
-									  unsigned int maxCoverage)
+void VertexIndex::buildIndex(const SequenceContainer& seqContainer,
+							 int minCoverage, int maxCoverage)
 {
-	int removedCount = 0;
-	Logger::get().debug() << "Initial size: " << _kmerIndex.size();
-	for (auto itKmers = _kmerIndex.begin(); itKmers != _kmerIndex.end();)
+	Logger::get().info() << "Building kmer index";
+	ProgressPercent indexProg(seqContainer.getIndex().size());
+
+	for (auto& seqPair : seqContainer.getIndex())
 	{
-		if (itKmers->second.size() < minCoverage || 
-			itKmers->second.size() > maxCoverage)
+		indexProg.advance();
+		if (seqPair.second.sequence.length() < _kmerSize) 
+			continue;
+
+		Kmer curKmer(seqPair.second.sequence.substr(0, _kmerSize));
+		size_t pos = _kmerSize;
+		while (true)
 		{
-			itKmers = _kmerIndex.erase(itKmers);
-			++removedCount;
-		}
-		else
-		{
-			itKmers->second.shrink_to_fit();
-			++itKmers;
+			size_t count = 0;
+			_kmerCounts.find(curKmer.hash(), count);
+			if ((size_t)minCoverage <= count && count <= (size_t)maxCoverage)
+			{
+				_kmerIndex[curKmer]
+					.push_back(ReadPosition(seqPair.second.id, pos));
+			}
+
+			if (pos == seqPair.second.sequence.length()) break;
+			curKmer.appendRight(seqPair.second.sequence[pos++]);
 		}
 	}
-	Logger::get().debug() << "Removed " << removedCount << " entries";
-}
+	_kmerCounts.clear();
 
-void VertexIndex::buildReadIndex()
-{
-	Logger::get().info() << "Building read index";
+	//read indexing
 	for (auto& kmerHash: _kmerIndex)
 	{
 		for (auto& kmerPosPair : kmerHash.second)
@@ -279,15 +292,4 @@ void VertexIndex::buildReadIndex()
 	{
 		std::cerr << pair.first << "\t" << pair.second << std::endl;
 	}*/
-}
-
-void VertexIndex::outputCounts() const
-{
-	for (auto& hashPair : _kmerIndex)
-	{
-		{
-			std::cout << hashPair.first.dnaRepresentation() << "\t" 
-					  << hashPair.second.size() << std::endl;
-		}
-	}
 }
