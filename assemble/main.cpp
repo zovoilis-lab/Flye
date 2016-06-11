@@ -124,7 +124,8 @@ int main(int argc, char** argv)
 
 		//rough estimate
 		size_t hardThreshold = std::max(1, coverage / MAGIC_10);
-		vertexIndex.buildKmerIndex(seqContainer, hardThreshold);
+		//vertexIndex.buildKmerIndex(seqContainer, hardThreshold);
+		vertexIndex.countKmers(seqContainer, hardThreshold);
 
 		if (maxKmerCov == -1)
 		{
@@ -136,8 +137,9 @@ int main(int argc, char** argv)
 			minKmerCov = estimator.estimateMinKmerCount(coverage, maxKmerCov);
 		}
 
-		vertexIndex.applyKmerThresholds(minKmerCov, maxKmerCov);
-		vertexIndex.buildReadIndex();
+		//vertexIndex.applyKmerThresholds(minKmerCov, maxKmerCov);
+		//vertexIndex.buildReadIndex();
+		vertexIndex.buildIndex(seqContainer, minKmerCov, maxKmerCov);
 
 		OverlapDetector ovlp(MAX_JUMP, MIN_OVERLAP, MAX_OVERHANG,
 							 vertexIndex, seqContainer);
