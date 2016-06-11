@@ -25,6 +25,15 @@ namespace
 		//				 tmp.end());
 		return tmp[tmp.size() / 2];
 	}
+
+	template <class T>
+	T mean(const std::vector<T>& vals)
+	{
+		if (vals.empty()) return T();
+		T sum = 0;
+		for (const T& val : vals) sum += val;
+		return sum / vals.size();
+	}
 }
 
 ContigPath Extender::extendRead(FastaRecord::Id startRead)
@@ -37,7 +46,7 @@ ContigPath Extender::extendRead(FastaRecord::Id startRead)
 	bool rightExtension = true;
 
 	Logger::get().debug() << "Start Read: " << 
-				_seqContainer.getIndex().at(startRead).description;
+				_seqContainer.seqName(startRead);
 
 	std::unordered_set<FastaRecord::Id> curPathVisited;
 
@@ -55,7 +64,7 @@ ContigPath Extender::extendRead(FastaRecord::Id startRead)
 		if (extRead != FastaRecord::ID_NONE) 
 		{
 			Logger::get().debug() << "Extension: " << 
-				    	_seqContainer.getIndex().at(extRead).description;
+				    	_seqContainer.seqName(extRead);
 			if (curPathVisited.count(extRead)) 
 				Logger::get().debug() << "Visited in this path";
 			if (_visitedReads.count(extRead)) 
@@ -101,6 +110,93 @@ ContigPath Extender::extendRead(FastaRecord::Id startRead)
 	return contigPath;
 }
 
+int Extender::rightMultiplicity(FastaRecord::Id readId)
+{
+	std::unordered_set<FastaRecord::Id> extensions;
+	auto& overlaps = _ovlpDetector.getOverlapIndex().at(readId);
+	for (auto& ovlp : overlaps)
+	{
+		if (this->isProperRightExtension(ovlp)) 
+		{
+			extensions.insert(ovlp.extId);
+		}
+	}
+	if (extensions.size() < 2) return 1;
+
+	/*
+	for (auto& extCandidate : extensions)
+	{
+		Logger::get().debug() << "Read " << _seqContainer.seqName(extCandidate);
+		for (auto& ovlp : _ovlpDetector.getOverlapIndex().at(extCandidate))
+		{
+			if (extensions.count(ovlp.extId) &&
+		   		ovlp.rightShift < 0)
+			{
+				Logger::get().debug() << "\t" 
+							<< _seqContainer.seqName(ovlp.extId);
+			}
+		}
+	}
+	*/
+	
+	std::unordered_map<FastaRecord::Id, int> clusters;
+	std::unordered_set<FastaRecord::Id> coveredReads;
+	while(true)
+	{
+		FastaRecord::Id maxUniqueCoveredId = FastaRecord::ID_NONE;
+		int maxUniqueCovered = 0;
+		for (auto& extCandidate : extensions)
+		{
+			//ignore reads that are already belong to clusters
+			if (coveredReads.count(extCandidate)) continue;
+
+			//count number of reads the candidate extends
+			int extUniqueCovered = 0;
+			for (auto& ovlp : _ovlpDetector.getOverlapIndex().at(extCandidate))
+			{
+				if (extensions.count(ovlp.extId) && ovlp.rightShift < 0 && 
+					!coveredReads.count(ovlp.extId))
+				{
+					++extUniqueCovered;
+				}
+			}
+
+			//keeping maximum
+			if (extUniqueCovered > maxUniqueCovered)
+			{
+				maxUniqueCovered = extUniqueCovered;
+				maxUniqueCoveredId = extCandidate;
+			}
+		}
+
+		if (maxUniqueCoveredId == FastaRecord::ID_NONE) break;
+
+		clusters[maxUniqueCoveredId] = maxUniqueCovered;
+		for (auto& ovlp : _ovlpDetector.getOverlapIndex().at(maxUniqueCoveredId))
+		{
+			if (extensions.count(ovlp.extId) && ovlp.rightShift < 0)
+			{
+				coveredReads.insert(ovlp.extId);
+			}
+		}
+	}
+
+	int numClusters = 0;
+	for (auto& clustHash : clusters)
+	{
+		if (clustHash.second > 1) ++numClusters;
+	}
+
+	/*
+	std::string strClusters;
+	for (auto& clustHash : clusters) 
+		strClusters += std::to_string(clustHash.second) + " ";
+	Logger::get().debug() << "Clusters: " << strClusters;
+	*/
+
+	return numClusters;
+}
+
 void Extender::assembleContigs()
 {
 	Logger::get().info() << "Extending reads";
@@ -126,7 +222,7 @@ void Extender::assembleContigs()
 		ContigPath path = this->extendRead(indexPair.first);
 
 		if (contigLengths.empty() || 
-			median(contigLengths) / 100 < path.reads.size())
+			mean(contigLengths) / 100 < path.reads.size())
 		{
 			contigLengths.push_back(path.reads.size());
 
@@ -165,26 +261,6 @@ void Extender::assembleContigs()
 	Logger::get().info() << "Assembled " << _contigPaths.size() << " contigs";
 }
 
-/*
-float Extender::branchIndex(FastaRecord::Id readId)
-{
-	auto& overlaps = _ovlpDetector.getOverlapIndex().at(readId);
-	int curExtensions = 0;
-	std::vector<double> numExtNew;
-	for (auto& ovlp : overlaps)
-	{
-		if (this->isProperRightExtension(ovlp))
-		{
-			++curExtensions;
-			numExtNew.push_back(this->countRightExtensions(ovlp.extId));
-		}
-	}
-	if (curExtensions == 0 || numExtNew.empty()) return 0.0f;
-
-	float ratio = curExtensions / median(numExtNew);
-	return ratio;
-}
-*/
 
 float Extender::extensionIndex(FastaRecord::Id readId)
 {
@@ -199,20 +275,28 @@ float Extender::extensionIndex(FastaRecord::Id readId)
 			extensions.insert(ovlp.extId);
 		}
 	}
-	if (extensions.size() < 2) return 0.0f;
+	//if (extensions.size() < 2) return 0.0f;
 	
 	int maxCovered = 0;
+	std::unordered_set<FastaRecord::Id> covered;
 	for (auto& extCandidate : extensions)
 	{
 		int extCovered = 0;
 		for (auto& ovlp : _ovlpDetector.getOverlapIndex().at(extCandidate))
 		{
 			if (extensions.count(ovlp.extId) &&
-		   		ovlp.rightShift < 0) ++extCovered;
+		   		ovlp.rightShift < 0)
+			{
+				++extCovered;
+				covered.insert(ovlp.extId);
+			}
 		}
 		maxCovered = std::max(maxCovered, extCovered);
 	}
-	return (float)maxCovered / (extensions.size() - 1);
+
+	//int nonCovered = extensions.size() - covered.size();
+	//return (float)maxCovered / (extensions.size() - 1);
+	return !covered.empty() ? (float)maxCovered / covered.size() : 0.0f;
 }
 
 //makes one extension to the right
@@ -239,8 +323,10 @@ FastaRecord::Id Extender::stepRight(FastaRecord::Id readId,
 	std::unordered_map<FastaRecord::Id, 
 					   std::tuple<int, int, int, int>> supportIndex;
 
-	//Logger::get().debug() << "Branch index " << this->branchIndex(readId);
 	Logger::get().debug() << "Extension index " << this->extensionIndex(readId);
+	//Logger::get().debug() << "Multiplicity " << this->rightMultiplicity(readId);
+	//this->rightMultiplicity(readId);
+
 	for (auto& extCandidate : extensions)
 	{
 		int leftSupport = 0;
@@ -275,10 +361,10 @@ FastaRecord::Id Extender::stepRight(FastaRecord::Id readId,
 														 rightSupport, ovlpSize);
 		}
 		Logger::get().debug() << "\t" 
-				    << _seqContainer.getIndex().at(extCandidate).description
+				    << _seqContainer.seqName(extCandidate)
 					<< "\t" << leftSupport << "\t" << rightSupport << "\t"
 					<< std::fixed << std::setprecision(2) 
-					<< this->extensionIndex(extCandidate) << "\t" << ovlpSize
+					<< this->extensionIndex(extCandidate.rc()) << "\t" << ovlpSize
 					<< "\t" << ovlpShift;
 	}
 
@@ -319,7 +405,8 @@ int Extender::countRightExtensions(FastaRecord::Id readId)
 bool Extender::isBranching(FastaRecord::Id readId)
 {
 	//return this->branchIndex(readId) > 2.0f;
-	return this->extensionIndex(readId) <= 0.6f;
+	return this->extensionIndex(readId) <= 0.75f;
+	//return this->rightMultiplicity(readId) > 1;
 }
 
 //Checks if read is extended to the right

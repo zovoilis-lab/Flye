@@ -8,7 +8,7 @@
 int ParametersEstimator::estimateMinKmerCount(int coverage, 
 											  int upperCutoff)
 {
-	const int MIN_CUTOFF = 4;
+	const int MIN_CUTOFF = 2;
 
 	int kmersNeeded = 0;
 	for (auto& seqPair : _seqContainer.getIndex()) 
@@ -48,12 +48,12 @@ int ParametersEstimator::estimateMinKmerCount(int coverage,
 		}
 	}
 
-	if (cutoff < 4)
+	if (cutoff < 2)
 	{
 		Logger::get().warning() << "Unable to choose minimum kmer count cutoff."
 					  " Check if the coverage parameter is correct. "
-					  "Running with default parameter t = " << MIN_CUTOFF;
-		cutoff = 4;
+					  "Running with the default parameter t = " << MIN_CUTOFF;
+		cutoff = MIN_CUTOFF;
 	}
 	
 	Logger::get().debug() << "Filtered " << repetitiveKmers 

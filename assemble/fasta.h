@@ -67,6 +67,8 @@ public:
 		{return _seqIndex;}
 	size_t seqLen(FastaRecord::Id readId) const
 		{return _seqIndex.at(readId).sequence.length();}
+	std::string seqName(FastaRecord::Id readId) const
+		{return _seqIndex.at(readId).description;}
 	void 	readFasta(const std::string& filename);
 
 private:
