@@ -7,8 +7,8 @@
 #include <unordered_set>
 #include <mutex>
 
-#include "kmer_index.h"
-#include "fasta.h"
+#include "vertex_index.h"
+#include "sequence_container.h"
 #include "logger.h"
 
 

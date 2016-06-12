@@ -5,7 +5,7 @@
 #pragma once
 
 #include "overlap.h"
-#include "fasta.h"
+#include "sequence_container.h"
 #include <unordered_set>
 
 class ChimeraDetector

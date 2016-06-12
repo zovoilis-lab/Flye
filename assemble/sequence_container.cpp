@@ -1,13 +1,12 @@
-//****************************************************************************
-//* Copyright (c) 2012-2016 Saint-Petersburg Academic University
-//* All Rights Reserved
-//* See file LICENSE for details.
-//****************************************************************************
+//(c) 2016 by Authors
+//This file is a part of ABruijn program.
+//Released under the BSD license (see LICENSE file)
 
-#include "fasta.h"
 #include <stdexcept>
 #include <fstream>
 #include <sstream>
+
+#include "sequence_container.h"
 
 namespace
 {

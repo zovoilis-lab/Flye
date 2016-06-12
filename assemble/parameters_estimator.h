@@ -2,8 +2,8 @@
 //This file is a part of ABruijn program.
 //Released under the BSD license (see LICENSE file)
 
-#include "kmer_index.h"
-#include "fasta.h"
+#include "vertex_index.h"
+#include "sequence_container.h"
 
 class ParametersEstimator
 {

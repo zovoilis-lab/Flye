@@ -2,114 +2,13 @@
 //This file is a part of ABruijn program.
 //Released under the BSD license (see LICENSE file)
 
-#include <cassert>
 #include <stdexcept>
 #include <iostream>
 #include <unordered_set>
 #include <algorithm>
 
-
-#include "kmer_index.h"
+#include "vertex_index.h"
 #include "logger.h"
-
-namespace
-{
-	static std::vector<size_t> table;
-	size_t dnaToId(char c)
-	{
-		return table[(size_t)c];
-	}
-	struct TableFiller
-	{
-		TableFiller()
-		{
-			static bool tableFilled = false;
-			if (!tableFilled)
-			{
-				tableFilled = true;
-				table.assign(256, -1);	//256 chars
-				table[(size_t)'A'] = 0;
-				table[(size_t)'a'] = 0;
-				table[(size_t)'C'] = 1;
-				table[(size_t)'c'] = 1;
-				table[(size_t)'T'] = 2;
-				table[(size_t)'t'] = 2;
-				table[(size_t)'G'] = 3;
-				table[(size_t)'g'] = 3;
-				table[(size_t)'-'] = 4;
-			}
-		}
-	};
-	TableFiller filler;
-	char idToDna(unsigned int num)
-	{
-		static const char LETTERS[] = "ACTG-";
-		if (num > 4) throw std::runtime_error("Error converting number to DNA");
-		return LETTERS[num];
-	}
-}
-
-Kmer::Kmer(const std::string& dnaString):
-	_representation(0)
-{
-	if (dnaString.length() != VertexIndex::getInstance().getKmerSize())
-	{
-		throw std::runtime_error("Kmer length inconsistency");
-	}
-
-	for (auto dnaChar : dnaString)	
-	{
-		_representation <<= 2;
-		_representation += dnaToId(dnaChar);
-	}
-}
-
-void Kmer::appendRight(char dnaSymbol)
-{
-	_representation <<= 2;
-	_representation += dnaToId(dnaSymbol);
-
-	KmerRepr kmerSize = VertexIndex::getInstance().getKmerSize();
-	KmerRepr kmerMask = ((KmerRepr)1 << kmerSize * 2) - 1;
-	_representation &= kmerMask;
-}
-
-void Kmer::appendLeft(char dnaSymbol)
-{
-	_representation >>= 2;
-
-	KmerRepr kmerSize = VertexIndex::getInstance().getKmerSize();
-	KmerRepr shift = kmerSize * 2 - 2;
-	_representation += dnaToId(dnaSymbol) << shift;
-}
-
-void Kmer::reverseComplement()
-{
-	KmerRepr tmpRepr = _representation;
-	_representation = 0;
-	KmerRepr mask = 3;
-
-	for (unsigned int i = 0; i < VertexIndex::getInstance().getKmerSize(); ++i)
-	{
-		_representation <<= 2;
-		_representation += ~(mask & tmpRepr);
-		tmpRepr >>= 2;
-	}
-}
-
-std::string Kmer::dnaRepresentation() const
-{
-	std::string repr;
-	KmerRepr mask = 3;
-	KmerRepr tempRepr = _representation;
-	for (unsigned int i = 0; i < VertexIndex::getInstance().getKmerSize(); ++i)
-	{
-		repr.push_back(idToDna(tempRepr & mask));
-		tempRepr >>= 2;
-	}
-	repr.reserve();
-	return repr;
-}
 
 VertexIndex::VertexIndex():
 	_kmerSize(0)
@@ -131,8 +30,8 @@ void VertexIndex::countKmers(const SequenceContainer& seqContainer,
 								 std::to_string(hardThreshold));
 	}
 
-	size_t COUNT_SIZE = 1024 * 1024 * 1024;
-	std::vector<unsigned char> preCounters(COUNT_SIZE, 0);
+	const size_t PRE_COUNT_SIZE = 1024 * 1024 * 1024;
+	std::vector<unsigned char> preCounters(PRE_COUNT_SIZE, 0);
 
 	//filling up bloom filter
 	Logger::get().info() << "Counting kmers (1/2):";
@@ -147,11 +46,12 @@ void VertexIndex::countKmers(const SequenceContainer& seqContainer,
 		size_t pos = _kmerSize;
 		while (true)
 		{
-			//bloomFilter.add(curKmer.hash());
-			if (preCounters[curKmer.hash() % COUNT_SIZE] != 
+			if (preCounters[curKmer.hash() % PRE_COUNT_SIZE] != 
 				std::numeric_limits<unsigned char>::max())
-				++preCounters[curKmer.hash() % COUNT_SIZE];
+				++preCounters[curKmer.hash() % PRE_COUNT_SIZE];
+
 			if (pos == seqPair.second.sequence.length()) break;
+
 			curKmer.appendRight(seqPair.second.sequence[pos++]);
 		}
 	}
@@ -171,12 +71,10 @@ void VertexIndex::countKmers(const SequenceContainer& seqContainer,
 		size_t pos = _kmerSize;
 		while (true)
 		{
-			size_t count = preCounters[curKmer.hash() % COUNT_SIZE];
+			size_t count = preCounters[curKmer.hash() % PRE_COUNT_SIZE];
 			if (count >= hardThreshold)
 			{
-				//_kmerIndex[curKmer]
-				//	.push_back(ReadPosition(seqPair.second.id, pos));
-				_kmerCounts.upsert(curKmer.hash(), increaseFn, 1);
+				_kmerCounts.upsert(curKmer, increaseFn, 1);
 			}
 			else
 			{
@@ -212,11 +110,17 @@ void VertexIndex::buildIndex(const SequenceContainer& seqContainer,
 		while (true)
 		{
 			size_t count = 0;
-			_kmerCounts.find(curKmer.hash(), count);
+			_kmerCounts.find(curKmer, count);
 			if ((size_t)minCoverage <= count && count <= (size_t)maxCoverage)
 			{
-				_kmerIndex[curKmer]
-					.push_back(ReadPosition(seqPair.second.id, pos));
+				if (!_kmerIndex.contains(curKmer))
+				{
+					auto ptr = new ReadVector;
+					ptr->reserve(count);
+					_kmerIndex.insert(curKmer, ptr);
+				}
+				ReadVector* vec = _kmerIndex[curKmer];
+				vec->push_back(ReadPosition(seqPair.second.id, pos));
 			}
 
 			if (pos == seqPair.second.sequence.length()) break;
@@ -224,23 +128,31 @@ void VertexIndex::buildIndex(const SequenceContainer& seqContainer,
 		}
 	}
 	_kmerCounts.clear();
+	_kmerCounts.reserve(0);
 
 	//read indexing
-	for (auto& kmerHash: _kmerIndex)
+	for (auto& kmerHash: _kmerIndex.lock_table())
 	{
-		for (auto& kmerPosPair : kmerHash.second)
+		for (auto& kmerPosPair : *kmerHash.second)
 		{
-			_readIndex[kmerPosPair.readId]
-				.push_back(KmerPosition(kmerHash.first, kmerPosPair.position));
+			if (!_readIndex.contains(kmerPosPair.readId))
+			{
+				_readIndex.insert(kmerPosPair.readId, new KmerVector);
+			}
+
+			KmerVector* vec = _readIndex[kmerPosPair.readId];
+			vec->push_back(KmerPosition(kmerHash.first, kmerPosPair.position));
 		}
 	}
-	for (auto& readHash : _readIndex)
+	for (auto& readHash : _readIndex.lock_table())
 	{
-		std::sort(readHash.second.begin(), readHash.second.end(),
+		std::sort(readHash.second->begin(), readHash.second->end(),
 					[](const KmerPosition& p1, const KmerPosition& p2)
 						{return p1.position < p2.position;});
-		readHash.second.shrink_to_fit();
+		readHash.second->shrink_to_fit();
 	}
+
+	_kmerCounts.clear();
 
 	//distance spectrum
 	/*

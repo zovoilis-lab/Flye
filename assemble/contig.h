@@ -6,7 +6,7 @@
 
 #include <vector>
 
-#include "fasta.h"
+#include "sequence_container.h"
 #include "extender.h"
 #include "overlap.h"
 

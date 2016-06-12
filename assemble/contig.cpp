@@ -133,9 +133,9 @@ ContigGenerator::getSwitchPositions(FastaRecord::Id leftRead,
 	}
 
 	std::vector<std::pair<int32_t, int32_t>> sharedKmers;
-	for (auto& leftKmer : _vertexIndex.getIndexByRead().at(leftRead))
+	for (auto& leftKmer : _vertexIndex.byRead(leftRead))
 	{
-		for (auto& rightKmer : _vertexIndex.getIndexByKmer().at(leftKmer.kmer))
+		for (auto& rightKmer : _vertexIndex.byKmer(leftKmer.kmer))
 		{
 			if (rightKmer.readId == rightRead &&
 				leftKmer.position > prevSwitch &&

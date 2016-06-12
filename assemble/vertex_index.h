@@ -1,0 +1,77 @@
+//(c) 2016 by Authors
+//This file is a part of ABruijn program.
+//Released under the BSD license (see LICENSE file)
+
+#pragma once
+
+#include <string>
+#include <unordered_map>
+#include <map>
+#include <vector>
+#include <iostream>
+
+#include <cuckoohash_map.hh>
+
+#include "kmer.h"
+#include "sequence_container.h"
+
+class VertexIndex
+{
+public:
+	static VertexIndex& getInstance()
+	{
+		static VertexIndex instance;
+		return instance;
+	}
+	VertexIndex(const VertexIndex&) = delete;
+	void operator=(const VertexIndex&) = delete;
+
+	struct ReadPosition
+	{
+		ReadPosition(FastaRecord::Id readId, int32_t position):
+			readId(readId), position(position) {}
+		FastaRecord::Id readId;
+		int32_t position;
+	};
+	struct KmerPosition
+	{
+		KmerPosition(Kmer kmer, int32_t position):
+			kmer(kmer), position(position) {}
+		Kmer kmer;
+		int32_t position;
+	};
+
+	typedef std::vector<ReadPosition> ReadVector;
+	typedef std::vector<KmerPosition> KmerVector;
+
+	typedef std::map<int, int> KmerDistribution;
+
+	void countKmers(const SequenceContainer& seqContainer,
+					size_t hardThreshold);
+	void buildIndex(const SequenceContainer& seqContainer,
+					int minCoverage, int maxCoverage);
+
+	void setKmerSize(unsigned int size);
+	unsigned int getKmerSize() const {return _kmerSize;}
+
+	const ReadVector& byKmer(Kmer kmer) const
+		{return *_kmerIndex[kmer];}
+	const KmerVector& byRead(FastaRecord::Id read) const
+		{return *_readIndex[read];}
+	bool hasRead(FastaRecord::Id readId) const
+		{return _readIndex.contains(readId);}
+	const KmerDistribution& getKmerHist() const
+		{return _kmerDistribution;}
+
+private:
+	VertexIndex();
+	void addFastaSequence(const FastaRecord& fastaRecord);
+
+	unsigned int _kmerSize;
+
+	cuckoohash_map<Kmer, ReadVector*> _kmerIndex;
+	cuckoohash_map<FastaRecord::Id, KmerVector*> _readIndex;
+
+	KmerDistribution 			 	_kmerDistribution;
+	cuckoohash_map<Kmer, size_t>  	_kmerCounts;
+};

@@ -5,8 +5,8 @@
 #include <iostream>
 #include <getopt.h>
 
-#include "kmer_index.h"
-#include "fasta.h"
+#include "vertex_index.h"
+#include "sequence_container.h"
 #include "overlap.h"
 #include "chimera.h"
 #include "extender.h"

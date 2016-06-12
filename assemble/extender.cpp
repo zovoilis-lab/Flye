@@ -34,6 +34,15 @@ namespace
 		for (const T& val : vals) sum += val;
 		return sum / vals.size();
 	}
+	
+	template <class T>
+	T vecMax(const std::vector<T>& vals)
+	{
+		if (vals.empty()) return T();
+		T max = 0;
+		for (const T& val : vals) max = std::max(max, val);
+		return max;
+	}
 }
 
 ContigPath Extender::extendRead(FastaRecord::Id startRead)
@@ -222,7 +231,7 @@ void Extender::assembleContigs()
 		ContigPath path = this->extendRead(indexPair.first);
 
 		if (contigLengths.empty() || 
-			mean(contigLengths) / 100 < path.reads.size())
+			vecMax(contigLengths) / 100 < path.reads.size())
 		{
 			contigLengths.push_back(path.reads.size());
 

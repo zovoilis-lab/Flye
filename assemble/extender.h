@@ -6,7 +6,7 @@
 
 #include <deque>
 
-#include "fasta.h"
+#include "sequence_container.h"
 #include "overlap.h"
 #include "chimera.h"
 

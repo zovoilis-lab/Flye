@@ -1,8 +1,6 @@
-//****************************************************************************
-//* Copyright (c) 2012-2016 Saint-Petersburg Academic University
-//* All Rights Reserved
-//* See file LICENSE for details.
-//****************************************************************************
+//(c) 2016 by Authors
+//This file is a part of ABruijn program.
+//Released under the BSD license (see LICENSE file)
 
 #pragma once
 
@@ -16,7 +14,12 @@ struct FastaRecord
 	struct Id
 	{
 		Id(uint32_t id): _id(id) {}
-		operator uint32_t () const {return _id;}
+
+		bool operator==(const Id& other) const
+			{return _id == other._id;}
+		bool operator!=(const Id& other) const
+			{return !(*this == other);}
+
 		uint32_t rc() const		//reverse complement 
 			{return _id + 1 - (_id % 2) * 2;}
 		size_t hash() const {return _id;}
