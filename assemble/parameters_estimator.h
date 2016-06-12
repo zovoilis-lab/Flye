@@ -8,9 +8,9 @@
 class ParametersEstimator
 {
 public:
-	ParametersEstimator(const VertexIndex& index,
-						const SequenceContainer& seqContainer):
-		_vertexIndex(index), _seqContainer(seqContainer)
+	ParametersEstimator():
+		_vertexIndex(VertexIndex::get()), 
+		_seqContainer(SequenceContainer::get())
 	{}
 
 	int estimateMinKmerCount(int coverage, int upperCutoff);

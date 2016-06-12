@@ -18,7 +18,7 @@
 class VertexIndex
 {
 public:
-	static VertexIndex& getInstance()
+	static VertexIndex& get()
 	{
 		static VertexIndex instance;
 		return instance;
@@ -48,8 +48,7 @@ public:
 
 	void countKmers(const SequenceContainer& seqContainer,
 					size_t hardThreshold);
-	void buildIndex(const SequenceContainer& seqContainer,
-					int minCoverage, int maxCoverage);
+	void buildIndex(int minCoverage, int maxCoverage);
 
 	void setKmerSize(unsigned int size);
 	unsigned int getKmerSize() const {return _kmerSize;}

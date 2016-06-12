@@ -116,10 +116,10 @@ int main(int argc, char** argv)
 		Logger::get().setDebugging(debugging);
 		if (!logFile.empty()) Logger::get().setOutputFile(logFile);
 
-		SequenceContainer& seqContainer = SequenceContainer::getInstance();
+		SequenceContainer& seqContainer = SequenceContainer::get();
 		Logger::get().debug() << "Reading FASTA";
 		seqContainer.readFasta(readsFasta);
-		VertexIndex& vertexIndex = VertexIndex::getInstance();
+		VertexIndex& vertexIndex = VertexIndex::get();
 		vertexIndex.setKmerSize(kmerSize);
 
 		//rough estimate
@@ -133,27 +133,23 @@ int main(int argc, char** argv)
 		}
 		if (minKmerCov == -1)
 		{
-			ParametersEstimator estimator(vertexIndex, seqContainer);
+			ParametersEstimator estimator;
 			minKmerCov = estimator.estimateMinKmerCount(coverage, maxKmerCov);
 		}
 
-		//vertexIndex.applyKmerThresholds(minKmerCov, maxKmerCov);
-		//vertexIndex.buildReadIndex();
-		vertexIndex.buildIndex(seqContainer, minKmerCov, maxKmerCov);
+		vertexIndex.buildIndex(minKmerCov, maxKmerCov);
 
-		OverlapDetector ovlp(MAX_JUMP, MIN_OVERLAP, MAX_OVERHANG,
-							 vertexIndex, seqContainer);
+		OverlapDetector ovlp(MAX_JUMP, MIN_OVERLAP, MAX_OVERHANG);
 		ovlp.findAllOverlaps(numThreads);
 
 		ChimeraDetector chimDetect(MAX_OVERHANG, MAX_JUMP, MIN_OVERLAP,
-								   coverage, ovlp, seqContainer);
+								   coverage, ovlp);
 		chimDetect.detectChimeras();
 
-		Extender extender(ovlp, chimDetect, seqContainer, MAX_JUMP);
+		Extender extender(ovlp, chimDetect, MAX_JUMP);
 		extender.assembleContigs();
 
-		ContigGenerator contGen(MAX_JUMP, extender, ovlp, 
-								vertexIndex, seqContainer);
+		ContigGenerator contGen(MAX_JUMP, extender, ovlp);
 		contGen.generateContigs();
 		contGen.outputContigs(outAssembly);
 	}

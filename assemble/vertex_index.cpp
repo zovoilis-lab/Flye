@@ -93,9 +93,10 @@ void VertexIndex::countKmers(const SequenceContainer& seqContainer,
 }
 
 
-void VertexIndex::buildIndex(const SequenceContainer& seqContainer,
-							 int minCoverage, int maxCoverage)
+void VertexIndex::buildIndex(int minCoverage, int maxCoverage)
 {
+	const SequenceContainer& seqContainer = SequenceContainer::get();
+
 	Logger::get().info() << "Building kmer index";
 	ProgressPercent indexProg(seqContainer.getIndex().size());
 

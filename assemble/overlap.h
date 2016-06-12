@@ -70,14 +70,13 @@ class OverlapDetector
 {
 public:
 	OverlapDetector(int maximumJump, int minimumOverlap,
-					int maximumOverhang, const VertexIndex& vi,
-					const SequenceContainer& seqCont):
+					int maximumOverhang):
 		_maximumJump(maximumJump), 
 		_minimumOverlap(minimumOverlap),
 		_maximumOverhang(maximumOverhang), 
-		_vertexIndex(vi),
-		_seqContainer(seqCont), 
-		_progress(seqCont.getIndex().size()),
+		_vertexIndex(VertexIndex::get()),
+		_seqContainer(SequenceContainer::get()), 
+		_progress(_seqContainer.getIndex().size()),
 		_nextJob(0)
 	{}
 

@@ -27,10 +27,11 @@ class Extender
 public:
 	Extender(const OverlapDetector& ovlpDetector, 
 			 const ChimeraDetector& chimDetector,
-			 const SequenceContainer& seqContainer,
 			 int maxJump):
-		_ovlpDetector(ovlpDetector), _chimDetector(chimDetector),
-		_seqContainer(seqContainer), _maximumJump(maxJump)
+		_ovlpDetector(ovlpDetector), 
+		_chimDetector(chimDetector),
+		_seqContainer(SequenceContainer::get()), 
+		_maximumJump(maxJump)
 	{}
 
 	void assembleContigs();

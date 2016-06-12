@@ -14,12 +14,12 @@ class ContigGenerator
 {
 public:
 	ContigGenerator(int maxJump, const Extender& extender, 
-					const OverlapDetector& overlapDetector,
-					const VertexIndex& vertexIndex,
-					const SequenceContainer& seqContainer):
+					const OverlapDetector& overlapDetector):
 		_maximumJump(maxJump),
-		_extender(extender), _overlapDetector(overlapDetector),
-		_vertexIndex(vertexIndex), _seqContainer(seqContainer) {}
+		_extender(extender), 
+		_overlapDetector(overlapDetector),
+		_vertexIndex(VertexIndex::get()), 
+		_seqContainer(SequenceContainer::get()) {}
 	
 	void generateContigs();
 	void outputContigs(const std::string& fileName);

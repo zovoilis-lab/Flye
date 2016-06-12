@@ -58,7 +58,7 @@ public:
 	typedef std::unordered_map<FastaRecord::Id, 
 							   FastaRecord> SequenceIndex;
 
-	static SequenceContainer& getInstance()
+	static SequenceContainer& get()
 	{
 		static SequenceContainer container;
 		return container;

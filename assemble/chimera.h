@@ -13,11 +13,13 @@ class ChimeraDetector
 public:
 	ChimeraDetector(int maxOverhang, int maxJump,
 					int minOverlap, int coverage,
-					const OverlapDetector& ovlpDetector,
-					const SequenceContainer& seqContainer):
-		_ovlpDetector(ovlpDetector), _seqContainer(seqContainer),
-		_maximumOverhang(maxOverhang), _maximumJump(maxJump),
-		_minimumOverlap(minOverlap), _coverage(coverage)
+					const OverlapDetector& ovlpDetector):
+		_ovlpDetector(ovlpDetector), 
+		_seqContainer(SequenceContainer::get()),
+		_maximumOverhang(maxOverhang), 
+		_maximumJump(maxJump),
+		_minimumOverlap(minOverlap), 
+		_coverage(coverage)
 	{}
 
 	void detectChimeras();

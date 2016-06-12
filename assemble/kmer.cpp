@@ -47,7 +47,7 @@ namespace
 Kmer::Kmer(const std::string& dnaString):
 	_representation(0)
 {
-	if (dnaString.length() != VertexIndex::getInstance().getKmerSize())
+	if (dnaString.length() != VertexIndex::get().getKmerSize())
 	{
 		throw std::runtime_error("Kmer length inconsistency");
 	}
@@ -64,7 +64,7 @@ void Kmer::appendRight(char dnaSymbol)
 	_representation <<= 2;
 	_representation += dnaToId(dnaSymbol);
 
-	KmerRepr kmerSize = VertexIndex::getInstance().getKmerSize();
+	KmerRepr kmerSize = VertexIndex::get().getKmerSize();
 	KmerRepr kmerMask = ((KmerRepr)1 << kmerSize * 2) - 1;
 	_representation &= kmerMask;
 }
@@ -73,7 +73,7 @@ void Kmer::appendLeft(char dnaSymbol)
 {
 	_representation >>= 2;
 
-	KmerRepr kmerSize = VertexIndex::getInstance().getKmerSize();
+	KmerRepr kmerSize = VertexIndex::get().getKmerSize();
 	KmerRepr shift = kmerSize * 2 - 2;
 	_representation += dnaToId(dnaSymbol) << shift;
 }
@@ -84,7 +84,7 @@ void Kmer::reverseComplement()
 	_representation = 0;
 	KmerRepr mask = 3;
 
-	for (unsigned int i = 0; i < VertexIndex::getInstance().getKmerSize(); ++i)
+	for (unsigned int i = 0; i < VertexIndex::get().getKmerSize(); ++i)
 	{
 		_representation <<= 2;
 		_representation += ~(mask & tmpRepr);
@@ -97,7 +97,7 @@ std::string Kmer::dnaRepresentation() const
 	std::string repr;
 	KmerRepr mask = 3;
 	KmerRepr tempRepr = _representation;
-	for (unsigned int i = 0; i < VertexIndex::getInstance().getKmerSize(); ++i)
+	for (unsigned int i = 0; i < VertexIndex::get().getKmerSize(); ++i)
 	{
 		repr.push_back(idToDna(tempRepr & mask));
 		tempRepr >>= 2;
@@ -105,4 +105,46 @@ std::string Kmer::dnaRepresentation() const
 	repr.reserve();
 	return repr;
 }
+
+KmerIterator::KmerIterator(const std::string* readSeq, size_t position):
+	_readSeq(readSeq),
+	_position(position)
+{}
+
+KmerIterator::KmerIterator(const KmerIterator& other):
+	_readSeq(other._readSeq),
+	_position(other._position)
+{}
+
+KmerIterator& KmerIterator::operator=(const KmerIterator& other)
+{
+	_readSeq = other._readSeq;
+	_position = other._position;
+	return *this;
+}
+
+bool KmerIterator::operator==(const KmerIterator& other) const
+{
+	return _readSeq == other._readSeq && _position == other._position;
+}
+
+bool KmerIterator::operator!=(const KmerIterator& other) const
+{
+	return !(*this == other);
+}
+
+KmerIterator& KmerIterator::operator++()
+{
+	++_position;
+	return *this;
+}
+
+KmerIterator::value_type KmerIterator::operator*() const
+{
+	return Kmer(_readSeq->substr(_position, VertexIndex::get().getKmerSize()));
+}
+
+//KmerIterator::pointer KmerIterator::operator->() const
+//{
+//}
 

@@ -32,6 +32,32 @@ private:
 	KmerRepr _representation;
 };
 
+class KmerIterator
+{
+public:
+	typedef typename std::allocator<Kmer>::difference_type difference_type;
+	typedef typename std::allocator<Kmer>::value_type value_type;
+	typedef typename std::allocator<Kmer>::reference reference;
+    typedef typename std::allocator<Kmer>::pointer pointer;
+    typedef std::forward_iterator_tag iterator_category;
+
+	KmerIterator(const std::string* readSeq, size_t position = 0);
+	KmerIterator(const KmerIterator& other);
+	KmerIterator& operator=(const KmerIterator& other);
+
+    bool operator==(const KmerIterator&) const;
+    bool operator!=(const KmerIterator&) const;
+
+	value_type operator*() const;
+    //pointer operator->() const;
+	KmerIterator& operator++();
+
+private:
+	const std::string* _readSeq;
+	size_t _position;
+	//Kmer   _curKmer;
+};
+
 namespace std
 {
 	template <>
