@@ -5,6 +5,7 @@
 #pragma once
 
 #include <unordered_map>
+#include <memory>
 
 #include "sequence_container.h"
 
@@ -13,6 +14,7 @@ static_assert(sizeof(size_t) == 8, "32-bit architectures are not supported");
 class Kmer
 {
 public:
+	Kmer(): _representation(0) {}
 	Kmer(const std::string& dnaString);
 
 	void reverseComplement();
@@ -32,6 +34,18 @@ private:
 	KmerRepr _representation;
 };
 
+namespace std
+{
+	template <>
+	struct hash<Kmer>
+	{
+		std::size_t operator()(const Kmer& kmer) const
+		{
+			return kmer.hash();
+		}
+	};
+}
+
 class KmerIterator
 {
 public:
@@ -49,24 +63,24 @@ public:
     bool operator!=(const KmerIterator&) const;
 
 	value_type operator*() const;
-    //pointer operator->() const;
 	KmerIterator& operator++();
 
 private:
-	const std::string* _readSeq;
-	size_t _position;
-	//Kmer   _curKmer;
+	const std::string* 	_readSeq;
+	size_t 				_position;
+	Kmer 				_kmer;
 };
 
-namespace std
+class ReadKmersWrapper
 {
-	template <>
-	struct hash<Kmer>
-	{
-		std::size_t operator()(const Kmer& kmer) const
-		{
-			return kmer.hash();
-		}
-	};
-}
+public:
+	ReadKmersWrapper(FastaRecord::Id readId):
+		_readId(readId)
+	{}
 
+	KmerIterator begin();
+	KmerIterator end();
+
+private:
+	FastaRecord::Id _readId;
+};

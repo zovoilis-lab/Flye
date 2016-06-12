@@ -109,7 +109,12 @@ std::string Kmer::dnaRepresentation() const
 KmerIterator::KmerIterator(const std::string* readSeq, size_t position):
 	_readSeq(readSeq),
 	_position(position)
-{}
+{
+	if (position != readSeq->length() - VertexIndex::get().getKmerSize())
+	{
+		_kmer = Kmer(readSeq->substr(0, VertexIndex::get().getKmerSize()));
+	}
+}
 
 KmerIterator::KmerIterator(const KmerIterator& other):
 	_readSeq(other._readSeq),
@@ -135,16 +140,31 @@ bool KmerIterator::operator!=(const KmerIterator& other) const
 
 KmerIterator& KmerIterator::operator++()
 {
+	size_t appendPos = _position + VertexIndex::get().getKmerSize();
+	_kmer.appendRight((*_readSeq)[appendPos]);
 	++_position;
 	return *this;
 }
 
 KmerIterator::value_type KmerIterator::operator*() const
 {
-	return Kmer(_readSeq->substr(_position, VertexIndex::get().getKmerSize()));
+	return _kmer;
 }
 
-//KmerIterator::pointer KmerIterator::operator->() const
-//{
-//}
+KmerIterator ReadKmersWrapper::begin()
+{
+	const std::string& seq = SequenceContainer::get().getIndex()
+										   .at(_readId).sequence;
+	if (seq.length() < VertexIndex::get().getKmerSize()) 
+		return this->end();
 
+	return KmerIterator(&seq);
+}
+
+KmerIterator ReadKmersWrapper::end()
+{
+	const std::string& seq = SequenceContainer::get().getIndex()
+										   .at(_readId).sequence;
+	return KmerIterator(&seq, seq.length() - 
+						VertexIndex::get().getKmerSize());
+}

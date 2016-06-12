@@ -30,6 +30,7 @@ void VertexIndex::countKmers(const SequenceContainer& seqContainer,
 								 std::to_string(hardThreshold));
 	}
 
+	//TODO: precount size should correlate with kmer size
 	const size_t PRE_COUNT_SIZE = 1024 * 1024 * 1024;
 	std::vector<unsigned char> preCounters(PRE_COUNT_SIZE, 0);
 
@@ -39,24 +40,15 @@ void VertexIndex::countKmers(const SequenceContainer& seqContainer,
 	for (auto& seqPair : seqContainer.getIndex())
 	{
 		bloomProg.advance();
-		if (seqPair.second.sequence.length() < _kmerSize) 
-			continue;
-
-		Kmer curKmer(seqPair.second.sequence.substr(0, _kmerSize));
-		size_t pos = _kmerSize;
-		while (true)
+		for (Kmer kmer : ReadKmersWrapper(seqPair.first))
 		{
-			if (preCounters[curKmer.hash() % PRE_COUNT_SIZE] != 
+			if (preCounters[kmer.hash() % PRE_COUNT_SIZE] != 
 				std::numeric_limits<unsigned char>::max())
-				++preCounters[curKmer.hash() % PRE_COUNT_SIZE];
-
-			if (pos == seqPair.second.sequence.length()) break;
-
-			curKmer.appendRight(seqPair.second.sequence[pos++]);
+				++preCounters[kmer.hash() % PRE_COUNT_SIZE];
 		}
 	}
 
-	//adding kmers that have passed the filter
+	//counting only kmers that have passed the filter
 	Logger::get().info() << "Counting kmers (2/2):";
 	ProgressPercent indexProg(seqContainer.getIndex().size());
 
@@ -64,25 +56,17 @@ void VertexIndex::countKmers(const SequenceContainer& seqContainer,
 	for (auto& seqPair : seqContainer.getIndex())
 	{
 		indexProg.advance();
-		if (seqPair.second.sequence.length() < _kmerSize) 
-			continue;
-
-		Kmer curKmer(seqPair.second.sequence.substr(0, _kmerSize));
-		size_t pos = _kmerSize;
-		while (true)
+		for (Kmer kmer : ReadKmersWrapper(seqPair.first))
 		{
-			size_t count = preCounters[curKmer.hash() % PRE_COUNT_SIZE];
+			size_t count = preCounters[kmer.hash() % PRE_COUNT_SIZE];
 			if (count >= hardThreshold)
 			{
-				_kmerCounts.upsert(curKmer, increaseFn, 1);
+				_kmerCounts.upsert(kmer, increaseFn, 1);
 			}
 			else
 			{
 				_kmerDistribution[count] += 1;
 			}
-
-			if (pos == seqPair.second.sequence.length()) break;
-			curKmer.appendRight(seqPair.second.sequence[pos++]);
 		}
 	}
 	
@@ -103,29 +87,24 @@ void VertexIndex::buildIndex(int minCoverage, int maxCoverage)
 	for (auto& seqPair : seqContainer.getIndex())
 	{
 		indexProg.advance();
-		if (seqPair.second.sequence.length() < _kmerSize) 
-			continue;
 
-		Kmer curKmer(seqPair.second.sequence.substr(0, _kmerSize));
-		size_t pos = _kmerSize;
-		while (true)
+		size_t pos = 0;
+		for (Kmer kmer : ReadKmersWrapper(seqPair.first))
 		{
 			size_t count = 0;
-			_kmerCounts.find(curKmer, count);
+			_kmerCounts.find(kmer, count);
 			if ((size_t)minCoverage <= count && count <= (size_t)maxCoverage)
 			{
-				if (!_kmerIndex.contains(curKmer))
+				if (!_kmerIndex.contains(kmer))
 				{
 					auto ptr = new ReadVector;
 					ptr->reserve(count);
-					_kmerIndex.insert(curKmer, ptr);
+					_kmerIndex.insert(kmer, ptr);
 				}
-				ReadVector* vec = _kmerIndex[curKmer];
+				ReadVector* vec = _kmerIndex[kmer];
 				vec->push_back(ReadPosition(seqPair.second.id, pos));
 			}
-
-			if (pos == seqPair.second.sequence.length()) break;
-			curKmer.appendRight(seqPair.second.sequence[pos++]);
+			++pos;
 		}
 	}
 	_kmerCounts.clear();
@@ -152,8 +131,6 @@ void VertexIndex::buildIndex(int minCoverage, int maxCoverage)
 						{return p1.position < p2.position;});
 		readHash.second->shrink_to_fit();
 	}
-
-	_kmerCounts.clear();
 
 	//distance spectrum
 	/*
