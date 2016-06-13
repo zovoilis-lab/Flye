@@ -40,11 +40,11 @@ void VertexIndex::countKmers(const SequenceContainer& seqContainer,
 	for (auto& seqPair : seqContainer.getIndex())
 	{
 		bloomProg.advance();
-		for (Kmer kmer : ReadKmersWrapper(seqPair.first))
+		for (auto kmerPos : IterKmers(seqPair.first))
 		{
-			if (preCounters[kmer.hash() % PRE_COUNT_SIZE] != 
+			if (preCounters[kmerPos.kmer.hash() % PRE_COUNT_SIZE] != 
 				std::numeric_limits<unsigned char>::max())
-				++preCounters[kmer.hash() % PRE_COUNT_SIZE];
+				++preCounters[kmerPos.kmer.hash() % PRE_COUNT_SIZE];
 		}
 	}
 
@@ -52,16 +52,15 @@ void VertexIndex::countKmers(const SequenceContainer& seqContainer,
 	Logger::get().info() << "Counting kmers (2/2):";
 	ProgressPercent indexProg(seqContainer.getIndex().size());
 
-	auto increaseFn = [](size_t& num) {++num;}; 
 	for (auto& seqPair : seqContainer.getIndex())
 	{
 		indexProg.advance();
-		for (Kmer kmer : ReadKmersWrapper(seqPair.first))
+		for (auto kmerPos : IterKmers(seqPair.first))
 		{
-			size_t count = preCounters[kmer.hash() % PRE_COUNT_SIZE];
+			size_t count = preCounters[kmerPos.kmer.hash() % PRE_COUNT_SIZE];
 			if (count >= hardThreshold)
 			{
-				_kmerCounts.upsert(kmer, increaseFn, 1);
+				_kmerCounts.upsert(kmerPos.kmer, [](size_t& num){++num;}, 1);
 			}
 			else
 			{
@@ -88,29 +87,29 @@ void VertexIndex::buildIndex(int minCoverage, int maxCoverage)
 	{
 		indexProg.advance();
 
-		size_t pos = 0;
-		for (Kmer kmer : ReadKmersWrapper(seqPair.first))
+		for (auto kmerPos : IterKmers(seqPair.first))
 		{
 			size_t count = 0;
-			_kmerCounts.find(kmer, count);
+			_kmerCounts.find(kmerPos.kmer, count);
 			if ((size_t)minCoverage <= count && count <= (size_t)maxCoverage)
 			{
-				if (!_kmerIndex.contains(kmer))
+				if (!_kmerIndex.contains(kmerPos.kmer))
 				{
 					auto ptr = new ReadVector;
 					ptr->reserve(count);
-					_kmerIndex.insert(kmer, ptr);
+					_kmerIndex.insert(kmerPos.kmer, ptr);
 				}
-				ReadVector* vec = _kmerIndex[kmer];
-				vec->push_back(ReadPosition(seqPair.second.id, pos));
+				ReadVector* vec = _kmerIndex[kmerPos.kmer];
+				vec->push_back(ReadPosition(seqPair.second.id, 
+											kmerPos.position));
 			}
-			++pos;
 		}
 	}
 	_kmerCounts.clear();
 	_kmerCounts.reserve(0);
 
 	//read indexing
+	/*
 	for (auto& kmerHash: _kmerIndex.lock_table())
 	{
 		for (auto& kmerPosPair : *kmerHash.second)
@@ -130,7 +129,7 @@ void VertexIndex::buildIndex(int minCoverage, int maxCoverage)
 					[](const KmerPosition& p1, const KmerPosition& p2)
 						{return p1.position < p2.position;});
 		readHash.second->shrink_to_fit();
-	}
+	}*/
 
 	//distance spectrum
 	/*

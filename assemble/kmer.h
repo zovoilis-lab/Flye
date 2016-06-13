@@ -46,40 +46,68 @@ namespace std
 	};
 }
 
+struct KmerPosition
+{
+	KmerPosition(Kmer kmer, int32_t position):
+		kmer(kmer), position(position) {}
+	Kmer kmer;
+	int64_t position;
+};
+
 class KmerIterator
 {
 public:
-	typedef typename std::allocator<Kmer>::difference_type difference_type;
-	typedef typename std::allocator<Kmer>::value_type value_type;
-	typedef typename std::allocator<Kmer>::reference reference;
-    typedef typename std::allocator<Kmer>::pointer pointer;
     typedef std::forward_iterator_tag iterator_category;
 
-	KmerIterator(const std::string* readSeq, size_t position = 0);
-	KmerIterator(const KmerIterator& other);
-	KmerIterator& operator=(const KmerIterator& other);
+	KmerIterator(const std::string* readSeq, size_t position);
 
     bool operator==(const KmerIterator&) const;
     bool operator!=(const KmerIterator&) const;
 
-	value_type operator*() const;
+	KmerPosition operator*() const;
 	KmerIterator& operator++();
 
-private:
+protected:
 	const std::string* 	_readSeq;
 	size_t 				_position;
 	Kmer 				_kmer;
 };
 
-class ReadKmersWrapper
+class SolidKmerIterator : public KmerIterator
 {
 public:
-	ReadKmersWrapper(FastaRecord::Id readId):
+	SolidKmerIterator(const std::string* readSeq, size_t position);
+
+    bool operator==(const SolidKmerIterator&) const;
+    bool operator!=(const SolidKmerIterator&) const;
+
+	KmerPosition operator*() const;
+	SolidKmerIterator& operator++();
+};
+
+class IterKmers
+{
+public:
+	IterKmers(FastaRecord::Id readId):
 		_readId(readId)
 	{}
 
 	KmerIterator begin();
 	KmerIterator end();
+
+private:
+	FastaRecord::Id _readId;
+};
+
+class IterSolidKmers
+{
+public:
+	IterSolidKmers(FastaRecord::Id readId):
+		_readId(readId)
+	{}
+
+	SolidKmerIterator begin();
+	SolidKmerIterator end();
 
 private:
 	FastaRecord::Id _readId;

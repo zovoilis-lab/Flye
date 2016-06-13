@@ -33,17 +33,9 @@ public:
 		FastaRecord::Id readId;
 		int32_t position;
 	};
-	struct KmerPosition
-	{
-		KmerPosition(Kmer kmer, int32_t position):
-			kmer(kmer), position(position) {}
-		Kmer kmer;
-		int32_t position;
-	};
+
 
 	typedef std::vector<ReadPosition> ReadVector;
-	typedef std::vector<KmerPosition> KmerVector;
-
 	typedef std::map<int, int> KmerDistribution;
 
 	void countKmers(const SequenceContainer& seqContainer,
@@ -55,10 +47,8 @@ public:
 
 	const ReadVector& byKmer(Kmer kmer) const
 		{return *_kmerIndex[kmer];}
-	const KmerVector& byRead(FastaRecord::Id read) const
-		{return *_readIndex[read];}
-	bool hasRead(FastaRecord::Id readId) const
-		{return _readIndex.contains(readId);}
+	bool isSolid(Kmer kmer) const
+		{return _kmerIndex.contains(kmer);}
 	const KmerDistribution& getKmerHist() const
 		{return _kmerDistribution;}
 
@@ -66,11 +56,8 @@ private:
 	VertexIndex();
 	void addFastaSequence(const FastaRecord& fastaRecord);
 
-	unsigned int _kmerSize;
-
 	cuckoohash_map<Kmer, ReadVector*> _kmerIndex;
-	cuckoohash_map<FastaRecord::Id, KmerVector*> _readIndex;
-
+	unsigned int 					_kmerSize;
 	KmerDistribution 			 	_kmerDistribution;
 	cuckoohash_map<Kmer, size_t>  	_kmerCounts;
 };

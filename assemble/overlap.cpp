@@ -140,17 +140,18 @@ bool OverlapDetector::overlapTest(const OverlapRange& ovlp, int32_t curLen,
 std::vector<OverlapRange> 
 OverlapDetector::getReadOverlaps(FastaRecord::Id currentReadId) const
 {
-	if (!_vertexIndex.hasRead(currentReadId)) 
+	/*if (!_vertexIndex.hasRead(currentReadId)) 
 	{
 		return std::vector<OverlapRange>();
-	}
+	}*/
 	
 	std::unordered_map<FastaRecord::Id, 
 					   std::vector<OverlapRange>> activePaths;
 
 	auto curLen = _seqContainer.seqLen(currentReadId);
 	//for all kmers in this read
-	for (const auto& curKmerPos : _vertexIndex.byRead(currentReadId))
+	//for (const auto& curKmerPos : _vertexIndex.byRead(currentReadId))
+	for (auto curKmerPos : IterSolidKmers(currentReadId))
 	{
 		int32_t curPos = curKmerPos.position;
 		//for all other occurences of this kmer (extension candidates)
@@ -237,7 +238,6 @@ OverlapDetector::getReadOverlaps(FastaRecord::Id currentReadId) const
 		} //end loop over kmer occurences in other reads
 	} //end loop over kmers in the current read
 	
-
 	std::vector<OverlapRange> detectedOverlaps;
 	std::vector<OverlapRange> debugOverlaps;
 	for (const auto& ap : activePaths)
@@ -309,7 +309,8 @@ void OverlapDetector::addOverlapShifts(OverlapRange& ovlp) const
 {
 	//get shared kmers inside the overlap
 	std::vector<int32_t> ovlpShifts;
-	for (const auto& curKmer : _vertexIndex.byRead(ovlp.curId))
+	//for (const auto& curKmer : _vertexIndex.byRead(ovlp.curId))
+	for (auto curKmer : IterSolidKmers(ovlp.curId))
 	{
 		if (ovlp.curBegin <= curKmer.position &&
 			curKmer.position <= ovlp.curEnd)

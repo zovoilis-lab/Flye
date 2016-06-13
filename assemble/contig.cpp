@@ -133,7 +133,8 @@ ContigGenerator::getSwitchPositions(FastaRecord::Id leftRead,
 	}
 
 	std::vector<std::pair<int32_t, int32_t>> sharedKmers;
-	for (auto& leftKmer : _vertexIndex.byRead(leftRead))
+	//for (auto& leftKmer : _vertexIndex.byRead(leftRead))
+	for (auto leftKmer : IterSolidKmers(leftRead))
 	{
 		for (auto& rightKmer : _vertexIndex.byKmer(leftKmer.kmer))
 		{

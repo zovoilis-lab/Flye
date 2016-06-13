@@ -6,6 +6,7 @@
 
 #include "kmer.h"
 #include "vertex_index.h"
+#include "sequence_container.h"
 
 namespace
 {
@@ -116,18 +117,6 @@ KmerIterator::KmerIterator(const std::string* readSeq, size_t position):
 	}
 }
 
-KmerIterator::KmerIterator(const KmerIterator& other):
-	_readSeq(other._readSeq),
-	_position(other._position)
-{}
-
-KmerIterator& KmerIterator::operator=(const KmerIterator& other)
-{
-	_readSeq = other._readSeq;
-	_position = other._position;
-	return *this;
-}
-
 bool KmerIterator::operator==(const KmerIterator& other) const
 {
 	return _readSeq == other._readSeq && _position == other._position;
@@ -146,25 +135,85 @@ KmerIterator& KmerIterator::operator++()
 	return *this;
 }
 
-KmerIterator::value_type KmerIterator::operator*() const
+KmerPosition KmerIterator::operator*() const
 {
-	return _kmer;
+	return KmerPosition(_kmer, _position);
 }
 
-KmerIterator ReadKmersWrapper::begin()
+KmerPosition SolidKmerIterator::operator*() const
+{
+	if (!VertexIndex::get().isSolid(_kmer)) 
+		throw std::runtime_error("Not solid");
+	return KmerPosition(_kmer, _position);
+}
+
+SolidKmerIterator::SolidKmerIterator(const std::string* readSeq, 
+									 size_t position):
+	KmerIterator(readSeq, position)
+{
+	if (!VertexIndex::get().isSolid(_kmer) && _position == 0) ++(*this);
+}
+
+
+SolidKmerIterator& SolidKmerIterator::operator++()
+{
+	do
+	{
+		size_t appendPos = _position + VertexIndex::get().getKmerSize();
+		_kmer.appendRight(_readSeq->at(appendPos));
+		++_position;
+	}
+	while(!VertexIndex::get().isSolid(_kmer) &&
+		  _position < _readSeq->length() - VertexIndex::get().getKmerSize());
+
+	return *this;
+}
+
+bool SolidKmerIterator::operator==(const SolidKmerIterator& other) const
+{
+	return _readSeq == other._readSeq && 
+		   _position == other._position;
+}
+
+bool SolidKmerIterator::operator!=(const SolidKmerIterator& other) const
+{
+	return !(*this == other);
+}
+
+KmerIterator IterKmers::begin()
 {
 	const std::string& seq = SequenceContainer::get().getIndex()
 										   .at(_readId).sequence;
 	if (seq.length() < VertexIndex::get().getKmerSize()) 
 		return this->end();
 
-	return KmerIterator(&seq);
+	return KmerIterator(&seq, 0);
 }
 
-KmerIterator ReadKmersWrapper::end()
+KmerIterator IterKmers::end()
 {
 	const std::string& seq = SequenceContainer::get().getIndex()
 										   .at(_readId).sequence;
 	return KmerIterator(&seq, seq.length() - 
 						VertexIndex::get().getKmerSize());
+}
+
+SolidKmerIterator IterSolidKmers::begin()
+{
+	const std::string& seq = SequenceContainer::get().getIndex()
+										   .at(_readId).sequence;
+	if (seq.length() < VertexIndex::get().getKmerSize()) 
+		return this->end();
+
+	return SolidKmerIterator(&seq, 0);
+}
+
+SolidKmerIterator IterSolidKmers::end()
+{
+
+	const std::string& seq = SequenceContainer::get().getIndex()
+										   .at(_readId).sequence;
+
+	return SolidKmerIterator(&seq, seq.length() - 
+							 VertexIndex::get().getKmerSize());
 }
