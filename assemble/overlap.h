@@ -7,6 +7,8 @@
 #include <unordered_set>
 #include <mutex>
 
+#include <cuckoohash_map.hh>
+
 #include "vertex_index.h"
 #include "sequence_container.h"
 #include "logger.h"
@@ -102,8 +104,10 @@ private:
 	{
 		 size_t operator()(const id_pair_t& k) const
 		 {
-		   	return ((size_t)std::get<0>(k).hash() << 32) ^ 
-					std::get<1>(k).hash();
+			size_t lhs = std::get<0>(k).hash();
+			size_t rhs = std::get<1>(k).hash();
+			lhs ^= rhs + 0x9e3779b9 + (lhs << 6) + (lhs >> 2);
+			return lhs;
 		 }
 	};
 
@@ -112,7 +116,7 @@ private:
 	const int _maximumOverhang;
 
 	OverlapIndex _overlapIndex;
-	std::unordered_set<id_pair_t, key_hash> _overlapMatrix;
+	cuckoohash_map<id_pair_t, bool, key_hash> _overlapMatrix;
 
 	const VertexIndex& _vertexIndex;
 	const SequenceContainer& _seqContainer;

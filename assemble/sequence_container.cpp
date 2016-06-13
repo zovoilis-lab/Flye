@@ -65,8 +65,12 @@ size_t SequenceContainer::getSequences(std::vector<FastaRecord>& record,
 	std::string sequence;
 	std::string header; 
 	std::ifstream inputStream(fileName);
-	int line = 1;
+	if (!inputStream.is_open())
+	{
+		throw std::runtime_error("Can't open reads file");
+	}
 
+	int line = 1;
 	record.clear();
 	int seqNum = 0;
 

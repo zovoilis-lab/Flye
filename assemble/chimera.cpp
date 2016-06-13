@@ -24,6 +24,8 @@ void ChimeraDetector::detectChimeras()
 		{
 			_chimeras.insert(seqHash.first);
 		}
+
+		Logger::get().debug() << "Chimeric: " << seqHash.second.description;
 	}
 
 	Logger::get().debug() << _chimeras.size() / 2 
@@ -78,28 +80,31 @@ bool ChimeraDetector::testReadByCoverage(FastaRecord::Id readId)
 	static const float COV_THRESHOLD = 0.1f;
 	const int FLANK = (_maximumJump + _maximumOverhang) / WINDOW;
 
-	std::vector<int> localCoverage;
+	std::vector<int> coverage;
 	int numWindows = _seqContainer.seqLen(readId) / WINDOW;
 	if (numWindows - 2 * FLANK <= 0) return false;
 
-	localCoverage.assign(numWindows - 2 * FLANK, 0);
-
+	coverage.assign(numWindows - 2 * FLANK, 0);
 	for (auto& ovlp : _ovlpDetector.getOverlapIndex().at(readId))
 	{
 		for (int pos = (ovlp.curBegin + _maximumJump) / WINDOW; 
 			 pos < (ovlp.curEnd - _maximumJump) / WINDOW; ++pos)
 		{
 			if (pos - FLANK >= 0 && 
-				pos - FLANK < (int)localCoverage.size())
+				pos - FLANK < (int)coverage.size())
 			{
-				++localCoverage[pos - FLANK];
+				++coverage[pos - FLANK];
 			}
 		}
 	}
 
-	for (int cov : localCoverage)
+	int sum = 0;
+	for (int cov : coverage) sum += cov;
+	int minCoverage = (float)sum / coverage.size() * COV_THRESHOLD;
+
+	for (int cov : coverage)
 	{
-		if (cov < std::max(COV_THRESHOLD * _coverage, 1.0f))
+		if (cov < minCoverage)
 		{
 			return true;
 		}

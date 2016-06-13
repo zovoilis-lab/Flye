@@ -58,29 +58,30 @@ void OverlapDetector::parallelWorker()
 		
 		for (auto ovlp : detectedOverlaps)
 		{
-			if (_overlapMatrix.count(std::make_tuple(ovlp.curId, ovlp.extId)))
+			if (_overlapMatrix.contains(std::make_tuple(ovlp.curId, 
+														ovlp.extId)))
 			{
 				continue;
 			}
 			//detected overlap
-			_overlapMatrix.insert(std::make_tuple(ovlp.curId, ovlp.extId));
+			_overlapMatrix[std::make_tuple(ovlp.curId, ovlp.extId)] = true;
 			_overlapIndex[ovlp.curId].push_back(ovlp);
 
 			//in opposite direction
 			ovlp.reverse();
-			_overlapMatrix.insert(std::make_tuple(ovlp.curId, ovlp.extId));
+			_overlapMatrix[std::make_tuple(ovlp.curId, ovlp.extId)] = true;
 			_overlapIndex[ovlp.curId].push_back(ovlp);
 
 			//on reverse strands
 			auto curLen = _seqContainer.seqLen(ovlp.curId);
 			auto extLen = _seqContainer.seqLen(ovlp.extId);
 			ovlp.complement(curLen, extLen);
-			_overlapMatrix.insert(std::make_tuple(ovlp.curId, ovlp.extId));
+			_overlapMatrix[std::make_tuple(ovlp.curId, ovlp.extId)] = true;
 			_overlapIndex[ovlp.curId].push_back(ovlp);
 
 			//opposite again
 			ovlp.reverse();
-			_overlapMatrix.insert(std::make_tuple(ovlp.curId, ovlp.extId));
+			_overlapMatrix[std::make_tuple(ovlp.curId, ovlp.extId)] = true;
 			_overlapIndex[ovlp.curId].push_back(ovlp);
 		}
 	}
@@ -140,17 +141,11 @@ bool OverlapDetector::overlapTest(const OverlapRange& ovlp, int32_t curLen,
 std::vector<OverlapRange> 
 OverlapDetector::getReadOverlaps(FastaRecord::Id currentReadId) const
 {
-	/*if (!_vertexIndex.hasRead(currentReadId)) 
-	{
-		return std::vector<OverlapRange>();
-	}*/
-	
 	std::unordered_map<FastaRecord::Id, 
 					   std::vector<OverlapRange>> activePaths;
 
 	auto curLen = _seqContainer.seqLen(currentReadId);
 	//for all kmers in this read
-	//for (const auto& curKmerPos : _vertexIndex.byRead(currentReadId))
 	for (auto curKmerPos : IterSolidKmers(currentReadId))
 	{
 		int32_t curPos = curKmerPos.position;
@@ -160,8 +155,11 @@ OverlapDetector::getReadOverlaps(FastaRecord::Id currentReadId) const
 			//don't want self-overlaps
 			if (extReadPos.readId == currentReadId) continue;
 			//maybe it's already processed
-			//if (_overlapMatrix.count(std::make_tuple(extReadPos.readId,
-			//				   						 currentReadId))) continue;
+			if (_overlapMatrix.contains(std::make_tuple(extReadPos.readId,
+							   							currentReadId))) 
+			{
+				continue;
+			}
 
 			int32_t extPos = extReadPos.position;
 			auto& extPaths = activePaths[extReadPos.readId];
