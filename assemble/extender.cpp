@@ -63,7 +63,7 @@ ContigPath Extender::extendRead(FastaRecord::Id startRead)
 	{
 		FastaRecord::Id extRead = this->stepRight(curRead, startRead);
 
-		if (extRead == startRead)	//circular
+		if (extRead == startRead && rightExtension)	//circular
 		{
 			Logger::get().debug() << "Circular contig";
 			contigPath.circular = true;
