@@ -89,14 +89,17 @@ void OverlapDetector::parallelWorker()
 
 
 //pre-filtering
-/*
 bool OverlapDetector::goodStart(int32_t curPos, int32_t extPos, 
-								int32_t curLen, int32_t extLen) const
+								FastaRecord::Id curId, 
+								FastaRecord::Id extId) const
 {	
+	if (curId == extId.rc()) return true;	//for chimeras detection
+	int32_t curLen = _seqContainer.seqLen(curId);
+	int32_t extLen = _seqContainer.seqLen(extId);
 	return std::min(curPos, extPos) < _maximumOverhang && 
 		   extPos < extLen - _minimumOverlap &&
 		   curPos < curLen - _minimumOverlap;
-}*/
+}
 
 OverlapDetector::JumpRes 
 OverlapDetector::jumpTest(int32_t curPrev, int32_t curNext,
@@ -128,7 +131,7 @@ bool OverlapDetector::overlapTest(const OverlapRange& ovlp, int32_t curLen,
 		return false;
 	if (abs(ovlp.curRange() - ovlp.extRange()) > _maximumJump)
 		return false;
-	if (ovlp.curId == ovlp.extId.rc()) return true;	//FIXME: and adhoc solution for chimeras
+	if (ovlp.curId == ovlp.extId.rc()) return true;	//FIXME: adhoc solution for chimeras
 	if (std::min(ovlp.curBegin, ovlp.extBegin) > _maximumOverhang)
 		return false;
 	if (std::min(curLen - ovlp.curEnd, extLen - ovlp.extEnd) > _maximumOverhang)
@@ -221,7 +224,7 @@ OverlapDetector::getReadOverlaps(FastaRecord::Id currentReadId) const
 			}
 			//if no extensions possible (or there are no active paths), start a new path
 			if (!extendsClose && !extendsFar)
-				//this->goodStart(curPos, extPos, curLen, extLen))
+				//this->goodStart(curPos, extPos, currentReadId, extReadPos.readId))
 			{
 				extPaths.push_back(OverlapRange(currentReadId, extReadPos.readId,
 												curPos, extPos));

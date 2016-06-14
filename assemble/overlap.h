@@ -92,9 +92,11 @@ private:
 
 	std::vector<OverlapRange> getReadOverlaps(FastaRecord::Id readId) const;
 	void 	addOverlapShifts(OverlapRange& ovlp) const;
-	//bool    goodStart(int32_t currentPos, int32_t extensionPos, 
-	//			      int32_t currentLength, int32_t extensionLength) const;
-	bool    overlapTest(const OverlapRange& ovlp, int32_t curLen, int32_t extLen) const;
+	bool    goodStart(int32_t currentPos, int32_t extensionPos, 
+				      FastaRecord::Id currentId, 
+					  FastaRecord::Id extensionId) const;
+	bool    overlapTest(const OverlapRange& ovlp, 
+						int32_t curLen, int32_t extLen) const;
 	JumpRes jumpTest(int32_t currentPrev, int32_t currentNext,
 				     int32_t extensionPrev, int32_t extensionNext) const;
 	void 	parallelWorker();
@@ -107,7 +109,7 @@ private:
 			size_t lhs = std::get<0>(k).hash();
 			size_t rhs = std::get<1>(k).hash();
 			lhs ^= rhs + 0x9e3779b9 + (lhs << 6) + (lhs >> 2);
-			return lhs;
+			return 0x9ddfea08eb382d69ULL * lhs;
 		 }
 	};
 

@@ -226,9 +226,9 @@ def _get_partition(profile):
     partition = []
     prev_part = 0
     for prof_pos in xrange(0, len(profile) - GOLD_LEN):
-        if solid_flags[prof_pos]:
+        if all(solid_flags[prof_pos : prof_pos + GOLD_LEN]):
             if (_is_simple_kmer(profile, prof_pos, GOLD_LEN) and
-                prof_pos + GOLD_LEN / 2 - prev_part > SOLID_LEN):
+                    prof_pos + GOLD_LEN / 2 - prev_part > SOLID_LEN):
                 prev_part = prof_pos + GOLD_LEN / 2
                 partition.append(prof_pos + GOLD_LEN / 2)
     logger.debug("Partitioned into {0} segments".format(len(partition) + 1))

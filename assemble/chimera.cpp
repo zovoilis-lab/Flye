@@ -25,7 +25,7 @@ void ChimeraDetector::detectChimeras()
 			_chimeras.insert(seqHash.first);
 		}
 
-		Logger::get().debug() << "Chimeric: " << seqHash.second.description;
+		//Logger::get().debug() << "Chimeric: " << seqHash.second.description;
 	}
 
 	Logger::get().debug() << _chimeras.size() / 2 
