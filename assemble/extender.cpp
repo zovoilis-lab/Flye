@@ -209,8 +209,7 @@ int Extender::rightMultiplicity(FastaRecord::Id readId)
 void Extender::assembleContigs()
 {
 	Logger::get().info() << "Extending reads";
-	//FIXME: improve contig lengths filter
-	std::vector<size_t> contigLengths;
+	const int MIN_CONTIG = 10;
 	_visitedReads.clear();
 
 	for (auto& indexPair : _seqContainer.getIndex())
@@ -230,11 +229,8 @@ void Extender::assembleContigs()
 
 		ContigPath path = this->extendRead(indexPair.first);
 
-		if (contigLengths.empty() || 
-			vecMax(contigLengths) / 100 < path.reads.size())
+		if (path.reads.size() >= MIN_CONTIG || _contigPaths.empty())
 		{
-			contigLengths.push_back(path.reads.size());
-
 			//marking visited reads
 			std::unordered_set<FastaRecord::Id> leftSupported;
 			std::unordered_set<FastaRecord::Id> rightSupported;
@@ -242,12 +238,15 @@ void Extender::assembleContigs()
 			{
 				for (auto& ovlp : _ovlpDetector.getOverlapIndex().at(readId))
 				{
-					if (this->isProperRightExtension(ovlp))
+					if (ovlp.rightShift < 0)
 					{
-						leftSupported.insert(ovlp.extId);
-						rightSupported.insert(ovlp.extId.rc());
+						rightSupported.insert(ovlp.extId);
+						leftSupported.insert(ovlp.extId.rc());
 					}
-					if (this->isProperLeftExtension(ovlp))
+				}
+				for (auto& ovlp : _ovlpDetector.getOverlapIndex().at(readId.rc()))
+				{
+					if (ovlp.rightShift < 0)
 					{
 						rightSupported.insert(ovlp.extId);
 						leftSupported.insert(ovlp.extId.rc());
@@ -262,6 +261,7 @@ void Extender::assembleContigs()
 					_visitedReads.insert(readId.rc());
 				}
 			}
+			//
 			
 			_contigPaths.push_back(std::move(path));
 		}
@@ -390,14 +390,14 @@ FastaRecord::Id Extender::stepRight(FastaRecord::Id readId,
 		}
 	}
 
-
+	/*
 	if (bestExtension != FastaRecord::ID_NONE)
 	{
 		if (_chimDetector.isChimeric(bestExtension))
 			Logger::get().debug() << "Chimeric extension! ";
 		if (this->isBranching(bestExtension))
 			Logger::get().debug() << "Branching extension! ";
-	}
+	}*/
 	return bestExtension;
 }
 

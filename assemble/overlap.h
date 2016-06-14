@@ -108,8 +108,8 @@ private:
 		 {
 			size_t lhs = std::get<0>(k).hash();
 			size_t rhs = std::get<1>(k).hash();
-			lhs ^= rhs + 0x9e3779b9 + (lhs << 6) + (lhs >> 2);
-			return 0x9ddfea08eb382d69ULL * lhs;
+			lhs ^= rhs + 0x9ddfea08eb382d69ULL + (lhs << 6) + (lhs >> 2);
+			return lhs;
 		 }
 	};
 

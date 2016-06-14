@@ -22,7 +22,8 @@ struct FastaRecord
 
 		uint32_t rc() const		//reverse complement 
 			{return _id + 1 - (_id % 2) * 2;}
-		size_t hash() const {return _id;}
+		size_t hash() const 
+			{return 0x9ddfea08eb382d69ULL * (size_t)_id;}
 	private:
 		uint32_t _id;
 	};
@@ -47,7 +48,7 @@ namespace std
 	{
 		size_t operator() (const FastaRecord::Id& h) const throw() 
 		{
-			 return std::hash<uint32_t>()(h.hash());
+			 return h.hash();
 		}
 	};
 }
