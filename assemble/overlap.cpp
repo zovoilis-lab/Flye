@@ -179,9 +179,9 @@ OverlapDetector::getReadOverlaps(FastaRecord::Id currentReadId) const
 			std::set<size_t> eraseMarks;
 			for (size_t pathId = 0; pathId < extPaths.size(); ++pathId)
 			{
-				int32_t jumpLength = curPos - extPaths[pathId].curEnd;
 				JumpRes jumpResult = this->jumpTest(extPaths[pathId].curEnd, curPos,
 													extPaths[pathId].extEnd, extPos);
+				int32_t jumpLength = curPos - extPaths[pathId].curBegin;
 
 				switch (jumpResult)
 				{
@@ -195,7 +195,7 @@ OverlapDetector::getReadOverlaps(FastaRecord::Id currentReadId) const
 						{
 							extendsClose = true;
 							maxCloseId = pathId;	
-							maxCloseLen = curPos - extPaths[maxCloseId].curEnd;
+							maxCloseLen = jumpLength;
 						}
 						break;
 					case J_FAR:
@@ -203,7 +203,7 @@ OverlapDetector::getReadOverlaps(FastaRecord::Id currentReadId) const
 						{
 							extendsFar = true;
 							maxFarId = pathId;
-							maxFarLen = curPos - extPaths[maxFarId].curEnd;
+							maxFarLen = jumpLength;
 						}
 						break;
 				}

@@ -135,18 +135,17 @@ int Extender::rightMultiplicity(FastaRecord::Id readId)
 	/*
 	for (auto& extCandidate : extensions)
 	{
-		Logger::get().debug() << "Read " << _seqContainer.seqName(extCandidate);
+		Logger::get().debug() << "\tRead " << _seqContainer.seqName(extCandidate);
 		for (auto& ovlp : _ovlpDetector.getOverlapIndex().at(extCandidate))
 		{
 			if (extensions.count(ovlp.extId) &&
 		   		ovlp.rightShift < 0)
 			{
-				Logger::get().debug() << "\t" 
+				Logger::get().debug() << "\t\t" 
 							<< _seqContainer.seqName(ovlp.extId);
 			}
 		}
-	}
-	*/
+	}*/
 	
 	std::unordered_map<FastaRecord::Id, int> clusters;
 	std::unordered_set<FastaRecord::Id> coveredReads;
@@ -200,7 +199,7 @@ int Extender::rightMultiplicity(FastaRecord::Id readId)
 	std::string strClusters;
 	for (auto& clustHash : clusters) 
 		strClusters += std::to_string(clustHash.second) + " ";
-	Logger::get().debug() << "Clusters: " << strClusters;
+	Logger::get().debug() << "\tClusters: " << strClusters;
 	*/
 
 	return numClusters;
@@ -284,7 +283,7 @@ float Extender::extensionIndex(FastaRecord::Id readId)
 			extensions.insert(ovlp.extId);
 		}
 	}
-	//if (extensions.size() < 2) return 0.0f;
+	if (extensions.size() < 2) return 0.0f;
 	
 	int maxCovered = 0;
 	std::unordered_set<FastaRecord::Id> covered;
@@ -333,7 +332,7 @@ FastaRecord::Id Extender::stepRight(FastaRecord::Id readId,
 					   std::tuple<int, int, int, int>> supportIndex;
 
 	Logger::get().debug() << "Extension index " << this->extensionIndex(readId);
-	//Logger::get().debug() << "Multiplicity " << this->rightMultiplicity(readId);
+	Logger::get().debug() << "Multiplicity " << this->rightMultiplicity(readId);
 	//this->rightMultiplicity(readId);
 
 	for (auto& extCandidate : extensions)
@@ -376,6 +375,7 @@ FastaRecord::Id Extender::stepRight(FastaRecord::Id readId,
 					<< this->extensionIndex(extCandidate.rc()) << "\t" << ovlpSize
 					<< "\t" << ovlpShift;
 	}
+	
 
 	auto bestSupport = std::make_tuple(0, 0, 0, 0);
 	auto bestExtension = FastaRecord::ID_NONE;
@@ -390,14 +390,24 @@ FastaRecord::Id Extender::stepRight(FastaRecord::Id readId,
 		}
 	}
 
-	/*
-	if (bestExtension != FastaRecord::ID_NONE)
+	//extra debugging information
+	if (this->isBranching(readId) && bestExtension != FastaRecord::ID_NONE)
 	{
-		if (_chimDetector.isChimeric(bestExtension))
-			Logger::get().debug() << "Chimeric extension! ";
-		if (this->isBranching(bestExtension))
-			Logger::get().debug() << "Branching extension! ";
-	}*/
+		auto& overlaps = _ovlpDetector.getOverlapIndex().at(bestExtension.rc());
+		for (auto& ovlp : overlaps)
+		{
+			if (this->isProperRightExtension(ovlp)) 
+			{
+				if (this->countRightExtensions(ovlp.extId) > 0)
+				{
+					Logger::get().debug() << "\t\t" 
+										  << _seqContainer.seqName(ovlp.extId);
+				}
+			}
+		}
+	}
+
+
 	return bestExtension;
 }
 
@@ -413,8 +423,7 @@ int Extender::countRightExtensions(FastaRecord::Id readId)
 
 bool Extender::isBranching(FastaRecord::Id readId)
 {
-	//return this->branchIndex(readId) > 2.0f;
-	return this->extensionIndex(readId) <= 0.75f;
+	return this->extensionIndex(readId) <= 0.8f;
 	//return this->rightMultiplicity(readId) > 1;
 }
 
