@@ -40,7 +40,7 @@ def _polish(contig_parts, work_dir, args):
         bubbles = bbl.get_bubbles(alignment, contigs_info)
         polished_seqs = pol.polish(bubbles, args.threads, profile,
                                    work_dir, iter_id)
-        out_polished = os.path.join(work_dir, "polished" + iter_id + ".fasta")
+        out_polished = os.path.join(work_dir, "polished_" + iter_id + ".fasta")
         fp.write_fasta_dict(polished_seqs, out_polished)
         cur_sequence = out_polished
 
@@ -61,9 +61,9 @@ def run(args):
     asm.check_binaries()
 
     preassembly = os.path.join(work_dir, "read_edges.fasta")
-    #asm.assemble(args.reads, preassembly, args.kmer_size, args.min_cov,
-    #             args.max_cov, args.coverage, args.debug, log_file,
-    #             args.threads)
+    asm.assemble(args.reads, preassembly, args.kmer_size, args.min_cov,
+                 args.max_cov, args.coverage, args.debug, log_file,
+                 args.threads)
 
     out_genome = _polish(preassembly, work_dir, args)
     logger.info("Done! Your assembly is in file: " + out_genome)
