@@ -8,6 +8,7 @@
 
 #include "contig.h"
 #include "logger.h"
+#include "matrix.h"
 
 void ContigGenerator::generateContigs()
 {
@@ -119,6 +120,97 @@ void ContigGenerator::outputContigs(const std::string& fileName)
 	SequenceContainer::writeFasta(allSeqs, fileName);
 }
 
+namespace
+{
+	void pairwiseAlignment(const std::string& seqOne, const std::string& seqTwo,
+						   std::string& outOne, std::string& outTwo, 
+						   int bandWidth)
+	{
+		static const int32_t MATCH = 2;
+		static const int32_t SUBST = -2;
+		static const int32_t INDEL = -1;
+		auto matchScore = [](char a, char b){return a == b ? MATCH : SUBST;};
+
+		Matrix<int32_t> scoreMat(seqOne.length() + 1, seqTwo.length() + 1);
+		Matrix<char> backtrackMat(seqOne.length() + 1, seqTwo.length() + 1);
+
+		scoreMat.at(0, 0) = 0;
+		backtrackMat.at(0, 0) = 0;
+		for (size_t i = 0; i < seqOne.length(); ++i) 
+		{
+			scoreMat.at(i + 1, 0) = scoreMat.at(i, 0) + INDEL;
+			backtrackMat.at(i + 1, 0) = 1;
+		}
+		for (size_t i = 0; i < seqTwo.length(); ++i) 
+		{
+			scoreMat.at(0, i + 1) = scoreMat.at(0, i) + INDEL;
+			backtrackMat.at(0, i + 1) = 0;
+		}
+
+		//filling DP matrices
+		//TODO: more accurate indices
+		for (size_t i = 1; i < seqOne.length() + 1; ++i)
+		{
+			size_t diagLeft = std::max(1, (int)i - bandWidth);
+			size_t diagRight = std::min((int)seqTwo.length() + 1, 
+										(int)i + bandWidth);
+			for (size_t j = diagLeft; j < diagRight; ++j)
+			{
+				int32_t left = scoreMat.at(i, j - 1) + INDEL;
+				int32_t up = scoreMat.at(i - 1, j) + INDEL;
+				int32_t cross = scoreMat.at(i - 1, j - 1) + 
+								matchScore(seqOne[i - 1], seqTwo[j - 1]);
+
+				int prev = 0;
+				int32_t score = left;
+				if (up > score)
+				{
+					prev = 1;
+					score = up;
+				}
+				if (cross > score)
+				{
+					prev = 2;
+					score = cross;
+				}
+				scoreMat.at(i, j) = score;
+				backtrackMat.at(i, j) = prev;
+			}
+		}
+
+		//backtrack
+		int i = seqOne.length();
+		int j = seqTwo.length();
+		outOne.reserve(i * 1.5);
+		outTwo.reserve(j * 1.5);
+
+		while (i != 0 || j != 0) 
+		{
+			if(backtrackMat.at(i, j) == 1) 
+			{
+				outOne += seqOne[i - 1];
+				outTwo += '-';
+				i -= 1;
+			}
+			else if (backtrackMat.at(i, j) == 0) 
+			{
+				outOne += '-';
+				outTwo += seqTwo[j - 1];
+				j -= 1;
+			}
+			else
+			{
+				outOne += seqOne[i - 1];
+				outTwo += seqTwo[j - 1];
+				i -= 1;
+				j -= 1;
+			}
+		}
+		std::reverse(outOne.begin(), outOne.end());
+		std::reverse(outTwo.begin(), outTwo.end());
+	}
+}
+
 
 std::pair<int32_t, int32_t> 
 ContigGenerator::getSwitchPositions(FastaRecord::Id leftRead, 
@@ -132,48 +224,46 @@ ContigGenerator::getSwitchPositions(FastaRecord::Id leftRead,
 		if (ovlp.extId == rightRead) readsOvlp = &ovlp;
 	}
 
-	std::vector<std::pair<int32_t, int32_t>> sharedKmers;
-	//for (auto& leftKmer : _vertexIndex.byRead(leftRead))
-	for (auto leftKmer : IterSolidKmers(leftRead))
+	//Alignment for a precise shift calculation
+	std::string leftSeq = _seqContainer.getIndex().at(leftRead)
+								.sequence.substr(readsOvlp->curBegin, 
+											 	 readsOvlp->curRange());
+	std::string rightSeq = _seqContainer.getIndex().at(rightRead)
+								.sequence.substr(readsOvlp->extBegin, 
+											 	 readsOvlp->extRange());
+	std::string alignedLeft;
+	std::string alignedRight;
+	int width = std::max(abs((int)leftSeq.length() - (int)rightSeq.length()) * 2,
+						 _maximumJump);
+	pairwiseAlignment(leftSeq, rightSeq, alignedLeft, 
+					  alignedRight, width);
+
+	//_vertexIndex.getKmerSize();
+	int leftPos = readsOvlp->curBegin;
+	int rightPos = readsOvlp->extBegin;
+	int matchRun = 0;
+	for (size_t i = 0; i < alignedLeft.length(); ++i)
 	{
-		for (auto& rightKmer : _vertexIndex.byKmer(leftKmer.kmer))
+		if (alignedLeft[i] != '-') ++leftPos;
+		if (alignedRight[i] != '-') ++rightPos;
+
+		if (alignedLeft[i] == alignedRight[i] &&
+			leftPos > prevSwitch + _maximumJump)
 		{
-			if (rightKmer.readId == rightRead &&
-				leftKmer.position > prevSwitch &&
-				readsOvlp->contains(leftKmer.position, rightKmer.position))
-			{
-				sharedKmers.push_back({leftKmer.position, 
-									   rightKmer.position});
-			}
+			++matchRun;
+		}
+		else
+		{
+			matchRun = 0;
+		}
+		if (matchRun == (int)_vertexIndex.getKmerSize())
+		{
+			return {leftPos, rightPos};
 		}
 	}
-
-	//filter possible outliers
-	std::sort(sharedKmers.begin(), sharedKmers.end(), 
-			  [](const std::pair<int32_t, int32_t>& a, 
-				 const std::pair<int32_t, int32_t>& b)
-				 {return a.first - a.second < b.first - b.second;});
-	size_t leftQ = sharedKmers.size() / 4;
-	size_t rightQ = sharedKmers.size() * 3 / 4;
-
-	if (leftQ >= rightQ)
-	{
-		Logger::get().warning() << "No jump found! " +
-					  _seqContainer.getIndex().at(leftRead).description +
-					  " : " + _seqContainer.getIndex().at(rightRead).description;
-		return {prevSwitch + 1, 0};
-	}
-
-	std::pair<int32_t, int32_t> bestLeft = {0, 0};
-	bool found = false;
-	for (size_t i = leftQ; i < rightQ; ++i)
-	{
-		if (!found || bestLeft.first > sharedKmers[i].first)
-		{
-			found = true;
-			bestLeft = sharedKmers[i];
-		}
-	}
-
-	return bestLeft;
+	
+	Logger::get().warning() << "No jump found! "
+				<< _seqContainer.seqName(leftRead) << " : "
+				<< _seqContainer.seqName(rightRead);
+	return {prevSwitch + 1, 0};
 }

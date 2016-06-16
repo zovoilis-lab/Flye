@@ -40,7 +40,7 @@ def check_binaries():
                               .format(POLISH_BIN, e))
 
 
-def polish(bubbles, num_proc, work_dir, profile):
+def polish(bubbles, num_proc, profile, work_dir, iter_id):
     logger.info("Polishing draft assembly")
 
     subs_matrix = os.path.join(os.environ["ABRUIJN_RES"],
@@ -48,9 +48,9 @@ def polish(bubbles, num_proc, work_dir, profile):
     hopo_matrix = os.path.join(os.environ["ABRUIJN_RES"],
                                config.vals["profiles"][profile]["hopo_matrix"])
 
-    bubbles_file = os.path.join(work_dir, "bubbles.fasta")
+    bubbles_file = os.path.join(work_dir, "bubbles_" + iter_id + ".fasta")
     bbl.output_bubbles(bubbles, bubbles_file)
-    consensus_out = os.path.join(work_dir, "consensus.fasta")
+    consensus_out = os.path.join(work_dir, "consensus_" + iter_id + ".fasta")
 
     _run_polish_bin(bubbles_file, subs_matrix, hopo_matrix,
                     consensus_out, num_proc)

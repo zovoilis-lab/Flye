@@ -35,18 +35,51 @@ def check_binaries():
         raise AlignmentException("Blasr is not installed")
 
 
-def get_alignment(draft_file, reads_file, num_proc, work_dir):
+def compose_raw_genome(contig_parts, out_file):
+    """
+    Concatenates contig parts and appends suffix from the beginning
+    """
+    CIRCULAR_WINDOW = 50000
+
+    genome_framents = fp.read_fasta_dict(contig_parts)
+    contig_types = {}
+    by_contig = defaultdict(list)
+    for h, s in genome_framents.iteritems():
+        tokens = h.split("_")
+        cont_type = tokens[0]
+        contig_id = tokens[0] + "_" + tokens[1]
+        part_id = int(tokens[3])
+        contig_types[contig_id] = cont_type
+        by_contig[contig_id].append((part_id, s))
+
+    contigs_info = {}
+    contigs_fasta = {}
+    for contig_id, contig_seqs in by_contig.iteritems():
+        seqs_sorted = sorted(contig_seqs, key=lambda p: p[0])
+        contig_concat = "".join(map(lambda p: p[1], seqs_sorted))
+        contig_len = len(contig_concat)
+        if contig_types[contig_id] == "circular":
+            if len(contig_concat) > CIRCULAR_WINDOW:
+                contig_concat += contig_concat[:CIRCULAR_WINDOW]
+        contigs_fasta[contig_id] = contig_concat
+        contigs_info[contig_id] = ContigInfo(contigs_info, contig_len,
+                                             contig_types[contig_id])
+
+    fp.write_fasta_dict(contigs_fasta, out_file)
+    return contigs_info
+
+
+def get_alignment(reference_file, reads_file, num_proc,
+                  work_dir, iter_id):
     """
     Runs blasr and return parsed alignment
     """
-    logger.info("Running Blasr")
-    raw_genome = os.path.join(work_dir, "draft_assembly.fasta")
-    blasr_aln = os.path.join(work_dir, "alignment.m5")
-    contigs_info = _compose_raw_genome(draft_file, raw_genome)
-    _run_blasr(raw_genome, reads_file, num_proc, blasr_aln)
-    alignment, mean_err = _parse_blasr(blasr_aln)
+    logger.info("Running BLASR")
+    blasr_file = os.path.join(work_dir, "alignment_" + iter_id + ".m5")
+    _run_blasr(reference_file, reads_file, num_proc, blasr_file)
+    alignment, mean_err = _parse_blasr(blasr_file)
     profile = _choose_profile(mean_err)
-    return alignment, contigs_info, profile
+    return alignment, profile
 
 
 def _choose_profile(err_rate):
@@ -80,40 +113,6 @@ def _parse_blasr(filename):
 
     mean_err = float(sum(errors)) / len(errors)
     return alignments, mean_err
-
-
-def _compose_raw_genome(contig_parts, out_file):
-    """
-    Concatenates contig parts and appends suffix from the beginning
-    """
-    CIRCULAR_WINDOW = 50000
-
-    genome_framents = fp.read_fasta_dict(contig_parts)
-    contig_types = {}
-    by_contig = defaultdict(list)
-    for h, s in genome_framents.iteritems():
-        tokens = h.split("_")
-        cont_type = tokens[0]
-        contig_id = tokens[0] + "_" + tokens[1]
-        part_id = int(tokens[3])
-        contig_types[contig_id] = cont_type
-        by_contig[contig_id].append((part_id, s))
-
-    contigs_info = {}
-    contigs_fasta = {}
-    for contig_id, contig_seqs in by_contig.iteritems():
-        seqs_sorted = sorted(contig_seqs, key=lambda p: p[0])
-        contig_concat = "".join(map(lambda p: p[1], seqs_sorted))
-        contig_len = len(contig_concat)
-        if contig_types[contig_id] == "circular":
-            if len(contig_concat) > CIRCULAR_WINDOW:
-                contig_concat += contig_concat[:CIRCULAR_WINDOW]
-        contigs_fasta[contig_id] = contig_concat
-        contigs_info[contig_id] = ContigInfo(contigs_info, contig_len,
-                                             contig_types[contig_id])
-
-    fp.write_fasta_dict(contigs_fasta, out_file)
-    return contigs_info
 
 
 def _run_blasr(reference_file, reads_file, num_proc, out_file):

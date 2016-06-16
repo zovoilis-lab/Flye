@@ -269,14 +269,11 @@ OverlapDetector::getReadOverlaps(FastaRecord::Id currentReadId) const
 		}
 	}
 
-
-	/*
 	if (!debugOverlaps.empty())
 	{
 		_logMutex.lock();
 		Logger::get().debug() << "Ovlps for " 
-					<< _seqContainer.getIndex().at(currentReadId).description
-					<< " " << readIndex.at(currentReadId).size();
+					<< _seqContainer.seqName(currentReadId);
 		for (auto& ovlp : debugOverlaps)
 		{
 			auto extLen = _seqContainer.seqLen(ovlp.extId);
@@ -287,7 +284,7 @@ OverlapDetector::getReadOverlaps(FastaRecord::Id currentReadId) const
 					<< "\t" << this->overlapTest(ovlp, curLen, extLen);
 		}
 		_logMutex.unlock();
-	}*/
+	}
 
 	return detectedOverlaps;
 }

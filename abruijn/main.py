@@ -23,6 +23,30 @@ from abruijn.__version__ import __version__
 logger = logging.getLogger()
 
 
+def _polish(contig_parts, work_dir, args):
+    """
+    Polishes draft assembly in multiple iterations
+    """
+    concat_contigs = os.path.join(work_dir, "draft_assembly.fasta")
+    contigs_info = aln.compose_raw_genome(contig_parts, concat_contigs)
+
+    cur_sequence = concat_contigs
+    for i in xrange(args.num_iters):
+        logger.info("Polishing iteration {0}".format(i + 1))
+        iter_id = str(i + 1)
+        alignment, profile = \
+                aln.get_alignment(cur_sequence, args.reads,
+                                  args.threads, work_dir, iter_id)
+        bubbles = bbl.get_bubbles(alignment, contigs_info)
+        polished_seqs = pol.polish(bubbles, args.threads, profile,
+                                   work_dir, iter_id)
+        out_polished = os.path.join(work_dir, "polished" + iter_id + ".fasta")
+        fp.write_fasta_dict(polished_seqs, out_polished)
+        cur_sequence = out_polished
+
+    return cur_sequence
+
+
 def run(args):
     if not os.path.isdir(args.out_dir):
         os.mkdir(args.out_dir)
@@ -37,16 +61,11 @@ def run(args):
     asm.check_binaries()
 
     preassembly = os.path.join(work_dir, "read_edges.fasta")
-    asm.assemble(args.reads, preassembly, args.kmer_size, args.min_cov,
-                 args.max_cov, args.coverage, args.debug, log_file,
-                 args.threads)
-    alignment, contigs_info, profile = \
-            aln.get_alignment(preassembly, args.reads,
-                              args.threads, work_dir)
-    bubbles = bbl.get_bubbles(alignment, contigs_info)
-    polished_seqs = pol.polish(bubbles, args.threads, work_dir, profile)
-    out_genome = os.path.join(work_dir, "contigs.fasta")
-    fp.write_fasta_dict(polished_seqs, out_genome)
+    #asm.assemble(args.reads, preassembly, args.kmer_size, args.min_cov,
+    #             args.max_cov, args.coverage, args.debug, log_file,
+    #             args.threads)
+
+    out_genome = _polish(preassembly, work_dir, args)
     logger.info("Done! Your assembly is in file: " + out_genome)
 
 
@@ -88,6 +107,9 @@ def main():
     parser.add_argument("-t", "--threads", dest="threads", type=int,
                         default=1, help="number of parallel threads "
                         "(default: 1)")
+    parser.add_argument("-i", "--iterations", dest="num_iters", type=int,
+                        default=2, help="number of polishing iterations "
+                        "(default: 2)")
     parser.add_argument("-k", "--kmer-size", dest="kmer_size", type=int,
                         default=15, help="kmer size (default: 15)")
     parser.add_argument("-m", "--min-cov", dest="min_cov", type=int,

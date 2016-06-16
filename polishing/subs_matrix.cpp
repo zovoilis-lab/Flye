@@ -44,7 +44,7 @@ namespace
 	static const size_t NUM_STATES = 128;
 	static const size_t NUM_OBS = 65536;
 	static const size_t MAX_RUN = 15;
-	static const double ZERO_PROB = 0.000000001f;
+	static const double ZERO_PROB = 0.001f;
 }
 
 SubstitutionMatrix::SubstitutionMatrix(const std::string& path)
