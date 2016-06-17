@@ -53,7 +53,7 @@ private:
 	bool  isProperLeftExtension(const OverlapRange& ovlp);
 	bool  isBranching(FastaRecord::Id readId);
 	int   countRightExtensions(FastaRecord::Id readId);
-	float extensionIndex(FastaRecord::Id readId);
+	float extensionIndex(FastaRecord::Id readId, bool verbose=false);
 
 	std::vector<ContigPath> _contigPaths;
 	std::unordered_set<FastaRecord::Id>	_visitedReads;

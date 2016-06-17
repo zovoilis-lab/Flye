@@ -8,7 +8,6 @@
 
 #include "contig.h"
 #include "logger.h"
-#include "matrix.h"
 
 void ContigGenerator::generateContigs()
 {
@@ -28,7 +27,6 @@ void ContigGenerator::generateContigs()
 		}
 	}
 }
-
 
 std::vector<FastaRecord> 
 ContigGenerator::generateLinear(const ContigPath& path)
@@ -120,95 +118,113 @@ void ContigGenerator::outputContigs(const std::string& fileName)
 	SequenceContainer::writeFasta(allSeqs, fileName);
 }
 
-namespace
+void ContigGenerator::pairwiseAlignment(const std::string& seqOne, 
+										const std::string& seqTwo,
+						   				std::string& outOne, 
+										std::string& outTwo)
 {
-	void pairwiseAlignment(const std::string& seqOne, const std::string& seqTwo,
-						   std::string& outOne, std::string& outTwo, 
-						   int bandWidth)
+	static const int32_t MATCH = 2;
+	static const int32_t SUBST = -2;
+	static const int32_t INDEL = -1;
+	auto matchScore = [](char a, char b){return a == b ? MATCH : SUBST;};
+
+	int width = std::max(abs((int)seqOne.length() - (int)seqTwo.length()) * 2,
+						 _maximumJump);
+
+	if (_scoreMatrix.nrows() < seqOne.length() + 1 ||
+		_scoreMatrix.ncols() < seqTwo.length() + 1)
 	{
-		static const int32_t MATCH = 2;
-		static const int32_t SUBST = -2;
-		static const int32_t INDEL = -1;
-		auto matchScore = [](char a, char b){return a == b ? MATCH : SUBST;};
-
-		Matrix<int32_t> scoreMat(seqOne.length() + 1, seqTwo.length() + 1);
-		Matrix<char> backtrackMat(seqOne.length() + 1, seqTwo.length() + 1);
-
-		scoreMat.at(0, 0) = 0;
-		backtrackMat.at(0, 0) = 0;
-		for (size_t i = 0; i < seqOne.length(); ++i) 
-		{
-			scoreMat.at(i + 1, 0) = scoreMat.at(i, 0) + INDEL;
-			backtrackMat.at(i + 1, 0) = 1;
-		}
-		for (size_t i = 0; i < seqTwo.length(); ++i) 
-		{
-			scoreMat.at(0, i + 1) = scoreMat.at(0, i) + INDEL;
-			backtrackMat.at(0, i + 1) = 0;
-		}
-
-		//filling DP matrices
-		//TODO: more accurate indices
-		for (size_t i = 1; i < seqOne.length() + 1; ++i)
-		{
-			size_t diagLeft = std::max(1, (int)i - bandWidth);
-			size_t diagRight = std::min((int)seqTwo.length() + 1, 
-										(int)i + bandWidth);
-			for (size_t j = diagLeft; j < diagRight; ++j)
-			{
-				int32_t left = scoreMat.at(i, j - 1) + INDEL;
-				int32_t up = scoreMat.at(i - 1, j) + INDEL;
-				int32_t cross = scoreMat.at(i - 1, j - 1) + 
-								matchScore(seqOne[i - 1], seqTwo[j - 1]);
-
-				int prev = 0;
-				int32_t score = left;
-				if (up > score)
-				{
-					prev = 1;
-					score = up;
-				}
-				if (cross > score)
-				{
-					prev = 2;
-					score = cross;
-				}
-				scoreMat.at(i, j) = score;
-				backtrackMat.at(i, j) = prev;
-			}
-		}
-
-		//backtrack
-		int i = seqOne.length();
-		int j = seqTwo.length();
-		outOne.reserve(i * 1.5);
-		outTwo.reserve(j * 1.5);
-
-		while (i != 0 || j != 0) 
-		{
-			if(backtrackMat.at(i, j) == 1) 
-			{
-				outOne += seqOne[i - 1];
-				outTwo += '-';
-				i -= 1;
-			}
-			else if (backtrackMat.at(i, j) == 0) 
-			{
-				outOne += '-';
-				outTwo += seqTwo[j - 1];
-				j -= 1;
-			}
-			else
-			{
-				outOne += seqOne[i - 1];
-				outTwo += seqTwo[j - 1];
-				i -= 1;
-				j -= 1;
-			}
-		}
-		std::reverse(outOne.begin(), outOne.end());
-		std::reverse(outTwo.begin(), outTwo.end());
+		//reallocate
+		_scoreMatrix = Matrix<int32_t>(seqOne.length() * 1.5, 
+									   seqTwo.length() * 1.5);
+		_backtrackMatrix = Matrix<char>(seqOne.length() * 1.5, 
+										seqTwo.length() * 1.5);
 	}
+	else
+	{
+		//set to zeros
+		for (size_t row = 0; row < seqOne.length() + 1; ++row)
+		{
+			for (size_t col = 0; col < seqTwo.length() + 1; ++col)
+			{
+				_scoreMatrix.at(row, col) = 0;
+				_backtrackMatrix.at(row, col) = 0;
+			}
+		}
+	}
+
+	for (size_t i = 0; i < seqOne.length(); ++i) 
+	{
+		_scoreMatrix.at(i + 1, 0) = _scoreMatrix.at(i, 0) + INDEL;
+		_backtrackMatrix.at(i + 1, 0) = 1;
+	}
+	for (size_t i = 0; i < seqTwo.length(); ++i) 
+	{
+		_scoreMatrix.at(0, i + 1) = _scoreMatrix.at(0, i) + INDEL;
+		_backtrackMatrix.at(0, i + 1) = 0;
+	}
+
+	//filling DP matrices
+	//TODO: more accurate indices (instead of zeroing)
+	for (size_t i = 1; i < seqOne.length() + 1; ++i)
+	{
+		size_t diagLeft = std::max(1, (int)i - width);
+		size_t diagRight = std::min((int)seqTwo.length() + 1, 
+									(int)i + width);
+		for (size_t j = diagLeft; j < diagRight; ++j)
+		{
+			int32_t left = _scoreMatrix.at(i, j - 1) + INDEL;
+			int32_t up = _scoreMatrix.at(i - 1, j) + INDEL;
+			int32_t cross = _scoreMatrix.at(i - 1, j - 1) + 
+							matchScore(seqOne[i - 1], seqTwo[j - 1]);
+
+			int prev = 0;
+			int32_t score = left;
+			if (up > score)
+			{
+				prev = 1;
+				score = up;
+			}
+			if (cross > score)
+			{
+				prev = 2;
+				score = cross;
+			}
+			_scoreMatrix.at(i, j) = score;
+			_backtrackMatrix.at(i, j) = prev;
+		}
+	}
+
+	//backtrack
+	int i = seqOne.length();
+	int j = seqTwo.length();
+	outOne.reserve(i * 1.5);
+	outTwo.reserve(j * 1.5);
+
+	while (i != 0 || j != 0) 
+	{
+		if(_backtrackMatrix.at(i, j) == 1) 
+		{
+			outOne += seqOne[i - 1];
+			outTwo += '-';
+			i -= 1;
+		}
+		else if (_backtrackMatrix.at(i, j) == 0) 
+		{
+			outOne += '-';
+			outTwo += seqTwo[j - 1];
+			j -= 1;
+		}
+		else
+		{
+			outOne += seqOne[i - 1];
+			outTwo += seqTwo[j - 1];
+			i -= 1;
+			j -= 1;
+		}
+	}
+	std::reverse(outOne.begin(), outOne.end());
+	std::reverse(outTwo.begin(), outTwo.end());
 }
 
 
@@ -233,12 +249,8 @@ ContigGenerator::getSwitchPositions(FastaRecord::Id leftRead,
 											 	 readsOvlp->extRange());
 	std::string alignedLeft;
 	std::string alignedRight;
-	int width = std::max(abs((int)leftSeq.length() - (int)rightSeq.length()) * 2,
-						 _maximumJump);
-	pairwiseAlignment(leftSeq, rightSeq, alignedLeft, 
-					  alignedRight, width);
+	pairwiseAlignment(leftSeq, rightSeq, alignedLeft, alignedRight);
 
-	//_vertexIndex.getKmerSize();
 	int leftPos = readsOvlp->curBegin;
 	int rightPos = readsOvlp->extBegin;
 	int matchRun = 0;

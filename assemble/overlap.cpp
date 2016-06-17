@@ -268,7 +268,8 @@ OverlapDetector::getReadOverlaps(FastaRecord::Id currentReadId) const
 			detectedOverlaps.push_back(std::move(maxOverlap));
 		}
 	}
-
+	
+	/*
 	if (!debugOverlaps.empty())
 	{
 		_logMutex.lock();
@@ -285,6 +286,7 @@ OverlapDetector::getReadOverlaps(FastaRecord::Id currentReadId) const
 		}
 		_logMutex.unlock();
 	}
+	*/
 
 	return detectedOverlaps;
 }

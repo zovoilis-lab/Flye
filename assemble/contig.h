@@ -10,6 +10,8 @@
 #include "extender.h"
 #include "overlap.h"
 
+#include "matrix.h"
+
 class ContigGenerator
 {
 public:
@@ -32,6 +34,9 @@ private:
 	const VertexIndex& _vertexIndex;
 	const SequenceContainer& _seqContainer;
 
+	void initAlignmentMatrices();
+	void pairwiseAlignment(const std::string& seqOne, const std::string& seqTwo,
+						   std::string& outOne, std::string& outTwo);
 	std::pair<int32_t, int32_t> getSwitchPositions(FastaRecord::Id leftRead, 
 												   FastaRecord::Id rightRead,
 												   int32_t prevSwitch);
@@ -39,4 +44,6 @@ private:
 	std::vector<FastaRecord> generateLinear(const ContigPath& path);
 
 	std::vector<std::vector<FastaRecord>> _contigs;
+	Matrix<int32_t>	_scoreMatrix;
+	Matrix<char>	_backtrackMatrix;	
 };
