@@ -35,13 +35,11 @@ def check_binaries():
         raise AlignmentException("Blasr is not installed")
 
 
-def compose_raw_genome(contig_parts, out_file):
+def concatenate_contigs(contigs_file):
     """
-    Concatenates contig parts and appends suffix from the beginning
+    Concatenates contig parts output by assembly module
     """
-    CIRCULAR_WINDOW = 50000
-
-    genome_framents = fp.read_fasta_dict(contig_parts)
+    genome_framents = fp.read_fasta_dict(contigs_file)
     contig_types = {}
     by_contig = defaultdict(list)
     for h, s in genome_framents.iteritems():
@@ -52,24 +50,39 @@ def compose_raw_genome(contig_parts, out_file):
         contig_types[contig_id] = cont_type
         by_contig[contig_id].append((part_id, s))
 
-    contigs_info = {}
     contigs_fasta = {}
     for contig_id, contig_seqs in by_contig.iteritems():
         seqs_sorted = sorted(contig_seqs, key=lambda p: p[0])
         contig_concat = "".join(map(lambda p: p[1], seqs_sorted))
         contig_len = len(contig_concat)
-        if contig_types[contig_id] == "circular":
-            if len(contig_concat) > CIRCULAR_WINDOW:
-                contig_concat += contig_concat[:CIRCULAR_WINDOW]
         contigs_fasta[contig_id] = contig_concat
-        contigs_info[contig_id] = ContigInfo(contigs_info, contig_len,
-                                             contig_types[contig_id])
+
+    return contigs_fasta
+
+
+def make_blasr_reference(contigs_fasta, out_file):
+    """
+    Outputs 'reference' for BLASR run, appends a suffix to circular contigs
+    """
+    CIRCULAR_WINDOW = 50000
+
+    contigs_info = {}
+    for contig_id in contigs_fasta:
+        contig_type = contig_id.split("_")[0]
+        contig_len = len(contigs_fasta[contig_id])
+        contigs_info[contig_id] = ContigInfo(contig_id, contig_len,
+                                             contig_type)
+
+        if (contig_type == "circular" and
+            len(contigs_fasta[contig_id]) > CIRCULAR_WINDOW):
+            contigs_fasta[contig_id] += \
+                    contigs_fasta[contig_id][:CIRCULAR_WINDOW]
 
     fp.write_fasta_dict(contigs_fasta, out_file)
     return contigs_info
 
 
-def get_alignment(reference_file, reads_file, num_proc,
+def make_alignment(reference_file, reads_file, num_proc,
                   work_dir, iter_id):
     """
     Runs blasr and return parsed alignment

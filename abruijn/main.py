@@ -23,28 +23,32 @@ from abruijn.__version__ import __version__
 logger = logging.getLogger()
 
 
-def _polish(contig_parts, work_dir, args):
+def _polish(draft_assembly, work_dir, args):
     """
     Polishes draft assembly in multiple iterations
     """
-    concat_contigs = os.path.join(work_dir, "draft_assembly.fasta")
-    contigs_info = aln.compose_raw_genome(contig_parts, concat_contigs)
+    contigs_fasta = aln.concatenate_contigs(draft_assembly)
+    cur_fasta = contigs_fasta
+    polished_file = draft_assembly
 
-    cur_sequence = concat_contigs
     for i in xrange(args.num_iters):
         logger.info("Polishing iteration {0}".format(i + 1))
         iter_id = str(i + 1)
-        alignment, profile = \
-                aln.get_alignment(cur_sequence, args.reads,
-                                  args.threads, work_dir, iter_id)
-        bubbles = bbl.get_bubbles(alignment, contigs_info)
-        polished_seqs = pol.polish(bubbles, args.threads, profile,
-                                   work_dir, iter_id)
-        out_polished = os.path.join(work_dir, "polished_" + iter_id + ".fasta")
-        fp.write_fasta_dict(polished_seqs, out_polished)
-        cur_sequence = out_polished
 
-    return cur_sequence
+        reference_file = os.path.join(work_dir,
+                                      "blasr_ref_" + iter_id + ".fasta")
+        contigs_info = aln.make_blasr_reference(cur_fasta, reference_file)
+        alignment, profile = \
+                aln.make_alignment(reference_file, args.reads,
+                                   args.threads, work_dir, iter_id)
+        bubbles = bbl.get_bubbles(alignment, contigs_info)
+        polished_fasta = pol.polish(bubbles, args.threads, profile,
+                                    work_dir, iter_id)
+        polished_file = os.path.join(work_dir, "polished_" + iter_id + ".fasta")
+        fp.write_fasta_dict(polished_fasta, polished_file)
+        cur_fasta = polished_fasta
+
+    return polished_file
 
 
 def run(args):
@@ -60,7 +64,7 @@ def run(args):
     pol.check_binaries()
     asm.check_binaries()
 
-    preassembly = os.path.join(work_dir, "read_edges.fasta")
+    preassembly = os.path.join(work_dir, "draft_assembly.fasta")
     asm.assemble(args.reads, preassembly, args.kmer_size, args.min_cov,
                  args.max_cov, args.coverage, args.debug, log_file,
                  args.threads)
