@@ -20,8 +20,8 @@ struct FastaRecord
 		bool operator!=(const Id& other) const
 			{return !(*this == other);}
 
-		uint32_t rc() const		//reverse complement 
-			{return _id + 1 - (_id % 2) * 2;}
+		Id rc() const		//reverse complement 
+			{return Id(_id + 1 - (_id % 2) * 2);}
 		bool strand() const		//true = positive, false = negative
 			{return _id % 2;}
 		size_t hash() const 

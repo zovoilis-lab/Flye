@@ -246,8 +246,9 @@ OverlapDetector::getReadOverlaps(FastaRecord::Id currentReadId) const
 	for (const auto& ap : activePaths)
 	{
 		auto extLen = _seqContainer.seqLen(ap.first);
-		OverlapRange maxOverlap(0, 0, 0, 0);
-		OverlapRange outputOverlap(0, 0, 0, 0);
+		OverlapRange maxOverlap(FastaRecord::ID_NONE, FastaRecord::ID_NONE, 0, 0);
+		OverlapRange outputOverlap(FastaRecord::ID_NONE, 
+								   FastaRecord::ID_NONE, 0, 0);
 		bool passedTest = false;
 		for (auto& ovlp : ap.second)
 		{

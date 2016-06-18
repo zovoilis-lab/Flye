@@ -45,7 +45,7 @@ namespace
 }
 
 const FastaRecord::Id FastaRecord::ID_NONE = 
-			std::numeric_limits<uint32_t>::max();
+			Id(std::numeric_limits<uint32_t>::max());
 
 
 void SequenceContainer::readFasta(const std::string& fileName)
