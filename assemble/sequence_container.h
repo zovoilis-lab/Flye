@@ -13,7 +13,7 @@ struct FastaRecord
 {
 	struct Id
 	{
-		Id(uint32_t id): _id(id) {}
+		explicit Id(uint32_t id): _id(id) {}
 
 		bool operator==(const Id& other) const
 			{return _id == other._id;}
@@ -22,6 +22,8 @@ struct FastaRecord
 
 		uint32_t rc() const		//reverse complement 
 			{return _id + 1 - (_id % 2) * 2;}
+		bool strand() const		//true = positive, false = negative
+			{return _id % 2;}
 		size_t hash() const 
 			{return 0x9ddfea08eb382d69ULL * (size_t)_id;}
 	private:

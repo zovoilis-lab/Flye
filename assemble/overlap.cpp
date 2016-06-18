@@ -49,7 +49,9 @@ void OverlapDetector::parallelWorker()
 		_progress.advance();
 		FastaRecord::Id readId = _jobQueue[_nextJob++];
 		_overlapIndex[readId];	//empty vector by default
-		if (_seqContainer.seqLen(readId) < (size_t)_minimumOverlap) 
+
+		if (_seqContainer.seqLen(readId) < (size_t)_minimumOverlap ||
+			!readId.strand()) 
 			continue;
 
 		_fetchMutex.unlock();

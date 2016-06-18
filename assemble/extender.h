@@ -53,8 +53,14 @@ private:
 	bool  isProperLeftExtension(const OverlapRange& ovlp);
 	bool  isBranching(FastaRecord::Id readId);
 	int   countRightExtensions(FastaRecord::Id readId);
-	float extensionIndex(FastaRecord::Id readId, bool verbose=false);
+	//bool  resolvableRepeat(FastaRecord::Id);
+	//float extensionIndex(FastaRecord::Id readId, bool verbose=false);
 
-	std::vector<ContigPath> _contigPaths;
-	std::unordered_set<FastaRecord::Id>	_visitedReads;
+	void  coveredReads(const std::unordered_set<FastaRecord::Id>& allReads,
+					   FastaRecord::Id startRead, 
+					   std::unordered_set<FastaRecord::Id>& result);
+
+	std::vector<ContigPath> 				 _contigPaths;
+	std::unordered_set<FastaRecord::Id>		 _visitedReads;
+	std::unordered_map<FastaRecord::Id, int> _readsMultiplicity;
 };
