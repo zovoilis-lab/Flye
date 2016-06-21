@@ -14,6 +14,7 @@ void OverlapDetector::findAllOverlaps(size_t numThreads)
 {
 	Logger::get().info() << "Finding overlaps:";
 	_overlapMatrix.clear();
+	_overlapMatrix.reserve(_seqContainer.getIndex().size() * _coverage);
 	_jobQueue.clear();
 	_nextJob = 0;
 
@@ -52,7 +53,9 @@ void OverlapDetector::parallelWorker()
 
 		if (_seqContainer.seqLen(readId) < (size_t)_minimumOverlap ||
 			!readId.strand()) 
+		{
 			continue;
+		}
 
 		_fetchMutex.unlock();
 		auto detectedOverlaps = this->getReadOverlaps(readId);
@@ -68,21 +71,16 @@ void OverlapDetector::parallelWorker()
 			//detected overlap
 			_overlapMatrix[std::make_tuple(ovlp.curId, ovlp.extId)] = true;
 			_overlapIndex[ovlp.curId].push_back(ovlp);
-
 			//in opposite direction
-			ovlp.reverse();
+			ovlp = ovlp.reverse();
 			_overlapMatrix[std::make_tuple(ovlp.curId, ovlp.extId)] = true;
 			_overlapIndex[ovlp.curId].push_back(ovlp);
-
 			//on reverse strands
-			auto curLen = _seqContainer.seqLen(ovlp.curId);
-			auto extLen = _seqContainer.seqLen(ovlp.extId);
-			ovlp.complement(curLen, extLen);
+			ovlp = ovlp.complement();
 			_overlapMatrix[std::make_tuple(ovlp.curId, ovlp.extId)] = true;
 			_overlapIndex[ovlp.curId].push_back(ovlp);
-
 			//opposite again
-			ovlp.reverse();
+			ovlp = ovlp.reverse();
 			_overlapMatrix[std::make_tuple(ovlp.curId, ovlp.extId)] = true;
 			_overlapIndex[ovlp.curId].push_back(ovlp);
 		}
@@ -225,8 +223,8 @@ OverlapDetector::getReadOverlaps(FastaRecord::Id currentReadId) const
 				extPaths.back().extEnd = extPos;
 			}
 			//if no extensions possible (or there are no active paths), start a new path
-			if (!extendsClose && !extendsFar)
-				//this->goodStart(curPos, extPos, currentReadId, extReadPos.readId))
+			if (!extendsClose && !extendsFar &&
+				this->goodStart(curPos, extPos, currentReadId, extReadPos.readId))
 			{
 				extPaths.push_back(OverlapRange(currentReadId, extReadPos.readId,
 												curPos, extPos));
@@ -242,7 +240,7 @@ OverlapDetector::getReadOverlaps(FastaRecord::Id currentReadId) const
 	} //end loop over kmers in the current read
 	
 	std::vector<OverlapRange> detectedOverlaps;
-	std::vector<OverlapRange> debugOverlaps;
+	//std::vector<OverlapRange> debugOverlaps;
 	for (const auto& ap : activePaths)
 	{
 		auto extLen = _seqContainer.seqLen(ap.first);
@@ -260,10 +258,12 @@ OverlapDetector::getReadOverlaps(FastaRecord::Id currentReadId) const
 			if (outputOverlap.curRange() < ovlp.curRange()) outputOverlap = ovlp;
 		}
 
+		/*
 		if (outputOverlap.curRange() > 3000)
 		{
 			debugOverlaps.push_back(outputOverlap);
 		}
+		*/
 
 		if (passedTest)
 		{
@@ -312,7 +312,6 @@ void OverlapDetector::addOverlapShifts(OverlapRange& ovlp) const
 {
 	//get shared kmers inside the overlap
 	std::vector<int32_t> ovlpShifts;
-	//for (const auto& curKmer : _vertexIndex.byRead(ovlp.curId))
 	for (auto curKmer : IterSolidKmers(ovlp.curId))
 	{
 		if (ovlp.curBegin <= curKmer.position &&

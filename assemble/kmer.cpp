@@ -3,6 +3,7 @@
 //Released under the BSD license (see LICENSE file)
 
 #include <stdexcept>
+#include <cassert>
 
 #include "kmer.h"
 #include "vertex_index.h"
@@ -142,8 +143,7 @@ KmerPosition KmerIterator::operator*() const
 
 KmerPosition SolidKmerIterator::operator*() const
 {
-	if (!VertexIndex::get().isSolid(_kmer)) 
-		throw std::runtime_error("Not solid");
+	assert(VertexIndex::get().isSolid(_kmer));
 	return KmerPosition(_kmer, _position);
 }
 
@@ -157,15 +157,15 @@ SolidKmerIterator::SolidKmerIterator(const std::string* readSeq,
 
 SolidKmerIterator& SolidKmerIterator::operator++()
 {
+	size_t appendPos = _position + VertexIndex::get().getKmerSize();
 	do
 	{
-		size_t appendPos = _position + VertexIndex::get().getKmerSize();
-		_kmer.appendRight(_readSeq->at(appendPos));
-		++_position;
+		_kmer.appendRight((*_readSeq)[appendPos++]);
 	}
 	while(!VertexIndex::get().isSolid(_kmer) &&
-		  _position < _readSeq->length() - VertexIndex::get().getKmerSize());
+		  appendPos < _readSeq->length());
 
+	_position = appendPos - VertexIndex::get().getKmerSize();
 	return *this;
 }
 

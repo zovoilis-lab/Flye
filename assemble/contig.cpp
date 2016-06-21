@@ -128,8 +128,8 @@ void ContigGenerator::pairwiseAlignment(const std::string& seqOne,
 	static const int32_t INDEL = -1;
 	auto matchScore = [](char a, char b){return a == b ? MATCH : SUBST;};
 
-	int width = std::max(abs((int)seqOne.length() - (int)seqTwo.length()) * 2,
-						 _maximumJump);
+	int width = abs((int)seqOne.length() - 
+					(int)seqTwo.length()) + _maximumJump;
 
 	if (_scoreMatrix.nrows() < seqOne.length() + 1 ||
 		_scoreMatrix.ncols() < seqTwo.length() + 1)
@@ -140,19 +140,9 @@ void ContigGenerator::pairwiseAlignment(const std::string& seqOne,
 		_backtrackMatrix = Matrix<char>(seqOne.length() * 1.5, 
 										seqTwo.length() * 1.5);
 	}
-	else
-	{
-		//set to zeros
-		for (size_t row = 0; row < seqOne.length() + 1; ++row)
-		{
-			for (size_t col = 0; col < seqTwo.length() + 1; ++col)
-			{
-				_scoreMatrix.at(row, col) = 0;
-				_backtrackMatrix.at(row, col) = 0;
-			}
-		}
-	}
 
+	_scoreMatrix.at(0, 0) = 0;
+	_backtrackMatrix.at(0, 0) = 0;
 	for (size_t i = 0; i < seqOne.length(); ++i) 
 	{
 		_scoreMatrix.at(i + 1, 0) = _scoreMatrix.at(i, 0) + INDEL;
@@ -165,7 +155,6 @@ void ContigGenerator::pairwiseAlignment(const std::string& seqOne,
 	}
 
 	//filling DP matrices
-	//TODO: more accurate indices (instead of zeroing)
 	for (size_t i = 1; i < seqOne.length() + 1; ++i)
 	{
 		size_t diagLeft = std::max(1, (int)i - width);
@@ -178,17 +167,17 @@ void ContigGenerator::pairwiseAlignment(const std::string& seqOne,
 			int32_t cross = _scoreMatrix.at(i - 1, j - 1) + 
 							matchScore(seqOne[i - 1], seqTwo[j - 1]);
 
-			int prev = 0;
-			int32_t score = left;
-			if (up > score)
+			char prev = 2;
+			int32_t score = cross;
+			if (j < diagRight - 1 && up > score)
 			{
 				prev = 1;
 				score = up;
 			}
-			if (cross > score)
+			if (j > diagLeft && left > score)
 			{
-				prev = 2;
-				score = cross;
+				prev = 0;
+				score = left;
 			}
 			_scoreMatrix.at(i, j) = score;
 			_backtrackMatrix.at(i, j) = prev;
@@ -203,19 +192,19 @@ void ContigGenerator::pairwiseAlignment(const std::string& seqOne,
 
 	while (i != 0 || j != 0) 
 	{
-		if(_backtrackMatrix.at(i, j) == 1) 
+		if(_backtrackMatrix.at(i, j) == 1) //up
 		{
 			outOne += seqOne[i - 1];
 			outTwo += '-';
 			i -= 1;
 		}
-		else if (_backtrackMatrix.at(i, j) == 0) 
+		else if (_backtrackMatrix.at(i, j) == 0) //left
 		{
 			outOne += '-';
 			outTwo += seqTwo[j - 1];
 			j -= 1;
 		}
-		else
+		else	//cross
 		{
 			outOne += seqOne[i - 1];
 			outTwo += seqTwo[j - 1];

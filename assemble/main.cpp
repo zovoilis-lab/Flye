@@ -109,7 +109,10 @@ int main(int argc, char** argv)
 	std::string logFile;
 
 	if (!parseArgs(argc, argv, readsFasta, outAssembly, logFile, coverage,
-				   kmerSize, minKmerCov, maxKmerCov, debugging, numThreads)) return 1;
+				   kmerSize, minKmerCov, maxKmerCov, debugging, numThreads)) 
+	{
+		return 1;
+	}
 
 	try
 	{
@@ -124,7 +127,6 @@ int main(int argc, char** argv)
 
 		//rough estimate
 		size_t hardThreshold = std::max(1, coverage / MAGIC_10);
-		//vertexIndex.buildKmerIndex(seqContainer, hardThreshold);
 		vertexIndex.countKmers(seqContainer, hardThreshold);
 
 		if (maxKmerCov == -1)
@@ -139,7 +141,7 @@ int main(int argc, char** argv)
 
 		vertexIndex.buildIndex(minKmerCov, maxKmerCov);
 
-		OverlapDetector ovlp(MAX_JUMP, MIN_OVERLAP, MAX_OVERHANG);
+		OverlapDetector ovlp(MAX_JUMP, MIN_OVERLAP, MAX_OVERHANG, coverage);
 		ovlp.findAllOverlaps(numThreads);
 
 		ChimeraDetector chimDetect(MAX_OVERHANG, MAX_JUMP, MIN_OVERLAP,

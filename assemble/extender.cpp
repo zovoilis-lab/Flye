@@ -144,12 +144,14 @@ void Extender::assembleContigs()
 		}
 
 		//additionaly, should not overlap with any of visited reads
+		/*
 		bool ovlpsVisited = false;
 		for (auto& ovlp : _ovlpDetector.getOverlapIndex().at(indexPair.first))
 		{
 			if (_visitedReads.count(ovlp.extId)) ovlpsVisited = true;
 		}
 		if (ovlpsVisited) continue;
+		*/
 
 		ContigPath path = this->extendRead(indexPair.first);
 
@@ -195,7 +197,7 @@ void Extender::coveredReads(const std::unordered_set<FastaRecord::Id>& allReads,
 		visited.insert(curRead);
 		for (auto& ovlp : _ovlpDetector.getOverlapIndex().at(curRead))
 		{
-			if (allReads.count(ovlp.extId) && ovlp.rightShift < 0)
+			if (allReads.count(ovlp.extId) && this->coversRight(ovlp.reverse()))
 			{
 				dfsStack.push(ovlp.extId);
 			}
@@ -213,10 +215,7 @@ int Extender::rightMultiplicity(FastaRecord::Id readId)
 	auto& overlaps = _ovlpDetector.getOverlapIndex().at(readId);
 	for (auto& ovlp : overlaps)
 	{
-		if (this->isProperRightExtension(ovlp)) 
-		{
-			extensions.insert(ovlp.extId);
-		}
+		if (this->extendsRight(ovlp)) extensions.insert(ovlp.extId);
 	}
 	if (extensions.size() < 2) return 1;
 
@@ -296,7 +295,7 @@ FastaRecord::Id Extender::stepRight(FastaRecord::Id readId,
 	for (auto& ovlp : overlaps)
 	{
 		assert(ovlp.curId != ovlp.extId);
-		if (this->isProperRightExtension(ovlp)) 
+		if (this->extendsRight(ovlp)) 
 		{
 			if (ovlp.extId == startReadId) return startReadId;
 			if (this->countRightExtensions(ovlp.extId) > 0)
@@ -324,11 +323,8 @@ FastaRecord::Id Extender::stepRight(FastaRecord::Id readId,
 			if (ovlp.extId == readId) ovlpShift = -ovlp.rightShift;
 			if (!extensions.count(ovlp.extId)) continue;
 
-			auto revOvlp = ovlp;
-			revOvlp.reverse();
-
-			if (this->isProperRightExtension(ovlp)) ++rightSupport;
-			if (this->isProperRightExtension(revOvlp)) ++leftSupport;
+			if (this->extendsRight(ovlp)) ++rightSupport;
+			if (this->extendsRight(ovlp.reverse())) ++leftSupport;
 		}
 
 		int minSupport = std::min(leftSupport, rightSupport);
@@ -377,7 +373,7 @@ bool Extender::resolvableRepeat(FastaRecord::Id readId)
 
 	for (auto& ovlp : overlaps)
 	{
-		if (this->isProperRightExtension(ovlp) &&
+		if (this->extendsRight(ovlp) &&
 			this->countRightExtensions(ovlp.extId) > 0 &&
 			!this->isBranching(ovlp.extId.rc()))
 		{
@@ -392,7 +388,7 @@ int Extender::countRightExtensions(FastaRecord::Id readId)
 	int count = 0;
 	for (auto& ovlp : _ovlpDetector.getOverlapIndex().at(readId))
 	{
-		if (this->isProperRightExtension(ovlp)) ++count;
+		if (this->extendsRight(ovlp)) ++count;
 	}
 	return count;
 }
@@ -402,8 +398,13 @@ bool Extender::isBranching(FastaRecord::Id readId)
 	return _readsMultiplicity[readId] > 1;
 }
 
-bool Extender::isProperRightExtension(const OverlapRange& ovlp)
+bool Extender::extendsRight(const OverlapRange& ovlp)
 {
 	return !_chimDetector.isChimeric(ovlp.extId) && 
 		   ovlp.rightShift > _maximumJump;
+}
+
+bool Extender::coversRight(const OverlapRange& ovlp)
+{
+	return ovlp.rightShift > 0;
 }

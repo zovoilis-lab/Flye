@@ -51,9 +51,10 @@ private:
 	ContigPath extendRead(FastaRecord::Id readId);
 
 	int   rightMultiplicity(FastaRecord::Id readId);
-	bool  isProperRightExtension(const OverlapRange& ovlp);
 	bool  isBranching(FastaRecord::Id readId);
 	int   countRightExtensions(FastaRecord::Id readId);
+	bool  extendsRight(const OverlapRange& ovlp);
+	bool  coversRight(const OverlapRange& ovlp);
 	bool  resolvableRepeat(FastaRecord::Id);
 
 	void  coveredReads(const std::unordered_set<FastaRecord::Id>& allReads,

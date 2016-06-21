@@ -23,31 +23,39 @@ struct OverlapRange
 	int32_t curRange() const {return curEnd - curBegin;}
 	int32_t extRange() const {return extEnd - extBegin;}
 
-	void reverse()
+	OverlapRange reverse() const
 	{
-		std::swap(curId, extId);
-		std::swap(curBegin, extBegin);
-		std::swap(curEnd, extEnd);
-		leftShift = -leftShift;
-		rightShift = -rightShift;
+		OverlapRange rev(*this);
+		std::swap(rev.curId, rev.extId);
+		std::swap(rev.curBegin, rev.extBegin);
+		std::swap(rev.curEnd, rev.extEnd);
+		rev.leftShift = -rev.leftShift;
+		rev.rightShift = -rev.rightShift;
+		return rev;
 	}
 
-	void complement(int32_t curLen, int32_t extLen)
+	OverlapRange complement() const
 	{
-		std::swap(leftShift, rightShift);
-		leftShift = -leftShift;
-		rightShift = -rightShift;
+		int32_t curLen = SequenceContainer::get().seqLen(curId);
+		int32_t extLen = SequenceContainer::get().seqLen(extId);
 
-		std::swap(curBegin, curEnd);
-		curBegin = curLen - curBegin;
-		curEnd = curLen - curEnd;
+		OverlapRange comp(*this);
+		std::swap(comp.leftShift, comp.rightShift);
+		comp.leftShift = -comp.leftShift;
+		comp.rightShift = -comp.rightShift;
 
-		std::swap(extBegin, extEnd);
-		extBegin = extLen - extBegin;
-		extEnd = extLen - extEnd;
+		std::swap(comp.curBegin, comp.curEnd);
+		comp.curBegin = curLen - comp.curBegin;
+		comp.curEnd = curLen - comp.curEnd;
 
-		curId = curId.rc();
-		extId = extId.rc();
+		std::swap(comp.extBegin, comp.extEnd);
+		comp.extBegin = extLen - comp.extBegin;
+		comp.extEnd = extLen - comp.extEnd;
+
+		comp.curId = comp.curId.rc();
+		comp.extId = comp.extId.rc();
+
+		return comp;
 	}
 
 	bool contains(int32_t curPos, int32_t extPos) const
@@ -72,10 +80,11 @@ class OverlapDetector
 {
 public:
 	OverlapDetector(int maximumJump, int minimumOverlap,
-					int maximumOverhang):
+					int maximumOverhang, int coverage):
 		_maximumJump(maximumJump), 
 		_minimumOverlap(minimumOverlap),
 		_maximumOverhang(maximumOverhang), 
+		_coverage(coverage),
 		_vertexIndex(VertexIndex::get()),
 		_seqContainer(SequenceContainer::get()), 
 		_progress(_seqContainer.getIndex().size()),
@@ -116,6 +125,7 @@ private:
 	const int _maximumJump;
 	const int _minimumOverlap;
 	const int _maximumOverhang;
+	const int _coverage;
 
 	OverlapIndex _overlapIndex;
 	cuckoohash_map<id_pair_t, bool, key_hash> _overlapMatrix;
