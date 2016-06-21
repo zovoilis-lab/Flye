@@ -27,11 +27,12 @@ class Extender
 public:
 	Extender(const OverlapDetector& ovlpDetector, 
 			 const ChimeraDetector& chimDetector,
-			 int maxJump):
+			 int maxJump, int coverage):
 		_ovlpDetector(ovlpDetector), 
 		_chimDetector(chimDetector),
 		_seqContainer(SequenceContainer::get()), 
-		_maximumJump(maxJump)
+		_maximumJump(maxJump),
+		_coverage(coverage)
 	{}
 
 	void assembleContigs();
@@ -43,6 +44,7 @@ private:
 	const ChimeraDetector&   _chimDetector;
 	const SequenceContainer& _seqContainer;
 	const int _maximumJump;
+	const int _coverage;
 
 	FastaRecord::Id stepRight(FastaRecord::Id readId, 
 							  FastaRecord::Id startReadId);
@@ -50,11 +52,9 @@ private:
 
 	int   rightMultiplicity(FastaRecord::Id readId);
 	bool  isProperRightExtension(const OverlapRange& ovlp);
-	bool  isProperLeftExtension(const OverlapRange& ovlp);
 	bool  isBranching(FastaRecord::Id readId);
 	int   countRightExtensions(FastaRecord::Id readId);
-	//bool  resolvableRepeat(FastaRecord::Id);
-	//float extensionIndex(FastaRecord::Id readId, bool verbose=false);
+	bool  resolvableRepeat(FastaRecord::Id);
 
 	void  coveredReads(const std::unordered_set<FastaRecord::Id>& allReads,
 					   FastaRecord::Id startRead, 

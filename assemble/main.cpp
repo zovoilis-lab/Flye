@@ -146,7 +146,7 @@ int main(int argc, char** argv)
 								   coverage, ovlp);
 		chimDetect.detectChimeras();
 
-		Extender extender(ovlp, chimDetect, MAX_JUMP);
+		Extender extender(ovlp, chimDetect, MAX_JUMP, coverage);
 		extender.assembleContigs();
 
 		ContigGenerator contGen(MAX_JUMP, extender, ovlp);
