@@ -45,6 +45,4 @@ private:
 				   std::string& o_w);
 
 	void writeMatToFile(const FloatMatrix& scoreMat);
-	void writeStringsToFile(const std::string& v, const std::string& w, 
-							float score);
 };

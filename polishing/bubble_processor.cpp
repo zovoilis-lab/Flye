@@ -92,13 +92,13 @@ void BubbleProcessor::writeLog(const std::string& fileName)
 				 << std::right << methods[stepInfo.methodUsed] << std::endl;
 
 			if (stepInfo.methodUsed == StepDel)
-				fout << "Char at index: " << stepInfo.changedIndex << " was deleted. \n";
+				fout << "Char at pos: " << stepInfo.changedIndex << " was deleted. \n";
 			else if (stepInfo.methodUsed == StepSub)
-				fout << "Char at index " << stepInfo.changedIndex << " was substituted with " 
-					<< "'" << stepInfo.changedLetter << "'" << ".\n";
+				fout << "Char at pos " << stepInfo.changedIndex << " was substituted with " 
+					<< "'" << stepInfo.changedLetter << "'.\n";
 			else if (stepInfo.methodUsed == StepIns)
-				fout << "'"<< stepInfo.changedIndex << "'" 
-					 << " was inserted at index " << stepInfo.changedLetter << ".\n";
+				fout << "'"<< stepInfo.changedLetter << "'" 
+					 << " was inserted at pos " << stepInfo.changedIndex << ".\n";
 
 			fout << std::endl;
 		}

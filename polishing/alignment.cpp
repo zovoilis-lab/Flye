@@ -23,11 +23,6 @@ double Alignment::globalAlignment(const std::string& v, const std::string& w,
 	double score = this->getBacktrackMatrix(v, w, scoreMat);
 	_forwardScores[index] = std::move(scoreMat);
 
-	//std::string string1;
-	//std::string string2;
-	//this->traceback(backtrack, v, w, string1, string2);
-	//writeStringsToFile(string1, string2, score);
-	//writeMatToFile(scoreMat);
 	//---------------------------------------------
 	//The reverse alignment returns the same score
 	//---------------------------------------------
@@ -45,8 +40,6 @@ double Alignment::addDeletion(unsigned int wordIndex, unsigned int letterIndex)
 {
 	const FloatMatrix& forwardScore = _forwardScores[wordIndex];
 	const FloatMatrix& reverseScore = _reverseScores[wordIndex];
-	//writeMatToFile(forwardScore);
-	//writeMatToFile(reverseScore);
 
 	//Note: We subtract 2 because of zero indexing and an extra added row and column count
 	//unsigned int index = (reverseScore.nrows() - 1) - letterIndex;
@@ -187,15 +180,4 @@ void Alignment::writeMatToFile(const FloatMatrix& matrix)
 		}
 		file << "\n";
 	}
-}
-
-void Alignment::writeStringsToFile(const std::string& v, const std::string& w, 
-								   float score) 
-{
-	std::ofstream file;
-	file.open("test.txt", std::ios::app);
-	file << "--------------------------------\n";
-	file << "Score: " << score << "\n";
-	file <<  v  << "\n";
-	file << w;
 }
