@@ -30,6 +30,7 @@ struct FastaRecord
 		uint32_t _id;
 	};
 	static const Id ID_NONE; 
+	typedef std::tuple<Id, Id> IdPair;
 
 	FastaRecord(): id(ID_NONE) {}
 	FastaRecord(const std::string& sequence, const std::string& description, 
@@ -53,7 +54,20 @@ namespace std
 			 return h.hash();
 		}
 	};
+
+	template <>
+	struct hash<FastaRecord::IdPair> 
+	{
+		 size_t operator()(const FastaRecord::IdPair& k) const
+		 {
+			size_t lhs = std::get<0>(k).hash();
+			size_t rhs = std::get<1>(k).hash();
+			lhs ^= rhs + 0x9ddfea08eb382d69ULL + (lhs << 6) + (lhs >> 2);
+			return lhs;
+		 }
+	};
 }
+
 
 class SequenceContainer
 {

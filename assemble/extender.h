@@ -60,6 +60,8 @@ private:
 	void  coveredReads(const std::unordered_set<FastaRecord::Id>& allReads,
 					   FastaRecord::Id startRead, 
 					   std::unordered_set<FastaRecord::Id>& result);
+	bool majorClusterAgreement(FastaRecord::Id leftRead,
+							   FastaRecord::Id rightRead);
 
 	std::vector<ContigPath> 				 _contigPaths;
 	std::unordered_set<FastaRecord::Id>		 _visitedReads;

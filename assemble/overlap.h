@@ -110,25 +110,14 @@ private:
 				     int32_t extensionPrev, int32_t extensionNext) const;
 	void 	parallelWorker();
 
-	typedef std::tuple<FastaRecord::Id, FastaRecord::Id> id_pair_t;
-	struct key_hash : public std::unary_function<id_pair_t, std::size_t>
-	{
-		 size_t operator()(const id_pair_t& k) const
-		 {
-			size_t lhs = std::get<0>(k).hash();
-			size_t rhs = std::get<1>(k).hash();
-			lhs ^= rhs + 0x9ddfea08eb382d69ULL + (lhs << 6) + (lhs >> 2);
-			return lhs;
-		 }
-	};
-
+	
 	const int _maximumJump;
 	const int _minimumOverlap;
 	const int _maximumOverhang;
 	const int _coverage;
 
 	OverlapIndex _overlapIndex;
-	cuckoohash_map<id_pair_t, bool, key_hash> _overlapMatrix;
+	cuckoohash_map<FastaRecord::IdPair, bool> _overlapMatrix;
 
 	const VertexIndex& _vertexIndex;
 	const SequenceContainer& _seqContainer;

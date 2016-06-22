@@ -223,8 +223,8 @@ OverlapDetector::getReadOverlaps(FastaRecord::Id currentReadId) const
 				extPaths.back().extEnd = extPos;
 			}
 			//if no extensions possible (or there are no active paths), start a new path
-			if (!extendsClose && !extendsFar &&
-				this->goodStart(curPos, extPos, currentReadId, extReadPos.readId))
+			if (!extendsClose && !extendsFar)
+				//this->goodStart(curPos, extPos, currentReadId, extReadPos.readId))
 			{
 				extPaths.push_back(OverlapRange(currentReadId, extReadPos.readId,
 												curPos, extPos));

@@ -51,18 +51,18 @@ ContigPath Extender::extendRead(FastaRecord::Id startRead)
 	contigPath.reads.push_back(curRead);
 	_visitedReads.insert(curRead);
 	_visitedReads.insert(curRead.rc());
-	bool rightExtension = true;
 
 	Logger::get().debug() << "Start Read: " << 
 				_seqContainer.seqName(startRead);
 
 	std::unordered_set<FastaRecord::Id> curPathVisited;
+	bool rightExtension = true;
 
 	while(true)
 	{
 		FastaRecord::Id extRead = this->stepRight(curRead, startRead);
 
-		if (extRead == startRead && rightExtension)	//circular
+		if (extRead == startRead && rightExtension)
 		{
 			Logger::get().debug() << "Circular contig";
 			contigPath.circular = true;
@@ -122,7 +122,7 @@ ContigPath Extender::extendRead(FastaRecord::Id startRead)
 void Extender::assembleContigs()
 {
 	Logger::get().info() << "Extending reads";
-	const int MIN_CONTIG = 10;
+	const int MIN_CONTIG = 15;
 	const int MIN_EXTENSIONS = std::max(_coverage / 10, 1);
 
 	for (auto& indexPair : _seqContainer.getIndex())
@@ -142,16 +142,6 @@ void Extender::assembleContigs()
 		{
 			continue;
 		}
-
-		//additionaly, should not overlap with any of visited reads
-		/*
-		bool ovlpsVisited = false;
-		for (auto& ovlp : _ovlpDetector.getOverlapIndex().at(indexPair.first))
-		{
-			if (_visitedReads.count(ovlp.extId)) ovlpsVisited = true;
-		}
-		if (ovlpsVisited) continue;
-		*/
 
 		ContigPath path = this->extendRead(indexPair.first);
 
@@ -329,7 +319,9 @@ FastaRecord::Id Extender::stepRight(FastaRecord::Id readId,
 
 		int minSupport = std::min(leftSupport, rightSupport);
 		int resolvableRepeat = this->resolvableRepeat(extCandidate);
-		int startsRepeat = 1 - this->isBranching(extCandidate.rc());
+		int startsRepeat = resolvableRepeat &&
+						   !this->isBranching(extCandidate.rc()) &&
+						   this->majorClusterAgreement(readId, extCandidate);
 
 		if (!this->isBranching(readId))
 		{
@@ -375,12 +367,39 @@ bool Extender::resolvableRepeat(FastaRecord::Id readId)
 	{
 		if (this->extendsRight(ovlp) &&
 			this->countRightExtensions(ovlp.extId) > 0 &&
-			!this->isBranching(ovlp.extId.rc()))
+			!this->isBranching(ovlp.extId.rc()) &&
+			this->majorClusterAgreement(readId, ovlp.extId))
 		{
 			return true;
 		}
 	}
 	return false;
+}
+
+bool Extender::majorClusterAgreement(FastaRecord::Id leftRead,
+									 FastaRecord::Id rightRead)
+{
+	auto& overlaps = _ovlpDetector.getOverlapIndex().at(rightRead.rc());
+	std::unordered_set<FastaRecord::Id> extensions;
+	for (auto& ovlp : overlaps)
+	{
+		if (this->extendsRight(ovlp)) extensions.insert(ovlp.extId);
+	}
+
+	size_t maxCovered = 0;
+	std::unordered_set<FastaRecord::Id> coveredSet;
+	for (auto& extCandidate : extensions)
+	{
+		std::unordered_set<FastaRecord::Id> resCovered;
+		this->coveredReads(extensions, extCandidate, resCovered);
+		if (resCovered.size() > maxCovered)
+		{
+			maxCovered = resCovered.size();
+			coveredSet = resCovered;
+		}
+	}
+
+	return coveredSet.count(leftRead.rc());
 }
 
 int Extender::countRightExtensions(FastaRecord::Id readId)
