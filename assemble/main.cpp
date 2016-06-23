@@ -120,6 +120,7 @@ int main(int argc, char** argv)
 		if (!logFile.empty()) Logger::get().setOutputFile(logFile);
 
 		SequenceContainer& seqContainer = SequenceContainer::get();
+		Logger::get().debug() << "Build date: " << __DATE__ << " " << __TIME__;
 		Logger::get().debug() << "Reading FASTA";
 		seqContainer.readFasta(readsFasta);
 		VertexIndex& vertexIndex = VertexIndex::get();

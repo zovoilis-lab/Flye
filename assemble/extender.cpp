@@ -44,30 +44,22 @@ namespace
 	}
 }
 
-ContigPath Extender::extendRead(FastaRecord::Id startRead)
+ContigPath Extender::extendContig(FastaRecord::Id startRead)
 {
 	ContigPath contigPath;
 	FastaRecord::Id curRead = startRead;
-	contigPath.reads.push_back(curRead);
-	_visitedReads.insert(curRead);
-	_visitedReads.insert(curRead.rc());
+	_chromosomeStart.clear();
+	_overlapsStart = true;
+	bool rightExtension = true;
+
+	std::unordered_set<FastaRecord::Id> curPathVisited;	//for debugging only
 
 	Logger::get().debug() << "Start Read: " << 
 				_seqContainer.seqName(startRead);
 
-	std::unordered_set<FastaRecord::Id> curPathVisited;
-	bool rightExtension = true;
-
 	while(true)
 	{
-		FastaRecord::Id extRead = this->stepRight(curRead, startRead);
-
-		if (extRead == startRead && rightExtension)
-		{
-			Logger::get().debug() << "Circular contig";
-			contigPath.circular = true;
-			break;
-		}
+		FastaRecord::Id extRead = this->stepRight(curRead);
 
 		if (extRead != FastaRecord::ID_NONE) 
 		{
@@ -83,13 +75,22 @@ ContigPath Extender::extendRead(FastaRecord::Id startRead)
 			Logger::get().debug() << "No extension found"; 
 		}
 
+		if (!_overlapsStart && _chromosomeStart.count(extRead) && 
+			rightExtension)
+		{
+			Logger::get().debug() << "Circular contig";
+			contigPath.circular = true;
+			contigPath.reads.push_back(extRead);
+			break;
+		}
+
 		if (_visitedReads.count(extRead) || extRead == FastaRecord::ID_NONE)
 		{
-			if (rightExtension)
+			if (rightExtension && !contigPath.reads.empty())
 			{
 				Logger::get().debug() << "Changing direction";
 				rightExtension = false;
-				extRead = startRead.rc();
+				extRead = contigPath.reads.front().rc();
 				std::reverse(contigPath.reads.begin(), contigPath.reads.end());
 				for (size_t i = 0; i < contigPath.reads.size(); ++i) 
 				{
@@ -109,12 +110,12 @@ ContigPath Extender::extendRead(FastaRecord::Id startRead)
 		curPathVisited.insert(extRead);
 		curPathVisited.insert(extRead.rc());
 
+		contigPath.reads.push_back(extRead);
 		curRead = extRead;
-		contigPath.reads.push_back(curRead);
 	}
 
-	Logger::get().debug() << "Made " << contigPath.reads.size() - 1 
-						  << " extensions";
+	Logger::get().debug() << "Assembled contig with " << contigPath.reads.size()
+						  << " reads";
 	return contigPath;
 }
 
@@ -143,7 +144,7 @@ void Extender::assembleContigs()
 			continue;
 		}
 
-		ContigPath path = this->extendRead(indexPair.first);
+		ContigPath path = this->extendContig(indexPair.first);
 
 		if (path.reads.size() >= MIN_CONTIG || _contigPaths.empty())
 		{
@@ -276,24 +277,41 @@ int Extender::rightMultiplicity(FastaRecord::Id readId)
 
 
 //makes one extension to the right
-FastaRecord::Id Extender::stepRight(FastaRecord::Id readId, 
-									FastaRecord::Id startReadId)
+FastaRecord::Id Extender::stepRight(FastaRecord::Id readId)
 {
 	auto& overlaps = _ovlpDetector.getOverlapIndex().at(readId);
 	std::unordered_set<FastaRecord::Id> extensions;
 
+	if (_chromosomeStart.empty())
+	{
+		for (auto& ovlp : overlaps)
+		{
+			if (this->extendsRight(ovlp) && !this->isBranching(ovlp.extId) &&
+				!this->isBranching(ovlp.extId.rc())) 
+			{
+				_chromosomeStart.insert(ovlp.extId);
+			}
+		}
+	}
+
+	bool locOverlapsStart = false;
 	for (auto& ovlp : overlaps)
 	{
-		assert(ovlp.curId != ovlp.extId);
 		if (this->extendsRight(ovlp)) 
 		{
-			if (ovlp.extId == startReadId) return startReadId;
+			if (_chromosomeStart.count(ovlp.extId))
+			{
+				locOverlapsStart = true;
+				if (!_overlapsStart) return ovlp.extId;	//circular chromosome
+			}
+
 			if (this->countRightExtensions(ovlp.extId) > 0)
 			{
 				extensions.insert(ovlp.extId);
 			}
 		}
 	}
+	if (_overlapsStart && !locOverlapsStart) _overlapsStart = false;
 	
 	//rank extension candidates
 	std::unordered_map<FastaRecord::Id, 
@@ -346,8 +364,6 @@ FastaRecord::Id Extender::stepRight(FastaRecord::Id readId,
 	auto bestExtension = FastaRecord::ID_NONE;
 	for (auto& extCandidate : extensions)
 	{
-		if (extCandidate == startReadId) return startReadId;
-
 		if (supportIndex[extCandidate] > bestSupport)
 		{
 			bestSupport = supportIndex[extCandidate];
@@ -360,9 +376,8 @@ FastaRecord::Id Extender::stepRight(FastaRecord::Id readId,
 
 bool Extender::resolvableRepeat(FastaRecord::Id readId)
 {
-	auto& overlaps = _ovlpDetector.getOverlapIndex().at(readId);
 	if (!this->isBranching(readId)) return true;
-
+	auto& overlaps = _ovlpDetector.getOverlapIndex().at(readId);
 	for (auto& ovlp : overlaps)
 	{
 		if (this->extendsRight(ovlp) &&

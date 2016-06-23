@@ -46,9 +46,8 @@ private:
 	const int _maximumJump;
 	const int _coverage;
 
-	FastaRecord::Id stepRight(FastaRecord::Id readId, 
-							  FastaRecord::Id startReadId);
-	ContigPath extendRead(FastaRecord::Id readId);
+	FastaRecord::Id stepRight(FastaRecord::Id readId);
+	ContigPath extendContig(FastaRecord::Id startingRead);
 
 	int   rightMultiplicity(FastaRecord::Id readId);
 	bool  isBranching(FastaRecord::Id readId);
@@ -65,5 +64,7 @@ private:
 
 	std::vector<ContigPath> 				 _contigPaths;
 	std::unordered_set<FastaRecord::Id>		 _visitedReads;
+	std::unordered_set<FastaRecord::Id>		 _chromosomeStart;
+	bool 									 _overlapsStart;
 	std::unordered_map<FastaRecord::Id, int> _readsMultiplicity;
 };
