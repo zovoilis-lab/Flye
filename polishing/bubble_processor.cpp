@@ -33,7 +33,6 @@ void BubbleProcessor::polishAll(const std::string& inBubbles,
 	}
 	_bubblesFile.seekg(0, _bubblesFile.end);
 	int fileLength = _bubblesFile.tellg();
-	std::cerr << "length: " << fileLength << std::endl;
 	_bubblesFile.seekg(0, _bubblesFile.beg);
 	_progress.setFinalCount(fileLength);
 
@@ -52,6 +51,7 @@ void BubbleProcessor::polishAll(const std::string& inBubbles,
 	{
 		threads[i].join();
 	}
+	_progress.setDone();
 }
 
 
@@ -191,9 +191,5 @@ void BubbleProcessor::cacheBubbles(int maxRead)
 	if (filePos > 0)
 	{
 		_progress.setValue(filePos);
-	}
-	else
-	{
-		_progress.setDone();
 	}
 }

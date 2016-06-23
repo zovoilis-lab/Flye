@@ -7,18 +7,41 @@
 
 void GeneralPolisher::polishBubble(Bubble& bubble) const
 {
-	std::string prevCandidate;
-	std::string curCandidate = bubble.candidate;
-
-	Alignment align(bubble.branches.size(), _subsMatrix);
-	while (curCandidate != prevCandidate)
+	auto optimize = [this] (const std::string& candidate,
+							const std::vector<std::string>& branches,
+							std::vector<StepInfo>& polishSteps)
 	{
-		prevCandidate = curCandidate;
-		StepInfo rec = this->makeStep(curCandidate, bubble.branches, align);
-		curCandidate = rec.sequence;
-		bubble.polishSteps.push_back(rec);
+		std::string prevCandidate = candidate;
+		Alignment align(branches.size(), _subsMatrix);
+		while(true)
+		{
+			StepInfo rec = this->makeStep(prevCandidate, branches, align);
+			polishSteps.push_back(rec);
+			if (prevCandidate == rec.sequence) return prevCandidate;
+			prevCandidate = rec.sequence;
+		}
+	};
+
+	const int PRE_POLISH = 5;
+	//first, select closest X branches (by length) and polish with them
+	std::string prePolished = bubble.candidate;
+	if (bubble.branches.size() > PRE_POLISH * 2)
+	{
+		std::sort(bubble.branches.begin(), bubble.branches.end(),
+				  [](const std::string& s1, const std::string& s2)
+				     {return s1.length() < s2.length();});
+		size_t left = bubble.branches.size() / 2 - PRE_POLISH / 2;
+		size_t right = left + PRE_POLISH;
+		std::vector<std::string> reducedSet(bubble.branches.begin() + left,
+											bubble.branches.begin() + right);
+		prePolished = optimize(prePolished, reducedSet, 
+							   bubble.polishSteps);
 	}
-	bubble.candidate = curCandidate;
+	
+	//then, polish with all branches
+	bubble.candidate = optimize(prePolished, bubble.branches, 
+								bubble.polishSteps);
+	
 }
 
 StepInfo GeneralPolisher::makeStep(const std::string& candidate, 
