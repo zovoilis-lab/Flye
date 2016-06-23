@@ -14,16 +14,34 @@ BubbleProcessor::BubbleProcessor(const std::string& subsMatPath,
 	_hopoMatrix(hopoMatrixPath),
 	_generalPolisher(_subsMatrix),
 	_homoPolisher(_subsMatrix, _hopoMatrix),
-	_nextJob(0)
+	_verbose(false)
 {
 }
 
 
-void BubbleProcessor::polishAll(const std::string& dataPath, int numThreads) 
+void BubbleProcessor::polishAll(const std::string& inBubbles, 
+								const std::string& outConsensus,
+			   					int numThreads)
 {
-	this->readBubbles(dataPath);
-	_progress.setFinalCount(_bubbles.size());
-	_nextJob = 0;
+	_cachedBubbles.clear();
+	_cachedBubbles.reserve(BUBBLES_CACHE);
+
+	_bubblesFile.open(inBubbles);
+	if (!_bubblesFile.is_open())
+	{
+		throw std::runtime_error("Error opening bubbles file");
+	}
+	_bubblesFile.seekg(0, _bubblesFile.end);
+	int fileLength = _bubblesFile.tellg();
+	std::cerr << "length: " << fileLength << std::endl;
+	_bubblesFile.seekg(0, _bubblesFile.beg);
+	_progress.setFinalCount(fileLength);
+
+	_consensusFile.open(outConsensus);
+	if (!_consensusFile.is_open())
+	{
+		throw std::runtime_error("Error opening consensus file");
+	}
 
 	std::vector<std::thread> threads(numThreads);
 	for (size_t i = 0; i < threads.size(); ++i)
@@ -42,48 +60,63 @@ void BubbleProcessor::parallelWorker()
 	_stateMutex.lock();
 	while (true)
 	{
-		if (_nextJob == _bubbles.size())
+		if (_cachedBubbles.empty())
 		{
-			_stateMutex.unlock();
-			return;
+			if(_bubblesFile.eof())
+			{
+				_stateMutex.unlock();
+				return;
+			}
+			else
+			{
+				this->cacheBubbles(BUBBLES_CACHE);
+			}
 		}
 
-		_progress.advance();
-		size_t curJob = _nextJob++;
-		Bubble bubble = _bubbles[curJob];
+		Bubble bubble = _cachedBubbles.back();
+		_cachedBubbles.pop_back();
 
 		_stateMutex.unlock();
 		_generalPolisher.polishBubble(bubble);
 		_homoPolisher.polishBubble(bubble);
 		_stateMutex.lock();
 		
-		_bubbles[curJob] = std::move(bubble);
+		this->writeBubbles({bubble});
+		if (_verbose) this->writeLog({bubble});
 	}
 }
 
 
-void BubbleProcessor::writeConsensuses(const std::string& fileName)
+void BubbleProcessor::writeBubbles(const std::vector<Bubble>& bubbles)
 {
-	std::ofstream fout(fileName);
-	for (auto& bubble : _bubbles)
+	for (auto& bubble : bubbles)
 	{
-		fout << ">" << bubble.header << " " << bubble.position
-			 << " " << bubble.branches.size() << std::endl
-			 << bubble.candidate << std::endl;
+		_consensusFile << ">" << bubble.header << " " << bubble.position
+			 		   << " " << bubble.branches.size() << std::endl
+			 		   << bubble.candidate << std::endl;
 	}
 }
 
-void BubbleProcessor::writeLog(const std::string& fileName)
+void BubbleProcessor::enableVerboseOutput(const std::string& filename)
 {
-	std::ofstream fout(fileName);
+	_verbose = true;
+	_logFile.open(filename);
+	if (!_logFile.is_open())
+	{
+		throw std::runtime_error("Error opening log file");
+	}
+}
+
+void BubbleProcessor::writeLog(const std::vector<Bubble>& bubbles)
+{
 	std::vector<std::string> methods = {"None", "Insertion", "Substitution",
 										"Deletion", "Homopolymer"};
 
-	for (auto& bubble : _bubbles)
+	for (auto& bubble : bubbles)
 	{
 		for (auto& stepInfo : bubble.polishSteps)
 		{
-			fout << std::fixed
+			 _logFile << std::fixed
 				 << std::setw(22) << std::left << "Consensus: " 
 				 << std::right << stepInfo.sequence << std::endl
 				 << std::setw(22) << std::left << "Score: " << std::right 
@@ -92,36 +125,30 @@ void BubbleProcessor::writeLog(const std::string& fileName)
 				 << std::right << methods[stepInfo.methodUsed] << std::endl;
 
 			if (stepInfo.methodUsed == StepDel)
-				fout << "Char at pos: " << stepInfo.changedIndex << " was deleted. \n";
+				_logFile << "Char at pos: " << stepInfo.changedIndex << " was deleted. \n";
 			else if (stepInfo.methodUsed == StepSub)
-				fout << "Char at pos " << stepInfo.changedIndex << " was substituted with " 
+				_logFile << "Char at pos " << stepInfo.changedIndex << " was substituted with " 
 					<< "'" << stepInfo.changedLetter << "'.\n";
 			else if (stepInfo.methodUsed == StepIns)
-				fout << "'"<< stepInfo.changedLetter << "'" 
+				_logFile << "'"<< stepInfo.changedLetter << "'" 
 					 << " was inserted at pos " << stepInfo.changedIndex << ".\n";
 
-			fout << std::endl;
+			_logFile << std::endl;
 		}
-		fout << "-----------------\n";
+		_logFile << "-----------------\n";
 	}
 }
 
 
-void BubbleProcessor::readBubbles(const std::string& fileName)
+void BubbleProcessor::cacheBubbles(int maxRead)
 {
 	std::string buffer;
-	std::ifstream file(fileName);
 	std::string candidate;
-	_bubbles.clear();
 
-	if (!file.is_open())
+	int readBubbles = 0;
+	while (!_bubblesFile.eof() && readBubbles < maxRead)
 	{
-		throw std::runtime_error("Error opening bubble file");
-	}
-
-	while (!file.eof())
-	{
-		std::getline(file, buffer);
+		std::getline(_bubblesFile, buffer);
 		if (buffer.empty()) break;
 
 		std::vector<std::string> elems = splitString(buffer, ' ');
@@ -129,7 +156,7 @@ void BubbleProcessor::readBubbles(const std::string& fileName)
 		{
 			throw std::runtime_error("Error parsing bubbles file");
 		}
-		std::getline(file, candidate);
+		std::getline(_bubblesFile, candidate);
 		std::transform(candidate.begin(), candidate.end(), 
 				       candidate.begin(), ::toupper);
 		
@@ -144,8 +171,8 @@ void BubbleProcessor::readBubbles(const std::string& fileName)
 		{
 			if (buffer.empty()) break;
 
-			std::getline(file, buffer);
-			std::getline(file, buffer);
+			std::getline(_bubblesFile, buffer);
+			std::getline(_bubblesFile, buffer);
 			std::transform(buffer.begin(), buffer.end(), 
 				       	   buffer.begin(), ::toupper);
 			bubble.branches.push_back(buffer);
@@ -156,6 +183,17 @@ void BubbleProcessor::readBubbles(const std::string& fileName)
 			throw std::runtime_error("Error parsing bubbles file");
 		}
 
-		_bubbles.push_back(std::move(bubble));
+		_cachedBubbles.push_back(std::move(bubble));
+		++readBubbles;
+	}
+
+	int filePos = _bubblesFile.tellg();
+	if (filePos > 0)
+	{
+		_progress.setValue(filePos);
+	}
+	else
+	{
+		_progress.setDone();
 	}
 }

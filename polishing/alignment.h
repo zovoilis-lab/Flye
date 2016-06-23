@@ -43,6 +43,4 @@ private:
 	void traceback(FloatMatrix& backtrack, const std::string& v, 
 				   const std::string& w, std::string& o_v, 
 				   std::string& o_w);
-
-	void writeMatToFile(const FloatMatrix& scoreMat);
 };

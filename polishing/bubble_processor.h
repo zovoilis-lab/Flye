@@ -8,6 +8,7 @@
 #include <vector>
 #include <cmath>
 #include <mutex>
+#include <fstream>
 
 #include "subs_matrix.h"
 #include "bubble.h"
@@ -21,22 +22,29 @@ class BubbleProcessor
 public:
 	BubbleProcessor(const std::string& subsMatPath,
 					const std::string& hopoMatrixPath);
-
-	void polishAll(const std::string& dataPath, int numThreads);
-	void writeConsensuses(const std::string& fileName);
-	void writeLog(const std::string& fileName);
+	void polishAll(const std::string& inBubbles, const std::string& outConsensus,
+				   int numThreads);
+	void enableVerboseOutput(const std::string& filename);
 
 private:
 	void parallelWorker();
-	void readBubbles(const std::string& fileName);
+	void cacheBubbles(int numBubbles);
+	void writeBubbles(const std::vector<Bubble>& bubbles);
+	void writeLog(const std::vector<Bubble>& bubbles);
+
+	const int BUBBLES_CACHE = 1000;
 
 	const SubstitutionMatrix  _subsMatrix;
 	const HopoMatrix 		  _hopoMatrix;
 	const GeneralPolisher 	  _generalPolisher;
 	const HomoPolisher 		  _homoPolisher;
 
-	std::vector<Bubble>		  _bubbles;
 	ProgressPercent 		  _progress;
-	size_t					  _nextJob;
 	std::mutex				  _stateMutex;
+	std::vector<Bubble>		  _cachedBubbles;
+
+	std::ifstream			  _bubblesFile;
+	std::ofstream			  _consensusFile;
+	std::ofstream			  _logFile;
+	bool					  _verbose;
 };

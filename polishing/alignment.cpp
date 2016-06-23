@@ -164,20 +164,3 @@ double Alignment::getBacktrackMatrix(const std::string& v, const std::string& w,
 
 	return score;
 }
-
-
-void Alignment::writeMatToFile(const FloatMatrix& matrix) 
-{
-	std::ofstream file;
-	//arma::mat scoreMat = matrix.t();
-	const FloatMatrix& scoreMat = matrix;
-	file.open("test.txt", std::ios::app);
-	for (size_t i = 0; i < scoreMat.nrows(); i++) {
-		for (size_t j = 0; j < scoreMat.ncols(); j++) {
-			file << std::fixed;
-			file << std::setw(4) << std::left << std::setprecision(2) 
-				 << scoreMat.at(i, j) << "\t";
-		}
-		file << "\n";
-	}
-}

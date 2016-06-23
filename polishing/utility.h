@@ -60,12 +60,20 @@ public:
 	{}
 
 	void setFinalCount(int finalCount) {_finalCount = finalCount;}
+	void setValue(int value)
+	{
+		this->advance(value - _curCount);
+	}
+	void setDone()
+	{
+		this->setValue(_finalCount);
+	}
 	void advance(int step = 1)
 	{
 		if (_stopped) return;
 
 		_curCount += step;
-		int percent = 10 * _curCount / _finalCount;
+		int percent = 10UL * _curCount / _finalCount;
 		if (percent > _prevPercent)
 		{
 			std::cerr << percent * 10 << "% ";

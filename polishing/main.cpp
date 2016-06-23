@@ -76,10 +76,9 @@ int main(int argc, char* argv[])
 		return 1;
 
 	BubbleProcessor bp(scoringMatrix, hopoMatrix);
-	bp.polishAll(bubblesFile, numThreads); 
-	bp.writeConsensuses(outConsensus);
 	if (!outVerbose.empty())
-		bp.writeLog(outVerbose);
+		bp.enableVerboseOutput(outVerbose);
+	bp.polishAll(bubblesFile, outConsensus, numThreads); 
 
 	return 0;
 }
