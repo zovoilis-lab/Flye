@@ -213,6 +213,7 @@ int Extender::rightMultiplicity(FastaRecord::Id readId)
 	Logger::get().debug() << "Multiplicity of " << _seqContainer.seqName(readId);
 	std::unordered_map<FastaRecord::Id, int> clusters;
 	std::unordered_map<FastaRecord::Id, int> coveredReads;
+
 	while(true)
 	{
 		FastaRecord::Id maxUniqueCoveredId = FastaRecord::ID_NONE;
@@ -315,7 +316,7 @@ FastaRecord::Id Extender::stepRight(FastaRecord::Id readId)
 	
 	//rank extension candidates
 	std::unordered_map<FastaRecord::Id, 
-					   std::tuple<int, int, int, int>> supportIndex;
+					   std::tuple<int, int, int, int, int>> supportIndex;
 
 	Logger::get().debug() << "Multiplicity " << _readsMultiplicity[readId];
 
@@ -324,11 +325,9 @@ FastaRecord::Id Extender::stepRight(FastaRecord::Id readId)
 		int leftSupport = 0;
 		int rightSupport = 0;
 		int ovlpSize = 0;
-		int ovlpShift = 0;
 		for (auto& ovlp : _ovlpDetector.getOverlapIndex().at(extCandidate))
 		{
 			if (ovlp.extId == readId) ovlpSize = ovlp.curRange();
-			if (ovlp.extId == readId) ovlpShift = -ovlp.rightShift;
 			if (!extensions.count(ovlp.extId)) continue;
 
 			if (this->extendsRight(ovlp)) ++rightSupport;
@@ -336,31 +335,26 @@ FastaRecord::Id Extender::stepRight(FastaRecord::Id readId)
 		}
 
 		int minSupport = std::min(leftSupport, rightSupport);
-		int resolvableRepeat = this->resolvableRepeat(extCandidate);
-		int startsRepeat = resolvableRepeat &&
-						   !this->isBranching(extCandidate.rc()) &&
-						   this->majorClusterAgreement(readId, extCandidate);
 
-		if (!this->isBranching(readId))
-		{
-			supportIndex[extCandidate] = std::make_tuple(resolvableRepeat, minSupport, 
-														 rightSupport, ovlpSize);
-		}
-		else
-		{
-			supportIndex[extCandidate] = std::make_tuple(startsRepeat, minSupport, 
-														 rightSupport, ovlpSize);
-		}
+		int resolvesRepeat = (!this->isBranching(readId) && 
+							  this->majorClusterAgreement(extCandidate.rc(), 
+														  readId.rc())) ||
+							 (!this->isBranching(extCandidate.rc()) &&
+							   this->majorClusterAgreement(readId, 
+							   							   extCandidate));
+		int stepAhead = this->resolvableRepeat(extCandidate);
+
+		supportIndex[extCandidate] = std::make_tuple(resolvesRepeat, stepAhead, minSupport,
+													 rightSupport, ovlpSize);
+
 		Logger::get().debug() << "\t" 
-				    << _seqContainer.seqName(extCandidate)
-					<< "\tl:" << leftSupport << "\tr:" << rightSupport << "\trr:" 
-					<< resolvableRepeat << "\tm:"
-					<< _readsMultiplicity[extCandidate.rc()] << "\to:" << ovlpSize
-					<< "\ts:" << ovlpShift;
+				    << _seqContainer.seqName(extCandidate) << "\trr:" << resolvesRepeat
+					<< "\tstep:" << stepAhead << "\tcons:(" << leftSupport << "," 
+					<< rightSupport << ")\tovlp:" << ovlpSize;
 	}
 	
 
-	auto bestSupport = std::make_tuple(0, 0, 0, 0);
+	auto bestSupport = std::make_tuple(0, 0, 0, 0, 0);
 	auto bestExtension = FastaRecord::ID_NONE;
 	for (auto& extCandidate : extensions)
 	{
@@ -371,21 +365,34 @@ FastaRecord::Id Extender::stepRight(FastaRecord::Id readId)
 		}
 	}
 
+	if (bestExtension != FastaRecord::ID_NONE && std::get<0>(bestSupport) == 0)
+	{
+		Logger::get().debug() << "Can't resolve repeat";
+		return FastaRecord::ID_NONE;
+	}
+
 	return bestExtension;
 }
 
 bool Extender::resolvableRepeat(FastaRecord::Id readId)
 {
-	if (!this->isBranching(readId)) return true;
-	auto& overlaps = _ovlpDetector.getOverlapIndex().at(readId);
-	for (auto& ovlp : overlaps)
+	if (this->isBranching(readId) && this->isBranching(readId.rc())) 
+	{
+		return false;
+	}
+
+	for (auto& ovlp : _ovlpDetector.getOverlapIndex().at(readId))
 	{
 		if (this->extendsRight(ovlp) &&
-			this->countRightExtensions(ovlp.extId) > 0 &&
-			!this->isBranching(ovlp.extId.rc()) &&
-			this->majorClusterAgreement(readId, ovlp.extId))
+			this->countRightExtensions(ovlp.extId) > 0)
 		{
-			return true;
+			if ((!this->isBranching(readId) && 
+				 this->majorClusterAgreement(ovlp.extId.rc(), readId.rc())) ||
+				(!this->isBranching(ovlp.extId.rc()) &&
+				 this->majorClusterAgreement(readId, ovlp.extId)))
+			{
+				return true;
+			}
 		}
 	}
 	return false;
@@ -414,7 +421,7 @@ bool Extender::majorClusterAgreement(FastaRecord::Id leftRead,
 		}
 	}
 
-	return coveredSet.count(leftRead.rc());
+	return coveredSet.empty() || coveredSet.count(leftRead.rc());
 }
 
 int Extender::countRightExtensions(FastaRecord::Id readId)
