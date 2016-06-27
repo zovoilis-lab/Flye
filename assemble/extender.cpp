@@ -61,6 +61,19 @@ ContigPath Extender::extendContig(FastaRecord::Id startRead)
 	{
 		FastaRecord::Id extRead = this->stepRight(curRead);
 
+		if (extRead != FastaRecord::ID_NONE && _chromosomeStart.empty())
+		{
+			for (auto& ovlp : _ovlpDetector.getOverlapIndex().at(extRead))
+			{
+				if (this->extendsRight(ovlp.reverse()) && 
+					!this->isBranching(ovlp.extId) &&
+					!this->isBranching(ovlp.extId.rc())) 
+				{
+					_chromosomeStart.insert(ovlp.extId);
+				}
+			}
+		}
+
 		if (extRead != FastaRecord::ID_NONE) 
 		{
 			Logger::get().debug() << "Extension: " << 
@@ -279,18 +292,6 @@ FastaRecord::Id Extender::stepRight(FastaRecord::Id readId)
 	auto& overlaps = _ovlpDetector.getOverlapIndex().at(readId);
 	std::unordered_set<FastaRecord::Id> extensions;
 
-	if (_chromosomeStart.empty())
-	{
-		for (auto& ovlp : overlaps)
-		{
-			if (this->extendsRight(ovlp) && !this->isBranching(ovlp.extId) &&
-				!this->isBranching(ovlp.extId.rc())) 
-			{
-				_chromosomeStart.insert(ovlp.extId);
-			}
-		}
-	}
-
 	bool locOverlapsStart = false;
 	for (auto& ovlp : overlaps)
 	{
@@ -308,7 +309,10 @@ FastaRecord::Id Extender::stepRight(FastaRecord::Id readId)
 			}
 		}
 	}
-	if (_overlapsStart && !locOverlapsStart) _overlapsStart = false;
+	if (!_chromosomeStart.empty() && _overlapsStart && !locOverlapsStart) 
+	{
+		_overlapsStart = false;
+	}
 	
 	//rank extension candidates
 	std::unordered_map<FastaRecord::Id, 
