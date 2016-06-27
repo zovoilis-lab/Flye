@@ -213,13 +213,11 @@ def _get_partition(profile):
     GOLD_LEN = 4
     solid_flags = [False for _ in xrange(len(profile))]
     prof_pos = 0
-    num_solid = 0
     while prof_pos < len(profile) - SOLID_LEN:
         if _is_solid_kmer(profile, prof_pos, SOLID_LEN):
             for i in xrange(prof_pos, prof_pos + SOLID_LEN):
                 solid_flags[i] = True
             prof_pos += SOLID_LEN
-            num_solid += 1
         else:
             prof_pos += 1
 
@@ -241,7 +239,7 @@ def _get_bubble_seqs(alignment, partition, genome_len, ctg_id):
     Given genome landmarks, forms bubble sequences
     """
     logger.debug("Forming bubble sequences")
-    MIN_ALIGNMENT = 1000
+    MIN_ALIGNMENT = 5000
 
     bubbles = [Bubble(ctg_id, x) for x in xrange(len(partition) + 1)]
     for aln in alignment:

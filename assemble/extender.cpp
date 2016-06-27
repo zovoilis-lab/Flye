@@ -126,12 +126,6 @@ void Extender::assembleContigs()
 	const int MIN_CONTIG = 15;
 	const int MIN_EXTENSIONS = std::max(_coverage / 10, 1);
 
-	for (auto& indexPair : _seqContainer.getIndex())
-	{
-		_readsMultiplicity[indexPair.first] = 
-					this->rightMultiplicity(indexPair.first);
-	}
-
 	_visitedReads.clear();
 	for (auto& indexPair : _seqContainer.getIndex())
 	{	
@@ -210,9 +204,17 @@ int Extender::rightMultiplicity(FastaRecord::Id readId)
 	}
 	if (extensions.size() < 2) return 1;
 
-	Logger::get().debug() << "Multiplicity of " << _seqContainer.seqName(readId);
-	std::unordered_map<FastaRecord::Id, int> clusters;
-	std::unordered_map<FastaRecord::Id, int> coveredReads;
+	//Logger::get().debug() << "Multiplicity of " << _seqContainer.seqName(readId);
+	std::unordered_map<FastaRecord::Id, 
+					   std::unordered_set<FastaRecord::Id>> coveredByNode;
+	std::unordered_map<FastaRecord::Id, int> globalCoverage;
+	std::unordered_set<FastaRecord::Id> clusterIds;
+
+	for (auto& extCandidate : extensions)
+	{
+		this->coveredReads(extensions, extCandidate, 
+						   coveredByNode[extCandidate]);
+	}
 
 	while(true)
 	{
@@ -220,16 +222,14 @@ int Extender::rightMultiplicity(FastaRecord::Id readId)
 		int maxUniqueCovered = 0;
 		for (auto& extCandidate : extensions)
 		{
-			//ignore reads that are already belong to clusters
-			if (coveredReads.count(extCandidate)) continue;
+			//ignore reads that already belong to clusters
+			if (globalCoverage.count(extCandidate)) continue;
 
 			//count number of reads the candidate extends
-			std::unordered_set<FastaRecord::Id> resCovered;
-			this->coveredReads(extensions, extCandidate, resCovered);
 			int extUniqueCovered = 0;
-			for (auto read : resCovered)
+			for (auto read : coveredByNode[extCandidate])
 			{
-				if (!coveredReads.count(read)) ++extUniqueCovered;
+				if (!globalCoverage.count(read)) ++extUniqueCovered;
 			}
 
 			//keeping maximum
@@ -242,28 +242,24 @@ int Extender::rightMultiplicity(FastaRecord::Id readId)
 
 		if (maxUniqueCoveredId == FastaRecord::ID_NONE) break;
 
-		Logger::get().debug() << "\tCl: " << _seqContainer.seqName(maxUniqueCoveredId);
-		clusters[maxUniqueCoveredId] = maxUniqueCovered;
-		std::unordered_set<FastaRecord::Id> resCovered;
-		this->coveredReads(extensions, maxUniqueCoveredId, resCovered);
-		for (auto readId : resCovered) 
+		//Logger::get().debug() << "\tCl: " << _seqContainer.seqName(maxUniqueCoveredId);
+		clusterIds.insert(maxUniqueCoveredId);
+		for (auto readId : coveredByNode[maxUniqueCoveredId]) 
 		{
-			Logger::get().debug() << "\t\t " << _seqContainer.seqName(readId);
-			++coveredReads[readId];
+			//Logger::get().debug() << "\t\t " << _seqContainer.seqName(readId);
+			++globalCoverage[readId];
 		}
 	}
 
 	//counting cluster sizes
 	int numClusters = 0;
 	std::string strClusters;
-	for (auto& clustHash : clusters)
+	for (auto& clustId : clusterIds)
 	{
 		int clustSize = 0;
-		std::unordered_set<FastaRecord::Id> resCovered;
-		this->coveredReads(extensions, clustHash.first, resCovered);
-		for (auto readId : resCovered) 
+		for (auto readId : coveredByNode[clustId]) 
 		{
-			if (coveredReads[readId] < 2)
+			if (globalCoverage[readId] < 2)
 			{
 				++clustSize;
 			}
@@ -271,7 +267,7 @@ int Extender::rightMultiplicity(FastaRecord::Id readId)
 		++numClusters;
 		strClusters += std::to_string(clustSize) + " ";
 	}
-	Logger::get().debug() << "\tClusters: " << strClusters;
+	//Logger::get().debug() << "\tClusters: " << strClusters;
 
 	return std::max(1, numClusters);
 }
@@ -317,8 +313,6 @@ FastaRecord::Id Extender::stepRight(FastaRecord::Id readId)
 	//rank extension candidates
 	std::unordered_map<FastaRecord::Id, 
 					   std::tuple<int, int, int, int, int>> supportIndex;
-
-	Logger::get().debug() << "Multiplicity " << _readsMultiplicity[readId];
 
 	for (auto& extCandidate : extensions)
 	{
@@ -436,6 +430,10 @@ int Extender::countRightExtensions(FastaRecord::Id readId)
 
 bool Extender::isBranching(FastaRecord::Id readId)
 {
+	if (!_readsMultiplicity.count(readId))
+	{
+		_readsMultiplicity[readId] = this->rightMultiplicity(readId);
+	}
 	return _readsMultiplicity[readId] > 1;
 }
 
