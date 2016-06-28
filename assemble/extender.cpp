@@ -401,8 +401,8 @@ bool Extender::stepAhead(FastaRecord::Id readId)
 			++allReads;
 		}
 	}
-	return goodReads > 0;
-	//return (float)goodReads / allReads > 0.1f;	//tricky lookahead heuristic
+	//return goodReads > 0;
+	return (float)goodReads / allReads > 0.05f;	//tricky lookahead heuristic
 	//return false;
 }
 
