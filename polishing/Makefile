@@ -4,8 +4,8 @@ OUT_BIN := ${BIN_DIR}/abruijn-polish
 
 .PHONY: all clean debug
 
-all: CXXFLAGS += -O3 -DNDEBUG
-all: abruijn
+release: CXXFLAGS += -O3 -DNDEBUG
+release: abruijn
 
 debug: CXXFLAGS += -g -O0 -D_GLIBCXX_DEBUG -D_DEBUG -D_DEBUG_LOG -D_LOG
 debug: abruijn

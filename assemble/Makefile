@@ -2,14 +2,14 @@ CXXFLAGS += -Wall -pthread -std=c++11
 LDFLAGS += -pthread -std=c++11
 OUT_BIN := ${BIN_DIR}/abruijn-assemble
 
-.PHONY: all clean debug
+.PHONY: all clean debug profile
 
 profile: CXXFLAGS += -pg
 profile: LDFLAGS += -pg
-profile: all
+profile: release
 
-all: CXXFLAGS += -D_LOG -O3 -DNDEBUG
-all: abruijn
+release: CXXFLAGS += -D_LOG -O3 -DNDEBUG
+release: abruijn
 
 debug: CXXFLAGS += -g -Og -D_GLIBCXX_DEBUG -D_DEBUG -D_DEBUG_LOG -D_LOG
 debug: abruijn

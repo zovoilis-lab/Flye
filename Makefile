@@ -5,14 +5,15 @@ export LIBCUCKOO = $(shell pwd)/libcuckoo
 export BIN_DIR = $(shell pwd)/bin
 export CXXFLAGS = -I${LIBCUCKOO}
 
-.PHONY: clean all
+.PHONY: clean all profile debug
+.DEFAULT_GOAL := all
 
+all: 
+	make release -C ${ASSEMBLE}
+	make release -C ${POLISH}
 profile:
 	make profile -C ${ASSEMBLE}
-	make all -C ${POLISH}
-all: 
-	make all -C ${ASSEMBLE}
-	make all -C ${POLISH}
+	make release -C ${POLISH}
 debug:
 	make debug -C ${ASSEMBLE}
 	make debug -C ${POLISH}
