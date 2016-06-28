@@ -88,6 +88,48 @@ void OverlapDetector::parallelWorker()
 }
 
 
+void OverlapDetector::saveOverlaps(const std::string filename)
+{
+	std::ofstream fout(filename);
+	if (!fout.is_open())
+	{
+		throw std::runtime_error("Can't open overlaps file");
+	}
+
+	for (auto& hashPair : _overlapIndex)
+	{
+		for (auto& ovlp : hashPair.second)
+		{
+			fout << ovlp.serialize() << std::endl;
+		}
+	}
+}
+
+void OverlapDetector::loadOverlaps(const std::string filename)
+{
+	std::ifstream fin(filename);
+	if (!fin.is_open())
+	{
+		throw std::runtime_error("Can't open overlaps file");
+	}
+
+	for (auto& seqHash : _seqContainer.getIndex())
+	{
+		_overlapIndex[seqHash.first];	//empty vector by default
+	}
+
+	std::string buffer;
+	while(!fin.eof())
+	{
+		std::getline(fin, buffer);
+		if (buffer.empty()) break;
+		OverlapRange ovlp;
+		ovlp.unserialize(buffer);
+		_overlapIndex[ovlp.curId].push_back(ovlp);
+	}
+}
+
+
 //pre-filtering
 bool OverlapDetector::goodStart(int32_t curPos, int32_t extPos, 
 								FastaRecord::Id curId, 
@@ -223,8 +265,8 @@ OverlapDetector::getReadOverlaps(FastaRecord::Id currentReadId) const
 				extPaths.back().extEnd = extPos;
 			}
 			//if no extensions possible (or there are no active paths), start a new path
-			if (!extendsClose && !extendsFar)
-				//this->goodStart(curPos, extPos, currentReadId, extReadPos.readId))
+			if (!extendsClose && !extendsFar &&
+				this->goodStart(curPos, extPos, currentReadId, extReadPos.readId))
 			{
 				extPaths.push_back(OverlapRange(currentReadId, extReadPos.readId,
 												curPos, extPos));
@@ -244,9 +286,8 @@ OverlapDetector::getReadOverlaps(FastaRecord::Id currentReadId) const
 	for (const auto& ap : activePaths)
 	{
 		auto extLen = _seqContainer.seqLen(ap.first);
-		OverlapRange maxOverlap(FastaRecord::ID_NONE, FastaRecord::ID_NONE, 0, 0);
-		OverlapRange outputOverlap(FastaRecord::ID_NONE, 
-								   FastaRecord::ID_NONE, 0, 0);
+		OverlapRange maxOverlap;
+		OverlapRange outputOverlap;
 		bool passedTest = false;
 		for (auto& ovlp : ap.second)
 		{

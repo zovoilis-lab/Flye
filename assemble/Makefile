@@ -4,6 +4,10 @@ OUT_BIN := ${BIN_DIR}/abruijn-assemble
 
 .PHONY: all clean debug
 
+profile: CXXFLAGS += -pg
+profile: LDFLAGS += -pg
+profile: all
+
 all: CXXFLAGS += -D_LOG -O3 -DNDEBUG
 all: abruijn
 

@@ -54,7 +54,7 @@ private:
 	int   countRightExtensions(FastaRecord::Id readId);
 	bool  extendsRight(const OverlapRange& ovlp);
 	bool  coversRight(const OverlapRange& ovlp);
-	bool  resolvableRepeat(FastaRecord::Id);
+	bool  stepAhead(FastaRecord::Id);
 
 	void  coveredReads(const std::unordered_set<FastaRecord::Id>& allReads,
 					   FastaRecord::Id startRead, 
@@ -67,4 +67,6 @@ private:
 	std::unordered_set<FastaRecord::Id>		 _chromosomeStart;
 	bool 									 _overlapsStart;
 	std::unordered_map<FastaRecord::Id, int> _readsMultiplicity;
+	std::unordered_map<FastaRecord::Id,
+					   std::unordered_set<FastaRecord::Id>> _maxClusters;
 };

@@ -26,6 +26,21 @@ struct FastaRecord
 			{return _id % 2;}
 		size_t hash() const 
 			{return 0x9ddfea08eb382d69ULL * (size_t)_id;}
+
+		friend std::ostream& operator << (std::ostream& stream, const Id& id)
+		{
+			stream << std::to_string(id._id);
+			return stream;
+		}
+		
+		friend std::istream& operator >> (std::istream& stream, Id& id)
+		{
+			std::string buffer;
+			stream >> buffer;
+			id._id = std::stoi(buffer);
+			return stream;
+		}
+
 	private:
 		uint32_t _id;
 	};

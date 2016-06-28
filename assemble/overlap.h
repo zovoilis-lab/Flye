@@ -6,6 +6,7 @@
 
 #include <unordered_set>
 #include <mutex>
+#include <sstream>
 
 #include <cuckoohash_map.hh>
 
@@ -16,8 +17,9 @@
 
 struct OverlapRange
 {
-	OverlapRange(FastaRecord::Id curId, FastaRecord::Id extId, 
-				 int32_t curInit, int32_t extInit): 
+	OverlapRange(FastaRecord::Id curId = FastaRecord::ID_NONE, 
+				 FastaRecord::Id extId = FastaRecord::ID_NONE, 
+				 int32_t curInit = 0, int32_t extInit = 0): 
 		curId(curId), curBegin(curInit), curEnd(curInit), 
 		extId(extId), extBegin(extInit), extEnd(extInit){}
 	int32_t curRange() const {return curEnd - curBegin;}
@@ -64,6 +66,22 @@ struct OverlapRange
 			   extBegin <= extPos && extPos <= extEnd;
 	}
 
+	std::string serialize() const
+	{
+		std::stringstream ss;
+		ss << curId << " " << curBegin << " " << curEnd << " " 
+		   << leftShift << " " << extId << " " << extBegin << " " 
+		   << extEnd << " " << rightShift;
+		return ss.str();
+	}
+
+	void unserialize(const std::string& str)
+	{
+		std::stringstream ss(str);
+		ss >> curId >> curBegin >> curEnd >> leftShift 
+		   >> extId >> extBegin >> extEnd >> rightShift;
+	}
+
 	//current read
 	FastaRecord::Id curId;
 	int32_t curBegin;
@@ -95,7 +113,10 @@ public:
 					   std::vector<OverlapRange>> OverlapIndex;
 	
 	void findAllOverlaps(size_t numThreads);
+	void saveOverlaps(const std::string filename);
+	void loadOverlaps(const std::string filename);
 	const OverlapIndex& getOverlapIndex() const {return _overlapIndex;}
+
 private:
 	enum JumpRes {J_END, J_INCONS, J_CLOSE, J_FAR};
 

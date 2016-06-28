@@ -17,7 +17,7 @@
 bool parseArgs(int argc, char** argv, std::string& readsFasta, 
 			   std::string& outAssembly, std::string& logFile, int& coverage,
 			   int& kmerSize, int& minKmer, int& maxKmer, bool& debug,
-			   size_t& numThreads)
+			   size_t& numThreads, std::string& overlapsFile)
 {
 	auto printUsage = [argv]()
 	{
@@ -39,6 +39,8 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 				  << "[default = false] \n"
 				  << "\t-l log_file\toutput log to file "
 				  << "[default = not set] \n"
+				  << "\t-o ovlp_file\tstore/load overlaps to/from file "
+				  << "[default = not set] \n"
 				  << "\t-t num_threads\tnumber of parallel threads "
 				  << "[default = 1] \n";
 	};
@@ -49,8 +51,9 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 	numThreads = 1;
 	debug = false;
 	logFile = "";
+	overlapsFile = "";
 
-	const char optString[] = "k:m:x:l:t:hd";
+	const char optString[] = "k:m:x:l:t:o:hd";
 	int opt = 0;
 	while ((opt = getopt(argc, argv, optString)) != -1)
 	{
@@ -70,6 +73,9 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 			break;
 		case 'l':
 			logFile = optarg;
+			break;
+		case 'o':
+			overlapsFile = optarg;
 			break;
 		case 'd':
 			debug = true;
@@ -91,6 +97,12 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 	return true;
 }
 
+bool fileExists(const std::string& path)
+{
+	std::ifstream fin(path);
+	return fin.good();
+}
+
 int main(int argc, char** argv)
 {
 	static const int MAX_JUMP = 1500;
@@ -107,9 +119,11 @@ int main(int argc, char** argv)
 	std::string readsFasta;
 	std::string outAssembly;
 	std::string logFile;
+	std::string overlapsFile;
 
 	if (!parseArgs(argc, argv, readsFasta, outAssembly, logFile, coverage,
-				   kmerSize, minKmerCov, maxKmerCov, debugging, numThreads)) 
+				   kmerSize, minKmerCov, maxKmerCov, debugging, numThreads,
+				   overlapsFile)) 
 	{
 		return 1;
 	}
@@ -143,7 +157,24 @@ int main(int argc, char** argv)
 		vertexIndex.buildIndex(minKmerCov, maxKmerCov);
 
 		OverlapDetector ovlp(MAX_JUMP, MIN_OVERLAP, MAX_OVERHANG, coverage);
-		ovlp.findAllOverlaps(numThreads);
+		if (overlapsFile.empty())
+		{
+			ovlp.findAllOverlaps(numThreads);
+		}
+		else
+		{
+ 			if (fileExists(overlapsFile))
+			{
+				Logger::get().debug() << "Loading overlaps from " << overlapsFile;
+				ovlp.loadOverlaps(overlapsFile);
+			}
+			else
+			{
+				ovlp.findAllOverlaps(numThreads);
+				Logger::get().debug() << "Saving overlaps to " << overlapsFile;
+				ovlp.saveOverlaps(overlapsFile);
+			}
+		}
 
 		ChimeraDetector chimDetect(MAX_OVERHANG, MAX_JUMP, MIN_OVERLAP,
 								   coverage, ovlp);

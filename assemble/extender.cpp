@@ -256,6 +256,10 @@ int Extender::rightMultiplicity(FastaRecord::Id readId)
 		if (maxUniqueCoveredId == FastaRecord::ID_NONE) break;
 
 		//Logger::get().debug() << "\tCl: " << _seqContainer.seqName(maxUniqueCoveredId);
+		if (clusterIds.empty())
+		{
+			_maxClusters[readId] = coveredByNode[maxUniqueCoveredId];
+		}
 		clusterIds.insert(maxUniqueCoveredId);
 		for (auto readId : coveredByNode[maxUniqueCoveredId]) 
 		{
@@ -340,7 +344,7 @@ FastaRecord::Id Extender::stepRight(FastaRecord::Id readId)
 							 (!this->isBranching(extCandidate.rc()) &&
 							   this->majorClusterAgreement(readId, 
 							   							   extCandidate));
-		int stepAhead = this->resolvableRepeat(extCandidate);
+		int stepAhead = this->stepAhead(extCandidate);
 
 		supportIndex[extCandidate] = std::make_tuple(resolvesRepeat, stepAhead, minSupport,
 													 rightSupport, ovlpSize);
@@ -372,13 +376,15 @@ FastaRecord::Id Extender::stepRight(FastaRecord::Id readId)
 	return bestExtension;
 }
 
-bool Extender::resolvableRepeat(FastaRecord::Id readId)
+bool Extender::stepAhead(FastaRecord::Id readId)
 {
 	if (this->isBranching(readId) && this->isBranching(readId.rc())) 
 	{
 		return false;
 	}
 
+	int goodReads = 0;
+	int allReads = 0;
 	for (auto& ovlp : _ovlpDetector.getOverlapIndex().at(readId))
 	{
 		if (this->extendsRight(ovlp) &&
@@ -389,37 +395,28 @@ bool Extender::resolvableRepeat(FastaRecord::Id readId)
 				(!this->isBranching(ovlp.extId.rc()) &&
 				 this->majorClusterAgreement(readId, ovlp.extId)))
 			{
-				return true;
+				//return true;
+				++goodReads;
 			}
+			++allReads;
 		}
 	}
-	return false;
+	return goodReads > 0;
+	//return (float)goodReads / allReads > 0.1f;	//tricky lookahead heuristic
+	//return false;
 }
 
 bool Extender::majorClusterAgreement(FastaRecord::Id leftRead,
 									 FastaRecord::Id rightRead)
 {
-	auto& overlaps = _ovlpDetector.getOverlapIndex().at(rightRead.rc());
-	std::unordered_set<FastaRecord::Id> extensions;
-	for (auto& ovlp : overlaps)
+	if (!_readsMultiplicity.count(rightRead.rc()))
 	{
-		if (this->extendsRight(ovlp)) extensions.insert(ovlp.extId);
+		_readsMultiplicity[rightRead.rc()] = 
+				this->rightMultiplicity(rightRead.rc());
 	}
 
-	size_t maxCovered = 0;
-	std::unordered_set<FastaRecord::Id> coveredSet;
-	for (auto& extCandidate : extensions)
-	{
-		std::unordered_set<FastaRecord::Id> resCovered;
-		this->coveredReads(extensions, extCandidate, resCovered);
-		if (resCovered.size() > maxCovered)
-		{
-			maxCovered = resCovered.size();
-			coveredSet = resCovered;
-		}
-	}
-
-	return coveredSet.empty() || coveredSet.count(leftRead.rc());
+	return _maxClusters[rightRead.rc()].empty() || 
+		   _maxClusters[rightRead.rc()].count(leftRead.rc());
 }
 
 int Extender::countRightExtensions(FastaRecord::Id readId)
