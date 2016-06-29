@@ -139,6 +139,12 @@ void Extender::assembleContigs()
 	const int MIN_CONTIG = 15;
 	const int MIN_EXTENSIONS = std::max(_coverage / 10, 1);
 
+	//for (auto& indexPair : _seqContainer.getIndex())
+	//{
+	//	_readsMultiplicity[indexPair.first] = 
+	//				this->rightMultiplicity(indexPair.first);
+	//}
+
 	_visitedReads.clear();
 	for (auto& indexPair : _seqContainer.getIndex())
 	{	
@@ -228,6 +234,17 @@ int Extender::rightMultiplicity(FastaRecord::Id readId)
 		this->coveredReads(extensions, extCandidate, 
 						   coveredByNode[extCandidate]);
 	}
+	/*
+	for (auto& cluster : coveredByNode)
+	{
+		Logger::get().debug() << "\tCoverage of " 
+							  << _seqContainer.seqName(cluster.first);
+		for (auto& node : cluster.second)
+		{
+			Logger::get().debug() << "\t\t" << _seqContainer.seqName(node);
+		}
+	}
+	*/
 
 	while(true)
 	{
@@ -259,6 +276,7 @@ int Extender::rightMultiplicity(FastaRecord::Id readId)
 		if (clusterIds.empty())
 		{
 			_maxClusters[readId] = coveredByNode[maxUniqueCoveredId];
+			_maxClusters[readId].insert(readId);
 		}
 		clusterIds.insert(maxUniqueCoveredId);
 		for (auto readId : coveredByNode[maxUniqueCoveredId]) 
@@ -378,6 +396,7 @@ FastaRecord::Id Extender::stepRight(FastaRecord::Id readId)
 
 bool Extender::stepAhead(FastaRecord::Id readId)
 {
+	const float MIN_GOOD = 0.05f;
 	if (this->isBranching(readId) && this->isBranching(readId.rc())) 
 	{
 		return false;
@@ -395,15 +414,12 @@ bool Extender::stepAhead(FastaRecord::Id readId)
 				(!this->isBranching(ovlp.extId.rc()) &&
 				 this->majorClusterAgreement(readId, ovlp.extId)))
 			{
-				//return true;
 				++goodReads;
 			}
 			++allReads;
 		}
 	}
-	//return goodReads > 0;
-	return (float)goodReads / allReads > 0.05f;	//tricky lookahead heuristic
-	//return false;
+	return (float)goodReads / allReads > MIN_GOOD;
 }
 
 bool Extender::majorClusterAgreement(FastaRecord::Id leftRead,
