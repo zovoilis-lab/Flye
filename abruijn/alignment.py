@@ -24,7 +24,6 @@ Alignment = namedtuple("Alignment", ["qry_id", "trg_id", "qry_start", "qry_end",
                                      "qry_sign", "qry_len", "trg_start",
                                      "trg_end", "trg_sign", "trg_len",
                                      "qry_seq", "trg_seq", "err_rate"])
-ContigInfo = namedtuple("ContigInfo", ["id", "length", "type"])
 
 class AlignmentException(Exception):
     pass
@@ -64,38 +63,38 @@ def make_blasr_reference(contigs_fasta, out_file):
     """
     Outputs 'reference' for BLASR run, appends a suffix to circular contigs
     """
-    CIRCULAR_WINDOW = 50000
-
-    contigs_info = {}
+    circular_window = config.vals["circular_window"]
     for contig_id in contigs_fasta:
         contig_type = contig_id.split("_")[0]
-        contig_len = len(contigs_fasta[contig_id])
-        contigs_info[contig_id] = ContigInfo(contig_id, contig_len,
-                                             contig_type)
-
         if (contig_type == "circular" and
-            len(contigs_fasta[contig_id]) > CIRCULAR_WINDOW):
+            len(contigs_fasta[contig_id]) > circular_window):
             contigs_fasta[contig_id] += \
-                    contigs_fasta[contig_id][:CIRCULAR_WINDOW]
+                    contigs_fasta[contig_id][:circular_window]
 
     fp.write_fasta_dict(contigs_fasta, out_file)
-    return contigs_info
 
 
 def make_alignment(reference_file, reads_file, num_proc,
-                  work_dir, iter_id):
+                   out_alignment):
     """
-    Runs blasr and return parsed alignment
+    Runs BLASR
     """
     logger.info("Running BLASR")
-    blasr_file = os.path.join(work_dir, "alignment_" + iter_id + ".m5")
-    _run_blasr(reference_file, reads_file, num_proc, blasr_file)
-    alignment, mean_err = _parse_blasr(blasr_file)
-    profile = _choose_profile(mean_err)
-    return alignment, profile
+    _run_blasr(reference_file, reads_file, num_proc, out_alignment)
 
 
-def _choose_profile(err_rate):
+def parse_alignment(alignment_file):
+    """
+    Parses BLASR alignment and choses error profile base on error rate
+    """
+    alignment, mean_error = _parse_blasr(alignment_file)
+    return alignment, mean_error
+
+
+def choose_error_profile(err_rate):
+    """
+    Choses error profile base on error rate
+    """
     if err_rate < config.vals["err_rate_threshold"]:
         profile = "pacbio"
     else:

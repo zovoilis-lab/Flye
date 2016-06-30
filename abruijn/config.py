@@ -7,6 +7,7 @@ File with configurations
 """
 
 vals = {
+        "circular_window" : 50000,
         "err_rate_threshold" : 0.24,
         "profiles" : {
             "pacbio" : {

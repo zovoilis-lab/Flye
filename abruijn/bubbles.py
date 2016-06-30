@@ -8,9 +8,12 @@ Separates alignment into small bubbles for further correction
 
 import bisect
 import logging
-from collections import defaultdict
+from collections import defaultdict, namedtuple
 
 import abruijn.fasta_parser as fp
+import abruijn.config as config
+
+ContigInfo = namedtuple("ContigInfo", ["id", "length", "type"])
 
 logger = logging.getLogger()
 
@@ -31,14 +34,24 @@ class Bubble:
         self.consensus = ""
 
 
-def get_bubbles(alignment, contigs_info):
+def get_bubbles(alignment):
     """
     The main function: takes an alignment and returns bubbles
     """
     logger.info("Separating draft genome into bubbles")
     aln_by_ctg = defaultdict(list)
+    contigs_info = {}
+    circular_window = config.vals["circular_window"]
+
     for aln in alignment:
         aln_by_ctg[aln.trg_id].append(aln)
+        if aln.trg_id not in contigs_info:
+            contig_type = aln.trg_id.split("_")[0]
+            contig_len = aln.trg_len
+            if contig_type == "circular" and contig_len > circular_window:
+                contig_len -= circular_window
+            contigs_info[aln.trg_id] = ContigInfo(aln.trg_id, contig_len,
+                                                  contig_type)
 
     bubbles = []
     for ctg_id, ctg_aln in aln_by_ctg.iteritems():
