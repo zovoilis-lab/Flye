@@ -1,7 +1,7 @@
 ABruijn assembler
 ==================
 
-Version: 0.2b
+Version: 0.3b
 
 The software is currently under active development, so not all features
 are fully supported yet. Stay tuned for more stable releases!
@@ -23,8 +23,8 @@ to be installed.
 Usage
 -----
     
-    usage: abruijn.py [-h] [--debug] [-t THREADS] [-k KMER_SIZE] [-m MIN_COV]
-                      [-x MAX_COV] [--version]
+    usage: abruijn.py [-h] [--debug] [--resume] [-t THREADS] [-i NUM_ITERS]
+                      [-k KMER_SIZE] [-m MIN_COV] [-x MAX_COV] [--version]
                       reads out_dir coverage
     
     ABruijn: assembly of long and error-prone reads
@@ -37,8 +37,11 @@ Usage
     optional arguments:
       -h, --help            show this help message and exit
       --debug               enable debug output
+      --resume              try to resume previous assembly
       -t THREADS, --threads THREADS
                             number of parallel threads (default: 1)
+      -i NUM_ITERS, --iterations NUM_ITERS
+                            number of polishing iterations (default: 2)
       -k KMER_SIZE, --kmer-size KMER_SIZE
                             kmer size (default: 15)
       -m MIN_COV, --min-cov MIN_COV
@@ -46,6 +49,7 @@ Usage
       -x MAX_COV, --max-cov MAX_COV
                             maximum kmer coverage (default: auto)
       --version             show program's version number and exit
+
 
 
 Citation
@@ -58,7 +62,7 @@ Third-party
 -----------
 ABruijn package includes some third-patry software:
 
-* libbf [http://github.com/mavam/libbf]
+* libcuckoo [http://github.com/efficient/libcuckoo]
 
 
 License

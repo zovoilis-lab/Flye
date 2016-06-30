@@ -83,7 +83,7 @@ class JobAssembly(Job):
                      self.args.debug, self.log_file, self.args.threads)
         contigs_fasta = aln.concatenate_contigs(reads_order)
         fp.write_fasta_dict(contigs_fasta, self.out_file)
-        os.remove(reads_order)
+        #os.remove(reads_order)
 
         Job.run_description["stage_name"] = self.name
 
