@@ -10,39 +10,6 @@
 #include "logger.h"
 #include "extender.h"
 
-namespace
-{
-	template <class T>
-	T median(const std::vector<T>& vals)
-	{
-		if (vals.empty()) return T();
-		std::vector<T> tmp = vals;
-		std::sort(tmp.begin(), tmp.end());
-		//NOTE: there's a bug in libstdc++ nth_element, 
-		//that sometimes leads to a segfault
-		//std::nth_element(tmp.begin(), tmp.begin() + tmp.size() / 2, 
-		//				 tmp.end());
-		return tmp[tmp.size() / 2];
-	}
-
-	template <class T>
-	T mean(const std::vector<T>& vals)
-	{
-		if (vals.empty()) return T();
-		T sum = 0;
-		for (const T& val : vals) sum += val;
-		return sum / vals.size();
-	}
-	
-	template <class T>
-	T vecMax(const std::vector<T>& vals)
-	{
-		if (vals.empty()) return T();
-		T max = 0;
-		for (const T& val : vals) max = std::max(max, val);
-		return max;
-	}
-}
 
 ContigPath Extender::extendContig(FastaRecord::Id startRead)
 {
@@ -287,7 +254,7 @@ int Extender::rightMultiplicity(FastaRecord::Id readId)
 	}
 
 	//counting cluster sizes
-	int numClusters = 0;
+	/*
 	std::string strClusters;
 	for (auto& clustId : clusterIds)
 	{
@@ -299,12 +266,11 @@ int Extender::rightMultiplicity(FastaRecord::Id readId)
 				++clustSize;
 			}
 		}
-		++numClusters;
 		strClusters += std::to_string(clustSize) + " ";
-	}
+	}*/
 	//Logger::get().debug() << "\tClusters: " << strClusters;
 
-	return std::max(1, numClusters);
+	return std::max(1UL, clusterIds.size());
 }
 
 
@@ -355,13 +321,7 @@ FastaRecord::Id Extender::stepRight(FastaRecord::Id readId)
 		}
 
 		int minSupport = std::min(leftSupport, rightSupport);
-
-		int resolvesRepeat = (!this->isBranching(readId) && 
-							  this->majorClusterAgreement(extCandidate.rc(), 
-														  readId.rc())) ||
-							 (!this->isBranching(extCandidate.rc()) &&
-							   this->majorClusterAgreement(readId, 
-							   							   extCandidate));
+		int resolvesRepeat = this->resolvesRepeat(readId, extCandidate);
 		int stepAhead = this->stepAhead(extCandidate);
 
 		supportIndex[extCandidate] = std::make_tuple(resolvesRepeat, stepAhead, minSupport,
@@ -397,42 +357,59 @@ FastaRecord::Id Extender::stepRight(FastaRecord::Id readId)
 bool Extender::stepAhead(FastaRecord::Id readId)
 {
 	const float MIN_GOOD = 0.05f;
+
 	if (this->isBranching(readId) && this->isBranching(readId.rc())) 
 	{
 		return false;
 	}
 
-	int goodReads = 0;
-	int allReads = 0;
+	std::unordered_set<FastaRecord::Id> candidates;
 	for (auto& ovlp : _ovlpDetector.getOverlapIndex().at(readId))
 	{
 		if (this->extendsRight(ovlp) &&
 			this->countRightExtensions(ovlp.extId) > 0)
 		{
-			if ((!this->isBranching(readId) && 
-				 this->majorClusterAgreement(ovlp.extId.rc(), readId.rc())) ||
-				(!this->isBranching(ovlp.extId.rc()) &&
-				 this->majorClusterAgreement(readId, ovlp.extId)))
-			{
-				++goodReads;
-			}
-			++allReads;
+			candidates.insert(ovlp.extId);
 		}
 	}
-	return (float)goodReads / allReads > MIN_GOOD;
+
+	int goodReads = 0;
+	for (auto candidate : candidates)
+	{
+		if (this->resolvesRepeat(readId, candidate))
+		{
+			++goodReads;
+		}
+		if ((float)goodReads / candidates.size() > MIN_GOOD)
+		{
+			return true;
+		}
+	}
+
+	return false;
+}
+
+
+bool Extender::resolvesRepeat(FastaRecord::Id leftRead, 
+							  FastaRecord::Id rightRead)
+{
+	return (!this->isBranching(leftRead) && 
+			this->majorClusterAgreement(leftRead, rightRead)) ||
+			(!this->isBranching(rightRead.rc()) &&
+			this->majorClusterAgreement(rightRead.rc(), leftRead.rc()));
 }
 
 bool Extender::majorClusterAgreement(FastaRecord::Id leftRead,
 									 FastaRecord::Id rightRead)
 {
-	if (!_readsMultiplicity.count(rightRead.rc()))
+	if (!_readsMultiplicity.count(leftRead))
 	{
-		_readsMultiplicity[rightRead.rc()] = 
-				this->rightMultiplicity(rightRead.rc());
+		_readsMultiplicity[leftRead] = 
+				this->rightMultiplicity(leftRead);
 	}
 
-	return _maxClusters[rightRead.rc()].empty() || 
-		   _maxClusters[rightRead.rc()].count(leftRead.rc());
+	return _maxClusters[leftRead].empty() || 
+		   _maxClusters[leftRead].count(rightRead);
 }
 
 int Extender::countRightExtensions(FastaRecord::Id readId)

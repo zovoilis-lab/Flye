@@ -55,6 +55,7 @@ private:
 	bool  extendsRight(const OverlapRange& ovlp);
 	bool  coversRight(const OverlapRange& ovlp);
 	bool  stepAhead(FastaRecord::Id);
+	bool  resolvesRepeat(FastaRecord::Id leftRead, FastaRecord::Id rightRead);
 
 	void  coveredReads(const std::unordered_set<FastaRecord::Id>& allReads,
 					   FastaRecord::Id startRead, 
