@@ -103,7 +103,8 @@ ContigPath Extender::extendContig(FastaRecord::Id startRead)
 void Extender::assembleContigs()
 {
 	Logger::get().info() << "Extending reads";
-	const int MIN_CONTIG = 15;
+	//TODO: better contig filtering
+	const int MIN_CONTIG = 10;
 	const int MIN_EXTENSIONS = std::max(_coverage / 10, 1);
 
 	//for (auto& indexPair : _seqContainer.getIndex())
@@ -126,7 +127,7 @@ void Extender::assembleContigs()
 
 		ContigPath path = this->extendContig(indexPair.first);
 
-		if (path.reads.size() >= MIN_CONTIG || _contigPaths.empty())
+		if (path.reads.size() >= MIN_CONTIG)
 		{
 			//marking visited reads
 			for (auto& readId : path.reads)
