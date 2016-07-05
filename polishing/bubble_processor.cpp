@@ -7,6 +7,15 @@
 
 #include "bubble_processor.h"
 
+namespace
+{
+	size_t fileSize(const std::string& filename)
+	{
+		std::ifstream in(filename);
+		in.ignore(std::numeric_limits<std::streamsize>::max());
+	    return in.gcount();
+	}
+}
 
 BubbleProcessor::BubbleProcessor(const std::string& subsMatPath,
 								 const std::string& hopoMatrixPath):
@@ -26,14 +35,13 @@ void BubbleProcessor::polishAll(const std::string& inBubbles,
 	_cachedBubbles.clear();
 	_cachedBubbles.reserve(BUBBLES_CACHE);
 
+	size_t fileLength = fileSize(inBubbles);
 	_bubblesFile.open(inBubbles);
 	if (!_bubblesFile.is_open())
 	{
 		throw std::runtime_error("Error opening bubbles file");
 	}
-	_bubblesFile.seekg(0, _bubblesFile.end);
-	int fileLength = _bubblesFile.tellg();
-	_bubblesFile.seekg(0, _bubblesFile.beg);
+
 	_progress.setFinalCount(fileLength);
 
 	_consensusFile.open(outConsensus);

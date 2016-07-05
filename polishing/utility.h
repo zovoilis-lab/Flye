@@ -11,35 +11,6 @@
 #include <sstream>
 #include <vector>
 
-#ifdef _DEBUG_LOG
-#define DEBUG_PRINT(x) do {std::cerr << timestamp() << " " << x << std::endl;} \
-					   while(0)
-#else
-#define DEBUG_PRINT(x)
-#endif
-
-#ifdef _LOG
-#define LOG_PRINT(x) do {std::cerr << timestamp() << " " << x << std::endl;} \
-					   while(0)
-#else
-#define LOG_PRINT(x)
-#endif
-
-#define WARNING_PRINT(x) do {std::cerr << timestamp() << " [WARNING] " << x << std::endl;} \
-					   	 while(0)
-
-#define ERROR_PRINT(x) do {std::cerr << timestamp() << " [ERROR] " << x << std::endl;} \
-					   	 while(0)
-
-
-inline std::string timestamp(const char* format = "[%H:%M:%S]")
-{
-	std::time_t t = std::time(0);
-	char cstr[128];
-	std::strftime(cstr, sizeof(cstr), format, std::localtime(&t));
-	return cstr;
-}
-
 
 inline std::vector<std::string> 
 splitString(const std::string &s, char delim) 
@@ -54,13 +25,13 @@ splitString(const std::string &s, char delim)
 class ProgressPercent
 {
 public:
-	ProgressPercent(int finalCount = 0):
+	ProgressPercent(size_t finalCount = 0):
 		_finalCount(finalCount), _curCount(0), _prevPercent(-1),
 		_stopped(false)
 	{}
 
-	void setFinalCount(int finalCount) {_finalCount = finalCount;}
-	void setValue(int value)
+	void setFinalCount(size_t finalCount) {_finalCount = finalCount;}
+	void setValue(size_t value)
 	{
 		this->advance(value - _curCount);
 	}
@@ -68,7 +39,7 @@ public:
 	{
 		this->setValue(_finalCount);
 	}
-	void advance(int step = 1)
+	void advance(size_t step = 1)
 	{
 		if (_stopped) return;
 
@@ -88,8 +59,8 @@ public:
 	}
 
 private:
-	int _finalCount;
-	int _curCount;
-	int _prevPercent;
+	size_t _finalCount;
+	size_t _curCount;
+	int  _prevPercent;
 	bool _stopped;
 };
