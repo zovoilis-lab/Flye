@@ -182,6 +182,7 @@ def run(args):
     if args.resume:
         for i in xrange(len(jobs)):
             if jobs[i].can_resume(save_file):
+                jobs[i].load(save_file)
                 can_resume = True
                 current_job = i + 1
 
