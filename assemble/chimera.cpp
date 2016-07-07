@@ -9,7 +9,6 @@
 
 #include "chimera.h"
 #include "logger.h"
-#include "disjoint_set.h"
 
 
 void ChimeraDetector::detectChimeras()
@@ -18,7 +17,6 @@ void ChimeraDetector::detectChimeras()
 						  << this->estimateOverlapCoverage();
 	for (auto& seqHash : _seqContainer.getIndex())
 	{
-		//if (this->testReadByClusters(seqHash.first))
 		//if (this->testReadByCoverage(seqHash.first))
 		if (this->testSelfOverlap(seqHash.first))
 		{
@@ -34,7 +32,6 @@ void ChimeraDetector::detectChimeras()
 
 int ChimeraDetector::estimateOverlapCoverage()
 {
-	static const float MAGIC_25 = 2.5f;
 	static const int WINDOW = 100;
 	const int FLANK = _minimumOverlap / WINDOW;
 
@@ -71,7 +68,7 @@ int ChimeraDetector::estimateOverlapCoverage()
 		}
 	}
 	int estCoverage = (numWindows != 0) ? covSum / numWindows : 1;
-	return estCoverage * MAGIC_25;
+	return estCoverage;
 }
 
 bool ChimeraDetector::testReadByCoverage(FastaRecord::Id readId)
@@ -87,6 +84,8 @@ bool ChimeraDetector::testReadByCoverage(FastaRecord::Id readId)
 	coverage.assign(numWindows - 2 * FLANK, 0);
 	for (auto& ovlp : _ovlpDetector.getOverlapIndex().at(readId))
 	{
+		if (ovlp.curId == ovlp.extId.rc()) continue;
+
 		for (int pos = (ovlp.curBegin + _maximumJump) / WINDOW; 
 			 pos < (ovlp.curEnd - _maximumJump) / WINDOW; ++pos)
 		{
@@ -120,32 +119,4 @@ bool ChimeraDetector::testSelfOverlap(FastaRecord::Id readId)
 		if (ovlp.extId == readId.rc()) return true;
 	}
 	return false;
-}
-
-bool ChimeraDetector::testReadByClusters(FastaRecord::Id readId)
-{
-	auto& overlaps = _ovlpDetector.getOverlapIndex().at(readId);
-	std::unordered_map<FastaRecord::Id,
-					   SetNode<FastaRecord::Id>*> extensions;
-    for (auto& ovlp : overlaps) 
-	{
-		extensions[ovlp.extId] = new SetNode<FastaRecord::Id>(ovlp.extId);
-	}
-
-	for (auto& extHash : extensions)
-	{
-		auto& extOverlaps = _ovlpDetector.getOverlapIndex().at(extHash.first);
-		for (auto& extOvlp : extOverlaps)
-		{
-			if (extensions.count(extOvlp.extId))
-			{
-				unionSet(extHash.second, extensions[extOvlp.extId]);
-			}
-		}
-	}
-
-	std::unordered_set<SetNode<FastaRecord::Id>*> clusters;
-	for (auto& extHash : extensions) clusters.insert(findSet(extHash.second));
-
-	return clusters.size() != 1;
 }

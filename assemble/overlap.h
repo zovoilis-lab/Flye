@@ -121,10 +121,12 @@ private:
 	enum JumpRes {J_END, J_INCONS, J_CLOSE, J_FAR};
 
 	std::vector<OverlapRange> getReadOverlaps(FastaRecord::Id readId) const;
-	void 	addOverlapShifts(OverlapRange& ovlp) const;
+	void 	addOverlapShifts(OverlapRange& ovlp,
+							 const std::vector<KmerPosition>& 
+							 	solidKmersCache,
+							 int32_t curLen, int32_t extLen) const;
 	bool    goodStart(int32_t currentPos, int32_t extensionPos, 
-				      FastaRecord::Id currentId, 
-					  FastaRecord::Id extensionId) const;
+				      int32_t curLen, int32_t extLen) const;
 	bool    overlapTest(const OverlapRange& ovlp, 
 						int32_t curLen, int32_t extLen) const;
 	JumpRes jumpTest(int32_t currentPrev, int32_t currentNext,
@@ -144,8 +146,8 @@ private:
 	const SequenceContainer& _seqContainer;
 
 	std::mutex _fetchMutex;
-	mutable std::mutex _logMutex;
 	ProgressPercent _progress;
 	std::vector<FastaRecord::Id> _jobQueue;
 	size_t _nextJob;
+	//mutable std::mutex _logMutex;
 };

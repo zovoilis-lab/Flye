@@ -19,7 +19,7 @@ ContigPath Extender::extendContig(FastaRecord::Id startRead)
 	_overlapsStart = true;
 	bool rightExtension = true;
 
-	std::unordered_set<FastaRecord::Id> curPathVisited;	//for debugging only
+	//std::unordered_set<FastaRecord::Id> curPathVisited;	//for debugging only
 
 	Logger::get().debug() << "Start Read: " << 
 				_seqContainer.seqName(startRead);
@@ -45,8 +45,8 @@ ContigPath Extender::extendContig(FastaRecord::Id startRead)
 		{
 			Logger::get().debug() << "Extension: " << 
 				    	_seqContainer.seqName(extRead);
-			if (curPathVisited.count(extRead)) 
-				Logger::get().debug() << "Visited in this path";
+			//if (curPathVisited.count(extRead)) 
+			//	Logger::get().debug() << "Visited in this path";
 			if (_visitedReads.count(extRead)) 
 				Logger::get().debug() << "Visited globally";
 		}
@@ -87,8 +87,8 @@ ContigPath Extender::extendContig(FastaRecord::Id startRead)
 
 		_visitedReads.insert(extRead);
 		_visitedReads.insert(extRead.rc());
-		curPathVisited.insert(extRead);
-		curPathVisited.insert(extRead.rc());
+		//curPathVisited.insert(extRead);
+		//curPathVisited.insert(extRead.rc());
 
 		contigPath.reads.push_back(extRead);
 		curRead = extRead;
