@@ -141,14 +141,17 @@ bool OverlapDetector::goodStart(int32_t curPos, int32_t extPos,
 
 OverlapDetector::JumpRes 
 OverlapDetector::jumpTest(int32_t curPrev, int32_t curNext,
-						  int32_t extPrev, int32_t extNext) const
+						  int32_t extPrev, int32_t extNext,
+						  int prevKmerId, int nextKmerId) const
 {
 	static const int CLOSE_FRAC = 8;
 	static const int FAR_FRAC = 2;
-	if (curNext - curPrev > _maximumJump) return J_END;
+	static const int MAX_ID_DIST = 500;
+	
+	//if (curNext - curPrev > _maximumJump) return J_END;
+	if (nextKmerId - prevKmerId > MAX_ID_DIST) return J_END;
 
-	if (0 < curNext - curPrev && curNext - curPrev < _maximumJump && 
-		0 < extNext - extPrev && extNext - extPrev < _maximumJump)
+	if (0 < curNext - curPrev && 0 < extNext - extPrev)
 	{
 		if (abs((curNext - curPrev) - (extNext - extPrev)) 
 			< _maximumJump / CLOSE_FRAC)
@@ -189,10 +192,13 @@ OverlapDetector::getReadOverlaps(FastaRecord::Id currentReadId) const
 	std::vector<KmerPosition> solidKmersCache;
 
 	//for all kmers in this read
+	int curKmerId = 0;
 	for (auto curKmerPos : IterSolidKmers(currentReadId))
 	{
+		++curKmerId;
 		int32_t curPos = curKmerPos.position;
 		solidKmersCache.push_back(curKmerPos);
+
 		//for all other occurences of this kmer (extension candidates)
 		for (const auto& extReadPos : _vertexIndex.byKmer(curKmerPos.kmer))
 		{
@@ -216,7 +222,8 @@ OverlapDetector::getReadOverlaps(FastaRecord::Id currentReadId) const
 			for (size_t pathId = 0; pathId < extPaths.size(); ++pathId)
 			{
 				JumpRes jumpResult = this->jumpTest(extPaths[pathId].curEnd, curPos,
-													extPaths[pathId].extEnd, extPos);
+													extPaths[pathId].extEnd, extPos,
+													extPaths[pathId].kmerNumber, curKmerId);
 				int32_t jumpLength = curPos - extPaths[pathId].curBegin;
 
 				switch (jumpResult)
@@ -250,6 +257,7 @@ OverlapDetector::getReadOverlaps(FastaRecord::Id currentReadId) const
 				eraseMarks.erase(maxCloseId);
 				extPaths[maxCloseId].curEnd = curPos;
 				extPaths[maxCloseId].extEnd = extPos;
+				extPaths[maxCloseId].kmerNumber = curKmerId;
 			}
 			//update the best far extension, keep the old path as a copy
 			if (extendsFar)
@@ -257,6 +265,7 @@ OverlapDetector::getReadOverlaps(FastaRecord::Id currentReadId) const
 				extPaths.push_back(extPaths[maxFarId]);
 				extPaths.back().curEnd = curPos;
 				extPaths.back().extEnd = extPos;
+				extPaths.back().kmerNumber = curKmerId;
 			}
 			//if no extensions possible (or there are no active paths), start a new path
 			if (!extendsClose && !extendsFar &&
@@ -265,6 +274,7 @@ OverlapDetector::getReadOverlaps(FastaRecord::Id currentReadId) const
 			{
 				extPaths.emplace_back(currentReadId, extReadPos.readId,
 									  curPos, extPos);
+				extPaths.back().kmerNumber = curKmerId;
 			}
 			//cleaning up
 			for (auto itEraseId = eraseMarks.rbegin(); 

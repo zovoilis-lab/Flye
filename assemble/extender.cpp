@@ -19,8 +19,6 @@ ContigPath Extender::extendContig(FastaRecord::Id startRead)
 	_overlapsStart = true;
 	bool rightExtension = true;
 
-	//std::unordered_set<FastaRecord::Id> curPathVisited;	//for debugging only
-
 	Logger::get().debug() << "Start Read: " << 
 				_seqContainer.seqName(startRead);
 
@@ -45,8 +43,6 @@ ContigPath Extender::extendContig(FastaRecord::Id startRead)
 		{
 			Logger::get().debug() << "Extension: " << 
 				    	_seqContainer.seqName(extRead);
-			//if (curPathVisited.count(extRead)) 
-			//	Logger::get().debug() << "Visited in this path";
 			if (_visitedReads.count(extRead)) 
 				Logger::get().debug() << "Visited globally";
 		}
@@ -87,8 +83,6 @@ ContigPath Extender::extendContig(FastaRecord::Id startRead)
 
 		_visitedReads.insert(extRead);
 		_visitedReads.insert(extRead.rc());
-		//curPathVisited.insert(extRead);
-		//curPathVisited.insert(extRead.rc());
 
 		contigPath.reads.push_back(extRead);
 		curRead = extRead;
@@ -202,6 +196,7 @@ int Extender::rightMultiplicity(FastaRecord::Id readId)
 		this->coveredReads(extensions, extCandidate, 
 						   coveredByNode[extCandidate]);
 	}
+
 	/*
 	for (auto& cluster : coveredByNode)
 	{
@@ -247,6 +242,8 @@ int Extender::rightMultiplicity(FastaRecord::Id readId)
 			_maxClusters[readId].insert(readId);
 		}
 		clusterIds.insert(maxUniqueCoveredId);
+		if (clusterIds.size() > 1) return 2;
+
 		for (auto readId : coveredByNode[maxUniqueCoveredId]) 
 		{
 			//Logger::get().debug() << "\t\t " << _seqContainer.seqName(readId);
