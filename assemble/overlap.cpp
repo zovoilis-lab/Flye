@@ -144,21 +144,36 @@ OverlapDetector::jumpTest(int32_t curPrev, int32_t curNext,
 						  int32_t extPrev, int32_t extNext,
 						  int prevKmerId, int nextKmerId) const
 {
-	static const int CLOSE_FRAC = 8;
+	static const int CLOSE_FRAC = 100;
 	static const int FAR_FRAC = 2;
-	static const int MAX_ID_DIST = 500;
+	//static const int MAX_ID_DIST = 200;
 	
-	//if (curNext - curPrev > _maximumJump) return J_END;
-	if (nextKmerId - prevKmerId > MAX_ID_DIST) return J_END;
+	if (curNext - curPrev > _maximumJump ||
+		extNext - extPrev > _maximumJump) return J_END;
+	//if (nextKmerId - prevKmerId > MAX_ID_DIST) return J_END;
 
 	if (0 < curNext - curPrev && 0 < extNext - extPrev)
 	{
 		if (abs((curNext - curPrev) - (extNext - extPrev)) 
 			< _maximumJump / CLOSE_FRAC)
+		{
+			/*if (nextKmerId - prevKmerId > 200)
+				Logger::get().debug() << "close: " 
+									  << nextKmerId - prevKmerId
+									  << " " << curNext - curPrev
+									  << " " << extNext - extPrev;*/
 			return J_CLOSE;
+		}
 		if (abs((curNext - curPrev) - (extNext - extPrev)) 
 			< _maximumJump / FAR_FRAC)
+		{
+			/*if (nextKmerId - prevKmerId > 200)
+				Logger::get().debug() << "far: "
+									  << nextKmerId - prevKmerId
+									  << " " << curNext - curPrev
+									  << " " << extNext - extPrev;*/
 			return J_FAR;
+		}
 	}
 	return J_INCONS;
 }
@@ -287,10 +302,12 @@ OverlapDetector::getReadOverlaps(FastaRecord::Id currentReadId) const
 	} //end loop over kmers in the current read
 	
 	std::vector<OverlapRange> detectedOverlaps;
+	//std::vector<OverlapRange> debugOverlaps;
 	for (auto& ap : activePaths)
 	{
 		size_t extLen = _seqContainer.seqLen(ap.first);
 		OverlapRange maxOverlap;
+		OverlapRange debugOverlap;
 		bool passedTest = false;
 		for (auto& ovlp : ap.second)
 		{
@@ -299,6 +316,7 @@ OverlapDetector::getReadOverlaps(FastaRecord::Id currentReadId) const
 				passedTest = true;
 				if (maxOverlap.curRange() < ovlp.curRange()) maxOverlap = ovlp;
 			}
+			//if (debugOverlap.curRange() < ovlp.curRange()) debugOverlap = ovlp;
 		}
 
 		if (passedTest)
@@ -306,7 +324,9 @@ OverlapDetector::getReadOverlaps(FastaRecord::Id currentReadId) const
 			this->addOverlapShifts(maxOverlap, solidKmersCache, curLen, extLen);
 			detectedOverlaps.push_back(maxOverlap);
 		}
+		//if (debugOverlap.curRange() > 3000) debugOverlaps.push_back(debugOverlap);
 	}
+	
 	
 	/*
 	if (!debugOverlaps.empty())

@@ -32,43 +32,12 @@ void ChimeraDetector::detectChimeras()
 
 int ChimeraDetector::estimateOverlapCoverage()
 {
-	static const int WINDOW = 100;
-	const int FLANK = _minimumOverlap / WINDOW;
-
-	std::unordered_map<FastaRecord::Id, 
-					   std::vector<int>> localCoverage;
+	size_t total = 0;
 	for (auto& seqHash : _seqContainer.getIndex())
 	{
-		int numWindows = seqHash.second.sequence.length() / WINDOW;
-		if (numWindows - 2 * FLANK <= 0) continue;
-		localCoverage[seqHash.first].assign(numWindows - 2 * FLANK, 0);
-
-		for (auto& ovlp : _ovlpDetector.getOverlapIndex().at(seqHash.first))
-		{
-			for (int pos = ovlp.curBegin / WINDOW; 
-				 pos < ovlp.curEnd / WINDOW; ++pos)
-			{
-				if (pos - FLANK >= 0 && 
-					pos - FLANK < (int)localCoverage[seqHash.first].size())
-				{
-					++localCoverage[seqHash.first][pos - FLANK];
-				}
-			}
-		}
+		total += _ovlpDetector.getOverlapIndex().at(seqHash.first).size();
 	}
-
-	float covSum = 0;
-	int numWindows = 0;
-	for (auto& seqHash : _seqContainer.getIndex())
-	{
-		for (int cov : localCoverage[seqHash.first])
-		{
-			covSum += cov;
-			++numWindows;
-		}
-	}
-	int estCoverage = (numWindows != 0) ? covSum / numWindows : 1;
-	return estCoverage;
+	return total / _seqContainer.getIndex().size();
 }
 
 bool ChimeraDetector::testReadByCoverage(FastaRecord::Id readId)
