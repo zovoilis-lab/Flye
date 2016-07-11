@@ -18,7 +18,6 @@ void ChimeraDetector::detectChimeras()
 	for (auto& seqHash : _seqContainer.getIndex())
 	{
 		if (this->testReadByCoverage(seqHash.first))
-		//if (this->testSelfOverlap(seqHash.first))
 		{
 			_chimeras.insert(seqHash.first);
 		}
@@ -50,7 +49,7 @@ bool ChimeraDetector::testReadByCoverage(FastaRecord::Id readId)
 	coverage.assign(numWindows - 2 * FLANK, 0);
 	for (auto& ovlp : _ovlpDetector.getOverlapIndex().at(readId))
 	{
-		if (ovlp.curId == ovlp.extId.rc()) continue;
+		if (ovlp.curId == ovlp.extId.rc()) return true;
 
 		for (int pos = (ovlp.curBegin + _maximumJump) / WINDOW; 
 			 pos < (ovlp.curEnd - _maximumJump) / WINDOW; ++pos)
@@ -83,16 +82,6 @@ bool ChimeraDetector::testReadByCoverage(FastaRecord::Id readId)
 			Logger::get().debug() << "Chimeric!";
 			return true;
 		}
-	}
-	return false;
-}
-
-bool ChimeraDetector::testSelfOverlap(FastaRecord::Id readId)
-{
-	auto& overlaps = _ovlpDetector.getOverlapIndex().at(readId);
-	for (auto& ovlp : overlaps)
-	{
-		if (ovlp.extId == readId.rc()) return true;
 	}
 	return false;
 }
