@@ -102,11 +102,6 @@ void VertexIndex::buildIndex(int minCoverage, int maxCoverage)
 				ReadVector* vec = _kmerIndex[kmerPos.kmer];
 				vec->emplace_back(seqPair.second.id, kmerPos.position);
 			}
-			/*
-			if (count > (size_t)maxCoverage)
-			{
-				_repetitiveKmers.insert(kmerPos.kmer);
-			}*/
 		}
 	}
 

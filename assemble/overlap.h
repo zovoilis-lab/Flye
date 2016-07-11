@@ -21,8 +21,7 @@ struct OverlapRange
 				 FastaRecord::Id extId = FastaRecord::ID_NONE, 
 				 int32_t curInit = 0, int32_t extInit = 0): 
 		curId(curId), curBegin(curInit), curEnd(curInit), 
-		extId(extId), extBegin(extInit), extEnd(extInit),
-		kmerNumber(0) 
+		extId(extId), extBegin(extInit), extEnd(extInit)
 	{}
 	int32_t curRange() const {return curEnd - curBegin;}
 	int32_t extRange() const {return extEnd - extBegin;}
@@ -94,9 +93,6 @@ struct OverlapRange
 	int32_t extBegin;
 	int32_t extEnd;
 	int32_t rightShift;
-
-	//
-	int kmerNumber;
 };
 
 class OverlapDetector
@@ -135,8 +131,7 @@ private:
 	bool    overlapTest(const OverlapRange& ovlp, 
 						int32_t curLen, int32_t extLen) const;
 	JumpRes jumpTest(int32_t currentPrev, int32_t currentNext,
-				     int32_t extensionPrev, int32_t extensionNext,
-					 int prevKmerId, int nextKmerId) const;
+				     int32_t extensionPrev, int32_t extensionNext) const;
 	void 	parallelWorker();
 
 	

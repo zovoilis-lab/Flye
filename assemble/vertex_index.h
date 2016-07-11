@@ -50,8 +50,6 @@ public:
 		{return *_kmerIndex[kmer];}
 	bool isSolid(Kmer kmer) const
 		{return _kmerIndex.contains(kmer);}
-	//bool isRepetitive(Kmer kmer) const
-	//	{return _repetitiveKmers.count(kmer);}
 	const KmerDistribution& getKmerHist() const
 		{return _kmerDistribution;}
 
@@ -60,7 +58,6 @@ private:
 	void addFastaSequence(const FastaRecord& fastaRecord);
 
 	cuckoohash_map<Kmer, ReadVector*> _kmerIndex;
-	//std::unordered_set<Kmer>		_repetitiveKmers;
 	unsigned int 					_kmerSize;
 	KmerDistribution 			 	_kmerDistribution;
 	cuckoohash_map<Kmer, size_t>  	_kmerCounts;
