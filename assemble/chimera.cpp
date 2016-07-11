@@ -20,6 +20,7 @@ void ChimeraDetector::detectChimeras()
 		if (this->testReadByCoverage(seqHash.first))
 		{
 			_chimeras.insert(seqHash.first);
+			Logger::get().debug() << "Chimeric!";
 		}
 	}
 
@@ -79,7 +80,6 @@ bool ChimeraDetector::testReadByCoverage(FastaRecord::Id readId)
 		}
 		if (zeroStrip && coverage[i + 1] != 0)
 		{
-			Logger::get().debug() << "Chimeric!";
 			return true;
 		}
 	}

@@ -184,6 +184,7 @@ int Extender::rightMultiplicity(FastaRecord::Id readId)
 		if (this->extendsRight(ovlp)) extensions.insert(ovlp.extId);
 	}
 	if (extensions.size() < 2) return 1;
+	if (extensions.size() > 2UL * _coverage) return 2;
 
 	//Logger::get().debug() << "Multiplicity of " << _seqContainer.seqName(readId);
 	std::unordered_map<FastaRecord::Id, 
