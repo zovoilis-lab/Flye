@@ -22,8 +22,6 @@ void ChimeraDetector::detectChimeras()
 		{
 			_chimeras.insert(seqHash.first);
 		}
-
-		//Logger::get().debug() << "Chimeric: " << seqHash.second.description;
 	}
 
 	Logger::get().debug() << _chimeras.size() / 2 
@@ -43,7 +41,6 @@ int ChimeraDetector::estimateOverlapCoverage()
 bool ChimeraDetector::testReadByCoverage(FastaRecord::Id readId)
 {
 	static const int WINDOW = _maximumJump;
-	//static const float COV_THRESHOLD = 0.1f;
 	const int FLANK = (_maximumJump + _maximumOverhang) / WINDOW;
 
 	std::vector<int> coverage;
@@ -65,10 +62,6 @@ bool ChimeraDetector::testReadByCoverage(FastaRecord::Id readId)
 			}
 		}
 	}
-
-	//int sum = 0;
-	//for (int cov : coverage) sum += cov;
-	//int minCoverage = (float)sum / coverage.size() * COV_THRESHOLD;
 
 	Logger::get().debug() << _seqContainer.seqName(readId);
 	std::string covStr;
