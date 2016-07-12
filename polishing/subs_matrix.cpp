@@ -43,8 +43,9 @@ namespace
 
 	static const size_t NUM_STATES = 128;
 	static const size_t NUM_OBS = 65536;
-	static const size_t MAX_RUN = 15;
 	static const double ZERO_PROB = 0.001f;
+	static const size_t MIN_HOPO = 1;
+	static const size_t MAX_HOPO = 10;
 }
 
 SubstitutionMatrix::SubstitutionMatrix(const std::string& path)
@@ -138,19 +139,17 @@ namespace
 				buf.clear();
 			}
 		}
-		//std::cerr << hopo << " " << result << std::endl;
 		return result;
 	}
 }
 
 
-HopoMatrix::State::State(char nucl, char length):
+HopoMatrix::State::State(char nucl, uint32_t length):
 	nucl(nucl), length(length)
 {
-	 hash = std::min(length, (char)MAX_RUN) + 
-					(MAX_RUN + 1) * dnaToId(nucl);
-
+	 id = std::min(length, (uint32_t)MAX_HOPO) + (MAX_HOPO + 1) * dnaToId(nucl);
 }
+
 		
 HopoMatrix::State::State(const std::string& str, size_t start, size_t end)
 {
@@ -171,30 +170,35 @@ HopoMatrix::State::State(const std::string& str, size_t start, size_t end)
 	}
 	if (runLength == 0) throw std::runtime_error("Wrong homopolymer");
 
-	hash = std::min(runLength, MAX_RUN) + (MAX_RUN + 1) * dnaToId(runNucl);
+	id = std::min(runLength, MAX_HOPO) + (MAX_HOPO + 1) * dnaToId(runNucl);
 	nucl = runNucl;
 	length = runLength;
 }
 
 
-HopoMatrix::Observation HopoMatrix::strToObs(const std::string& str, 
+HopoMatrix::Observation HopoMatrix::strToObs(char mainNucl, 
+											 const std::string& dnaStr, 
 											 size_t begin, size_t end)
 {
-	std::vector<size_t> counts = {0, 0, 0, 0, 0};
-	uint16_t result = 0;
-	if (end == std::string::npos) end = str.length();
-	for (size_t pos = begin; pos < end; ++pos) ++counts[dnaToId(str[pos])];
+	size_t counts[] = {0, 0};
+	uint32_t result = 0;
 
-	for (size_t i = 0; i < 4; ++i)
+	if (end == std::string::npos) end = dnaStr.length();
+	for (size_t pos = begin; pos < end; ++pos)
 	{
-		counts[i] = std::min(counts[i], MAX_RUN);
-		result <<= 4;
-		result += (uint16_t)counts[i];
+		++counts[dnaStr[pos] == mainNucl];
 	}
-	//std::cerr << str << " " << result << std::endl;
-	return result;
+
+	for (size_t i = 0; i < 2; ++i)
+	{
+		counts[i] = std::min(counts[i], MAX_HOPO);
+		result <<= 4;
+		result += (uint32_t)counts[i];
+	}
+	return {result, false};
 }
 
+/*
 std::string HopoMatrix::obsToStr(HopoMatrix::Observation obs)
 {
 	//ACTG
@@ -202,19 +206,20 @@ std::string HopoMatrix::obsToStr(HopoMatrix::Observation obs)
 	std::string result;
 	for (size_t i = 0; i < 4; ++i)
 	{
-		int num = obs & MAX_RUN;
-		obs >>= 4;
+		int num = obs.id & MAX_RUN;
+		obs.id >>= 4;
 		if (num) result += std::to_string(num) + NUCLS[i];
 	}
 	return result;
-}
+}*/
 
 HopoMatrix::HopoMatrix(const std::string& fileName)
 {
 	for (size_t i = 0; i < NUM_STATES; ++i)
 	{
-		_matrix.push_back(std::vector<double>(NUM_OBS, 0.0f));
+		_observationProbs.emplace_back(NUM_OBS, std::log(ZERO_PROB));
 	}
+	_genomeProbs.assign(NUM_STATES, std::log(ZERO_PROB));
 	this->loadMatrix(fileName);
 }
 
@@ -228,10 +233,11 @@ void HopoMatrix::loadMatrix(const std::string& fileName)
 		throw std::runtime_error("Can't open homopolymer matrix");
 	}
 
-	std::vector<std::vector<int>> frequencies;
+	std::vector<size_t> nucleotideFreq(5, 0);
+	std::vector<std::vector<int>> observationsFreq;
 	for (size_t i = 0; i < NUM_STATES; ++i)
 	{
-		frequencies.push_back(std::vector<int>(NUM_OBS, 0));
+		observationsFreq.push_back(std::vector<int>(NUM_OBS, 0));
 	}
 
 	while (std::getline(fin, buffer))
@@ -245,23 +251,33 @@ void HopoMatrix::loadMatrix(const std::string& fileName)
 		for (size_t i = 1; i < tokens.size(); ++i)
 		{
 			auto obsTokens = splitString(tokens[i], '=');
-			Observation obs = strToObs(expandHopo(obsTokens[0]));
-			frequencies[state.hash][obs] = std::stoi(obsTokens[1]);
+			Observation obs = strToObs(state.nucl, expandHopo(obsTokens[0]));
+			observationsFreq[state.id][obs.id] = std::stoi(obsTokens[1]);
+			nucleotideFreq[dnaToId(state.nucl)] += std::stoi(obsTokens[1]);
 		}
 	}
 
-	for (size_t i = 0; i < NUM_STATES; ++i)
+	for (char nucl : std::string("ACGT"))
 	{
-		double sumFreq = 0;
-		for (size_t j = 0; j < NUM_OBS; ++j)
+		for (size_t runLen = MIN_HOPO; runLen <= MAX_HOPO; ++runLen)
 		{
-			sumFreq += frequencies[i][j];
-		}
-		for (size_t j = 0; j < NUM_OBS; ++j)
-		{
-			double prob = (sumFreq > 0.0f) ? 
-						  (double)frequencies[i][j] / sumFreq : 0.0f;
-			_matrix[i][j] = std::log(std::max(prob, ZERO_PROB));
+			State state(nucl, runLen);
+			int sumFreq = 0;
+			for (size_t j = 0; j < NUM_OBS; ++j)
+			{
+				sumFreq += observationsFreq[state.id][j];
+			}
+			double prob = (double)sumFreq / nucleotideFreq[dnaToId(state.nucl)];
+			_genomeProbs[state.id] = std::log(std::max(prob, ZERO_PROB));
+			//std::cerr << state.length << state.nucl << " " << _genomeProbs[state.id] << std::endl;
+
+			if (sumFreq == 0) continue;
+			for (size_t j = 0; j < NUM_OBS; ++j)
+			{
+				double prob = (double)observationsFreq[state.id][j] / sumFreq;
+				_observationProbs[state.id][j] = 
+									std::log(std::max(prob, ZERO_PROB));
+			}
 		}
 	}
 }

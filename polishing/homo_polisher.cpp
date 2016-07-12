@@ -38,12 +38,12 @@ namespace
 		{
 			for (size_t j = 1; j < seqTwo.length() + 1; ++j) 
 			{
-				double left = scoreMat.at(i, j - 1) + 
-								subsMat.getScore('-', seqTwo[j - 1]);
-				double up = scoreMat.at(i - 1, j) + 
-								subsMat.getScore(seqOne[i - 1], '-');
-				double cross = scoreMat.at(i - 1, j - 1) + 
-								subsMat.getScore(seqOne[i - 1], seqTwo[j - 1]);
+				float left = scoreMat.at(i, j - 1) + 
+							 subsMat.getScore('-', seqTwo[j - 1]);
+				float up = scoreMat.at(i - 1, j) + 
+							subsMat.getScore(seqOne[i - 1], '-');
+				float cross = scoreMat.at(i - 1, j - 1) + 
+							  subsMat.getScore(seqOne[i - 1], seqTwo[j - 1]);
 
 				int prev = 0;
 				float score = left;
@@ -119,15 +119,25 @@ namespace
 			{
 				if (candAln[pos] != prevNucl)
 				{
-					//std::string branchSubseq(branchAln, prevPos, pos - prevPos);
-					//std::string candSubseq(candAln, prevPos, pos - prevPos);
-					//std::cout << candSubseq << " " << std::endl 
-					//		  << branchSubseq << std::endl << std::endl;
+					bool leftMatch = prevPos == 0 || 
+								candAln[prevPos - 1] == branchAln[prevPos - 1];
+					bool rightMatch = pos == candAln.length() - 1 || 
+								candAln[pos] == branchAln[pos];
+
+					/*if (prevPos > 0 && prevPos < branchAln.length() - 1)
+					{
+						std::string branchSubseq(branchAln, prevPos - 1, pos - prevPos + 2);
+						std::string candSubseq(candAln, prevPos - 1, pos - prevPos + 2);
+						std::cout << candSubseq << " " << std::endl 
+								  << branchSubseq << std::endl 
+								  << (rightMatch && leftMatch) << std::endl;
+					}*/
 
 					auto state = HopoMatrix::State(candAln, prevPos, pos);
-					auto observ = HopoMatrix::strToObs(branchAln, prevPos, 
-													   pos);
-					result.push_back(std::make_pair(state, observ));
+					auto observ = HopoMatrix::strToObs(state.nucl, branchAln, 
+													   prevPos, pos);
+					observ.extactMatch = leftMatch && rightMatch;
+					result.emplace_back(state, observ);
 
 					prevNucl = candAln[pos];
 					prevPos = pos - gapLength;
@@ -139,7 +149,6 @@ namespace
 					gapLength = 0;
 				}
 			}
-			
 		}
 
 		//std::cout << "----\n\n";
@@ -215,17 +224,23 @@ size_t HomoPolisher::mostLikelyLen(HopoMatrix::State state,
 								   						   observations) const
 {
 	assert(!observations.empty());
+	const size_t MIN_HOPO = 1;
+	const size_t MAX_HOPO = 10;
 
 	double maxScore = std::numeric_limits<double>::lowest();
 	size_t maxRun = 0;
-	for (size_t len = 1; len <= 10; ++len)
+	for (size_t len = MIN_HOPO; len <= MAX_HOPO; ++len)
 	{
 		double likelihood = 0.0f;
 		auto newState = HopoMatrix::State(state.nucl, len);
 		for (auto obs : observations)
 		{
-			likelihood += _hopoMatrix.getScore(newState, obs);
+			if (obs.extactMatch)
+			{
+				likelihood += _hopoMatrix.getObsProb(newState, obs);
+			}
 		}
+		//likelihood += _hopoMatrix.getGenomeProb(newState);
 		if (likelihood > maxScore)
 		{
 			maxScore = likelihood;
