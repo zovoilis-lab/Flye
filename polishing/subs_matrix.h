@@ -15,7 +15,7 @@ class SubstitutionMatrix
 public:
 	SubstitutionMatrix(const std::string& path);
 	double getScore(char v, char w) const;
-	void printMatrix() const;
+	//void printMatrix() const;
 private:
 	void loadMatrix(const std::string& path);
 
@@ -27,13 +27,16 @@ private:
 class HopoMatrix
 {
 public:
+	//State represents a homopolymer that is observed in
+	//reference sequence
 	struct State
 	{
 		State():
 			nucl(0), length(0), id(0)
 		{}
+
 		State(char nucl, uint32_t length);
-		//State(uint32_t id);
+
 		State(const std::string& str, size_t start = 0,
 			  size_t end = std::string::npos);
 
@@ -41,21 +44,30 @@ public:
 		uint32_t length;
 		uint32_t id;
 	};
+	//Observation represents the read segment that corresponds
+	//to a homopolymer in the reference (State). Might not be
+	//a homopolymer, e.g. contain some other nucleotides, like
+	//5A2X
 	struct Observation
 	{
+		Observation(uint32_t id, bool extactMatch = false):
+			id(id), extactMatch(extactMatch)
+		{}
 		uint32_t id;
 		bool extactMatch;
 	};
+	typedef std::vector<Observation> ObsVector;
 
 	HopoMatrix(const std::string& fileName);
 	double getObsProb(State state, Observation observ) const
 		{return _observationProbs[state.id][observ.id];}
 	double getGenomeProb(State state) const
 		{return _genomeProbs[state.id];}
-
+	ObsVector knownObservations(State state) const;
 	static Observation strToObs(char mainNucl, const std::string& dnaStr, 
 								size_t start = 0, 
 								size_t end = std::string::npos);
+
 	//static std::string obsToStr(Observation obs);
 private:
 	void loadMatrix(const std::string& filaName);

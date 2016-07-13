@@ -3,6 +3,7 @@
 //Released under the BSD license (see LICENSE file)
 
 #include <algorithm>
+#include <unordered_set>
 
 #include "homo_polisher.h"
 #include "matrix.h"
@@ -156,13 +157,14 @@ namespace
 	}
 }
 
+//processes a single bubble
 void HomoPolisher::polishBubble(Bubble& bubble) const
 {
 	std::string prevCandidate;
 	std::string curCandidate = bubble.candidate;
 
 	std::vector<HopoMatrix::State> states;
-	std::vector<std::vector<HopoMatrix::Observation>> observations;
+	std::vector<HopoMatrix::ObsVector> observations;
 
 	for (auto& branch : bubble.branches)
 	{
@@ -176,8 +178,7 @@ void HomoPolisher::polishBubble(Bubble& bubble) const
 		if (states.empty())
 		{
 			states.assign(splitHopo.size(), HopoMatrix::State());
-			observations.assign(splitHopo.size(), 
-								std::vector<HopoMatrix::Observation>());
+			observations.assign(splitHopo.size(), HopoMatrix::ObsVector());
 		}
 		assert(states.size() == splitHopo.size());
 
@@ -194,7 +195,7 @@ void HomoPolisher::polishBubble(Bubble& bubble) const
 		size_t length = states[i].length;
 		if (length > 1)	//only homopolymers
 		{
-			length = this->mostLikelyLen(states[i], observations[i]);
+			length = this->mostLikelyLen(states[i].nucl, observations[i]);
 		}
 		newConsensus += std::string(length, states[i].nucl);
 		/*if (len != (size_t)states[i].length)
@@ -218,36 +219,95 @@ void HomoPolisher::polishBubble(Bubble& bubble) const
 	}
 }
 
+//likelihood of a goven state
+double HomoPolisher::likelihood(HopoMatrix::State state, 
+								const HopoMatrix::ObsVector& observations) const
+{
+	double likelihood = 0.0f;
+	for (auto obs : observations)
+	{
+		if (obs.extactMatch)
+		{
+			likelihood += _hopoMatrix.getObsProb(state, obs);
+		}
+	}
+	likelihood += _hopoMatrix.getGenomeProb(state);
+	return likelihood;
+}
 
-size_t HomoPolisher::mostLikelyLen(HopoMatrix::State state,
-								   const std::vector<HopoMatrix::Observation>&
-								   						   observations) const
+//for a given homopolymer and set of observations,
+//computes most likely homopolymer length
+size_t HomoPolisher::mostLikelyLen(char nucleotide,
+								   const HopoMatrix::ObsVector& 
+								   observations) const
 {
 	assert(!observations.empty());
 	const size_t MIN_HOPO = 1;
 	const size_t MAX_HOPO = 10;
 
-	double maxScore = std::numeric_limits<double>::lowest();
-	size_t maxRun = 0;
+	typedef std::pair<double, size_t> ScorePair;
+	std::vector<ScorePair> scores;
 	for (size_t len = MIN_HOPO; len <= MAX_HOPO; ++len)
 	{
-		double likelihood = 0.0f;
-		auto newState = HopoMatrix::State(state.nucl, len);
-		for (auto obs : observations)
-		{
-			if (obs.extactMatch)
-			{
-				likelihood += _hopoMatrix.getObsProb(newState, obs);
-			}
-		}
-		//likelihood += _hopoMatrix.getGenomeProb(newState);
-		if (likelihood > maxScore)
-		{
-			maxScore = likelihood;
-			maxRun = len;
-		}
+		auto newState = HopoMatrix::State(nucleotide, len);
+		double likelihood = this->likelihood(newState, observations);
+		scores.push_back(std::make_pair(likelihood, len));
 		//std::cout << likelihood << " ";
 	}
-	//std::cout << std::endl << maxScore << std::endl;
+
+	std::sort(scores.begin(), scores.end(), 
+			  [](const ScorePair& p1, const ScorePair& p2)
+			  {return p1.first > p2.first;});
+
+	size_t maxRun = this->compareTopTwo(nucleotide, scores[0].second, 
+										scores[1].second, observations);
+	//if (maxRun != scores[0].second)
+	//{
+	//	std::cout << scores[0].second << " to " << maxRun << std::endl; 
+	//}
 	return maxRun;
+}
+
+//Compares top two homopolimer candidates in a more precise manner
+size_t HomoPolisher::compareTopTwo(char nucleotide, size_t firstChoice, 
+								   size_t secondChoice,
+				   				   const HopoMatrix::ObsVector& 
+								   observations) const
+{
+	size_t choices[] = {firstChoice, secondChoice};
+	HopoMatrix::ObsVector knownObs[2];
+
+	//std::cerr << firstChoice << " vs " << secondChoice << std::endl;
+	for (size_t i = 0; i < 2; ++i)
+	{
+		auto state = HopoMatrix::State(nucleotide, choices[i]);
+		knownObs[i] = _hopoMatrix.knownObservations(state);
+		//std::cerr << knownObs[i].size() << " ";
+	}
+	//std::cerr << std::endl;
+	
+	//getting common known observations
+	std::unordered_set<uint32_t> fstSet;
+	for (auto obs : knownObs[0]) fstSet.insert(obs.id);
+	std::unordered_set<uint32_t> commonSet;
+	for (auto obs : knownObs[1])
+	{
+		if (fstSet.count(obs.id)) commonSet.insert(obs.id);
+	}
+	HopoMatrix::ObsVector commonObservations;
+	for (auto obs : observations)
+	{
+		if (commonSet.count(obs.id)) commonObservations.push_back(obs);
+	}
+	//std::cerr << commonObservations.size() << std::endl;
+
+	double likelihoods[2];
+	for (size_t i = 0; i < 2; ++i)
+	{
+		auto state = HopoMatrix::State(nucleotide, choices[i]);
+		likelihoods[i] = this->likelihood(state, commonObservations);
+	}
+	//std::cerr << std::endl;
+
+	return (likelihoods[0] > likelihoods[1]) ? choices[0] : choices[1];
 }

@@ -17,8 +17,13 @@ public:
 	void polishBubble(Bubble& bubble) const;
 
 private:
-	size_t mostLikelyLen(HopoMatrix::State state, 
-						 const std::vector<HopoMatrix::Observation>& obs) const;
+	size_t mostLikelyLen(char nucleotide, 
+						 const HopoMatrix::ObsVector& obs) const;
+	size_t compareTopTwo(char nucleotide, size_t firstChoice, 
+						 size_t secondChoice,
+				   		 const HopoMatrix::ObsVector& observations) const;
+	double likelihood(HopoMatrix::State state, 
+					  const HopoMatrix::ObsVector& observations) const;
 
 	const SubstitutionMatrix& _subsMatrix;
 	const HopoMatrix& _hopoMatrix;

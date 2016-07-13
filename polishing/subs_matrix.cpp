@@ -43,7 +43,8 @@ namespace
 
 	static const size_t NUM_STATES = 128;
 	static const size_t NUM_OBS = 65536;
-	static const double ZERO_PROB = 0.001f;
+	static const double MIN_PROB = 0.001f;
+	static const double ZERO_PROB = 0.0000000001f;
 	static const size_t MIN_HOPO = 1;
 	static const size_t MAX_HOPO = 10;
 }
@@ -108,6 +109,7 @@ double SubstitutionMatrix::getScore(char v, char w) const
 	return _matrix[dnaToId(v)][dnaToId(w)];
 }
 
+/*
 void SubstitutionMatrix::printMatrix() const 
 {
 	for (int i = 0; i < X_SIZE; i++) {
@@ -118,10 +120,12 @@ void SubstitutionMatrix::printMatrix() const
 		}
 		std::cout << std::endl;
 	}
-}
+}*/
 
 namespace
 {
+	//converts condensed hopo string to a normal nucleotide string
+	//e.g. 10A5C3T to AAAAAAAAAACCCCCTTT
 	std::string expandHopo(const std::string& hopo)
 	{
 		std::string buf;
@@ -143,7 +147,7 @@ namespace
 	}
 }
 
-
+//constructs state for a given nucleotide and length (e.g. 5C or 3A)
 HopoMatrix::State::State(char nucl, uint32_t length):
 	nucl(nucl), length(length)
 {
@@ -151,6 +155,7 @@ HopoMatrix::State::State(char nucl, uint32_t length):
 }
 
 		
+//constructs State from dna homopolymer string
 HopoMatrix::State::State(const std::string& str, size_t start, size_t end)
 {
 	if (end == std::string::npos) end = str.length();
@@ -175,7 +180,9 @@ HopoMatrix::State::State(const std::string& str, size_t start, size_t end)
 	length = runLength;
 }
 
-
+//converts nucleotide string into observation, given the 
+//main homopolymer nucleotide, e.g. AAACAAGA is converted to
+//6A2X
 HopoMatrix::Observation HopoMatrix::strToObs(char mainNucl, 
 											 const std::string& dnaStr, 
 											 size_t begin, size_t end)
@@ -195,7 +202,7 @@ HopoMatrix::Observation HopoMatrix::strToObs(char mainNucl,
 		result <<= 4;
 		result += (uint32_t)counts[i];
 	}
-	return {result, false};
+	return Observation(result);
 }
 
 /*
@@ -217,13 +224,28 @@ HopoMatrix::HopoMatrix(const std::string& fileName)
 {
 	for (size_t i = 0; i < NUM_STATES; ++i)
 	{
-		_observationProbs.emplace_back(NUM_OBS, std::log(ZERO_PROB));
+		_observationProbs.emplace_back(NUM_OBS, std::log(MIN_PROB));
 	}
-	_genomeProbs.assign(NUM_STATES, std::log(ZERO_PROB));
+	_genomeProbs.assign(NUM_STATES, std::log(MIN_PROB));
 	this->loadMatrix(fileName);
 }
 
 
+//returns all observations from the training set for a given state
+HopoMatrix::ObsVector HopoMatrix::knownObservations(State state) const
+{
+	ObsVector obsVector;
+	for (uint32_t obsId = 0; obsId < NUM_OBS; ++obsId)
+	{
+		if (_observationProbs[state.id][obsId] > std::log(MIN_PROB))
+		{
+			obsVector.emplace_back(obsId);
+		}
+	}
+	return obsVector;
+}
+
+//loads homopolymer matrix from .mat file
 void HopoMatrix::loadMatrix(const std::string& fileName)
 {
 	std::ifstream fin(fileName);
@@ -276,7 +298,7 @@ void HopoMatrix::loadMatrix(const std::string& fileName)
 			{
 				double prob = (double)observationsFreq[state.id][j] / sumFreq;
 				_observationProbs[state.id][j] = 
-									std::log(std::max(prob, ZERO_PROB));
+									std::log(std::max(prob, MIN_PROB));
 			}
 		}
 	}
