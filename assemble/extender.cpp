@@ -17,7 +17,7 @@ ContigPath Extender::extendContig(FastaRecord::Id startRead)
 	FastaRecord::Id curRead = startRead;
 	_chromosomeStart.clear();
 	_overlapsStart = true;
-	bool rightExtension = true;
+	_rightExtension = true;
 
 	Logger::get().debug() << "Start Read: " << 
 				_seqContainer.seqName(startRead);
@@ -52,7 +52,7 @@ ContigPath Extender::extendContig(FastaRecord::Id startRead)
 		}
 
 		if (!_overlapsStart && _chromosomeStart.count(extRead) && 
-			rightExtension)
+			_rightExtension)
 		{
 			Logger::get().debug() << "Circular contig";
 			contigPath.circular = true;
@@ -62,10 +62,10 @@ ContigPath Extender::extendContig(FastaRecord::Id startRead)
 
 		if (_visitedReads.count(extRead) || extRead == FastaRecord::ID_NONE)
 		{
-			if (rightExtension && !contigPath.reads.empty())
+			if (_rightExtension && !contigPath.reads.empty())
 			{
 				Logger::get().debug() << "Changing direction";
-				rightExtension = false;
+				_rightExtension = false;
 				extRead = contigPath.reads.front().rc();
 				std::reverse(contigPath.reads.begin(), contigPath.reads.end());
 				for (size_t i = 0; i < contigPath.reads.size(); ++i) 
@@ -272,6 +272,18 @@ int Extender::rightMultiplicity(FastaRecord::Id readId)
 	return std::max(1UL, clusterIds.size());
 }
 
+int shiftIndex(std::vector<int>& shifts)
+{
+	if (shifts.empty()) return 0;
+	std::sort(shifts.begin(), shifts.end());
+	int median = shifts[shifts.size() / 2];
+
+	std::vector<int> diff;
+	for (int shift : shifts) diff.push_back(abs(median - shift));
+	std::sort(diff.begin(), diff.end());
+	return diff[diff.size() / 2];
+}
+
 
 //makes one extension to the right
 FastaRecord::Id Extender::stepRight(FastaRecord::Id readId)
@@ -280,6 +292,7 @@ FastaRecord::Id Extender::stepRight(FastaRecord::Id readId)
 	std::unordered_set<FastaRecord::Id> extensions;
 
 	bool locOverlapsStart = false;
+	std::vector<int> extensionShifts;
 	for (auto& ovlp : overlaps)
 	{
 		if (this->extendsRight(ovlp)) 
@@ -287,12 +300,15 @@ FastaRecord::Id Extender::stepRight(FastaRecord::Id readId)
 			if (_chromosomeStart.count(ovlp.extId))
 			{
 				locOverlapsStart = true;
-				if (!_overlapsStart) return ovlp.extId;	//circular chromosome
+				Logger::get().debug() << "Bumped into start";
+				//circular chromosome
+				if (!_overlapsStart && _rightExtension) return ovlp.extId;	
 			}
 
 			if (this->countRightExtensions(ovlp.extId) > 0)
 			{
 				extensions.insert(ovlp.extId);
+				extensionShifts.push_back(ovlp.rightShift);
 			}
 		}
 	}
@@ -301,6 +317,7 @@ FastaRecord::Id Extender::stepRight(FastaRecord::Id readId)
 		_overlapsStart = false;
 	}
 	
+	Logger::get().debug() << "Shift: " << shiftIndex(extensionShifts);
 	//rank extension candidates
 	std::unordered_map<FastaRecord::Id, 
 					   std::tuple<int, int, int, int, int>> supportIndex;

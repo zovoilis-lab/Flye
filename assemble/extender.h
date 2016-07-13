@@ -67,6 +67,7 @@ private:
 	std::unordered_set<FastaRecord::Id>		 _visitedReads;
 	std::unordered_set<FastaRecord::Id>		 _chromosomeStart;
 	bool 									 _overlapsStart;
+	bool 									 _rightExtension;
 	std::unordered_map<FastaRecord::Id, int> _readsMultiplicity;
 	std::unordered_map<FastaRecord::Id,
 					   std::unordered_set<FastaRecord::Id>> _maxClusters;
