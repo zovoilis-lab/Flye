@@ -42,6 +42,7 @@ bool ChimeraDetector::testReadByCoverage(FastaRecord::Id readId)
 {
 	static const int WINDOW = _maximumJump;
 	const int FLANK = (_maximumJump + _maximumOverhang) / WINDOW;
+	const int TRHLD = 5;
 
 	std::vector<int> coverage;
 	int numWindows = _seqContainer.seqLen(readId) / WINDOW;
@@ -50,7 +51,8 @@ bool ChimeraDetector::testReadByCoverage(FastaRecord::Id readId)
 	coverage.assign(numWindows - 2 * FLANK, 0);
 	for (auto& ovlp : _ovlpDetector.getOverlapIndex().at(readId))
 	{
-		if (ovlp.curId == ovlp.extId.rc()) return true;
+		//if (ovlp.curId == ovlp.extId.rc()) return true;
+		if (ovlp.curId == ovlp.extId.rc()) continue;
 
 		for (int pos = (ovlp.curBegin + _maximumJump) / WINDOW; 
 			 pos < (ovlp.curEnd - _maximumJump) / WINDOW; ++pos)
@@ -71,9 +73,15 @@ bool ChimeraDetector::testReadByCoverage(FastaRecord::Id readId)
 	}
 	Logger::get().debug() << covStr;
 
-	bool zeroStrip = false;
+	//bool zeroStrip = false;
 	for (size_t i = 0; i < coverage.size() - 1; ++i)
 	{
+		int low = std::min(coverage[i], coverage[i + 1]);
+		int high = std::max(coverage[i], coverage[i + 1]);
+		if (low == 0 && high > 0) return true;
+		if (low != 0 && high / low > TRHLD) return true;
+
+		/*
 		if (!zeroStrip && coverage[i] != 0 && coverage[i + 1] == 0)
 		{
 			zeroStrip = true;
@@ -82,6 +90,7 @@ bool ChimeraDetector::testReadByCoverage(FastaRecord::Id readId)
 		{
 			return true;
 		}
+		*/
 	}
 	return false;
 }
