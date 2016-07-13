@@ -194,16 +194,20 @@ OverlapDetector::getReadOverlaps(FastaRecord::Id currentReadId) const
 	std::vector<KmerPosition> solidKmersCache;
 
 	//for all kmers in this read
-	int curKmerId = 0;
 	for (auto curKmerPos : IterSolidKmers(currentReadId))
 	{
-		++curKmerId;
 		int32_t curPos = curKmerPos.position;
 		solidKmersCache.push_back(curKmerPos);
 
 		//for all other occurences of this kmer (extension candidates)
 		for (const auto& extReadPos : _vertexIndex.byKmer(curKmerPos.kmer))
 		{
+			if (_vertexIndex.isRepetitive(curKmerPos.kmer) &&
+				!activePaths.count(extReadPos.readId))
+			{
+				continue;
+			}
+
 			int32_t extPos = extReadPos.position;
 			size_t extLen = _seqContainer.seqLen(extReadPos.readId);
 			//don't want self-overlaps
