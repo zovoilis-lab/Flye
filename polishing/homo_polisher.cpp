@@ -46,17 +46,17 @@ namespace
 				float cross = scoreMat.at(i - 1, j - 1) + 
 							  subsMat.getScore(seqOne[i - 1], seqTwo[j - 1]);
 
-				int prev = 0;
-				float score = left;
+				int prev = 2;
+				float score = cross;
 				if (up > score)
 				{
 					prev = 1;
 					score = up;
 				}
-				if (cross > score)
+				if (left > score)
 				{
-					prev = 2;
-					score = cross;
+					prev = 0;
+					score = left;
 				}
 				scoreMat.at(i, j) = score;
 				backtrackMat.at(i, j) = prev;
@@ -101,6 +101,7 @@ namespace
 	std::vector<std::pair<HopoMatrix::State, HopoMatrix::Observation>>
 	splitBranchHopos(const std::string& candAln, const std::string& branchAln)
 	{
+		//std::cerr << candAln << std::endl << branchAln << std::endl << std::endl;
 		std::vector<std::pair<HopoMatrix::State, 
 							  HopoMatrix::Observation>> result;
 		size_t prevPos = 0;
@@ -109,6 +110,7 @@ namespace
 
 		int runLength = 0;
 		int gapLength = 0;
+		int hopoCount = 0;
 		for (size_t pos = prevPos + 1; pos < candAln.length(); ++pos)
 		{
 			if (candAln[pos] != '-') ++runLength;
@@ -121,9 +123,20 @@ namespace
 				if (candAln[pos] != prevNucl)
 				{
 					bool leftMatch = prevPos == 0 || 
-								candAln[prevPos - 1] == branchAln[prevPos - 1];
+							candAln[prevPos - 1] == branchAln[prevPos - 1] ||
+							branchAln[prevPos - 1] == candAln[prevPos];
 					bool rightMatch = pos == candAln.length() - 1 || 
-								candAln[pos] == branchAln[pos];
+							candAln[pos] == branchAln[pos] ||
+							branchAln[pos] == candAln[pos - 1];
+
+					++hopoCount;
+					//wobble
+					size_t branchPrevPos = prevPos;
+					if (branchAln[prevPos - 1] == candAln[prevPos]) 
+						--branchPrevPos;
+					size_t branchPos = pos;
+					if (branchAln[pos] == candAln[pos - 1]) 
+						++branchPos;
 
 					/*if (prevPos > 0 && prevPos < branchAln.length() - 1)
 					{
@@ -136,9 +149,16 @@ namespace
 
 					auto state = HopoMatrix::State(candAln, prevPos, pos);
 					auto observ = HopoMatrix::strToObs(state.nucl, branchAln, 
-													   prevPos, pos);
+													   branchPrevPos, branchPos);
 					observ.extactMatch = leftMatch && rightMatch;
 					result.emplace_back(state, observ);
+
+					/*if (hopoCount == 45)
+					std::cerr << state.length << state.nucl << " "
+							  << branchAln.substr(branchPrevPos, branchPos - branchPrevPos) << 
+							  "\t" << branchAln.substr(branchPrevPos - 1, 
+							  						   branchPos - branchPrevPos + 2) 
+							  << std::endl;*/
 
 					prevNucl = candAln[pos];
 					prevPos = pos - gapLength;
@@ -160,6 +180,7 @@ namespace
 //processes a single bubble
 void HomoPolisher::polishBubble(Bubble& bubble) const
 {
+	//if (bubble.position != 139807) return;
 	std::string prevCandidate;
 	std::string curCandidate = bubble.candidate;
 
@@ -190,9 +211,11 @@ void HomoPolisher::polishBubble(Bubble& bubble) const
 	}
 
 	std::string newConsensus;
+	//std::cerr << curCandidate << std::endl;
 	for (size_t i = 0; i < states.size(); ++i)
 	{
 		size_t length = states[i].length;
+		//std::cerr << states[i].length << states[i].nucl << std::endl;
 		if (length > 1)	//only homopolymers
 		{
 			length = this->mostLikelyLen(states[i].nucl, observations[i]);
@@ -224,13 +247,17 @@ double HomoPolisher::likelihood(HopoMatrix::State state,
 								const HopoMatrix::ObsVector& observations) const
 {
 	double likelihood = 0.0f;
+	int total = 0;
 	for (auto obs : observations)
 	{
 		if (obs.extactMatch)
 		{
 			likelihood += _hopoMatrix.getObsProb(state, obs);
+			//std::cerr << obs.
+			total += 1;
 		}
 	}
+	//std::cerr << std::endl << state.length << " " << total << std::endl;
 	likelihood += _hopoMatrix.getGenomeProb(state);
 	return likelihood;
 }
@@ -247,13 +274,15 @@ size_t HomoPolisher::mostLikelyLen(char nucleotide,
 
 	typedef std::pair<double, size_t> ScorePair;
 	std::vector<ScorePair> scores;
+	//std::cerr << nucleotide << " ";
 	for (size_t len = MIN_HOPO; len <= MAX_HOPO; ++len)
 	{
 		auto newState = HopoMatrix::State(nucleotide, len);
 		double likelihood = this->likelihood(newState, observations);
 		scores.push_back(std::make_pair(likelihood, len));
-		//std::cout << likelihood << " ";
+		//std::cerr << likelihood << " ";
 	}
+	//std::cerr << std::endl;
 
 	std::sort(scores.begin(), scores.end(), 
 			  [](const ScorePair& p1, const ScorePair& p2)

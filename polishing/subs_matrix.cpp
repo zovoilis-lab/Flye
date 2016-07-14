@@ -274,10 +274,11 @@ void HopoMatrix::loadMatrix(const std::string& fileName)
 		{
 			auto obsTokens = splitString(tokens[i], '=');
 			Observation obs = strToObs(state.nucl, expandHopo(obsTokens[0]));
-			observationsFreq[state.id][obs.id] = std::stoi(obsTokens[1]);
+			observationsFreq[state.id][obs.id] += std::stoi(obsTokens[1]);
 			nucleotideFreq[dnaToId(state.nucl)] += std::stoi(obsTokens[1]);
 		}
 	}
+
 
 	for (char nucl : std::string("ACGT"))
 	{
@@ -291,7 +292,9 @@ void HopoMatrix::loadMatrix(const std::string& fileName)
 			}
 			double prob = (double)sumFreq / nucleotideFreq[dnaToId(state.nucl)];
 			_genomeProbs[state.id] = std::log(std::max(prob, ZERO_PROB));
-			//std::cerr << state.length << state.nucl << " " << _genomeProbs[state.id] << std::endl;
+			//std::cerr << state.length << state.nucl << "\t" << _genomeProbs[state.id] 
+			//		  << "\t" << sumFreq << "\t" << nucleotideFreq[dnaToId(state.nucl)]
+			//		  << std::endl;
 
 			if (sumFreq == 0) continue;
 			for (size_t j = 0; j < NUM_OBS; ++j)
