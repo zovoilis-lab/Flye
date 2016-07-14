@@ -272,16 +272,37 @@ int Extender::rightMultiplicity(FastaRecord::Id readId)
 	return std::max(1UL, clusterIds.size());
 }
 
-int shiftIndex(std::vector<int>& shifts)
+
+int robustStd(const std::vector<int>& shifts)
 {
 	if (shifts.empty()) return 0;
-	std::sort(shifts.begin(), shifts.end());
-	int median = shifts[shifts.size() / 2];
 
-	std::vector<int> diff;
-	for (int shift : shifts) diff.push_back(abs(median - shift));
-	std::sort(diff.begin(), diff.end());
-	return diff[diff.size() / 2];
+	auto _mean = [](const std::vector<int>& vals)
+	{
+		int sum = 0;
+		for(int v : vals) sum += v;
+		return (float)sum / vals.size();
+	};
+
+	auto _std = [_mean](const std::vector<int>& vals)
+	{
+		float mean = _mean(vals);
+		float sumStd = 0.0f;
+		for (float v : vals) sumStd += (v - mean) * (v - mean);
+    	return sqrt(sumStd / vals.size());  
+	};
+
+	float mean = _mean(shifts);
+	float std = _std(shifts);
+
+	//filter outliers
+	std::vector<int> inliers;
+	for (float s : shifts)
+	{
+		if (fabsf(s - mean) < 2.0f * std) inliers.push_back(s);
+	}
+
+	return _std(inliers);
 }
 
 
@@ -317,11 +338,12 @@ FastaRecord::Id Extender::stepRight(FastaRecord::Id readId)
 		_overlapsStart = false;
 	}
 	
-	Logger::get().debug() << "Shift: " << shiftIndex(extensionShifts);
+	Logger::get().debug() << "Shift: " << robustStd(extensionShifts);
 	//rank extension candidates
 	std::unordered_map<FastaRecord::Id, 
 					   std::tuple<int, int, int, int, int>> supportIndex;
 
+	int totalSupport = 0;
 	for (auto& extCandidate : extensions)
 	{
 		int leftSupport = 0;
@@ -336,6 +358,7 @@ FastaRecord::Id Extender::stepRight(FastaRecord::Id readId)
 			if (this->extendsRight(ovlp.reverse())) ++leftSupport;
 		}
 
+		totalSupport += leftSupport + rightSupport;
 		int minSupport = std::min(leftSupport, rightSupport);
 		int resolvesRepeat = this->resolvesRepeat(readId, extCandidate);
 		int stepAhead = this->stepAhead(extCandidate);
@@ -364,6 +387,14 @@ FastaRecord::Id Extender::stepRight(FastaRecord::Id readId)
 	if (bestExtension != FastaRecord::ID_NONE && std::get<0>(bestSupport) == 0)
 	{
 		Logger::get().debug() << "Can't resolve repeat";
+		return FastaRecord::ID_NONE;
+	}
+
+	if (bestExtension != FastaRecord::ID_NONE && 
+		robustStd(extensionShifts) < 500 && 
+		extensions.size() > (size_t)_coverage / 10)
+	{
+		Logger::get().debug() << "End of linear chromosome";
 		return FastaRecord::ID_NONE;
 	}
 
