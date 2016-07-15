@@ -31,7 +31,6 @@ ContigPath Extender::extendContig(FastaRecord::Id startRead)
 			for (auto& ovlp : _ovlpDetector.getOverlapIndex().at(extRead))
 			{
 				if (this->extendsRight(ovlp.reverse()) && 
-					!this->isBranching(ovlp.extId) &&
 					!this->isBranching(ovlp.extId.rc())) 
 				{
 					_chromosomeStart.insert(ovlp.extId);
@@ -120,23 +119,22 @@ void Extender::assembleContigs()
 		}
 
 		ContigPath path = this->extendContig(indexPair.first);
+		//marking visited reads
+		for (auto& readId : path.reads)
+		{
+			if (!this->isBranching(readId) &&
+				!this->isBranching(readId.rc()))
+			{
+				for (auto& ovlp : _ovlpDetector.getOverlapIndex().at(readId))
+				{
+					_visitedReads.insert(ovlp.extId);
+					_visitedReads.insert(ovlp.extId.rc());
+				}
+			}
+		}
 
 		if (path.reads.size() >= MIN_CONTIG)
 		{
-			//marking visited reads
-			for (auto& readId : path.reads)
-			{
-				if (!this->isBranching(readId) &&
-					!this->isBranching(readId.rc()))
-				{
-					for (auto& ovlp : _ovlpDetector.getOverlapIndex().at(readId))
-					{
-						_visitedReads.insert(ovlp.extId);
-						_visitedReads.insert(ovlp.extId.rc());
-					}
-				}
-			}
-			
 			_contigPaths.push_back(std::move(path));
 		}
 	}
