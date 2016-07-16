@@ -221,14 +221,11 @@ void HomoPolisher::polishBubble(Bubble& bubble) const
 			length = this->mostLikelyLen(states[i].nucl, observations[i]);
 		}
 		newConsensus += std::string(length, states[i].nucl);
-		/*if (len != (size_t)states[i].length)
+		/*if (length != (size_t)states[i].length)
 		{
 
 			std::cout << (int)states[i].length << states[i].nucl 
-					  << " -> " << len << std::endl;
-			for (auto obs : observations[i]) 
-				std::cout << HopoMatrix::obsToStr(obs) << std::endl;
-			std::cout << std::endl;
+					  << " -> " << length << std::endl;
 		}*/
 	}
 
@@ -247,14 +244,12 @@ double HomoPolisher::likelihood(HopoMatrix::State state,
 								const HopoMatrix::ObsVector& observations) const
 {
 	double likelihood = 0.0f;
-	int total = 0;
 	for (auto obs : observations)
 	{
 		if (obs.extactMatch)
 		{
 			likelihood += _hopoMatrix.getObsProb(state, obs);
 			//std::cerr << obs.
-			total += 1;
 		}
 	}
 	//std::cerr << std::endl << state.length << " " << total << std::endl;

@@ -193,7 +193,10 @@ HopoMatrix::Observation HopoMatrix::strToObs(char mainNucl,
 	if (end == std::string::npos) end = dnaStr.length();
 	for (size_t pos = begin; pos < end; ++pos)
 	{
-		++counts[dnaStr[pos] == mainNucl];
+		if (dnaStr[pos] != '-')
+		{
+			++counts[dnaStr[pos] == mainNucl];
+		}
 	}
 
 	for (size_t i = 0; i < 2; ++i)
