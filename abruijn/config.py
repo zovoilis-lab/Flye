@@ -9,6 +9,12 @@ File with configurations
 vals = {
         "circular_window" : 50000,
         "err_rate_threshold" : 0.24,
+        "min_alignment_length" : 5000,
+        "simple_kmer_length" : 4,
+        "solid_kmer_length" : 10,
+        "max_bubble_length" : 1000,
+        "solid_missmatch" : 0.2,
+        "solid_indel" : 0.2,
         "profiles" : {
             "pacbio" : {
                 "subs_matrix" : "pacbio_substitutions.mat",

@@ -83,7 +83,6 @@ class JobAssembly(Job):
                      self.args.debug, self.log_file, self.args.threads)
         contigs_fasta = aln.concatenate_contigs(reads_order)
         fp.write_fasta_dict(contigs_fasta, self.out_file)
-        #os.remove(reads_order)
 
         Job.run_description["stage_name"] = self.name
 
@@ -127,7 +126,8 @@ class JobPolishing(Job):
             Job.run_description["error_profile"] = \
                                     aln.choose_error_profile(mean_error)
 
-        bubbles = bbl.get_bubbles(alignment)
+        extended_simple = self.stage_id > 1
+        bubbles = bbl.get_bubbles(alignment, extended_simple)
         polished_fasta = pol.polish(bubbles, self.args.threads,
                                     Job.run_description["error_profile"],
                                     self.work_dir, self.stage_id)
