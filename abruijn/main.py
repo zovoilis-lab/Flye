@@ -126,8 +126,7 @@ class JobPolishing(Job):
             Job.run_description["error_profile"] = \
                                     aln.choose_error_profile(mean_error)
 
-        extended_simple = self.stage_id > 1
-        bubbles = bbl.get_bubbles(alignment, extended_simple)
+        bubbles = bbl.get_bubbles(alignment)
         polished_fasta = pol.polish(bubbles, self.args.threads,
                                     Job.run_description["error_profile"],
                                     self.work_dir, self.stage_id)

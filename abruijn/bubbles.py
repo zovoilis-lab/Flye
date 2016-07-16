@@ -34,7 +34,7 @@ class Bubble:
         self.consensus = ""
 
 
-def get_bubbles(alignment, extended_simple):
+def get_bubbles(alignment):
     """
     The main function: takes an alignment and returns bubbles
     """
@@ -57,7 +57,7 @@ def get_bubbles(alignment, extended_simple):
     for ctg_id, ctg_aln in aln_by_ctg.iteritems():
         logger.debug("Processing {0}".format(ctg_id))
         profile = _compute_profile(ctg_aln, contigs_info[ctg_id].length)
-        partition = _get_partition(profile, extended_simple)
+        partition = _get_partition(profile)
         bubbles.extend(_get_bubble_seqs(ctg_aln, partition,
                                         contigs_info[ctg_id].length,
                                         ctg_id))
@@ -112,14 +112,13 @@ def _add_consensus(bubbles):
     return new_bubbles
 
 
-def _is_solid_kmer(profile, position):
+def _is_solid_kmer(profile, position, kmer_length):
     """
     Checks if the kmer at given position is solid
     """
-    SOLID_LEN = config.vals["solid_kmer_length"]
     MISSMATCH_RATE = config.vals["solid_missmatch"]
     INS_RATE = config.vals["solid_indel"]
-    for i in xrange(position, position + SOLID_LEN):
+    for i in xrange(position, position + kmer_length):
         if profile[i].coverage == 0:
             return False
         local_missmatch = float(profile[i].num_missmatch +
@@ -130,41 +129,16 @@ def _is_solid_kmer(profile, position):
     return True
 
 
-def _is_simple_kmer(profile, position, extended_simple):
+def _is_simple_kmer(profile, position, kmer_length):
     """
-    Checks if the kmer with center at the given position is simple
+    Checks if the kmer at given position is simple
     """
-    SIMPLE_LEN = config.vals["simple_kmer_length"]
-
-    ext_simple = SIMPLE_LEN * 3
-    nucl_str = map(lambda p: p.nucl, profile[position - ext_simple / 2 :
-                                             position + ext_simple / 2])
-
-    #single nucleotide homopolymers
-    for i in xrange(ext_simple / 2 - SIMPLE_LEN / 2,
-                    ext_simple / 2 + SIMPLE_LEN / 2 - 1):
-        if nucl_str[i] == nucl_str[i + 1]:
-            #logger.debug("single" + str(nucl_str))
+    for i in xrange(position, position + kmer_length - 1):
+        if profile[i].nucl == profile[i + 1].nucl:
             return False
-
-    if extended_simple:
-        #dinucleotide homopolymers
-        for shift in [0, 1]:
-            for i in xrange(SIMPLE_LEN - shift - 1):
-                pos = ext_simple / 2 - SIMPLE_LEN + shift + i * 2
-                if (nucl_str[pos : pos + 2] == nucl_str[pos + 2 : pos + 4]):
-                    #logger.debug("di" + "".join(nucl_str))
-                    return False
-
-        #trinucleotide homopolymers
-        for shift in [0, 1, 2]:
-            for i in xrange(SIMPLE_LEN - shift - 1):
-                pos = shift + i * 3
-                if (nucl_str[pos : pos + 3] == nucl_str[pos + 3 : pos + 6]):
-                    #logger.debug("tri" + "".join(nucl_str))
-                    return False
-
-    #logger.debug("".join(nucl_str))
+    if (profile[position].nucl == profile[position + 2].nucl and
+        profile[position + 1].nucl == profile[position +3].nucl):
+        return False
     return True
 
 
@@ -181,12 +155,21 @@ def _shift_gaps(seq_trg, seq_qry):
             swap_left = gap_start - 1
             swap_right = i - 1
 
+            #print "".join(lst_trg[gap_start - 1 : i + 1])
+            #print "".join(lst_qry[gap_start - 1 : i + 1])
+            #print ""
+
             while (swap_left > 0 and swap_right >= gap_start and
                    lst_qry[swap_left] == lst_trg[swap_right]):
+                #print "swapped"
                 lst_qry[swap_left], lst_qry[swap_right] = \
                             lst_qry[swap_right], lst_qry[swap_left]
                 swap_left -= 1
                 swap_right -= 1
+
+            #print "".join(lst_trg[gap_start - 1 : i + 1])
+            #print "".join(lst_qry[gap_start - 1 : i + 1])
+            #print "--------------"
 
         if not is_gap and lst_qry[i] == "-":
             is_gap = True
@@ -237,7 +220,7 @@ def _compute_profile(alignment, genome_len):
     return profile
 
 
-def _get_partition(profile, extended_simple):
+def _get_partition(profile):
     """
     Partitions genome into sub-alignments at solid regions / simple kmers
     """
@@ -249,7 +232,7 @@ def _get_partition(profile, extended_simple):
     solid_flags = [False for _ in xrange(len(profile))]
     prof_pos = 0
     while prof_pos < len(profile) - SOLID_LEN:
-        if _is_solid_kmer(profile, prof_pos):
+        if _is_solid_kmer(profile, prof_pos, SOLID_LEN):
             for i in xrange(prof_pos, prof_pos + SOLID_LEN):
                 solid_flags[i] = True
             prof_pos += SOLID_LEN
@@ -257,19 +240,14 @@ def _get_partition(profile, extended_simple):
             prof_pos += 1
 
     partition = []
-    prof_pos = SOLID_LEN
-    prev_part = SOLID_LEN
-    while prof_pos < len(profile) - SOLID_LEN:
-        landmark = (all(solid_flags[prof_pos : prof_pos + SIMPLE_LEN]) and
-                    _is_simple_kmer(profile, prof_pos + SIMPLE_LEN / 2,
-                                    extended_simple))
+    prev_part = 0
+    for prof_pos in xrange(0, len(profile) - SIMPLE_LEN):
+        if all(solid_flags[prof_pos : prof_pos + SIMPLE_LEN]):
+            if (_is_simple_kmer(profile, prof_pos, SIMPLE_LEN) and
+                    prof_pos + SIMPLE_LEN / 2 - prev_part > SOLID_LEN):
 
-        if landmark or prof_pos - prev_part > MAX_BUBBLE:
-            partition.append(prof_pos + SIMPLE_LEN / 2)
-            prev_part = partition[-1]
-            prof_pos += SOLID_LEN
-        else:
-            prof_pos += 1
+                prev_part = prof_pos + SIMPLE_LEN / 2
+                partition.append(prof_pos + SIMPLE_LEN / 2)
 
     logger.debug("Partitioned into {0} segments".format(len(partition) + 1))
 
