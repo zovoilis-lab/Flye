@@ -8,6 +8,7 @@
 
 #include "contig.h"
 #include "logger.h"
+#include "config.h"
 
 void ContigGenerator::generateContigs()
 {
@@ -129,7 +130,7 @@ void ContigGenerator::pairwiseAlignment(const std::string& seqOne,
 	auto matchScore = [](char a, char b){return a == b ? MATCH : SUBST;};
 
 	int width = abs((int)seqOne.length() - 
-					(int)seqTwo.length()) + _maximumJump;
+					(int)seqTwo.length()) + Constants::maxumumJump;
 
 	if (_scoreMatrix.nrows() < seqOne.length() + 1 ||
 		_scoreMatrix.ncols() < seqTwo.length() + 1)
@@ -249,7 +250,7 @@ ContigGenerator::getSwitchPositions(FastaRecord::Id leftRead,
 		if (alignedRight[i] != '-') ++rightPos;
 
 		if (alignedLeft[i] == alignedRight[i] &&
-			leftPos > prevSwitch + _maximumJump)
+			leftPos > prevSwitch + Constants::maxumumJump)
 		{
 			++matchRun;
 		}

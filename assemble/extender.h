@@ -27,11 +27,10 @@ class Extender
 public:
 	Extender(const OverlapDetector& ovlpDetector, 
 			 const ChimeraDetector& chimDetector,
-			 int maxJump, int coverage):
+			 int coverage):
 		_ovlpDetector(ovlpDetector), 
 		_chimDetector(chimDetector),
 		_seqContainer(SequenceContainer::get()), 
-		_maximumJump(maxJump),
 		_coverage(coverage)
 	{}
 
@@ -43,7 +42,6 @@ private:
 	const OverlapDetector&   _ovlpDetector;
 	const ChimeraDetector&   _chimDetector;
 	const SequenceContainer& _seqContainer;
-	const int _maximumJump;
 	const int _coverage;
 
 	FastaRecord::Id stepRight(FastaRecord::Id readId);

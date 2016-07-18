@@ -9,6 +9,7 @@
 #include <thread>
 
 #include "overlap.h"
+#include "config.h"
 
 void OverlapDetector::findAllOverlaps(size_t numThreads)
 {
@@ -51,7 +52,7 @@ void OverlapDetector::parallelWorker()
 		FastaRecord::Id readId = _jobQueue[_nextJob++];
 		_overlapIndex[readId];	//empty vector by default
 
-		if (_seqContainer.seqLen(readId) < (size_t)_minimumOverlap ||
+		if (_seqContainer.seqLen(readId) < (size_t)Constants::minimumOverlap ||
 			!readId.strand()) 
 		{
 			continue;
@@ -134,30 +135,27 @@ void OverlapDetector::loadOverlaps(const std::string filename)
 bool OverlapDetector::goodStart(int32_t curPos, int32_t extPos, 
 								int32_t curLen, int32_t extLen) const
 {	
-	return std::min(curPos, extPos) < _maximumOverhang && 
-		   extPos < extLen - _minimumOverlap &&
-		   curPos < curLen - _minimumOverlap;
+	return std::min(curPos, extPos) < Constants::maxumumOverhang && 
+		   extPos < extLen - Constants::minimumOverlap &&
+		   curPos < curLen - Constants::minimumOverlap;
 }
 
 OverlapDetector::JumpRes 
 OverlapDetector::jumpTest(int32_t curPrev, int32_t curNext,
 						  int32_t extPrev, int32_t extNext) const
 {
-	static const int CLOSE_FRAC = 100;
-	static const int FAR_FRAC = 2;
-	
-	if (curNext - curPrev > _maximumJump) return J_END;
+	if (curNext - curPrev > Constants::maxumumJump) return J_END;
 
-	if (0 < curNext - curPrev && curNext - curPrev < _maximumJump &&
-		0 < extNext - extPrev && extNext - extPrev < _maximumJump)
+	if (0 < curNext - curPrev && curNext - curPrev < Constants::maxumumJump &&
+		0 < extNext - extPrev && extNext - extPrev < Constants::maxumumJump)
 	{
 		if (abs((curNext - curPrev) - (extNext - extPrev)) 
-			< _maximumJump / CLOSE_FRAC)
+			< Constants::maxumumJump / Constants::closeJumpRate)
 		{
 			return J_CLOSE;
 		}
 		if (abs((curNext - curPrev) - (extNext - extPrev)) 
-			< _maximumJump / FAR_FRAC)
+			< Constants::maxumumJump / Constants::farJumpRate)
 		{
 			return J_FAR;
 		}
@@ -170,15 +168,19 @@ OverlapDetector::jumpTest(int32_t curPrev, int32_t curNext,
 bool OverlapDetector::overlapTest(const OverlapRange& ovlp, int32_t curLen, 
 								  int32_t extLen) const
 {
-	if (ovlp.curRange() < _minimumOverlap || ovlp.extRange() < _minimumOverlap)
-		return false;
-	if (abs(ovlp.curRange() - ovlp.extRange()) > _maximumJump)
-		return false;
-	if (ovlp.curId == ovlp.extId.rc()) return true;	//FIXME: adhoc solution for chimeras
-	if (std::min(ovlp.curBegin, ovlp.extBegin) > _maximumOverhang)
-		return false;
-	if (std::min(curLen - ovlp.curEnd, extLen - ovlp.extEnd) > _maximumOverhang)
-		return false;
+	if (ovlp.curRange() < Constants::minimumOverlap || 
+		ovlp.extRange() < Constants::minimumOverlap) return false;
+	if (abs(ovlp.curRange() - ovlp.extRange()) > 
+		Constants::maxumumJump) return false;
+
+	//FIXME: adhoc solution for chimeras
+	if (ovlp.curId == ovlp.extId.rc()) return true;
+
+	if (std::min(ovlp.curBegin, ovlp.extBegin) > 
+		Constants::maxumumOverhang) return false;
+	if (std::min(curLen - ovlp.curEnd, extLen - ovlp.extEnd) > 
+		Constants::maxumumOverhang) return false;
+
 	return true;
 }
 
@@ -207,13 +209,12 @@ OverlapDetector::getReadOverlaps(FastaRecord::Id currentReadId) const
 			{
 				continue;
 			}
+			if (extReadPos.readId == currentReadId) continue;
+
+			size_t extLen = _seqContainer.seqLen(extReadPos.readId);
+			if (extLen < (size_t)Constants::minimumOverlap) continue;
 
 			int32_t extPos = extReadPos.position;
-			size_t extLen = _seqContainer.seqLen(extReadPos.readId);
-			//don't want self-overlaps
-			if (extReadPos.readId == currentReadId) continue;
-			if (extLen < (size_t)_minimumOverlap) continue;
-
 			auto& extPaths = activePaths[extReadPos.readId];
 
 			size_t maxCloseId = 0;

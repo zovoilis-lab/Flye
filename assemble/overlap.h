@@ -98,11 +98,7 @@ struct OverlapRange
 class OverlapDetector
 {
 public:
-	OverlapDetector(int maximumJump, int minimumOverlap,
-					int maximumOverhang, int coverage):
-		_maximumJump(maximumJump), 
-		_minimumOverlap(minimumOverlap),
-		_maximumOverhang(maximumOverhang), 
+	OverlapDetector(int coverage):
 		_coverage(coverage),
 		_vertexIndex(VertexIndex::get()),
 		_seqContainer(SequenceContainer::get()), 
@@ -134,10 +130,6 @@ private:
 				     int32_t extensionPrev, int32_t extensionNext) const;
 	void 	parallelWorker();
 
-	
-	const int _maximumJump;
-	const int _minimumOverlap;
-	const int _maximumOverhang;
 	const int _coverage;
 
 	OverlapIndex _overlapIndex;

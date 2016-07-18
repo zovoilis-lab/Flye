@@ -9,6 +9,7 @@
 
 #include "logger.h"
 #include "extender.h"
+#include "config.h"
 
 
 ContigPath Extender::extendContig(FastaRecord::Id startRead)
@@ -96,9 +97,8 @@ ContigPath Extender::extendContig(FastaRecord::Id startRead)
 void Extender::assembleContigs()
 {
 	Logger::get().info() << "Extending reads";
-	//TODO: better contig filtering
-	const int MIN_CONTIG = 10;
-	const int MIN_EXTENSIONS = std::max(_coverage / 10, 1);
+	const int MIN_EXTENSIONS = std::max(_coverage / 
+										Constants::minExtensionsRate, 1);
 
 	//for (auto& indexPair : _seqContainer.getIndex())
 	//{
@@ -133,7 +133,7 @@ void Extender::assembleContigs()
 			}
 		}
 
-		if (path.reads.size() >= MIN_CONTIG)
+		if (path.reads.size() >= Constants::minReadsInContig)
 		{
 			_contigPaths.push_back(std::move(path));
 		}
@@ -389,7 +389,7 @@ FastaRecord::Id Extender::stepRight(FastaRecord::Id readId)
 	}
 
 	if (bestExtension != FastaRecord::ID_NONE && 
-		robustStd(extensionShifts) < 500 && 
+		robustStd(extensionShifts) < Constants::maxumumOverhang && 
 		extensions.size() > (size_t)_coverage / 10)
 	{
 		Logger::get().debug() << "End of linear chromosome";
@@ -401,8 +401,6 @@ FastaRecord::Id Extender::stepRight(FastaRecord::Id readId)
 
 bool Extender::stepAhead(FastaRecord::Id readId)
 {
-	const float MIN_GOOD = 0.05f;
-
 	if (this->isBranching(readId) && this->isBranching(readId.rc())) 
 	{
 		return false;
@@ -425,7 +423,7 @@ bool Extender::stepAhead(FastaRecord::Id readId)
 		{
 			++goodReads;
 		}
-		if ((float)goodReads / candidates.size() > MIN_GOOD)
+		if ((float)goodReads / candidates.size() > Constants::minGoodReads)
 		{
 			return true;
 		}
@@ -479,7 +477,7 @@ bool Extender::isBranching(FastaRecord::Id readId)
 bool Extender::extendsRight(const OverlapRange& ovlp)
 {
 	return !_chimDetector.isChimeric(ovlp.extId) && 
-		   ovlp.rightShift > _maximumJump;
+		   ovlp.rightShift > Constants::maxumumJump;
 }
 
 bool Extender::coversRight(const OverlapRange& ovlp)

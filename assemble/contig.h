@@ -15,9 +15,8 @@
 class ContigGenerator
 {
 public:
-	ContigGenerator(int maxJump, const Extender& extender, 
+	ContigGenerator(const Extender& extender, 
 					const OverlapDetector& overlapDetector):
-		_maximumJump(maxJump),
 		_extender(extender), 
 		_overlapDetector(overlapDetector),
 		_vertexIndex(VertexIndex::get()), 
@@ -27,8 +26,6 @@ public:
 	void outputContigs(const std::string& fileName);
 	
 private:
-	int _maximumJump;
-
 	const Extender& _extender;
 	const OverlapDetector& _overlapDetector;
 	const VertexIndex& _vertexIndex;

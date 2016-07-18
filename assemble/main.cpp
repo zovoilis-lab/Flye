@@ -13,6 +13,7 @@
 #include "contig.h"
 #include "parameters_estimator.h"
 #include "logger.h"
+#include "config.h"
 
 bool parseArgs(int argc, char** argv, std::string& readsFasta, 
 			   std::string& outAssembly, std::string& logFile, int& coverage,
@@ -105,11 +106,6 @@ bool fileExists(const std::string& path)
 
 int main(int argc, char** argv)
 {
-	static const int MAX_JUMP = 1500;
-	static const int MIN_OVERLAP = 5000;
-	static const int MAX_OVERHANG = 500;
-	static const int MAGIC_10 = 10;
-
 	int kmerSize = 0;
 	int minKmerCov = 0;
 	int maxKmerCov = 0;
@@ -141,12 +137,13 @@ int main(int argc, char** argv)
 		vertexIndex.setKmerSize(kmerSize);
 
 		//rough estimate
-		size_t hardThreshold = std::max(1, coverage / MAGIC_10);
+		size_t hardThreshold = std::max(1, coverage / 
+										   Constants::hardMinCoverageRate);
 		vertexIndex.countKmers(seqContainer, hardThreshold);
 
 		if (maxKmerCov == -1)
 		{
-			maxKmerCov = MAGIC_10 * coverage;
+			maxKmerCov = Constants::repeatCoverageRate * coverage;
 		}
 		if (minKmerCov == -1)
 		{
@@ -156,7 +153,7 @@ int main(int argc, char** argv)
 
 		vertexIndex.buildIndex(minKmerCov, maxKmerCov);
 
-		OverlapDetector ovlp(MAX_JUMP, MIN_OVERLAP, MAX_OVERHANG, coverage);
+		OverlapDetector ovlp(coverage);
 		if (overlapsFile.empty())
 		{
 			ovlp.findAllOverlaps(numThreads);
@@ -176,14 +173,13 @@ int main(int argc, char** argv)
 			}
 		}
 
-		ChimeraDetector chimDetect(MAX_OVERHANG, MAX_JUMP, MIN_OVERLAP,
-								   coverage, ovlp);
+		ChimeraDetector chimDetect(coverage, ovlp);
 		chimDetect.detectChimeras();
 
-		Extender extender(ovlp, chimDetect, MAX_JUMP, coverage);
+		Extender extender(ovlp, chimDetect, coverage);
 		extender.assembleContigs();
 
-		ContigGenerator contGen(MAX_JUMP, extender, ovlp);
+		ContigGenerator contGen(extender, ovlp);
 		contGen.generateContigs();
 		contGen.outputContigs(outAssembly);
 	}

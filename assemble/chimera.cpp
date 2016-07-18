@@ -9,6 +9,7 @@
 
 #include "chimera.h"
 #include "logger.h"
+#include "config.h"
 
 
 void ChimeraDetector::detectChimeras()
@@ -40,9 +41,9 @@ int ChimeraDetector::estimateOverlapCoverage()
 
 bool ChimeraDetector::testReadByCoverage(FastaRecord::Id readId)
 {
-	static const int WINDOW = _maximumJump;
-	const int FLANK = (_maximumJump + _maximumOverhang) / WINDOW;
-	const int TRHLD = 5;
+	static const int WINDOW = Constants::maxumumJump;
+	const int FLANK = (Constants::maxumumJump + 
+					   Constants::maxumumOverhang) / WINDOW;
 
 	std::vector<int> coverage;
 	int numWindows = _seqContainer.seqLen(readId) / WINDOW;
@@ -51,11 +52,11 @@ bool ChimeraDetector::testReadByCoverage(FastaRecord::Id readId)
 	coverage.assign(numWindows - 2 * FLANK, 0);
 	for (auto& ovlp : _ovlpDetector.getOverlapIndex().at(readId))
 	{
-		//if (ovlp.curId == ovlp.extId.rc()) return true;
-		if (ovlp.curId == ovlp.extId.rc()) continue;
+		if (ovlp.curId == ovlp.extId.rc()) return true;
+		//if (ovlp.curId == ovlp.extId.rc()) continue;
 
-		for (int pos = (ovlp.curBegin + _maximumJump) / WINDOW; 
-			 pos < (ovlp.curEnd - _maximumJump) / WINDOW; ++pos)
+		for (int pos = (ovlp.curBegin + Constants::maxumumJump) / WINDOW; 
+			 pos < (ovlp.curEnd - Constants::maxumumJump) / WINDOW; ++pos)
 		{
 			if (pos - FLANK >= 0 && 
 				pos - FLANK < (int)coverage.size())
@@ -79,7 +80,7 @@ bool ChimeraDetector::testReadByCoverage(FastaRecord::Id readId)
 		int low = std::min(coverage[i], coverage[i + 1]);
 		int high = std::max(coverage[i], coverage[i + 1]);
 		if (low == 0 && high > 0) return true;
-		if (low != 0 && high / low > TRHLD) return true;
+		if (low != 0 && high / low > Constants::maxCoverageDropRate) return true;
 
 		/*
 		if (!zeroStrip && coverage[i] != 0 && coverage[i + 1] == 0)
