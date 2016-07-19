@@ -6,7 +6,7 @@
 #include <algorithm>
 #include <fstream>
 
-#include "contig.h"
+#include "contig_generator.h"
 #include "logger.h"
 #include "config.h"
 

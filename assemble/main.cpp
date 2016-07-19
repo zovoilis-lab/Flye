@@ -10,7 +10,7 @@
 #include "overlap.h"
 #include "chimera.h"
 #include "extender.h"
-#include "contig.h"
+#include "contig_generator.h"
 #include "parameters_estimator.h"
 #include "logger.h"
 #include "config.h"
