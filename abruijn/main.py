@@ -112,9 +112,10 @@ class JobAlignment(Job):
 
 
 class JobPolishing(Job):
-    def __init__(self, in_alignment, out_consensus, stage_id):
+    def __init__(self, in_alignment, in_reference, out_consensus, stage_id):
         super(JobPolishing, self).__init__()
         self.in_alignment = in_alignment
+        self.in_reference = in_reference
         self.out_consensus = out_consensus
         self.name = "polishing"
         self.stage_id = stage_id
@@ -126,7 +127,11 @@ class JobPolishing(Job):
             Job.run_description["error_profile"] = \
                                     aln.choose_error_profile(mean_error)
 
-        bubbles = bbl.get_bubbles(alignment)
+        #bubbles = bbl.get_bubbles(alignment)
+
+        out_patched = os.path.join(self.work_dir, "patched.fasta")
+        bbl.patch_genome(alignment, self.in_reference, out_patched)
+
         polished_fasta = pol.polish(bubbles, self.args.threads,
                                     Job.run_description["error_profile"],
                                     self.work_dir, self.stage_id)
@@ -150,7 +155,8 @@ def _create_job_list(args, work_dir, log_file):
         polished_file = os.path.join(work_dir,
                                      "polished_{0}.fasta".format(i + 1))
         jobs.append(JobAlignment(prev_assembly, alignment_file, i + 1))
-        jobs.append(JobPolishing(alignment_file, polished_file, i + 1))
+        jobs.append(JobPolishing(alignment_file, prev_assembly,
+                                 polished_file, i + 1))
         prev_assembly = polished_file
 
     for i, job in enumerate(jobs):

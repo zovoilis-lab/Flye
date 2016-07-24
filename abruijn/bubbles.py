@@ -9,6 +9,7 @@ Separates alignment into small bubbles for further correction
 import bisect
 import logging
 from collections import defaultdict, namedtuple
+from copy import deepcopy
 
 import abruijn.fasta_parser as fp
 import abruijn.config as config
@@ -16,6 +17,12 @@ import abruijn.config as config
 ContigInfo = namedtuple("ContigInfo", ["id", "length", "type"])
 
 logger = logging.getLogger()
+
+class AlignmentCluster:
+    def __init__(self, alignments, start, end):
+        self.alignments = alignments
+        self.start = start
+        self.end = end
 
 class ProfileInfo:
     def __init__(self):
@@ -27,9 +34,9 @@ class ProfileInfo:
 
 
 class Bubble:
-    def __init__(self, contig_id, bubble_id):
+    def __init__(self, contig_id, position):
         self.contig_id = contig_id
-        self.bubble_id = bubble_id
+        self.position = position
         self.branches = []
         self.consensus = ""
 
@@ -58,13 +65,112 @@ def get_bubbles(alignment):
         logger.debug("Processing {0}".format(ctg_id))
         profile = _compute_profile(ctg_aln, contigs_info[ctg_id].length)
         partition = _get_partition(profile)
-        bubbles.extend(_get_bubble_seqs(ctg_aln, partition,
+        bubbles.extend(_get_bubble_seqs(ctg_aln, profile, partition,
                                         contigs_info[ctg_id].length,
                                         ctg_id))
-    bubbles = _add_consensus(bubbles)
 
+    #bubbles = _filter_outliers(bubbles)
     return bubbles
 
+
+def patch_genome(alignment, reference_file, out_patched):
+    aln_by_ctg = defaultdict(list)
+    for aln in alignment:
+        aln_by_ctg[aln.trg_id].append(aln)
+
+    ref_fasta = fp.read_fasta_dict(reference_file)
+    fixed_fasta = {}
+
+    for ctg_id, ctg_aln in aln_by_ctg.iteritems():
+        patches = _get_patching_alignmemnts(ctg_aln)
+        fixed_sequence = _apply_patches(patches, ref_fasta[ctg_id])
+        fixed_fasta[ctg_id] = fixed_sequence
+
+    fp.write_fasta_dict(fixed_fasta, out_patched)
+
+
+def _get_patching_alignmemnts(alignment):
+    MIN_ALIGNMENT = config.vals["min_alignment_length"]
+
+    discordand_alignments = []
+    for aln in alignment:
+        if (aln.err_rate > 0.5 or aln.trg_end - aln.trg_start < MIN_ALIGNMENT or
+            aln.qry_start > 500 or aln.qry_len - aln.qry_end > 500):
+            continue
+
+        trg_gaps = 0
+        qry_gaps = 0
+        trg_strip = 0
+        qry_strip = 0
+
+        for i in xrange(len(aln.trg_seq)):
+            if aln.trg_seq[i] == "-":
+                trg_strip += 1
+            else:
+                if trg_strip > 100:
+                    trg_gaps += trg_strip
+                trg_strip = 0
+
+            if aln.qry_seq[i] == "-":
+                qry_strip += 1
+            else:
+                if qry_strip > 100:
+                    qry_gaps += qry_strip
+                qry_strip = 0
+
+        if abs(trg_gaps - qry_gaps) > 500:
+            discordand_alignments.append((aln, trg_gaps - qry_gaps))
+
+
+    #create clusters of overlapping discordand reads
+    clusters = []
+    discordand_alignments.sort(key = lambda t: t[0].trg_start)
+    for aln, length_diff in discordand_alignments:
+        if not clusters or clusters[-1].end < aln.trg_start:
+            clusters.append(AlignmentCluster([(aln, length_diff)], aln.trg_start,
+                                              aln.trg_end))
+        else:
+            clusters[-1].end = aln.trg_end
+            clusters[-1].alignments.append((aln, length_diff))
+
+    patches = []
+    for cluster in clusters:
+        if len(cluster.alignments) > 10:
+            logger.debug("Cluster {0} {1}".format(cluster.start, cluster.end))
+            for aln, length_diff in cluster.alignments:
+                logger.debug("\t{0}\t{1}\t{2}"
+                             .format(aln.trg_start, aln.trg_end, length_diff))
+
+            num_positive = sum(1 if d > 0 else 0
+                               for (a, d) in cluster.alignments)
+            cluster_positive = num_positive > len(cluster.alignments) / 2
+            filtered_alignments = [(a, d) for (a, d) in cluster.alignments
+                                                if (d > 0) == cluster_positive]
+            chosen_patch = max(filtered_alignments, key=lambda (a, d): abs(d))
+
+            #cluster.alignments.sort(key=lambda (a, d): d)
+            #chosen_patch = cluster.alignments[len(cluster.alignments) / 2]
+
+            patches.append(chosen_patch[0])
+            logger.debug("Chosen: {0}".format(chosen_patch[1]))
+
+    return patches
+
+
+def _apply_patches(patches, sequence):
+    prev_cut = 0
+    out_sequence = ""
+    for patch in patches:
+        out_sequence += sequence[prev_cut : patch.trg_start]
+        patched_sequence = patch.qry_seq
+        if patch.trg_sign == "-":
+            patched_sequence = fp.reverse_complement(patched_sequence)
+
+        out_sequence += patched_sequence.replace("-", "")
+        prev_cut = patch.trg_end
+
+    out_sequence += sequence[prev_cut:]
+    return out_sequence
 
 
 def output_bubbles(bubbles, out_file):
@@ -74,7 +180,7 @@ def output_bubbles(bubbles, out_file):
     with open(out_file, "w") as f:
         for bubble in bubbles:
             f.write(">{0} {1} {2}\n".format(bubble.contig_id,
-                                            bubble.bubble_id,
+                                            bubble.position,
                                             len(bubble.branches)))
             f.write(bubble.consensus + "\n")
             for branch_id, branch in enumerate(bubble.branches):
@@ -82,36 +188,29 @@ def output_bubbles(bubbles, out_file):
                 f.write(branch + "\n")
 
 
-def _add_consensus(bubbles):
-    """
-    Adds consensus sequences and filters outliers
-    """
+def _filter_outliers(bubbles):
     new_bubbles = []
     for bubble in bubbles:
         if len(bubble.branches) == 0:
-            logger.debug("Empty bubble {0}".format(bubble.bubble_id))
+            logger.debug("Empty bubble {0}".format(bubble.position))
             continue
-
-        consensus = sorted(bubble.branches,
-                           key=len)[len(bubble.branches) / 2]
-        bubble.consensus = consensus
 
         new_branches = []
         for branch in bubble.branches:
             incons_rate = float(abs(len(branch) -
-                                    len(consensus))) / len(consensus)
+                                len(bubble.consensus))) / len(bubble.consensus)
+            if len(branch) == 0:
+                branch = "A"
             if incons_rate < 0.5:
                 new_branches.append(branch)
             #else:
             #    logger.warning("Branch inconsistency with rate {0}, id {1}"
-            #                    .format(incons_rate, bubble.bubble_id))
+            #                    .format(incons_rate, bubble.position))
 
-        bubble.branches = new_branches
-        new_bubbles.append(bubble)
+        new_bubbles.append(deepcopy(bubble))
+        new_bubbles[-1].branches = new_branches
 
     return new_bubbles
-
-
 def _is_solid_kmer(profile, position, kmer_length):
     """
     Checks if the kmer at given position is solid
@@ -155,21 +254,12 @@ def _shift_gaps(seq_trg, seq_qry):
             swap_left = gap_start - 1
             swap_right = i - 1
 
-            #print "".join(lst_trg[gap_start - 1 : i + 1])
-            #print "".join(lst_qry[gap_start - 1 : i + 1])
-            #print ""
-
             while (swap_left > 0 and swap_right >= gap_start and
                    lst_qry[swap_left] == lst_trg[swap_right]):
-                #print "swapped"
                 lst_qry[swap_left], lst_qry[swap_right] = \
                             lst_qry[swap_right], lst_qry[swap_left]
                 swap_left -= 1
                 swap_right -= 1
-
-            #print "".join(lst_trg[gap_start - 1 : i + 1])
-            #print "".join(lst_qry[gap_start - 1 : i + 1])
-            #print "--------------"
 
         if not is_gap and lst_qry[i] == "-":
             is_gap = True
@@ -246,6 +336,11 @@ def _get_partition(profile):
             if (_is_simple_kmer(profile, prof_pos, SIMPLE_LEN) and
                     prof_pos + SIMPLE_LEN / 2 - prev_part > SOLID_LEN):
 
+                if prof_pos + SIMPLE_LEN / 2 - prev_part > 1000:
+                    logger.info("Long bubble {0}, at {1}"
+                            .format(prof_pos + SIMPLE_LEN / 2 - prev_part,
+                                    prof_pos + SIMPLE_LEN / 2))
+
                 prev_part = prof_pos + SIMPLE_LEN / 2
                 partition.append(prof_pos + SIMPLE_LEN / 2)
 
@@ -254,14 +349,20 @@ def _get_partition(profile):
     return partition
 
 
-def _get_bubble_seqs(alignment, partition, genome_len, ctg_id):
+def _get_bubble_seqs(alignment, profile, partition, genome_len, ctg_id):
     """
     Given genome landmarks, forms bubble sequences
     """
     logger.debug("Forming bubble sequences")
     MIN_ALIGNMENT = config.vals["min_alignment_length"]
 
-    bubbles = [Bubble(ctg_id, x) for x in xrange(len(partition) + 1)]
+    bubbles = []
+    ext_partition = [0] + partition + [genome_len]
+    for p_left, p_right in zip(ext_partition[:-1], ext_partition[1:]):
+        bubbles.append(Bubble(ctg_id, p_left))
+        consensus = map(lambda p: p.nucl, profile[p_left : p_right])
+        bubbles[-1].consensus = "".join(consensus)
+
     for aln in alignment:
         if aln.err_rate > 0.5 or aln.trg_end - aln.trg_start < MIN_ALIGNMENT:
             continue
@@ -286,8 +387,8 @@ def _get_bubble_seqs(alignment, partition, genome_len, ctg_id):
             if bubble_id != prev_bubble_id:
                 if not first_segment:
                     branch_seq = qry_seq[branch_start:i].replace("-", "")
-                    if len(branch_seq):
-                        bubbles[prev_bubble_id].branches.append(branch_seq)
+                    #if len(branch_seq):
+                    bubbles[prev_bubble_id].branches.append(branch_seq)
 
                 first_segment = False
                 prev_bubble_id = bubble_id
