@@ -10,19 +10,18 @@ import bisect
 import logging
 from collections import defaultdict, namedtuple
 from copy import deepcopy
+from itertools import izip
+import math
 
 import abruijn.fasta_parser as fp
 import abruijn.config as config
 
 ContigInfo = namedtuple("ContigInfo", ["id", "length", "type"])
+DiscordandRead = namedtuple("DiscordandRead", ["alignment", "loop"])
+AlignmentCluster = namedtuple("AlignmentCluster", ["reads", "start", "end"])
 
 logger = logging.getLogger()
 
-class AlignmentCluster:
-    def __init__(self, alignments, start, end):
-        self.alignments = alignments
-        self.start = start
-        self.end = end
 
 class ProfileInfo:
     def __init__(self):
@@ -92,7 +91,7 @@ def patch_genome(alignment, reference_file, out_patched):
 def _get_patching_alignmemnts(alignment):
     MIN_ALIGNMENT = config.vals["min_alignment_length"]
 
-    discordand_alignments = []
+    discordand_reads = []
     for aln in alignment:
         if (aln.err_rate > 0.5 or aln.trg_end - aln.trg_start < MIN_ALIGNMENT or
             aln.qry_start > 500 or aln.qry_len - aln.qry_end > 500):
@@ -103,15 +102,15 @@ def _get_patching_alignmemnts(alignment):
         trg_strip = 0
         qry_strip = 0
 
-        for i in xrange(len(aln.trg_seq)):
-            if aln.trg_seq[i] == "-":
+        for trg_nuc, qry_nuc in izip(aln.trg_seq, aln.qry_seq):
+            if trg_nuc == "-":
                 trg_strip += 1
             else:
                 if trg_strip > 100:
                     trg_gaps += trg_strip
                 trg_strip = 0
 
-            if aln.qry_seq[i] == "-":
+            if qry_nuc == "-":
                 qry_strip += 1
             else:
                 if qry_strip > 100:
@@ -119,42 +118,141 @@ def _get_patching_alignmemnts(alignment):
                 qry_strip = 0
 
         if abs(trg_gaps - qry_gaps) > 500:
-            discordand_alignments.append((aln, trg_gaps - qry_gaps))
+            discordand_reads.append(DiscordandRead(aln, trg_gaps - qry_gaps))
 
 
     #create clusters of overlapping discordand reads
-    clusters = []
-    discordand_alignments.sort(key = lambda t: t[0].trg_start)
-    for aln, length_diff in discordand_alignments:
-        if not clusters or clusters[-1].end < aln.trg_start:
-            clusters.append(AlignmentCluster([(aln, length_diff)], aln.trg_start,
-                                              aln.trg_end))
-        else:
-            clusters[-1].end = aln.trg_end
-            clusters[-1].alignments.append((aln, length_diff))
+    overlap_clusters = []
+    discordand_reads.sort(key = lambda t: t.alignment.trg_start)
+    right_end = 0
+    for read in discordand_reads:
+        if not overlap_clusters or right_end < read.alignment.trg_start:
+            overlap_clusters.append([])
+        right_end = max(read.alignment.trg_end, right_end)
+        overlap_clusters[-1].append(read)
+    ##
+
+    #filter outliers
+    overlap_clusters = filter(lambda c: len(c) > 10, overlap_clusters)
+
+    ##split clusters based on loop rate and compute common overlap
+    nonzero_clusters = []
+    split_clusters = sum([_split_reads(cl) for cl in overlap_clusters], [])
+    for cl in split_clusters:
+        left_ends = []
+        right_ends = []
+        for read in cl:
+            logger.debug("\t{0}".format(read.loop))
+            left_ends.append(read.alignment.trg_start)
+            right_ends.append(read.alignment.trg_end)
+
+        common_left = sorted(left_ends)[3 * len(left_ends) / 4]
+        common_right = sorted(right_ends)[len(right_ends) / 4]
+        logger.debug("-----{0} {1}".format(common_left, common_right))
+        if common_right > common_left:
+            nonzero_clusters.append(AlignmentCluster(cl, common_left,
+                                                     common_right))
+    ###
+
+    ##TODO: filter conflicting clusters
+    non_conflicting_clusters = []
+    for cl in nonzero_clusters:
+        if (not non_conflicting_clusters or
+            cl.start > non_conflicting_clusters[-1].end):
+
+            non_conflicting_clusters.append(cl)
+        elif len(cl.reads) > len(non_conflicting_clusters[-1].reads):
+            non_conflicting_clusters[-1] = cl
 
     patches = []
-    for cluster in clusters:
-        if len(cluster.alignments) > 10:
-            logger.debug("Cluster {0} {1}".format(cluster.start, cluster.end))
-            for aln, length_diff in cluster.alignments:
-                logger.debug("\t{0}\t{1}\t{2}"
-                             .format(aln.trg_start, aln.trg_end, length_diff))
+    for cluster in non_conflicting_clusters:
+        logger.debug("Cluster {0} {1}".format(cluster.start, cluster.end))
+        for aln, loop in cluster.reads:
+            logger.debug("\t{0}\t{1}\t{2}"
+                         .format(aln.trg_start, aln.trg_end, loop))
 
-            num_positive = sum(1 if d > 0 else 0
-                               for (a, d) in cluster.alignments)
-            cluster_positive = num_positive > len(cluster.alignments) / 2
-            filtered_alignments = [(a, d) for (a, d) in cluster.alignments
-                                                if (d > 0) == cluster_positive]
-            chosen_patch = max(filtered_alignments, key=lambda (a, d): abs(d))
+        #num_positive = sum(1 if d > 0 else 0
+        #                   for (a, d) in cluster.reads)
+        #cluster_positive = num_positive > len(cluster.reads) / 2
+        #filtered_alignments = [r for r in cluster.reads
+        #                       if (r.loop > 0) == cluster_positive]
+        #chosen_patch = max(filtered_alignments, key=lambda r: abs(r.loop))
 
-            #cluster.alignments.sort(key=lambda (a, d): d)
-            #chosen_patch = cluster.alignments[len(cluster.alignments) / 2]
+        cluster.reads.sort(key=lambda (a, l): l)
+        chosen_patch = cluster.reads[len(cluster.reads) / 2]
 
-            patches.append(chosen_patch[0])
-            logger.debug("Chosen: {0}".format(chosen_patch[1]))
+        patches.append(chosen_patch.alignment)
+        logger.debug("Chosen: {0}".format(chosen_patch.loop))
 
     return patches
+
+
+def mean(lst):
+    return (float(sum(lst)) / len(lst))
+
+
+def stddev(lst):
+    if len(lst) < 2:
+        return 0.0
+
+    l_sum = 0
+    l_mean = mean(lst)
+    for val in lst:
+        l_sum += float(val - l_mean) * float(val - l_mean)
+    return math.sqrt(l_sum / (len(lst) - 1))
+
+
+def _split_reads(reads):
+    new_clusters = [reads]
+    while True:
+        any_split = False
+        for cl in new_clusters:
+            res = _split_two(cl)
+
+            if len(res) > 1:
+                new_clusters.remove(cl)
+                new_clusters.extend(res)
+                any_split = True
+                break
+
+        if not any_split:
+            break
+
+    return new_clusters
+
+
+def _split_two(cluster_reads):
+    MIN_CLUSTER = 5
+    if len(cluster_reads) < 2 * MIN_CLUSTER:
+        return [cluster_reads]
+
+    best_diff = 0
+    best_point = None
+    for split_point in xrange(MIN_CLUSTER, len(cluster_reads) - MIN_CLUSTER):
+        left_cluster = cluster_reads[:split_point]
+        right_cluster = cluster_reads[split_point:]
+        left_std = stddev(map(lambda r: r.loop, left_cluster))
+        right_std = stddev(map(lambda r: r.loop, right_cluster))
+
+        if best_point is None or left_std + right_std < best_diff:
+            best_diff = left_std + right_std
+            best_point = split_point
+
+    left_cluster = cluster_reads[:best_point]
+    right_cluster = cluster_reads[best_point:]
+    left_std = stddev(map(lambda r: r.loop, left_cluster))
+    right_std = stddev(map(lambda r: r.loop, right_cluster))
+    left_mean = mean(map(lambda r: r.loop, left_cluster))
+    right_mean = mean(map(lambda r: r.loop, right_cluster))
+
+    #TODO: replace with t-test
+    need_split = abs(left_mean - right_mean) > 2 * left_std
+
+    if not need_split:
+        return [cluster_reads]
+
+    #check if SV coordinates are overlapping
+    return [left_cluster, right_cluster]
 
 
 def _apply_patches(patches, sequence):
@@ -211,6 +309,8 @@ def _filter_outliers(bubbles):
         new_bubbles[-1].branches = new_branches
 
     return new_bubbles
+
+
 def _is_solid_kmer(profile, position, kmer_length):
     """
     Checks if the kmer at given position is solid
