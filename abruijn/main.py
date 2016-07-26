@@ -18,6 +18,7 @@ import abruijn.bubbles as bbl
 import abruijn.polish as pol
 import abruijn.fasta_parser as fp
 import abruijn.assemble as asm
+import abruijn.patches as patch
 from abruijn.__version__ import __version__
 
 
@@ -127,10 +128,11 @@ class JobPolishing(Job):
             Job.run_description["error_profile"] = \
                                     aln.choose_error_profile(mean_error)
 
-        #bubbles = bbl.get_bubbles(alignment)
+        bubbles = bbl.get_bubbles(alignment)
 
-        out_patched = os.path.join(self.work_dir, "patched.fasta")
-        bbl.patch_genome(alignment, self.in_reference, out_patched)
+        out_patched = os.path.join(self.work_dir,
+                                   "patched_{0}.fasta".format(self.stage_id))
+        patch.patch_genome(alignment, self.in_reference, out_patched)
 
         polished_fasta = pol.polish(bubbles, self.args.threads,
                                     Job.run_description["error_profile"],
