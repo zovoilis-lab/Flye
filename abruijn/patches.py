@@ -44,6 +44,7 @@ def _get_patching_alignmemnts(alignment):
     MIN_LOOP = 500
     MIN_GAP = 100
     MAX_OVERHANG = 500
+    MIN_CLUSTER = 10
 
     discordand_reads = []
     for aln in alignment:
@@ -72,6 +73,7 @@ def _get_patching_alignmemnts(alignment):
                     qry_gaps += qry_strip
                 qry_strip = 0
 
+        #minus = insertion, plus = deletion
         if abs(trg_gaps - qry_gaps) > MIN_LOOP:
             discordand_reads.append(DiscordandRead(aln, trg_gaps - qry_gaps))
 
@@ -88,7 +90,7 @@ def _get_patching_alignmemnts(alignment):
     ##
 
     #filter outliers
-    overlap_clusters = filter(lambda c: len(c) > 10, overlap_clusters)
+    overlap_clusters = filter(lambda c: len(c) > MIN_CLUSTER, overlap_clusters)
 
     ##split clusters based on loop rate and compute common overlap
     nonzero_clusters = []
@@ -123,8 +125,8 @@ def _get_patching_alignmemnts(alignment):
     for cluster in non_conflicting_clusters:
         logger.debug("Cluster {0} {1}".format(cluster.start, cluster.end))
         for aln, loop in cluster.reads:
-            logger.debug("\t{0}\t{1}\t{2}"
-                         .format(aln.trg_start, aln.trg_end, loop))
+            logger.debug("\t{0}\t{1}\t{2}\t{3}"
+                         .format(aln.trg_start, aln.trg_end, aln.trg_sign, loop))
 
         #num_positive = sum(1 if d > 0 else 0
         #                   for (a, d) in cluster.reads)
