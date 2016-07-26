@@ -128,13 +128,6 @@ def _get_patching_alignmemnts(alignment):
             logger.debug("\t{0}\t{1}\t{2}\t{3}"
                          .format(aln.trg_start, aln.trg_end, aln.trg_sign, loop))
 
-        #num_positive = sum(1 if d > 0 else 0
-        #                   for (a, d) in cluster.reads)
-        #cluster_positive = num_positive > len(cluster.reads) / 2
-        #filtered_alignments = [r for r in cluster.reads
-        #                       if (r.loop > 0) == cluster_positive]
-        #chosen_patch = max(filtered_alignments, key=lambda r: abs(r.loop))
-
         cluster.reads.sort(key=lambda (a, l): l)
         chosen_patch = cluster.reads[len(cluster.reads) / 2]
 

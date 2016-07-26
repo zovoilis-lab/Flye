@@ -6,9 +6,9 @@
 Separates alignment into small bubbles for further correction
 """
 
-import bisect
 import logging
 from collections import defaultdict, namedtuple
+from bisect import bisect
 from copy import deepcopy
 from itertools import izip
 import math
@@ -93,12 +93,18 @@ def _filter_outliers(bubbles):
             continue
 
         new_branches = []
+        median_branch = (sorted(bubble.branches, key=len)
+                                [len(bubble.branches) / 2])
+        if len(median_branch) == 0:
+            continue
+
         for branch in bubble.branches:
             incons_rate = float(abs(len(branch) -
-                                len(bubble.consensus))) / len(bubble.consensus)
-            if len(branch) == 0:
-                branch = "A"
+                                len(median_branch))) / len(median_branch)
             if incons_rate < 0.5:
+                if len(branch) == 0:
+                    branch = "A"
+                    logger.debug("Zero branch")
                 new_branches.append(branch)
             #else:
             #    logger.warning("Branch inconsistency with rate {0}, id {1}"
@@ -187,24 +193,25 @@ def _compute_profile(alignment, genome_len):
         qry_seq = _shift_gaps(trg_seq, qry_seq)
 
         trg_offset = 0
-        for i in xrange(len(trg_seq)):
-            if trg_seq[i] == "-":
+        for i, (trg_nuc, qry_nuc) in enumerate(izip(trg_seq, qry_seq)):
+            if trg_nuc == "-":
                 trg_offset -= 1
             trg_pos = (aln.trg_start + i + trg_offset) % genome_len
+            prof_elem = profile[trg_pos]
 
-            if trg_seq[i] == "-":
-                profile[trg_pos].num_inserts += 1
+            if trg_nuc == "-":
+                prof_elem.num_inserts += 1
             else:
-                profile[trg_pos].nucl = trg_seq[i]
-                if profile[trg_pos].nucl == "N" and qry_seq[i] != "-":
-                    profile[trg_pos].nucl = qry_seq[i]
+                prof_elem.nucl = trg_nuc
+                if prof_elem.nucl == "N" and qry_nuc != "-":
+                    prof_elem.nucl = qry_nuc
 
-                profile[trg_pos].coverage += 1
+                prof_elem.coverage += 1
 
-                if qry_seq[i] == "-":
-                    profile[trg_pos].num_deletions += 1
-                elif trg_seq[i] != qry_seq[i]:
-                    profile[trg_pos].num_missmatch += 1
+                if qry_nuc == "-":
+                    prof_elem.num_deletions += 1
+                elif trg_nuc != qry_nuc:
+                    prof_elem.num_missmatch += 1
 
     return profile
 
@@ -273,20 +280,19 @@ def _get_bubble_seqs(alignment, profile, partition, genome_len, ctg_id):
             qry_seq = fp.reverse_complement(aln.qry_seq)
 
         trg_offset = 0
-        prev_bubble_id = bisect.bisect(partition, aln.trg_start % genome_len)
+        prev_bubble_id = bisect(partition, aln.trg_start % genome_len)
         first_segment = True
         branch_start = None
-        for i in xrange(len(trg_seq)):
-            if trg_seq[i] == "-":
+        for i, trg_nuc in enumerate(trg_seq):
+            if trg_nuc == "-":
                 trg_offset -= 1
                 continue
             trg_pos = (aln.trg_start + i + trg_offset) % genome_len
 
-            bubble_id = bisect.bisect(partition, trg_pos)
+            bubble_id = bisect(partition, trg_pos)
             if bubble_id != prev_bubble_id:
                 if not first_segment:
                     branch_seq = qry_seq[branch_start:i].replace("-", "")
-                    #if len(branch_seq):
                     bubbles[prev_bubble_id].branches.append(branch_seq)
 
                 first_segment = False

@@ -112,6 +112,25 @@ class JobAlignment(Job):
         Job.run_description["stage_id"] = self.stage_id
 
 
+class JobPatching(Job):
+    def __init__(self, in_alignment, in_reference, out_patched, stage_id):
+        super(JobPatching, self).__init__()
+        self.in_alignment = in_alignment
+        self.in_reference = in_reference
+        self.out_patched = out_patched
+        self.name = "patching"
+        self.stage_id = stage_id
+        self.out_files = [out_patched]
+
+    def run(self):
+        alignment, mean_error = aln.parse_alignment(self.in_alignment)
+        patch.patch_genome(self.in_alignment, self.in_reference,
+                           self.out_patched)
+
+        Job.run_description["stage_name"] = self.name
+        Job.run_description["stage_id"] = self.stage_id
+
+
 class JobPolishing(Job):
     def __init__(self, in_alignment, in_reference, out_consensus, stage_id):
         super(JobPolishing, self).__init__()
@@ -129,11 +148,6 @@ class JobPolishing(Job):
                                     aln.choose_error_profile(mean_error)
 
         bubbles = bbl.get_bubbles(alignment)
-
-        out_patched = os.path.join(self.work_dir,
-                                   "patched_{0}.fasta".format(self.stage_id))
-        patch.patch_genome(alignment, self.in_reference, out_patched)
-
         polished_fasta = pol.polish(bubbles, self.args.threads,
                                     Job.run_description["error_profile"],
                                     self.work_dir, self.stage_id)
@@ -157,6 +171,18 @@ def _create_job_list(args, work_dir, log_file):
         polished_file = os.path.join(work_dir,
                                      "polished_{0}.fasta".format(i + 1))
         jobs.append(JobAlignment(prev_assembly, alignment_file, i + 1))
+
+        ###temporary!
+        if i > 0:
+            out_patched = os.path.join(work_dir,
+                                       "patched_{0}.fasta".format(i + 1))
+            alignment_file = os.path.join(work_dir, "blasr_patched_{0}.m5"
+                                                            .format(i + 1))
+            jobs.append(JobPatching(alignment_file, prev_assembly,
+                                    out_patched, i + 1))
+            jobs.append(JobAlignment(out_patched, alignment_file, i + 1))
+        ############
+
         jobs.append(JobPolishing(alignment_file, prev_assembly,
                                  polished_file, i + 1))
         prev_assembly = polished_file

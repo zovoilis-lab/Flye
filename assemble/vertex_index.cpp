@@ -91,7 +91,8 @@ void VertexIndex::buildIndex(int minCoverage, int maxCoverage)
 		{
 			size_t count = 0;
 			_kmerCounts.find(kmerPos.kmer, count);
-			if ((size_t)minCoverage <= count && count <= 10UL * (size_t)maxCoverage)
+			//if ((size_t)minCoverage <= count && count <= 10UL * (size_t)maxCoverage)
+			if ((size_t)minCoverage <= count && count <= (size_t)maxCoverage)
 			{
 				if (!_kmerIndex.contains(kmerPos.kmer))
 				{
