@@ -125,11 +125,11 @@ void ContigGenerator::pairwiseAlignment(const std::string& seqOne,
 										std::string& outTwo)
 {
 	static const int32_t MATCH = 5;
-	static const int32_t SUBST = -8;
-	static const int32_t INDEL = -5;
+	static const int32_t SUBST = -5;
+	static const int32_t INDEL = -3;
 
 	static const int32_t matchScore[] = {SUBST, MATCH};
-	static const int32_t indelScore[] = {INDEL, 0};
+	//static const int32_t indelScore[] = {INDEL, 0};
 
 	int width = abs((int)seqOne.length() - 
 					(int)seqTwo.length()) + Constants::maxumumJump;
@@ -149,18 +149,16 @@ void ContigGenerator::pairwiseAlignment(const std::string& seqOne,
 	_backtrackMatrix.at(0, 0) = 0;
 	for (size_t i = 0; i < seqOne.length(); ++i) 
 	{
-		//_scoreMatrix.at(i + 1, 0) = _scoreMatrix.at(i, 0) + INDEL;
-		_scoreMatrix.at(i + 1, 0) = 0;
+		//_scoreMatrix.at(i + 1, 0) = 0;
+		_scoreMatrix.at(i + 1, 0) = _scoreMatrix.at(i, 0) + INDEL;
 		_backtrackMatrix.at(i + 1, 0) = 1;
 	}
 	for (size_t i = 0; i < seqTwo.length(); ++i) 
 	{
-		//_scoreMatrix.at(0, i + 1) = _scoreMatrix.at(0, i) + INDEL;
-		_scoreMatrix.at(0, i + 1) = 0;
+		_scoreMatrix.at(0, i + 1) = _scoreMatrix.at(0, i) + INDEL;
+		//_scoreMatrix.at(0, i + 1) = 0;
 		_backtrackMatrix.at(0, i + 1) = 0;
 	}
-
-	//std::cerr << "DP " << seqOne.length() << " " << seqTwo.length() << std::endl;
 
 	//filling DP matrices
 	for (size_t i = 1; i < seqOne.length() + 1; ++i)
@@ -169,25 +167,22 @@ void ContigGenerator::pairwiseAlignment(const std::string& seqOne,
 		size_t diagRight = std::min((int)seqTwo.length() + 1, 
 									(int)i + width);
 		for (size_t j = diagLeft; j < diagRight; ++j)
-		//for (size_t j = 1; j < seqTwo.length() + 1; ++j)
 		{
 			int32_t left = _scoreMatrix.at(i, j - 1) + 
-							indelScore[i == seqOne.length()];
+							INDEL;
 			int32_t up = _scoreMatrix.at(i - 1, j) +
-							indelScore[j == seqTwo.length()];
+							INDEL;
 			int32_t cross = _scoreMatrix.at(i - 1, j - 1) + 
 							matchScore[seqOne[i - 1] == seqTwo[j - 1]];
 
 			char prev = 2;
 			int32_t score = cross;
 			if (j < diagRight - 1 && up > score)
-			//if (up > score)
 			{
 				prev = 1;
 				score = up;
 			}
 			if (j > diagLeft && left > score)
-			//if (left > score)
 			{
 				prev = 0;
 				score = left;
@@ -244,21 +239,17 @@ ContigGenerator::getSwitchPositions(FastaRecord::Id leftRead,
 
 	//Alignment for a precise shift calculation
 	std::string leftSeq = _seqContainer.getIndex().at(leftRead)
-								.sequence.substr(readsOvlp->curBegin, 
-										 	 readsOvlp->curRange());
-	//std::string leftSeq = _seqContainer.getIndex().at(leftRead).sequence;
+								.sequence.substr(readsOvlp->curBegin,
+												 readsOvlp->curRange());
 	std::string rightSeq = _seqContainer.getIndex().at(rightRead)
 								.sequence.substr(readsOvlp->extBegin, 
-											 	 readsOvlp->extRange());
-	//std::string rightSeq = _seqContainer.getIndex().at(rightRead).sequence;
+												 readsOvlp->extRange());
 	std::string alignedLeft;
 	std::string alignedRight;
 	pairwiseAlignment(leftSeq, rightSeq, alignedLeft, alignedRight);
 
 	int leftPos = readsOvlp->curBegin;
-	//int leftPos = 0;
 	int rightPos = readsOvlp->extBegin;
-	//int rightPos = 0;
 	int matchRun = 0;
 	for (size_t i = 0; i < alignedLeft.length(); ++i)
 	{

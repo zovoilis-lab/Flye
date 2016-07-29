@@ -389,7 +389,7 @@ FastaRecord::Id Extender::stepRight(FastaRecord::Id readId)
 	}
 
 	if (bestExtension != FastaRecord::ID_NONE && 
-		robustStd(extensionShifts) < Constants::maxumumOverhang && 
+		robustStd(extensionShifts) < Constants::minimumShiftStd && 
 		extensions.size() > (size_t)_coverage / 10)
 	{
 		Logger::get().debug() << "End of linear chromosome";

@@ -170,11 +170,12 @@ bool OverlapDetector::overlapTest(const OverlapRange& ovlp, int32_t curLen,
 {
 	if (ovlp.curRange() < Constants::minimumOverlap || 
 		ovlp.extRange() < Constants::minimumOverlap) return false;
-	if (abs(ovlp.curRange() - ovlp.extRange()) > 
-		Constants::maxumumJump) return false;
 
 	//FIXME: adhoc solution for chimeras
 	if (ovlp.curId == ovlp.extId.rc()) return true;
+
+	if (abs(ovlp.curRange() - ovlp.extRange()) > 
+		Constants::maxumumJump / 2) return false;
 
 	if (std::min(ovlp.curBegin, ovlp.extBegin) > 
 		Constants::maxumumOverhang) return false;
@@ -314,7 +315,6 @@ OverlapDetector::getReadOverlaps(FastaRecord::Id currentReadId) const
 		}
 		//if (debugOverlap.curRange() > 3000) debugOverlaps.push_back(debugOverlap);
 	}
-	
 	
 	/*
 	if (!debugOverlaps.empty())
