@@ -18,6 +18,7 @@ namespace Constants
 	//overlap constants
 	const int closeJumpRate = 100;
 	const int farJumpRate = 2;
+	const int overlapDivergenceRate = 5;
 
 	//chimera detection
 	const int maxCoverageDropRate = 5;

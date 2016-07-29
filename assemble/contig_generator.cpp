@@ -129,7 +129,7 @@ void ContigGenerator::pairwiseAlignment(const std::string& seqOne,
 	static const int32_t INDEL = -3;
 
 	static const int32_t matchScore[] = {SUBST, MATCH};
-	//static const int32_t indelScore[] = {INDEL, 0};
+	static const int32_t indelScore[] = {INDEL, 0};
 
 	int width = abs((int)seqOne.length() - 
 					(int)seqTwo.length()) + Constants::maxumumJump;
@@ -149,14 +149,14 @@ void ContigGenerator::pairwiseAlignment(const std::string& seqOne,
 	_backtrackMatrix.at(0, 0) = 0;
 	for (size_t i = 0; i < seqOne.length(); ++i) 
 	{
-		//_scoreMatrix.at(i + 1, 0) = 0;
-		_scoreMatrix.at(i + 1, 0) = _scoreMatrix.at(i, 0) + INDEL;
+		_scoreMatrix.at(i + 1, 0) = 0;
+		//_scoreMatrix.at(i + 1, 0) = _scoreMatrix.at(i, 0) + INDEL;
 		_backtrackMatrix.at(i + 1, 0) = 1;
 	}
 	for (size_t i = 0; i < seqTwo.length(); ++i) 
 	{
-		_scoreMatrix.at(0, i + 1) = _scoreMatrix.at(0, i) + INDEL;
-		//_scoreMatrix.at(0, i + 1) = 0;
+		//_scoreMatrix.at(0, i + 1) = _scoreMatrix.at(0, i) + INDEL;
+		_scoreMatrix.at(0, i + 1) = 0;
 		_backtrackMatrix.at(0, i + 1) = 0;
 	}
 
@@ -169,9 +169,9 @@ void ContigGenerator::pairwiseAlignment(const std::string& seqOne,
 		for (size_t j = diagLeft; j < diagRight; ++j)
 		{
 			int32_t left = _scoreMatrix.at(i, j - 1) + 
-							INDEL;
+							indelScore[i == seqOne.length()];
 			int32_t up = _scoreMatrix.at(i - 1, j) +
-							INDEL;
+							indelScore[j == seqOne.length()];
 			int32_t cross = _scoreMatrix.at(i - 1, j - 1) + 
 							matchScore[seqOne[i - 1] == seqTwo[j - 1]];
 

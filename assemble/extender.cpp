@@ -12,6 +12,41 @@
 #include "config.h"
 
 
+namespace
+{
+	int robustStd(const std::vector<int>& shifts)
+	{
+		if (shifts.size() < 2) return 0;
+
+		auto _mean = [](const std::vector<int>& vals)
+		{
+			int sum = 0;
+			for(int v : vals) sum += v;
+			return (float)sum / vals.size();
+		};
+
+		auto _std = [_mean](const std::vector<int>& vals)
+		{
+			float mean = _mean(vals);
+			float sumStd = 0.0f;
+			for (float v : vals) sumStd += (v - mean) * (v - mean);
+			return sqrt(sumStd / vals.size());  
+		};
+
+		float mean = _mean(shifts);
+		float std = _std(shifts);
+
+		//filter outliers
+		std::vector<int> inliers;
+		for (float s : shifts)
+		{
+			if (fabsf(s - mean) < 2.0f * std) inliers.push_back(s);
+		}
+
+		return _std(inliers);
+	}
+}
+
 ContigPath Extender::extendContig(FastaRecord::Id startRead)
 {
 	ContigPath contigPath;
@@ -196,18 +231,6 @@ int Extender::rightMultiplicity(FastaRecord::Id readId)
 						   coveredByNode[extCandidate]);
 	}
 
-	/*
-	for (auto& cluster : coveredByNode)
-	{
-		Logger::get().debug() << "\tCoverage of " 
-							  << _seqContainer.seqName(cluster.first);
-		for (auto& node : cluster.second)
-		{
-			Logger::get().debug() << "\t\t" << _seqContainer.seqName(node);
-		}
-	}
-	*/
-
 	while(true)
 	{
 		FastaRecord::Id maxUniqueCoveredId = FastaRecord::ID_NONE;
@@ -249,58 +272,9 @@ int Extender::rightMultiplicity(FastaRecord::Id readId)
 			++globalCoverage[readId];
 		}
 	}
-
-	//counting cluster sizes
-	/*
-	std::string strClusters;
-	for (auto& clustId : clusterIds)
-	{
-		int clustSize = 0;
-		for (auto readId : coveredByNode[clustId]) 
-		{
-			if (globalCoverage[readId] < 2)
-			{
-				++clustSize;
-			}
-		}
-		strClusters += std::to_string(clustSize) + " ";
-	}*/
 	//Logger::get().debug() << "\tClusters: " << strClusters;
 
 	return std::max(1UL, clusterIds.size());
-}
-
-
-int robustStd(const std::vector<int>& shifts)
-{
-	if (shifts.empty()) return 0;
-
-	auto _mean = [](const std::vector<int>& vals)
-	{
-		int sum = 0;
-		for(int v : vals) sum += v;
-		return (float)sum / vals.size();
-	};
-
-	auto _std = [_mean](const std::vector<int>& vals)
-	{
-		float mean = _mean(vals);
-		float sumStd = 0.0f;
-		for (float v : vals) sumStd += (v - mean) * (v - mean);
-    	return sqrt(sumStd / vals.size());  
-	};
-
-	float mean = _mean(shifts);
-	float std = _std(shifts);
-
-	//filter outliers
-	std::vector<int> inliers;
-	for (float s : shifts)
-	{
-		if (fabsf(s - mean) < 2.0f * std) inliers.push_back(s);
-	}
-
-	return _std(inliers);
 }
 
 
@@ -390,7 +364,7 @@ FastaRecord::Id Extender::stepRight(FastaRecord::Id readId)
 
 	if (bestExtension != FastaRecord::ID_NONE && 
 		robustStd(extensionShifts) < Constants::minimumShiftStd && 
-		extensions.size() > (size_t)_coverage / 10)
+		extensions.size() > (size_t)_coverage / Constants::minExtensionsRate)
 	{
 		Logger::get().debug() << "End of linear chromosome";
 		return FastaRecord::ID_NONE;

@@ -169,18 +169,31 @@ bool OverlapDetector::overlapTest(const OverlapRange& ovlp, int32_t curLen,
 								  int32_t extLen) const
 {
 	if (ovlp.curRange() < Constants::minimumOverlap || 
-		ovlp.extRange() < Constants::minimumOverlap) return false;
+		ovlp.extRange() < Constants::minimumOverlap) 
+	{
+		return false;
+	}
 
 	//FIXME: adhoc solution for chimeras
 	if (ovlp.curId == ovlp.extId.rc()) return true;
 
-	if (abs(ovlp.curRange() - ovlp.extRange()) > 
-		Constants::maxumumJump / 2) return false;
+	float lengthDiff = abs(ovlp.curRange() - ovlp.extRange());
+	float meanLength = (ovlp.curRange() + ovlp.extRange()) / 2.0f;
+	if (lengthDiff > meanLength / Constants::overlapDivergenceRate)
+	{
+		return false;
+	}
 
 	if (std::min(ovlp.curBegin, ovlp.extBegin) > 
-		Constants::maxumumOverhang) return false;
+		Constants::maxumumOverhang) 
+	{
+		return false;
+	}
 	if (std::min(curLen - ovlp.curEnd, extLen - ovlp.extEnd) > 
-		Constants::maxumumOverhang) return false;
+		Constants::maxumumOverhang)
+	{
+		return false;
+	}
 
 	return true;
 }
