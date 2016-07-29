@@ -19,8 +19,9 @@ namespace Constants
 	const int closeJumpRate = 100;
 	const int farJumpRate = 2;
 
-	//chimer detection
+	//chimera detection
 	const int maxCoverageDropRate = 5;
+	const int chimeraWindow = 500;
 
 	//extension
 	const int minReadsInContig = 10;
