@@ -18,7 +18,7 @@ import abruijn.bubbles as bbl
 import abruijn.polish as pol
 import abruijn.fasta_parser as fp
 import abruijn.assemble as asm
-import abruijn.patches as patch
+#import abruijn.patches as patch
 from abruijn.__version__ import __version__
 
 
@@ -112,6 +112,7 @@ class JobAlignment(Job):
         Job.run_description["stage_id"] = self.stage_id
 
 
+"""
 class JobPatching(Job):
     def __init__(self, in_alignment, in_reference, out_patched, stage_id):
         super(JobPatching, self).__init__()
@@ -129,6 +130,7 @@ class JobPatching(Job):
 
         Job.run_description["stage_name"] = self.name
         Job.run_description["stage_id"] = self.stage_id
+"""
 
 
 class JobPolishing(Job):
@@ -172,7 +174,7 @@ def _create_job_list(args, work_dir, log_file):
                                      "polished_{0}.fasta".format(i + 1))
         jobs.append(JobAlignment(prev_assembly, alignment_file, i + 1))
 
-        ###temporary!
+        """
         if i > 0:
             out_patched = os.path.join(work_dir,
                                        "patched_{0}.fasta".format(i + 1))
@@ -181,7 +183,7 @@ def _create_job_list(args, work_dir, log_file):
             jobs.append(JobPatching(alignment_file, prev_assembly,
                                     out_patched, i + 1))
             jobs.append(JobAlignment(out_patched, alignment_file, i + 1))
-        ############
+        """
 
         jobs.append(JobPolishing(alignment_file, prev_assembly,
                                  polished_file, i + 1))
