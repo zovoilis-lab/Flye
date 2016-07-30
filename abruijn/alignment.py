@@ -31,7 +31,7 @@ class AlignmentException(Exception):
 
 def check_binaries():
     if not which(BLASR_BIN):
-        raise AlignmentException("Blasr is not installed")
+        raise AlignmentException("BLASR is not installed")
 
 
 def concatenate_contigs(contigs_file):
@@ -127,14 +127,33 @@ def _parse_blasr(filename):
     return alignments, mean_err
 
 
-def _run_blasr(reference_file, reads_file, num_proc, out_file):
+def _guess_blasr_version():
+    """
+    Tries to guess whether we need one or two dashed in command line
+    """
     try:
         devnull = open(os.devnull, "w")
-        subprocess.check_call([BLASR_BIN, reads_file, reference_file,
-                               "-bestn", "1", "-minMatch", "15",
-                               "-maxMatch", "25", "-m", "5",
-                               "-nproc", str(num_proc), "-out", out_file],
-                               stderr=devnull)
+        subprocess.check_call([BLASR_BIN, "-version"], stdout=devnull)
+    except subprocess.CalledProcessError as e:
+        return True
+
+    return False
+
+
+def _run_blasr(reference_file, reads_file, num_proc, out_file):
+    cmdline = [BLASR_BIN, reads_file, reference_file,
+               "-bestn", "1", "-minMatch", "15",
+               "-maxMatch", "25", "-m", "5",
+               "-nproc", str(num_proc), "-out", out_file]
+    two_dashes = _guess_blasr_version()
+    if two_dashes:
+        cmdline = map(lambda cmd: cmd.replace("-", "--")
+                      if cmd.startswith("-") and len(cmd) > 2 else cmd,
+                      cmdline)
+
+    try:
+        devnull = open(os.devnull, "w")
+        subprocess.check_call(cmdline, stderr=devnull)
     except (subprocess.CalledProcessError, OSError) as e:
         logger.error("While running blasr: " + str(e))
         raise AlignmentException("Error in alignment module, exiting")

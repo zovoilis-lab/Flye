@@ -243,7 +243,7 @@ def _get_partition(profile):
                     prof_pos + SIMPLE_LEN / 2 - prev_part > SOLID_LEN):
 
                 if prof_pos + SIMPLE_LEN / 2 - prev_part > 1000:
-                    logger.info("Long bubble {0}, at {1}"
+                    logger.debug("Long bubble {0}, at {1}"
                             .format(prof_pos + SIMPLE_LEN / 2 - prev_part,
                                     prof_pos + SIMPLE_LEN / 2))
 

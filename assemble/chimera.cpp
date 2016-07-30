@@ -22,7 +22,7 @@ void ChimeraDetector::detectChimeras()
 		{
 			_chimeras.insert(seqHash.first);
 			_chimeras.insert(seqHash.first.rc());
-			Logger::get().debug() << "Chimeric!";
+			//Logger::get().debug() << "Chimeric!";
 		}
 	}
 
@@ -42,7 +42,7 @@ int ChimeraDetector::estimateOverlapCoverage()
 
 bool ChimeraDetector::testReadByCoverage(FastaRecord::Id readId)
 {
-	Logger::get().debug() << _seqContainer.seqName(readId);
+	//Logger::get().debug() << _seqContainer.seqName(readId);
 	//self overlaps
 	for (auto& ovlp : _ovlpDetector.getOverlapIndex().at(readId))
 	{
@@ -73,12 +73,14 @@ bool ChimeraDetector::testReadByCoverage(FastaRecord::Id readId)
 		}
 	}
 
+	/*
 	std::string covStr;
 	for (int cov : coverage)
 	{
 		covStr += std::to_string(cov) + " ";
 	}
 	Logger::get().debug() << covStr;
+	*/
 
 	//exclude low-coverage reads
 	int maxCoverage = *std::max_element(coverage.begin(), coverage.end());
