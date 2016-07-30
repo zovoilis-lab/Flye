@@ -127,17 +127,28 @@ def _parse_blasr(filename):
     return alignments, mean_err
 
 
-def _guess_blasr_version():
+def _need_two_dashes():
     """
     Tries to guess whether we need one or two dashed in command line
     """
     try:
         devnull = open(os.devnull, "w")
-        subprocess.check_call([BLASR_BIN, "-version"], stdout=devnull)
+        stdout = subprocess.check_output([BLASR_BIN, "-version"])
     except subprocess.CalledProcessError as e:
         return True
 
-    return False
+    version = stdout.splitlines()[0].split()[-1]
+    tokens = version.split(".", 1)
+    if len(tokens) == 1:    #unknown version
+        return False
+
+    major, minor = tokens[0], tokens[1].split(".", 1)[0]
+    if int(major) < 5:
+        return False
+    if int(minor) < 1:
+        return False
+
+    return True
 
 
 def _run_blasr(reference_file, reads_file, num_proc, out_file):
@@ -145,7 +156,7 @@ def _run_blasr(reference_file, reads_file, num_proc, out_file):
                "-bestn", "1", "-minMatch", "15",
                "-maxMatch", "25", "-m", "5",
                "-nproc", str(num_proc), "-out", out_file]
-    two_dashes = _guess_blasr_version()
+    two_dashes = _need_two_dashes()
     if two_dashes:
         cmdline = map(lambda cmd: cmd.replace("-", "--")
                       if cmd.startswith("-") and len(cmd) > 2 else cmd,
