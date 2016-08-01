@@ -70,16 +70,12 @@ void BubbleProcessor::parallelWorker()
 	{
 		if (_cachedBubbles.empty())
 		{
-			if(_bubblesFile.eof())
+			this->cacheBubbles(BUBBLES_CACHE);
+			if(_cachedBubbles.empty())
 			{
 				_stateMutex.unlock();
 				return;
 			}
-			else
-			{
-				this->cacheBubbles(BUBBLES_CACHE);
-			}
-			if (_cachedBubbles.empty()) return;
 		}
 
 		Bubble bubble = _cachedBubbles.back();
