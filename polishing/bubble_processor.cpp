@@ -79,6 +79,7 @@ void BubbleProcessor::parallelWorker()
 			{
 				this->cacheBubbles(BUBBLES_CACHE);
 			}
+			if (_cachedBubbles.empty()) return;
 		}
 
 		Bubble bubble = _cachedBubbles.back();
