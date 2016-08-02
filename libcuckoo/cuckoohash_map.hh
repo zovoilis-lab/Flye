@@ -238,12 +238,15 @@ private:
             return kvpair(ind).second;
         }
 
-        template <class... Args>
-        void setKV(size_t ind, Args&&... args) {
+        template <typename K, typename... Args>
+        void setKV(size_t ind, K&& key, Args&&... args) {
             static allocator_type pair_allocator;
             occupied_[ind] = true;
-            pair_allocator.construct(&storage_kvpair(ind),
-                                     std::forward<Args>(args)...);
+            pair_allocator.construct(
+                &storage_kvpair(ind),
+                std::piecewise_construct,
+                std::forward_as_tuple(std::forward<K>(key)),
+                std::forward_as_tuple(std::forward<Args>(args)...));
         }
 
         void eraseKV(size_t ind) {
@@ -259,17 +262,14 @@ private:
             }
         }
 
-        ~Bucket() {
-            clear();
-        }
-
         // Moves the item in b1[slot1] into b2[slot2] without copying
         static void move_to_bucket(
             Bucket& b1, size_t slot1,
             Bucket& b2, size_t slot2) {
             assert(b1.occupied(slot1));
             assert(!b2.occupied(slot2));
-            b2.setKV(slot2, std::move(b1.storage_kvpair(slot1)));
+            storage_value_type& tomove = b1.storage_kvpair(slot1);
+            b2.setKV(slot2, std::move(tomove.first), std::move(tomove.second));
             b2.partial(slot2) = b1.partial(slot1);
             b1.occupied_.reset(slot1);
             b2.occupied_.set(slot2);
@@ -334,23 +334,22 @@ private:
 
     // reserve_calc takes in a parameter specifying a certain number of slots
     // for a table and returns the smallest hashpower that will hold n elements.
-    static size_t reserve_calc(size_t n) {
-        double nhd = ceil(log2((double)n / (double)slot_per_bucket));
-        size_t new_hp = (size_t) (nhd <= 0 ? 1.0 : nhd);
-        assert(n <= hashsize(new_hp) * slot_per_bucket);
-        return new_hp;
-    }
-
-    // hashfn returns an instance of the hash function
-    static hasher hashfn() {
-        static hasher hash;
-        return hash;
-    }
-
-    // eqfn returns an instance of the equality predicate
-    static key_equal eqfn() {
-        static key_equal eq;
-        return eq;
+    static size_t reserve_calc(const size_t n) {
+        size_t buckets = (n + slot_per_bucket - 1) / slot_per_bucket;
+        size_t blog2;
+        if (buckets <= 1) {
+            blog2 = 1;
+        } else {
+            blog2 = 0;
+            for (size_t bcounter = buckets; bcounter > 1; bcounter >>= 1) {
+                ++blog2;
+            }
+            if (hashsize(blog2) < buckets) {
+                ++blog2;
+            }
+        }
+        assert(n <= hashsize(blog2) * slot_per_bucket);
+        return blog2;
     }
 
 public:
@@ -367,7 +366,10 @@ public:
      */
     cuckoohash_map(size_t n = DEFAULT_SIZE,
                    double mlf = DEFAULT_MINIMUM_LOAD_FACTOR,
-                   size_t mhp = NO_MAXIMUM_HASHPOWER) {
+                   size_t mhp = NO_MAXIMUM_HASHPOWER,
+                   const hasher& hf = hasher(),
+                   const key_equal eql = key_equal())
+        : hash_fn(hf), eq_fn(eql) {
         minimum_load_factor(mlf);
         maximum_hashpower(mhp);
         size_t hp = reserve_calc(n);
@@ -381,6 +383,10 @@ public:
         locks_.allocate(std::min(locks_t::size(), hashsize(hp)));
         num_inserts_.resize(kNumCores(), 0);
         num_deletes_.resize(kNumCores(), 0);
+    }
+
+    ~cuckoohash_map() {
+        cuckoo_clear();
     }
 
     //! clear removes all the elements in the hash table, calling their
@@ -629,12 +635,12 @@ public:
 
     //! hash_function returns the hash function object used by the table.
     hasher hash_function() const noexcept {
-        return hashfn();
+        return hash_fn;
     }
 
     //! key_eq returns the equality predicate object used by the table.
     key_equal key_eq() const noexcept {
-        return eqfn();
+        return eq_fn;
     }
 
     //! Returns a \ref reference to the mapped value stored at the given key.
@@ -886,7 +892,7 @@ private:
     // hashsize returns the number of buckets corresponding to a given
     // hashpower.
     static inline size_t hashsize(const size_t hp) {
-        return 1U << hp;
+        return 1UL << hp;
     }
 
     // hashmask returns the bitmask for the buckets array corresponding to a
@@ -896,8 +902,8 @@ private:
     }
 
     // hashed_key hashes the given key.
-    static inline size_t hashed_key(const key_type &key) {
-        return hashfn()(key);
+    inline size_t hashed_key(const key_type &key) const {
+        return hash_function()(key);
     }
 
     // index_hash returns the first possible bucket that the given hashed key
@@ -1269,7 +1275,7 @@ private:
             if (!is_simple && partial != b.partial(i)) {
                 continue;
             }
-            if (eqfn()(key, b.key(i))) {
+            if (key_eq()(key, b.key(i))) {
                 val = b.val(i);
                 return true;
             }
@@ -1288,7 +1294,7 @@ private:
             if (!is_simple && partial != b.partial(i)) {
                 continue;
             }
-            if (eqfn()(key, b.key(i))) {
+            if (key_eq()(key, b.key(i))) {
                 return true;
             }
         }
@@ -1321,7 +1327,7 @@ private:
                 if (!is_simple && partial != b.partial(i)) {
                     continue;
                 }
-                if (eqfn()(key, b.key(i))) {
+                if (key_eq()(key, b.key(i))) {
                     return false;
                 }
             } else {
@@ -1345,7 +1351,7 @@ private:
             if (!is_simple && b.partial(i) != partial) {
                 continue;
             }
-            if (eqfn()(b.key(i), key)) {
+            if (key_eq()(b.key(i), key)) {
                 b.eraseKV(i);
                 num_deletes_[get_counterid()].num.fetch_add(
                     1, std::memory_order_relaxed);
@@ -1367,7 +1373,7 @@ private:
             if (!is_simple && b.partial(i) != partial) {
                 continue;
             }
-            if (eqfn()(b.key(i), key)) {
+            if (key_eq()(b.key(i), key)) {
                 b.val(i) = std::forward<V>(val);
                 return true;
             }
@@ -1387,7 +1393,7 @@ private:
             if (!is_simple && b.partial(i) != partial) {
                 continue;
             }
-            if (eqfn()(b.key(i), key)) {
+            if (key_eq()(b.key(i), key)) {
                 fn(b.val(i));
                 return true;
             }
@@ -2114,6 +2120,11 @@ private:
     // NO_MAXIMUM_HASHPOWER, this limit will be disregarded.
     std::atomic<size_t> maximum_hashpower_;
 
+    // The hash function
+    hasher hash_fn;
+
+    // The equality function
+    key_equal eq_fn;
 };
 
 #endif // _CUCKOOHASH_MAP_HH
