@@ -131,12 +131,11 @@ namespace
 
 					++hopoCount;
 					//wobble
-					size_t branchPrevPos = prevPos;
-					if (branchAln[prevPos - 1] == candAln[prevPos]) 
-						--branchPrevPos;
-					size_t branchPos = pos;
-					if (branchAln[pos] == candAln[pos - 1]) 
-						++branchPos;
+					size_t branchPrevPos = prevPos -
+						(size_t)(prevPos > 0 && branchAln[prevPos - 1] == 
+												candAln[prevPos]);
+					size_t branchPos = pos + 
+						(size_t)(branchAln[pos] == candAln[pos - 1]);
 
 					/*if (prevPos > 0 && prevPos < branchAln.length() - 1)
 					{
@@ -153,13 +152,6 @@ namespace
 					observ.extactMatch = leftMatch && rightMatch;
 					result.emplace_back(state, observ);
 
-					/*if (hopoCount == 45)
-					std::cerr << state.length << state.nucl << " "
-							  << branchAln.substr(branchPrevPos, branchPos - branchPrevPos) << 
-							  "\t" << branchAln.substr(branchPrevPos - 1, 
-							  						   branchPos - branchPrevPos + 2) 
-							  << std::endl;*/
-
 					prevNucl = candAln[pos];
 					prevPos = pos - gapLength;
 					gapLength = 0;
@@ -172,7 +164,6 @@ namespace
 			}
 		}
 
-		//std::cout << "----\n\n";
 		return result;
 	}
 }
@@ -194,7 +185,6 @@ void HomoPolisher::polishBubble(Bubble& bubble) const
 		pairwiseAlignment(bubble.candidate, branch, _subsMatrix,
 						  alnCand, alnBranch);
 
-		//std::cout << alnCand << std::endl << alnBranch << std::endl << std::endl;
 		auto splitHopo = splitBranchHopos(alnCand, alnBranch);
 		if (states.empty())
 		{
@@ -211,11 +201,9 @@ void HomoPolisher::polishBubble(Bubble& bubble) const
 	}
 
 	std::string newConsensus;
-	//std::cerr << curCandidate << std::endl;
 	for (size_t i = 0; i < states.size(); ++i)
 	{
 		size_t length = states[i].length;
-		//std::cerr << states[i].length << states[i].nucl << std::endl;
 		if (length > 1)	//only homopolymers
 		{
 			length = this->mostLikelyLen(states[i].nucl, observations[i]);
@@ -249,10 +237,8 @@ double HomoPolisher::likelihood(HopoMatrix::State state,
 		if (obs.extactMatch)
 		{
 			likelihood += _hopoMatrix.getObsProb(state, obs);
-			//std::cerr << obs.
 		}
 	}
-	//std::cerr << std::endl << state.length << " " << total << std::endl;
 	likelihood += _hopoMatrix.getGenomeProb(state);
 	return likelihood;
 }
@@ -269,15 +255,12 @@ size_t HomoPolisher::mostLikelyLen(char nucleotide,
 
 	typedef std::pair<double, size_t> ScorePair;
 	std::vector<ScorePair> scores;
-	//std::cerr << nucleotide << " ";
 	for (size_t len = MIN_HOPO; len <= MAX_HOPO; ++len)
 	{
 		auto newState = HopoMatrix::State(nucleotide, len);
 		double likelihood = this->likelihood(newState, observations);
 		scores.push_back(std::make_pair(likelihood, len));
-		//std::cerr << likelihood << " ";
 	}
-	//std::cerr << std::endl;
 
 	std::sort(scores.begin(), scores.end(), 
 			  [](const ScorePair& p1, const ScorePair& p2)
@@ -285,10 +268,6 @@ size_t HomoPolisher::mostLikelyLen(char nucleotide,
 
 	size_t maxRun = this->compareTopTwo(nucleotide, scores[0].second, 
 										scores[1].second, observations);
-	//if (maxRun != scores[0].second)
-	//{
-	//	std::cout << scores[0].second << " to " << maxRun << std::endl; 
-	//}
 	return maxRun;
 }
 
@@ -301,14 +280,11 @@ size_t HomoPolisher::compareTopTwo(char nucleotide, size_t firstChoice,
 	size_t choices[] = {firstChoice, secondChoice};
 	HopoMatrix::ObsVector knownObs[2];
 
-	//std::cerr << firstChoice << " vs " << secondChoice << std::endl;
 	for (size_t i = 0; i < 2; ++i)
 	{
 		auto state = HopoMatrix::State(nucleotide, choices[i]);
 		knownObs[i] = _hopoMatrix.knownObservations(state);
-		//std::cerr << knownObs[i].size() << " ";
 	}
-	//std::cerr << std::endl;
 	
 	//getting common known observations
 	std::unordered_set<uint32_t> fstSet;
@@ -323,7 +299,6 @@ size_t HomoPolisher::compareTopTwo(char nucleotide, size_t firstChoice,
 	{
 		if (commonSet.count(obs.id)) commonObservations.push_back(obs);
 	}
-	//std::cerr << commonObservations.size() << std::endl;
 
 	double likelihoods[2];
 	for (size_t i = 0; i < 2; ++i)
@@ -331,7 +306,6 @@ size_t HomoPolisher::compareTopTwo(char nucleotide, size_t firstChoice,
 		auto state = HopoMatrix::State(nucleotide, choices[i]);
 		likelihoods[i] = this->likelihood(state, commonObservations);
 	}
-	//std::cerr << std::endl;
 
 	return (likelihoods[0] > likelihoods[1]) ? choices[0] : choices[1];
 }
