@@ -9,6 +9,7 @@
 
 #include "vertex_index.h"
 #include "logger.h"
+#include "progress_bar.h"
 
 VertexIndex::VertexIndex():
 	_kmerSize(0)

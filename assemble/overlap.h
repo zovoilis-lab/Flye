@@ -13,6 +13,7 @@
 #include "vertex_index.h"
 #include "sequence_container.h"
 #include "logger.h"
+#include "progress_bar.h"
 
 
 struct OverlapRange

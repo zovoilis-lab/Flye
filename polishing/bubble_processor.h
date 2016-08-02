@@ -15,6 +15,7 @@
 #include "general_polisher.h"
 #include "homo_polisher.h"
 #include "utility.h"
+#include "progress_bar.h"
 
 
 class BubbleProcessor 

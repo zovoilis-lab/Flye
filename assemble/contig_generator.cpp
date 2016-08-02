@@ -119,6 +119,7 @@ void ContigGenerator::outputContigs(const std::string& fileName)
 	SequenceContainer::writeFasta(allSeqs, fileName);
 }
 
+//banded pairwise alignment
 void ContigGenerator::pairwiseAlignment(const std::string& seqOne, 
 										const std::string& seqTwo,
 						   				std::string& outOne, 
@@ -138,10 +139,10 @@ void ContigGenerator::pairwiseAlignment(const std::string& seqOne,
 		_scoreMatrix.ncols() < seqTwo.length() + 1)
 	{
 		//reallocate
-		_scoreMatrix = Matrix<int32_t>(seqOne.length() * 1.5, 
-									   seqTwo.length() * 1.5);
-		_backtrackMatrix = Matrix<char>(seqOne.length() * 1.5, 
-										seqTwo.length() * 1.5);
+		_scoreMatrix = Matrix<int32_t>(seqOne.length() + 1, 
+									   seqTwo.length() + 1);
+		_backtrackMatrix = Matrix<char>(seqOne.length() + 1, 
+										seqTwo.length() + 1);
 	}
 
 
