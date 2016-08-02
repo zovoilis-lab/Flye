@@ -51,7 +51,7 @@ struct KmerPosition
 	KmerPosition(Kmer kmer, int32_t position):
 		kmer(kmer), position(position) {}
 	Kmer kmer;
-	int64_t position;
+	int32_t position;
 };
 
 class KmerIterator

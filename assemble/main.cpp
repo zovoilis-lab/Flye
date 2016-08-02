@@ -139,7 +139,7 @@ int main(int argc, char** argv)
 		//rough estimate
 		size_t hardThreshold = std::max(1, coverage / 
 										   Constants::hardMinCoverageRate);
-		vertexIndex.countKmers(seqContainer, hardThreshold);
+		vertexIndex.countKmers(seqContainer, hardThreshold, numThreads);
 
 		if (maxKmerCov == -1)
 		{
@@ -151,7 +151,7 @@ int main(int argc, char** argv)
 			minKmerCov = estimator.estimateMinKmerCount(coverage, maxKmerCov);
 		}
 
-		vertexIndex.buildIndex(minKmerCov, maxKmerCov);
+		vertexIndex.buildIndex(minKmerCov, maxKmerCov, numThreads);
 
 		OverlapDetector ovlp(coverage);
 		if (overlapsFile.empty())
@@ -172,6 +172,7 @@ int main(int argc, char** argv)
 				ovlp.saveOverlaps(overlapsFile);
 			}
 		}
+		vertexIndex.clear();
 
 		ChimeraDetector chimDetect(coverage, ovlp);
 		chimDetect.detectChimeras();

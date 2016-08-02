@@ -8,6 +8,7 @@
 #include <fstream>
 #include <ctime>
 #include <stdexcept>
+#include <atomic>
 
 class Logger
 {
@@ -115,33 +116,45 @@ private:
 class ProgressPercent
 {
 public:
-	ProgressPercent(int finalCount):
+	ProgressPercent(size_t finalCount = 0):
 		_finalCount(finalCount), _curCount(0), _prevPercent(-1),
 		_stopped(false)
 	{}
 
-	void advance(int step = 1)
+	void setFinalCount(size_t finalCount) {_finalCount = finalCount;}
+	void setValue(size_t value)
+	{
+		this->advance(value - _curCount);
+	}
+	void setDone()
+	{
+		this->setValue(_finalCount);
+	}
+	void advance(size_t step = 1)
 	{
 		if (_stopped) return;
 
 		_curCount += step;
-		int percent = 10 * _curCount / _finalCount;
+		int percent = 10UL * _curCount / _finalCount;
+
 		if (percent > _prevPercent)
 		{
-			std::cerr << percent * 10 << "% ";
-			_prevPercent = percent;
-		}
-
-		if (_prevPercent >= 10)
-		{
-			std::cerr << std::endl;
-			_stopped = true;
+			int expected = percent - 1;
+			if (_prevPercent.compare_exchange_weak(expected, percent))
+			{
+				std::cerr << percent * 10 << "% ";
+				if (percent >= 10)
+				{
+					std::cerr << std::endl;
+					_stopped = true;
+				}
+			}
 		}
 	}
 
 private:
-	int _finalCount;
-	int _curCount;
-	int _prevPercent;
-	bool _stopped;
+	size_t 			    _finalCount;
+	std::atomic<size_t> _curCount;
+	std::atomic<int>  	_prevPercent;
+	bool 				_stopped;
 };

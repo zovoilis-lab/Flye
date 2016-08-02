@@ -19,6 +19,10 @@
 class VertexIndex
 {
 public:
+	~VertexIndex()
+	{
+		this->clear();
+	}
 	static VertexIndex& get()
 	{
 		static VertexIndex instance;
@@ -40,8 +44,9 @@ public:
 	typedef std::map<int, int> KmerDistribution;
 
 	void countKmers(const SequenceContainer& seqContainer,
-					size_t hardThreshold);
-	void buildIndex(int minCoverage, int maxCoverage);
+					size_t hardThreshold, size_t numThreads);
+	void buildIndex(int minCoverage, int maxCoverage, size_t numThreads);
+	void clear();
 
 	void setKmerSize(unsigned int size);
 	unsigned int getKmerSize() const {return _kmerSize;}
