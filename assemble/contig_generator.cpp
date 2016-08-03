@@ -9,10 +9,124 @@
 #include "contig_generator.h"
 #include "logger.h"
 #include "config.h"
+#include "parallel.h"
 
-void ContigGenerator::generateContigs()
+
+namespace
+{
+	//banded glocal alignment
+	void pairwiseAlignment(const std::string& seqOne, const std::string& seqTwo,
+						   std::string& outOne, std::string& outTwo, 
+						   int bandWidth)
+	{
+		static const int32_t MATCH = 5;
+		static const int32_t SUBST = -5;
+		static const int32_t INDEL = -3;
+
+		static const int32_t matchScore[] = {SUBST, MATCH};
+		static const int32_t indelScore[] = {INDEL, 0};
+
+		const size_t numRows = seqOne.length() + 1;
+		const size_t numCols = 2 * bandWidth + 1;
+
+		Matrix<char> backtrackMatrix(numRows, numCols);
+		std::vector<int32_t> scoreRowOne(numCols, 0);
+		std::vector<int32_t> scoreRowTwo(numCols, 0);
+
+
+		for (size_t i = 0; i < numRows; ++i) 
+		{
+			size_t j = std::max(0, bandWidth - (int)i);
+			backtrackMatrix.at(i, j) = 1;
+		}
+		for (size_t i = 0; i < numCols; ++i) 
+		{
+			backtrackMatrix.at(0, i) = 0;
+		}
+
+		//filling DP matrices
+		for (size_t i = 1; i < numRows; ++i)
+		{
+			int leftOverhang = bandWidth - (int)i + 1;
+			int rightOverhand = (int)i + bandWidth - (int)seqTwo.length();
+			size_t colLeft = std::max(0, leftOverhang);
+			size_t colRight = std::min((int)numCols, (int)numCols - rightOverhand);
+
+			for (int j = colLeft; j < (int)colRight; ++j)
+			{
+				size_t twoCoord = j + i - bandWidth;
+				int32_t cross = scoreRowOne[j] + 
+								matchScore[seqOne[i - 1] == seqTwo[twoCoord - 1]];
+				char maxStep = 2;
+				int32_t maxScore = cross;
+
+				if (j < (int)numCols - 1) //up
+				{
+					int32_t up = scoreRowOne[j + 1] +
+								 indelScore[twoCoord == seqTwo.length()];
+					if (up > maxScore)
+					{
+						maxStep = 1;
+						maxScore = up;
+					}
+				}
+
+				if (j > 0) //left
+				{
+					int32_t left = scoreRowTwo[j - 1] + 
+								   indelScore[i == seqOne.length()];
+					if (left > maxScore)
+					{
+						maxStep = 0;
+						maxScore = left;
+					}
+				}
+
+				scoreRowTwo[j] = maxScore;
+				backtrackMatrix.at(i, j) = maxStep;
+			}
+			scoreRowOne.swap(scoreRowTwo);
+		}
+
+		//backtrack
+		outOne.reserve(seqOne.length() * 9 / 8);
+		outTwo.reserve(seqTwo.length() * 9 / 8);
+
+		int i = numRows - 1;
+		int j = bandWidth - (int)numRows + (int)seqTwo.length() + 1;
+		while (i != 0 || j != bandWidth) 
+		{
+			size_t twoCoord = j + i - bandWidth;
+			if(backtrackMatrix.at(i, j) == 1) //up
+			{
+				outOne += seqOne[i - 1];
+				outTwo += '-';
+				i -= 1;
+				j += 1;
+			}
+			else if (backtrackMatrix.at(i, j) == 0) //left
+			{
+				outOne += '-';
+				outTwo += seqTwo[twoCoord - 1];
+				j -= 1;
+			}
+			else	//cross
+			{
+				outOne += seqOne[i - 1];
+				outTwo += seqTwo[twoCoord - 1];
+				i -= 1;
+			}
+		}
+		std::reverse(outOne.begin(), outOne.end());
+		std::reverse(outTwo.begin(), outTwo.end());
+	}
+}
+
+
+void ContigGenerator::generateContigs(size_t numThreads)
 {
 	Logger::get().info() << "Generating contig sequences";
+
 	for (const ContigPath& path : _extender.getContigPaths())
 	{
 		if (path.reads.size() < 2) continue;
@@ -20,19 +134,21 @@ void ContigGenerator::generateContigs()
 		std::vector<FastaRecord> contigParts;
 		if (path.circular)
 		{
-			_contigs.push_back(this->generateCircular(path));
+			_contigs.push_back(this->generateCircular(path, numThreads));
 		}
 		else
 		{
-			_contigs.push_back(this->generateLinear(path));
+			_contigs.push_back(this->generateLinear(path, numThreads));
 		}
 	}
 }
 
 std::vector<FastaRecord> 
-ContigGenerator::generateLinear(const ContigPath& path)
+ContigGenerator::generateLinear(const ContigPath& path, size_t numThreads)
 {
+	auto alignments = this->generateAlignments(path, numThreads);
 	std::vector<FastaRecord> contigParts;
+
 	auto prevSwitch = std::make_pair(0, 0);
 	int partNum = 1;
 	for (size_t i = 0; i < path.reads.size(); ++i)
@@ -41,8 +157,7 @@ ContigGenerator::generateLinear(const ContigPath& path)
 		int32_t rightCut = _seqContainer.seqLen(path.reads[i]);
 		if (i != path.reads.size() - 1)
 		{
-			auto curSwitch = this->getSwitchPositions(path.reads[i], 
-													  path.reads[i + 1], 
+			auto curSwitch = this->getSwitchPositions(alignments[i], 
 													  prevSwitch.second);
 			rightCut = curSwitch.first;
 			prevSwitch = curSwitch;
@@ -65,40 +180,41 @@ ContigGenerator::generateLinear(const ContigPath& path)
 }
 
 std::vector<FastaRecord> 
-ContigGenerator::generateCircular(const ContigPath& path)
+ContigGenerator::generateCircular(const ContigPath& path, size_t numThreads)
 {
 	std::vector<FastaRecord> contigParts;
-	auto circPath = path.reads;
-	circPath.push_back(path.reads[0]);
-	circPath.push_back(path.reads[1]);
+	auto circPath = path;
+	circPath.reads.push_back(path.reads[0]);
+	circPath.reads.push_back(path.reads[1]);
 
-	int32_t initPivot = _seqContainer.seqLen(circPath[0]) / 2;
-	auto firstSwitch = this->getSwitchPositions(circPath[0], circPath[1], 
+	auto alignments = this->generateAlignments(circPath, numThreads);
+	int32_t initPivot = _seqContainer.seqLen(circPath.reads[0]) / 2;
+	auto firstSwitch = this->getSwitchPositions(alignments[0], 
 												initPivot);
+
 	auto prevSwitch = firstSwitch;
 	int partNum = 1;
-	for (size_t i = 1; i < circPath.size() - 1; ++i)
+	for (size_t i = 1; i < circPath.reads.size() - 1; ++i)
 	{
-		auto curSwitch = this->getSwitchPositions(circPath[i], 
-												  circPath[i + 1], 
+		auto curSwitch = this->getSwitchPositions(alignments[i], 
 												  prevSwitch.second);
 		int32_t leftCut = prevSwitch.second;
 		int32_t rightCut = curSwitch.first;
 		prevSwitch = curSwitch;
 
-		if (i == circPath.size() - 2)	//finishing circle
+		if (i == circPath.reads.size() - 2)	//finishing circle
 		{
 			rightCut = firstSwitch.first;
 			if (rightCut - leftCut <= 0) rightCut = leftCut;
 		}
 
-		std::string partSeq = _seqContainer.getIndex().at(circPath[i])
+		std::string partSeq = _seqContainer.getIndex().at(circPath.reads[i])
 							 .sequence.substr(leftCut, rightCut - leftCut);
 		std::string partName = 
 			(path.circular ? "circular_" : "linear_") + 
 			std::to_string(_contigs.size()) +
 			"_part_" + std::to_string(partNum) + "_" +
-			_seqContainer.getIndex().at(circPath[i]).description + 
+			_seqContainer.getIndex().at(circPath.reads[i]).description + 
 			"[" + std::to_string(leftCut) + ":" + 
 			std::to_string(rightCut) + "]";
 		contigParts.push_back(FastaRecord(partSeq, partName, 
@@ -119,161 +235,69 @@ void ContigGenerator::outputContigs(const std::string& fileName)
 	SequenceContainer::writeFasta(allSeqs, fileName);
 }
 
-//banded glocal alignment
-void ContigGenerator::pairwiseAlignment(const std::string& seqOne, 
-										const std::string& seqTwo,
-						   				std::string& outOne, 
-										std::string& outTwo)
+
+std::vector<ContigGenerator::AlignmentInfo> 
+ContigGenerator::generateAlignments(const ContigPath& path, size_t numThreads)
 {
-	static const int32_t MATCH = 5;
-	static const int32_t SUBST = -5;
-	static const int32_t INDEL = -3;
+	typedef std::tuple<FastaRecord::Id, FastaRecord::Id, size_t> AlnTask;
 
-	static const int32_t matchScore[] = {SUBST, MATCH};
-	static const int32_t indelScore[] = {INDEL, 0};
-
-	const int bandWidth = abs((int)seqOne.length() - 
-							  (int)seqTwo.length()) + Constants::maxumumJump;
-	const size_t numRows = seqOne.length() + 1;
-	const size_t numCols = 2 * bandWidth + 1;
-
-	//reallocate
-	if (_scoreMatrix.nrows() < numRows || _scoreMatrix.ncols() < numCols)
+	std::vector<AlignmentInfo> alnResults;
+	std::function<void(const AlnTask&)> alnFunc =
+	[this, &alnResults](const AlnTask& aln)
 	{
-		_scoreMatrix = Matrix<int32_t>(numRows, numCols);
-		_backtrackMatrix = Matrix<char>(numRows, numCols);
-	}
-
-
-	for (size_t i = 0; i < numRows; ++i) 
-	{
-		size_t j = std::max(0, bandWidth - (int)i);
-		_scoreMatrix.at(i, j) = 0;
-		_backtrackMatrix.at(i, j) = 1;
-	}
-	for (size_t i = 0; i < numCols; ++i) 
-	{
-		_scoreMatrix.at(0, i) = 0;
-		_backtrackMatrix.at(0, i) = 0;
-	}
-
-	//filling DP matrices
-	for (size_t i = 1; i < numRows; ++i)
-	{
-		int leftOverhang = bandWidth - (int)i + 1;
-		int rightOverhand = (int)i + bandWidth - (int)seqTwo.length();
-		size_t colLeft = std::max(0, leftOverhang);
-		size_t colRight = std::min((int)numCols, (int)numCols - rightOverhand);
-
-		for (int j = colLeft; j < (int)colRight; ++j)
+		const OverlapRange* readsOvlp = nullptr;
+		for (auto& ovlp : _overlapDetector.getOverlapIndex()
+											.at(std::get<0>(aln)))
 		{
-			size_t twoCoord = j + i - bandWidth;
-			int32_t cross = _scoreMatrix.at(i - 1, j) + 
-							matchScore[seqOne[i - 1] == seqTwo[twoCoord - 1]];
-			char maxStep = 2;
-			int32_t maxScore = cross;
-
-			if (j < (int)numCols - 1) //up
-			{
-				int32_t up = _scoreMatrix.at(i - 1, j + 1) +
-								indelScore[twoCoord == seqTwo.length()];
- 				if (up > maxScore)
-				{
-					maxStep = 1;
-					maxScore = up;
-				}
-			}
-
-			if (j > 0) //left
-			{
-				int32_t left = _scoreMatrix.at(i, j - 1) + 
-								indelScore[i == seqOne.length()];
-				if (left > maxScore)
-				{
-					maxStep = 0;
-					maxScore = left;
-				}
-			}
-
-			_scoreMatrix.at(i, j) = maxScore;
-			_backtrackMatrix.at(i, j) = maxStep;
+			if (ovlp.extId == std::get<1>(aln)) readsOvlp = &ovlp;
 		}
-	}
+		if (readsOvlp == nullptr) Logger::get().error() << "Nullptr!";
 
-	//backtrack
-	outOne.reserve(seqOne.length() * 9 / 8);
-	outTwo.reserve(seqTwo.length() * 9 / 8);
+		std::string leftSeq = _seqContainer.getIndex().at(std::get<0>(aln))
+									.sequence.substr(readsOvlp->curBegin,
+													 readsOvlp->curRange());
+		std::string rightSeq = _seqContainer.getIndex().at(std::get<1>(aln))
+									.sequence.substr(readsOvlp->extBegin, 
+													 readsOvlp->extRange());
 
-	int i = numRows - 1;
-	int j = bandWidth - (int)numRows + (int)seqTwo.length() + 1;
-	while (i != 0 || j != bandWidth) 
+		const int bandWidth = abs((int)leftSeq.length() - 
+								  (int)rightSeq.length()) + 
+								  		Constants::maxumumJump;
+		std::string alignedLeft;
+		std::string alignedRight;
+		pairwiseAlignment(leftSeq, rightSeq, alignedLeft, 
+						  alignedRight, bandWidth);
+
+		alnResults[std::get<2>(aln)] = {alignedLeft, alignedRight, 
+							  		    readsOvlp->curBegin, 
+										readsOvlp->extBegin};
+	};
+
+	std::vector<AlnTask> tasks;
+	for (size_t i = 0; i < path.reads.size() - 1; ++i)
 	{
-		if(_backtrackMatrix.at(i, j) == 1) //up
-		{
-			outOne += seqOne[i - 1];
-			outTwo += '-';
-			i -= 1;
-			j += 1;
-		}
-		else if (_backtrackMatrix.at(i, j) == 0) //left
-		{
-			size_t twoCoord = j + i - bandWidth;
-			outOne += '-';
-			outTwo += seqTwo[twoCoord - 1];
-			j -= 1;
-		}
-		else	//cross
-		{
-			size_t twoCoord = j + i - bandWidth;
-			outOne += seqOne[i - 1];
-			outTwo += seqTwo[twoCoord - 1];
-			i -= 1;
-		}
+		tasks.push_back(std::make_tuple(path.reads[i], path.reads[i + 1], i));
 	}
-	std::reverse(outOne.begin(), outOne.end());
-	std::reverse(outTwo.begin(), outTwo.end());
+	alnResults.resize(tasks.size());
+	processInParallel(tasks, alnFunc, numThreads, false);
 
-	/*
-	std::cerr << seqOne.substr(seqOne.size() - 100) << std::endl 
-			  << seqTwo.substr(seqTwo.size() - 100) << std::endl;
-	std::cerr << outOne.substr(outOne.size() - 100) << std::endl 
-			  << outTwo.substr(outTwo.size() - 100) << std::endl << std::endl;
-	*/
+	return alnResults;
 }
 
 
 std::pair<int32_t, int32_t> 
-ContigGenerator::getSwitchPositions(FastaRecord::Id leftRead, 
-									FastaRecord::Id rightRead,
+ContigGenerator::getSwitchPositions(AlignmentInfo aln,
 									int32_t prevSwitch)
 {
-	//find overlap
-	const OverlapRange* readsOvlp = nullptr;
-	for (auto& ovlp : _overlapDetector.getOverlapIndex().at(leftRead))
-	{
-		if (ovlp.extId == rightRead) readsOvlp = &ovlp;
-	}
-
-	//Alignment for a precise shift calculation
-	std::string leftSeq = _seqContainer.getIndex().at(leftRead)
-								.sequence.substr(readsOvlp->curBegin,
-												 readsOvlp->curRange());
-	std::string rightSeq = _seqContainer.getIndex().at(rightRead)
-								.sequence.substr(readsOvlp->extBegin, 
-												 readsOvlp->extRange());
-	std::string alignedLeft;
-	std::string alignedRight;
-	pairwiseAlignment(leftSeq, rightSeq, alignedLeft, alignedRight);
-
-	int leftPos = readsOvlp->curBegin;
-	int rightPos = readsOvlp->extBegin;
+	int leftPos = aln.startOne;
+	int rightPos = aln.startTwo;
 	int matchRun = 0;
-	for (size_t i = 0; i < alignedLeft.length(); ++i)
+	for (size_t i = 0; i < aln.alnOne.length(); ++i)
 	{
-		if (alignedLeft[i] != '-') ++leftPos;
-		if (alignedRight[i] != '-') ++rightPos;
+		if (aln.alnOne[i] != '-') ++leftPos;
+		if (aln.alnTwo[i] != '-') ++rightPos;
 
-		if (alignedLeft[i] == alignedRight[i] &&
+		if (aln.alnOne[i] == aln.alnTwo[i] &&
 			leftPos > prevSwitch + Constants::maxumumJump)
 		{
 			++matchRun;
@@ -288,8 +312,8 @@ ContigGenerator::getSwitchPositions(FastaRecord::Id leftRead,
 		}
 	}
 	
-	Logger::get().warning() << "No jump found! "
-				<< _seqContainer.seqName(leftRead) << " : "
-				<< _seqContainer.seqName(rightRead);
+	Logger::get().debug() << "No jump found!";
+	//			<< _seqContainer.seqName(leftRead) << " : "
+	//			<< _seqContainer.seqName(rightRead);
 	return {prevSwitch + 1, 0};
 }

@@ -22,7 +22,7 @@ public:
 		_vertexIndex(VertexIndex::get()), 
 		_seqContainer(SequenceContainer::get()) {}
 	
-	void generateContigs();
+	void generateContigs(size_t numThreads);
 	void outputContigs(const std::string& fileName);
 	
 private:
@@ -31,16 +31,22 @@ private:
 	const VertexIndex& _vertexIndex;
 	const SequenceContainer& _seqContainer;
 
-	void initAlignmentMatrices();
-	void pairwiseAlignment(const std::string& seqOne, const std::string& seqTwo,
-						   std::string& outOne, std::string& outTwo);
-	std::pair<int32_t, int32_t> getSwitchPositions(FastaRecord::Id leftRead, 
-												   FastaRecord::Id rightRead,
+	struct AlignmentInfo
+	{
+		std::string alnOne;
+		std::string alnTwo;
+		int32_t startOne;
+		int32_t startTwo;
+	};
+	
+	std::vector<AlignmentInfo> generateAlignments(const ContigPath& path, 
+												  size_t numThreads);
+	std::pair<int32_t, int32_t> getSwitchPositions(AlignmentInfo aln,
 												   int32_t prevSwitch);
-	std::vector<FastaRecord> generateCircular(const ContigPath& path);
-	std::vector<FastaRecord> generateLinear(const ContigPath& path);
+	std::vector<FastaRecord> generateCircular(const ContigPath& path, 
+											  size_t numThreads);
+	std::vector<FastaRecord> generateLinear(const ContigPath& path,
+											size_t numThreads);
 
 	std::vector<std::vector<FastaRecord>> _contigs;
-	Matrix<int32_t>	_scoreMatrix;
-	Matrix<char>	_backtrackMatrix;	
 };

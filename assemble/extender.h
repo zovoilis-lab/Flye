@@ -14,6 +14,10 @@ struct ContigPath
 {
 	ContigPath(): 
 		circular(false) {}
+	ContigPath(const ContigPath& other):
+		reads(other.reads),
+		circular(other.circular)
+	{}
 	ContigPath(ContigPath && other): 
 		circular(other.circular) 
 	{reads.swap(other.reads);}

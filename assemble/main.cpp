@@ -181,7 +181,7 @@ int main(int argc, char** argv)
 		extender.assembleContigs();
 
 		ContigGenerator contGen(extender, ovlp);
-		contGen.generateContigs();
+		contGen.generateContigs(numThreads);
 		contGen.outputContigs(outAssembly);
 	}
 	catch (std::runtime_error& e)

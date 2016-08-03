@@ -9,7 +9,7 @@
 
 #include "vertex_index.h"
 #include "logger.h"
-#include "progress_bar.h"
+#include "parallel.h"
 
 VertexIndex::VertexIndex():
 	_kmerSize(0)
@@ -19,51 +19,6 @@ VertexIndex::VertexIndex():
 void VertexIndex::setKmerSize(unsigned int size)
 {
 	_kmerSize = size;
-}
-
-namespace
-{
-	//updateFun should be thread-safe!
-	template <class T>
-	void processInParallel(const std::vector<T>& scheduledTasks,
-						   std::function<void(const T&)> updateFun,
-						   size_t maxThreads, bool progressBar)
-	{
-		std::atomic<size_t> jobId(0);
-		ProgressPercent progress(scheduledTasks.size());
-
-		auto threadWorker = [&jobId, &scheduledTasks, &updateFun, &progress]()
-		{
-			while (true)
-			{
-				size_t expected = 0;
-				while(true)
-				{
-					expected = jobId;
-					if (jobId == scheduledTasks.size()) 
-					{
-						return;
-					}
-					if (jobId.compare_exchange_weak(expected, expected + 1))
-					{
-						break;
-					}
-				}
-				updateFun(scheduledTasks[expected]);
-				progress.advance();
-			}
-		};
-
-		std::vector<std::thread> threads(maxThreads);
-		for (size_t i = 0; i < threads.size(); ++i)
-		{
-			threads[i] = std::thread(threadWorker);
-		}
-		for (size_t i = 0; i < threads.size(); ++i)
-		{
-			threads[i].join();
-		}
-	}
 }
 
 void VertexIndex::countKmers(const SequenceContainer& seqContainer,
