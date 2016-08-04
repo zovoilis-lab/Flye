@@ -91,17 +91,16 @@ def parse_alignment(alignment_file):
     return alignment, mean_error
 
 
-def choose_error_profile(err_rate):
+def choose_error_mode(err_rate):
     """
-    Choses error profile base on error rate
+    Choses error mode base on error rate
     """
     if err_rate < config.vals["err_rate_threshold"]:
         profile = "pacbio"
     else:
         profile = "nano"
 
-    logger.debug("Alignment error rate: {0}".format(err_rate))
-    logger.info("Chosen '{0}' polishing profile".format(profile))
+    logger.info("Chosen '{0}' error mode".format(profile))
     return profile
 
 
@@ -124,6 +123,7 @@ def _parse_blasr(filename):
             errors.append(err_rate)
 
     mean_err = float(sum(errors)) / len(errors)
+    logger.debug("Alignment error rate: {0}".format(mean_err))
     return alignments, mean_err
 
 

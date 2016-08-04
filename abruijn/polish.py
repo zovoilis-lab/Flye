@@ -40,13 +40,13 @@ def check_binaries():
                               .format(POLISH_BIN, e))
 
 
-def polish(bubbles, num_proc, profile, work_dir, iter_id):
+def polish(bubbles, num_proc, err_mode, work_dir, iter_id):
     logger.info("Correcting bubbles")
 
     subs_matrix = os.path.join(os.environ["ABRUIJN_RES"],
-                               config.vals["profiles"][profile]["subs_matrix"])
+                               config.vals["err_modes"][err_mode]["subs_matrix"])
     hopo_matrix = os.path.join(os.environ["ABRUIJN_RES"],
-                               config.vals["profiles"][profile]["hopo_matrix"])
+                               config.vals["err_modes"][err_mode]["hopo_matrix"])
 
     bubbles_file = os.path.join(work_dir, "bubbles_{0}.fasta".format(iter_id))
     bbl.output_bubbles(bubbles, bubbles_file)

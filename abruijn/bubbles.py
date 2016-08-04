@@ -38,7 +38,7 @@ class Bubble:
         self.consensus = ""
 
 
-def get_bubbles(alignment):
+def get_bubbles(alignment, err_mode):
     """
     The main function: takes an alignment and returns bubbles
     """
@@ -61,7 +61,7 @@ def get_bubbles(alignment):
     for ctg_id, ctg_aln in aln_by_ctg.iteritems():
         logger.debug("Processing {0}".format(ctg_id))
         profile = _compute_profile(ctg_aln, contigs_info[ctg_id].length)
-        partition = _get_partition(profile)
+        partition = _get_partition(profile, err_mode)
         bubbles.extend(_get_bubble_seqs(ctg_aln, profile, partition,
                                         contigs_info[ctg_id].length,
                                         ctg_id))
@@ -106,9 +106,6 @@ def _filter_outliers(bubbles):
                     branch = "A"
                     logger.debug("Zero branch")
                 new_branches.append(branch)
-            #else:
-            #    logger.warning("Branch inconsistency with rate {0}, id {1}"
-            #                    .format(incons_rate, bubble.position))
 
         new_bubbles.append(deepcopy(bubble))
         new_bubbles[-1].branches = new_branches
@@ -116,12 +113,12 @@ def _filter_outliers(bubbles):
     return new_bubbles
 
 
-def _is_solid_kmer(profile, position):
+def _is_solid_kmer(profile, position, err_mode):
     """
     Checks if the kmer at given position is solid
     """
-    MISSMATCH_RATE = config.vals["solid_missmatch"]
-    INS_RATE = config.vals["solid_indel"]
+    MISSMATCH_RATE = config.vals["err_modes"][err_mode]["solid_missmatch"]
+    INS_RATE = config.vals["err_modes"][err_mode]["solid_indel"]
     SOLID_LEN = config.vals["solid_kmer_length"]
 
     for i in xrange(position, position + SOLID_LEN):
@@ -149,7 +146,6 @@ def _is_simple_kmer(profile, position):
     for i in xrange(extended_len / 2 - SIMPLE_LEN / 2,
                     extended_len / 2 + SIMPLE_LEN / 2 - 1):
         if nucl_str[i] == nucl_str[i + 1]:
-            #logger.debug("single" + str(nucl_str))
             return False
 
     #dinucleotide homopolymers
@@ -157,7 +153,6 @@ def _is_simple_kmer(profile, position):
         for i in xrange(SIMPLE_LEN - shift - 1):
             pos = extended_len / 2 - SIMPLE_LEN + shift + i * 2
             if (nucl_str[pos : pos + 2] == nucl_str[pos + 2 : pos + 4]):
-                #logger.debug("di" + "".join(nucl_str))
                 return False
 
     """
@@ -244,7 +239,7 @@ def _compute_profile(alignment, genome_len):
     return profile
 
 
-def _get_partition(profile):
+def _get_partition(profile, err_mode):
     """
     Partitions genome into sub-alignments at solid regions / simple kmers
     """
@@ -256,7 +251,7 @@ def _get_partition(profile):
     solid_flags = [False for _ in xrange(len(profile))]
     prof_pos = 0
     while prof_pos < len(profile) - SOLID_LEN:
-        if _is_solid_kmer(profile, prof_pos):
+        if _is_solid_kmer(profile, prof_pos, err_mode):
             for i in xrange(prof_pos, prof_pos + SOLID_LEN):
                 solid_flags[i] = True
             prof_pos += SOLID_LEN
@@ -266,14 +261,17 @@ def _get_partition(profile):
     partition = []
     prev_partition = SOLID_LEN
 
+    long_bubbles = 0
     prof_pos = SOLID_LEN
     while prof_pos < len(profile) - SOLID_LEN:
         cur_partition = prof_pos + SIMPLE_LEN / 2
         landmark = (all(solid_flags[prof_pos : prof_pos + SIMPLE_LEN]) and
                     _is_simple_kmer(profile, cur_partition))
 
-        #if landmark or prof_pos - prev_part > MAX_BUBBLE:
-        if landmark:
+        if prof_pos - prev_partition > MAX_BUBBLE:
+            long_bubbles += 1
+
+        if landmark or prof_pos - prev_partition > MAX_BUBBLE:
             partition.append(cur_partition)
             prev_partition = cur_partition
             prof_pos += SOLID_LEN
@@ -281,6 +279,7 @@ def _get_partition(profile):
             prof_pos += 1
 
     logger.debug("Partitioned into {0} segments".format(len(partition) + 1))
+    logger.debug("Long bubbles: {0}".format(long_bubbles))
 
     return partition
 
