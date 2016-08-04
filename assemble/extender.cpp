@@ -132,15 +132,28 @@ ContigPath Extender::extendContig(FastaRecord::Id startRead)
 void Extender::assembleContigs()
 {
 	Logger::get().info() << "Extending reads";
-	const int MIN_EXTENSIONS = std::max(_coverage / 
-										Constants::minExtensionsRate, 1);
 
+	uint64_t lenSum = 0;
+	for (auto indexPair : _seqContainer.getIndex()) 
+	{
+		if (this->countRightExtensions(indexPair.first) > 0)
+		{
+			lenSum += _seqContainer.seqLen(indexPair.first);
+		}
+	}
+	_minimumShift = lenSum / _seqContainer.getIndex().size() 
+						/ Constants::shiftToReadLen;
+
+	//left for debugging
 	//for (auto& indexPair : _seqContainer.getIndex())
 	//{
 	//	_readsMultiplicity[indexPair.first] = 
 	//				this->rightMultiplicity(indexPair.first);
 	//}
+	//
 
+	const int MIN_EXTENSIONS = std::max(_coverage / 
+										Constants::minExtensionsRate, 1);
 	_visitedReads.clear();
 	for (auto& indexPair : _seqContainer.getIndex())
 	{	
@@ -363,7 +376,7 @@ FastaRecord::Id Extender::stepRight(FastaRecord::Id readId)
 	}
 
 	if (bestExtension != FastaRecord::ID_NONE && 
-		robustStd(extensionShifts) < Constants::minimumShiftStd && 
+		robustStd(extensionShifts) < _minimumShift && 
 		extensions.size() > (size_t)_coverage / Constants::minExtensionsRate)
 	{
 		Logger::get().debug() << "End of linear chromosome";

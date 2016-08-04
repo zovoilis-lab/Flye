@@ -70,6 +70,7 @@ private:
 	std::unordered_set<FastaRecord::Id>		 _chromosomeStart;
 	bool 									 _overlapsStart;
 	bool 									 _rightExtension;
+	int 									 _minimumShift;
 	std::unordered_map<FastaRecord::Id, int> _readsMultiplicity;
 	std::unordered_map<FastaRecord::Id,
 					   std::unordered_set<FastaRecord::Id>> _maxClusters;

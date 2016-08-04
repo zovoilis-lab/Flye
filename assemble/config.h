@@ -27,6 +27,6 @@ namespace Constants
 	//extension
 	const int minReadsInContig = 10;
 	const int minExtensionsRate = 10;
-	const int minimumShiftStd = 500;
+	const int shiftToReadLen = 40;
 	const float minGoodReads = 0.05f;
 }
