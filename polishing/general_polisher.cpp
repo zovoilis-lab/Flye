@@ -71,11 +71,9 @@ StepInfo GeneralPolisher::makeStep(const std::string& candidate,
 
 		if (score > stepResult.score) 
 		{
-			std::string str = candidate;
-			stepResult.methodUsed = StepDel;
 			stepResult.score = score;
-			stepResult.sequence = str.erase(del_index, 1);
-			stepResult.changedIndex = del_index;
+			stepResult.sequence = candidate;
+			stepResult.sequence.erase(del_index, 1);
 		}
 	}
 
@@ -96,13 +94,9 @@ StepInfo GeneralPolisher::makeStep(const std::string& candidate,
 
 			if (score > stepResult.score) 
 			{
-				std::string str = candidate;
-				stepResult.methodUsed = StepSub;
 				stepResult.score = score;
-				str.erase(sub_index, 1);
-				stepResult.sequence = str.insert(sub_index, 1, letter);
-				stepResult.changedIndex = sub_index;
-				stepResult.changedLetter = letter;
+				stepResult.sequence = candidate;
+				stepResult.sequence[sub_index] = letter;
 			}
 		}
 	}
@@ -121,12 +115,9 @@ StepInfo GeneralPolisher::makeStep(const std::string& candidate,
 
 			if (score > stepResult.score) 
 			{
-				std::string str = candidate;
-				stepResult.methodUsed = StepIns;
 				stepResult.score = score;
-				stepResult.sequence = str.insert(ins_index, 1, letter);
-				stepResult.changedIndex = ins_index;
-				stepResult.changedLetter = letter;
+				stepResult.sequence = candidate;
+				stepResult.sequence.insert(ins_index, 1, letter);
 			}
 		}
 	}	

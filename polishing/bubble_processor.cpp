@@ -125,18 +125,7 @@ void BubbleProcessor::writeLog(const std::vector<Bubble>& bubbles)
 				 << std::setw(22) << std::left << "Consensus: " 
 				 << std::right << stepInfo.sequence << std::endl
 				 << std::setw(22) << std::left << "Score: " << std::right 
-				 << std::setprecision(2) << stepInfo.score << std::endl
-				 << std::setw(22) << std::left << "Last method applied: " 
-				 << std::right << methods[stepInfo.methodUsed] << std::endl;
-
-			if (stepInfo.methodUsed == StepDel)
-				_logFile << "Char at pos: " << stepInfo.changedIndex << " was deleted. \n";
-			else if (stepInfo.methodUsed == StepSub)
-				_logFile << "Char at pos " << stepInfo.changedIndex << " was substituted with " 
-					<< "'" << stepInfo.changedLetter << "'.\n";
-			else if (stepInfo.methodUsed == StepIns)
-				_logFile << "'"<< stepInfo.changedLetter << "'" 
-					 << " was inserted at pos " << stepInfo.changedIndex << ".\n";
+				 << std::setprecision(2) << stepInfo.score << std::endl;
 
 			_logFile << std::endl;
 		}

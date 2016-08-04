@@ -63,8 +63,7 @@ def get_bubbles(alignment, err_mode):
         profile = _compute_profile(ctg_aln, contigs_info[ctg_id].length)
         partition = _get_partition(profile, err_mode)
         bubbles.extend(_get_bubble_seqs(ctg_aln, profile, partition,
-                                        contigs_info[ctg_id].length,
-                                        ctg_id))
+                                        contigs_info[ctg_id]))
 
     bubbles = _filter_outliers(bubbles)
     return bubbles
@@ -284,7 +283,7 @@ def _get_partition(profile, err_mode):
     return partition
 
 
-def _get_bubble_seqs(alignment, profile, partition, genome_len, ctg_id):
+def _get_bubble_seqs(alignment, profile, partition, contig_info):
     """
     Given genome landmarks, forms bubble sequences
     """
@@ -292,9 +291,9 @@ def _get_bubble_seqs(alignment, profile, partition, genome_len, ctg_id):
     MIN_ALIGNMENT = config.vals["min_alignment_length"]
 
     bubbles = []
-    ext_partition = [0] + partition + [genome_len]
+    ext_partition = [0] + partition + [contig_info.length]
     for p_left, p_right in zip(ext_partition[:-1], ext_partition[1:]):
-        bubbles.append(Bubble(ctg_id, p_left))
+        bubbles.append(Bubble(contig_info.id, p_left))
         consensus = map(lambda p: p.nucl, profile[p_left : p_right])
         bubbles[-1].consensus = "".join(consensus)
 
@@ -309,23 +308,33 @@ def _get_bubble_seqs(alignment, profile, partition, genome_len, ctg_id):
             qry_seq = fp.reverse_complement(aln.qry_seq)
 
         trg_offset = 0
-        prev_bubble_id = bisect(partition, aln.trg_start % genome_len)
-        first_segment = True
+        prev_bubble_id = bisect(partition, aln.trg_start % contig_info.length)
+        chromosome_start = (prev_bubble_id == 0 and
+                            not contig_info.type == "circular")
+        chromosome_end = (aln.trg_end > partition[-1] and not
+                          contig_info.type == "circular")
+
         branch_start = None
+        first_segment = True
+
         for i, trg_nuc in enumerate(trg_seq):
             if trg_nuc == "-":
                 trg_offset -= 1
                 continue
-            trg_pos = (aln.trg_start + i + trg_offset) % genome_len
+            trg_pos = (aln.trg_start + i + trg_offset) % contig_info.length
 
             bubble_id = bisect(partition, trg_pos)
             if bubble_id != prev_bubble_id:
-                if not first_segment:
+                if not first_segment or chromosome_start:
                     branch_seq = qry_seq[branch_start:i].replace("-", "")
                     bubbles[prev_bubble_id].branches.append(branch_seq)
 
                 first_segment = False
                 prev_bubble_id = bubble_id
                 branch_start = i
+
+        if chromosome_end:
+            branch_seq = qry_seq[branch_start:].replace("-", "")
+            bubbles[-1].branches.append(branch_seq)
 
     return bubbles

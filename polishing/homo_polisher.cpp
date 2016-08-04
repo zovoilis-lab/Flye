@@ -16,7 +16,7 @@ namespace
 						   const SubstitutionMatrix& subsMat,
 						   std::string& outOne, std::string& outTwo)
 	{
-		Matrix<float> scoreMat(seqOne.length() + 1, seqTwo.length() + 1);
+		Matrix<double> scoreMat(seqOne.length() + 1, seqTwo.length() + 1);
 		Matrix<char> backtrackMat(seqOne.length() + 1, seqTwo.length() + 1);
 
 		scoreMat.at(0, 0) = 0.0f;
@@ -39,15 +39,15 @@ namespace
 		{
 			for (size_t j = 1; j < seqTwo.length() + 1; ++j) 
 			{
-				float left = scoreMat.at(i, j - 1) + 
+				double left = scoreMat.at(i, j - 1) + 
 							 subsMat.getScore('-', seqTwo[j - 1]);
-				float up = scoreMat.at(i - 1, j) + 
+				double up = scoreMat.at(i - 1, j) + 
 							subsMat.getScore(seqOne[i - 1], '-');
-				float cross = scoreMat.at(i - 1, j - 1) + 
+				double cross = scoreMat.at(i - 1, j - 1) + 
 							  subsMat.getScore(seqOne[i - 1], seqTwo[j - 1]);
 
 				int prev = 2;
-				float score = cross;
+				double score = cross;
 				if (up > score)
 				{
 					prev = 1;
@@ -220,7 +220,6 @@ void HomoPolisher::polishBubble(Bubble& bubble) const
 	if (newConsensus != bubble.candidate)
 	{
 		StepInfo info;
-		info.methodUsed = StepHopo;
 		info.sequence = newConsensus;
 		bubble.polishSteps.push_back(info);
 		bubble.candidate = newConsensus;

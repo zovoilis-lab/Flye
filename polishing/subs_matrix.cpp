@@ -109,19 +109,6 @@ double SubstitutionMatrix::getScore(char v, char w) const
 	return _matrix[dnaToId(v)][dnaToId(w)];
 }
 
-/*
-void SubstitutionMatrix::printMatrix() const 
-{
-	for (int i = 0; i < X_SIZE; i++) {
-		for (int j = 0; j < Y_SIZE; j++) {
-			std::cout << std::fixed;
-			std::cout << std::setw(4) << std::left 
-					  << std::setprecision(2) << _matrix[i][j] << "\t";
-		}
-		std::cout << std::endl;
-	}
-}*/
-
 namespace
 {
 	//converts condensed hopo string to a normal nucleotide string

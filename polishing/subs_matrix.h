@@ -15,7 +15,6 @@ class SubstitutionMatrix
 public:
 	SubstitutionMatrix(const std::string& path);
 	double getScore(char v, char w) const;
-	//void printMatrix() const;
 private:
 	void loadMatrix(const std::string& path);
 
