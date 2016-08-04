@@ -220,7 +220,6 @@ void HomoPolisher::polishBubble(Bubble& bubble) const
 	if (newConsensus != bubble.candidate)
 	{
 		StepInfo info;
-		info.methodUsed = StepHopo;
 		info.sequence = newConsensus;
 		bubble.polishSteps.push_back(info);
 		bubble.candidate = newConsensus;
@@ -228,10 +227,10 @@ void HomoPolisher::polishBubble(Bubble& bubble) const
 }
 
 //likelihood of a goven state
-double HomoPolisher::likelihood(HopoMatrix::State state, 
+float HomoPolisher::likelihood(HopoMatrix::State state, 
 								const HopoMatrix::ObsVector& observations) const
 {
-	double likelihood = 0.0f;
+	float likelihood = 0.0f;
 	for (auto obs : observations)
 	{
 		if (obs.extactMatch)
@@ -253,12 +252,12 @@ size_t HomoPolisher::mostLikelyLen(char nucleotide,
 	const size_t MIN_HOPO = 1;
 	const size_t MAX_HOPO = 10;
 
-	typedef std::pair<double, size_t> ScorePair;
+	typedef std::pair<float, size_t> ScorePair;
 	std::vector<ScorePair> scores;
 	for (size_t len = MIN_HOPO; len <= MAX_HOPO; ++len)
 	{
 		auto newState = HopoMatrix::State(nucleotide, len);
-		double likelihood = this->likelihood(newState, observations);
+		float likelihood = this->likelihood(newState, observations);
 		scores.push_back(std::make_pair(likelihood, len));
 	}
 
@@ -300,7 +299,7 @@ size_t HomoPolisher::compareTopTwo(char nucleotide, size_t firstChoice,
 		if (commonSet.count(obs.id)) commonObservations.push_back(obs);
 	}
 
-	double likelihoods[2];
+	float likelihoods[2];
 	for (size_t i = 0; i < 2; ++i)
 	{
 		auto state = HopoMatrix::State(nucleotide, choices[i]);

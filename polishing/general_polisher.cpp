@@ -61,21 +61,19 @@ StepInfo GeneralPolisher::makeStep(const std::string& candidate,
 	stepResult.sequence = candidate;
 
 	//Deletion
-	for (size_t del_index = 0; del_index < candidate.size(); del_index++) 
+	for (size_t del_index = 0; del_index < candidate.size(); del_index++)
 	{
 		score = 0;
-		for (size_t i = 0; i < branches.size(); i++) 
+		for (size_t i = 0; i < branches.size(); i++)
 		{
 			score += align.addDeletion(i, del_index + 1);
 		}
 
-		if (score > stepResult.score) 
+		if (score > stepResult.score)
 		{
-			std::string str = candidate;
-			stepResult.methodUsed = StepDel;
 			stepResult.score = score;
-			stepResult.sequence = str.erase(del_index, 1);
-			stepResult.changedIndex = del_index;
+			stepResult.sequence = candidate;
+			stepResult.sequence.erase(del_index, 1);
 		}
 	}
 
@@ -96,19 +94,14 @@ StepInfo GeneralPolisher::makeStep(const std::string& candidate,
 
 			if (score > stepResult.score) 
 			{
-				std::string str = candidate;
-				stepResult.methodUsed = StepSub;
 				stepResult.score = score;
-				str.erase(sub_index, 1);
-				stepResult.sequence = str.insert(sub_index, 1, letter);
-				stepResult.changedIndex = sub_index;
-				stepResult.changedLetter = letter;
+				stepResult.sequence[sub_index] = letter;
 			}
 		}
 	}
 
 	//Insertion
-	for (size_t ins_index = 0; ins_index < candidate.size()+1; ins_index++) 
+	for (size_t ins_index = 0; ins_index < candidate.size() + 1; ins_index++) 
 	{
 		for (char letter : alphabet)
 		{
@@ -121,12 +114,9 @@ StepInfo GeneralPolisher::makeStep(const std::string& candidate,
 
 			if (score > stepResult.score) 
 			{
-				std::string str = candidate;
-				stepResult.methodUsed = StepIns;
 				stepResult.score = score;
-				stepResult.sequence = str.insert(ins_index, 1, letter);
-				stepResult.changedIndex = ins_index;
-				stepResult.changedLetter = letter;
+				stepResult.sequence = candidate;
+				stepResult.sequence.insert(ins_index, 1, letter);
 			}
 		}
 	}	
