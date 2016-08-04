@@ -13,14 +13,14 @@ Alignment::Alignment(size_t size, const SubstitutionMatrix& sm):
 { 
 }
 
-float Alignment::globalAlignment(const std::string& v, const std::string& w,
-								 int index) 
+double Alignment::globalAlignment(const std::string& v, const std::string& w,
+								  int index) 
 {
 	unsigned int x = v.size() + 1;
 	unsigned int y = w.size() + 1;
 	FloatMatrix scoreMat(x, y, 0);
 		
-	float score = this->getBacktrackMatrix(v, w, scoreMat);
+	double score = this->getBacktrackMatrix(v, w, scoreMat);
 	_forwardScores[index] = std::move(scoreMat);
 
 	//---------------------------------------------
@@ -36,7 +36,7 @@ float Alignment::globalAlignment(const std::string& v, const std::string& w,
 	return score;
 }
 
-float Alignment::addDeletion(unsigned int wordIndex, unsigned int letterIndex) 
+double Alignment::addDeletion(unsigned int wordIndex, unsigned int letterIndex) 
 {
 	const FloatMatrix& forwardScore = _forwardScores[wordIndex];
 	const FloatMatrix& reverseScore = _reverseScores[wordIndex];
@@ -46,19 +46,19 @@ float Alignment::addDeletion(unsigned int wordIndex, unsigned int letterIndex)
 	size_t frontRow = letterIndex - 1;
 	size_t revRow = reverseScore.nrows() - 1 - letterIndex;
 	
-	float maxVal = std::numeric_limits<float>::lowest();
+	double maxVal = std::numeric_limits<double>::lowest();
 	for (size_t col = 0; col < forwardScore.ncols(); ++col)
 	{
 		size_t backCol = forwardScore.ncols() - col - 1;
-		float sum = forwardScore.at(frontRow, col) + 
-				    reverseScore.at(revRow, backCol);
+		double sum = forwardScore.at(frontRow, col) + 
+				  reverseScore.at(revRow, backCol);
 		maxVal = std::max(maxVal, sum);
 	}
 
 	return maxVal;
 }
 
-float Alignment::addSubstitution(unsigned int wordIndex, 
+double Alignment::addSubstitution(unsigned int wordIndex, 
 								  unsigned int letterIndex,
 								  char base, const std::string& read) 
 {
@@ -69,29 +69,29 @@ float Alignment::addSubstitution(unsigned int wordIndex,
 	size_t frontRow = letterIndex - 1;
 	size_t revRow = reverseScore.nrows() - 1 - letterIndex;
 
-	std::vector<float> sub(read.size() + 1);
+	std::vector<double> sub(read.size() + 1);
 	sub[0] = forwardScore.at(frontRow, 0) + _subsMatrix.getScore(base, '-');
 	for (size_t i = 0; i < read.size(); ++i)
 	{
-		float match = forwardScore.at(frontRow, i) + 
+		double match = forwardScore.at(frontRow, i) + 
 						_subsMatrix.getScore(base, read[i]);
-		float ins = forwardScore.at(frontRow, i + 1) + 
+		double ins = forwardScore.at(frontRow, i + 1) + 
 						_subsMatrix.getScore(base, '-');
 		sub[i + 1] = std::max(match, ins);
 	}
 
-	float maxVal = std::numeric_limits<float>::lowest();
+	double maxVal = std::numeric_limits<double>::lowest();
 	for (size_t col = 0; col < forwardScore.ncols(); ++col)
 	{
 		size_t backCol = forwardScore.ncols() - col - 1;
-		float sum = sub[col] + reverseScore.at(revRow, backCol);
+		double sum = sub[col] + reverseScore.at(revRow, backCol);
 		maxVal = std::max(maxVal, sum);
 	}
 	return maxVal;
 }
 
 
-float Alignment::addInsertion(unsigned int wordIndex,
+double Alignment::addInsertion(unsigned int wordIndex,
 							   unsigned int pos, 
 							   char base, const std::string& read) 
 {
@@ -102,43 +102,42 @@ float Alignment::addInsertion(unsigned int wordIndex,
 	size_t frontRow = pos - 1;
 	size_t revRow = reverseScore.nrows() - pos;
 
-	std::vector<float> sub(read.size() + 1);
+	std::vector<double> sub(read.size() + 1);
 	sub[0] = forwardScore.at(frontRow, 0) + _subsMatrix.getScore(base, '-');
 	for (size_t i = 0; i < read.size(); ++i)
 	{
-		float match = forwardScore.at(frontRow, i) + 
+		double match = forwardScore.at(frontRow, i) + 
 						_subsMatrix.getScore(base, read[i]);
-		float ins = forwardScore.at(frontRow, i + 1) + 
+		double ins = forwardScore.at(frontRow, i + 1) + 
 						_subsMatrix.getScore(base, '-');
 		sub[i + 1] = std::max(match, ins);
 	}
 
-	float maxVal = std::numeric_limits<float>::lowest();
+	double maxVal = std::numeric_limits<double>::lowest();
 	for (size_t col = 0; col < forwardScore.ncols(); ++col)
 	{
 		size_t backCol = forwardScore.ncols() - col - 1;
-		float sum = sub[col] + reverseScore.at(revRow, backCol);
+		double sum = sub[col] + reverseScore.at(revRow, backCol);
 		maxVal = std::max(maxVal, sum);
 	}
 	return maxVal;
 }
 
 
-float Alignment::getBacktrackMatrix(const std::string& v, const std::string& w,
-									FloatMatrix& scoreMat) 
+double Alignment::getBacktrackMatrix(const std::string& v, const std::string& w,
+									 FloatMatrix& scoreMat) 
 {
-	float score = 0.0f;
+	double score = 0.0f;
 	
 	for (size_t i = 0; i < v.size(); i++) 
 	{
-		float score = _subsMatrix.getScore(v[i], '-');
+		double score = _subsMatrix.getScore(v[i], '-');
 		scoreMat.at(i + 1, 0) = scoreMat.at(i, 0) + score;
 	}
 
 
-	for (size_t i = 0; i < w.size(); i++) 
-	{
-		float score = _subsMatrix.getScore('-', w[i]);
+	for (size_t i = 0; i < w.size(); i++) {
+		double score = _subsMatrix.getScore('-', w[i]);
 		scoreMat.at(0, i + 1) = scoreMat.at(0, i) + score;
 	}
 
@@ -150,13 +149,13 @@ float Alignment::getBacktrackMatrix(const std::string& v, const std::string& w,
 		{
 			char key2 = w[j - 1];
 
-			float left = scoreMat.at(i, j - 1) + 
+			double left = scoreMat.at(i, j - 1) + 
 							_subsMatrix.getScore('-', key2);
-			float up = scoreMat.at(i - 1, j) + 
+			double up = scoreMat.at(i - 1, j) + 
 							_subsMatrix.getScore(key1, '-');
 			score = std::max(left, up);
 
-			float cross = scoreMat.at(i - 1, j - 1) + 
+			double cross = scoreMat.at(i - 1, j - 1) + 
 							_subsMatrix.getScore(key1, key2);
 			score = std::max(score, cross);
 			scoreMat.at(i, j) = score;

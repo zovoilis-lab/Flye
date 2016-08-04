@@ -22,8 +22,8 @@ private:
 	size_t compareTopTwo(char nucleotide, size_t firstChoice, 
 						 size_t secondChoice,
 				   		 const HopoMatrix::ObsVector& observations) const;
-	float likelihood(HopoMatrix::State state, 
-					 const HopoMatrix::ObsVector& observations) const;
+	double likelihood(HopoMatrix::State state, 
+					  const HopoMatrix::ObsVector& observations) const;
 
 	const SubstitutionMatrix& _subsMatrix;
 	const HopoMatrix& _hopoMatrix;

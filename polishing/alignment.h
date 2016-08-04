@@ -20,25 +20,25 @@ class Alignment
 public:
 	Alignment(size_t size, const SubstitutionMatrix& sm);
 
-	float globalAlignment(const std::string& v, const std::string& w, 
+	double globalAlignment(const std::string& v, const std::string& w, 
 						   int index);
-	float addDeletion(unsigned int index, unsigned int letterIndex);
-	float addSubstitution(unsigned int wordIndex, 
+	double addDeletion(unsigned int index, unsigned int letterIndex);
+	double addSubstitution(unsigned int wordIndex, 
 						   unsigned int letterIndex,
 						   char base, const std::string& read);
 
-	float addInsertion(unsigned int wordIndex,
-					   unsigned int positionIndex,
-					   char base, const std::string& read);
+	double addInsertion(unsigned int wordIndex,
+						unsigned int positionIndex,
+						char base, const std::string& read);
 
-	typedef Matrix<float> FloatMatrix;
+	typedef Matrix<double> FloatMatrix;
 private:
 	std::vector<FloatMatrix> _forwardScores;
 	std::vector<FloatMatrix> _reverseScores;
 	const SubstitutionMatrix& _subsMatrix;
 
-	float getBacktrackMatrix(const std::string& v, const std::string& w,
-							 FloatMatrix& scoreMat);
+	double getBacktrackMatrix(const std::string& v, const std::string& w,
+							  FloatMatrix& scoreMat);
 
 	void traceback(FloatMatrix& backtrack, const std::string& v, 
 				   const std::string& w, std::string& o_v, 

@@ -14,13 +14,14 @@ class SubstitutionMatrix
 {
 public:
 	SubstitutionMatrix(const std::string& path);
-	float getScore(char v, char w) const;
+	double getScore(char v, char w) const;
+	//void printMatrix() const;
 private:
 	void loadMatrix(const std::string& path);
 
 	const int X_SIZE = 5;
 	const int Y_SIZE = 5;
-	std::vector<std::vector<float>> _matrix;
+	std::vector<std::vector<double>> _matrix;
 };
 
 class HopoMatrix
@@ -58,9 +59,9 @@ public:
 	typedef std::vector<Observation> ObsVector;
 
 	HopoMatrix(const std::string& fileName);
-	float getObsProb(State state, Observation observ) const
+	double getObsProb(State state, Observation observ) const
 		{return _observationProbs[state.id][observ.id];}
-	float getGenomeProb(State state) const
+	double getGenomeProb(State state) const
 		{return _genomeProbs[state.id];}
 	ObsVector knownObservations(State state) const;
 	static Observation strToObs(char mainNucl, const std::string& dnaStr, 
@@ -71,6 +72,6 @@ public:
 private:
 	void loadMatrix(const std::string& filaName);
 
-	std::vector<std::vector<float>> _observationProbs;
-	std::vector<float> 			 	_genomeProbs;
+	std::vector<std::vector<double>> _observationProbs;
+	std::vector<double> 			 _genomeProbs;
 };

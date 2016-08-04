@@ -43,8 +43,8 @@ namespace
 
 	static const size_t NUM_STATES = 128;
 	static const size_t NUM_OBS = 65536;
-	static const float  MIN_PROB = 0.001f;
-	static const float  ZERO_PROB = 0.00001f;
+	static const double MIN_PROB = 0.001f;
+	static const double ZERO_PROB = 0.0000000001f;
 	static const size_t MIN_HOPO = 1;
 	static const size_t MAX_HOPO = 10;
 }
@@ -53,7 +53,7 @@ SubstitutionMatrix::SubstitutionMatrix(const std::string& path)
 {	
 	for (int i = 0; i < X_SIZE; i++) 
 	{
-		_matrix.push_back(std::vector<float>(Y_SIZE, 0));
+		_matrix.push_back(std::vector<double>(Y_SIZE, 0));
 	}
 	this->loadMatrix(path);
 }
@@ -77,37 +77,50 @@ void SubstitutionMatrix::loadMatrix(const std::string& path)
 		if (items[0] == "mat") 
 		{
 			int index = dnaToId(items[1][0]); 
-			float probability = std::stof(items[2]);
+			double probability = std::stod(items[2]);
 			_matrix[index][index] = std::log(probability);
 		}
 		else if (items[0] == "mis") 
 		{
 			int x = dnaToId(items[1][0]);
 			int y = dnaToId(items[1][items[1].size() - 1]);
-			float probability = std::stof(items[2]);
+			double probability = std::stod(items[2]);
 			_matrix[x][y] = std::log(probability);
 		}
 		else if (items[0] == "del") 
 		{
 			int x = dnaToId(items[1][0]);
 			int y = Y_SIZE - 1;
-			float probability = std::stof(items[2]);
+			double probability = std::stod(items[2]);
 			_matrix[x][y] = std::log(probability);
 		}
 		else if (items[0] == "ins") 
 		{
 			int y = dnaToId(items[1][0]);
 			int x = X_SIZE - 1;
-			float probability = std::stof(items[2]);
+			double probability = std::stod(items[2]);
 			_matrix[x][y] = std::log(probability);
 		}	
 	}
 }
 
-float SubstitutionMatrix::getScore(char v, char w) const 
+double SubstitutionMatrix::getScore(char v, char w) const 
 {
 	return _matrix[dnaToId(v)][dnaToId(w)];
 }
+
+/*
+void SubstitutionMatrix::printMatrix() const 
+{
+	for (int i = 0; i < X_SIZE; i++) {
+		for (int j = 0; j < Y_SIZE; j++) {
+			std::cout << std::fixed;
+			std::cout << std::setw(4) << std::left 
+					  << std::setprecision(2) << _matrix[i][j] << "\t";
+		}
+		std::cout << std::endl;
+	}
+}*/
 
 namespace
 {
@@ -280,7 +293,7 @@ void HopoMatrix::loadMatrix(const std::string& fileName)
 			{
 				sumFreq += observationsFreq[state.id][j];
 			}
-			float prob = (float)sumFreq / nucleotideFreq[dnaToId(state.nucl)];
+			double prob = (double)sumFreq / nucleotideFreq[dnaToId(state.nucl)];
 			_genomeProbs[state.id] = std::log(std::max(prob, ZERO_PROB));
 			//std::cerr << state.length << state.nucl << "\t" << _genomeProbs[state.id] 
 			//		  << "\t" << sumFreq << "\t" << nucleotideFreq[dnaToId(state.nucl)]
@@ -289,7 +302,7 @@ void HopoMatrix::loadMatrix(const std::string& fileName)
 			if (sumFreq == 0) continue;
 			for (size_t j = 0; j < NUM_OBS; ++j)
 			{
-				float prob = (float)observationsFreq[state.id][j] / sumFreq;
+				double prob = (double)observationsFreq[state.id][j] / sumFreq;
 				_observationProbs[state.id][j] = 
 									std::log(std::max(prob, MIN_PROB));
 			}

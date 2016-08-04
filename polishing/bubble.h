@@ -7,15 +7,19 @@
 #include <string>
 #include <vector>
 
-//enum StepType {StepNone, StepIns, StepSub, StepDel, StepHopo};
+enum StepType {StepNone, StepIns, StepSub, StepDel, StepHopo};
 
 struct StepInfo 
 {
 	std::string sequence;
-	double 	 	score;
+	StepType methodUsed;
+	double 	 score;
+	int 	 changedIndex;
+	char	 changedLetter;
 
 	StepInfo():
-		score(0.0f)
+		methodUsed(StepNone), score(0.0f), 
+		changedIndex(0), changedLetter('*')
 	{}
 };
 
