@@ -9,7 +9,6 @@ Separates alignment into small bubbles for further correction
 import logging
 from collections import defaultdict, namedtuple
 from bisect import bisect
-from copy import deepcopy
 from itertools import izip
 import math
 
@@ -106,7 +105,8 @@ def _filter_outliers(bubbles):
                     logger.debug("Zero branch")
                 new_branches.append(branch)
 
-        new_bubbles.append(deepcopy(bubble))
+        new_bubbles.append(Bubble(bubble.contig_id, bubble.position))
+        new_bubbles[-1].consensus = bubble.consensus
         new_bubbles[-1].branches = new_branches
 
     return new_bubbles
@@ -207,17 +207,12 @@ def _compute_profile(alignment, genome_len):
         if aln.err_rate > 0.5 or aln.trg_end - aln.trg_start < MIN_ALIGNMENT:
             continue
 
-        if aln.trg_sign == "+":
-            trg_seq, qry_seq = aln.trg_seq, aln.qry_seq
-        else:
-            trg_seq = fp.reverse_complement(aln.trg_seq)
-            qry_seq = fp.reverse_complement(aln.qry_seq)
-        qry_seq = _shift_gaps(trg_seq, qry_seq)
-
         trg_offset = 0
-        for i, (trg_nuc, qry_nuc) in enumerate(izip(trg_seq, qry_seq)):
+        qry_seq = _shift_gaps(aln.trg_seq, aln.qry_seq)
+        for i, (trg_nuc, qry_nuc) in enumerate(izip(aln.trg_seq, qry_seq)):
             if trg_nuc == "-":
                 trg_offset -= 1
+
             trg_pos = (aln.trg_start + i + trg_offset) % genome_len
             prof_elem = profile[trg_pos]
 
@@ -225,9 +220,6 @@ def _compute_profile(alignment, genome_len):
                 prof_elem.num_inserts += 1
             else:
                 prof_elem.nucl = trg_nuc
-                if prof_elem.nucl == "N" and qry_nuc != "-":
-                    prof_elem.nucl = qry_nuc
-
                 prof_elem.coverage += 1
 
                 if qry_nuc == "-":
@@ -301,40 +293,34 @@ def _get_bubble_seqs(alignment, profile, partition, contig_info):
         if aln.err_rate > 0.5 or aln.trg_end - aln.trg_start < MIN_ALIGNMENT:
             continue
 
-        if aln.trg_sign == "+":
-            trg_seq, qry_seq = aln.trg_seq, aln.qry_seq
-        else:
-            trg_seq = fp.reverse_complement(aln.trg_seq)
-            qry_seq = fp.reverse_complement(aln.qry_seq)
-
-        trg_offset = 0
-        prev_bubble_id = bisect(partition, aln.trg_start % contig_info.length)
-        chromosome_start = (prev_bubble_id == 0 and
+        bubble_id = bisect(partition, aln.trg_start % contig_info.length)
+        next_bubble_start = ext_partition[bubble_id + 1]
+        chromosome_start = (bubble_id == 0 and
                             not contig_info.type == "circular")
         chromosome_end = (aln.trg_end > partition[-1] and not
                           contig_info.type == "circular")
 
         branch_start = None
         first_segment = True
-
-        for i, trg_nuc in enumerate(trg_seq):
+        trg_offset = 0
+        for i, trg_nuc in enumerate(aln.trg_seq):
             if trg_nuc == "-":
                 trg_offset -= 1
                 continue
             trg_pos = (aln.trg_start + i + trg_offset) % contig_info.length
 
-            bubble_id = bisect(partition, trg_pos)
-            if bubble_id != prev_bubble_id:
+            if trg_pos >= next_bubble_start or trg_pos == 0:
                 if not first_segment or chromosome_start:
-                    branch_seq = qry_seq[branch_start:i].replace("-", "")
-                    bubbles[prev_bubble_id].branches.append(branch_seq)
+                    branch_seq = aln.qry_seq[branch_start:i].replace("-", "")
+                    bubbles[bubble_id].branches.append(branch_seq)
 
                 first_segment = False
-                prev_bubble_id = bubble_id
+                bubble_id = bisect(partition, trg_pos)
+                next_bubble_start = ext_partition[bubble_id + 1]
                 branch_start = i
 
         if chromosome_end:
-            branch_seq = qry_seq[branch_start:].replace("-", "")
+            branch_seq = aln.qry_seq[branch_start:].replace("-", "")
             bubbles[-1].branches.append(branch_seq)
 
     return bubbles

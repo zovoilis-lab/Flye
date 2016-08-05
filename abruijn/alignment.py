@@ -87,7 +87,7 @@ def parse_alignment(alignment_file):
     """
     Parses BLASR alignment and choses error profile base on error rate
     """
-    alignment, mean_error = _parse_blasr(alignment_file)
+    alignment, mean_error = _parse_blasr(alignment_file, change_strand=True)
     return alignment, mean_error
 
 
@@ -104,7 +104,7 @@ def choose_error_mode(err_rate):
     return profile
 
 
-def _parse_blasr(filename):
+def _parse_blasr(filename, change_strand):
     """
     Parse Blasr output
     """
@@ -114,12 +114,18 @@ def _parse_blasr(filename):
         for line in f:
             tokens = line.strip().split()
             err_rate = 1 - float(tokens[17].count("|")) / len(tokens[17])
+            if tokens[9] == "+" and change_strand:
+                trg_seq, qry_seq = tokens[16], tokens[18]
+            else:
+                trg_seq = fp.reverse_complement(tokens[16])
+                qry_seq = fp.reverse_complement(tokens[18])
+
             alignments.append(Alignment(tokens[0], tokens[5], int(tokens[2]),
                                         int(tokens[3]), tokens[4],
                                         int(tokens[1]), int(tokens[7]),
                                         int(tokens[8]), tokens[9],
-                                        int(tokens[6]), tokens[16],
-                                        tokens[18], err_rate))
+                                        int(tokens[6]), trg_seq,
+                                        qry_seq, err_rate))
             errors.append(err_rate)
 
     mean_err = float(sum(errors)) / len(errors)
