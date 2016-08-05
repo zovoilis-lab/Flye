@@ -207,15 +207,15 @@ def _compute_profile(alignment, genome_len):
         if aln.err_rate > 0.5 or aln.trg_end - aln.trg_start < MIN_ALIGNMENT:
             continue
 
-        trg_offset = 0
         qry_seq = _shift_gaps(aln.trg_seq, aln.qry_seq)
-        for i, (trg_nuc, qry_nuc) in enumerate(izip(aln.trg_seq, qry_seq)):
+        trg_pos = aln.trg_start
+        for trg_nuc, qry_nuc in izip(aln.trg_seq, qry_seq):
             if trg_nuc == "-":
-                trg_offset -= 1
+                trg_pos -= 1
+            if trg_pos >= genome_len:
+                trg_pos -= genome_len
 
-            trg_pos = (aln.trg_start + i + trg_offset) % genome_len
             prof_elem = profile[trg_pos]
-
             if trg_nuc == "-":
                 prof_elem.num_inserts += 1
             else:
@@ -226,6 +226,8 @@ def _compute_profile(alignment, genome_len):
                     prof_elem.num_deletions += 1
                 elif trg_nuc != qry_nuc:
                     prof_elem.num_missmatch += 1
+
+            trg_pos += 1
 
     return profile
 
@@ -302,22 +304,24 @@ def _get_bubble_seqs(alignment, profile, partition, contig_info):
 
         branch_start = None
         first_segment = True
-        trg_offset = 0
+        trg_pos = aln.trg_start
         for i, trg_nuc in enumerate(aln.trg_seq):
             if trg_nuc == "-":
-                trg_offset -= 1
                 continue
-            trg_pos = (aln.trg_start + i + trg_offset) % contig_info.length
+            if trg_pos >= contig_info.length:
+                trg_pos -= contig_info.length
 
             if trg_pos >= next_bubble_start or trg_pos == 0:
                 if not first_segment or chromosome_start:
-                    branch_seq = aln.qry_seq[branch_start:i].replace("-", "")
+                    branch_seq = aln.qry_seq[branch_start : i].replace("-", "")
                     bubbles[bubble_id].branches.append(branch_seq)
 
                 first_segment = False
                 bubble_id = bisect(partition, trg_pos)
                 next_bubble_start = ext_partition[bubble_id + 1]
                 branch_start = i
+
+            trg_pos += 1
 
         if chromosome_end:
             branch_seq = aln.qry_seq[branch_start:].replace("-", "")
