@@ -28,7 +28,13 @@ public:
 	bool operator != (const Kmer& other) const
 		{return !(*this == other);}
 	size_t hash() const
-		{return _representation * 0x9ddfea08eb382d69ULL;}
+	{
+		size_t x = _representation;
+		size_t z = (x += 0x9E3779B97F4A7C15ULL);
+		z = (z ^ (z >> 30)) * 0xBF58476D1CE4E5B9ULL;
+		z = (z ^ (z >> 27)) * 0x94D049BB133111EBULL;
+		return z ^ (z >> 31);
+	}
 
 private:
 	KmerRepr _representation;

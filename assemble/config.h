@@ -4,12 +4,13 @@
 
 #pragma once
 
+#include <unistd.h>
+
 namespace Constants
 {
 	//global constants
-	const int maxumumJump = 1500;
-	const int maxumumOverhang = 500;
-	const int minimumOverlap = 5000;
+	const int maximumJump = 1500;
+	const int maximumOverhang = 500;
 
 	//kmer enumeration
 	const int hardMinCoverageRate = 10;
@@ -30,3 +31,10 @@ namespace Constants
 	const int shiftToReadLen = 40;
 	const float minGoodReads = 0.05f;
 }
+
+struct Parameters
+{
+	static int minimumOverlap;
+	static size_t kmerSize;
+	static size_t numThreads;
+};

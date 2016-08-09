@@ -11,7 +11,7 @@
 #include "overlap.h"
 #include "config.h"
 
-void OverlapDetector::findAllOverlaps(size_t numThreads)
+void OverlapDetector::findAllOverlaps()
 {
 	Logger::get().info() << "Finding overlaps:";
 	_overlapMatrix.clear();
@@ -24,7 +24,7 @@ void OverlapDetector::findAllOverlaps(size_t numThreads)
 		_jobQueue.push_back(seqHash.first);
 	}
 
-	std::vector<std::thread> threads(numThreads);
+	std::vector<std::thread> threads(Parameters::numThreads);
 	for (size_t i = 0; i < threads.size(); ++i)
 	{
 		threads[i] = std::thread(&OverlapDetector::parallelWorker, this);
@@ -52,7 +52,7 @@ void OverlapDetector::parallelWorker()
 		FastaRecord::Id readId = _jobQueue[_nextJob++];
 		_overlapIndex[readId];	//empty vector by default
 
-		if (_seqContainer.seqLen(readId) < (size_t)Constants::minimumOverlap ||
+		if (_seqContainer.seqLen(readId) < (size_t)Parameters::minimumOverlap ||
 			!readId.strand()) 
 		{
 			continue;
@@ -135,27 +135,27 @@ void OverlapDetector::loadOverlaps(const std::string filename)
 bool OverlapDetector::goodStart(int32_t curPos, int32_t extPos, 
 								int32_t curLen, int32_t extLen) const
 {	
-	return std::min(curPos, extPos) < Constants::maxumumOverhang && 
-		   extPos < extLen - Constants::minimumOverlap &&
-		   curPos < curLen - Constants::minimumOverlap;
+	return std::min(curPos, extPos) < Constants::maximumOverhang && 
+		   extPos < extLen - Parameters::minimumOverlap &&
+		   curPos < curLen - Parameters::minimumOverlap;
 }
 
 OverlapDetector::JumpRes 
 OverlapDetector::jumpTest(int32_t curPrev, int32_t curNext,
 						  int32_t extPrev, int32_t extNext) const
 {
-	if (curNext - curPrev > Constants::maxumumJump) return J_END;
+	if (curNext - curPrev > Constants::maximumJump) return J_END;
 
-	if (0 < curNext - curPrev && curNext - curPrev < Constants::maxumumJump &&
-		0 < extNext - extPrev && extNext - extPrev < Constants::maxumumJump)
+	if (0 < curNext - curPrev && curNext - curPrev < Constants::maximumJump &&
+		0 < extNext - extPrev && extNext - extPrev < Constants::maximumJump)
 	{
 		if (abs((curNext - curPrev) - (extNext - extPrev)) 
-			< Constants::maxumumJump / Constants::closeJumpRate)
+			< Constants::maximumJump / Constants::closeJumpRate)
 		{
 			return J_CLOSE;
 		}
 		if (abs((curNext - curPrev) - (extNext - extPrev)) 
-			< Constants::maxumumJump / Constants::farJumpRate)
+			< Constants::maximumJump / Constants::farJumpRate)
 		{
 			return J_FAR;
 		}
@@ -168,8 +168,8 @@ OverlapDetector::jumpTest(int32_t curPrev, int32_t curNext,
 bool OverlapDetector::overlapTest(const OverlapRange& ovlp, int32_t curLen, 
 								  int32_t extLen) const
 {
-	if (ovlp.curRange() < Constants::minimumOverlap || 
-		ovlp.extRange() < Constants::minimumOverlap) 
+	if (ovlp.curRange() < Parameters::minimumOverlap || 
+		ovlp.extRange() < Parameters::minimumOverlap) 
 	{
 		return false;
 	}
@@ -185,12 +185,12 @@ bool OverlapDetector::overlapTest(const OverlapRange& ovlp, int32_t curLen,
 	}
 
 	if (std::min(ovlp.curBegin, ovlp.extBegin) > 
-		Constants::maxumumOverhang) 
+		Constants::maximumOverhang) 
 	{
 		return false;
 	}
 	if (std::min(curLen - ovlp.curEnd, extLen - ovlp.extEnd) > 
-		Constants::maxumumOverhang)
+		Constants::maximumOverhang)
 	{
 		return false;
 	}
@@ -226,7 +226,7 @@ OverlapDetector::getReadOverlaps(FastaRecord::Id currentReadId) const
 			if (extReadPos.readId == currentReadId) continue;
 
 			size_t extLen = _seqContainer.seqLen(extReadPos.readId);
-			if (extLen < (size_t)Constants::minimumOverlap) continue;
+			if (extLen < (size_t)Parameters::minimumOverlap) continue;
 
 			int32_t extPos = extReadPos.position;
 			auto& extPaths = activePaths[extReadPos.readId];

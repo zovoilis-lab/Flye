@@ -464,7 +464,7 @@ bool Extender::isBranching(FastaRecord::Id readId)
 bool Extender::extendsRight(const OverlapRange& ovlp)
 {
 	return !_chimDetector.isChimeric(ovlp.extId) && 
-		   ovlp.rightShift > Constants::maxumumJump;
+		   ovlp.rightShift > Constants::maximumJump;
 }
 
 bool Extender::coversRight(const OverlapRange& ovlp)

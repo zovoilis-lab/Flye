@@ -1,10 +1,9 @@
 ABruijn assembler
 ==================
 
-Version: 0.3b
+Version: 0.4b
 
-The software is currently under active development, so not all features
-are fully supported yet. Stay tuned for more stable releases!
+The software is currently under active development.
 
 
 Description
@@ -17,7 +16,7 @@ Install
 -------
 Just type 'make'. 
 ABruijn also requires the Blasr aligner [https://github.com/PacificBiosciences/blasr] 
-to be installed.
+to be installed and available through PATH environment variable.
 
 
 Usage

@@ -8,6 +8,7 @@
 #include "kmer.h"
 #include "vertex_index.h"
 #include "sequence_container.h"
+#include "config.h"
 
 namespace
 {
@@ -49,7 +50,7 @@ namespace
 Kmer::Kmer(const std::string& dnaString):
 	_representation(0)
 {
-	if (dnaString.length() != VertexIndex::get().getKmerSize())
+	if (dnaString.length() != Parameters::kmerSize)
 	{
 		throw std::runtime_error("Kmer length inconsistency");
 	}
@@ -66,7 +67,7 @@ void Kmer::appendRight(char dnaSymbol)
 	_representation <<= 2;
 	_representation += dnaToId(dnaSymbol);
 
-	KmerRepr kmerSize = VertexIndex::get().getKmerSize();
+	KmerRepr kmerSize = Parameters::kmerSize;
 	KmerRepr kmerMask = ((KmerRepr)1 << kmerSize * 2) - 1;
 	_representation &= kmerMask;
 }
@@ -75,7 +76,7 @@ void Kmer::appendLeft(char dnaSymbol)
 {
 	_representation >>= 2;
 
-	KmerRepr kmerSize = VertexIndex::get().getKmerSize();
+	KmerRepr kmerSize = Parameters::kmerSize;
 	KmerRepr shift = kmerSize * 2 - 2;
 	_representation += dnaToId(dnaSymbol) << shift;
 }
@@ -86,7 +87,7 @@ void Kmer::reverseComplement()
 	_representation = 0;
 	KmerRepr mask = 3;
 
-	for (unsigned int i = 0; i < VertexIndex::get().getKmerSize(); ++i)
+	for (unsigned int i = 0; i < Parameters::kmerSize; ++i)
 	{
 		_representation <<= 2;
 		_representation += ~(mask & tmpRepr);
@@ -99,12 +100,12 @@ std::string Kmer::dnaRepresentation() const
 	std::string repr;
 	KmerRepr mask = 3;
 	KmerRepr tempRepr = _representation;
-	for (unsigned int i = 0; i < VertexIndex::get().getKmerSize(); ++i)
+	for (unsigned int i = 0; i < Parameters::kmerSize; ++i)
 	{
 		repr.push_back(idToDna(tempRepr & mask));
 		tempRepr >>= 2;
 	}
-	repr.reserve();
+	std::reverse(repr.begin(), repr.end());
 	return repr;
 }
 
@@ -112,9 +113,9 @@ KmerIterator::KmerIterator(const std::string* readSeq, size_t position):
 	_readSeq(readSeq),
 	_position(position)
 {
-	if (position != readSeq->length() - VertexIndex::get().getKmerSize())
+	if (position != readSeq->length() - Parameters::kmerSize)
 	{
-		_kmer = Kmer(readSeq->substr(0, VertexIndex::get().getKmerSize()));
+		_kmer = Kmer(readSeq->substr(0, Parameters::kmerSize));
 	}
 }
 
@@ -130,7 +131,7 @@ bool KmerIterator::operator!=(const KmerIterator& other) const
 
 KmerIterator& KmerIterator::operator++()
 {
-	size_t appendPos = _position + VertexIndex::get().getKmerSize();
+	size_t appendPos = _position + Parameters::kmerSize;
 	_kmer.appendRight((*_readSeq)[appendPos]);
 	++_position;
 	return *this;
@@ -157,7 +158,7 @@ SolidKmerIterator::SolidKmerIterator(const std::string* readSeq,
 
 SolidKmerIterator& SolidKmerIterator::operator++()
 {
-	size_t appendPos = _position + VertexIndex::get().getKmerSize();
+	size_t appendPos = _position + Parameters::kmerSize;
 	do
 	{
 		_kmer.appendRight((*_readSeq)[appendPos++]);
@@ -165,7 +166,7 @@ SolidKmerIterator& SolidKmerIterator::operator++()
 	while(!VertexIndex::get().isSolid(_kmer) &&
 		  appendPos < _readSeq->length());
 
-	_position = appendPos - VertexIndex::get().getKmerSize();
+	_position = appendPos - Parameters::kmerSize;
 	return *this;
 }
 
@@ -184,7 +185,7 @@ KmerIterator IterKmers::begin()
 {
 	const std::string& seq = SequenceContainer::get().getIndex()
 										   .at(_readId).sequence;
-	if (seq.length() < VertexIndex::get().getKmerSize()) 
+	if (seq.length() < Parameters::kmerSize) 
 		return this->end();
 
 	return KmerIterator(&seq, 0);
@@ -194,15 +195,14 @@ KmerIterator IterKmers::end()
 {
 	const std::string& seq = SequenceContainer::get().getIndex()
 										   .at(_readId).sequence;
-	return KmerIterator(&seq, seq.length() - 
-						VertexIndex::get().getKmerSize());
+	return KmerIterator(&seq, seq.length() - Parameters::kmerSize);
 }
 
 SolidKmerIterator IterSolidKmers::begin()
 {
 	const std::string& seq = SequenceContainer::get().getIndex()
 										   .at(_readId).sequence;
-	if (seq.length() < VertexIndex::get().getKmerSize()) 
+	if (seq.length() < Parameters::kmerSize) 
 		return this->end();
 
 	return SolidKmerIterator(&seq, 0);
@@ -214,6 +214,5 @@ SolidKmerIterator IterSolidKmers::end()
 	const std::string& seq = SequenceContainer::get().getIndex()
 										   .at(_readId).sequence;
 
-	return SolidKmerIterator(&seq, seq.length() - 
-							 VertexIndex::get().getKmerSize());
+	return SolidKmerIterator(&seq, seq.length() - Parameters::kmerSize);
 }

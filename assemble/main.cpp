@@ -18,7 +18,7 @@
 bool parseArgs(int argc, char** argv, std::string& readsFasta, 
 			   std::string& outAssembly, std::string& logFile, int& coverage,
 			   int& kmerSize, int& minKmer, int& maxKmer, bool& debug,
-			   size_t& numThreads, std::string& overlapsFile)
+			   size_t& numThreads, std::string& overlapsFile, int& minOverlap)
 {
 	auto printUsage = [argv]()
 	{
@@ -36,6 +36,8 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 				  << "[default = auto] \n"
 				  << "\t-x max_kmer_cov\tmaximum k-mer coverage "
 				  << "[default = auto] \n"
+				  << "\t-v min_overlap\tminimum overlap between reads "
+				  << "[default = 5000] \n"
 				  << "\t-d \t\tenable debug output "
 				  << "[default = false] \n"
 				  << "\t-l log_file\toutput log to file "
@@ -53,8 +55,9 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 	debug = false;
 	logFile = "";
 	overlapsFile = "";
+	minOverlap = 5000;
 
-	const char optString[] = "k:m:x:l:t:o:hd";
+	const char optString[] = "k:m:x:l:t:o:v:hd";
 	int opt = 0;
 	while ((opt = getopt(argc, argv, optString)) != -1)
 	{
@@ -71,6 +74,9 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 			break;
 		case 't':
 			numThreads = atoi(optarg);
+			break;
+		case 'v':
+			minOverlap = atoi(optarg);
 			break;
 		case 'l':
 			logFile = optarg;
@@ -110,6 +116,7 @@ int main(int argc, char** argv)
 	int minKmerCov = 0;
 	int maxKmerCov = 0;
 	int coverage = 0;
+	int minOverlap = 0;
 	bool debugging = false;
 	size_t numThreads;
 	std::string readsFasta;
@@ -119,10 +126,13 @@ int main(int argc, char** argv)
 
 	if (!parseArgs(argc, argv, readsFasta, outAssembly, logFile, coverage,
 				   kmerSize, minKmerCov, maxKmerCov, debugging, numThreads,
-				   overlapsFile)) 
+				   overlapsFile, minOverlap)) 
 	{
 		return 1;
 	}
+	Parameters::minimumOverlap = minOverlap;
+	Parameters::kmerSize = kmerSize;
+	Parameters::numThreads = numThreads;
 
 	try
 	{
@@ -134,12 +144,11 @@ int main(int argc, char** argv)
 		Logger::get().debug() << "Reading FASTA";
 		seqContainer.readFasta(readsFasta);
 		VertexIndex& vertexIndex = VertexIndex::get();
-		vertexIndex.setKmerSize(kmerSize);
 
 		//rough estimate
 		size_t hardThreshold = std::max(1, coverage / 
 										   Constants::hardMinCoverageRate);
-		vertexIndex.countKmers(seqContainer, hardThreshold, numThreads);
+		vertexIndex.countKmers(seqContainer, hardThreshold);
 
 		if (maxKmerCov == -1)
 		{
@@ -151,12 +160,12 @@ int main(int argc, char** argv)
 			minKmerCov = estimator.estimateMinKmerCount(coverage, maxKmerCov);
 		}
 
-		vertexIndex.buildIndex(minKmerCov, maxKmerCov, numThreads);
+		vertexIndex.buildIndex(minKmerCov, maxKmerCov);
 
 		OverlapDetector ovlp(coverage);
 		if (overlapsFile.empty())
 		{
-			ovlp.findAllOverlaps(numThreads);
+			ovlp.findAllOverlaps();
 		}
 		else
 		{
@@ -167,7 +176,7 @@ int main(int argc, char** argv)
 			}
 			else
 			{
-				ovlp.findAllOverlaps(numThreads);
+				ovlp.findAllOverlaps();
 				Logger::get().debug() << "Saving overlaps to " << overlapsFile;
 				ovlp.saveOverlaps(overlapsFile);
 			}
@@ -181,7 +190,7 @@ int main(int argc, char** argv)
 		extender.assembleContigs();
 
 		ContigGenerator contGen(extender, ovlp);
-		contGen.generateContigs(numThreads);
+		contGen.generateContigs();
 		contGen.outputContigs(outAssembly);
 	}
 	catch (std::runtime_error& e)

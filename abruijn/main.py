@@ -70,19 +70,20 @@ class Job(object):
 
 
 class JobAssembly(Job):
-    def __init__(self, out_file, log_file):
+    def __init__(self, out_assembly, log_file):
         super(JobAssembly, self).__init__()
-        self.out_file = out_file
+        self.out_assembly = out_assembly
         self.log_file = log_file
         self.name = "assembly"
+        self.out_files = [out_assembly]
 
     def run(self):
         reads_order = os.path.join(self.work_dir, "reads_order.fasta")
         asm.assemble(self.args.reads, reads_order, self.args.kmer_size,
-                     self.args.min_cov, self.args.max_cov, self.args.coverage,
+                     self.args.min_overlap, self.args.coverage,
                      self.args.debug, self.log_file, self.args.threads)
         contigs_fasta = aln.concatenate_contigs(reads_order)
-        fp.write_fasta_dict(contigs_fasta, self.out_file)
+        fp.write_fasta_dict(contigs_fasta, self.out_assembly)
 
         Job.run_description["stage_name"] = self.name
 
@@ -163,13 +164,16 @@ def _create_job_list(args, work_dir, log_file):
     return jobs
 
 
-def run(args):
+def _run(args):
+    """
+    Runs the pipeline
+    """
     if not os.path.isdir(args.out_dir):
         os.mkdir(args.out_dir)
     work_dir = os.path.abspath(args.out_dir)
 
     log_file = os.path.join(work_dir, "abruijn.log")
-    enable_logging(log_file, args.debug, not args.resume)
+    _enable_logging(log_file, args.debug, not args.resume)
 
     logger.info("Running ABruijn")
     aln.check_binaries()
@@ -201,7 +205,7 @@ def run(args):
     logger.info("Done! Your assembly is in file: " + jobs[-1].out_files[0])
 
 
-def enable_logging(log_file, debug, overwrite):
+def _enable_logging(log_file, debug, overwrite):
     """
     Turns on logging, sets debug levels and assigns a log file
     """
@@ -225,6 +229,13 @@ def enable_logging(log_file, debug, overwrite):
 
 
 def main():
+    def check_int_range(value, min_val, max_val):
+        ival = int(value)
+        if ival < min_val or ival > max_val:
+             raise argparse.ArgumentTypeError("value should be in "
+                            "range [{0}, {1}]".format(min_val, max_val))
+        return ival
+
     parser = argparse.ArgumentParser(description="ABruijn: assembly of long and"
                                      " error-prone reads")
 
@@ -240,25 +251,32 @@ def main():
     parser.add_argument("--resume", action="store_true",
                         dest="resume", default=False,
                         help="try to resume previous assembly")
-    parser.add_argument("-t", "--threads", dest="threads", type=int,
+    parser.add_argument("-t", "--threads", dest="threads",
+                        type=lambda v: check_int_range(v, 0, 9999),
                         default=1, help="number of parallel threads "
                         "(default: 1)")
-    parser.add_argument("-i", "--iterations", dest="num_iters", type=int,
+    parser.add_argument("-i", "--iterations", dest="num_iters",
+                        type=lambda v: check_int_range(v, 0, 10),
                         default=2, help="number of polishing iterations "
                         "(default: 2)")
-    parser.add_argument("-k", "--kmer-size", dest="kmer_size", type=int,
+    parser.add_argument("-k", "--kmer-size", dest="kmer_size",
+                        type=lambda v: check_int_range(v, 10, 32),
                         default=15, help="kmer size (default: 15)")
-    parser.add_argument("-m", "--min-cov", dest="min_cov", type=int,
-                        default=None, help="minimum kmer coverage "
-                        "(default: auto)")
-    parser.add_argument("-x", "--max-cov", dest="max_cov", type=int,
-                        default=None, help="maximum kmer coverage "
-                        "(default: auto)")
+    parser.add_argument("-o", "--min-overlap", dest="min_overlap",
+                        type=lambda v: check_int_range(v, 3000, 10000),
+                        default=5000, help="minimum overlap between reads "
+                        "(default: 5000)")
+    #parser.add_argument("-m", "--min-cov", dest="min_cov", type=int,
+    #                    default=None, help="minimum kmer coverage "
+    #                    "(default: auto)")
+    #parser.add_argument("-x", "--max-cov", dest="max_cov", type=int,
+    #                    default=None, help="maximum kmer coverage "
+    #                    "(default: auto)")
     parser.add_argument("--version", action="version", version=__version__)
     args = parser.parse_args()
 
     try:
-        run(args)
+        _run(args)
     except (aln.AlignmentException, pol.PolishException,
             asm.AssembleException, ResumeException) as e:
         logger.error("Error: {0}".format(e))

@@ -22,7 +22,7 @@ public:
 		_vertexIndex(VertexIndex::get()), 
 		_seqContainer(SequenceContainer::get()) {}
 	
-	void generateContigs(size_t numThreads);
+	void generateContigs();
 	void outputContigs(const std::string& fileName);
 	
 private:
@@ -39,14 +39,11 @@ private:
 		int32_t startTwo;
 	};
 	
-	std::vector<AlignmentInfo> generateAlignments(const ContigPath& path, 
-												  size_t numThreads);
+	std::vector<AlignmentInfo> generateAlignments(const ContigPath& path);
 	std::pair<int32_t, int32_t> getSwitchPositions(AlignmentInfo aln,
 												   int32_t prevSwitch);
-	std::vector<FastaRecord> generateCircular(const ContigPath& path, 
-											  size_t numThreads);
-	std::vector<FastaRecord> generateLinear(const ContigPath& path,
-											size_t numThreads);
+	std::vector<FastaRecord> generateCircular(const ContigPath& path);
+	std::vector<FastaRecord> generateLinear(const ContigPath& path);
 
 	std::vector<std::vector<FastaRecord>> _contigs;
 };

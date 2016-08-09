@@ -110,7 +110,7 @@ public:
 	typedef std::unordered_map<FastaRecord::Id, 
 					   std::vector<OverlapRange>> OverlapIndex;
 	
-	void findAllOverlaps(size_t numThreads);
+	void findAllOverlaps();
 	void saveOverlaps(const std::string filename);
 	void loadOverlaps(const std::string filename);
 	const OverlapIndex& getOverlapIndex() const {return _overlapIndex;}

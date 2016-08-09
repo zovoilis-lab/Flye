@@ -10,19 +10,20 @@
 #include "vertex_index.h"
 #include "logger.h"
 #include "parallel.h"
+#include "config.h"
 
-VertexIndex::VertexIndex():
-	_kmerSize(0)
+VertexIndex::VertexIndex()
 {
 }
 
+/*
 void VertexIndex::setKmerSize(unsigned int size)
 {
 	_kmerSize = size;
-}
+}*/
 
 void VertexIndex::countKmers(const SequenceContainer& seqContainer,
-							 size_t hardThreshold, size_t numThreads)
+							 size_t hardThreshold)
 {
 	Logger::get().debug() << "Hard threshold set to " << hardThreshold;
 	if (hardThreshold == 0 || hardThreshold > 100) 
@@ -69,7 +70,7 @@ void VertexIndex::countKmers(const SequenceContainer& seqContainer,
 	{
 		allReads.push_back(hashPair.first);
 	}
-	processInParallel(allReads, countUpdate, numThreads, true);
+	processInParallel(allReads, countUpdate, Parameters::kmerSize, true);
 	
 	for (auto kmer : _kmerCounts.lock_table())
 	{
@@ -78,8 +79,7 @@ void VertexIndex::countKmers(const SequenceContainer& seqContainer,
 }
 
 
-void VertexIndex::buildIndex(int minCoverage, int maxCoverage, 
-							 size_t numThreads)
+void VertexIndex::buildIndex(int minCoverage, int maxCoverage)
 {
 	Logger::get().info() << "Building kmer index";
 
@@ -117,7 +117,7 @@ void VertexIndex::buildIndex(int minCoverage, int maxCoverage,
 	{
 		allReads.push_back(hashPair.first);
 	}
-	processInParallel(allReads, indexUpdate, numThreads, true);
+	processInParallel(allReads, indexUpdate, Parameters::numThreads, true);
 
 	_kmerCounts.clear();
 	_kmerCounts.reserve(0);

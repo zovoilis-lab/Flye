@@ -123,7 +123,7 @@ namespace
 }
 
 
-void ContigGenerator::generateContigs(size_t numThreads)
+void ContigGenerator::generateContigs()
 {
 	Logger::get().info() << "Generating contig sequences";
 
@@ -134,19 +134,19 @@ void ContigGenerator::generateContigs(size_t numThreads)
 		std::vector<FastaRecord> contigParts;
 		if (path.circular)
 		{
-			_contigs.push_back(this->generateCircular(path, numThreads));
+			_contigs.push_back(this->generateCircular(path));
 		}
 		else
 		{
-			_contigs.push_back(this->generateLinear(path, numThreads));
+			_contigs.push_back(this->generateLinear(path));
 		}
 	}
 }
 
 std::vector<FastaRecord> 
-ContigGenerator::generateLinear(const ContigPath& path, size_t numThreads)
+ContigGenerator::generateLinear(const ContigPath& path)
 {
-	auto alignments = this->generateAlignments(path, numThreads);
+	auto alignments = this->generateAlignments(path);
 	std::vector<FastaRecord> contigParts;
 
 	auto prevSwitch = std::make_pair(0, 0);
@@ -180,14 +180,14 @@ ContigGenerator::generateLinear(const ContigPath& path, size_t numThreads)
 }
 
 std::vector<FastaRecord> 
-ContigGenerator::generateCircular(const ContigPath& path, size_t numThreads)
+ContigGenerator::generateCircular(const ContigPath& path)
 {
 	std::vector<FastaRecord> contigParts;
 	auto circPath = path;
 	circPath.reads.push_back(path.reads[0]);
 	circPath.reads.push_back(path.reads[1]);
 
-	auto alignments = this->generateAlignments(circPath, numThreads);
+	auto alignments = this->generateAlignments(circPath);
 	int32_t initPivot = _seqContainer.seqLen(circPath.reads[0]) / 2;
 	auto firstSwitch = this->getSwitchPositions(alignments[0], 
 												initPivot);
@@ -237,7 +237,7 @@ void ContigGenerator::outputContigs(const std::string& fileName)
 
 
 std::vector<ContigGenerator::AlignmentInfo> 
-ContigGenerator::generateAlignments(const ContigPath& path, size_t numThreads)
+ContigGenerator::generateAlignments(const ContigPath& path)
 {
 	typedef std::tuple<FastaRecord::Id, FastaRecord::Id, size_t> AlnTask;
 
@@ -262,7 +262,7 @@ ContigGenerator::generateAlignments(const ContigPath& path, size_t numThreads)
 
 		const int bandWidth = abs((int)leftSeq.length() - 
 								  (int)rightSeq.length()) + 
-								  		Constants::maxumumJump;
+								  		Constants::maximumJump;
 		std::string alignedLeft;
 		std::string alignedRight;
 		pairwiseAlignment(leftSeq, rightSeq, alignedLeft, 
@@ -279,7 +279,7 @@ ContigGenerator::generateAlignments(const ContigPath& path, size_t numThreads)
 		tasks.push_back(std::make_tuple(path.reads[i], path.reads[i + 1], i));
 	}
 	alnResults.resize(tasks.size());
-	processInParallel(tasks, alnFunc, numThreads, false);
+	processInParallel(tasks, alnFunc, Parameters::numThreads, false);
 
 	return alnResults;
 }
@@ -298,7 +298,7 @@ ContigGenerator::getSwitchPositions(AlignmentInfo aln,
 		if (aln.alnTwo[i] != '-') ++rightPos;
 
 		if (aln.alnOne[i] == aln.alnTwo[i] &&
-			leftPos > prevSwitch + Constants::maxumumJump)
+			leftPos > prevSwitch + Constants::maximumJump)
 		{
 			++matchRun;
 		}
@@ -306,7 +306,7 @@ ContigGenerator::getSwitchPositions(AlignmentInfo aln,
 		{
 			matchRun = 0;
 		}
-		if (matchRun == (int)_vertexIndex.getKmerSize())
+		if (matchRun == (int)Parameters::kmerSize)
 		{
 			return {leftPos, rightPos};
 		}

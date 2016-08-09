@@ -50,8 +50,8 @@ bool ChimeraDetector::testReadByCoverage(FastaRecord::Id readId)
 	}
 
 	static const int WINDOW = Constants::chimeraWindow;
-	const int FLANK = (Constants::maxumumJump + 
-					   Constants::maxumumOverhang) / WINDOW;
+	const int FLANK = (Constants::maximumJump + 
+					   Constants::maximumOverhang) / WINDOW;
 
 	std::vector<int> coverage;
 	int numWindows = _seqContainer.seqLen(readId) / WINDOW;
