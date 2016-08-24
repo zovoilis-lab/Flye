@@ -22,8 +22,8 @@ void GeneralPolisher::polishBubble(Bubble& bubble) const
 		}
 	};
 
-	const int PRE_POLISH = 5;
 	//first, select closest X branches (by length) and polish with them
+	const int PRE_POLISH = 5;
 	std::string prePolished = bubble.candidate;
 	if (bubble.branches.size() > PRE_POLISH * 2)
 	{
@@ -48,68 +48,48 @@ StepInfo GeneralPolisher::makeStep(const std::string& candidate,
 				   				   const std::vector<std::string>& branches,
 								   Alignment& align) const
 {
+	static char alphabet[] = {'A', 'C', 'G', 'T'};
 	StepInfo stepResult;
 	
-	//Global
+	//Alignment
 	double score = 0;
 	for (size_t i = 0; i < branches.size(); ++i) 
 	{
 		score += align.globalAlignment(candidate, branches[i], i);
 	}
-
 	stepResult.score = score;
 	stepResult.sequence = candidate;
 
 	//Deletion
-	for (size_t del_index = 0; del_index < candidate.size(); del_index++) 
+	bool improvement = false;
+	for (size_t pos = 0; pos < candidate.size(); ++pos) 
 	{
-		score = 0;
+		double score = 0;
 		for (size_t i = 0; i < branches.size(); i++) 
 		{
-			score += align.addDeletion(i, del_index + 1);
+			score += align.addDeletion(i, pos + 1);
 		}
 
 		if (score > stepResult.score) 
 		{
 			stepResult.score = score;
 			stepResult.sequence = candidate;
-			stepResult.sequence.erase(del_index, 1);
+			stepResult.sequence.erase(pos, 1);
+			improvement = true;
 		}
 	}
-
-	//Substitution
-	char alphabet[4] = {'A', 'C', 'G', 'T'};
-	for (size_t sub_index = 0; sub_index < candidate.size(); sub_index++) 
-	{
-		for (char letter : alphabet)
-		{
-			if (letter == candidate[sub_index]) continue;
-
-			score = 0;
-			for (size_t i = 0; i < branches.size(); i++) 
-			{
-				score += align.addSubstitution(i, sub_index + 1, letter, 
-											   branches[i]);
-			}
-
-			if (score > stepResult.score) 
-			{
-				stepResult.score = score;
-				stepResult.sequence = candidate;
-				stepResult.sequence[sub_index] = letter;
-			}
-		}
-	}
+	if (improvement) return stepResult;
 
 	//Insertion
-	for (size_t ins_index = 0; ins_index < candidate.size()+1; ins_index++) 
+	improvement = false;
+	for (size_t pos = 0; pos < candidate.size() + 1; ++pos) 
 	{
 		for (char letter : alphabet)
 		{
-			score = 0;
+			double score = 0;
 			for (size_t i = 0; i < branches.size(); i++) 
 			{
-				score += align.addInsertion(i, ins_index + 1, letter, 
+				score += align.addInsertion(i, pos + 1, letter, 
 											branches[i]);		
 			}
 
@@ -117,10 +97,35 @@ StepInfo GeneralPolisher::makeStep(const std::string& candidate,
 			{
 				stepResult.score = score;
 				stepResult.sequence = candidate;
-				stepResult.sequence.insert(ins_index, 1, letter);
+				stepResult.sequence.insert(pos, 1, letter);
+				improvement = true;
 			}
 		}
 	}	
+	if (improvement) return stepResult;
+
+	//Substitution
+	for (size_t pos = 0; pos < candidate.size(); ++pos) 
+	{
+		for (char letter : alphabet)
+		{
+			if (letter == candidate[pos]) continue;
+
+			double score = 0;
+			for (size_t i = 0; i < branches.size(); i++) 
+			{
+				score += align.addSubstitution(i, pos + 1, letter, 
+											   branches[i]);
+			}
+
+			if (score > stepResult.score) 
+			{
+				stepResult.score = score;
+				stepResult.sequence = candidate;
+				stepResult.sequence[pos] = letter;
+			}
+		}
+	}
 
 	return stepResult;
 }
