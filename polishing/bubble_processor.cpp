@@ -23,6 +23,7 @@ BubbleProcessor::BubbleProcessor(const std::string& subsMatPath,
 	_hopoMatrix(hopoMatrixPath),
 	_generalPolisher(_subsMatrix),
 	_homoPolisher(_subsMatrix, _hopoMatrix),
+	_dinucFixer(_subsMatrix),
 	_verbose(false)
 {
 }
@@ -84,6 +85,7 @@ void BubbleProcessor::parallelWorker()
 		_stateMutex.unlock();
 		_generalPolisher.polishBubble(bubble);
 		_homoPolisher.polishBubble(bubble);
+		_dinucFixer.fixBubble(bubble);
 		_stateMutex.lock();
 		
 		this->writeBubbles({bubble});

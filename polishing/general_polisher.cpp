@@ -81,7 +81,6 @@ StepInfo GeneralPolisher::makeStep(const std::string& candidate,
 	if (improvement) return stepResult;
 
 	//Insertion
-	improvement = false;
 	for (size_t pos = 0; pos < candidate.size() + 1; ++pos) 
 	{
 		for (char letter : alphabet)
