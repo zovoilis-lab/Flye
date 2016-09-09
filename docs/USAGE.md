@@ -27,18 +27,19 @@ Quick usage
                             kmer size (default: 15)
       -o MIN_OVERLAP, --min-overlap MIN_OVERLAP
                             minimum overlap between reads (default: 5000)
-      --version             show program's version number and exit
+      --version             show program version number and exit
 
 
-Examples
---------
+Example
+-------
 
-Give a couple of easy-to-use exmaples for both Pacbio and Oxford Nanopores assembly
-(with concrete data)
-
+A couple of examples of assembly of publicly available datasets.
 
 Data Requirements
 -----------------
+
+ABruijn was designed for assembly of reads from both Pacbio and 
+Oxford Nanopores technologies.
 
 For both technologies: coverage, minimum quality etc. Give an overview of errors
 depending on coverage. Both bacterial / eukaryote

@@ -160,8 +160,10 @@ def _need_two_dashes():
 def _run_blasr(reference_file, reads_file, num_proc, out_file):
     cmdline = [BLASR_BIN, reads_file, reference_file,
                "-bestn", "1", "-minMatch", "15",
-               "-maxMatch", "25", "-m", "5",
-               "-nproc", str(num_proc), "-out", out_file]
+               "-maxMatch", "20", "-m", "5",
+               "-nproc", str(num_proc), "-out", out_file,
+               "-advanceHalf", "-advanceExactMatches", "10",
+               "-fastSDP", "-aggressiveIntervalCut"]
     two_dashes = _need_two_dashes()
     if two_dashes:
         cmdline = map(lambda cmd: cmd.replace("-", "--")
