@@ -250,7 +250,7 @@ size_t HomoPolisher::mostLikelyLen(char nucleotide,
 {
 	assert(!observations.empty());
 	const size_t MIN_HOPO = 1;
-	const size_t MAX_HOPO = 10;
+	const size_t MAX_HOPO = 20;
 
 	typedef std::pair<double, size_t> ScorePair;
 	std::vector<ScorePair> scores;

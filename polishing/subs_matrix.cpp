@@ -46,7 +46,7 @@ namespace
 	static const double MIN_PROB = 0.001f;
 	static const double ZERO_PROB = 0.0000000001f;
 	static const size_t MIN_HOPO = 1;
-	static const size_t MAX_HOPO = 10;
+	static const size_t MAX_HOPO = 20;
 }
 
 SubstitutionMatrix::SubstitutionMatrix(const std::string& path)
