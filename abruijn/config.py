@@ -27,7 +27,7 @@ vals = {
                 "solid_missmatch" : 0.3,
                 "solid_indel" : 0.3,
             },
-            "pacbio_p6c4" : {
+            "pacbio_hi_err" : {
                 "subs_matrix" : "p6c4_substitutions.mat",
                 "hopo_matrix" : "p6c4_homopolymers.mat",
                 "solid_missmatch" : 0.25,

@@ -32,8 +32,7 @@ class Job(object):
     status that can be resumed
     """
     run_description = {"stage_name" : "",
-                       "stage_id" : 0,
-                       "error_profile" : ""}
+                       "stage_id" : 0}
 
     def __init__(self):
         self.name = None
@@ -79,9 +78,7 @@ class JobAssembly(Job):
 
     def run(self):
         reads_order = os.path.join(self.work_dir, "reads_order.fasta")
-        asm.assemble(self.args.reads, reads_order, self.args.kmer_size,
-                     self.args.min_overlap, self.args.coverage,
-                     self.args.debug, self.log_file, self.args.threads)
+        asm.assemble(self.args, reads_order, self.log_file)
         contigs_fasta = aln.concatenate_contigs(reads_order)
         fp.write_fasta_dict(contigs_fasta, self.out_assembly)
 
@@ -113,26 +110,27 @@ class JobAlignment(Job):
 
 
 class JobPolishing(Job):
-    def __init__(self, in_alignment, in_reference, out_consensus, stage_id):
+    def __init__(self, in_alignment, in_reference,
+                 out_consensus, stage_id, seq_platform):
         super(JobPolishing, self).__init__()
         self.in_alignment = in_alignment
         self.in_reference = in_reference
         self.out_consensus = out_consensus
         self.name = "polishing"
         self.stage_id = stage_id
+        self.seq_platform = seq_platform
         self.out_files = [out_consensus]
 
     def run(self):
         alignment, mean_error = aln.parse_alignment(self.in_alignment)
-        if Job.run_description["error_profile"] == "":
-            Job.run_description["error_profile"] = \
-                                    aln.choose_error_mode(mean_error)
+        #if Job.run_description["error_profile"] == "":
+        #    Job.run_description["error_profile"] = \
+        #                            aln.choose_error_mode(mean_error)
 
-        bubbles = bbl.get_bubbles(alignment,
-                                  Job.run_description["error_profile"])
+        bubbles = bbl.get_bubbles(alignment, self.seq_platform)
         polished_fasta = pol.polish(bubbles, self.args.threads,
-                                    Job.run_description["error_profile"],
-                                    self.work_dir, self.stage_id)
+                                    self.seq_platform, self.work_dir,
+                                    self.stage_id)
         fp.write_fasta_dict(polished_fasta, self.out_consensus)
 
         Job.run_description["stage_name"] = self.name
@@ -154,7 +152,8 @@ def _create_job_list(args, work_dir, log_file):
                                      "polished_{0}.fasta".format(i + 1))
         jobs.append(JobAlignment(prev_assembly, alignment_file, i + 1))
         jobs.append(JobPolishing(alignment_file, prev_assembly,
-                                 polished_file, i + 1))
+                                 polished_file, i + 1,
+                                 args.sequencing_platform))
         prev_assembly = polished_file
 
     for i, job in enumerate(jobs):
@@ -243,7 +242,8 @@ def main():
                         help="path to a file with reads in FASTA format")
     parser.add_argument("out_dir", metavar="out_dir",
                         help="output directory")
-    parser.add_argument("coverage", metavar="coverage", type=int,
+    parser.add_argument("coverage", metavar="coverage",
+                        type=lambda v: check_int_range(v, 1, 1000),
                         help="estimated assembly coverage")
     parser.add_argument("--debug", action="store_true",
                         dest="debug", default=False,
@@ -259,6 +259,10 @@ def main():
                         type=lambda v: check_int_range(v, 0, 10),
                         default=2, help="number of polishing iterations "
                         "(default: 2)")
+    parser.add_argument("-p", "--platform", dest="sequencing_platform",
+                        default="pacbio",
+                        choices=["pacbio", "nano", "pacbio_hi_err"],
+                        help="sequencing platform (default: pacbio)")
     parser.add_argument("-k", "--kmer-size", dest="kmer_size",
                         type=lambda v: check_int_range(v, 10, 32),
                         default=15, help="kmer size (default: 15)")
@@ -266,12 +270,14 @@ def main():
                         type=lambda v: check_int_range(v, 3000, 10000),
                         default=5000, help="minimum overlap between reads "
                         "(default: 5000)")
-    #parser.add_argument("-m", "--min-cov", dest="min_cov", type=int,
-    #                    default=None, help="minimum kmer coverage "
-    #                    "(default: auto)")
-    #parser.add_argument("-x", "--max-cov", dest="max_cov", type=int,
-    #                    default=None, help="maximum kmer coverage "
-    #                    "(default: auto)")
+    parser.add_argument("-m", "--min-coverage", dest="min_kmer_count",
+                        type=lambda v: check_int_range(v, 1, 1000),
+                        default=None, help="minimum kmer coverage "
+                        "(default: auto)")
+    parser.add_argument("-x", "--max-coverage", dest="max_kmer_count",
+                        type=lambda v: check_int_range(v, 1, 1000),
+                        default=None, help="maximum kmer coverage "
+                        "(default: auto)")
     parser.add_argument("--version", action="version", version=__version__)
     args = parser.parse_args()
 

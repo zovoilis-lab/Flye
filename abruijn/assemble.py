@@ -32,19 +32,18 @@ def check_binaries():
                                 .format(ASSEMBLE_BIN, e))
 
 
-def assemble(reads_file, out_file, kmer_size, min_overlap,
-             coverage, debug, log_file, num_threads):
+def assemble(args, out_file, log_file):
     logger.info("Assembling reads")
 
-    cmdline = [ASSEMBLE_BIN, "-k", str(kmer_size), "-l", log_file,
-               "-t", str(num_threads), "-v", str(min_overlap)]
-    if debug:
+    cmdline = [ASSEMBLE_BIN, "-k", str(args.kmer_size), "-l", log_file,
+               "-t", str(args.threads), "-v", str(args.min_overlap)]
+    if args.debug:
         cmdline.append("-d")
-    #if min_kmer_count is not None:
-    #    cmdline.extend(["-m", str(min_kmer_count)])
-    #if max_kmer_count is not None:
-    #    cmdline.extend(["-x", str(max_kmer_count)])
-    cmdline.extend([reads_file, out_file, str(coverage)])
+    if args.min_kmer_count is not None:
+        cmdline.extend(["-m", str(args.min_kmer_count)])
+    if args.max_kmer_count is not None:
+        cmdline.extend(["-x", str(args.max_kmer_count)])
+    cmdline.extend([args.reads, out_file, str(args.coverage)])
 
     try:
         subprocess.check_call(cmdline)

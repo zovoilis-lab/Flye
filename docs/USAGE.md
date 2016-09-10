@@ -38,10 +38,10 @@ You can try ABruijn assembly on these ready-to-use datasets right away:
 ### E. Coli Oxfore Nanopore data, released by the Loman lab:
 
     wget http://nanopore.s3.climb.ac.uk/MAP006-1_2D_pass.fasta
-	abruijn.py MAP006-PCR-1_2D_pass.fasta out_abruijn 60 --threads 8
+	abruijn.py MAP006-PCR-1_2D_pass.fasta out_abruijn 60 --platform nano --threads 4
 
 Where 60 is the dataset's coverage. Threads argument is optional, 
-you may adjust it for your environment. The assembl results will
+you may adjust it for your environment. The assembly results will
 be placed in 'out_abruijn' directory
 
 
@@ -49,9 +49,9 @@ Supported Input Data
 --------------------
 
 ABruijn was designed for assembly of long reads from both PacBio and 
-Oxford Nanopore technologies. For simplicity, input reads should be in FASTA format,
-so you will need to convert PacBio .h5 files to FASTA format using the official 
-tools prior running ABruijn.
+Oxford Nanopore technologies. Input reads should be in FASTA format,
+so you will need to convert raw PacBio / Oxford Nanopore files to FASTA format 
+using the corresponding official tools prior running ABruijn.
 
 ### PacBio data
 
@@ -71,36 +71,73 @@ Below are more detailed error estimates for E. Coli assemblies with lower covera
 	25x    687
 
 
+If the coverage of your bacterial dataset is significantly higher than 100x, you
+might consider to reduce the coverage by filtering out shorter reads - this
+might reduce the running time without affecting the quality. However, for some
+compliacated genomes (such as enriched with complicated tandem repeats) you might
+need all reads for an accurate structural assembly.
+
+
 ### Oxford Nanopore data
 
 We performed our benchmarks with Oxford Nanopore 2D pass reads with error rates 13-19%.
 As the reads are usually shorter and less accurate, you might need a deeper coverage 
-to get whole chromosomes assembled (60x as in the example above). For less deep datasets
-(30x) it is also possible to get a complete assembly, but you might need to adjust
-some parameters (as described below). Per-nucleotide accuracy is usually lower than with
-PacBio technology, especially in homopolimer regions.
+to get a complete chromosome assembly (60x as in the example above). For lower coverage datasets
+(30x) you might need to adjust some parameters (as described below) to get full chromosomes.
+Per-nucleotide accuracy is usually lower than with PacBio technology, especially in 
+homopolimer regions.
 
 Data Preparation
 ----------------
 
-ABruijn works directly with raw reads and does not require any prior error correction.
-The software will work on the corrected reads as well, but the running time might increase.
+ABruijn works directly with raw reads (after base calling) and does not require any 
+prior error correction. The software will work on the corrected reads as well, 
+but the running time might increase. 
+
+ABruijn automatically detects chimeric reads or reads with low quality ends, 
+so you do not need to manually do it before the assembly. However, it is always
+worth chechking reads for contamination, since it may affect the selection of solid
+kmers.
 
 
 Algorithm description
 ---------------------
 
+This is a brief description of ABruijn algorithm. Plase refer to the manuscript
+for more detailed information. The assembly pipeline is organized as follows:
+
+* Kmer counting / erronoeus kmer pre-filtering
+* Solid kmer selection (kmers with sufficient frequency, that are unlikely to be erroneous)
+* Finding read overlaps based on ABruijn graph
+* Detection of chimeric sequences
+* Contig assembly by read extension
+
+The resulting contig assembly is now simply a concatenation of read parts, 
+so it is error-prone. The next pipeline steps are aimed to polish this
+draft assembly to a high quality.
+
+* Alignment of all read on draft assembly using BLASR
+* Selection of solid regions
+* Read alignment is partitioned into mini-alignments (bubbles)
+* Error correction of each bubble using the maximum likelihood approach
+
+The polishing part is repeated multiple times (2 by default).
 
 
 Running time and memory requirements
 ------------------------------------
 
+Typically, assembly of a bacteria with 55x coverage takes less than an hour on a modern desktop,
+while yeast assembly takes about 5 hours. A eukariotyc genome of size 200 Mbp
+could be assembled within a day on a computational server with 64 CPUs.
 
 
-Parameters setting
-------------------
+Parameters description
+----------------------
 
 
 
 Resuming the existing jobs
 --------------------------
+
+Type --resume to resume the existing assembly from the last completed step.
