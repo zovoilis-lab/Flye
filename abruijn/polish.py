@@ -76,15 +76,16 @@ def _compose_sequence(consensus_files):
     Concatenates bubbles consensuses into genome
     """
     consensuses = defaultdict(list)
+    coverage = defaultdict(list)
     for file_name in consensus_files:
         with open(file_name, "r") as f:
             header = True
-            bubble_id = None
             for line in f:
                 if header:
                     tokens = line.strip().split(" ")
                     ctg_id = tokens[0][1:]
                     ctg_pos = int(tokens[1])
+                    coverage[ctg_id].append(int(tokens[2]))
                 else:
                     consensuses[ctg_id].append((ctg_pos, line.strip()))
                 header = not header
@@ -92,6 +93,10 @@ def _compose_sequence(consensus_files):
     polished_fasta = {}
     for ctg_id, seqs in consensuses.iteritems():
         sorted_seqs = map(lambda p: p[1], sorted(seqs, key=lambda p: p[0]))
-        polished_fasta[ctg_id] = "".join(sorted_seqs)
+        concat_seq = "".join(sorted_seqs)
+        mean_coverage = sum(coverage[ctg_id]) / len(coverage[ctg_id])
+        extended_id = "{0}_len:{1}_cov:{2}".format(ctg_id, len(concat_seq),
+                                                   mean_coverage)
+        polished_fasta[extended_id] = concat_seq
 
     return polished_fasta

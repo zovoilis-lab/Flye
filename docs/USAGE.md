@@ -59,17 +59,17 @@ Supported Input Data
 
 ABruijn was designed for assembly of long reads from both PacBio and 
 Oxford Nanopore technologies. Input reads should be in FASTA format,
-so you will need to convert raw PacBio / Oxford Nanopore files to FASTA format 
+you will need to convert raw PacBio / Oxford Nanopore files to FASTA format 
 using the corresponding official tools prior running ABruijn.
 
 ### PacBio data
 
 ABruijn was tested on the newest P6-C4 chemistry data with error rates 11-15%.
 Typically, 20x-30x coverage is enough for bacterial assembly to get a single contig
-for each chromosome without structural misassemblies. However, to get the best 
+per chromosome without structural misassemblies. However, to get the best 
 nucleotide-level quaity, you might need deeper coverage. For 55x E. Coli assembly
 ABruijn makes about 20 errors per genome (single nucleotide insertions/deletions). 
-Below are more detailed error estimates for E. Coli assemblies with lower coverage:
+Below are example error estimates for E. Coli assemblies with lower coverage:
 
     cov.   errors
     50x    33
@@ -90,9 +90,9 @@ need all reads for an accurate structural assembly.
 ### Oxford Nanopore data
 
 We performed our benchmarks with Oxford Nanopore 2D pass reads with error rates 13-19%.
-As the reads are usually shorter and less accurate, you might need a deeper coverage 
-to get a complete chromosome assembly (60x as in the example above). For lower coverage datasets
-(30x) you might need to adjust some parameters (as described below) to get full chromosomes.
+As the reads are usually shorter and less accurate, you might need deeper coverage 
+to get a complete chromosome assembly (60x as in the E. Coli example above). For lower coverage datasets
+(30x) you might need to adjust some parameters (as described below) to get complete chromosomes.
 Per-nucleotide accuracy is usually lower than with PacBio technology, especially in 
 homopolimer regions.
 
@@ -122,12 +122,12 @@ for more detailed information. The assembly pipeline is organized as follows:
 * Contig assembly by read extension
 
 The resulting contig assembly is now simply a concatenation of read parts, 
-so it is error-prone. The next pipeline steps are aimed to polish this
+and is error-prone. The next pipeline steps are aimed to polish this
 draft assembly to a high quality.
 
-* Alignment of all read on draft assembly using BLASR
+* Alignment of all read on the draft assembly using BLASR
 * Selection of solid regions
-* Read alignment is partitioned into mini-alignments (bubbles)
+* Reads alignment is partitioned into mini-alignments (bubbles)
 * Error correction of each bubble using the maximum likelihood approach
 
 The polishing part is repeated multiple times (2 by default).
