@@ -94,7 +94,7 @@ def rename(reads_in, rename_dict, out_file):
 
 def main():
     if len(sys.argv) != 4:
-        print("Usage: label-reads.py reads alignment fasta_out")
+        print("Usage: abruijn_label-reads.py reads alignment fasta_out")
         return 1
 
     alignment, mean_err = _parse_blasr(sys.argv[2])
