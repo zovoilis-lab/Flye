@@ -1,4 +1,4 @@
-#!/usr/bin/env python2.7
+#!/usr/bin/env python
 
 #(c) 2016 by Authors
 #This file is a part of ABruijn program.
