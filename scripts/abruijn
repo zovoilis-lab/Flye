@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 #(c) 2016 by Authors
 #This file is a part of ABruijn program.
 #Released under the BSD license (see LICENSE file)
@@ -13,6 +14,7 @@ import logging
 import argparse
 import json
 
+print(__file__) 
 import abruijn.alignment as aln
 import abruijn.bubbles as bbl
 import abruijn.polish as pol
@@ -292,4 +294,4 @@ def main():
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    main()
