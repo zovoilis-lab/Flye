@@ -4,7 +4,7 @@ ABruijn Installation
 Availability
 ------------
 
-ABuijn is available for Linux and MacOS platforms.
+ABuijn is available for Linux and MacOS platforms. Windows support is not guaranteed.
 
 
 Build requirements
@@ -31,7 +31,7 @@ First, to build native C++ modules type
 
 ABruijn also requires the BLASR aligner to be installed and available through PATH environment variable.
 For example if you have 'blasr' binary at '/aaa/bbb/blasr', you can type the following command
-to make it available for ABruijn:
+to make it visible for ABruijn:
 
     export $PATH=$PATH:/aaa/bbb/blasr
 
