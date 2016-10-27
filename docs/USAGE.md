@@ -116,7 +116,7 @@ Running time and memory requirements
 ------------------------------------
 
 Typically, assembly of a bacteria with 50x coverage takes less than an hour on a modern desktop,
-while yeast assembly takes about 11 hours. A eukariotyc genome of size 200 Mbp
+while yeast assembly takes about 5 hours. A eukariotyc genome of size 200 Mbp
 could be assembled within a day on a computational server with 64 CPUs.
 
 Memory requirement scales linearly with the genome size and reads coverage.
@@ -128,7 +128,7 @@ for different datasets.
     Genome         Size     Coverage   Wall_clock   CPU_time   RAM
     E. Coli        4. 6Mb   50         44m          2h40m      2 Gb
     X. Oryzae      5.1 Mb   140        2h55m        10h        15 Gb
-	S. Cerevisiae  12.2 Mb  120        11h15m       43h20m     28 Gb
+	S. Cerevisiae  12.2 Mb  120        4h50m        19h20m     28 Gb
 	B. Neritina*   200 Mb   30         48h5m        1400h      278 Gb
 
 * B. Neretina assembly also included symbiotic bacteria genomes.

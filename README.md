@@ -3,15 +3,16 @@ ABruijn assembler
 
 Version: 0.4b
 
-ABruijn is a de novo assembler for Pacbio and Oxford Nanopore reads.
-The algorithm is based on A-Bruijn graph and bypasses initial 
-error-correction step, producing a draft assembly of read-like quiality.
+ABruijn is a de novo assembler for PacBio and Oxford Nanopore Technologies reads.
+The algorithm is using A-Bruijn graph to find the overlaps between reads
+and does not require them to be error-corrected.  First, the algorithm produces
+a draft assembly by concatenating different parts of raw reads.
 This coarse sequence is then polished to a high quality assembly.
 
-ABruijn works with both bacterial and eukaryotic genomes. Typically, assembly
-of a bacteria with 5x coverage takes less than an hour on a modern desktop,
-while yeast assembly takes about 11 hours. A eukariotyc genome of size 200 Mbp
-could be assembled within a day on a computational server with 64 CPUs.
+ABruijn works for both bacterial and eukaryotic genomes. Typically, assembly
+of a bacteria with 50x coverage takes less than an hour on a modern desktop,
+while yeast assembly takes about 5 hours. A eukariotyc genome of size 200 Mbp
+could be assembled within a day on a computational server.
 
 
 Install
