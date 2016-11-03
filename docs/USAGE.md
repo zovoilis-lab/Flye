@@ -44,14 +44,24 @@ Examples
 
 You can try ABruijn assembly on these ready-to-use datasets:
 
-### E. coli Oxford Nanopore data, released by the Loman lab:
+### E. coli P6-C4 PacBio data
 
-    wget http://nanopore.s3.climb.ac.uk/MAP006-1_2D_pass.fasta
-	abruijn.py MAP006-PCR-1_2D_pass.fasta out_abruijn 60 --platform nano --threads 4
+The original dataset is available at the PacBio website: https://github.com/PacificBiosciences/DevNet/wiki/E.-coli-Bacterial-Assembly
+We coverted the raw 'bas.h5' file to the FASTA format for the convenience.
 
-with '60' being the dataset's coverage, the threads argument being optional 
-(you may adjust it for your environment), and 'out_abruijn' being the directory
+    wget https://github.com/fenderglass/datasets/raw/master/pacbio/E.coli_PacBio_40x.fasta
+	abruijn.py E.coli_PacBio_40x.fasta out_pacbio 40 --platform pacbio --threads 4
+
+with '40' being the dataset's coverage, the threads argument being optional 
+(you may adjust it for your environment), and 'out_pacbio' being the directory
 where the assembly results will be placed.
+
+### E. coli Oxford Nanopore data
+
+The dataset was originally released by the Loman lab: http://lab.loman.net/2015/09/24/first-sqk-map-006-experiment/
+
+    wget https://github.com/fenderglass/datasets/raw/master/ont/Loman_E.coli_MAP006-1_2D_50x.fasta
+	abruijn.py Loman_E.coli_MAP006-1_2D_50x.fasta out_nano 50 --platform nano --threads 4
 
 
 Supported Input Data
