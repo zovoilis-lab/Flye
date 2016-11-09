@@ -12,6 +12,6 @@ setup(name='abruijn',
       license='BSD-3-Clause',
       packages=['abruijn'],
       package_data={'abruijn': ['resource/*.mat']},
-      scripts = ['bin/abruijn-assemble', 'bin/abruijn-polish', 'scripts/abruijn'],
+      scripts = ['bin/abruijn-assemble', 'bin/abruijn-polish', 'bin/abruijn'],
       )
 

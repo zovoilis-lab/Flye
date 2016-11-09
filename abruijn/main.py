@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 #(c) 2016 by Authors
 #This file is a part of ABruijn program.
 #Released under the BSD license (see LICENSE file)
@@ -290,7 +289,3 @@ def main():
         return 1
 
     return 0
-
-
-if __name__ == "__main__":
-    sys.exit(main())
