@@ -4,3 +4,4 @@
 libbf/libbf.a
 bin/abruijn-assemble
 bin/abruijn-polish
+build

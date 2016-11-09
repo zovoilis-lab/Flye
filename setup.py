@@ -1,7 +1,11 @@
-from setuptools import setup, find_packages
-from os import system
+from distutils.core import setup
+from distutils.command.build import build as DistutilsBuild
+import os
 
-system('make')
+class MakeBuild(DistutilsBuild):
+    def run(self):
+        os.system('make')
+        DistutilsBuild.run(self)
 
 setup(name='abruijn',
       version='0.4b',
@@ -13,5 +17,5 @@ setup(name='abruijn',
       packages=['abruijn'],
       package_data={'abruijn': ['resource/*.mat']},
       scripts = ['bin/abruijn-assemble', 'bin/abruijn-polish', 'bin/abruijn'],
+      cmdclass={'build': MakeBuild}
       )
-
