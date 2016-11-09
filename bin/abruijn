@@ -13,7 +13,6 @@ import os
 import sys
 
 BIN_DIR = "bin"
-RESOURCE_DIR = "resource"
 
 #Check Python version
 if sys.version_info[:2] != (2, 7):

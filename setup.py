@@ -1,10 +1,18 @@
+#(c) 2016 by Authors
+#This file is a part of ABruijn program.
+#Released under the BSD license (see LICENSE file)
+
 from distutils.core import setup
 from distutils.command.build import build as DistutilsBuild
-import os
+import subprocess
 
 class MakeBuild(DistutilsBuild):
     def run(self):
-        os.system('make')
+        try:
+            subprocess.check_call(['make'])
+        except subprocess.CalledProcessError as e:
+            print "Compilation error: ", e
+            return
         DistutilsBuild.run(self)
 
 setup(name='abruijn',
