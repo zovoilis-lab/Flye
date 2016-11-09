@@ -4,11 +4,11 @@ ABruijn manual
 Quick usage
 -----------
 
-    usage: abruijn.py [-h] [--debug] [--resume] [-t THREADS] [-i NUM_ITERS]
-                      [-p {pacbio,nano,pacbio_hi_err}] [-k KMER_SIZE]
-                      [-o MIN_OVERLAP] [-m MIN_KMER_COUNT] [-x MAX_KMER_COUNT]
-                      [--version]
-                      reads out_dir coverage
+    usage: abruijn [-h] [--debug] [--resume] [-t THREADS] [-i NUM_ITERS]
+                   [-p {pacbio,nano,pacbio_hi_err}] [-k KMER_SIZE]
+                   [-o MIN_OVERLAP] [-m MIN_KMER_COUNT] [-x MAX_KMER_COUNT]
+                   [--version]
+                   reads out_dir coverage
     
     ABruijn: assembly of long and error-prone reads
     
@@ -50,7 +50,7 @@ The original dataset is available at the PacBio website (https://github.com/Paci
 We coverted the raw 'bas.h5' file to the FASTA format for the convenience.
 
     wget https://github.com/fenderglass/datasets/raw/master/pacbio/E.coli_PacBio_40x.fasta
-	abruijn.py E.coli_PacBio_40x.fasta out_pacbio 40 --platform pacbio --threads 4
+	abruijn E.coli_PacBio_40x.fasta out_pacbio 40 --platform pacbio --threads 4
 
 with '40' being the dataset's coverage, the threads argument being optional 
 (you may adjust it for your environment), and 'out_pacbio' being the directory
@@ -61,7 +61,7 @@ where the assembly results will be placed.
 The dataset was originally released by the Loman lab (http://lab.loman.net/2015/09/24/first-sqk-map-006-experiment/).
 
     wget https://github.com/fenderglass/datasets/raw/master/ont/Loman_E.coli_MAP006-1_2D_50x.fasta
-	abruijn.py Loman_E.coli_MAP006-1_2D_50x.fasta out_nano 50 --platform nano --threads 4
+	abruijn Loman_E.coli_MAP006-1_2D_50x.fasta out_nano 50 --platform nano --threads 4
 
 
 Supported Input Data
