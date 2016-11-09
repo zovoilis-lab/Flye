@@ -239,10 +239,10 @@ def main():
                                      " error-prone reads")
 
     parser.add_argument("reads", metavar="reads",
-                        help="path to a file with reads in FASTA format")
+                        help="path to reads file (FASTA format)")
     parser.add_argument("out_dir", metavar="out_dir",
                         help="output directory")
-    parser.add_argument("coverage", metavar="coverage",
+    parser.add_argument("coverage", metavar="coverage (integer)",
                         type=lambda v: check_int_range(v, 1, 1000),
                         help="estimated assembly coverage")
     parser.add_argument("--debug", action="store_true",

@@ -4,7 +4,7 @@ ABruijn Installation
 Availability
 ------------
 
-ABuijn is available for Linux and MacOS platforms. Windows support is not guaranteed.
+ABruijn is available for Linux and MacOS platforms. Windows support is not guaranteed.
 
 
 Build requirements
@@ -23,14 +23,14 @@ Runtime Requirements
 
 Installation
 ------------
-ABruijn is written in both C++ and Python and requires Python 2.7 environment.
+ABruijn is written in both C++ and Python and requires a Python 2.7 environment.
 
-First, to build native C++ modules type
+First, to build the native C++ modules, type
 
     make
 
-ABruijn also requires the BLASR aligner to be installed and available through PATH environment variable.
-For example if you have 'blasr' binary at '/aaa/bbb/blasr', you can type the following command
+ABruijn also requires the BLASR aligner to be installed and available through the PATH environment variable.
+For example if you have the 'blasr' binary at '/aaa/bbb/blasr', you can type the following command
 to make it visible for ABruijn:
 
     export $PATH=$PATH:/aaa/bbb/blasr
@@ -39,4 +39,4 @@ You can test if the binary is available by running:
 
     which blasr
 
-in ABruijn directory - you should see '/aaa/bbb/blasr' as output.
+in the ABruijn directory; you should see '/aaa/bbb/blasr' as the output.
