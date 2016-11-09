@@ -1,7 +1,7 @@
 ABruijn assembler
 ==================
 
-Version: 0.4b
+Version: 1.0
 
 ABruijn is a de novo assembler for PacBio and Oxford Nanopore Technologies reads.
 The algorithm uses an A-Bruijn graph to find the overlaps between reads
