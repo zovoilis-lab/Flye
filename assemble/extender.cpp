@@ -62,6 +62,7 @@ ContigPath Extender::extendContig(FastaRecord::Id startRead)
 	{
 		FastaRecord::Id extRead = this->stepRight(curRead);
 
+		/*
 		if (extRead != FastaRecord::ID_NONE && _chromosomeStart.empty())
 		{
 			for (auto& ovlp : _ovlpDetector.getOverlapIndex().at(extRead))
@@ -72,7 +73,7 @@ ContigPath Extender::extendContig(FastaRecord::Id startRead)
 					_chromosomeStart.insert(ovlp.extId);
 				}
 			}
-		}
+		}*/
 
 		if (extRead != FastaRecord::ID_NONE) 
 		{
@@ -86,6 +87,7 @@ ContigPath Extender::extendContig(FastaRecord::Id startRead)
 			Logger::get().debug() << "No extension found"; 
 		}
 
+		/*
 		if (!_overlapsStart && _chromosomeStart.count(extRead) && 
 			_rightExtension)
 		{
@@ -93,7 +95,7 @@ ContigPath Extender::extendContig(FastaRecord::Id startRead)
 			contigPath.circular = true;
 			contigPath.reads.push_back(extRead);
 			break;
-		}
+		}*/
 
 		if (_visitedReads.count(extRead) || extRead == FastaRecord::ID_NONE)
 		{
@@ -133,6 +135,7 @@ void Extender::assembleContigs()
 {
 	Logger::get().info() << "Extending reads";
 
+	/*
 	uint64_t lenSum = 0;
 	for (auto indexPair : _seqContainer.getIndex()) 
 	{
@@ -143,6 +146,7 @@ void Extender::assembleContigs()
 	}
 	_minimumShift = lenSum / _seqContainer.getIndex().size() 
 						/ Constants::shiftToReadLen;
+	*/
 
 	//left for debugging
 	//for (auto& indexPair : _seqContainer.getIndex())
@@ -152,16 +156,16 @@ void Extender::assembleContigs()
 	//}
 	//
 
-	const int MIN_EXTENSIONS = std::max(_coverage / 
-										Constants::minExtensionsRate, 1);
+	//const int MIN_EXTENSIONS = std::max(_coverage / 
+	//									Constants::minExtensionsRate, 1);
 	_visitedReads.clear();
 	for (auto& indexPair : _seqContainer.getIndex())
 	{	
-		if (_visitedReads.count(indexPair.first) ||
-			_chimDetector.isChimeric(indexPair.first) ||
-			this->countRightExtensions(indexPair.first) < MIN_EXTENSIONS ||
-			this->countRightExtensions(indexPair.first.rc()) < MIN_EXTENSIONS ||
-			this->isBranching(indexPair.first)) 
+		if (_visitedReads.count(indexPair.first))
+			//_chimDetector.isChimeric(indexPair.first) ||
+			//this->countRightExtensions(indexPair.first) < MIN_EXTENSIONS ||
+			//this->countRightExtensions(indexPair.first.rc()) < MIN_EXTENSIONS ||
+			//this->isBranching(indexPair.first)) 
 		{
 			continue;
 		}
@@ -170,15 +174,15 @@ void Extender::assembleContigs()
 		//marking visited reads
 		for (auto& readId : path.reads)
 		{
-			if (!this->isBranching(readId) &&
-				!this->isBranching(readId.rc()))
-			{
+			//if (!this->isBranching(readId) &&
+			//	!this->isBranching(readId.rc()))
+			//{
 				for (auto& ovlp : _ovlpDetector.getOverlapIndex().at(readId))
 				{
 					_visitedReads.insert(ovlp.extId);
 					_visitedReads.insert(ovlp.extId.rc());
 				}
-			}
+			//}
 		}
 
 		if (path.reads.size() >= Constants::minReadsInContig)
@@ -190,7 +194,7 @@ void Extender::assembleContigs()
 	Logger::get().info() << "Assembled " << _contigPaths.size() << " contigs";
 }
 
-
+/*
 void Extender::coveredReads(const std::unordered_set<FastaRecord::Id>& allReads,
 					   		FastaRecord::Id startRead, 
 						    std::unordered_set<FastaRecord::Id>& result)
@@ -288,36 +292,50 @@ int Extender::rightMultiplicity(FastaRecord::Id readId)
 	//Logger::get().debug() << "\tClusters: " << strClusters;
 
 	return std::max(1UL, clusterIds.size());
-}
+}*/
 
 
 //makes one extension to the right
 FastaRecord::Id Extender::stepRight(FastaRecord::Id readId)
 {
 	auto& overlaps = _ovlpDetector.getOverlapIndex().at(readId);
-	std::unordered_set<FastaRecord::Id> extensions;
+	std::vector<OverlapRange> extensions;
 
-	bool locOverlapsStart = false;
-	std::vector<int> extensionShifts;
+	//bool locOverlapsStart = false;
+	//std::vector<int> extensionShifts;
 	for (auto& ovlp : overlaps)
 	{
 		if (this->extendsRight(ovlp)) 
 		{
+			/*
 			if (_chromosomeStart.count(ovlp.extId))
 			{
 				locOverlapsStart = true;
 				Logger::get().debug() << "Bumped into start";
 				//circular chromosome
 				if (!_overlapsStart && _rightExtension) return ovlp.extId;	
-			}
+			}*/
+			extensions.push_back(ovlp);
 
-			if (this->countRightExtensions(ovlp.extId) > 0)
+			/*if (this->countRightExtensions(ovlp.extId) > 0)
 			{
 				extensions.insert(ovlp.extId);
 				extensionShifts.push_back(ovlp.rightShift);
-			}
+			}*/
 		}
 	}
+
+	std::sort(extensions.begin(), extensions.end(), 
+			  [](const OverlapRange& a, const OverlapRange& b)
+			  	 {return a.curRange() > b.curRange();});
+
+	for (auto& ovlp : extensions)
+	{
+		if (this->countRightExtensions(ovlp.extId) > 0) return ovlp.extId;
+	}
+
+	return FastaRecord::ID_NONE;
+	/*
 	if (!_chromosomeStart.empty() && _overlapsStart && !locOverlapsStart) 
 	{
 		_overlapsStart = false;
@@ -384,8 +402,10 @@ FastaRecord::Id Extender::stepRight(FastaRecord::Id readId)
 	}
 
 	return bestExtension;
+	*/
 }
 
+/*
 bool Extender::stepAhead(FastaRecord::Id readId)
 {
 	if (this->isBranching(readId) && this->isBranching(readId.rc())) 
@@ -418,8 +438,8 @@ bool Extender::stepAhead(FastaRecord::Id readId)
 
 	return false;
 }
-
-
+*/
+/*
 bool Extender::resolvesRepeat(FastaRecord::Id leftRead, 
 							  FastaRecord::Id rightRead)
 {
@@ -440,7 +460,7 @@ bool Extender::majorClusterAgreement(FastaRecord::Id leftRead,
 
 	return _maxClusters[leftRead].empty() || 
 		   _maxClusters[leftRead].count(rightRead);
-}
+}*/
 
 int Extender::countRightExtensions(FastaRecord::Id readId)
 {
@@ -451,7 +471,7 @@ int Extender::countRightExtensions(FastaRecord::Id readId)
 	}
 	return count;
 }
-
+/*
 bool Extender::isBranching(FastaRecord::Id readId)
 {
 	if (!_readsMultiplicity.count(readId))
@@ -459,7 +479,7 @@ bool Extender::isBranching(FastaRecord::Id readId)
 		_readsMultiplicity[readId] = this->rightMultiplicity(readId);
 	}
 	return _readsMultiplicity[readId] > 1;
-}
+}*/
 
 bool Extender::extendsRight(const OverlapRange& ovlp)
 {
@@ -467,7 +487,8 @@ bool Extender::extendsRight(const OverlapRange& ovlp)
 		   ovlp.rightShift > Constants::maximumJump;
 }
 
+/*
 bool Extender::coversRight(const OverlapRange& ovlp)
 {
 	return ovlp.rightShift > 0;
-}
+}*/

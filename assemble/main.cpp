@@ -14,6 +14,7 @@
 #include "parameters_estimator.h"
 #include "logger.h"
 #include "config.h"
+#include "assembly_graph.h"
 
 bool parseArgs(int argc, char** argv, std::string& readsFasta, 
 			   std::string& outAssembly, std::string& logFile, int& coverage,
@@ -144,10 +145,25 @@ int main(int argc, char** argv)
 		Logger::get().debug() << "Reading FASTA";
 		seqContainer.readFasta(readsFasta);
 		VertexIndex& vertexIndex = VertexIndex::get();
+	
+		/////
+		vertexIndex.countKmers(seqContainer, 1);
+		vertexIndex.buildIndex(1, 10000);
+		AssemblyGraph ag;
+		ag.construct();
+		
+		if (!overlapsFile.empty())
+		{
+			Logger::get().debug() << "Saving overlaps to " << overlapsFile;
+			ag.saveOverlaps(overlapsFile);
+		}
+
+		return 0;
+		/////
 
 		//rough estimate
 		size_t hardThreshold = std::max(1, coverage / 
-										   Constants::hardMinCoverageRate);
+										Constants::hardMinCoverageRate);
 		vertexIndex.countKmers(seqContainer, hardThreshold);
 
 		if (maxKmerCov == -1)
