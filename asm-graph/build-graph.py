@@ -7,9 +7,10 @@ from itertools import combinations
 
 from Bio import SeqIO
 import networkx as nx
-import Queue
+
 
 OVERHANG = 1000
+
 
 class Overlap:
     def __init__(self, cur_id, cur_start, cur_end,
@@ -21,6 +22,7 @@ class Overlap:
         self.ext_start = ext_start
         self.ext_end = ext_end
         self.paired = None
+        self.knot = None
 
     def cur_range(self):
         return self.cur_end - self.cur_start
@@ -29,8 +31,9 @@ class Overlap:
         return (min(self.cur_end, other.cur_end) -
                 max(self.cur_start, other.cur_start))
 
-#Junction = namedtuple("Junction", ["cur_id", "cur_pos", "ext_id",
-#                                   "ext_pos", "j_id", "type", "complete"])
+Knot = namedtuple("Knot", ["start_id", "end_id", "length"])
+SeqBlock = namedtuple("SeqBlock", ["start", "end", "knot"])
+
 
 def main():
     if len(sys.argv) != 4:
@@ -58,7 +61,7 @@ def main():
 
             exists = False
             for other_ovlp in overlaps[cur_id]:
-                if ovlp.cur_intersect(other_ovlp) > 0:
+                if ovlp.cur_start == other_ovlp.cur_start:
                     exists = True
                     break
             if exists:
@@ -75,7 +78,7 @@ def main():
             overlaps[ovlp.cur_id].append(ovlp)
             overlaps[ovlp.ext_id].append(paired_ovlp)
 
-    #form overlap clusters
+    #form homology clusters
     for seq in fasta_seqs:
         for o1, o2 in combinations(overlaps[seq], 2):
             if o1.cur_intersect(o2) > 0:
@@ -86,44 +89,73 @@ def main():
         overlaps[seq].sort(key=lambda o: o.cur_start)
         for ovlp in overlaps[seq]:
             clusters[Find(ovlp)].append(ovlp)
+            ovlp.knot = Find(ovlp)
+    ##
 
+    ##define knots
     graph = nx.MultiDiGraph()
     node_id = 0
-    repeats = {}
+    knots = {}
 
     for block in clusters:
         lengths = map(lambda o: o.cur_range(), clusters[block])
         mean_len = sum(lengths) / len(lengths)
         graph.add_edge(node_id, node_id + 1,
-                       label="rep, len = {0}".format(mean_len))
-        repeats[block] = (node_id, node_id + 1, mean_len)
+                       label="repeat, len = {0}".format(mean_len),
+                       color="red")
+        knots[block] = Knot(node_id, node_id + 1, mean_len)
         node_id += 2
+    ###
 
+    #traverse the sequences and build graph
     for seq in fasta_seqs:
         if not overlaps[seq]:
             continue
 
-        if overlaps[seq][0].cur_start > OVERHANG:
-            graph.add_edge(node_id, repeats[Find(overlaps[seq][0])][0],
+        #cluster overlapping overlaps
+        for ovlp in overlaps[seq]:
+            MakeSet(ovlp)
+        for o1, o2 in combinations(overlaps[seq], 2):
+            if o1.cur_intersect(o2) > 0:
+                Union(o1, o2)
+        seq_clusters = defaultdict(list)
+        for ovlp in overlaps[seq]:
+            seq_clusters[Find(ovlp)].append(ovlp)
+
+        blocks = []
+        for cl, cl_ovlps in seq_clusters.items():
+            start = min(map(lambda o: o.cur_start, cl_ovlps))
+            end = max(map(lambda o: o.cur_end, cl_ovlps))
+            blocks.append(SeqBlock(start, end, cl_ovlps[0].knot))
+        blocks.sort(key=lambda sb: sb.start)
+
+        print(fasta_names[seq], len(blocks), len(overlaps[seq]))
+
+        #sequence start
+        if blocks[0].start > OVERHANG:
+            graph.add_edge(node_id, knots[blocks[0].knot].start_id,
                            label="{0}[0:{1}]".format(fasta_names[seq],
-                                                overlaps[seq][0].cur_start))
+                                                     blocks[0].start))
             node_id += 1
 
-        for o1, o2 in zip(overlaps[seq][:-1], overlaps[seq][1:]):
-            graph.add_edge(repeats[Find(o1)][1], repeats[Find(o2)][0],
+        #intermediate edges
+        for o1, o2 in zip(blocks[:-1], blocks[1:]):
+            graph.add_edge(knots[o1.knot].end_id, knots[o2.knot].start_id,
                            label="{0}[{1}:{2}]".format(fasta_names[seq],
-                                                       o1.cur_start,
-                                                       o2.cur_start))
+                                                       o1.end, o2.start))
 
-        if len(fasta_seqs[seq]) - overlaps[seq][-1].cur_end > OVERHANG:
-            graph.add_edge(repeats[Find(overlaps[seq][-1])][1], node_id,
+        #sequence end
+        if len(fasta_seqs[seq]) - blocks[-1].end > OVERHANG:
+            graph.add_edge(knots[blocks[-1].knot].end_id, node_id,
                            label="{0}[{1}:{2}]".format(fasta_names[seq],
-                                     overlaps[seq][-1].cur_end,
+                                     blocks[-1].end,
                                      len(fasta_seqs[seq])))
             node_id += 1
 
     nx.write_dot(graph, sys.argv[3])
 
+
+#disjoint sets implementation
 def MakeSet(x):
     x.parent = x
     x.rank = 0
@@ -147,6 +179,7 @@ def Find(x):
     else:
        x.parent = Find(x.parent)
        return x.parent
+###############################
 
 
 if __name__ == "__main__":

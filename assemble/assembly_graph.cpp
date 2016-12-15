@@ -27,7 +27,7 @@ AssemblyGraph::jumpTest(int32_t curPrev, int32_t curNext,
 {
 	if (curNext - curPrev > Constants::maximumJump) return J_END;
 
-	const int JMP = 100;
+	const int JMP = 200;
 	if (0 < curNext - curPrev && curNext - curPrev < JMP &&
 		0 < extNext - extPrev && extNext - extPrev < JMP)
 	{
