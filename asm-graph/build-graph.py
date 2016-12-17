@@ -31,6 +31,14 @@ class Overlap:
         return (min(self.cur_end, other.cur_end) -
                 max(self.cur_start, other.cur_start))
 
+    def similar(self, other):
+        THRESHOLD = 150
+        return (abs(self.cur_start - other.cur_start) < THRESHOLD and
+                abs(self.cur_end - other.cur_end) < THRESHOLD and
+                abs(self.ext_start - other.ext_start) < THRESHOLD and
+                abs(self.ext_end - other.ext_end) < THRESHOLD)
+
+
 Knot = namedtuple("Knot", ["start_id", "end_id", "length"])
 SeqBlock = namedtuple("SeqBlock", ["start", "end", "knot"])
 
@@ -61,11 +69,11 @@ def main():
 
             exists = False
             for other_ovlp in overlaps[cur_id]:
-                if ovlp.cur_start == other_ovlp.cur_start:
+                if ovlp.similar(other_ovlp):
                     exists = True
                     break
-            if exists:
-                continue
+            #if exists:
+            #    continue
 
             paired_ovlp = Overlap(ext_id, ext_start, ext_end,
                                   cur_id, cur_start, cur_end)
@@ -99,7 +107,8 @@ def main():
 
     for block in clusters:
         lengths = map(lambda o: o.cur_range(), clusters[block])
-        mean_len = sum(lengths) / len(lengths)
+        #mean_len = sum(lengths) / len(lengths)
+        mean_len = max(lengths)
         graph.add_edge(node_id, node_id + 1,
                        label="repeat, len = {0}".format(mean_len),
                        color="red")

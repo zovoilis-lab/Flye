@@ -4,4 +4,5 @@
 libbf/libbf.a
 bin/abruijn-assemble
 bin/abruijn-polish
+bin/abruijn-knot
 build

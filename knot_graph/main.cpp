@@ -8,28 +8,25 @@
 #include "vertex_index.h"
 #include "sequence_container.h"
 #include "overlap.h"
-#include "chimera.h"
-#include "extender.h"
-#include "contig_generator.h"
-#include "parameters_estimator.h"
 #include "logger.h"
 #include "config.h"
+#include "assembly_graph.h"
 
 bool parseArgs(int argc, char** argv, std::string& readsFasta, 
-			   std::string& outAssembly, std::string& logFile, int& coverage,
+			   std::string& outAssembly, std::string& logFile, std::string& inAssembly,
 			   int& kmerSize, int& minKmer, int& maxKmer, bool& debug,
 			   size_t& numThreads, std::string& overlapsFile, int& minOverlap)
 {
 	auto printUsage = [argv]()
 	{
 		std::cerr << "Usage: " << argv[0]
-				  << "\treads_file out_assembly coverage \n\t\t\t\t"
+				  << "\tin_assembly reads_file out_assembly \n\t\t\t\t"
 				  << "[-k kmer_size] [-m min_kmer_cov] \n\t\t\t\t"
 				  << "[-x max_kmer_cov] [-l log_file] [-t num_threads] [-d]\n\n"
 				  << "positional arguments:\n"
+				  << "\tin_assembly\tpath to input assembly\n"
 				  << "\treads file\tpath to fasta with reads\n"
-				  << "\tout_assembly\tpath to output file\n"
-				  << "\tcoverage\testimated assembly coverage\n"
+				  << "\tout_assembly\tpath to output assembly\n"
 				  << "\noptional arguments:\n"
 				  << "\t-k kmer_size\tk-mer size [default = 15] \n"
 				  << "\t-m min_kmer_cov\tminimum k-mer coverage "
@@ -97,9 +94,9 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 		printUsage();
 		return false;
 	}
-	readsFasta = *(argv + optind);
-	outAssembly = *(argv + optind + 1);
-	coverage = atoi(*(argv + optind + 2));
+	inAssembly = *(argv + optind);
+	readsFasta = *(argv + optind + 1);
+	outAssembly = *(argv + optind + 2);
 
 	return true;
 }
@@ -115,16 +112,16 @@ int main(int argc, char** argv)
 	int kmerSize = 0;
 	int minKmerCov = 0;
 	int maxKmerCov = 0;
-	int coverage = 0;
 	int minOverlap = 0;
 	bool debugging = false;
 	size_t numThreads;
 	std::string readsFasta;
+	std::string inAssembly;
 	std::string outAssembly;
 	std::string logFile;
 	std::string overlapsFile;
 
-	if (!parseArgs(argc, argv, readsFasta, outAssembly, logFile, coverage,
+	if (!parseArgs(argc, argv, readsFasta, outAssembly, logFile, inAssembly,
 				   kmerSize, minKmerCov, maxKmerCov, debugging, numThreads,
 				   overlapsFile, minOverlap)) 
 	{
@@ -142,27 +139,13 @@ int main(int argc, char** argv)
 		SequenceContainer& seqContainer = SequenceContainer::get();
 		Logger::get().debug() << "Build date: " << __DATE__ << " " << __TIME__;
 		Logger::get().debug() << "Reading FASTA";
-		seqContainer.readFasta(readsFasta);
+		seqContainer.readFasta(inAssembly);
 		VertexIndex& vertexIndex = VertexIndex::get();
-	
-		//rough estimate
-		size_t hardThreshold = std::max(1, coverage / 
-										Constants::hardMinCoverageRate);
-		vertexIndex.countKmers(seqContainer, hardThreshold);
 
-		if (maxKmerCov == -1)
-		{
-			maxKmerCov = Constants::repeatCoverageRate * coverage;
-		}
-		if (minKmerCov == -1)
-		{
-			ParametersEstimator estimator;
-			minKmerCov = estimator.estimateMinKmerCount(coverage, maxKmerCov);
-		}
-
-		vertexIndex.buildIndex(minKmerCov, maxKmerCov);
-
-		OverlapDetector ovlp(coverage);
+		vertexIndex.countKmers(seqContainer, 1);
+		vertexIndex.buildIndex(1, 10000);
+		
+		OverlapDetector ovlp(10);
 		if (overlapsFile.empty())
 		{
 			ovlp.findAllOverlaps();
@@ -181,17 +164,9 @@ int main(int argc, char** argv)
 				ovlp.saveOverlaps(overlapsFile);
 			}
 		}
-		vertexIndex.clear();
 
-		ChimeraDetector chimDetect(coverage, ovlp);
-		chimDetect.detectChimeras();
-
-		Extender extender(ovlp, chimDetect, coverage);
-		extender.assembleContigs();
-
-		ContigGenerator contGen(extender, ovlp);
-		contGen.generateContigs();
-		contGen.outputContigs(outAssembly);
+		AssemblyGraph ag;
+		ag.construct(ovlp);
 	}
 	catch (std::runtime_error& e)
 	{
