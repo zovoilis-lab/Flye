@@ -50,6 +50,7 @@ public:
 	}
 
 	void construct(OverlapDetector& ovlp);
+	void untangle();
 	void outputDot(const std::string& filename);
 
 	typedef std::unordered_map<FastaRecord::Id, 
@@ -59,7 +60,7 @@ private:
 	const SequenceContainer& _seqReads;
 
 	std::vector<Knot> _knots;
-	std::unordered_map<FastaRecord::Id, std::vector<Edge>> _edges;
+	std::unordered_map<FastaRecord::Id, std::list<Edge>> _edges;
 	
 	const size_t SEQ_BEGIN = 0;
 	const size_t SEQ_END = 1;

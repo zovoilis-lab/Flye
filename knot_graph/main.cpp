@@ -172,6 +172,7 @@ int main(int argc, char** argv)
 		AssemblyGraph ag(seqAssembly, seqReads);
 		ag.construct(ovlp);
 		ag.outputDot(outAssembly);
+		ag.untangle();
 	}
 	catch (std::runtime_error& e)
 	{
