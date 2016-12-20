@@ -90,6 +90,7 @@ public:
 	typedef std::unordered_map<FastaRecord::Id, 
 							   FastaRecord> SequenceIndex;
 
+	SequenceContainer() {}
 	static SequenceContainer& get()
 	{
 		static SequenceContainer container;
@@ -107,7 +108,6 @@ public:
 	void 	readFasta(const std::string& filename);
 
 private:
-	SequenceContainer() {}
 
 	size_t 	getSequences(std::vector<FastaRecord>& record, 
 						 const std::string& fileName);

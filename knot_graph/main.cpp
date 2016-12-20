@@ -136,13 +136,17 @@ int main(int argc, char** argv)
 		Logger::get().setDebugging(debugging);
 		if (!logFile.empty()) Logger::get().setOutputFile(logFile);
 
-		SequenceContainer& seqContainer = SequenceContainer::get();
 		Logger::get().debug() << "Build date: " << __DATE__ << " " << __TIME__;
 		Logger::get().debug() << "Reading FASTA";
-		seqContainer.readFasta(inAssembly);
+
+		SequenceContainer& seqAssembly = SequenceContainer::get();
+		seqAssembly.readFasta(inAssembly);
+		SequenceContainer seqReads;
+		seqReads.readFasta(readsFasta);
+
 		VertexIndex& vertexIndex = VertexIndex::get();
 
-		vertexIndex.countKmers(seqContainer, 1);
+		vertexIndex.countKmers(seqAssembly, 1);
 		vertexIndex.buildIndex(1, 10000);
 		
 		OverlapDetector ovlp(10);
@@ -165,8 +169,9 @@ int main(int argc, char** argv)
 			}
 		}
 
-		AssemblyGraph ag;
+		AssemblyGraph ag(seqAssembly, seqReads);
 		ag.construct(ovlp);
+		ag.outputDot(outAssembly);
 	}
 	catch (std::runtime_error& e)
 	{
