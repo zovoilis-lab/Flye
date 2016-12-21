@@ -49,8 +49,8 @@ public:
 		_knots.push_back(Knot(SEQ_END));
 	}
 
-	void construct(OverlapContainer& ovlp);
-	void untangle();
+	void construct(const OverlapContainer& ovlp);
+	void untangle(const OverlapContainer& ovlp);
 	void outputDot(const std::string& filename);
 
 	typedef std::unordered_map<FastaRecord::Id, 

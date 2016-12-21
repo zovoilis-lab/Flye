@@ -17,7 +17,7 @@ namespace
 	};
 }
 
-void AssemblyGraph::construct(OverlapContainer& ovlpContainer)
+void AssemblyGraph::construct(const OverlapContainer& ovlpContainer)
 {
 	const int OVLP_THR = 0;
 
@@ -184,116 +184,96 @@ namespace
 	};
 }
 
-void AssemblyGraph::untangle()
+void AssemblyGraph::untangle(const OverlapContainer& ovlpContainer)
 {
-	std::unordered_map<Kmer, std::vector<EdgePos>> inIndex;
-	std::unordered_map<Kmer, std::vector<EdgePos>> outIndex;
-	int32_t FLANK = 1000;
+	std::vector<Edge*> inEdges;
+	std::vector<Edge*> outEdges;
+	const int OVERHANG = 500;
 
 	for (auto& knot : _knots)
 	{
 		if (knot.knotId <= SEQ_END) continue;
 
-		//in edges
 		for (Edge* edge : knot.inEdges)
 		{
-			int32_t leftEnd = std::max(edge->seqEnd - FLANK, edge->seqBegin);
-			auto flankingSeq = _seqAssembly.getIndex().at(edge->seqId)
-									.sequence.substr(leftEnd, 
-													 edge->seqEnd - leftEnd);
-			for (size_t i = 0; i < flankingSeq.length() - 
-				 Parameters::kmerSize; ++i)
-			{
-				auto kmer = flankingSeq.substr(i, Parameters::kmerSize);
-				inIndex[Kmer(kmer)].emplace_back(edge, i + leftEnd);
-			}
+			inEdges.push_back(edge);
 		}
-
-		//out edges
 		for (Edge* edge : knot.outEdges)
 		{
-			int32_t rightEnd = std::min(edge->seqBegin + FLANK, edge->seqEnd);
-			auto flankingSeq = _seqAssembly.getIndex().at(edge->seqId)
-								.sequence.substr(edge->seqBegin, 
-												 rightEnd - edge->seqBegin);
-			for (size_t i = 0; i < flankingSeq.length() - 
-				 Parameters::kmerSize; ++i)
-			{
-				auto kmer = flankingSeq.substr(i, Parameters::kmerSize);
-				outIndex[Kmer(kmer)].emplace_back(edge, i + edge->seqBegin);
-			}
+			outEdges.push_back(edge);
 		}
 	}
-	std::cout << inIndex.size() << " " << outIndex.size() << std::endl;
 
-	std::unordered_map<Edge*, std::vector<EdgePos>> inCounts;
-	std::unordered_map<Edge*, std::vector<EdgePos>> outCounts;
-	for (auto& idFastaPair : _seqReads.getIndex())
+	int numConnections = 0;
+	for (auto seqOvelaps : ovlpContainer.getOverlapIndex())
 	{
-		inCounts.clear();
-		outCounts.clear();
-		for (size_t i = 0; i < idFastaPair.second.sequence.length() - 
-			 Parameters::kmerSize; ++i)
+		std::unordered_set<Edge*> inSupport;
+		std::unordered_set<Edge*> outSupport;
+		for (auto& ovlp : seqOvelaps.second)
 		{
-			auto kmer = idFastaPair.second.sequence
-									.substr(i, Parameters::kmerSize);
-			for (auto& edgePos : inIndex[Kmer(kmer)])
-				inCounts[edgePos.edge].emplace_back(edgePos.edge, i);
+			for (Edge* edge : inEdges)
+			{
+				if (ovlp.extId != edge->seqId) continue;
+				
+				int32_t intersect = std::min(ovlp.extEnd, edge->seqEnd) -
+									std::max(ovlp.extBegin, edge->seqBegin);
 
-			for (auto& edgePos : outIndex[Kmer(kmer)])
-				outCounts[edgePos.edge].emplace_back(edgePos.edge, i);
+				//TODO: overhangs wrt to unique edges
+				//TODO: agreement with the graph structure
+				if (intersect < 0 ||
+					edge->seqEnd - ovlp.extEnd > OVERHANG ||
+					edge->seqEnd - ovlp.extBegin < OVERHANG ||
+					std::min(ovlp.curBegin, edge->seqBegin) > OVERHANG) 
+				{
+					continue;
+				}
+
+				inSupport.insert(edge);
+				//std::cout << "IN: " << _seqAssembly.seqName(edge->seqId)
+				//		  << " " << edge->seqEnd
+				//		  << " " << edge->seqEnd - ovlp.extBegin << std::endl;
+			}
+
+			for (Edge* edge : outEdges)
+			{
+				if (ovlp.extId != edge->seqId) continue;
+				
+				int32_t intersect = std::min(ovlp.extEnd, edge->seqEnd) -
+									std::max(ovlp.extBegin, edge->seqBegin);
+
+				int32_t readOvhg = _seqReads.seqLen(ovlp.curId) - ovlp.curEnd;
+				int32_t asmOvhg = _seqAssembly.seqLen(ovlp.extId) - ovlp.extEnd;
+				if (intersect < 0 ||
+					ovlp.extBegin - edge->seqBegin > OVERHANG ||
+					ovlp.extEnd - edge->seqBegin < OVERHANG ||
+					std::min(readOvhg, asmOvhg) > OVERHANG)
+				{
+					continue;
+				}
+
+				outSupport.insert(edge);
+				//std::cout << "OUT: " << _seqAssembly.seqName(edge->seqId)
+				//		  << " " << edge->seqEnd
+				//		  << " " << ovlp.extEnd - edge->seqBegin << std::endl;
+			}
 		}
 
-		for (auto inEdgeCount : inCounts)
+		if (inSupport.size() == 1 && outSupport.size() == 1)
 		{
-			if (inEdgeCount.second.size() < 150) continue;
+			Edge* leftEdge = *inSupport.begin();
+			Edge* rightEdge = *outSupport.begin();
 
-			for (auto outEdgeCount : outCounts)
+			if (leftEdge->knotEnd != rightEdge->knotBegin)
 			{
-				if (outEdgeCount.second.size() < 150) continue;
+				++numConnections;
 
-				//connection!
-				if (inEdgeCount.first->knotEnd == outEdgeCount.first->knotBegin)
-				{
-					std::cout << "Connection: " 
-							  << _seqAssembly.seqName(inEdgeCount.first->seqId)
-							  << " " << inEdgeCount.first->seqEnd 
-							  << " (" << inEdgeCount.second.size() << ") -> "
-							  << _seqAssembly.seqName(outEdgeCount.first->seqId)
-							  << " " << outEdgeCount.first->seqBegin
-							  << " (" << outEdgeCount.second.size() << ")\n";
-
-					std::cout << "IN:-----\n";
-					for (auto edgeCountPair : inCounts)
-					{
-						std::cout << _seqAssembly.seqName(edgeCountPair.first->seqId)
-								  << " " << edgeCountPair.first->knotEnd
-								  << " " << edgeCountPair.first->seqEnd << " "
-								  << edgeCountPair.second.size() << std::endl;
-						/*
-						for (auto& edgePos : edgeCountPair.second)
-						{
-							std::cout << edgePos.position << " ";
-						}
-						std::cout << std::endl;*/
-					}
-					std::cout << "OUT:-----\n";
-					for (auto edgeCountPair : outCounts)
-					{
-						std::cout << _seqAssembly.seqName(edgeCountPair.first->seqId)
-								  << " " << edgeCountPair.first->knotBegin
-								  << " " << edgeCountPair.first->seqBegin << " "
-								  << edgeCountPair.second.size() << std::endl;
-						/*
-						for (auto& edgePos : edgeCountPair.second)
-						{
-							std::cout << edgePos.position << " ";
-						}
-						std::cout << std::endl;*/
-					}
-
-				}
+				std::cout << _seqReads.seqName(seqOvelaps.first) << std::endl;
+				std::cout << "Connection: " << _seqAssembly.seqName(leftEdge->seqId)
+						  << " " << leftEdge->seqEnd << " "
+						  << _seqAssembly.seqName(rightEdge->seqId) << " " 
+						  << rightEdge->seqBegin << std::endl;
 			}
 		}
 	}
+	std::cout << numConnections << std::endl;
 }

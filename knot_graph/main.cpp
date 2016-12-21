@@ -146,7 +146,7 @@ int main(int argc, char** argv)
 
 		VertexIndex assemblyIndex(seqAssembly);
 		assemblyIndex.countKmers(1);
-		assemblyIndex.buildIndex(2, 10000);
+		assemblyIndex.buildIndex(1, 10000);
 		
 		//getting self-overlaps for assembly
 		const int MAX_JUMP = 200;
@@ -177,7 +177,14 @@ int main(int argc, char** argv)
 		AssemblyGraph ag(seqAssembly, seqReads);
 		ag.construct(selfContainer);
 		ag.outputDot(outAssembly);
-		ag.untangle();
+
+		const int MIN_READ_OVLP = 1000;
+		OverlapDetector readsOverlapper(seqAssembly, assemblyIndex, 
+										Constants::maximumJump, MIN_READ_OVLP,
+										NO_OVERHANGS);
+		OverlapContainer readsContainer(readsOverlapper, seqReads);
+		readsContainer.findAllOverlaps();
+		ag.untangle(readsContainer);
 	}
 	catch (std::runtime_error& e)
 	{
