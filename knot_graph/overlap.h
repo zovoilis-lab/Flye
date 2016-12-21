@@ -38,6 +38,7 @@ struct OverlapRange
 		return rev;
 	}
 
+	/*
 	OverlapRange complement() const
 	{
 		int32_t curLen = SequenceContainer::get().seqLen(curId);
@@ -60,7 +61,7 @@ struct OverlapRange
 		comp.extId = comp.extId.rc();
 
 		return comp;
-	}
+	}*/
 
 	bool contains(int32_t curPos, int32_t extPos) const
 	{
@@ -105,50 +106,69 @@ struct OverlapRange
 class OverlapDetector
 {
 public:
-	OverlapDetector(int coverage):
-		_coverage(coverage),
-		_vertexIndex(VertexIndex::get()),
-		_seqContainer(SequenceContainer::get()), 
-		_progress(_seqContainer.getIndex().size()),
-		_nextJob(0)
+	OverlapDetector(const SequenceContainer& seqContainer,
+					const VertexIndex& vertexIndex,
+					int maxJump, int minOverlap, int maxOverhang):
+		_maxJump(maxJump),
+		_minOverlap(minOverlap),
+		_maxOverhang(maxOverhang),
+		_checkOverhang(maxOverhang > 0),
+		_vertexIndex(vertexIndex),
+		_seqContainer(seqContainer)
 	{}
 
-	typedef std::unordered_map<FastaRecord::Id, 
-					   std::vector<OverlapRange>> OverlapIndex;
-	
-	void findAllOverlaps();
-	void saveOverlaps(const std::string filename);
-	void loadOverlaps(const std::string filename);
-	const OverlapIndex& getOverlapIndex() const {return _overlapIndex;}
+	std::vector<OverlapRange> 
+	getSeqOverlaps(const std::string& sequence,
+				   FastaRecord::Id idTrivial = FastaRecord::ID_NONE) const;
 
 private:
 	enum JumpRes {J_END, J_INCONS, J_CLOSE, J_FAR};
 
-	std::vector<OverlapRange> getSelfOverlaps(FastaRecord::Id currentReadId) const;
-	std::vector<OverlapRange> getReadOverlaps(FastaRecord::Id readId) const;
-	void 	addOverlapShifts(OverlapRange& ovlp,
-							 const std::vector<KmerPosition>& 
-							 	solidKmersCache,
-							 int32_t curLen, int32_t extLen) const;
+	
 	bool    goodStart(int32_t currentPos, int32_t extensionPos, 
 				      int32_t curLen, int32_t extLen) const;
 	bool    overlapTest(const OverlapRange& ovlp, 
 						int32_t curLen, int32_t extLen) const;
 	JumpRes jumpTest(int32_t currentPrev, int32_t currentNext,
 				     int32_t extensionPrev, int32_t extensionNext) const;
-	void 	parallelWorker();
 
-	const int _coverage;
-
-	OverlapIndex _overlapIndex;
-	cuckoohash_map<FastaRecord::IdPair, bool> _overlapMatrix;
+	const int _maxJump;
+	const int _minOverlap;
+	const int _maxOverhang;
+	const bool _checkOverhang;
 
 	const VertexIndex& _vertexIndex;
 	const SequenceContainer& _seqContainer;
+};
 
-	std::mutex _fetchMutex;
-	ProgressPercent _progress;
-	std::vector<FastaRecord::Id> _jobQueue;
-	size_t _nextJob;
-	//mutable std::mutex _logMutex;
+
+class OverlapContainer
+{
+public:
+	OverlapContainer(const OverlapDetector& ovlpDetect,
+					 const SequenceContainer& queryContainer):
+		_ovlpDetect(ovlpDetect),
+		_queryContainer(queryContainer)
+	{}
+
+	typedef std::unordered_map<FastaRecord::Id, 
+					   std::vector<OverlapRange>> OverlapIndex;
+
+	void saveOverlaps(const std::string& filename);
+	void loadOverlaps(const std::string& filename);
+
+	void findAllOverlaps();
+	const OverlapIndex& getOverlapIndex() const {return _overlapIndex;}
+
+private:
+	//void 	addOverlapShifts(OverlapRange& ovlp,
+	//						 const std::vector<KmerPosition>& 
+	//						 	solidKmersCache,
+	//						 int32_t curLen, int32_t extLen) const;
+
+	const OverlapDetector& _ovlpDetect;
+	const SequenceContainer& _queryContainer;
+
+	OverlapIndex _overlapIndex;
+	//cuckoohash_map<FastaRecord::IdPair, bool> _overlapMatrix;
 };

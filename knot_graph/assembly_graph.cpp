@@ -17,17 +17,15 @@ namespace
 	};
 }
 
-void AssemblyGraph::construct(OverlapDetector& ovlpDetector)
+void AssemblyGraph::construct(OverlapContainer& ovlpContainer)
 {
-	auto ovlpIndex = ovlpDetector.getOverlapIndex();
 	const int OVLP_THR = 0;
 
 	//forming overlap-based clusters
 	typedef SetNode<OverlapRange> DjsOverlap;
 	std::unordered_map<FastaRecord::Id, 
 					   std::list<DjsOverlap>> overlapClusters;
-	//std::list<OverlapRange> reverseOverlaps;
-	for (auto& ovlpHash : ovlpIndex)
+	for (auto& ovlpHash : ovlpContainer.getOverlapIndex())
 	{
 		for (auto& ovlp : ovlpHash.second)
 		{
@@ -105,7 +103,7 @@ void AssemblyGraph::construct(OverlapDetector& ovlpDetector)
 			for (auto& ovlp : clustHash.second)
 			{
 				clustStart = std::min(clustStart, ovlp->data.curBegin);
-				clustEnd = std::max(clustStart, ovlp->data.curEnd);
+				clustEnd = std::max(clustEnd, ovlp->data.curEnd);
 			}
 
 			auto knotId = knotMappings[clustHash.second.front()];
@@ -115,7 +113,8 @@ void AssemblyGraph::construct(OverlapDetector& ovlpDetector)
 
 		//constructing the graph
 		std::sort(seqKnots.begin(), seqKnots.end(), 
-				  [](SeqKnot& k1, SeqKnot& k2) {return k1.start < k2.start;});
+				  [](const SeqKnot& k1, const SeqKnot& k2) 
+				  		{return k1.start < k2.start;});
 		auto& seqEdges = _edges[seqClusterPair.first];
 
 		seqEdges.push_back(Edge(seqClusterPair.first, 
@@ -187,8 +186,8 @@ namespace
 
 void AssemblyGraph::untangle()
 {
-	std::unordered_map<Kmer, EdgePos> inIndex;
-	std::unordered_map<Kmer, EdgePos> outIndex;
+	std::unordered_map<Kmer, std::vector<EdgePos>> inIndex;
+	std::unordered_map<Kmer, std::vector<EdgePos>> outIndex;
 	int32_t FLANK = 1000;
 
 	for (auto& knot : _knots)
@@ -206,7 +205,7 @@ void AssemblyGraph::untangle()
 				 Parameters::kmerSize; ++i)
 			{
 				auto kmer = flankingSeq.substr(i, Parameters::kmerSize);
-				inIndex[Kmer(kmer)] = EdgePos(edge, i + leftEnd);
+				inIndex[Kmer(kmer)].emplace_back(edge, i + leftEnd);
 			}
 		}
 
@@ -221,14 +220,14 @@ void AssemblyGraph::untangle()
 				 Parameters::kmerSize; ++i)
 			{
 				auto kmer = flankingSeq.substr(i, Parameters::kmerSize);
-				outIndex[Kmer(kmer)] = EdgePos(edge, i + edge->seqBegin);
+				outIndex[Kmer(kmer)].emplace_back(edge, i + edge->seqBegin);
 			}
 		}
 	}
 	std::cout << inIndex.size() << " " << outIndex.size() << std::endl;
 
-	std::unordered_map<Edge*, int> inCounts;
-	std::unordered_map<Edge*, int> outCounts;
+	std::unordered_map<Edge*, std::vector<EdgePos>> inCounts;
+	std::unordered_map<Edge*, std::vector<EdgePos>> outCounts;
 	for (auto& idFastaPair : _seqReads.getIndex())
 	{
 		inCounts.clear();
@@ -238,46 +237,20 @@ void AssemblyGraph::untangle()
 		{
 			auto kmer = idFastaPair.second.sequence
 									.substr(i, Parameters::kmerSize);
-			if (inIndex.count(Kmer(kmer)))
-			{
-				++inCounts[inIndex[Kmer(kmer)].edge];
-			}
-			if (outIndex.count(Kmer(kmer)))
-			{
-				++outCounts[outIndex[Kmer(kmer)].edge];
-			}
+			for (auto& edgePos : inIndex[Kmer(kmer)])
+				inCounts[edgePos.edge].emplace_back(edgePos.edge, i);
 
+			for (auto& edgePos : outIndex[Kmer(kmer)])
+				outCounts[edgePos.edge].emplace_back(edgePos.edge, i);
 		}
 
-		/*
-		Edge* maxInEdge = nullptr;
-		int maxInCount = 0;
-		for (auto edgeCountPair : inCounts)
-		{
-			if (edgeCountPair.second > 150 && edgeCountPair.second > maxInCount)
-			{
-				maxInEdge = edgeCountPair.first;
-				maxInCount = edgeCountPair.second;
-			}
-		}
-
-		Edge* maxOutEdge = nullptr;
-		int maxOutCount = 0;
-		for (auto edgeCountPair : outCounts)
-		{
-			if (edgeCountPair.second > 150 && edgeCountPair.second > maxOutCount)
-			{
-				maxOutEdge = edgeCountPair.first;
-				maxOutCount = edgeCountPair.second;
-			}
-		}*/
 		for (auto inEdgeCount : inCounts)
 		{
-			if (inEdgeCount.second < 150) continue;
+			if (inEdgeCount.second.size() < 150) continue;
 
 			for (auto outEdgeCount : outCounts)
 			{
-				if (outEdgeCount.second < 150) continue;
+				if (outEdgeCount.second.size() < 150) continue;
 
 				//connection!
 				if (inEdgeCount.first->knotEnd == outEdgeCount.first->knotBegin)
@@ -285,10 +258,10 @@ void AssemblyGraph::untangle()
 					std::cout << "Connection: " 
 							  << _seqAssembly.seqName(inEdgeCount.first->seqId)
 							  << " " << inEdgeCount.first->seqEnd 
-							  << " (" << inEdgeCount.second << ") -> "
+							  << " (" << inEdgeCount.second.size() << ") -> "
 							  << _seqAssembly.seqName(outEdgeCount.first->seqId)
 							  << " " << outEdgeCount.first->seqBegin
-							  << " (" << outEdgeCount.second << ")\n";
+							  << " (" << outEdgeCount.second.size() << ")\n";
 
 					std::cout << "IN:-----\n";
 					for (auto edgeCountPair : inCounts)
@@ -296,7 +269,13 @@ void AssemblyGraph::untangle()
 						std::cout << _seqAssembly.seqName(edgeCountPair.first->seqId)
 								  << " " << edgeCountPair.first->knotEnd
 								  << " " << edgeCountPair.first->seqEnd << " "
-								  << edgeCountPair.second << std::endl;
+								  << edgeCountPair.second.size() << std::endl;
+						/*
+						for (auto& edgePos : edgeCountPair.second)
+						{
+							std::cout << edgePos.position << " ";
+						}
+						std::cout << std::endl;*/
 					}
 					std::cout << "OUT:-----\n";
 					for (auto edgeCountPair : outCounts)
@@ -304,7 +283,13 @@ void AssemblyGraph::untangle()
 						std::cout << _seqAssembly.seqName(edgeCountPair.first->seqId)
 								  << " " << edgeCountPair.first->knotBegin
 								  << " " << edgeCountPair.first->seqBegin << " "
-								  << edgeCountPair.second << std::endl;
+								  << edgeCountPair.second.size() << std::endl;
+						/*
+						for (auto& edgePos : edgeCountPair.second)
+						{
+							std::cout << edgePos.position << " ";
+						}
+						std::cout << std::endl;*/
 					}
 
 				}

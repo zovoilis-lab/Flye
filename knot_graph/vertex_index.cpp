@@ -12,9 +12,6 @@
 #include "parallel.h"
 #include "config.h"
 
-VertexIndex::VertexIndex()
-{
-}
 
 /*
 void VertexIndex::setKmerSize(unsigned int size)
@@ -22,8 +19,7 @@ void VertexIndex::setKmerSize(unsigned int size)
 	_kmerSize = size;
 }*/
 
-void VertexIndex::countKmers(const SequenceContainer& seqContainer,
-							 size_t hardThreshold)
+void VertexIndex::countKmers(size_t hardThreshold)
 {
 	Logger::get().debug() << "Hard threshold set to " << hardThreshold;
 	if (hardThreshold == 0 || hardThreshold > 100) 
@@ -38,11 +34,11 @@ void VertexIndex::countKmers(const SequenceContainer& seqContainer,
 
 	//filling up bloom filter
 	Logger::get().info() << "Counting kmers (1/2):";
-	ProgressPercent bloomProg(seqContainer.getIndex().size());
-	for (auto& seqPair : seqContainer.getIndex())
+	ProgressPercent bloomProg(_seqContainer.getIndex().size());
+	for (auto& seqPair : _seqContainer.getIndex())
 	{
 		bloomProg.advance();
-		for (auto kmerPos : IterKmers(seqPair.first))
+		for (auto kmerPos : IterKmers(_seqContainer.getSeq(seqPair.first)))
 		{
 			if (preCounters[kmerPos.kmer.hash() % PRE_COUNT_SIZE] != 
 				std::numeric_limits<unsigned char>::max())
@@ -56,7 +52,7 @@ void VertexIndex::countKmers(const SequenceContainer& seqContainer,
 	std::function<void(const FastaRecord::Id&)> countUpdate = 
 	[&preCounters, hardThreshold, this] (const FastaRecord::Id& readId)
 	{
-		for (auto kmerPos : IterKmers(readId))
+		for (auto kmerPos : IterKmers(_seqContainer.getSeq(readId)))
 		{
 			size_t count = preCounters[kmerPos.kmer.hash() % PRE_COUNT_SIZE];
 			if (count >= hardThreshold)
@@ -66,11 +62,11 @@ void VertexIndex::countKmers(const SequenceContainer& seqContainer,
 		}
 	};
 	std::vector<FastaRecord::Id> allReads;
-	for (auto& hashPair : seqContainer.getIndex())
+	for (auto& hashPair : _seqContainer.getIndex())
 	{
 		allReads.push_back(hashPair.first);
 	}
-	processInParallel(allReads, countUpdate, Parameters::kmerSize, true);
+	processInParallel(allReads, countUpdate, Parameters::numThreads, true);
 	
 	for (auto kmer : _kmerCounts.lock_table())
 	{
@@ -86,7 +82,7 @@ void VertexIndex::buildIndex(int minCoverage, int maxCoverage)
 	std::function<void(const FastaRecord::Id&)> indexUpdate = 
 	[minCoverage, maxCoverage, this] (const FastaRecord::Id& readId)
 	{
-		for (auto kmerPos : IterKmers(readId))
+		for (auto kmerPos : IterKmers(_seqContainer.getSeq(readId)))
 		{
 			size_t count = 0;
 			_kmerCounts.find(kmerPos.kmer, count);
@@ -113,7 +109,7 @@ void VertexIndex::buildIndex(int minCoverage, int maxCoverage)
 		}
 	};
 	std::vector<FastaRecord::Id> allReads;
-	for (auto& hashPair : SequenceContainer::get().getIndex())
+	for (auto& hashPair : _seqContainer.getIndex())
 	{
 		allReads.push_back(hashPair.first);
 	}

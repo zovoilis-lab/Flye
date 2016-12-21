@@ -79,6 +79,7 @@ protected:
 	Kmer 				_kmer;
 };
 
+/*
 class SolidKmerIterator : public KmerIterator
 {
 public:
@@ -89,22 +90,23 @@ public:
 
 	KmerPosition operator*() const;
 	SolidKmerIterator& operator++();
-};
+};*/
 
 class IterKmers
 {
 public:
-	IterKmers(FastaRecord::Id readId):
-		_readId(readId)
+	IterKmers(const std::string& sequence):
+		_sequence(sequence)
 	{}
 
 	KmerIterator begin();
 	KmerIterator end();
 
 private:
-	FastaRecord::Id _readId;
+	const std::string& _sequence;
 };
 
+/*
 class IterSolidKmers
 {
 public:
@@ -117,4 +119,4 @@ public:
 
 private:
 	FastaRecord::Id _readId;
-};
+};*/

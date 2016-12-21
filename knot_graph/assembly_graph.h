@@ -49,7 +49,7 @@ public:
 		_knots.push_back(Knot(SEQ_END));
 	}
 
-	void construct(OverlapDetector& ovlp);
+	void construct(OverlapContainer& ovlp);
 	void untangle();
 	void outputDot(const std::string& filename);
 

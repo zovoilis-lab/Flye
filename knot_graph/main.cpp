@@ -139,38 +139,43 @@ int main(int argc, char** argv)
 		Logger::get().debug() << "Build date: " << __DATE__ << " " << __TIME__;
 		Logger::get().debug() << "Reading FASTA";
 
-		SequenceContainer& seqAssembly = SequenceContainer::get();
+		SequenceContainer seqAssembly; 
 		seqAssembly.readFasta(inAssembly);
 		SequenceContainer seqReads;
 		seqReads.readFasta(readsFasta);
 
-		VertexIndex& vertexIndex = VertexIndex::get();
-
-		vertexIndex.countKmers(seqAssembly, 1);
-		vertexIndex.buildIndex(1, 10000);
+		VertexIndex assemblyIndex(seqAssembly);
+		assemblyIndex.countKmers(1);
+		assemblyIndex.buildIndex(2, 10000);
 		
-		OverlapDetector ovlp(10);
+		//getting self-overlaps for assembly
+		const int MAX_JUMP = 200;
+		const int NO_OVERHANGS = 0;
+		OverlapDetector asmOverlapper(seqAssembly, assemblyIndex, MAX_JUMP,
+							 		  Parameters::minimumOverlap, NO_OVERHANGS);
+		OverlapContainer selfContainer(asmOverlapper, seqAssembly);
 		if (overlapsFile.empty())
 		{
-			ovlp.findAllOverlaps();
+			selfContainer.findAllOverlaps();
 		}
 		else
 		{
  			if (fileExists(overlapsFile))
 			{
 				Logger::get().debug() << "Loading overlaps from " << overlapsFile;
-				ovlp.loadOverlaps(overlapsFile);
+				selfContainer.loadOverlaps(overlapsFile);
 			}
 			else
 			{
-				ovlp.findAllOverlaps();
+				selfContainer.findAllOverlaps();
 				Logger::get().debug() << "Saving overlaps to " << overlapsFile;
-				ovlp.saveOverlaps(overlapsFile);
+				selfContainer.saveOverlaps(overlapsFile);
 			}
 		}
+		//
 
 		AssemblyGraph ag(seqAssembly, seqReads);
-		ag.construct(ovlp);
+		ag.construct(selfContainer);
 		ag.outputDot(outAssembly);
 		ag.untangle();
 	}
