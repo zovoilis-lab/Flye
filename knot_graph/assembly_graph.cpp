@@ -263,7 +263,7 @@ void AssemblyGraph::untangle(const OverlapContainer& ovlpContainer)
 			Edge* leftEdge = *inSupport.begin();
 			Edge* rightEdge = *outSupport.begin();
 
-			if (leftEdge->knotEnd != rightEdge->knotBegin)
+			if (leftEdge->knotEnd == rightEdge->knotBegin)
 			{
 				++numConnections;
 
