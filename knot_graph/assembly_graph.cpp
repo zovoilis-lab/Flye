@@ -25,20 +25,17 @@ void AssemblyGraph::construct(const OverlapContainer& ovlpContainer)
 	typedef SetNode<OverlapRange> DjsOverlap;
 	std::unordered_map<FastaRecord::Id, 
 					   std::list<DjsOverlap>> overlapClusters;
-	int totOverlaps = 0;
 	for (auto& ovlpHash : ovlpContainer.getOverlapIndex())
 	{
 		for (auto& ovlp : ovlpHash.second)
 		{
 			overlapClusters[ovlp.curId].emplace_back(ovlp);
+			DjsOverlap* ptrOne = &overlapClusters[ovlp.curId].back(); 
 			overlapClusters[ovlp.extId].emplace_back(ovlp.reverse());
-			unionSet(&overlapClusters[ovlp.curId].back(), 
-					 &overlapClusters[ovlp.extId].back());
-			totOverlaps += 2;
+			DjsOverlap* ptrTwo = &overlapClusters[ovlp.extId].back(); 
+			unionSet(ptrOne, ptrTwo);
 		}
 	}
-	std::cout << totOverlaps << std::endl;
-	int numIntersects = 0;
 	for (auto& ovlpHash : overlapClusters)
 	{
 		for (auto& ovlp1 : ovlpHash.second)
@@ -47,13 +44,11 @@ void AssemblyGraph::construct(const OverlapContainer& ovlpContainer)
 			{
 				if (ovlp1.data.curIntersect(ovlp2.data) > OVLP_THR)
 				{
-					++numIntersects;
 					unionSet(&ovlp1, &ovlp2);
 				}
 			}
 		}
 	}
-	std::cout << numIntersects << std::endl;
 
 	//getting cluster assignments
 	std::unordered_map<DjsOverlap*, Knot::Id> knotMappings;
@@ -73,8 +68,7 @@ void AssemblyGraph::construct(const OverlapContainer& ovlpContainer)
 		}
 	}
 
-	Logger::get().debug() << "Number of knots: " << _knots.size();
-	std::cout << reprToKnot.size() << std::endl;
+	Logger::get().debug() << "Number of knots: " << _knots.size() - 2;
 
 	for (auto& seqClusterPair : overlapClusters)
 	{
@@ -159,7 +153,9 @@ void AssemblyGraph::outputDot(const std::string& filename)
 		if (knot.knotId > SEQ_END && 
 			(!knot.inEdges.empty() || !knot.outEdges.empty()))
 		{
-			fout << "\"" << knot.knotId << "\"[color = red, label = repeat];\n";
+			//fout << "\"" << knot.knotId << "\"[color = red, label = repeat];\n";
+			fout << "\"" << knot.knotId << "\" -> \"" << -knot.knotId
+				 << "\" [label = \"repeat\", color = \"red\"] ;\n";
 		}
 	}
 
@@ -168,9 +164,9 @@ void AssemblyGraph::outputDot(const std::string& filename)
 	{
 		for (auto& edge : seqEdgesPair.second)
 		{
-			size_t firstNode = edge.knotBegin;
+			Knot::Id firstNode = -edge.knotBegin;
 			if (firstNode == SEQ_BEGIN) firstNode = nextNewNode++;
-			size_t lastNode = edge.knotEnd;
+			Knot::Id lastNode = edge.knotEnd;
 			if (lastNode == SEQ_END) lastNode = nextNewNode++;
 
 			fout << "\"" << firstNode << "\" -> \"" << lastNode

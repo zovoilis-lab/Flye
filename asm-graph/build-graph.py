@@ -98,6 +98,7 @@ def main():
         for ovlp in overlaps[seq]:
             clusters[Find(ovlp)].append(ovlp)
             ovlp.knot = Find(ovlp)
+    print(len(clusters))
     ##
 
     ##define knots

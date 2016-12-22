@@ -16,8 +16,8 @@ struct Knot
 {
 	Knot(size_t id): knotId(id) {}
 
-	typedef size_t Id;
-	size_t knotId;
+	typedef int32_t Id;
+	Id knotId;
 	std::vector<Edge*> inEdges;
 	std::vector<Edge*> outEdges;
 };
@@ -65,8 +65,8 @@ private:
 	std::vector<Knot> _knots;
 	std::unordered_map<FastaRecord::Id, std::list<Edge>> _edges;
 	
-	const size_t SEQ_BEGIN = 0;
-	const size_t SEQ_END = 1;
+	const Knot::Id SEQ_BEGIN = 0;
+	const Knot::Id SEQ_END = 1;
 };
 
 
