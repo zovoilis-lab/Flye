@@ -25,6 +25,7 @@ void AssemblyGraph::construct(const OverlapContainer& ovlpContainer)
 	typedef SetNode<OverlapRange> DjsOverlap;
 	std::unordered_map<FastaRecord::Id, 
 					   std::list<DjsOverlap>> overlapClusters;
+	int totOverlaps = 0;
 	for (auto& ovlpHash : ovlpContainer.getOverlapIndex())
 	{
 		for (auto& ovlp : ovlpHash.second)
@@ -33,8 +34,11 @@ void AssemblyGraph::construct(const OverlapContainer& ovlpContainer)
 			overlapClusters[ovlp.extId].emplace_back(ovlp.reverse());
 			unionSet(&overlapClusters[ovlp.curId].back(), 
 					 &overlapClusters[ovlp.extId].back());
+			totOverlaps += 2;
 		}
 	}
+	std::cout << totOverlaps << std::endl;
+	int numIntersects = 0;
 	for (auto& ovlpHash : overlapClusters)
 	{
 		for (auto& ovlp1 : ovlpHash.second)
@@ -43,16 +47,18 @@ void AssemblyGraph::construct(const OverlapContainer& ovlpContainer)
 			{
 				if (ovlp1.data.curIntersect(ovlp2.data) > OVLP_THR)
 				{
+					++numIntersects;
 					unionSet(&ovlp1, &ovlp2);
 				}
 			}
 		}
 	}
+	std::cout << numIntersects << std::endl;
 
 	//getting cluster assignments
 	std::unordered_map<DjsOverlap*, Knot::Id> knotMappings;
 	std::unordered_map<DjsOverlap*, Knot::Id> reprToKnot;
-	size_t nextKnotId = SEQ_END + 1;
+	size_t nextKnotId = _knots.size();
 
 	for (auto& ovlpHash : overlapClusters)
 	{
@@ -68,6 +74,7 @@ void AssemblyGraph::construct(const OverlapContainer& ovlpContainer)
 	}
 
 	Logger::get().debug() << "Number of knots: " << _knots.size();
+	std::cout << reprToKnot.size() << std::endl;
 
 	for (auto& seqClusterPair : overlapClusters)
 	{
@@ -94,6 +101,7 @@ void AssemblyGraph::construct(const OverlapContainer& ovlpContainer)
 		{
 			intersectClusters[findSet(&ovlp)].push_back(&ovlp);
 		}
+		//std::cout << seqClusterPair.first << " " << intersectClusters.size() << std::endl;
 
 		std::vector<SeqKnot> seqKnots;
 		for (auto clustHash : intersectClusters)
@@ -148,7 +156,8 @@ void AssemblyGraph::outputDot(const std::string& filename)
 	fout << "digraph {\n";
 	for (Knot& knot : _knots)
 	{
-		if (knot.knotId > SEQ_END)
+		if (knot.knotId > SEQ_END && 
+			(!knot.inEdges.empty() || !knot.outEdges.empty()))
 		{
 			fout << "\"" << knot.knotId << "\"[color = red, label = repeat];\n";
 		}
@@ -182,9 +191,91 @@ namespace
 		Edge* edge;
 		int32_t position;
 	};
+	
+	template<class T>
+	void vecRemove(std::vector<T>& v, T val)
+	{
+		v.erase(std::remove(v.begin(), v.end(), val), v.end()); 
+	}
 }
 
 void AssemblyGraph::untangle(const OverlapContainer& ovlpContainer)
+{
+	auto connections = this->getConnections(ovlpContainer);
+
+	std::unordered_map<Edge*, std::unordered_map<Edge*, int>> votes;
+	for (auto& conn : connections)
+	{
+		++votes[conn.first][conn.second];
+	}
+
+	for (auto edgeConnections : votes)
+	{
+		Edge* pairedEdge = nullptr;
+		if (edgeConnections.second.size() == 1)
+		{
+			pairedEdge = edgeConnections.second.begin()->first;
+		}
+		else
+		{
+			int maxVotes = 0;
+			Edge* maxEdge = nullptr;
+			for (auto connCount : edgeConnections.second) 
+			{
+				if (maxVotes < connCount.second)
+				{
+					maxVotes = connCount.second;
+					maxEdge = connCount.first;
+				}
+			}
+			bool reliable = true;
+			for (auto connCount : edgeConnections.second) 
+			{
+				if (connCount.first != maxEdge && 
+					maxVotes / connCount.second < 2) reliable = false;
+			}
+			if (reliable) pairedEdge = maxEdge;
+		}
+
+		if (!pairedEdge)
+		{
+			Logger::get().debug() << "Ambigious "
+					<< edgeConnections.first->seqId
+				    << "\t" << edgeConnections.first->seqEnd;
+
+			continue;
+		}
+
+		Logger::get().debug() << "Connection " 
+				<< edgeConnections.first->seqId
+				<< "\t" << edgeConnections.first->seqEnd << "\t"
+				<< pairedEdge->seqId << "\t" << pairedEdge->seqBegin;
+
+		//modify the graph
+		Knot::Id oldKnot = edgeConnections.first->knotEnd;
+		Knot::Id newKnot = _knots.size();
+		_knots.push_back(Knot(newKnot));
+		vecRemove(_knots[oldKnot].inEdges, edgeConnections.first);
+		vecRemove(_knots[oldKnot].outEdges, pairedEdge);
+		_knots[newKnot].inEdges.push_back(edgeConnections.first);
+		_knots[newKnot].outEdges.push_back(pairedEdge);
+		edgeConnections.first->knotEnd = newKnot;
+		pairedEdge->knotBegin = newKnot;
+
+		//std::cout << "Votes for " << edgeVotes.first->seqId
+		//		  << " " << edgeVotes.first->seqEnd << std::endl;
+
+		/*for (auto votesIter : edgeConnections.second)
+		{
+			std::cout << "\t" << votesIter.first->seqId << " "
+					  << votesIter.first->seqBegin << " " 
+					  << votesIter.second << std::endl;
+		}*/
+	}
+}
+
+std::vector<std::pair<Edge*, Edge*>>
+	AssemblyGraph::getConnections(const OverlapContainer& ovlpContainer)
 {
 	std::vector<Edge*> inEdges;
 	std::vector<Edge*> outEdges;
@@ -204,11 +295,11 @@ void AssemblyGraph::untangle(const OverlapContainer& ovlpContainer)
 		}
 	}
 
-	int numConnections = 0;
+	std::vector<std::pair<Edge*, Edge*>> connections;
 	for (auto seqOvelaps : ovlpContainer.getOverlapIndex())
 	{
-		std::unordered_set<Edge*> inSupport;
-		std::unordered_set<Edge*> outSupport;
+		std::unordered_map<Edge*, int32_t> inSupport;
+		std::unordered_map<Edge*, int32_t> outSupport;
 		for (auto& ovlp : seqOvelaps.second)
 		{
 			for (Edge* edge : inEdges)
@@ -219,7 +310,7 @@ void AssemblyGraph::untangle(const OverlapContainer& ovlpContainer)
 									std::max(ovlp.extBegin, edge->seqBegin);
 
 				//TODO: overhangs wrt to unique edges
-				//TODO: agreement with the graph structure
+				
 				if (intersect < 0 ||
 					edge->seqEnd - ovlp.extEnd > OVERHANG ||
 					edge->seqEnd - ovlp.extBegin < OVERHANG ||
@@ -228,10 +319,9 @@ void AssemblyGraph::untangle(const OverlapContainer& ovlpContainer)
 					continue;
 				}
 
-				inSupport.insert(edge);
-				//std::cout << "IN: " << _seqAssembly.seqName(edge->seqId)
-				//		  << " " << edge->seqEnd
-				//		  << " " << edge->seqEnd - ovlp.extBegin << std::endl;
+				int32_t readIntersection = ovlp.curBegin + edge->seqEnd - 
+										   ovlp.extBegin;
+				inSupport[edge] = readIntersection;
 			}
 
 			for (Edge* edge : outEdges)
@@ -251,29 +341,30 @@ void AssemblyGraph::untangle(const OverlapContainer& ovlpContainer)
 					continue;
 				}
 
-				outSupport.insert(edge);
-				//std::cout << "OUT: " << _seqAssembly.seqName(edge->seqId)
-				//		  << " " << edge->seqEnd
-				//		  << " " << ovlp.extEnd - edge->seqBegin << std::endl;
+				int32_t readIntersection = ovlp.curEnd - 
+										   (ovlp.extEnd - edge->seqBegin);
+				outSupport[edge] = readIntersection;
 			}
 		}
 
 		if (inSupport.size() == 1 && outSupport.size() == 1)
 		{
-			Edge* leftEdge = *inSupport.begin();
-			Edge* rightEdge = *outSupport.begin();
+			auto leftEdge = *inSupport.begin();
+			auto rightEdge = *outSupport.begin();
 
-			if (leftEdge->knotEnd == rightEdge->knotBegin)
+			if (leftEdge.first->knotEnd == rightEdge.first->knotBegin &&
+				rightEdge.second - leftEdge.second > Parameters::minimumOverlap)
 			{
-				++numConnections;
-
+				connections.push_back({leftEdge.first, rightEdge.first});
+				/*
 				std::cout << _seqReads.seqName(seqOvelaps.first) << std::endl;
-				std::cout << "Connection: " << _seqAssembly.seqName(leftEdge->seqId)
-						  << " " << leftEdge->seqEnd << " "
-						  << _seqAssembly.seqName(rightEdge->seqId) << " " 
-						  << rightEdge->seqBegin << std::endl;
+				std::cout << "Connection: " << leftEdge.first->seqId
+						  << "\t" << leftEdge.first->seqEnd << "\t"
+						  << rightEdge.first->seqId << "\t" 
+						  << rightEdge.first->seqBegin << "\t" << leftEdge.second 
+						  << "\t" << rightEdge.second << std::endl;*/
 			}
 		}
 	}
-	std::cout << numConnections << std::endl;
+	return connections;
 }

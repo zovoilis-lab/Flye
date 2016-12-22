@@ -69,7 +69,7 @@ struct OverlapRange
 			   extBegin <= extPos && extPos <= extEnd;
 	}
 
-	int32_t curIntersect(const OverlapRange& other)
+	int32_t curIntersect(const OverlapRange& other) const
 	{
 		return std::min(curEnd, other.curEnd) - 
 			   std::max(curBegin, other.curBegin);

@@ -176,7 +176,7 @@ int main(int argc, char** argv)
 
 		AssemblyGraph ag(seqAssembly, seqReads);
 		ag.construct(selfContainer);
-		ag.outputDot(outAssembly);
+		ag.outputDot(outAssembly + "_before");
 
 		const int MIN_READ_OVLP = 1000;
 		OverlapDetector readsOverlapper(seqAssembly, assemblyIndex, 
@@ -185,6 +185,7 @@ int main(int argc, char** argv)
 		OverlapContainer readsContainer(readsOverlapper, seqReads);
 		readsContainer.findAllOverlaps();
 		ag.untangle(readsContainer);
+		ag.outputDot(outAssembly + "_after");
 	}
 	catch (std::runtime_error& e)
 	{

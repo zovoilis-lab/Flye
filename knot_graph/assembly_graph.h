@@ -56,6 +56,9 @@ public:
 	typedef std::unordered_map<FastaRecord::Id, 
 					   std::vector<OverlapRange>> OverlapIndex;
 private:
+	std::vector<std::pair<Edge*, Edge*>> 
+		getConnections(const OverlapContainer& ovlp);
+
 	const SequenceContainer& _seqAssembly;
 	const SequenceContainer& _seqReads;
 
