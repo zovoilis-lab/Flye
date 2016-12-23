@@ -60,6 +60,7 @@ public:
 	void construct(const OverlapContainer& ovlp);
 	void untangle(const OverlapContainer& ovlp);
 	void outputDot(const std::string& filename);
+	void outputFasta(const std::string& filename);
 
 	typedef std::unordered_map<FastaRecord::Id, 
 					   std::vector<OverlapRange>> OverlapIndex;

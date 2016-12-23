@@ -176,6 +176,7 @@ int main(int argc, char** argv)
 
 		AssemblyGraph ag(seqAssembly, seqReads);
 		ag.construct(selfContainer);
+		//ag.outputFasta(outAssembly);
 		ag.outputDot(outAssembly + "_before");
 
 		const int MIN_READ_OVLP = 1000;

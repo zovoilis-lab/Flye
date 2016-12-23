@@ -177,6 +177,57 @@ void AssemblyGraph::outputDot(const std::string& filename)
 	fout << "}\n";
 }
 
+void AssemblyGraph::outputFasta(const std::string& filename)
+{
+	std::ofstream fout(filename);
+	size_t nextNewNode = _knots.size();
+	for (auto& seqEdgesPair : _edges)
+	{
+		for (auto& edge : seqEdgesPair.second)
+		{
+			Knot::Id firstNode = -edge.knotBegin;
+			if (firstNode == SEQ_BEGIN) firstNode = nextNewNode++;
+			Knot::Id lastNode = edge.knotEnd;
+			if (lastNode == SEQ_END) lastNode = nextNewNode++;
+
+			fout << ">" << _seqAssembly.seqName(edge.seqId)
+				 << "[" << edge.seqBegin << ":" << edge.seqEnd << "] "
+				 << firstNode << " " << lastNode << std::endl;
+			fout << _seqAssembly.getSeq(edge.seqId)
+						.substr(edge.seqBegin, edge.seqEnd - edge.seqBegin) 
+				 << std::endl;
+		}
+	}
+	for (Knot& knot : _knots)
+	{
+		if (knot.knotId > SEQ_END && 
+			(!knot.inEdges.empty() || !knot.outEdges.empty()))
+		{
+			fout << ">repeat " << knot.knotId << " " 
+				 << -knot.knotId << std::endl;
+
+			//a hack for complete genomes
+			bool found = false;
+			for (Edge* e1 : knot.inEdges)
+			{
+				for (Edge* e2 : knot.outEdges)
+				{
+					if (e1->seqId == e2->seqId)
+					{
+						found = true;
+
+						fout << _seqAssembly.getSeq(e1->seqId)
+								.substr(e1->seqEnd, e2->seqBegin - e1->seqEnd) 
+				 			 << std::endl;
+						break;
+					}
+				}
+				if (found) break;
+			}
+		}
+	}
+}
+
 namespace
 {
 	struct EdgePos
