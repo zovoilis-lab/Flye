@@ -38,6 +38,14 @@ struct Edge
 	Knot::Id knotEnd;
 };
 
+struct Connection
+{
+	Edge* inEdge;
+	OverlapRange inOverlap;
+	Edge* outEdge;
+	OverlapRange outOverlap;
+};
+
 class AssemblyGraph
 {
 public:
@@ -56,8 +64,7 @@ public:
 	typedef std::unordered_map<FastaRecord::Id, 
 					   std::vector<OverlapRange>> OverlapIndex;
 private:
-	std::vector<std::pair<Edge*, Edge*>> 
-		getConnections(const OverlapContainer& ovlp);
+	std::vector<Connection> getConnections(const OverlapContainer& ovlp);
 
 	const SequenceContainer& _seqAssembly;
 	const SequenceContainer& _seqReads;
