@@ -18,7 +18,7 @@ bool OverlapDetector::goodStart(int32_t curPos, int32_t extPos,
 								int32_t curLen, int32_t extLen) const
 {	
 	if (_checkOverhang && 
-		std::min(curPos, extPos) < Constants::maximumOverhang) return false;
+		std::min(curPos, extPos) > _maxOverhang) return false;
 
 	if (extPos > extLen - Parameters::minimumOverlap ||
 	    curPos > curLen - Parameters::minimumOverlap) return false;
@@ -72,12 +72,12 @@ bool OverlapDetector::overlapTest(const OverlapRange& ovlp, int32_t curLen,
 	if (_checkOverhang)
 	{
 		if (std::min(ovlp.curBegin, ovlp.extBegin) > 
-			Constants::maximumOverhang) 
+			_maxOverhang) 
 		{
 			return false;
 		}
 		if (std::min(curLen - ovlp.curEnd, extLen - ovlp.extEnd) > 
-			Constants::maximumOverhang)
+			_maxOverhang)
 		{
 			return false;
 		}

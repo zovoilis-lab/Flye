@@ -108,6 +108,8 @@ public:
 	std::string seqName(FastaRecord::Id readId) const
 		{return _seqIndex.at(readId).description;}
 	void 	readFasta(const std::string& filename);
+	void    addSequence(const FastaRecord& record)
+		{_seqIndex[record.id] = record;}
 
 private:
 

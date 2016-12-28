@@ -28,7 +28,8 @@ struct Edge
 		 int32_t seqEnd, Knot::Id knotBegin, Knot::Id knotEnd):
 
 		 seqId(id), seqBegin(seqBegin), seqEnd(seqEnd), 
-		 knotBegin(knotBegin), knotEnd(knotEnd)
+		 knotBegin(knotBegin), knotEnd(knotEnd),
+		 prevEdge(nullptr), nextEdge(nullptr)
 	{}
 
 	FastaRecord::Id seqId;
@@ -36,6 +37,8 @@ struct Edge
 	int32_t seqEnd;
 	Knot::Id knotBegin;
 	Knot::Id knotEnd;
+	Edge* prevEdge;
+	Edge* nextEdge;
 };
 
 struct Connection
@@ -44,6 +47,24 @@ struct Connection
 	OverlapRange inOverlap;
 	Edge* outEdge;
 	OverlapRange outOverlap;
+};
+
+struct PathCandidate
+{
+	PathCandidate(): id(FastaRecord::ID_NONE) {}
+	PathCandidate(FastaRecord::Id id, const std::string& seq,
+				  int32_t repStart, int32_t repEnd,
+				  Edge* inEdge, Edge* outEdge):
+		id(id), sequence(seq), repeatStart(repStart), repeatEnd(repEnd),
+		inEdge(inEdge), outEdge(outEdge)
+	{}
+
+	FastaRecord::Id id;
+	std::string sequence;
+	int32_t repeatStart;
+	int32_t repeatEnd;
+	Edge* inEdge;
+	Edge* outEdge;
 };
 
 class AssemblyGraph
@@ -59,8 +80,10 @@ public:
 
 	void construct(const OverlapContainer& ovlp);
 	void untangle(const OverlapContainer& ovlp);
+	void untangle();
 	void outputDot(const std::string& filename);
 	void outputFasta(const std::string& filename);
+	void generatePathCandidates();
 
 	typedef std::unordered_map<FastaRecord::Id, 
 					   std::vector<OverlapRange>> OverlapIndex;
@@ -70,6 +93,8 @@ private:
 	const SequenceContainer& _seqAssembly;
 	const SequenceContainer& _seqReads;
 
+	std::vector<OverlapRange> _asmOverlaps;
+	std::vector<PathCandidate> _pathCandidates;
 	std::vector<Knot> _knots;
 	std::unordered_map<FastaRecord::Id, std::list<Edge>> _edges;
 	
