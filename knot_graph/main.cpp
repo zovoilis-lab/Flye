@@ -146,10 +146,10 @@ int main(int argc, char** argv)
 
 		VertexIndex assemblyIndex(seqAssembly);
 		assemblyIndex.countKmers(1);
-		assemblyIndex.buildIndex(1, 10000);
+		assemblyIndex.buildIndex(1, 50);
 		
 		//getting self-overlaps for assembly
-		const int MAX_JUMP = 200;
+		const int MAX_JUMP = 500;
 		const int NO_OVERHANGS = 0;
 		OverlapDetector asmOverlapper(seqAssembly, assemblyIndex, MAX_JUMP,
 							 		  Parameters::minimumOverlap, NO_OVERHANGS);
@@ -180,14 +180,6 @@ int main(int argc, char** argv)
 		//ag.outputFasta(outAssembly);
 		ag.outputDot(outAssembly + "_before");
 
-		/*
-		const int MIN_READ_OVLP = 1000;
-		OverlapDetector readsOverlapper(seqAssembly, assemblyIndex, 
-										Constants::maximumJump, MIN_READ_OVLP,
-										NO_OVERHANGS);
-		OverlapContainer readsContainer(readsOverlapper, seqReads);
-		readsContainer.findAllOverlaps();
-		ag.untangle(readsContainer);*/
 		ag.untangle();
 		ag.outputDot(outAssembly + "_after");
 	}

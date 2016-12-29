@@ -44,9 +44,7 @@ struct Edge
 struct Connection
 {
 	Edge* inEdge;
-	OverlapRange inOverlap;
 	Edge* outEdge;
-	OverlapRange outOverlap;
 };
 
 struct PathCandidate
@@ -79,7 +77,6 @@ public:
 	}
 
 	void construct(const OverlapContainer& ovlp);
-	void untangle(const OverlapContainer& ovlp);
 	void untangle();
 	void outputDot(const std::string& filename);
 	void outputFasta(const std::string& filename);
@@ -88,7 +85,7 @@ public:
 	typedef std::unordered_map<FastaRecord::Id, 
 					   std::vector<OverlapRange>> OverlapIndex;
 private:
-	std::vector<Connection> getConnections(const OverlapContainer& ovlp);
+	std::vector<Connection> getConnections();
 
 	const SequenceContainer& _seqAssembly;
 	const SequenceContainer& _seqReads;
@@ -101,5 +98,3 @@ private:
 	const Knot::Id SEQ_BEGIN = 0;
 	const Knot::Id SEQ_END = 1;
 };
-
-

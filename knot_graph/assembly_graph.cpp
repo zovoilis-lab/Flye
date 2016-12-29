@@ -194,6 +194,31 @@ void AssemblyGraph::outputDot(const std::string& filename)
 	fout << "}\n";
 }
 
+namespace
+{
+	std::vector<OverlapRange> filterOvlp(const std::vector<OverlapRange>& ovlps)
+	{
+		std::vector<OverlapRange> filtered;
+		for (auto& ovlp : ovlps)
+		{
+			bool found = false;
+			for (auto& otherOvlp : filtered)
+			{
+				if (otherOvlp.curBegin == ovlp.curBegin &&
+					otherOvlp.curEnd == ovlp.curEnd &&
+					otherOvlp.extBegin == ovlp.extBegin &&
+					otherOvlp.extEnd == ovlp.extEnd)
+				{
+					found = true;
+					break;
+				}
+			}
+			if (!found) filtered.push_back(ovlp);
+		}
+		return filtered;
+	}
+}
+
 void AssemblyGraph::generatePathCandidates()
 {
 	const int32_t FLANK = 10000;
@@ -221,17 +246,17 @@ void AssemblyGraph::generatePathCandidates()
 			++pathDbId;
 			//
 			
-			std::cout << edge.seqEnd << " "
-					  << edge.nextEdge->seqBegin << std::endl;
-			std::cout << "\t" << _pathCandidates.back().sequence.size() 
-					  << std::endl;
+			//std::cout << edge.seqEnd << " "
+			//		  << edge.nextEdge->seqBegin << std::endl;
+			//std::cout << "\t" << _pathCandidates.back().sequence.size() 
+			//		  << std::endl;
 
 			for (auto& outEdge : _knots[edge.knotEnd].outEdges)
 			{
 				if (outEdge == edge.nextEdge) continue;
 
-				std::cout << edge.seqEnd << " "
-						  << outEdge->seqBegin << std::endl;
+				//std::cout << edge.seqEnd << " "
+				//		  << outEdge->seqBegin << std::endl;
 				
 				//find corresponding overlap
 				OverlapRange maxOverlap;
@@ -245,6 +270,10 @@ void AssemblyGraph::generatePathCandidates()
 						ovlp.extBegin >= outEdge->prevEdge->seqEnd &&
 						ovlp.extEnd <= outEdge->seqBegin)
 					{
+						//std::cout << "\t" << ovlp.curBegin << " "
+						//		  << ovlp.curRange() << " "
+						//	  	  << ovlp.extBegin << " "
+						//		  << ovlp.extRange() << std::endl;
 						found = true;
 						if (maxOverlap.curRange() < ovlp.curRange())
 						{
@@ -255,10 +284,10 @@ void AssemblyGraph::generatePathCandidates()
 				if (!found) continue;
 				//
 
-				//std::cout << "\t" << maxOverlap.curBegin << " "
-				//		  << maxOverlap.curRange() << " "
-				//		  << maxOverlap.extBegin << " "
-				//		  << maxOverlap.extRange() << std::endl;
+				std::cout << "\t" << maxOverlap.curBegin << " "
+						  << maxOverlap.curRange() << " "
+						  << maxOverlap.extBegin << " "
+						  << maxOverlap.extRange() << std::endl;
 				
 				//create database entry
 				auto& asmLeft = _seqAssembly.getSeq(edge.seqId);
@@ -271,20 +300,17 @@ void AssemblyGraph::generatePathCandidates()
 					asmRight.substr(maxOverlap.extEnd, 
 									rightFlank - maxOverlap.extEnd);
 				int32_t repeatStart = std::min(FLANK, edge.seqEnd);
-				int32_t repeatEnd = repeatStart + maxOverlap.curRange();
+				int32_t repeatEnd = repeatStart + maxOverlap.curRange() +
+									outEdge->seqBegin - maxOverlap.extEnd;
 				_pathCandidates.emplace_back(FastaRecord::Id(pathDbId), 
 											 sequence, repeatStart, repeatEnd,
 											 &edge, outEdge);
-				//std::cout << &edge << std::endl;
 				++pathDbId;
 				//
 
 				//std::cout << leftFlank << " " << rightFlank << std::endl;
 				//std::cout << maxOverlap.extBegin << " " << maxOverlap.extEnd << std::endl;
-				std::cout << "\t" << _pathCandidates.back().sequence.size()  << "\t"
-						  << _pathCandidates.back().sequence
-						  	.substr(_pathCandidates.back().sequence.size() - 101, 100)
-						  << std::endl;
+				//std::cout << "\t" << _pathCandidates.back().sequence.size()  << "\n";
 			}
 		}
 	}
@@ -359,8 +385,9 @@ namespace
 	}
 }
 
-void AssemblyGraph::untangle()
+std::vector<Connection> AssemblyGraph::getConnections()
 {
+	std::vector<Connection> connections;
 	std::unordered_map<FastaRecord::Id, PathCandidate*> idToPath;
 
 	SequenceContainer pathsContainer;
@@ -371,10 +398,10 @@ void AssemblyGraph::untangle()
 	}
 	VertexIndex pathsIndex(pathsContainer);
 	pathsIndex.countKmers(1);
-	pathsIndex.buildIndex(1, 10000);
+	pathsIndex.buildIndex(1, 50);
 
 	OverlapDetector readsOverlapper(pathsContainer, pathsIndex, 
-									Constants::maximumJump, 
+									500, 
 									Parameters::minimumOverlap,
 									Constants::maximumOverhang);
 	OverlapContainer readsContainer(readsOverlapper, _seqReads);
@@ -382,25 +409,44 @@ void AssemblyGraph::untangle()
 
 	for (auto& seqOvelaps : readsContainer.getOverlapIndex())
 	{
-		for (auto& ovlp : seqOvelaps.second)
+		auto overlaps = filterOvlp(seqOvelaps.second);
+		std::unordered_set<FastaRecord::Id> supported;
+		OverlapRange maxOverlap;
+		for (auto& ovlp : overlaps)
 		{
-			PathCandidate* path = idToPath[ovlp.extId];
-			if (path->repeatStart - ovlp.extBegin > 500 &&
-				ovlp.extEnd - path->repeatEnd > 500)
+			if (ovlp.curRange() > maxOverlap.curRange())
 			{
-				std::cout << seqOvelaps.first << "\t";
-				std::cout << path->inEdge->seqEnd << "\t" 
-						  << path->outEdge->seqBegin << "\t"
-						  << ovlp.curRange()
-						  << std::endl;
+				maxOverlap = ovlp;
 			}
 		}
+
+		PathCandidate* path = idToPath[maxOverlap.extId];
+		if (path->repeatStart - maxOverlap.extBegin > 1000 &&
+			maxOverlap.extEnd - path->repeatEnd > 1000)
+		{
+			std::cout << seqOvelaps.first << "\t";
+			std::cout << path->inEdge->seqEnd << "\t" 
+					  << path->outEdge->seqBegin << "\t"
+					  << maxOverlap.curBegin << "\t" << maxOverlap.curEnd << "\t"
+					  << maxOverlap.extBegin << "\t" << maxOverlap.extEnd
+					  << std::endl;
+			supported.insert(maxOverlap.extId);
+		}
+
+		if (supported.size() == 1)
+		{
+			PathCandidate* path = idToPath[*supported.begin()];
+			connections.push_back({path->inEdge, path->outEdge});
+		}
 	}
+
+	return connections;
 }
 
-void AssemblyGraph::untangle(const OverlapContainer& ovlpContainer)
+
+void AssemblyGraph::untangle()
 {
-	auto connections = this->getConnections(ovlpContainer);
+	auto connections = this->getConnections();
 
 	std::unordered_map<Edge*, std::unordered_map<Edge*, 
 						std::vector<Connection>>> votes;
@@ -416,6 +462,7 @@ void AssemblyGraph::untangle(const OverlapContainer& ovlpContainer)
 		{
 			pairedEdge = edgeConnections.second.begin()->first;
 		}
+		/*
 		else
 		{
 			int maxVotes = 0;
@@ -432,10 +479,10 @@ void AssemblyGraph::untangle(const OverlapContainer& ovlpContainer)
 			for (auto& connCount : edgeConnections.second) 
 			{
 				if (connCount.first != maxEdge && 
-					maxVotes / connCount.second.size() < 2) reliable = false;
+					maxVotes / connCount.second.size() < 5) reliable = false;
 			}
 			if (reliable) pairedEdge = maxEdge;
-		}
+		}*/
 
 		std::cout << "Votes for " << edgeConnections.first->seqId
 				  << " " << edgeConnections.first->seqEnd << std::endl;
@@ -443,25 +490,8 @@ void AssemblyGraph::untangle(const OverlapContainer& ovlpContainer)
 		for (auto& votesIter : edgeConnections.second)
 		{
 			std::cout << "\t" << votesIter.first->seqId << " "
-					  << votesIter.first->seqBegin << std::endl;
-			for (auto& conn : votesIter.second)
-			{
-				int32_t leftIntersection = conn.inOverlap.curBegin + 
-									   	   conn.inEdge->seqEnd - 
-									   	   conn.inOverlap.extBegin;
-				int32_t rightIntersection = conn.outOverlap.curEnd - 
-									   		(conn.outOverlap.extEnd - 
-									    	conn.outEdge->seqBegin);
-
-				std::cout << "\t\t" << conn.inEdge->seqEnd - conn.inOverlap.extBegin
-						  << "\t" << conn.outOverlap.extEnd - conn.outEdge->seqBegin
-						  //<< "\t" << conn.inOverlap.curRange()
-						  //<< "\t" << conn.outOverlap.curRange()
-						  << "\t" << std::min(conn.inEdge->seqEnd - conn.inOverlap.extBegin,
-											  conn.outOverlap.extEnd - conn.outEdge->seqBegin)
-						  << "\t" << rightIntersection - leftIntersection
-						  << std::endl;
-			}
+					  << votesIter.first->seqBegin << 
+					  " " << votesIter.second.size() << std::endl;
 		}
 
 		if (!pairedEdge)
@@ -489,104 +519,4 @@ void AssemblyGraph::untangle(const OverlapContainer& ovlpContainer)
 		edgeConnections.first->knotEnd = newKnot;
 		pairedEdge->knotBegin = newKnot;
 	}
-}
-
-
-std::vector<Connection>
-	AssemblyGraph::getConnections(const OverlapContainer& ovlpContainer)
-{
-	std::vector<Edge*> inEdges;
-	std::vector<Edge*> outEdges;
-	const int OVERHANG = 500;
-
-	for (auto& knot : _knots)
-	{
-		if (knot.knotId <= SEQ_END) continue;
-
-		for (Edge* edge : knot.inEdges)
-		{
-			inEdges.push_back(edge);
-		}
-		for (Edge* edge : knot.outEdges)
-		{
-			outEdges.push_back(edge);
-		}
-	}
-
-	std::vector<Connection> connections;
-	for (auto seqOvelaps : ovlpContainer.getOverlapIndex())
-	{
-		std::unordered_map<Edge*, OverlapRange> inSupport;
-		std::unordered_map<Edge*, OverlapRange> outSupport;
-		for (auto& ovlp : seqOvelaps.second)
-		{
-			for (Edge* edge : inEdges)
-			{
-				if (ovlp.extId != edge->seqId) continue;
-				
-				int32_t intersect = std::min(ovlp.extEnd, edge->seqEnd) -
-									std::max(ovlp.extBegin, edge->seqBegin);
-
-				//TODO: overhangs wrt to unique edges
-				
-				if (intersect < 0 ||
-					edge->seqEnd - ovlp.extEnd > OVERHANG ||
-					edge->seqEnd - ovlp.extBegin < OVERHANG ||
-					std::min(ovlp.curBegin, edge->seqBegin) > OVERHANG) 
-				{
-					continue;
-				}
-
-				inSupport[edge] = ovlp;
-			}
-
-			for (Edge* edge : outEdges)
-			{
-				if (ovlp.extId != edge->seqId) continue;
-				
-				int32_t intersect = std::min(ovlp.extEnd, edge->seqEnd) -
-									std::max(ovlp.extBegin, edge->seqBegin);
-
-				int32_t readOvhg = _seqReads.seqLen(ovlp.curId) - ovlp.curEnd;
-				int32_t asmOvhg = _seqAssembly.seqLen(ovlp.extId) - ovlp.extEnd;
-				if (intersect < 0 ||
-					ovlp.extBegin - edge->seqBegin > OVERHANG ||
-					ovlp.extEnd - edge->seqBegin < OVERHANG ||
-					std::min(readOvhg, asmOvhg) > OVERHANG)
-				{
-					continue;
-				}
-
-				outSupport[edge] = ovlp;
-			}
-		}
-
-		if (inSupport.size() == 1 && outSupport.size() == 1)
-		{
-			auto inEdge = *inSupport.begin();
-			auto outEdge = *outSupport.begin();
-
-			int32_t leftIntersection = inEdge.second.curBegin + 
-									   inEdge.first->seqEnd - 
-									   inEdge.second.extBegin;
-			int32_t rightIntersection = outEdge.second.curEnd - 
-									   (outEdge.second.extEnd - 
-									    outEdge.first->seqBegin);
-
-			if (inEdge.first->knotEnd == outEdge.first->knotBegin &&
-				rightIntersection - leftIntersection > Parameters::minimumOverlap)
-			{
-				connections.push_back({inEdge.first, inEdge.second,
-									   outEdge.first, outEdge.second});
-				/*
-				std::cout << _seqReads.seqName(seqOvelaps.first) << std::endl;
-				std::cout << "Connection: " << leftEdge.first->seqId
-						  << "\t" << leftEdge.first->seqEnd << "\t"
-						  << rightEdge.first->seqId << "\t" 
-						  << rightEdge.first->seqBegin << "\t" << leftEdge.second 
-						  << "\t" << rightEdge.second << std::endl;*/
-			}
-		}
-	}
-	return connections;
 }
