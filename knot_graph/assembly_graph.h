@@ -49,15 +49,14 @@ struct Connection
 
 struct PathCandidate
 {
-	PathCandidate(): id(FastaRecord::ID_NONE) {}
-	PathCandidate(FastaRecord::Id id, const std::string& seq,
+	PathCandidate() {}
+	PathCandidate(const std::string& seq,
 				  int32_t repStart, int32_t repEnd,
 				  Edge* inEdge, Edge* outEdge):
-		id(id), sequence(seq), repeatStart(repStart), repeatEnd(repEnd),
+		sequence(seq), repeatStart(repStart), repeatEnd(repEnd),
 		inEdge(inEdge), outEdge(outEdge)
 	{}
 
-	FastaRecord::Id id;
 	std::string sequence;
 	int32_t repeatStart;
 	int32_t repeatEnd;

@@ -194,6 +194,7 @@ void AssemblyGraph::outputDot(const std::string& filename)
 	fout << "}\n";
 }
 
+/*
 namespace
 {
 	std::vector<OverlapRange> filterOvlp(const std::vector<OverlapRange>& ovlps)
@@ -217,13 +218,12 @@ namespace
 		}
 		return filtered;
 	}
-}
+}*/
 
 void AssemblyGraph::generatePathCandidates()
 {
 	const int32_t FLANK = 10000;
 
-	size_t pathDbId = 0;
 	for (auto& seqEdges : _edges)
 	{
 		for (auto& edge : seqEdges.second)
@@ -240,24 +240,14 @@ void AssemblyGraph::generatePathCandidates()
 			int32_t repeatStart = std::min(FLANK, edge.seqEnd);
 			int32_t repeatEnd = repeatStart + edge.nextEdge->seqBegin - 
 								edge.seqEnd;
-			_pathCandidates.emplace_back(FastaRecord::Id(pathDbId), 
-										 sequence, repeatStart, repeatEnd,
+			_pathCandidates.emplace_back(sequence, repeatStart, repeatEnd,
 									     &edge, edge.nextEdge);
-			++pathDbId;
 			//
 			
-			//std::cout << edge.seqEnd << " "
-			//		  << edge.nextEdge->seqBegin << std::endl;
-			//std::cout << "\t" << _pathCandidates.back().sequence.size() 
-			//		  << std::endl;
-
 			for (auto& outEdge : _knots[edge.knotEnd].outEdges)
 			{
 				if (outEdge == edge.nextEdge) continue;
 
-				//std::cout << edge.seqEnd << " "
-				//		  << outEdge->seqBegin << std::endl;
-				
 				//find corresponding overlap
 				OverlapRange maxOverlap;
 				bool found = false;
@@ -270,10 +260,6 @@ void AssemblyGraph::generatePathCandidates()
 						ovlp.extBegin >= outEdge->prevEdge->seqEnd &&
 						ovlp.extEnd <= outEdge->seqBegin)
 					{
-						//std::cout << "\t" << ovlp.curBegin << " "
-						//		  << ovlp.curRange() << " "
-						//	  	  << ovlp.extBegin << " "
-						//		  << ovlp.extRange() << std::endl;
 						found = true;
 						if (maxOverlap.curRange() < ovlp.curRange())
 						{
@@ -283,11 +269,6 @@ void AssemblyGraph::generatePathCandidates()
 				}
 				if (!found) continue;
 				//
-
-				std::cout << "\t" << maxOverlap.curBegin << " "
-						  << maxOverlap.curRange() << " "
-						  << maxOverlap.extBegin << " "
-						  << maxOverlap.extRange() << std::endl;
 				
 				//create database entry
 				auto& asmLeft = _seqAssembly.getSeq(edge.seqId);
@@ -302,15 +283,9 @@ void AssemblyGraph::generatePathCandidates()
 				int32_t repeatStart = std::min(FLANK, edge.seqEnd);
 				int32_t repeatEnd = repeatStart + maxOverlap.curRange() +
 									outEdge->seqBegin - maxOverlap.extEnd;
-				_pathCandidates.emplace_back(FastaRecord::Id(pathDbId), 
-											 sequence, repeatStart, repeatEnd,
+				_pathCandidates.emplace_back(sequence, repeatStart, repeatEnd,
 											 &edge, outEdge);
-				++pathDbId;
 				//
-
-				//std::cout << leftFlank << " " << rightFlank << std::endl;
-				//std::cout << maxOverlap.extBegin << " " << maxOverlap.extEnd << std::endl;
-				//std::cout << "\t" << _pathCandidates.back().sequence.size()  << "\n";
 			}
 		}
 	}
@@ -391,14 +366,15 @@ std::vector<Connection> AssemblyGraph::getConnections()
 	std::unordered_map<FastaRecord::Id, PathCandidate*> idToPath;
 
 	SequenceContainer pathsContainer;
-	for (auto& path : _pathCandidates)
+	for (size_t i = 0; i < _pathCandidates.size(); ++i)
 	{
-		pathsContainer.addSequence(FastaRecord(path.sequence, "", path.id));
-		idToPath[path.id] = &path;
+		pathsContainer.addSequence(FastaRecord(_pathCandidates[i].sequence, "", 
+											   FastaRecord::Id(i)));
+		idToPath[FastaRecord::Id(i)] = &_pathCandidates[i];
 	}
 	VertexIndex pathsIndex(pathsContainer);
 	pathsIndex.countKmers(1);
-	pathsIndex.buildIndex(1, 50);
+	pathsIndex.buildIndex(1, 500);
 
 	OverlapDetector readsOverlapper(pathsContainer, pathsIndex, 
 									500, 
@@ -409,10 +385,10 @@ std::vector<Connection> AssemblyGraph::getConnections()
 
 	for (auto& seqOvelaps : readsContainer.getOverlapIndex())
 	{
-		auto overlaps = filterOvlp(seqOvelaps.second);
+		//auto overlaps = filterOvlp(seqOvelaps.second);
 		std::unordered_set<FastaRecord::Id> supported;
 		OverlapRange maxOverlap;
-		for (auto& ovlp : overlaps)
+		for (auto& ovlp : seqOvelaps.second)
 		{
 			if (ovlp.curRange() > maxOverlap.curRange())
 			{

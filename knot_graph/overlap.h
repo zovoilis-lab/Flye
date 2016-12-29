@@ -38,11 +38,10 @@ struct OverlapRange
 		return rev;
 	}
 
-	/*
-	OverlapRange complement() const
+	OverlapRange complement(const SequenceContainer& seqContainer) const
 	{
-		int32_t curLen = SequenceContainer::get().seqLen(curId);
-		int32_t extLen = SequenceContainer::get().seqLen(extId);
+		int32_t curLen = seqContainer.seqLen(curId);
+		int32_t extLen = seqContainer.seqLen(extId);
 
 		OverlapRange comp(*this);
 		std::swap(comp.leftShift, comp.rightShift);
@@ -61,7 +60,7 @@ struct OverlapRange
 		comp.extId = comp.extId.rc();
 
 		return comp;
-	}*/
+	}
 
 	bool contains(int32_t curPos, int32_t extPos) const
 	{

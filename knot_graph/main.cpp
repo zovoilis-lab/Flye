@@ -146,7 +146,7 @@ int main(int argc, char** argv)
 
 		VertexIndex assemblyIndex(seqAssembly);
 		assemblyIndex.countKmers(1);
-		assemblyIndex.buildIndex(1, 50);
+		assemblyIndex.buildIndex(1, 500);
 		
 		//getting self-overlaps for assembly
 		const int MAX_JUMP = 500;
