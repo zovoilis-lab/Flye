@@ -149,9 +149,10 @@ int main(int argc, char** argv)
 		assemblyIndex.buildIndex(1, 500, 10);
 		
 		//getting self-overlaps for assembly
-		const int MAX_JUMP = 500;
+		//const int MAX_JUMP = 1500;
 		const int NO_OVERHANGS = 0;
-		OverlapDetector asmOverlapper(seqAssembly, assemblyIndex, MAX_JUMP,
+		OverlapDetector asmOverlapper(seqAssembly, assemblyIndex, 
+									  Constants::maximumJump,
 							 		  Parameters::minimumOverlap, NO_OVERHANGS);
 		OverlapContainer selfContainer(asmOverlapper, seqAssembly);
 		if (overlapsFile.empty())

@@ -406,7 +406,7 @@ std::vector<Connection> AssemblyGraph::getConnections()
 	pathsIndex.buildIndex(1, 500, 1);
 
 	OverlapDetector readsOverlapper(pathsContainer, pathsIndex, 
-									500, 
+									Constants::maximumJump, 
 									Parameters::minimumOverlap,
 									Constants::maximumOverhang);
 	OverlapContainer readsContainer(readsOverlapper, _seqReads);
@@ -481,29 +481,58 @@ void AssemblyGraph::untangle()
 	for (auto& knotEdges : edges)
 	{
 		Logger::get().debug() << "Knot" << knotEdges.first;
-		std::vector<EdgePair> sortedEdges;
+		for (auto& edge : _knots[knotEdges.first].inEdges)
+		{
+			Logger::get().debug() << "\tIn Edge: " << edge->seqId 
+								  << " " << edge->seqEnd;
+		}
+		Logger::get().debug() << "";
+		for (auto& edge : _knots[knotEdges.first].outEdges)
+		{
+			Logger::get().debug() << "\tOut Edge: " << edge->seqId 
+								  << " " << edge->seqBegin;
+		}
+		Logger::get().debug() << "";
+
+		std::vector<EdgePair> sortedConnections;
+		std::unordered_map<Edge*, int> inCoverage;
+		std::unordered_map<Edge*, int> outCoverage;
 		for (auto& edgeCount : knotEdges.second)
 		{
-			sortedEdges.push_back(edgeCount.first);
+			sortedConnections.push_back(edgeCount.first);
+			inCoverage[edgeCount.first.first] += edgeCount.second;
+			outCoverage[edgeCount.first.second] += edgeCount.second;
+
+			Logger::get().debug() << "\tEdge\t" << edgeCount.first.first->seqEnd << "\t"
+								  << edgeCount.first.second->seqBegin << "\t"
+								  << edgeCount.second;
 		}
-		std::sort(sortedEdges.begin(), sortedEdges.end(),
+		Logger::get().debug() << "";
+
+		std::sort(sortedConnections.begin(), sortedConnections.end(),
 				  [&knotEdges](const EdgePair& e1, const EdgePair& e2)
 				  {return knotEdges.second[e1] > knotEdges.second[e2];});
 
 		std::unordered_set<Edge*> usedInEdges;
 		std::unordered_set<Edge*> usedOutEdges;
 
-		for (auto& edgePair : sortedEdges)
+		for (auto& edgePair : sortedConnections)
 		{
+			float confidence = 2.0f * knotEdges.second[edgePair] / 
+								(inCoverage[edgePair.first] + 
+								 outCoverage[edgePair.second]);
+
 			if (!usedInEdges.count(edgePair.first) &&
-				!usedOutEdges.count(edgePair.second))
+				!usedOutEdges.count(edgePair.second) &&
+				confidence > 0.5f)
 			{
 
 				Logger::get().debug() << "\tConnection " 
 					<< edgePair.first->seqId
 					<< "\t" << edgePair.first->seqEnd << "\t"
 					<< edgePair.second->seqId << "\t" << edgePair.second->seqBegin
-					<< "\t" << knotEdges.second[edgePair];
+					<< "\t" << knotEdges.second[edgePair]
+					<< "\t" << confidence;
 
 				usedInEdges.insert(edgePair.first);
 				usedOutEdges.insert(edgePair.second);
