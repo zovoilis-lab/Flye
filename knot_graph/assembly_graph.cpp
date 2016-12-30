@@ -403,7 +403,7 @@ std::vector<Connection> AssemblyGraph::getConnections()
 	}
 	VertexIndex pathsIndex(pathsContainer);
 	pathsIndex.countKmers(1);
-	pathsIndex.buildIndex(1, 500);
+	pathsIndex.buildIndex(1, 500, 1);
 
 	OverlapDetector readsOverlapper(pathsContainer, pathsIndex, 
 									500, 
@@ -426,15 +426,15 @@ std::vector<Connection> AssemblyGraph::getConnections()
 		}
 
 		PathCandidate* path = idToPath[maxOverlap.extId];
-		if (path->repeatStart - maxOverlap.extBegin > 1000 &&
-			maxOverlap.extEnd - path->repeatEnd > 1000)
+		if (path->repeatStart - maxOverlap.extBegin > 500 &&
+			maxOverlap.extEnd - path->repeatEnd > 500)
 		{
-			std::cout << seqOvelaps.first << "\t";
-			std::cout << path->inEdge->seqEnd << "\t" 
-					  << path->outEdge->seqBegin << "\t"
-					  << maxOverlap.curBegin << "\t" << maxOverlap.curEnd << "\t"
-					  << maxOverlap.extBegin << "\t" << maxOverlap.extEnd
-					  << std::endl;
+			//std::cout << seqOvelaps.first << "\t";
+			//std::cout << path->inEdge->seqEnd << "\t" 
+			//		  << path->outEdge->seqBegin << "\t"
+			//		  << maxOverlap.curBegin << "\t" << maxOverlap.curEnd << "\t"
+			//		  << maxOverlap.extBegin << "\t" << maxOverlap.extEnd
+			//		  << std::endl;
 			supported.insert(maxOverlap.extId);
 		}
 

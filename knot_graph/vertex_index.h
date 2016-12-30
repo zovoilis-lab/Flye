@@ -25,12 +25,7 @@ public:
 	}
 	VertexIndex(const SequenceContainer& seqContainer):
 		_seqContainer(seqContainer) {}
-	/*
-	static VertexIndex& get()
-	{
-		static VertexIndex instance;
-		return instance;
-	}*/
+
 	VertexIndex(const VertexIndex&) = delete;
 	void operator=(const VertexIndex&) = delete;
 
@@ -46,11 +41,8 @@ public:
 	typedef std::map<int, int> KmerDistribution;
 
 	void countKmers(size_t hardThreshold);
-	void buildIndex(int minCoverage, int maxCoverage);
+	void buildIndex(int minCoverage, int maxCoverage, int filterRatio);
 	void clear();
-
-	//void setKmerSize(unsigned int size);
-	//unsigned int getKmerSize() const {return _kmerSize;}
 
 	const ReadVector& byKmer(Kmer kmer) const
 		{return *_kmerIndex[kmer];}
@@ -68,7 +60,6 @@ private:
 
 	cuckoohash_map<Kmer, ReadVector*> _kmerIndex;
 	std::unordered_set<Kmer>		_repetitiveKmers;
-	//unsigned int 					_kmerSize;
 	KmerDistribution 			 	_kmerDistribution;
 	cuckoohash_map<Kmer, size_t>  	_kmerCounts;
 };

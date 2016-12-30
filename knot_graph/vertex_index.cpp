@@ -13,12 +13,6 @@
 #include "config.h"
 
 
-/*
-void VertexIndex::setKmerSize(unsigned int size)
-{
-	_kmerSize = size;
-}*/
-
 void VertexIndex::countKmers(size_t hardThreshold)
 {
 	Logger::get().debug() << "Hard threshold set to " << hardThreshold;
@@ -75,15 +69,19 @@ void VertexIndex::countKmers(size_t hardThreshold)
 }
 
 
-void VertexIndex::buildIndex(int minCoverage, int maxCoverage)
+void VertexIndex::buildIndex(int minCoverage, int maxCoverage, int filterRatio)
 {
 	Logger::get().info() << "Building kmer index";
 
 	std::function<void(const FastaRecord::Id&)> indexUpdate = 
-	[minCoverage, maxCoverage, this] (const FastaRecord::Id& readId)
+	[minCoverage, maxCoverage, filterRatio, this] 
+	(const FastaRecord::Id& readId)
 	{
+		int counter = 0;
 		for (auto kmerPos : IterKmers(_seqContainer.getSeq(readId)))
 		{
+			if ((counter++) % filterRatio) continue;
+
 			size_t count = 0;
 			_kmerCounts.find(kmerPos.kmer, count);
 
