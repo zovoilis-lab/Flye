@@ -176,7 +176,6 @@ int main(int argc, char** argv)
 
 		AssemblyGraph ag(seqAssembly, seqReads);
 		ag.construct(selfContainer);
-		ag.generatePathCandidates();
 		//ag.outputFasta(outAssembly);
 		ag.outputDot(outAssembly + "_before");
 

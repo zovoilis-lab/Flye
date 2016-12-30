@@ -6,6 +6,7 @@
 #include "overlap.h"
 
 #include <fstream>
+#include <map>
 
 namespace
 {
@@ -145,18 +146,46 @@ void AssemblyGraph::construct(const OverlapContainer& ovlpContainer)
 						   		seqKnots.back().knot, SEQ_END));
 		_knots[seqKnots.back().knot].outEdges.push_back(&seqEdges.back());
 		_knots[SEQ_END].inEdges.push_back(&seqEdges.back());
-		////
-		
-		//edges pointers
-		auto prevEdge = seqEdges.begin();
+	}
+
+	this->addEdgesPointers();
+}
+
+
+void AssemblyGraph::addEdgesPointers()
+{
+	for (auto& seqEdgesPair : _edges)
+	{
+		//prev and next
+		auto prevEdge = seqEdgesPair.second.begin();
 		auto nextEdge = prevEdge;
 		++nextEdge;
-		while (nextEdge != seqEdges.end())
+		while (nextEdge != seqEdgesPair.second.end())
 		{
 			prevEdge->nextEdge = &(*nextEdge);
 			nextEdge->prevEdge = &(*prevEdge);
 			++prevEdge;
 			++nextEdge;
+		}
+
+		//complementary edges
+		if (!seqEdgesPair.first.strand()) continue;
+
+		auto& complEdges = _edges[seqEdgesPair.first.rc()];
+		if (seqEdgesPair.second.size() != complEdges.size())
+		{
+			throw std::runtime_error("Number of edges not equal for "
+									 "complementary sequences");
+		}
+
+		auto fwdIt = seqEdgesPair.second.begin();
+		auto cmpIt = complEdges.rbegin();
+		while (fwdIt != seqEdgesPair.second.end())
+		{
+			fwdIt->complementEdge = &(*cmpIt);
+			cmpIt->complementEdge = &(*fwdIt);
+			++fwdIt;
+			++cmpIt;
 		}
 	}
 }
@@ -382,7 +411,7 @@ std::vector<Connection> AssemblyGraph::getConnections()
 									Constants::maximumOverhang);
 	OverlapContainer readsContainer(readsOverlapper, _seqReads);
 	readsContainer.findAllOverlaps();
-
+	
 	for (auto& seqOvelaps : readsContainer.getOverlapIndex())
 	{
 		//auto overlaps = filterOvlp(seqOvelaps.second);
@@ -413,86 +442,84 @@ std::vector<Connection> AssemblyGraph::getConnections()
 		{
 			PathCandidate* path = idToPath[*supported.begin()];
 			connections.push_back({path->inEdge, path->outEdge});
+			connections.push_back({path->outEdge->complementEdge,
+								   path->inEdge->complementEdge});
 		}
 	}
 
 	return connections;
 }
 
+namespace
+{
+	struct pairhash 
+	{
+	public:
+		template <typename T, typename U>
+		std::size_t operator()(const std::pair<T, U> &x) const
+		{
+			return std::hash<T>()(x.first) ^ std::hash<U>()(x.second);
+		}
+	};
+}
 
 void AssemblyGraph::untangle()
 {
+	this->generatePathCandidates();
 	auto connections = this->getConnections();
 
-	std::unordered_map<Edge*, std::unordered_map<Edge*, 
-						std::vector<Connection>>> votes;
+	typedef std::pair<Edge*, Edge*> EdgePair;
+	std::unordered_map<Knot::Id, 
+					   std::unordered_map<EdgePair, int, pairhash>> edges;
+
 	for (auto& conn : connections)
 	{
-		votes[conn.inEdge][conn.outEdge].push_back(conn);
+		Knot::Id knot = conn.inEdge->knotEnd;
+		++edges[knot][EdgePair(conn.inEdge, conn.outEdge)];
 	}
 
-	for (auto& edgeConnections : votes)
+	for (auto& knotEdges : edges)
 	{
-		Edge* pairedEdge = nullptr;
-		if (edgeConnections.second.size() == 1)
+		Logger::get().debug() << "Knot" << knotEdges.first;
+		std::vector<EdgePair> sortedEdges;
+		for (auto& edgeCount : knotEdges.second)
 		{
-			pairedEdge = edgeConnections.second.begin()->first;
+			sortedEdges.push_back(edgeCount.first);
 		}
-		/*
-		else
+		std::sort(sortedEdges.begin(), sortedEdges.end(),
+				  [&knotEdges](const EdgePair& e1, const EdgePair& e2)
+				  {return knotEdges.second[e1] > knotEdges.second[e2];});
+
+		std::unordered_set<Edge*> usedInEdges;
+		std::unordered_set<Edge*> usedOutEdges;
+
+		for (auto& edgePair : sortedEdges)
 		{
-			int maxVotes = 0;
-			Edge* maxEdge = nullptr;
-			for (auto& connCount : edgeConnections.second) 
+			if (!usedInEdges.count(edgePair.first) &&
+				!usedOutEdges.count(edgePair.second))
 			{
-				if (maxVotes < connCount.second.size())
-				{
-					maxVotes = connCount.second.size();
-					maxEdge = connCount.first;
-				}
+
+				Logger::get().debug() << "\tConnection " 
+					<< edgePair.first->seqId
+					<< "\t" << edgePair.first->seqEnd << "\t"
+					<< edgePair.second->seqId << "\t" << edgePair.second->seqBegin
+					<< "\t" << knotEdges.second[edgePair];
+
+				usedInEdges.insert(edgePair.first);
+				usedOutEdges.insert(edgePair.second);
+
+				//modify the graph
+				Knot::Id oldKnot = edgePair.first->knotEnd;
+				Knot::Id newKnot = _knots.size();
+				_knots.push_back(Knot(newKnot));
+				vecRemove(_knots[oldKnot].inEdges, edgePair.first);
+				vecRemove(_knots[oldKnot].outEdges, edgePair.second);
+				_knots[newKnot].inEdges.push_back(edgePair.first);
+				_knots[newKnot].outEdges.push_back(edgePair.second);
+				edgePair.first->knotEnd = newKnot;
+				edgePair.second->knotBegin = newKnot;
+				//
 			}
-			bool reliable = true;
-			for (auto& connCount : edgeConnections.second) 
-			{
-				if (connCount.first != maxEdge && 
-					maxVotes / connCount.second.size() < 5) reliable = false;
-			}
-			if (reliable) pairedEdge = maxEdge;
-		}*/
-
-		std::cout << "Votes for " << edgeConnections.first->seqId
-				  << " " << edgeConnections.first->seqEnd << std::endl;
-
-		for (auto& votesIter : edgeConnections.second)
-		{
-			std::cout << "\t" << votesIter.first->seqId << " "
-					  << votesIter.first->seqBegin << 
-					  " " << votesIter.second.size() << std::endl;
 		}
-
-		if (!pairedEdge)
-		{
-			Logger::get().debug() << "Ambigious "
-					<< edgeConnections.first->seqId
-				    << "\t" << edgeConnections.first->seqEnd;
-
-			continue;
-		}
-
-		Logger::get().debug() << "Connection " 
-				<< edgeConnections.first->seqId
-				<< "\t" << edgeConnections.first->seqEnd << "\t"
-				<< pairedEdge->seqId << "\t" << pairedEdge->seqBegin;
-
-		//modify the graph
-		Knot::Id oldKnot = edgeConnections.first->knotEnd;
-		Knot::Id newKnot = _knots.size();
-		_knots.push_back(Knot(newKnot));
-		vecRemove(_knots[oldKnot].inEdges, edgeConnections.first);
-		vecRemove(_knots[oldKnot].outEdges, pairedEdge);
-		_knots[newKnot].inEdges.push_back(edgeConnections.first);
-		_knots[newKnot].outEdges.push_back(pairedEdge);
-		edgeConnections.first->knotEnd = newKnot;
-		pairedEdge->knotBegin = newKnot;
 	}
 }

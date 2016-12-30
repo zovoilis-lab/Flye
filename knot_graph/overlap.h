@@ -38,11 +38,8 @@ struct OverlapRange
 		return rev;
 	}
 
-	OverlapRange complement(const SequenceContainer& seqContainer) const
+	OverlapRange complement(int32_t curLen, int32_t extLen) const
 	{
-		int32_t curLen = seqContainer.seqLen(curId);
-		int32_t extLen = seqContainer.seqLen(extId);
-
 		OverlapRange comp(*this);
 		std::swap(comp.leftShift, comp.rightShift);
 		comp.leftShift = -comp.leftShift;

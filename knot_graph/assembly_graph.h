@@ -29,7 +29,7 @@ struct Edge
 
 		 seqId(id), seqBegin(seqBegin), seqEnd(seqEnd), 
 		 knotBegin(knotBegin), knotEnd(knotEnd),
-		 prevEdge(nullptr), nextEdge(nullptr)
+		 prevEdge(nullptr), nextEdge(nullptr), complementEdge(nullptr)
 	{}
 
 	FastaRecord::Id seqId;
@@ -39,6 +39,7 @@ struct Edge
 	Knot::Id knotEnd;
 	Edge* prevEdge;
 	Edge* nextEdge;
+	Edge* complementEdge;
 };
 
 struct Connection
@@ -79,11 +80,12 @@ public:
 	void untangle();
 	void outputDot(const std::string& filename);
 	void outputFasta(const std::string& filename);
-	void generatePathCandidates();
 
 	typedef std::unordered_map<FastaRecord::Id, 
 					   std::vector<OverlapRange>> OverlapIndex;
 private:
+	void generatePathCandidates();
+	void addEdgesPointers();
 	std::vector<Connection> getConnections();
 
 	const SequenceContainer& _seqAssembly;
