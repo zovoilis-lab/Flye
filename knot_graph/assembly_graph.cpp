@@ -32,6 +32,12 @@ void AssemblyGraph::construct(const OverlapContainer& ovlpContainer)
 	{
 		for (auto& ovlp : ovlpHash.second)
 		{
+			if (ovlp.curId == ovlp.extId &&
+				ovlp.curIntersect(ovlp.reverse()) > 0)
+			{
+				continue;	//overlapping tandem repeat
+			}
+
 			overlapClusters[ovlp.curId].emplace_back(ovlp);
 			DjsOverlap* ptrOne = &overlapClusters[ovlp.curId].back(); 
 			overlapClusters[ovlp.extId].emplace_back(ovlp.reverse());
@@ -537,17 +543,117 @@ void AssemblyGraph::untangle()
 				usedInEdges.insert(edgePair.first);
 				usedOutEdges.insert(edgePair.second);
 
-				//modify the graph
-				Knot::Id oldKnot = edgePair.first->knotEnd;
-				Knot::Id newKnot = _knots.size();
-				_knots.push_back(Knot(newKnot));
-				vecRemove(_knots[oldKnot].inEdges, edgePair.first);
-				vecRemove(_knots[oldKnot].outEdges, edgePair.second);
-				_knots[newKnot].inEdges.push_back(edgePair.first);
-				_knots[newKnot].outEdges.push_back(edgePair.second);
-				edgePair.first->knotEnd = newKnot;
-				edgePair.second->knotBegin = newKnot;
-				//
+				_resolvedConnections.emplace_back(edgePair.first, 
+												  edgePair.second);
+			}
+		}
+	}
+
+	this->modifyGraph();
+	this->updateEdgesEnds();
+}
+
+void AssemblyGraph::modifyGraph()
+{
+	for (auto& edgePair : _resolvedConnections)
+	{
+		Knot::Id oldKnot = edgePair.inEdge->knotEnd;
+		Knot::Id newKnot = _knots.size();
+		_knots.push_back(Knot(newKnot));
+		vecRemove(_knots[oldKnot].inEdges, edgePair.inEdge);
+		vecRemove(_knots[oldKnot].outEdges, edgePair.outEdge);
+		_knots[newKnot].inEdges.push_back(edgePair.inEdge);
+		_knots[newKnot].outEdges.push_back(edgePair.outEdge);
+		edgePair.inEdge->knotEnd = newKnot;
+		edgePair.outEdge->knotBegin = newKnot;
+	}
+}
+
+void AssemblyGraph::updateEdgesEnds()
+{
+	std::vector<OverlapRange> unresolvedOverlaps;
+	for (auto& ovlp : _asmOverlaps)
+	{
+		bool resolved = false;
+		for (auto& conn : _resolvedConnections)
+		{
+			if (ovlp.curId == conn.inEdge->seqId &&
+				ovlp.curBegin >= conn.inEdge->seqEnd &&
+				ovlp.curEnd <= conn.inEdge->nextEdge->seqBegin)
+			{
+				resolved = true;
+				break;
+			}
+			if (ovlp.extId == conn.inEdge->seqId &&
+				ovlp.extBegin >= conn.inEdge->seqEnd &&
+				ovlp.extEnd <= conn.inEdge->nextEdge->seqBegin)
+			{
+				resolved = true;
+				break;
+			}
+			if (ovlp.curId == conn.outEdge->seqId &&
+				ovlp.curBegin >= conn.outEdge->prevEdge->seqEnd &&
+				ovlp.curEnd <= conn.outEdge->seqBegin)
+			{
+				resolved = true;
+				break;
+			}
+			if (ovlp.extId == conn.outEdge->seqId &&
+				ovlp.extBegin >= conn.outEdge->prevEdge->seqEnd &&
+				ovlp.extEnd <= conn.outEdge->seqBegin)
+			{
+				resolved = true;
+				break;
+			}
+		}
+		if (!resolved) unresolvedOverlaps.push_back(ovlp);
+	}
+	Logger::get().debug() << "Unresolved " << unresolvedOverlaps.size()
+						  << " Total " << _asmOverlaps.size();
+
+	//update edges ends
+	std::unordered_set<Edge*> resolvedIn;
+	std::unordered_set<Edge*> resolvedOut;
+	for (auto& conn : _resolvedConnections)
+	{
+		resolvedIn.insert(conn.inEdge);
+		resolvedOut.insert(conn.outEdge);
+	}
+	for (auto& seqEdges : _edges)
+	{
+		for (auto& edge : seqEdges.second)
+		{
+			if (!edge.nextEdge) continue;
+			if (!resolvedIn.count(&edge))
+			{
+				int32_t newEnd = _seqAssembly.seqLen(edge.seqId);
+				for (auto& ovlp : unresolvedOverlaps)
+				{
+					if (ovlp.curId == edge.seqId &&
+						ovlp.curBegin >= edge.seqEnd &&
+						ovlp.curEnd <= edge.nextEdge->seqBegin)
+					{
+						newEnd = std::min(newEnd, ovlp.curBegin);
+					}
+				}
+				Logger::get().debug() << edge.seqId << " " 
+									  << edge.seqEnd << " " << newEnd;
+			}
+			if (!resolvedOut.count(edge.nextEdge))
+			{
+				int32_t newBegin = 0;
+				for (auto& ovlp : unresolvedOverlaps)
+				{
+					if (ovlp.curId == edge.seqId &&
+						ovlp.curBegin >= edge.seqEnd &&
+						ovlp.curEnd <= edge.nextEdge->seqBegin)
+					{
+						newBegin = std::max(newBegin, ovlp.curEnd);
+					}
+				}
+				Logger::get().debug() << edge.seqId << " " 
+									  << edge.nextEdge->seqBegin 
+									  << " " << newBegin;
 			}
 		}
 	}

@@ -44,6 +44,8 @@ struct Edge
 
 struct Connection
 {
+	Connection(Edge* inEdge = nullptr, Edge* outEdge = nullptr):
+		inEdge(inEdge), outEdge(outEdge) {}
 	Edge* inEdge;
 	Edge* outEdge;
 };
@@ -86,15 +88,19 @@ public:
 private:
 	void generatePathCandidates();
 	void addEdgesPointers();
+	void modifyGraph();
+	void updateEdgesEnds();
 	std::vector<Connection> getConnections();
 
 	const SequenceContainer& _seqAssembly;
 	const SequenceContainer& _seqReads;
 
-	std::vector<OverlapRange> _asmOverlaps;
-	std::vector<PathCandidate> _pathCandidates;
-	std::vector<Knot> _knots;
-	std::unordered_map<FastaRecord::Id, std::list<Edge>> _edges;
+	std::vector<OverlapRange>  	_asmOverlaps;
+	std::vector<PathCandidate> 	_pathCandidates;
+	std::vector<Connection>    	_resolvedConnections;
+	std::vector<Knot> 			_knots;
+	std::unordered_map<FastaRecord::Id, 
+					   std::list<Edge>> _edges;
 	
 	const Knot::Id SEQ_BEGIN = 0;
 	const Knot::Id SEQ_END = 1;
