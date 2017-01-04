@@ -20,9 +20,35 @@ namespace
 	};
 }
 
+
+namespace
+{
+	std::vector<OverlapRange> filterOvlp(const std::vector<OverlapRange>& ovlps)
+	{
+		std::vector<OverlapRange> filtered;
+		for (auto& ovlp : ovlps)
+		{
+			bool found = false;
+			for (auto& otherOvlp : filtered)
+			{
+				if (otherOvlp.curBegin == ovlp.curBegin &&
+					otherOvlp.curEnd == ovlp.curEnd &&
+					otherOvlp.extBegin == ovlp.extBegin &&
+					otherOvlp.extEnd == ovlp.extEnd)
+				{
+					found = true;
+					break;
+				}
+			}
+			if (!found) filtered.push_back(ovlp);
+		}
+		return filtered;
+	}
+}
+
 void AssemblyGraph::construct(const OverlapContainer& ovlpContainer)
 {
-	const int OVLP_THR = 0;
+	const int OVLP_THR = 1500;
 
 	//forming overlap-based clusters
 	typedef SetNode<OverlapRange> DjsOverlap;
@@ -30,13 +56,14 @@ void AssemblyGraph::construct(const OverlapContainer& ovlpContainer)
 					   std::list<DjsOverlap>> overlapClusters;
 	for (auto& ovlpHash : ovlpContainer.getOverlapIndex())
 	{
-		for (auto& ovlp : ovlpHash.second)
+		auto uniqueOverlaps = filterOvlp(ovlpHash.second);
+		for (auto& ovlp : uniqueOverlaps)
 		{
-			if (ovlp.curId == ovlp.extId &&
-				ovlp.curIntersect(ovlp.reverse()) > 0)
+			/*if (ovlp.curId == ovlp.extId &&
+				  ovlp.curIntersect(ovlp.reverse()) > 0)
 			{
 				continue;	//overlapping tandem repeat
-			}
+			}*/
 
 			overlapClusters[ovlp.curId].emplace_back(ovlp);
 			DjsOverlap* ptrOne = &overlapClusters[ovlp.curId].back(); 
@@ -129,6 +156,15 @@ void AssemblyGraph::construct(const OverlapContainer& ovlpContainer)
 		std::sort(seqKnots.begin(), seqKnots.end(), 
 				  [](const SeqKnot& k1, const SeqKnot& k2) 
 				  		{return k1.start < k2.start;});
+		for (auto& knot : seqKnots)
+		{
+			Logger::get().debug() << "SeqKnot " << seqClusterPair.first << "\t"
+								  << knot.start << "\t" << knot.end
+								  << "\t" << knot.end - knot.start;
+
+		}
+		Logger::get().debug() << "Total: " << seqKnots.size();
+
 		auto& seqEdges = _edges[seqClusterPair.first];
 
 		seqEdges.push_back(Edge(seqClusterPair.first, 
@@ -229,31 +265,6 @@ void AssemblyGraph::outputDot(const std::string& filename)
 	fout << "}\n";
 }
 
-/*
-namespace
-{
-	std::vector<OverlapRange> filterOvlp(const std::vector<OverlapRange>& ovlps)
-	{
-		std::vector<OverlapRange> filtered;
-		for (auto& ovlp : ovlps)
-		{
-			bool found = false;
-			for (auto& otherOvlp : filtered)
-			{
-				if (otherOvlp.curBegin == ovlp.curBegin &&
-					otherOvlp.curEnd == ovlp.curEnd &&
-					otherOvlp.extBegin == ovlp.extBegin &&
-					otherOvlp.extEnd == ovlp.extEnd)
-				{
-					found = true;
-					break;
-				}
-			}
-			if (!found) filtered.push_back(ovlp);
-		}
-		return filtered;
-	}
-}*/
 
 void AssemblyGraph::generatePathCandidates()
 {
@@ -425,6 +436,7 @@ std::vector<Connection> AssemblyGraph::getConnections()
 		OverlapRange maxOverlap;
 		for (auto& ovlp : seqOvelaps.second)
 		{
+			//if (ovlp.score > maxOverlap.score)
 			if (ovlp.curRange() > maxOverlap.curRange())
 			{
 				maxOverlap = ovlp;
@@ -501,19 +513,26 @@ void AssemblyGraph::untangle()
 		Logger::get().debug() << "";
 
 		std::vector<EdgePair> sortedConnections;
-		std::unordered_map<Edge*, int> inCoverage;
-		std::unordered_map<Edge*, int> outCoverage;
+
+		std::vector<EdgePair> justEdges;
+
 		for (auto& edgeCount : knotEdges.second)
 		{
 			sortedConnections.push_back(edgeCount.first);
-			inCoverage[edgeCount.first.first] += edgeCount.second;
-			outCoverage[edgeCount.first.second] += edgeCount.second;
 
-			Logger::get().debug() << "\tEdge\t" << edgeCount.first.first->seqEnd << "\t"
-								  << edgeCount.first.second->seqBegin << "\t"
-								  << edgeCount.second;
+			justEdges.push_back(edgeCount.first);
+		}
+
+		//
+		std::sort(justEdges.begin(), justEdges.end());
+		for (auto& edge : justEdges)
+		{
+			Logger::get().debug() << "\tEdge\t" << edge.first->seqEnd << "\t"
+							  << edge.second->seqBegin << "\t"
+							  << knotEdges.second[edge];
 		}
 		Logger::get().debug() << "";
+		//
 
 		std::sort(sortedConnections.begin(), sortedConnections.end(),
 				  [&knotEdges](const EdgePair& e1, const EdgePair& e2)
@@ -524,13 +543,27 @@ void AssemblyGraph::untangle()
 
 		for (auto& edgePair : sortedConnections)
 		{
-			float confidence = 2.0f * knotEdges.second[edgePair] / 
-								(inCoverage[edgePair.first] + 
-								 outCoverage[edgePair.second]);
+			//
+			int32_t coverage = 0;
+			for (auto& conn : sortedConnections)
+			{
+				if (conn.first == edgePair.first &&
+					!usedOutEdges.count(conn.second))
+				{
+					coverage += knotEdges.second[conn];
+				}
+				if (conn.second == edgePair.second &&
+					!usedInEdges.count(conn.first))
+				{
+					coverage += knotEdges.second[conn];
+				}
+			}
+			float confidence = 2.0f * knotEdges.second[edgePair] / coverage;
+			//
 
 			if (!usedInEdges.count(edgePair.first) &&
 				!usedOutEdges.count(edgePair.second) &&
-				confidence > 0.5f)
+				confidence > 0.7f)
 			{
 
 				Logger::get().debug() << "\tConnection " 

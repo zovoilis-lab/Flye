@@ -137,6 +137,7 @@ OverlapDetector::getSeqOverlaps(const std::string& sequence,
 				JumpRes jumpResult = this->jumpTest(extPaths[pathId].curEnd, curPos,
 													extPaths[pathId].extEnd, extPos);
 				int32_t jumpLength = curPos - extPaths[pathId].curBegin;
+				//int32_t jumpLength = extPaths[pathId].score + 1;
 
 				switch (jumpResult)
 				{
@@ -169,6 +170,7 @@ OverlapDetector::getSeqOverlaps(const std::string& sequence,
 				eraseMarks.erase(maxCloseId);
 				extPaths[maxCloseId].curEnd = curPos;
 				extPaths[maxCloseId].extEnd = extPos;
+				//++extPaths[maxCloseId].score;
 			}
 			//update the best far extension, keep the old path as a copy
 			if (extendsFar)
@@ -176,6 +178,7 @@ OverlapDetector::getSeqOverlaps(const std::string& sequence,
 				extPaths.push_back(extPaths[maxFarId]);
 				extPaths.back().curEnd = curPos;
 				extPaths.back().extEnd = extPos;
+				//++extPaths.back().score;
 			}
 			//if no extensions possible (or there are no active paths), start a new path
 			if (!extendsClose && !extendsFar &&

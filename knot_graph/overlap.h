@@ -23,6 +23,7 @@ struct OverlapRange
 				 int32_t curInit = 0, int32_t extInit = 0): 
 		curId(curId), curBegin(curInit), curEnd(curInit), 
 		extId(extId), extBegin(extInit), extEnd(extInit)
+		//score(0)
 	{}
 	int32_t curRange() const {return curEnd - curBegin;}
 	int32_t extRange() const {return extEnd - extBegin;}
@@ -97,6 +98,8 @@ struct OverlapRange
 	int32_t extBegin;
 	int32_t extEnd;
 	int32_t rightShift;
+
+	//int32_t score;
 };
 
 class OverlapDetector
