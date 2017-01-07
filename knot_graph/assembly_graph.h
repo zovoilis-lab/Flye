@@ -8,9 +8,6 @@
 #include "vertex_index.h"
 #include "overlap.h"
 
-
-
-
 struct Edge;
 struct Knot
 {

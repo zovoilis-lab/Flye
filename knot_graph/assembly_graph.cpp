@@ -59,12 +59,6 @@ void AssemblyGraph::construct(const OverlapContainer& ovlpContainer)
 		auto uniqueOverlaps = filterOvlp(ovlpHash.second);
 		for (auto& ovlp : uniqueOverlaps)
 		{
-			/*if (ovlp.curId == ovlp.extId &&
-				  ovlp.curIntersect(ovlp.reverse()) > 0)
-			{
-				continue;	//overlapping tandem repeat
-			}*/
-
 			overlapClusters[ovlp.curId].emplace_back(ovlp);
 			DjsOverlap* ptrOne = &overlapClusters[ovlp.curId].back(); 
 			overlapClusters[ovlp.extId].emplace_back(ovlp.reverse());
@@ -143,6 +137,10 @@ void AssemblyGraph::construct(const OverlapContainer& ovlpContainer)
 			int32_t clustEnd = std::numeric_limits<int32_t>::min();
 			for (auto& ovlp : clustHash.second)
 			{
+				if (ovlp->data.extBegin <= 500 || 
+					_seqAssembly.seqLen(ovlp->data.extId) - 
+					ovlp->data.extEnd <= 500) continue;
+
 				clustStart = std::min(clustStart, ovlp->data.curBegin);
 				clustEnd = std::max(clustEnd, ovlp->data.curEnd);
 			}
@@ -150,24 +148,42 @@ void AssemblyGraph::construct(const OverlapContainer& ovlpContainer)
 			auto knotId = knotMappings[clustHash.second.front()];
 			seqKnots.emplace_back(clustStart, clustEnd, knotId);
 		}
-		///
 
 		//constructing the graph
 		std::sort(seqKnots.begin(), seqKnots.end(), 
 				  [](const SeqKnot& k1, const SeqKnot& k2) 
 				  		{return k1.start < k2.start;});
+
+		//merge with previous if they are close
+		/*
+		for (size_t i = 0; i < seqKnots.size();)
+		{
+			if (i > 0 && seqKnots[i - 1].knot == seqKnots[i].knot &&
+				seqKnots[i].start - seqKnots[i - 1].end < OVLP_THR)
+			{
+				seqKnots[i - 1].end = seqKnots[i].end;
+				seqKnots.erase(seqKnots.begin() + i);
+			}
+			else
+			{
+				++i;
+			}
+		}*/
+		//
+
 		for (auto& knot : seqKnots)
 		{
 			Logger::get().debug() << "SeqKnot " << seqClusterPair.first << "\t"
 								  << knot.start << "\t" << knot.end
-								  << "\t" << knot.end - knot.start;
+								  << "\t" << knot.end - knot.start
+								  << "\t" << knot.knot;
 
 		}
 		Logger::get().debug() << "Total: " << seqKnots.size();
 
 		auto& seqEdges = _edges[seqClusterPair.first];
 
-		seqEdges.push_back(Edge(seqClusterPair.first, 
+		seqEdges.push_back(Edge(seqClusterPair.first,
 							    0, seqKnots.front().start,
 							    SEQ_BEGIN, seqKnots.front().knot));
 		_knots[SEQ_BEGIN].outEdges.push_back(&seqEdges.back());
@@ -175,7 +191,7 @@ void AssemblyGraph::construct(const OverlapContainer& ovlpContainer)
 
 		for (size_t i = 0; i < seqKnots.size() - 1; ++i)
 		{
-			seqEdges.push_back(Edge(seqClusterPair.first, 
+			seqEdges.push_back(Edge(seqClusterPair.first,
 							   		seqKnots[i].end, seqKnots[i + 1].start,
 							   		seqKnots[i].knot, seqKnots[i + 1].knot));
 			_knots[seqKnots[i].knot].outEdges.push_back(&seqEdges.back());
@@ -268,7 +284,7 @@ void AssemblyGraph::outputDot(const std::string& filename)
 
 void AssemblyGraph::generatePathCandidates()
 {
-	const int32_t FLANK = 10000;
+	const int32_t FLANK = 1500;
 
 	for (auto& seqEdges : _edges)
 	{
@@ -431,16 +447,29 @@ std::vector<Connection> AssemblyGraph::getConnections()
 	
 	for (auto& seqOvelaps : readsContainer.getOverlapIndex())
 	{
-		//auto overlaps = filterOvlp(seqOvelaps.second);
+		auto overlaps = filterOvlp(seqOvelaps.second);
 		std::unordered_set<FastaRecord::Id> supported;
 		OverlapRange maxOverlap;
-		for (auto& ovlp : seqOvelaps.second)
+		for (auto& ovlp : overlaps)
 		{
 			//if (ovlp.score > maxOverlap.score)
 			if (ovlp.curRange() > maxOverlap.curRange())
 			{
 				maxOverlap = ovlp;
 			}
+			
+			/*
+			PathCandidate* path = idToPath[ovlp.extId];
+			if (path->repeatStart - ovlp.extBegin > 500 &&
+				ovlp.extEnd - path->repeatEnd > 500)
+			{
+				std::cout << seqOvelaps.first << "\t";
+				std::cout << path->inEdge->seqEnd << "\t" 
+						  << path->outEdge->seqBegin << "\t"
+						  << ovlp.curBegin << "\t" << ovlp.curEnd << "\t"
+						  << ovlp.extBegin << "\t" << ovlp.extEnd
+						  << std::endl;
+			}*/
 		}
 
 		PathCandidate* path = idToPath[maxOverlap.extId];
