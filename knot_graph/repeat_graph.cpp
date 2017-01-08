@@ -16,6 +16,14 @@ struct Point
 	int32_t extPos;
 };
 
+struct SeqPoint
+{
+	SeqPoint(FastaRecord::Id seqId = FastaRecord::ID_NONE, int32_t pos = 0):
+		seqId(seqId), pos(pos) {}
+	
+	FastaRecord::Id seqId;
+	int32_t pos;
+};
 
 void RepeatGraph::build()
 {
@@ -111,6 +119,9 @@ void RepeatGraph::build()
 		clusters[findSet(&endpoint)].push_back(&endpoint);
 	}
 
+	typedef SetNode<SeqPoint> GlueSet;
+	std::list<GlueSet> glueSets;
+
 	for (auto& clustEndpoints : clusters)
 	{
 		int64_t sum = 0;
@@ -121,18 +132,8 @@ void RepeatGraph::build()
 		int32_t clusterXpos = sum / clustEndpoints.second.size();
 		FastaRecord::Id clustSeq = clustEndpoints.second.front()->data.curId;
 
-		bool processed = false;
-		for (auto& gp : _gluePoints[clustSeq])
-		{
-			if (abs(clusterXpos - gp.position) < THD)
-			{
-				processed = true;
-				break;
-			}
-		}
-		if (processed) continue;
-
-		_gluePoints[clustSeq].emplace_back(pointId, clustSeq, clusterXpos);
+		std::vector<GluePoint> clusterPoints;
+		clusterPoints.emplace_back(0, clustSeq, clusterXpos);
 
 		std::list<Endpoint> extCoords;
 		for (auto& ep : clustEndpoints.second)
@@ -178,21 +179,44 @@ void RepeatGraph::build()
 			}
 			int32_t clusterYpos = sum / extClust.second.size();
 			FastaRecord::Id extSeq = extClust.second.front()->data.extId;
-
-			bool processed = false;
-			for (auto& gp : _gluePoints[extSeq])
+			clusterPoints.emplace_back(0, extSeq, clusterYpos);
+		}
+		//add all cluster-specific points into the shared set
+		std::vector<GlueSet*> toMerge;
+		for (auto& clustPt : clusterPoints)
+		{
+			bool used = false;
+			for (auto& glueNode : glueSets)
 			{
-				if (abs(clusterYpos - gp.position) < THD)
+				if (glueNode.data.seqId == clustPt.seqId &&
+					abs(glueNode.data.pos - clustPt.position) < THD)
 				{
-					processed = true;
-					break;
+					used = true;
+					toMerge.push_back(&glueNode);
 				}
 			}
-			if (processed) continue;
-
-			_gluePoints[extSeq].emplace_back(pointId, extSeq, clusterYpos);
+			if (!used)
+			{
+				glueSets.emplace_back(SeqPoint(clustPt.seqId, clustPt.position));
+				toMerge.push_back(&glueSets.back());
+			}
 		}
-		++pointId;
+		for (size_t i = 0; i < toMerge.size() - 1; ++i)
+		{
+			unionSet(toMerge[i], toMerge[i + 1]);
+		}
+	}
+
+	std::unordered_map<GlueSet*, size_t> setToId;
+	for (auto& setNode : glueSets)
+	{
+		if (!setToId.count(findSet(&setNode)))
+		{
+			setToId[findSet(&setNode)] = pointId++;
+		}
+		_gluePoints[setNode.data.seqId].emplace_back(setToId[findSet(&setNode)],
+													 setNode.data.seqId,
+													 setNode.data.pos);
 	}
 
 	for (auto& seqPoints : _gluePoints)
