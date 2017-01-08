@@ -11,6 +11,7 @@
 #include "logger.h"
 #include "config.h"
 #include "assembly_graph.h"
+#include "repeat_graph.h"
 
 bool parseArgs(int argc, char** argv, std::string& readsFasta, 
 			   std::string& outAssembly, std::string& logFile, std::string& inAssembly,
@@ -143,6 +144,11 @@ int main(int argc, char** argv)
 		seqAssembly.readFasta(inAssembly);
 		SequenceContainer seqReads;
 		seqReads.readFasta(readsFasta);
+
+		RepeatGraph rg(seqAssembly);
+		rg.build();
+		rg.outputDot(outAssembly);
+		return 0;
 
 		VertexIndex assemblyIndex(seqAssembly);
 		assemblyIndex.countKmers(1);
