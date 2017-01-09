@@ -27,7 +27,6 @@ struct SeqPoint
 
 void RepeatGraph::build()
 {
-	const int32_t THD = 1500;
 	//getting overlaps
 	VertexIndex asmIndex(_asmSeqs);
 	asmIndex.countKmers(1);
@@ -40,46 +39,104 @@ void RepeatGraph::build()
 	OverlapContainer asmOverlaps(asmOverlapper, _asmSeqs);
 	asmOverlaps.findAllOverlaps();
 
-	//get all repetitive regions
-	for (auto& seqOvlps : asmOverlaps.getOverlapIndex())
-	{
-		typedef SetNode<const OverlapRange*> OvlpSet;
-		std::list<OvlpSet> ovlpSet;
-		for (auto& ovlp : seqOvlps.second) ovlpSet.emplace_back(&ovlp);
+	this->getRepeatClusters(asmOverlaps);
+	this->buildGraph(asmOverlaps);
+}
 
-		for (auto& nodeOne : ovlpSet)
+void RepeatGraph::getRepeatClusters(const OverlapContainer& asmOverlaps)
+{
+	//forming overlap-based clusters
+	typedef SetNode<OverlapRange> DjsOverlap;
+	std::unordered_map<FastaRecord::Id, 
+					   std::list<DjsOverlap>> overlapClusters;
+	for (auto& ovlpHash : asmOverlaps.getOverlapIndex())
+	{
+		for (auto& ovlp : ovlpHash.second)
 		{
-			for (auto& nodeTwo : ovlpSet)
+			overlapClusters[ovlp.curId].emplace_back(ovlp);
+			DjsOverlap* ptrOne = &overlapClusters[ovlp.curId].back(); 
+			overlapClusters[ovlp.extId].emplace_back(ovlp.reverse());
+			DjsOverlap* ptrTwo = &overlapClusters[ovlp.extId].back(); 
+			unionSet(ptrOne, ptrTwo);
+		}
+	}
+	for (auto& ovlpHash : overlapClusters)
+	{
+		for (auto& ovlp1 : ovlpHash.second)
+		{
+			for (auto& ovlp2 : ovlpHash.second)
 			{
-				if (nodeOne.data->curIntersect(*nodeTwo.data) > 0)
+				if (ovlp1.data.curIntersect(ovlp2.data) > -_maxSeparation)
 				{
-					unionSet(&nodeOne, &nodeTwo);
+					unionSet(&ovlp1, &ovlp2);
 				}
 			}
 		}
-		std::unordered_map<OvlpSet*, std::vector<OvlpSet*>> clusters;
-		for (auto& node : ovlpSet)
-		{
-			clusters[findSet(&node)].push_back(&node);
-		}
+	}
 
-		for (auto& clustNodes : clusters)
-		{
-			int32_t clustStart = std::numeric_limits<int32_t>::max();
-			int32_t clustEnd = 0;
+	//getting cluster assignments
+	std::unordered_map<DjsOverlap*, size_t> knotMappings;
+	std::unordered_map<DjsOverlap*, size_t> reprToKnot;
+	size_t nextKnotId = 0;
 
-			for (auto& node : clustNodes.second)
+	for (auto& ovlpHash : overlapClusters)
+	{
+		for (auto& ovlp : ovlpHash.second)
+		{
+			if (!reprToKnot.count(findSet(&ovlp)))
 			{
-				clustStart = std::min(clustStart, node->data->curBegin);
-				clustEnd = std::max(clustEnd, node->data->curEnd);
+				reprToKnot[findSet(&ovlp)] = nextKnotId++;
 			}
-
-			_repetitiveRegions[seqOvlps.first]
-					.emplace_back(clustStart, clustEnd);
+			knotMappings[&ovlp] = reprToKnot[findSet(&ovlp)];
 		}
 	}
-	//
-	
+
+	for (auto& seqClusterPair : overlapClusters)
+	{
+		//forming intersection-based clusters
+		for (auto& ovlp : seqClusterPair.second)
+		{
+			ovlp.parent = &ovlp;
+			ovlp.rank = 0;
+		}
+
+		for (auto& ovlp1 : seqClusterPair.second)
+		{
+			for (auto& ovlp2 : seqClusterPair.second)
+			{
+				if (ovlp1.data.curIntersect(ovlp2.data) > _maxSeparation)
+				{
+					unionSet(&ovlp1, &ovlp2);
+				}
+			}
+		}
+		std::unordered_map<DjsOverlap*, 
+						   std::vector<DjsOverlap*>> intersectClusters;
+		for (auto& ovlp : seqClusterPair.second)
+		{
+			intersectClusters[findSet(&ovlp)].push_back(&ovlp);
+		}
+
+		for (auto& clustHash : intersectClusters)
+		{
+			int32_t clustStart = std::numeric_limits<int32_t>::max();
+			int32_t clustEnd = std::numeric_limits<int32_t>::min();
+			for (auto& ovlp : clustHash.second)
+			{
+				clustStart = std::min(clustStart, ovlp->data.curBegin);
+				clustEnd = std::max(clustEnd, ovlp->data.curEnd);
+			}
+
+			auto knotId = knotMappings[clustHash.second.front()];
+			_repeatClusters[seqClusterPair.first]
+					.emplace_back(seqClusterPair.first, knotId,
+								  clustStart, clustEnd);
+		}
+	}
+}
+
+void RepeatGraph::buildGraph(const OverlapContainer& asmOverlaps)
+{
 	//cluster interval endpoints
 	typedef SetNode<Point> Endpoint;
 	std::list<Endpoint> endpoints;
@@ -106,7 +163,7 @@ void RepeatGraph::build()
 		for (auto& p2 : endpoints)
 		{
 			if (p1.data.curId == p2.data.curId &&
-				abs(p1.data.curPos - p2.data.curPos) <= THD)
+				abs(p1.data.curPos - p2.data.curPos) <= _maxSeparation)
 			{
 				unionSet(&p1, &p2);
 			}
@@ -157,7 +214,7 @@ void RepeatGraph::build()
 			for (auto& p2 : extCoords)
 			{
 				if (p1.data.extId == p2.data.extId &&
-					abs(p1.data.extPos - p2.data.extPos) <= THD)
+					abs(p1.data.extPos - p2.data.extPos) <= _maxSeparation)
 				{
 					unionSet(&p1, &p2);
 				}
@@ -189,7 +246,7 @@ void RepeatGraph::build()
 			for (auto& glueNode : glueSets)
 			{
 				if (glueNode.data.seqId == clustPt.seqId &&
-					abs(glueNode.data.pos - clustPt.position) < THD)
+					abs(glueNode.data.pos - clustPt.position) < _maxSeparation)
 				{
 					used = true;
 					toMerge.push_back(&glueNode);
@@ -226,7 +283,7 @@ void RepeatGraph::build()
 				  {return pt1.position < pt2.position;});
 	}
 
-
+	/*
 	for (auto& seqPoints : _gluePoints)
 	{
 		for (auto& pt : seqPoints.second)
@@ -234,13 +291,34 @@ void RepeatGraph::build()
 			Logger::get().debug() << pt.seqId << "\t" 
 								  << pt.position << "\t" << pt.pointId;
 		}
-	}
+	}*/
 }
 
-void RepeatGraph::outputDot(const std::string& filename)
+namespace
 {
+	struct pairhash 
+	{
+	public:
+		template <typename T, typename U>
+		std::size_t operator()(const std::pair<T, U> &x) const
+		{
+			return std::hash<T>()(x.first) ^ std::hash<U>()(x.second);
+		}
+	};
+}
+
+void RepeatGraph::outputDot(const std::string& filename, bool collapseRepeats)
+{
+	const std::string COLORS[] = {"red", "darkgreen", "blue", "goldenrod", "cadetblue",
+								  "darkorchid", "aquamarine1", "darkgoldenrod1",
+								  "deepskyblue1", "darkolivegreen3"};
+
 	std::ofstream fout(filename);
 	fout << "digraph {\n";
+
+	std::unordered_map<std::pair<size_t, size_t>, 
+					   std::vector<int32_t>, pairhash> edgesLengths;
+	std::unordered_map<std::pair<size_t, size_t>, size_t, pairhash> edgesIds;
 
 	for (auto& seqEdgesPair : _gluePoints)
 	{
@@ -250,26 +328,51 @@ void RepeatGraph::outputDot(const std::string& filename)
 			GluePoint gpRight = seqEdgesPair.second[i + 1];
 
 			bool repetitive = false;
-			for (auto& interval : _repetitiveRegions[gpLeft.seqId])
+			size_t clusterId = 0;
+			for (auto& cluster : _repeatClusters[gpLeft.seqId])
 			{
-				if (gpLeft.position >= interval.first - 1500 && 
-					gpRight.position <= interval.second + 1500)
+				if (gpLeft.position >= cluster.start - _maxSeparation && 
+					gpRight.position <= cluster.end + _maxSeparation)
 				{
 					repetitive = true;
+					clusterId = cluster.clusterId;
 					break;
 				}
 			}
-			std::string color = repetitive ? "red" : "black";
 
-			//fout << "\"" << gpLeft.pointId << "\" -> \"" << gpRight.pointId
-			//	 << "\" [label = \"" << _asmSeqs.seqName(gpLeft.seqId) 
-			//	 << "[" << gpLeft.position << ":" 
-			//	 << gpRight.position << "]\"] ;\n";
-			fout << "\"" << gpLeft.pointId << "\" -> \"" << gpRight.pointId
-				 << "\" [label = \"" << gpRight.position - gpLeft.position
-				 << "\", color = \"" << color << "\"] ;\n";
+			if (!repetitive)
+			{
+				fout << "\"" << gpLeft.pointId << "\" -> \"" << gpRight.pointId
+					 << "\" [label = \"" << gpRight.position - gpLeft.position
+					 << "\", color = \"black\"] ;\n";
+			}
+			else
+			{
+				edgesLengths[std::make_pair(gpLeft.pointId, gpRight.pointId)]
+								.push_back(gpRight.position - gpLeft.position);
+				edgesIds[std::make_pair(gpLeft.pointId, gpRight.pointId)] 
+								= clusterId;
+			}
 		}
 	}
+
+	for (auto& edgeClust : edgesLengths)
+	{
+		if (collapseRepeats)
+		{
+			int64_t sum = 0;
+			for (auto& dist : edgeClust.second) sum += dist;
+			int32_t avgLengths = sum / edgeClust.second.size();
+
+			std::string color = COLORS[edgesIds[edgeClust.first] % 10];
+			fout << "\"" << edgeClust.first.first << "\" -> \"" 
+				 << edgeClust.first.second
+				 << "\" [label = \"" << avgLengths << " ("
+				 << edgeClust.second.size()
+				 << ")\", color = \"" << color << "\", penwidth = 3] ;\n";
+		}
+	}
+
 	fout << "}\n";
 }
 

@@ -147,9 +147,10 @@ int main(int argc, char** argv)
 
 		RepeatGraph rg(seqAssembly);
 		rg.build();
-		rg.outputDot(outAssembly);
+		rg.outputDot(outAssembly, true);
 		return 0;
 
+		/*
 		VertexIndex assemblyIndex(seqAssembly);
 		assemblyIndex.countKmers(1);
 		assemblyIndex.buildIndex(1, 500, 10);
@@ -188,6 +189,7 @@ int main(int argc, char** argv)
 
 		ag.untangle();
 		ag.outputDot(outAssembly + "_after");
+		*/
 	}
 	catch (std::runtime_error& e)
 	{
