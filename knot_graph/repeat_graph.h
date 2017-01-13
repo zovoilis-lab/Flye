@@ -36,11 +36,13 @@ struct RepeatCluster
 class RepeatGraph
 {
 public:
-	RepeatGraph(const SequenceContainer& asmSeqs):
-		_asmSeqs(asmSeqs)
+	RepeatGraph(const SequenceContainer& asmSeqs,
+				const SequenceContainer& readSeqs):
+		_asmSeqs(asmSeqs), _readSeqs(readSeqs)
 	{}
 
 	void build();
+	void resolveRepeats();
 	void outputDot(const std::string& filename, bool collapseRepeats);
 
 private:
@@ -49,6 +51,7 @@ private:
 
 	const int _maxSeparation = 1500;
 	const SequenceContainer& _asmSeqs;
+	const SequenceContainer& _readSeqs;
 
 	std::unordered_map<FastaRecord::Id, 
 					   std::vector<GluePoint>> _gluePoints;

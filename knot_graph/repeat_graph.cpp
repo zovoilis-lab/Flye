@@ -283,7 +283,6 @@ void RepeatGraph::buildGraph(const OverlapContainer& asmOverlaps)
 				  {return pt1.position < pt2.position;});
 	}
 
-	/*
 	for (auto& seqPoints : _gluePoints)
 	{
 		for (auto& pt : seqPoints.second)
@@ -291,7 +290,134 @@ void RepeatGraph::buildGraph(const OverlapContainer& asmOverlaps)
 			Logger::get().debug() << pt.seqId << "\t" 
 								  << pt.position << "\t" << pt.pointId;
 		}
-	}*/
+	}
+}
+
+namespace
+{
+	struct GraphEdge
+	{
+		GluePoint gpLeft;
+		GluePoint gpRight;
+		bool repetitive;
+	};
+}
+
+namespace
+{
+	std::vector<OverlapRange> filterOvlp(const std::vector<OverlapRange>& ovlps)
+	{
+		std::vector<OverlapRange> filtered;
+		for (auto& ovlp : ovlps)
+		{
+			bool found = false;
+			for (auto& otherOvlp : filtered)
+			{
+				if (otherOvlp.curBegin == ovlp.curBegin &&
+					otherOvlp.curEnd == ovlp.curEnd &&
+					otherOvlp.extBegin == ovlp.extBegin &&
+					otherOvlp.extEnd == ovlp.extEnd)
+				{
+					found = true;
+					break;
+				}
+			}
+			if (!found) filtered.push_back(ovlp);
+		}
+		return filtered;
+	}
+}
+
+void RepeatGraph::resolveRepeats()
+{
+	std::unordered_map<FastaRecord::Id, GraphEdge> edges;
+
+	SequenceContainer pathsContainer;
+	size_t edgeId = 0;
+	for (auto& seqEdgesPair : _gluePoints)
+	{
+		for (size_t i = 0; i < seqEdgesPair.second.size() - 1; ++i)
+		{
+			GluePoint gpLeft = seqEdgesPair.second[i];
+			GluePoint gpRight = seqEdgesPair.second[i + 1];
+
+			bool repetitive = false;
+			for (auto& cluster : _repeatClusters[gpLeft.seqId])
+			{
+				if (gpLeft.position >= cluster.start - _maxSeparation && 
+					gpRight.position <= cluster.end + _maxSeparation)
+				{
+					repetitive = true;
+					break;
+				}
+			}
+
+			std::string sequence = _asmSeqs.getSeq(seqEdgesPair.first)
+									.substr(gpLeft.position, 
+											gpRight.position - gpLeft.position);
+			pathsContainer.addSequence(FastaRecord(sequence, "", 
+											   	   FastaRecord::Id(edgeId)));
+			edges[FastaRecord::Id(edgeId)] = {gpLeft, gpRight, repetitive};
+			++edgeId;
+		}
+	}
+
+	VertexIndex pathsIndex(pathsContainer);
+	pathsIndex.countKmers(1);
+	pathsIndex.buildIndex(1, 5000, 1);
+	OverlapDetector readsOverlapper(pathsContainer, pathsIndex, 
+									1500, 1000, 0);
+	OverlapContainer readsContainer(readsOverlapper, _readSeqs);
+	readsContainer.findAllOverlaps();
+	
+	for (auto& seqOverlaps : readsContainer.getOverlapIndex())
+	{
+		std::unordered_map<GraphEdge*, 
+						   std::vector<const OverlapRange*>> byEdge;
+		for (auto& ovlp : seqOverlaps.second)
+		{
+			byEdge[&edges[ovlp.extId]].push_back(&ovlp);
+		}
+
+		int uniqueMatches = 0;
+		std::vector<OverlapRange> chosenOverlaps;
+		for (auto& edgeAlignments : byEdge)
+		{
+			OverlapRange maxOverlap;
+			for (auto& ovlp : edgeAlignments.second)
+			{
+				if (maxOverlap.curRange() < ovlp->curRange())
+				{
+					maxOverlap = *ovlp;
+				}
+			}
+			if (!edgeAlignments.first->repetitive)
+			{
+				if (maxOverlap.extBegin > 500 && 
+					pathsContainer.seqLen(maxOverlap.extId) - 
+										maxOverlap.extEnd > 500)
+				{
+					continue;
+				}
+			}
+
+			chosenOverlaps.push_back(maxOverlap);
+			if (!edgeAlignments.first->repetitive) ++uniqueMatches;
+		}
+
+		if (uniqueMatches < 2) continue;
+
+		Logger::get().debug() << _readSeqs.seqName(seqOverlaps.first);
+		for (auto& ovlp : chosenOverlaps)
+		{
+			GraphEdge& edge = edges[ovlp.extId];
+			Logger::get().debug() << edge.gpLeft.seqId << "\t" 
+								  << edge.gpLeft.position << "\t"
+								  << edge.gpRight.position << "\t"
+								  << edge.repetitive << "\t"
+								  << ovlp.curBegin << "\t" << ovlp.curEnd;
+		}
+	}
 }
 
 namespace

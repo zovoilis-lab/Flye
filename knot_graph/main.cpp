@@ -145,8 +145,9 @@ int main(int argc, char** argv)
 		SequenceContainer seqReads;
 		seqReads.readFasta(readsFasta);
 
-		RepeatGraph rg(seqAssembly);
+		RepeatGraph rg(seqAssembly, seqReads);
 		rg.build();
+		rg.resolveRepeats();
 		rg.outputDot(outAssembly, true);
 		return 0;
 
