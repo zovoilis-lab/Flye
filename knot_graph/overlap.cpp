@@ -223,16 +223,21 @@ void OverlapContainer::findAllOverlaps()
 		allQueries.push_back(hashPair.first);
 	}
 
+	std::mutex indexMutex;
 	std::function<void(const FastaRecord::Id&)> indexUpdate = 
-	[this] (const FastaRecord::Id& seqId)
+	[this, &indexMutex] (const FastaRecord::Id& seqId)
 	{
 		const std::string& seq = _queryContainer.getSeq(seqId);
 		auto overlaps = _ovlpDetect.getSeqOverlaps(seq, seqId);
+
+		indexMutex.lock();
 		for (auto& ovlp : overlaps)
 		{
 			ovlp.curId = seqId;
 			_overlapIndex[seqId].push_back(ovlp);
 		}
+		indexMutex.unlock();
+	};
 
 		/*
 		if (_overlapMatrix.contains(std::make_tuple(ovlp.curId, 
@@ -256,7 +261,6 @@ void OverlapContainer::findAllOverlaps()
 		_overlapMatrix[std::make_tuple(ovlp.curId, ovlp.extId)] = true;
 		_overlapIndex[ovlp.curId].push_back(ovlp);
 		*/
-	};
 	processInParallel(allQueries, indexUpdate, Parameters::numThreads, true);
 }
 
