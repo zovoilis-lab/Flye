@@ -41,6 +41,7 @@ void RepeatGraph::build()
 
 	this->getRepeatClusters(asmOverlaps);
 	this->buildGraph(asmOverlaps);
+	this->initializeEdges();
 }
 
 void RepeatGraph::getRepeatClusters(const OverlapContainer& asmOverlaps)
@@ -58,6 +59,17 @@ void RepeatGraph::getRepeatClusters(const OverlapContainer& asmOverlaps)
 			overlapClusters[ovlp.extId].emplace_back(ovlp.reverse());
 			DjsOverlap* ptrTwo = &overlapClusters[ovlp.extId].back(); 
 			unionSet(ptrOne, ptrTwo);
+
+			//reverse copy
+			int32_t curLen = _asmSeqs.seqLen(ovlp.curId);
+			int32_t extLen = _asmSeqs.seqLen(ovlp.extId);
+			OverlapRange complOvlp = ovlp.complement(curLen, extLen);
+			overlapClusters[complOvlp.curId].emplace_back(complOvlp);
+			ptrOne = &overlapClusters[complOvlp.curId].back(); 
+			overlapClusters[complOvlp.extId].emplace_back(complOvlp.reverse());
+			ptrTwo = &overlapClusters[complOvlp.extId].back(); 
+			unionSet(ptrOne, ptrTwo);
+			//
 		}
 	}
 	for (auto& ovlpHash : overlapClusters)
@@ -179,6 +191,37 @@ void RepeatGraph::buildGraph(const OverlapContainer& asmOverlaps)
 	typedef SetNode<SeqPoint> GlueSet;
 	std::list<GlueSet> glueSets;
 
+	///
+	auto propagateClusters = [&glueSets, this]
+		(const std::vector<GluePoint>& clusterPoints)
+	{
+		//add all cluster-specific points into the shared set
+		std::vector<GlueSet*> toMerge;
+		for (auto& clustPt : clusterPoints)
+		{
+			bool used = false;
+			for (auto& glueNode : glueSets)
+			{
+				if (glueNode.data.seqId == clustPt.seqId &&
+					abs(glueNode.data.pos - clustPt.position) < _maxSeparation)
+				{
+					used = true;
+					toMerge.push_back(&glueNode);
+				}
+			}
+			if (!used)
+			{
+				glueSets.emplace_back(SeqPoint(clustPt.seqId, clustPt.position));
+				toMerge.push_back(&glueSets.back());
+			}
+		}
+		for (size_t i = 0; i < toMerge.size() - 1; ++i)
+		{
+			unionSet(toMerge[i], toMerge[i + 1]);
+		}
+	};
+	///
+
 	for (auto& clustEndpoints : clusters)
 	{
 		int64_t sum = 0;
@@ -238,30 +281,18 @@ void RepeatGraph::buildGraph(const OverlapContainer& asmOverlaps)
 			FastaRecord::Id extSeq = extClust.second.front()->data.extId;
 			clusterPoints.emplace_back(0, extSeq, clusterYpos);
 		}
-		//add all cluster-specific points into the shared set
-		std::vector<GlueSet*> toMerge;
-		for (auto& clustPt : clusterPoints)
+
+		//reverse complements
+		std::vector<GluePoint> complClusterPoints;
+		for (auto& gp : clusterPoints)
 		{
-			bool used = false;
-			for (auto& glueNode : glueSets)
-			{
-				if (glueNode.data.seqId == clustPt.seqId &&
-					abs(glueNode.data.pos - clustPt.position) < _maxSeparation)
-				{
-					used = true;
-					toMerge.push_back(&glueNode);
-				}
-			}
-			if (!used)
-			{
-				glueSets.emplace_back(SeqPoint(clustPt.seqId, clustPt.position));
-				toMerge.push_back(&glueSets.back());
-			}
+			int32_t seqLen = _asmSeqs.seqLen(gp.seqId);
+			complClusterPoints.emplace_back(0, gp.seqId.rc(), 
+											seqLen - gp.position);
 		}
-		for (size_t i = 0; i < toMerge.size() - 1; ++i)
-		{
-			unionSet(toMerge[i], toMerge[i + 1]);
-		}
+		
+		propagateClusters(clusterPoints);
+		propagateClusters(complClusterPoints);
 	}
 
 	std::unordered_map<GlueSet*, size_t> setToId;
@@ -293,16 +324,7 @@ void RepeatGraph::buildGraph(const OverlapContainer& asmOverlaps)
 	}
 }
 
-namespace
-{
-	struct GraphEdge
-	{
-		GluePoint gpLeft;
-		GluePoint gpRight;
-		bool repetitive;
-	};
-}
-
+/*
 namespace
 {
 	std::vector<OverlapRange> filterOvlp(const std::vector<OverlapRange>& ovlps)
@@ -326,39 +348,84 @@ namespace
 		}
 		return filtered;
 	}
-}
+}*/
 
-void RepeatGraph::resolveRepeats()
+void RepeatGraph::initializeEdges()
 {
-	std::unordered_map<FastaRecord::Id, GraphEdge> edges;
-
-	SequenceContainer pathsContainer;
 	size_t edgeId = 0;
+
 	for (auto& seqEdgesPair : _gluePoints)
 	{
+		if (!seqEdgesPair.first.strand()) continue;
+		FastaRecord::Id complId = seqEdgesPair.first.rc();
+
+		if (seqEdgesPair.second.size() != _gluePoints[complId].size())
+		{
+			throw std::runtime_error("Graph is not symmetric");
+		}
+
 		for (size_t i = 0; i < seqEdgesPair.second.size() - 1; ++i)
 		{
 			GluePoint gpLeft = seqEdgesPair.second[i];
 			GluePoint gpRight = seqEdgesPair.second[i + 1];
 
+			size_t complPos = seqEdgesPair.second.size() - i - 2;
+			GluePoint complLeft = _gluePoints[complId][complPos];
+			GluePoint complRight = _gluePoints[complId][complPos + 1];
+
 			bool repetitive = false;
+			size_t fwdClust = 0;
+			size_t revClust = 0;
 			for (auto& cluster : _repeatClusters[gpLeft.seqId])
 			{
-				if (gpLeft.position >= cluster.start - _maxSeparation && 
-					gpRight.position <= cluster.end + _maxSeparation)
+				if (gpLeft.position >= cluster.start - 50 && 
+					gpRight.position <= cluster.end + 50)
 				{
 					repetitive = true;
+					fwdClust = cluster.clusterId;
+					break;
+				}
+			}
+			for (auto& cluster : _repeatClusters[complLeft.seqId])
+			{
+				if (complLeft.position >= cluster.start - 50 && 
+					complRight.position <= cluster.end + 50)
+				{
+					revClust = cluster.clusterId;
 					break;
 				}
 			}
 
+			_graphEdges[seqEdgesPair.first]
+					.push_back(GraphEdge(gpLeft, gpRight, repetitive, 
+										 FastaRecord::Id(edgeId), fwdClust));
+			_graphEdges[complId]
+					.push_back(GraphEdge(complLeft, complRight, repetitive, 
+										 FastaRecord::Id(edgeId + 1), 
+										 revClust));
+			edgeId += 2;
+		}
+	}
+
+}
+
+
+void RepeatGraph::resolveRepeats()
+{
+	std::unordered_map<FastaRecord::Id, GraphEdge*> idToEdge;
+
+	SequenceContainer pathsContainer;
+
+	for (auto& seqEdgesPair : _graphEdges)
+	{
+		for (auto& edge : seqEdgesPair.second)
+		{
+			
+			size_t len = edge.gpRight.position - edge.gpLeft.position;
 			std::string sequence = _asmSeqs.getSeq(seqEdgesPair.first)
-									.substr(gpLeft.position, 
-											gpRight.position - gpLeft.position);
-			pathsContainer.addSequence(FastaRecord(sequence, "", 
-											   	   FastaRecord::Id(edgeId)));
-			edges[FastaRecord::Id(edgeId)] = {gpLeft, gpRight, repetitive};
-			++edgeId;
+										.substr(edge.gpLeft.position, len);
+			pathsContainer.addSequence(FastaRecord(sequence, "", edge.edgeId));
+			idToEdge[edge.edgeId] = &edge;
 		}
 	}
 
@@ -376,7 +443,7 @@ void RepeatGraph::resolveRepeats()
 						   std::vector<const OverlapRange*>> byEdge;
 		for (auto& ovlp : seqOverlaps.second)
 		{
-			byEdge[&edges[ovlp.extId]].push_back(&ovlp);
+			byEdge[idToEdge[ovlp.extId]].push_back(&ovlp);
 		}
 
 		int uniqueMatches = 0;
@@ -410,11 +477,12 @@ void RepeatGraph::resolveRepeats()
 		Logger::get().debug() << _readSeqs.seqName(seqOverlaps.first);
 		for (auto& ovlp : chosenOverlaps)
 		{
-			GraphEdge& edge = edges[ovlp.extId];
+			GraphEdge& edge = *idToEdge[ovlp.extId];
 			Logger::get().debug() << edge.gpLeft.seqId << "\t" 
 								  << edge.gpLeft.position << "\t"
 								  << edge.gpRight.position << "\t"
 								  << edge.repetitive << "\t"
+								  << edge.edgeId << "\t"
 								  << ovlp.curBegin << "\t" << ovlp.curEnd;
 		}
 	}
@@ -435,7 +503,8 @@ namespace
 
 void RepeatGraph::outputDot(const std::string& filename, bool collapseRepeats)
 {
-	const std::string COLORS[] = {"red", "darkgreen", "blue", "goldenrod", "cadetblue",
+	const std::string COLORS[] = {"red", "darkgreen", "blue", "goldenrod", 
+								  "cadetblue",
 								  "darkorchid", "aquamarine1", "darkgoldenrod1",
 								  "deepskyblue1", "darkolivegreen3"};
 
@@ -446,38 +515,26 @@ void RepeatGraph::outputDot(const std::string& filename, bool collapseRepeats)
 					   std::vector<int32_t>, pairhash> edgesLengths;
 	std::unordered_map<std::pair<size_t, size_t>, size_t, pairhash> edgesIds;
 
-	for (auto& seqEdgesPair : _gluePoints)
+	for (auto& seqEdgesPair : _graphEdges)
 	{
-		for (size_t i = 0; i < seqEdgesPair.second.size() - 1; ++i)
+		for (auto& edge : seqEdgesPair.second)
 		{
-			GluePoint gpLeft = seqEdgesPair.second[i];
-			GluePoint gpRight = seqEdgesPair.second[i + 1];
-
-			bool repetitive = false;
-			size_t clusterId = 0;
-			for (auto& cluster : _repeatClusters[gpLeft.seqId])
+			if (!edge.repetitive)
 			{
-				if (gpLeft.position >= cluster.start - _maxSeparation && 
-					gpRight.position <= cluster.end + _maxSeparation)
-				{
-					repetitive = true;
-					clusterId = cluster.clusterId;
-					break;
-				}
-			}
-
-			if (!repetitive)
-			{
-				fout << "\"" << gpLeft.pointId << "\" -> \"" << gpRight.pointId
-					 << "\" [label = \"" << gpRight.position - gpLeft.position
+				fout << "\"" << edge.gpLeft.pointId << "\" -> \"" 
+					 << edge.gpRight.pointId
+					 << "\" [label = \"" 
+					 << edge.gpRight.position - edge.gpLeft.position
 					 << "\", color = \"black\"] ;\n";
 			}
 			else
 			{
-				edgesLengths[std::make_pair(gpLeft.pointId, gpRight.pointId)]
-								.push_back(gpRight.position - gpLeft.position);
-				edgesIds[std::make_pair(gpLeft.pointId, gpRight.pointId)] 
-								= clusterId;
+				edgesLengths[std::make_pair(edge.gpLeft.pointId, 
+											edge.gpRight.pointId)]
+										 .push_back(edge.gpRight.position - 
+										   			edge.gpLeft.position);
+				edgesIds[std::make_pair(edge.gpLeft.pointId, 
+										edge.gpRight.pointId)] = edge.clusterId;
 			}
 		}
 	}
@@ -501,4 +558,3 @@ void RepeatGraph::outputDot(const std::string& filename, bool collapseRepeats)
 
 	fout << "}\n";
 }
-

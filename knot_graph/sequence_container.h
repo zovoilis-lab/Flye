@@ -91,11 +91,7 @@ public:
 							   FastaRecord> SequenceIndex;
 
 	SequenceContainer() {}
-	/*static SequenceContainer& get()
-	{
-		static SequenceContainer container;
-		return container;
-	}*/
+
 	static void writeFasta(const std::vector<FastaRecord>& records,
 						   const std::string& fileName);
 

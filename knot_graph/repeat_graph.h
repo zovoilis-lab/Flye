@@ -33,6 +33,22 @@ struct RepeatCluster
 };
 
 
+struct GraphEdge
+{
+	GraphEdge(GluePoint gpLeft, GluePoint gpRight, bool rep, 
+			  FastaRecord::Id edgeId, size_t clusterId):
+		gpLeft(gpLeft), gpRight(gpRight), 
+		repetitive(rep), edgeId(edgeId), clusterId(clusterId) {}
+
+	GluePoint gpLeft;
+	GluePoint gpRight;
+	bool repetitive;
+
+	FastaRecord::Id edgeId;
+	size_t clusterId;
+};
+
+
 class RepeatGraph
 {
 public:
@@ -48,6 +64,7 @@ public:
 private:
 	void getRepeatClusters(const OverlapContainer& ovlps);
 	void buildGraph(const OverlapContainer& ovlps);
+	void initializeEdges();
 
 	const int _maxSeparation = 1500;
 	const SequenceContainer& _asmSeqs;
@@ -56,5 +73,8 @@ private:
 	std::unordered_map<FastaRecord::Id, 
 					   std::vector<GluePoint>> _gluePoints;
 	std::unordered_map<FastaRecord::Id, 
+					   std::vector<GraphEdge>> _graphEdges;
+	std::unordered_map<FastaRecord::Id, 
 					   std::vector<RepeatCluster>> _repeatClusters;
+	
 };
