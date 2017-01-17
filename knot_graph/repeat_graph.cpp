@@ -55,20 +55,20 @@ void RepeatGraph::getRepeatClusters(const OverlapContainer& asmOverlaps)
 		for (auto& ovlp : ovlpHash.second)
 		{
 			overlapClusters[ovlp.curId].emplace_back(ovlp);
-			DjsOverlap* ptrOne = &overlapClusters[ovlp.curId].back(); 
 			overlapClusters[ovlp.extId].emplace_back(ovlp.reverse());
-			DjsOverlap* ptrTwo = &overlapClusters[ovlp.extId].back(); 
-			unionSet(ptrOne, ptrTwo);
+			unionSet(&overlapClusters[ovlp.curId].back(),
+					 &overlapClusters[ovlp.extId].back());
 
-			//reverse copy
+			//reverse complement
 			int32_t curLen = _asmSeqs.seqLen(ovlp.curId);
 			int32_t extLen = _asmSeqs.seqLen(ovlp.extId);
 			OverlapRange complOvlp = ovlp.complement(curLen, extLen);
+			//
+
 			overlapClusters[complOvlp.curId].emplace_back(complOvlp);
-			ptrOne = &overlapClusters[complOvlp.curId].back(); 
 			overlapClusters[complOvlp.extId].emplace_back(complOvlp.reverse());
-			ptrTwo = &overlapClusters[complOvlp.extId].back(); 
-			unionSet(ptrOne, ptrTwo);
+			unionSet(&overlapClusters[complOvlp.curId].back(),
+					 &overlapClusters[complOvlp.extId].back());
 			//
 		}
 	}
@@ -191,7 +191,7 @@ void RepeatGraph::buildGraph(const OverlapContainer& asmOverlaps)
 	typedef SetNode<SeqPoint> GlueSet;
 	std::list<GlueSet> glueSets;
 
-	///
+	///used later
 	auto propagateClusters = [&glueSets, this]
 		(const std::vector<GluePoint>& clusterPoints)
 	{
@@ -406,7 +406,6 @@ void RepeatGraph::initializeEdges()
 			edgeId += 2;
 		}
 	}
-
 }
 
 
