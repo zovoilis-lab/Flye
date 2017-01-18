@@ -436,13 +436,13 @@ void RepeatGraph::chainReadAlignments(const SequenceContainer& edgeSeqs,
 	typedef std::vector<EdgeAlignment*> Chain;
 
 	std::list<Chain> activeChains;
-	//Logger::get().debug() << ovlps.size();
 	for (auto& edgeAlignment : ovlps)
 	{
 		std::list<Chain> newChains;
+		int32_t maxSpan = 0;
+		Chain* maxChain = nullptr;
 		for (auto& chain : activeChains)
 		{
-			//can extend?
 			int32_t readDiff = edgeAlignment.overlap.curBegin - 
 						   	   chain.back()->overlap.curEnd;
 			int32_t graphDiff = edgeAlignment.overlap.extBegin +
@@ -451,12 +451,24 @@ void RepeatGraph::chainReadAlignments(const SequenceContainer& edgeSeqs,
 
 			if (JUMP > readDiff && readDiff > 0 &&
 				JUMP > graphDiff && graphDiff > 0 &&
+				abs(readDiff - graphDiff) < JUMP / 10 &&
 				chain.back()->edge->gpRight.pointId == 
 				edgeAlignment.edge->gpLeft.pointId)
 			{
-				newChains.push_back(chain);
-				chain.push_back(&edgeAlignment);
+				int32_t curSpan = edgeAlignment.overlap.curEnd -
+								  chain.front()->overlap.curBegin;
+				if (curSpan > maxSpan)
+				{
+					maxSpan = curSpan;
+					maxChain = &chain;
+				}
 			}
+		}
+		
+		if (maxChain)
+		{
+			newChains.push_back(*maxChain);
+			maxChain->push_back(&edgeAlignment);
 		}
 
 		activeChains.splice(activeChains.end(), newChains);
@@ -472,12 +484,17 @@ void RepeatGraph::chainReadAlignments(const SequenceContainer& edgeSeqs,
 
 	for (auto& chain : activeChains)
 	{
+		int numUnique = 0;
+		for (auto& edge : chain) if (!edge->edge->repetitive) ++numUnique;
+
 		int32_t chainSpan = chain.back()->overlap.curEnd - 
 				chain.front()->overlap.curBegin;
 
 		int32_t overhang = _readSeqs.seqLen(chain.back()->overlap.curId) -
 							chain.back()->overlap.curEnd;
-		if (chainSpan > maxSpan && overhang < Constants::maximumOverhang)
+
+		if (numUnique > 1 && chainSpan > maxSpan && 
+			overhang < Constants::maximumOverhang)
 		{
 			maxSpan = chainSpan;
 			maxChain = &chain;
@@ -524,7 +541,7 @@ void RepeatGraph::resolveRepeats()
 	pathsIndex.countKmers(1);
 	pathsIndex.buildIndex(1, 5000, 1);
 	OverlapDetector readsOverlapper(pathsContainer, pathsIndex, 
-									500, 1000, 0);
+									1500, 1500, 0);
 	OverlapContainer readsContainer(readsOverlapper, _readSeqs);
 	readsContainer.findAllOverlaps();
 	
@@ -536,57 +553,6 @@ void RepeatGraph::resolveRepeats()
 			alignments.push_back({ovlp, idToEdge[ovlp.extId]});
 		}
 		this->chainReadAlignments(pathsContainer, alignments);
-
-		/*
-		std::unordered_map<GraphEdge*, 
-						   std::vector<const OverlapRange*>> byEdge;
-		for (auto& ovlp : seqOverlaps.second)
-		{
-			byEdge[idToEdge[ovlp.extId]].push_back(&ovlp);
-		}
-
-		int uniqueMatches = 0;
-		std::vector<OverlapRange> chosenOverlaps;
-		for (auto& edgeAlignments : byEdge)
-		{
-			OverlapRange maxOverlap;
-			for (auto& ovlp : edgeAlignments.second)
-			{
-				if (maxOverlap.curRange() < ovlp->curRange())
-				{
-					maxOverlap = *ovlp;
-				}
-			}
-			if (!edgeAlignments.first->repetitive)
-			{
-				if (maxOverlap.extBegin > 500 && 
-					pathsContainer.seqLen(maxOverlap.extId) - 
-										maxOverlap.extEnd > 500)
-				{
-					continue;
-				}
-			}
-
-			chosenOverlaps.push_back(maxOverlap);
-			if (!edgeAlignments.first->repetitive)
-			{
-				++uniqueMatches;
-			}
-		}
-
-		if (uniqueMatches < 2) continue;
-
-		Logger::get().debug() << _readSeqs.seqName(seqOverlaps.first);
-		for (auto& ovlp : chosenOverlaps)
-		{
-			GraphEdge& edge = *idToEdge[ovlp.extId];
-			Logger::get().debug() << edge.gpLeft.seqId << "\t" 
-								  << edge.gpLeft.position << "\t"
-								  << edge.gpRight.position << "\t"
-								  << edge.repetitive << "\t"
-								  << edge.edgeId << "\t"
-								  << ovlp.curBegin << "\t" << ovlp.curEnd;
-		}*/
 	}
 }
 
