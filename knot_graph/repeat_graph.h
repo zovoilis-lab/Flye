@@ -49,6 +49,13 @@ struct GraphEdge
 };
 
 
+struct EdgeAlignment
+{
+	OverlapRange overlap;
+	GraphEdge* edge;
+};
+
+
 class RepeatGraph
 {
 public:
@@ -65,6 +72,8 @@ private:
 	void getRepeatClusters(const OverlapContainer& ovlps);
 	void buildGraph(const OverlapContainer& ovlps);
 	void initializeEdges();
+	void chainReadAlignments(const SequenceContainer& edgeSeqs,
+							 std::vector<EdgeAlignment> ovlps);
 
 	const int _maxSeparation = 1500;
 	const SequenceContainer& _asmSeqs;

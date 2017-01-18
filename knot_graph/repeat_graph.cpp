@@ -314,17 +314,9 @@ void RepeatGraph::buildGraph(const OverlapContainer& asmOverlaps)
 				  {return pt1.position < pt2.position;});
 	}
 
-	for (auto& seqPoints : _gluePoints)
-	{
-		for (auto& pt : seqPoints.second)
-		{
-			Logger::get().debug() << pt.seqId << "\t" 
-								  << pt.position << "\t" << pt.pointId;
-		}
-	}
+	
 }
 
-/*
 namespace
 {
 	std::vector<OverlapRange> filterOvlp(const std::vector<OverlapRange>& ovlps)
@@ -348,7 +340,7 @@ namespace
 		}
 		return filtered;
 	}
-}*/
+}
 
 void RepeatGraph::initializeEdges()
 {
@@ -376,10 +368,17 @@ void RepeatGraph::initializeEdges()
 			bool repetitive = false;
 			size_t fwdClust = 0;
 			size_t revClust = 0;
+
+			float maxOvlp = 0;
 			for (auto& cluster : _repeatClusters[gpLeft.seqId])
 			{
-				if (gpLeft.position >= cluster.start - 50 && 
-					gpRight.position <= cluster.end + 50)
+				int32_t overlap = std::min(gpRight.position, cluster.end) -
+								  std::max(gpLeft.position, cluster.start);
+				float rate = float(overlap) / (gpRight.position - 
+											   gpLeft.position);
+
+				maxOvlp = std::max(maxOvlp, rate);
+				if (rate > 0.5)
 				{
 					repetitive = true;
 					fwdClust = cluster.clusterId;
@@ -388,8 +387,11 @@ void RepeatGraph::initializeEdges()
 			}
 			for (auto& cluster : _repeatClusters[complLeft.seqId])
 			{
-				if (complLeft.position >= cluster.start - 50 && 
-					complRight.position <= cluster.end + 50)
+				int32_t overlap = std::min(complRight.position, cluster.end) -
+								  std::max(complLeft.position, cluster.start);
+				float rate = float(overlap) / (complRight.position - 
+											   complLeft.position);
+				if (rate > 0.5)
 				{
 					revClust = cluster.clusterId;
 					break;
@@ -406,13 +408,103 @@ void RepeatGraph::initializeEdges()
 			edgeId += 2;
 		}
 	}
+	
+	for (auto& seqEdges : _graphEdges)
+	{
+		for (auto& edge : seqEdges.second)
+		{
+			Logger::get().debug() << edge.edgeId << "\t" 
+								  << edge.gpLeft.seqId << "\t"
+								  << edge.gpLeft.position << "\t" 
+								  << edge.gpRight.position << "\t"
+								  << edge.gpRight.position - edge.gpLeft.position
+								  << "\t" << edge.repetitive;
+		}
+	}
+}
+
+
+void RepeatGraph::chainReadAlignments(const SequenceContainer& edgeSeqs,
+									  std::vector<EdgeAlignment> ovlps)
+{
+	const int32_t JUMP = 1500;
+
+	std::sort(ovlps.begin(), ovlps.end(),
+			  [](const EdgeAlignment& e1, const EdgeAlignment& e2)
+			  	{return e1.overlap.curBegin < e2.overlap.curBegin;});
+
+	typedef std::vector<EdgeAlignment*> Chain;
+
+	std::list<Chain> activeChains;
+	//Logger::get().debug() << ovlps.size();
+	for (auto& edgeAlignment : ovlps)
+	{
+		std::list<Chain> newChains;
+		for (auto& chain : activeChains)
+		{
+			//can extend?
+			int32_t readDiff = edgeAlignment.overlap.curBegin - 
+						   	   chain.back()->overlap.curEnd;
+			int32_t graphDiff = edgeAlignment.overlap.extBegin +
+								edgeSeqs.seqLen(chain.back()->overlap.extId) -
+						   	    chain.back()->overlap.extEnd;
+
+			if (JUMP > readDiff && readDiff > 0 &&
+				JUMP > graphDiff && graphDiff > 0 &&
+				chain.back()->edge->gpRight.pointId == 
+				edgeAlignment.edge->gpLeft.pointId)
+			{
+				newChains.push_back(chain);
+				chain.push_back(&edgeAlignment);
+			}
+		}
+
+		activeChains.splice(activeChains.end(), newChains);
+		if (edgeAlignment.overlap.curBegin < Constants::maximumOverhang)
+		{
+			activeChains.push_back({&edgeAlignment});
+		}
+	}
+
+	
+	int32_t maxSpan = 0;
+	Chain* maxChain = nullptr;
+
+	for (auto& chain : activeChains)
+	{
+		int32_t chainSpan = chain.back()->overlap.curEnd - 
+				chain.front()->overlap.curBegin;
+
+		int32_t overhang = _readSeqs.seqLen(chain.back()->overlap.curId) -
+							chain.back()->overlap.curEnd;
+		if (chainSpan > maxSpan && overhang < Constants::maximumOverhang)
+		{
+			maxSpan = chainSpan;
+			maxChain = &chain;
+		}
+	}
+
+	if (maxChain && maxChain->size() > 1)
+	{
+		Logger::get().debug() << _readSeqs.seqName(ovlps.front().overlap.curId);
+		
+		for (auto& edge : *maxChain)
+		{
+			Logger::get().debug() << edge->edge->gpLeft.seqId << "\t" 
+								  << edge->edge->gpLeft.position << "\t"
+								  << edge->edge->gpRight.position << "\t"
+								  << edge->edge->repetitive << "\t"
+								  << edge->edge->edgeId << "\t"
+								  << edge->overlap.curBegin << "\t" 
+								  << edge->overlap.curEnd;
+		}
+	}
 }
 
 
 void RepeatGraph::resolveRepeats()
 {
 	std::unordered_map<FastaRecord::Id, GraphEdge*> idToEdge;
-
 	SequenceContainer pathsContainer;
 
 	for (auto& seqEdgesPair : _graphEdges)
@@ -432,12 +524,20 @@ void RepeatGraph::resolveRepeats()
 	pathsIndex.countKmers(1);
 	pathsIndex.buildIndex(1, 5000, 1);
 	OverlapDetector readsOverlapper(pathsContainer, pathsIndex, 
-									1500, 1000, 0);
+									500, 1000, 0);
 	OverlapContainer readsContainer(readsOverlapper, _readSeqs);
 	readsContainer.findAllOverlaps();
 	
 	for (auto& seqOverlaps : readsContainer.getOverlapIndex())
 	{
+		std::vector<EdgeAlignment> alignments;
+		for (auto& ovlp : filterOvlp(seqOverlaps.second))
+		{
+			alignments.push_back({ovlp, idToEdge[ovlp.extId]});
+		}
+		this->chainReadAlignments(pathsContainer, alignments);
+
+		/*
 		std::unordered_map<GraphEdge*, 
 						   std::vector<const OverlapRange*>> byEdge;
 		for (auto& ovlp : seqOverlaps.second)
@@ -468,7 +568,10 @@ void RepeatGraph::resolveRepeats()
 			}
 
 			chosenOverlaps.push_back(maxOverlap);
-			if (!edgeAlignments.first->repetitive) ++uniqueMatches;
+			if (!edgeAlignments.first->repetitive)
+			{
+				++uniqueMatches;
+			}
 		}
 
 		if (uniqueMatches < 2) continue;
@@ -483,7 +586,7 @@ void RepeatGraph::resolveRepeats()
 								  << edge.repetitive << "\t"
 								  << edge.edgeId << "\t"
 								  << ovlp.curBegin << "\t" << ovlp.curEnd;
-		}
+		}*/
 	}
 }
 
@@ -522,7 +625,7 @@ void RepeatGraph::outputDot(const std::string& filename, bool collapseRepeats)
 			{
 				fout << "\"" << edge.gpLeft.pointId << "\" -> \"" 
 					 << edge.gpRight.pointId
-					 << "\" [label = \"" 
+					 << "\" [label = \"" << edge.edgeId << " "
 					 << edge.gpRight.position - edge.gpLeft.position
 					 << "\", color = \"black\"] ;\n";
 			}
