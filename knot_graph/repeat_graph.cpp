@@ -568,6 +568,121 @@ RepeatGraph::chainReadAlignments(const SequenceContainer& edgeSeqs,
 	return result;
 }
 
+namespace
+{
+	struct pairhash 
+	{
+	public:
+		template <typename T, typename U>
+		std::size_t operator()(const std::pair<T, U> &x) const
+		{
+			return std::hash<T>()(x.first) ^ std::hash<U>()(x.second);
+		}
+	};
+}
+
+void RepeatGraph::resolveConnections(const std::vector<Connection>& connections)
+{
+	typedef std::pair<GraphEdge*, GraphEdge*> EdgePair;
+	std::unordered_map<EdgePair, int, pairhash> edges;
+
+	for (auto& conn : connections)
+	{
+		++edges[EdgePair(conn.edgeIn, conn.edgeOut)];
+	}
+
+	/*
+	for (auto& edge : _knots[knotEdges.first].inEdges)
+	{
+		Logger::get().debug() << "\tIn Edge: " << edge->seqId 
+							  << " " << edge->seqEnd;
+	}
+	Logger::get().debug() << "";
+	for (auto& edge : _knots[knotEdges.first].outEdges)
+	{
+		Logger::get().debug() << "\tOut Edge: " << edge->seqId 
+							  << " " << edge->seqBegin;
+	}
+	Logger::get().debug() << "";
+	*/
+
+	std::vector<EdgePair> sortedConnections;
+	//std::vector<EdgePair> justEdges;
+
+	for (auto& edgeCount : edges)
+	{
+		sortedConnections.push_back(edgeCount.first);
+
+		//justEdges.push_back(edgeCount.first);
+	}
+
+	/*
+	std::sort(justEdges.begin(), justEdges.end());
+	for (auto& edge : justEdges)
+	{
+		Logger::get().debug() << "\tEdge\t" << edge.first->seqEnd << "\t"
+						  << edge.second->seqBegin << "\t"
+						  << knotEdges.second[edge];
+	}
+	Logger::get().debug() << "";
+	*/
+
+	std::sort(sortedConnections.begin(), sortedConnections.end(),
+			  [&edges](const EdgePair& e1, const EdgePair& e2)
+			  {return edges[e1] > edges[e2];});
+
+	std::unordered_set<GraphEdge*> usedInEdges;
+	std::unordered_set<GraphEdge*> usedOutEdges;
+
+	size_t nextGlueId = 999;
+
+	for (auto& edgePair : sortedConnections)
+	{
+		//
+		int32_t coverage = 0;
+		for (auto& conn : sortedConnections)
+		{
+			if (conn.first == edgePair.first &&
+				!usedOutEdges.count(conn.second))
+			{
+				coverage += edges[conn];
+			}
+			if (conn.second == edgePair.second &&
+				!usedInEdges.count(conn.first))
+			{
+				coverage += edges[conn];
+			}
+		}
+		float confidence = 2.0f * edges[edgePair] / coverage;
+		//
+
+		if (!usedInEdges.count(edgePair.first) &&
+			!usedOutEdges.count(edgePair.second) &&
+			confidence > 0.0f)
+		{
+
+			Logger::get().debug() << "\tConnection " 
+				<< edgePair.first->gpRight.seqId
+				<< "\t" << edgePair.first->gpRight.position << "\t"
+				<< edgePair.second->gpLeft.seqId 
+				<< "\t" << edgePair.second->gpLeft.position
+				<< "\t" << edges[edgePair]
+				<< "\t" << confidence;
+
+			usedInEdges.insert(edgePair.first);
+			usedOutEdges.insert(edgePair.second);
+
+			//_resolvedConnections.emplace_back(edgePair.first, 
+			//								  edgePair.second);
+			
+			//ad-hoc graph modification
+			edgePair.first->gpRight.pointId = nextGlueId;
+			edgePair.second->gpLeft.pointId = nextGlueId;
+			++nextGlueId;
+		}
+	}
+}
+
 
 void RepeatGraph::resolveRepeats()
 {
@@ -596,6 +711,7 @@ void RepeatGraph::resolveRepeats()
 	readsContainer.findAllOverlaps();
 
 	std::unordered_map<GraphEdge*, std::vector<GraphEdge*>> connections;
+	std::vector<Connection> allConnections;
 	
 	for (auto& seqOverlaps : readsContainer.getOverlapIndex())
 	{
@@ -608,38 +724,50 @@ void RepeatGraph::resolveRepeats()
 		for (auto& conn : this->chainReadAlignments(pathsContainer, alignments))
 		{
 			connections[conn.edgeIn].push_back(conn.edgeOut);
+			allConnections.push_back(conn);
+
+			GraphEdge* complIn = nullptr;
+			for (auto& edge : _graphEdges[conn.edgeIn->gpRight.seqId.rc()])
+			{
+				if (edge.edgeId.rc() == conn.edgeIn->edgeId)
+				{
+					complIn = &edge;
+					break;
+				}
+			}
+
+			GraphEdge* complOut = nullptr;
+			for (auto& edge : _graphEdges[conn.edgeOut->gpLeft.seqId.rc()])
+			{
+				if (edge.edgeId.rc() == conn.edgeOut->edgeId)
+				{
+					complOut = &edge;
+					break;
+				}
+			}
+
+			allConnections.push_back({complOut, complIn});
 		}
 	}
 
 	int totalLinks = 0;
 	for (auto& inEdge : connections)
 	{
-		Logger::get().debug() << "Connections for " 
-							  << inEdge.first->gpRight.position;
+		//Logger::get().debug() << "Connections for " 
+		//					  << inEdge.first->gpRight.position;
 		for (auto& outEdge : inEdge.second)
 		{
-			Logger::get().debug() << "\t" << outEdge->gpLeft.position;
+			//Logger::get().debug() << "\t" << outEdge->gpLeft.position;
 			++totalLinks;
 		}
 	}
 
 	Logger::get().debug() << "Edges: " << connections.size() << " links: "
 						  << totalLinks;
+
+	this->resolveConnections(allConnections);
 }
 
-
-namespace
-{
-	struct pairhash 
-	{
-	public:
-		template <typename T, typename U>
-		std::size_t operator()(const std::pair<T, U> &x) const
-		{
-			return std::hash<T>()(x.first) ^ std::hash<U>()(x.second);
-		}
-	};
-}
 
 void RepeatGraph::outputDot(const std::string& filename, bool collapseRepeats)
 {

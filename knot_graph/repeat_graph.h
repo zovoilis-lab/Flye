@@ -78,6 +78,7 @@ private:
 	void getRepeatClusters(const OverlapContainer& ovlps);
 	void buildGraph(const OverlapContainer& ovlps);
 	void initializeEdges();
+	void resolveConnections(const std::vector<Connection>& conns);
 
 	std::vector<Connection> 
 		chainReadAlignments(const SequenceContainer& edgeSeqs,
