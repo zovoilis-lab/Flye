@@ -10,7 +10,7 @@
 #include "overlap.h"
 #include "logger.h"
 #include "config.h"
-#include "assembly_graph.h"
+//#include "assembly_graph.h"
 #include "repeat_graph.h"
 
 bool parseArgs(int argc, char** argv, std::string& readsFasta, 
@@ -147,8 +147,8 @@ int main(int argc, char** argv)
 
 		RepeatGraph rg(seqAssembly, seqReads);
 		rg.build();
-		rg.resolveRepeats();
 		rg.outputDot(outAssembly, true);
+		rg.resolveRepeats();
 		return 0;
 
 		/*

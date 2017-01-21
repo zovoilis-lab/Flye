@@ -368,6 +368,8 @@ void RepeatGraph::initializeEdges()
 			bool repetitive = false;
 			size_t fwdClust = 0;
 			size_t revClust = 0;
+			float maxFwd = 0;
+			float maxRev = 0;
 
 			float maxOvlp = 0;
 			for (auto& cluster : _repeatClusters[gpLeft.seqId])
@@ -376,6 +378,7 @@ void RepeatGraph::initializeEdges()
 								  std::max(gpLeft.position, cluster.start);
 				float rate = float(overlap) / (gpRight.position - 
 											   gpLeft.position);
+				maxFwd = std::max(maxFwd, rate);
 
 				maxOvlp = std::max(maxOvlp, rate);
 				if (rate > 0.5)
@@ -391,12 +394,28 @@ void RepeatGraph::initializeEdges()
 								  std::max(complLeft.position, cluster.start);
 				float rate = float(overlap) / (complRight.position - 
 											   complLeft.position);
+				maxRev = std::max(maxRev, rate);
 				if (rate > 0.5)
 				{
 					revClust = cluster.clusterId;
 					break;
 				}
 			}
+
+			/*
+			Logger::get().debug() << "F\t" 
+								  << gpLeft.seqId << "\t"
+								  << gpLeft.position << "\t" 
+								  << gpRight.position << "\t"
+								  << gpRight.position - gpLeft.position
+								  << "\t" << maxFwd;
+
+			Logger::get().debug() << "R\t" 
+								  << complLeft.seqId << "\t"
+								  << complLeft.position << "\t" 
+								  << complRight.position << "\t"
+								  << complRight.position - complLeft.position
+								  << "\t" << maxRev;*/
 
 			_graphEdges[seqEdgesPair.first]
 					.push_back(GraphEdge(gpLeft, gpRight, repetitive, 
@@ -423,8 +442,8 @@ void RepeatGraph::initializeEdges()
 	}
 }
 
-
-void RepeatGraph::chainReadAlignments(const SequenceContainer& edgeSeqs,
+std::vector<Connection>
+RepeatGraph::chainReadAlignments(const SequenceContainer& edgeSeqs,
 									  std::vector<EdgeAlignment> ovlps)
 {
 	const int32_t JUMP = 1500;
@@ -443,11 +462,12 @@ void RepeatGraph::chainReadAlignments(const SequenceContainer& edgeSeqs,
 		Chain* maxChain = nullptr;
 		for (auto& chain : activeChains)
 		{
-			int32_t readDiff = edgeAlignment.overlap.curBegin - 
-						   	   chain.back()->overlap.curEnd;
-			int32_t graphDiff = edgeAlignment.overlap.extBegin +
-								edgeSeqs.seqLen(chain.back()->overlap.extId) -
-						   	    chain.back()->overlap.extEnd;
+			OverlapRange& nextOvlp = edgeAlignment.overlap;
+			OverlapRange& prevOvlp = chain.back()->overlap;
+
+			int32_t readDiff = nextOvlp.curBegin - prevOvlp.curEnd;
+			int32_t graphDiff = nextOvlp.extBegin +
+							edgeSeqs.seqLen(prevOvlp.extId) - prevOvlp.extEnd;
 
 			if (JUMP > readDiff && readDiff > 0 &&
 				JUMP > graphDiff && graphDiff > 0 &&
@@ -455,11 +475,11 @@ void RepeatGraph::chainReadAlignments(const SequenceContainer& edgeSeqs,
 				chain.back()->edge->gpRight.pointId == 
 				edgeAlignment.edge->gpLeft.pointId)
 			{
-				int32_t curSpan = edgeAlignment.overlap.curEnd -
+				int32_t readSpan = nextOvlp.curEnd -
 								  chain.front()->overlap.curBegin;
-				if (curSpan > maxSpan)
+				if (readSpan > maxSpan)
 				{
-					maxSpan = curSpan;
+					maxSpan = readSpan;
 					maxChain = &chain;
 				}
 			}
@@ -478,44 +498,74 @@ void RepeatGraph::chainReadAlignments(const SequenceContainer& edgeSeqs,
 		}
 	}
 
-	
 	int32_t maxSpan = 0;
 	Chain* maxChain = nullptr;
-
 	for (auto& chain : activeChains)
 	{
-		int numUnique = 0;
-		for (auto& edge : chain) if (!edge->edge->repetitive) ++numUnique;
-
-		int32_t chainSpan = chain.back()->overlap.curEnd - 
-				chain.front()->overlap.curBegin;
-
+		//check right overhang
 		int32_t overhang = _readSeqs.seqLen(chain.back()->overlap.curId) -
 							chain.back()->overlap.curEnd;
+		if (overhang < Constants::maximumOverhang) continue;
 
-		if (numUnique > 1 && chainSpan > maxSpan && 
-			overhang < Constants::maximumOverhang)
+		int32_t readSpan = chain.back()->overlap.curEnd - 
+						   chain.front()->overlap.curBegin;
+		if (readSpan > maxSpan)
 		{
-			maxSpan = chainSpan;
+			maxSpan = readSpan;
 			maxChain = &chain;
 		}
 	}
 
+	std::vector<Connection> result;
 	if (maxChain && maxChain->size() > 1)
 	{
-		Logger::get().debug() << _readSeqs.seqName(ovlps.front().overlap.curId);
+		//chech number of non-repetitive edges
+		int numUnique = 0;
+		for (auto& edge : *maxChain) if (!edge->edge->repetitive) ++numUnique;
+		if (numUnique < 2) return {};
 		
+		//check length consistency
+		int32_t readSpan = maxChain->back()->overlap.curEnd - 
+						   maxChain->front()->overlap.curBegin;
+		int32_t graphSpan = maxChain->front()->overlap.curRange();
+		for (size_t i = 1; i < maxChain->size(); ++i)
+		{
+			graphSpan += (*maxChain)[i]->overlap.extEnd +
+						 edgeSeqs.seqLen((*maxChain)[i - 1]->overlap.extId) - 
+						 (*maxChain)[i - 1]->overlap.extEnd;
+		}
+		float lengthDiff = abs(readSpan - graphSpan);
+		float meanLength = (readSpan + graphSpan) / 2.0f;
+		if (lengthDiff > meanLength / Constants::overlapDivergenceRate)
+		{
+			return {};
+		}
+
+
+		//Logger::get().debug() << _readSeqs.seqName(ovlps.front().overlap.curId);
+		GraphEdge* prevEdge = nullptr;
 		for (auto& edge : *maxChain)
 		{
-			Logger::get().debug() << edge->edge->gpLeft.seqId << "\t" 
+			/*Logger::get().debug() << edge->edge->gpLeft.seqId << "\t" 
 								  << edge->edge->gpLeft.position << "\t"
 								  << edge->edge->gpRight.position << "\t"
 								  << edge->edge->repetitive << "\t"
 								  << edge->edge->edgeId << "\t"
 								  << edge->overlap.curBegin << "\t" 
-								  << edge->overlap.curEnd;
+								  << edge->overlap.curEnd;*/
+
+			if (!edge->edge->repetitive)
+			{
+				if (prevEdge)
+				{
+					result.push_back({prevEdge, edge->edge});
+				}
+				prevEdge = edge->edge;
+			}
 		}
 	}
+
+	return result;
 }
 
 
@@ -541,9 +591,11 @@ void RepeatGraph::resolveRepeats()
 	pathsIndex.countKmers(1);
 	pathsIndex.buildIndex(1, 5000, 1);
 	OverlapDetector readsOverlapper(pathsContainer, pathsIndex, 
-									1500, 1500, 0);
+									500, 1500, 0);
 	OverlapContainer readsContainer(readsOverlapper, _readSeqs);
 	readsContainer.findAllOverlaps();
+
+	std::unordered_map<GraphEdge*, std::vector<GraphEdge*>> connections;
 	
 	for (auto& seqOverlaps : readsContainer.getOverlapIndex())
 	{
@@ -552,9 +604,29 @@ void RepeatGraph::resolveRepeats()
 		{
 			alignments.push_back({ovlp, idToEdge[ovlp.extId]});
 		}
-		this->chainReadAlignments(pathsContainer, alignments);
+
+		for (auto& conn : this->chainReadAlignments(pathsContainer, alignments))
+		{
+			connections[conn.edgeIn].push_back(conn.edgeOut);
+		}
 	}
+
+	int totalLinks = 0;
+	for (auto& inEdge : connections)
+	{
+		Logger::get().debug() << "Connections for " 
+							  << inEdge.first->gpRight.position;
+		for (auto& outEdge : inEdge.second)
+		{
+			Logger::get().debug() << "\t" << outEdge->gpLeft.position;
+			++totalLinks;
+		}
+	}
+
+	Logger::get().debug() << "Edges: " << connections.size() << " links: "
+						  << totalLinks;
 }
+
 
 namespace
 {

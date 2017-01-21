@@ -48,6 +48,12 @@ struct GraphEdge
 	size_t clusterId;
 };
 
+struct Connection
+{
+	GraphEdge* edgeIn;
+	GraphEdge* edgeOut;
+};
+
 
 struct EdgeAlignment
 {
@@ -72,8 +78,10 @@ private:
 	void getRepeatClusters(const OverlapContainer& ovlps);
 	void buildGraph(const OverlapContainer& ovlps);
 	void initializeEdges();
-	void chainReadAlignments(const SequenceContainer& edgeSeqs,
-							 std::vector<EdgeAlignment> ovlps);
+
+	std::vector<Connection> 
+		chainReadAlignments(const SequenceContainer& edgeSeqs,
+							std::vector<EdgeAlignment> ovlps);
 
 	const int _maxSeparation = 1500;
 	const SequenceContainer& _asmSeqs;
