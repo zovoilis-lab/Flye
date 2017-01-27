@@ -53,6 +53,8 @@ struct GraphEdge
 
 struct GraphNode
 {
+	bool isBifurcation() {return outEdges.size() > 1 || inEdges.size() > 1;}
+
 	std::vector<GraphEdge*> inEdges;
 	std::vector<GraphEdge*> outEdges;
 };
@@ -63,7 +65,7 @@ class RepeatGraph
 public:
 	RepeatGraph(const SequenceContainer& asmSeqs,
 				const SequenceContainer& readSeqs):
-		_asmSeqs(asmSeqs), _readSeqs(readSeqs)
+		_asmSeqs(asmSeqs), _readSeqs(readSeqs), _nextEdgeId(0)
 	{}
 
 	void build();
@@ -116,12 +118,14 @@ private:
 		chainReadAlignments(const SequenceContainer& edgeSeqs,
 							std::vector<EdgeAlignment> ovlps);
 	bool isRepetitive(GluePoint gpLeft, GluePoint gpRight);
+	void fixTips();
 
 	////////////////////////////////////////////////////////////////
 
 	const int _maxSeparation = 1500;
 	const SequenceContainer& _asmSeqs;
 	const SequenceContainer& _readSeqs;
+
 
 	std::unordered_map<FastaRecord::Id, 
 					   std::vector<GluePoint>> _gluePoints;
@@ -132,5 +136,5 @@ private:
 	//				   std::vector<GraphEdge>> _graphEdges;
 	std::unordered_map<FastaRecord::Id, 
 					   std::vector<RepeatCluster>> _repeatClusters;
-	
+	size_t _nextEdgeId;
 };

@@ -42,6 +42,7 @@ void RepeatGraph::build()
 	this->getRepeatClusters(asmOverlaps);
 	this->getGluepoints(asmOverlaps);
 	this->initializeEdges();
+	this->fixTips();
 }
 
 void RepeatGraph::getRepeatClusters(const OverlapContainer& asmOverlaps)
@@ -391,12 +392,12 @@ bool RepeatGraph::isRepetitive(GluePoint gpLeft, GluePoint gpRight)
 
 void RepeatGraph::initializeEdges()
 {
-	size_t edgeId = 0;
+	//size_t edgeId = 0;
 	std::unordered_map<size_t, GraphNode*> idToNode;
 	typedef std::pair<GraphNode*, GraphNode*> NodePair;
 	std::unordered_map<NodePair, GraphEdge*, pairhash> repeatEdges;
 
-	auto addUnique = [&idToNode, this, &edgeId](GluePoint gpLeft, 
+	auto addUnique = [&idToNode, this](GluePoint gpLeft, 
 												GluePoint gpRight)
 	{
 		if (!idToNode.count(gpLeft.pointId))
@@ -413,7 +414,7 @@ void RepeatGraph::initializeEdges()
 		GraphNode* rightNode = idToNode[gpRight.pointId];
 
 		_graphEdges.emplace_back(leftNode, rightNode, 
-								 FastaRecord::Id(edgeId++));
+								 FastaRecord::Id(_nextEdgeId++));
 		leftNode->outEdges.push_back(&_graphEdges.back());
 		rightNode->inEdges.push_back(&_graphEdges.back());
 
@@ -421,7 +422,7 @@ void RepeatGraph::initializeEdges()
 									   gpRight.position);
 	};
 
-	auto addRepeat = [&idToNode, this, &edgeId, &repeatEdges]
+	auto addRepeat = [&idToNode, this, &repeatEdges]
 		(GluePoint gpLeft, GluePoint gpRight)
 	{
 		if (!idToNode.count(gpLeft.pointId))
@@ -440,7 +441,7 @@ void RepeatGraph::initializeEdges()
 		if (!repeatEdges.count({leftNode, rightNode}))
 		{
 			_graphEdges.emplace_back(leftNode, rightNode, 
-									 FastaRecord::Id(edgeId++));
+									 FastaRecord::Id(_nextEdgeId++));
 			leftNode->outEdges.push_back(&_graphEdges.back());
 			rightNode->inEdges.push_back(&_graphEdges.back());
 
@@ -634,6 +635,197 @@ RepeatGraph::chainReadAlignments(const SequenceContainer& edgeSeqs,
 	return result;
 }
 
+void RepeatGraph::fixTips()
+{
+	const int THRESHOLD = 500;
+	std::unordered_set<FastaRecord::Id> suspicious;
+
+	for (auto itEdge = _graphEdges.begin(); itEdge != _graphEdges.end();)
+	{
+		int prevDegree = itEdge->nodeLeft->inEdges.size();
+		int nextDegree = itEdge->nodeRight->outEdges.size();
+		if (itEdge->length() < THRESHOLD && 
+			(prevDegree == 0 || nextDegree == 0))
+		{
+			GraphNode* toFix = (prevDegree != 0) ? itEdge->nodeLeft : 
+								itEdge->nodeRight;
+			//remove the edge
+			vecRemove(itEdge->nodeRight->inEdges, &(*itEdge));
+			vecRemove(itEdge->nodeLeft->outEdges, &(*itEdge));
+			itEdge = _graphEdges.erase(itEdge);
+			Logger::get().debug() << "Chop!";
+
+			for (auto& edge : toFix->inEdges) suspicious.insert(edge->edgeId);
+			for (auto& edge : toFix->outEdges) suspicious.insert(edge->edgeId);
+		}
+		else
+		{
+			++itEdge;
+		}
+	}
+
+	auto collapseEdges = [this, &suspicious](const std::vector<GraphEdge*> edges)
+	{
+		Logger::get().debug() << "-----";
+		for (auto& edge : edges) 
+		{
+			Logger::get().debug() << edge->edgeId << " " << edge->seqSegments.size();
+			for (auto& seg : edge->seqSegments)
+			{
+				Logger::get().debug() << "\t" << seg.seqId << " " << seg.start << " " << seg.end;
+			}
+		}
+
+		std::list<SequenceSegment> growingSeqs(edges.front()->seqSegments.begin(),
+											   edges.front()->seqSegments.end());
+		assert(edges.size() > 1);
+		for (size_t i = 1; i < edges.size(); ++i)
+		{
+			for (auto prevSeg = growingSeqs.begin(); 
+				 prevSeg != growingSeqs.end(); )
+			{
+				bool continued = false;
+				for (auto& nextSeg : edges[i]->seqSegments)
+				{
+					if (prevSeg->seqId == nextSeg.seqId &&
+						prevSeg->end == nextSeg.start)
+					{
+						continued = true;
+						prevSeg->end = nextSeg.end;
+					}
+				}
+				if (!continued)
+				{
+					prevSeg = growingSeqs.erase(prevSeg);
+				}
+				else
+				{
+					++prevSeg;
+				}
+			}
+			if (growingSeqs.empty())
+			{
+				Logger::get().debug() << "Can't collape edge";
+				return;
+			}
+		}
+			
+		for (auto& seg : growingSeqs)
+		{
+			Logger::get().debug() << seg.seqId << " " << seg.start << " " << seg.end;
+		}
+
+		///New edge
+		_graphEdges.emplace_back(edges.front()->nodeLeft,
+								 edges.back()->nodeRight,
+								 FastaRecord::Id(_nextEdgeId++));
+		std::copy(growingSeqs.begin(), growingSeqs.end(),
+				  std::back_inserter(_graphEdges.back().seqSegments));
+		_graphEdges.back().multiplicity = growingSeqs.size();
+		_graphEdges.back().nodeLeft->outEdges.push_back(&_graphEdges.back());
+		_graphEdges.back().nodeRight->inEdges.push_back(&_graphEdges.back());
+		Logger::get().debug() << "Added " << _graphEdges.back().edgeId;
+		///
+		suspicious.insert(_graphEdges.back().edgeId);
+		
+		std::unordered_set<GraphEdge*> toRemove(edges.begin(), edges.end());
+		for (auto itEdge = _graphEdges.begin(); itEdge != _graphEdges.end(); )
+		{
+			if (toRemove.count(&(*itEdge)))
+			{
+				Logger::get().debug() << "Removed " << itEdge->edgeId;
+				vecRemove(itEdge->nodeRight->inEdges, &(*itEdge));
+				vecRemove(itEdge->nodeLeft->outEdges, &(*itEdge));
+				itEdge = _graphEdges.erase(itEdge);
+			}
+			else
+			{
+				++itEdge;
+			}
+		}
+	};
+
+	std::vector<std::vector<GraphEdge*>> toCollapse;
+	for (auto& node : _graphNodes)
+	{
+		if (!node.isBifurcation()) continue;
+
+		for (auto& direction : node.outEdges)
+		{
+			GraphNode* curNode = direction->nodeRight;
+			std::vector<GraphEdge*> traversed;
+			traversed.push_back(direction);
+			while (!curNode->isBifurcation() &&
+				   !curNode->outEdges.empty())
+			{
+				traversed.push_back(curNode->outEdges.front());
+				curNode = curNode->outEdges.front()->nodeRight;
+			}
+			
+			if (traversed.size() > 1)
+			{
+				toCollapse.emplace_back(std::move(traversed));
+			}
+		}
+	}
+	for (auto& edges : toCollapse)
+	{
+		collapseEdges(edges);
+	}
+
+	bool anyChanges = true;
+	while (anyChanges)
+	{
+		anyChanges = false;
+		for (auto& edge : _graphEdges)
+		{
+			if (!suspicious.count(edge.edgeId)) continue;
+			if (edge.nodeLeft == edge.nodeRight) continue;
+
+			//check beginning
+			bool allReliable = true;
+			int inDegree = 0;
+			int outDegree = 0;
+			for (auto& otherEdge : edge.nodeLeft->outEdges)
+			{
+				if (otherEdge->edgeId == edge.edgeId) continue;
+				if (otherEdge->nodeLeft == otherEdge->nodeRight) continue;
+
+				if (!suspicious.count(otherEdge->edgeId))
+				{
+					outDegree += otherEdge->multiplicity;
+				}
+				else
+				{
+					allReliable = false;
+				}
+			}
+			for (auto& otherEdge : edge.nodeLeft->inEdges)
+			{
+				if (otherEdge->nodeLeft == otherEdge->nodeRight) continue;
+
+				if (!suspicious.count(otherEdge->edgeId))
+				{
+					inDegree += otherEdge->multiplicity;
+				}
+				else
+				{
+					allReliable = false;
+				}
+			}
+
+			if (allReliable)
+			{
+				Logger::get().debug() << "Updated: "<< edge.edgeId << " " 
+									  << edge.multiplicity 
+									  << " " << inDegree - outDegree;
+				edge.multiplicity = inDegree - outDegree;
+				suspicious.erase(edge.edgeId);
+				anyChanges = true;
+			}
+		}
+	}
+}
 
 void RepeatGraph::resolveConnections(const std::vector<Connection>& connections)
 {
