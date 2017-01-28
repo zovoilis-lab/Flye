@@ -637,7 +637,7 @@ RepeatGraph::chainReadAlignments(const SequenceContainer& edgeSeqs,
 
 void RepeatGraph::fixTips()
 {
-	const int THRESHOLD = 500;
+	const int THRESHOLD = 1500;
 	std::unordered_set<FastaRecord::Id> suspicious;
 
 	for (auto itEdge = _graphEdges.begin(); itEdge != _graphEdges.end();)
@@ -888,11 +888,10 @@ void RepeatGraph::resolveConnections(const std::vector<Connection>& connections)
 			usedOutEdges.insert(edgePair.second);
 
 			//ad-hoc graph modification
+			//TODO: update path in the graph
 			_graphNodes.emplace_back();
 			vecRemove(edgePair.first->nodeRight->inEdges, edgePair.first);
 			vecRemove(edgePair.second->nodeLeft->outEdges, edgePair.second);
-
-			//TODO: update path in the graph
 
 			edgePair.first->nodeRight = &_graphNodes.back();;
 			edgePair.second->nodeLeft = &_graphNodes.back();;
