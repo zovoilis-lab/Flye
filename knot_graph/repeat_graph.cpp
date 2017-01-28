@@ -639,6 +639,8 @@ void RepeatGraph::fixTips()
 {
 	const int THRESHOLD = 1500;
 	std::unordered_set<FastaRecord::Id> suspicious;
+	std::unordered_map<FastaRecord::Id, GraphEdge*> idToEdge;
+	for (auto& edge : _graphEdges) idToEdge[edge.edgeId] = &edge;
 
 	for (auto itEdge = _graphEdges.begin(); itEdge != _graphEdges.end();)
 	{
@@ -746,12 +748,16 @@ void RepeatGraph::fixTips()
 	};
 
 	std::vector<std::vector<GraphEdge*>> toCollapse;
+	std::unordered_set<FastaRecord::Id> usedDirections;
 	for (auto& node : _graphNodes)
 	{
 		if (!node.isBifurcation()) continue;
 
 		for (auto& direction : node.outEdges)
 		{
+			if (usedDirections.count(direction->edgeId)) continue;
+			usedDirections.insert(direction->edgeId);
+
 			GraphNode* curNode = direction->nodeRight;
 			std::vector<GraphEdge*> traversed;
 			traversed.push_back(direction);
@@ -761,6 +767,7 @@ void RepeatGraph::fixTips()
 				traversed.push_back(curNode->outEdges.front());
 				curNode = curNode->outEdges.front()->nodeRight;
 			}
+			usedDirections.insert(traversed.back()->edgeId.rc());
 			
 			if (traversed.size() > 1)
 			{
@@ -768,9 +775,17 @@ void RepeatGraph::fixTips()
 			}
 		}
 	}
+
 	for (auto& edges : toCollapse)
 	{
+		std::vector<GraphEdge*> complEdges;
+		for (auto itEdge = edges.rbegin(); itEdge != edges.rend(); ++itEdge)
+		{
+			complEdges.push_back(idToEdge[(*itEdge)->edgeId.rc()]);
+		}
+
 		collapseEdges(edges);
+		collapseEdges(complEdges);
 	}
 
 	bool anyChanges = true;
