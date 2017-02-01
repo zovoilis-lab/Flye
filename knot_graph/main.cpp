@@ -10,7 +10,6 @@
 #include "overlap.h"
 #include "logger.h"
 #include "config.h"
-//#include "assembly_graph.h"
 #include "repeat_graph.h"
 
 bool parseArgs(int argc, char** argv, std::string& readsFasta, 
@@ -152,46 +151,6 @@ int main(int argc, char** argv)
 		rg.outputDot(outAssembly + "_after.dot", true);
 		return 0;
 
-		/*
-		VertexIndex assemblyIndex(seqAssembly);
-		assemblyIndex.countKmers(1);
-		assemblyIndex.buildIndex(1, 500, 10);
-		
-		//getting self-overlaps for assembly
-		//const int MAX_JUMP = 1500;
-		const int NO_OVERHANGS = 0;
-		OverlapDetector asmOverlapper(seqAssembly, assemblyIndex, 
-									  Constants::maximumJump,
-							 		  Parameters::minimumOverlap, NO_OVERHANGS);
-		OverlapContainer selfContainer(asmOverlapper, seqAssembly);
-		if (overlapsFile.empty())
-		{
-			selfContainer.findAllOverlaps();
-		}
-		else
-		{
- 			if (fileExists(overlapsFile))
-			{
-				Logger::get().debug() << "Loading overlaps from " << overlapsFile;
-				selfContainer.loadOverlaps(overlapsFile);
-			}
-			else
-			{
-				selfContainer.findAllOverlaps();
-				Logger::get().debug() << "Saving overlaps to " << overlapsFile;
-				selfContainer.saveOverlaps(overlapsFile);
-			}
-		}
-		//
-
-		AssemblyGraph ag(seqAssembly, seqReads);
-		ag.construct(selfContainer);
-		//ag.outputFasta(outAssembly);
-		ag.outputDot(outAssembly + "_before");
-
-		ag.untangle();
-		ag.outputDot(outAssembly + "_after");
-		*/
 	}
 	catch (std::runtime_error& e)
 	{

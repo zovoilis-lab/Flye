@@ -97,11 +97,7 @@ private:
 		int32_t end;
 	};
 
-	struct Connection
-	{
-		GraphEdge* edgeIn;
-		GraphEdge* edgeOut;
-	};
+	typedef std::vector<GraphEdge*> GraphPath;
 
 	struct EdgeAlignment
 	{
@@ -113,12 +109,12 @@ private:
 	void getGluepoints(const OverlapContainer& ovlps);
 	void getRepeatClusters(const OverlapContainer& ovlps);
 	void initializeEdges();
-	void resolveConnections(const std::vector<Connection>& conns);
-	std::vector<Connection> 
-		chainReadAlignments(const SequenceContainer& edgeSeqs,
-							std::vector<EdgeAlignment> ovlps);
+	void resolveConnections(const std::vector<GraphPath>& conns);
+	GraphPath chainReadAlignments(const SequenceContainer& edgeSeqs,
+								  std::vector<EdgeAlignment> ovlps);
 	bool isRepetitive(GluePoint gpLeft, GluePoint gpRight);
 	void fixTips();
+	void separatePath(const GraphPath& path);
 
 	////////////////////////////////////////////////////////////////
 
@@ -132,9 +128,9 @@ private:
 	std::list<GraphNode> _graphNodes;
 	std::list<GraphEdge> _graphEdges;
 
-	//std::unordered_map<FastaRecord::Id, 
-	//				   std::vector<GraphEdge>> _graphEdges;
 	std::unordered_map<FastaRecord::Id, 
 					   std::vector<RepeatCluster>> _repeatClusters;
+	std::unordered_map<FastaRecord::Id, GraphPath> _readsAlignments;
+
 	size_t _nextEdgeId;
 };

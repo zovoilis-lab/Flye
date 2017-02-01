@@ -507,7 +507,7 @@ void RepeatGraph::initializeEdges()
 	}*/
 }
 
-std::vector<RepeatGraph::Connection>
+RepeatGraph::GraphPath
 RepeatGraph::chainReadAlignments(const SequenceContainer& edgeSeqs,
 								 std::vector<EdgeAlignment> ovlps)
 {
@@ -581,7 +581,7 @@ RepeatGraph::chainReadAlignments(const SequenceContainer& edgeSeqs,
 		}
 	}
 
-	std::vector<Connection> result;
+	std::vector<GraphEdge*> result;
 	if (maxChain && maxChain->size() > 1)
 	{
 		//chech number of non-repetitive edges
@@ -609,27 +609,7 @@ RepeatGraph::chainReadAlignments(const SequenceContainer& edgeSeqs,
 			return {};
 		}
 
-		//Logger::get().debug() << _readSeqs.seqName(ovlps.front().overlap.curId);
-		GraphEdge* prevEdge = nullptr;
-		for (auto& edge : *maxChain)
-		{
-			/*Logger::get().debug() << edge->edge->gpLeft.seqId << "\t" 
-								  << edge->edge->gpLeft.position << "\t"
-								  << edge->edge->gpRight.position << "\t"
-								  << edge->edge->repetitive << "\t"
-								  << edge->edge->edgeId << "\t"
-								  << edge->overlap.curBegin << "\t" 
-								  << edge->overlap.curEnd;*/
-
-			if (!edge->edge->isRepetitive())
-			{
-				if (prevEdge)
-				{
-					result.push_back({prevEdge, edge->edge});
-				}
-				prevEdge = edge->edge;
-			}
-		}
+		for (auto& aln : *maxChain) result.push_back(aln->edge);
 	}
 
 	return result;
@@ -666,7 +646,7 @@ void RepeatGraph::fixTips()
 		}
 	}
 
-	auto collapseEdges = [this, &suspicious](const std::vector<GraphEdge*> edges)
+	auto collapseEdges = [this, &suspicious](const GraphPath& edges)
 	{
 		Logger::get().debug() << "-----";
 		for (auto& edge : edges) 
@@ -747,7 +727,7 @@ void RepeatGraph::fixTips()
 		}
 	};
 
-	std::vector<std::vector<GraphEdge*>> toCollapse;
+	std::vector<GraphPath> toCollapse;
 	std::unordered_set<FastaRecord::Id> usedDirections;
 	for (auto& node : _graphNodes)
 	{
@@ -759,7 +739,7 @@ void RepeatGraph::fixTips()
 			usedDirections.insert(direction->edgeId);
 
 			GraphNode* curNode = direction->nodeRight;
-			std::vector<GraphEdge*> traversed;
+			GraphPath traversed;
 			traversed.push_back(direction);
 			while (!curNode->isBifurcation() &&
 				   !curNode->outEdges.empty())
@@ -778,7 +758,7 @@ void RepeatGraph::fixTips()
 
 	for (auto& edges : toCollapse)
 	{
-		std::vector<GraphEdge*> complEdges;
+		GraphPath complEdges;
 		for (auto itEdge = edges.rbegin(); itEdge != edges.rend(); ++itEdge)
 		{
 			complEdges.push_back(idToEdge[(*itEdge)->edgeId.rc()]);
@@ -842,29 +822,57 @@ void RepeatGraph::fixTips()
 	}
 }
 
-void RepeatGraph::resolveConnections(const std::vector<Connection>& connections)
+void RepeatGraph::separatePath(const GraphPath& graphPath)
+{
+	//first edge
+	_graphNodes.emplace_back();
+	vecRemove(graphPath.front()->nodeRight->inEdges, graphPath.front());
+	graphPath.front()->nodeRight = &_graphNodes.back();
+	GraphNode* prevNode = &_graphNodes.back();
+
+	//repetitive edges in the middle
+	for (size_t i = 1; i < graphPath.size() - 1; ++i)
+	{
+		--graphPath[i]->multiplicity;
+
+		_graphNodes.emplace_back();
+		GraphNode* nextNode = &_graphNodes.back();
+
+		_graphEdges.emplace_back(prevNode, nextNode, 
+								 FastaRecord::Id(_nextEdgeId++));
+		_graphEdges.back().seqSegments = graphPath[i]->seqSegments;
+		_graphEdges.back().multiplicity = 1;
+
+		prevNode = nextNode;
+	}
+
+	//last edge
+	vecRemove(graphPath.back()->nodeLeft->outEdges, graphPath.back());
+	graphPath.back()->nodeLeft = prevNode;
+}
+
+void RepeatGraph::resolveConnections(const std::vector<GraphPath>& connections)
 {
 	typedef std::pair<GraphEdge*, GraphEdge*> EdgePair;
 	std::unordered_map<EdgePair, int, pairhash> edges;
 
 	for (auto& conn : connections)
 	{
-		++edges[EdgePair(conn.edgeIn, conn.edgeOut)];
+		++edges[EdgePair(conn.front(), conn.back())];
 	}
-
-
 	std::vector<EdgePair> sortedConnections;
 	for (auto& edgeCount : edges)
 	{
 		sortedConnections.push_back(edgeCount.first);
 	}
-
 	std::sort(sortedConnections.begin(), sortedConnections.end(),
 			  [&edges](const EdgePair& e1, const EdgePair& e2)
 			  {return edges[e1] > edges[e2];});
 
 	std::unordered_set<GraphEdge*> usedInEdges;
 	std::unordered_set<GraphEdge*> usedOutEdges;
+	int totalLinks = 0;
+	std::vector<GraphPath> uniquePaths;
 
 	for (auto& edgePair : sortedConnections)
 	{
@@ -901,22 +909,34 @@ void RepeatGraph::resolveConnections(const std::vector<Connection>& connections)
 
 			usedInEdges.insert(edgePair.first);
 			usedOutEdges.insert(edgePair.second);
+			++totalLinks;
 
-			//ad-hoc graph modification
-			//TODO: update path in the graph
-			_graphNodes.emplace_back();
-			vecRemove(edgePair.first->nodeRight->inEdges, edgePair.first);
-			vecRemove(edgePair.second->nodeLeft->outEdges, edgePair.second);
-
-			edgePair.first->nodeRight = &_graphNodes.back();;
-			edgePair.second->nodeLeft = &_graphNodes.back();;
+			//TODO: get a path of median length instead, not just the first one?
+			for (auto& path : connections)
+			{
+				if (path.front() == edgePair.first && 
+					path.back() == edgePair.second)
+				{
+					uniquePaths.push_back(path);
+					break;
+				}
+			}
 		}
 	}
+
+	for (auto& path : uniquePaths)
+	{
+		this->separatePath(path);
+	}
+
+	Logger::get().debug() << "Edges: " << totalLinks << " links: "
+						  << connections.size();
 }
 
 
 void RepeatGraph::resolveRepeats()
 {
+	//create database
 	std::unordered_map<FastaRecord::Id, 
 					   std::pair<GraphEdge*, SequenceSegment*>> idToSegment;
 	SequenceContainer pathsContainer;
@@ -936,6 +956,7 @@ void RepeatGraph::resolveRepeats()
 		}
 	}
 
+	//index it and align reads
 	VertexIndex pathsIndex(pathsContainer);
 	pathsIndex.countKmers(1);
 	pathsIndex.buildIndex(1, 5000, 1);
@@ -944,9 +965,11 @@ void RepeatGraph::resolveRepeats()
 	OverlapContainer readsContainer(readsOverlapper, _readSeqs);
 	readsContainer.findAllOverlaps();
 
-	std::unordered_map<GraphEdge*, std::vector<GraphEdge*>> connections;
-	std::vector<Connection> allConnections;
-	
+	std::unordered_map<FastaRecord::Id, GraphEdge*> idToEdge;
+	for (auto& edge : _graphEdges) idToEdge[edge.edgeId] = &edge;
+
+	//get connections
+	std::vector<GraphPath> allConnections;
 	for (auto& seqOverlaps : readsContainer.getOverlapIndex())
 	{
 		std::vector<EdgeAlignment> alignments;
@@ -955,42 +978,47 @@ void RepeatGraph::resolveRepeats()
 			alignments.push_back({ovlp, idToSegment[ovlp.extId].first,
 								  idToSegment[ovlp.extId].second});
 		}
-		for (auto& conn : this->chainReadAlignments(pathsContainer, alignments))
+
+		auto readPath = this->chainReadAlignments(pathsContainer, alignments);
+		_readsAlignments[seqOverlaps.first] = readPath;
+
+		std::vector<GraphPath> readConnections;
+		GraphPath currentPath;
+
+		//Logger::get().debug() << _readSeqs.seqName(ovlps.front().overlap.curId);
+		for (auto& edge : readPath)
 		{
-			connections[conn.edgeIn].push_back(conn.edgeOut);
+			/*Logger::get().debug() << edge->edge->gpLeft.seqId << "\t" 
+								  << edge->edge->gpLeft.position << "\t"
+								  << edge->edge->gpRight.position << "\t"
+								  << edge->edge->repetitive << "\t"
+								  << edge->edge->edgeId << "\t"
+								  << edge->overlap.curBegin << "\t" 
+								  << edge->overlap.curEnd;*/
+			currentPath.push_back(edge);
+			if (!edge->isRepetitive())
+			{
+				if (currentPath.size() > 1)
+				{
+					readConnections.push_back(currentPath);
+					currentPath.clear();
+					currentPath.push_back(edge);
+				}
+			}
+		}
+
+		for (auto& conn : readConnections)
+		{
 			allConnections.push_back(conn);
-
-			GraphEdge* complIn = nullptr;
-			for (auto& edge : _graphEdges)
+			GraphPath complEdges;
+			for (auto itEdge = conn.rbegin(); itEdge != conn.rend(); ++itEdge)
 			{
-				if (edge.edgeId.rc() == conn.edgeIn->edgeId)
-				{
-					complIn = &edge;
-					break;
-				}
-			}
-			GraphEdge* complOut = nullptr;
-			for (auto& edge : _graphEdges)
-			{
-				if (edge.edgeId.rc() == conn.edgeOut->edgeId)
-				{
-					complOut = &edge;
-					break;
-				}
+				complEdges.push_back(idToEdge[(*itEdge)->edgeId.rc()]);
 			}
 
-			allConnections.push_back({complOut, complIn});
+			allConnections.push_back(complEdges);
 		}
 	}
-
-	int totalLinks = 0;
-	for (auto& inEdge : connections)
-	{
-		totalLinks += inEdge.second.size();
-	}
-
-	Logger::get().debug() << "Edges: " << connections.size() << " links: "
-						  << totalLinks;
 
 	this->resolveConnections(allConnections);
 }
