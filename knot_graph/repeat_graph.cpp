@@ -57,8 +57,8 @@ void RepeatGraph::getRepeatClusters(const OverlapContainer& asmOverlaps)
 		{
 			overlapClusters[ovlp.curId].emplace_back(ovlp);
 			overlapClusters[ovlp.extId].emplace_back(ovlp.reverse());
-			unionSet(&overlapClusters[ovlp.curId].back(),
-					 &overlapClusters[ovlp.extId].back());
+			//unionSet(&overlapClusters[ovlp.curId].back(),
+			//		 &overlapClusters[ovlp.extId].back());
 
 			//reverse complement
 			int32_t curLen = _asmSeqs.seqLen(ovlp.curId);
@@ -68,11 +68,13 @@ void RepeatGraph::getRepeatClusters(const OverlapContainer& asmOverlaps)
 
 			overlapClusters[complOvlp.curId].emplace_back(complOvlp);
 			overlapClusters[complOvlp.extId].emplace_back(complOvlp.reverse());
-			unionSet(&overlapClusters[complOvlp.curId].back(),
-					 &overlapClusters[complOvlp.extId].back());
+			//unionSet(&overlapClusters[complOvlp.curId].back(),
+			//		 &overlapClusters[complOvlp.extId].back());
 			//
 		}
 	}
+	
+	/*
 	for (auto& ovlpHash : overlapClusters)
 	{
 		for (auto& ovlp1 : ovlpHash.second)
@@ -102,22 +104,22 @@ void RepeatGraph::getRepeatClusters(const OverlapContainer& asmOverlaps)
 			}
 			knotMappings[&ovlp] = reprToKnot[findSet(&ovlp)];
 		}
-	}
+	}*/
 
 	for (auto& seqClusterPair : overlapClusters)
 	{
 		//forming intersection-based clusters
-		for (auto& ovlp : seqClusterPair.second)
+		/*for (auto& ovlp : seqClusterPair.second)
 		{
 			ovlp.parent = &ovlp;
 			ovlp.rank = 0;
-		}
+		}*/
 
 		for (auto& ovlp1 : seqClusterPair.second)
 		{
 			for (auto& ovlp2 : seqClusterPair.second)
 			{
-				if (ovlp1.data.curIntersect(ovlp2.data) > _maxSeparation)
+				if (ovlp1.data.curIntersect(ovlp2.data) > -_maxSeparation)
 				{
 					unionSet(&ovlp1, &ovlp2);
 				}
@@ -140,9 +142,9 @@ void RepeatGraph::getRepeatClusters(const OverlapContainer& asmOverlaps)
 				clustEnd = std::max(clustEnd, ovlp->data.curEnd);
 			}
 
-			auto knotId = knotMappings[clustHash.second.front()];
+			//auto knotId = knotMappings[clustHash.second.front()];
 			_repeatClusters[seqClusterPair.first]
-					.emplace_back(seqClusterPair.first, knotId,
+					.emplace_back(seqClusterPair.first, 0,
 								  clustStart, clustEnd);
 		}
 	}
@@ -365,34 +367,16 @@ bool RepeatGraph::isRepetitive(GluePoint gpLeft, GluePoint gpRight)
 						  std::max(gpLeft.position, cluster.start);
 		float rate = float(overlap) / (gpRight.position - gpLeft.position);
 
-		//maxOvlp = std::max(maxOvlp, rate);
 		if (rate > 0.5)
 		{
-			//maxOvlp = std::max(maxOvlp, rate);
 			return true;
 		}
 	}
 	return false;
-
-	/*
-	Logger::get().debug() << "F\t" 
-						  << gpLeft.seqId << "\t"
-						  << gpLeft.position << "\t" 
-						  << gpRight.position << "\t"
-						  << gpRight.position - gpLeft.position
-						  << "\t" << maxFwd;
-
-	Logger::get().debug() << "R\t" 
-						  << complLeft.seqId << "\t"
-						  << complLeft.position << "\t" 
-						  << complRight.position << "\t"
-						  << complRight.position - complLeft.position
-						  << "\t" << maxRev;*/
 }
 
 void RepeatGraph::initializeEdges()
 {
-	//size_t edgeId = 0;
 	std::unordered_map<size_t, GraphNode*> idToNode;
 	typedef std::pair<GraphNode*, GraphNode*> NodePair;
 	std::unordered_map<NodePair, GraphEdge*, pairhash> repeatEdges;
@@ -817,7 +801,7 @@ void RepeatGraph::fixTips()
 	}
 }
 
-void RepeatGraph::separatePath(const GraphPath& graphPath)
+size_t RepeatGraph::separatePath(const GraphPath& graphPath, size_t startId)
 {
 	//first edge
 	_graphNodes.emplace_back();
@@ -826,6 +810,7 @@ void RepeatGraph::separatePath(const GraphPath& graphPath)
 	GraphNode* prevNode = &_graphNodes.back();
 
 	//repetitive edges in the middle
+	size_t edgesAdded = 0;
 	for (size_t i = 1; i < graphPath.size() - 1; ++i)
 	{
 		--graphPath[i]->multiplicity;
@@ -834,9 +819,11 @@ void RepeatGraph::separatePath(const GraphPath& graphPath)
 		GraphNode* nextNode = &_graphNodes.back();
 
 		_graphEdges.emplace_back(prevNode, nextNode, 
-								 FastaRecord::Id(_nextEdgeId++));
+								 FastaRecord::Id(startId));
 		_graphEdges.back().seqSegments = graphPath[i]->seqSegments;
 		_graphEdges.back().multiplicity = 1;
+		startId += 2;
+		edgesAdded += 1;
 
 		prevNode = nextNode;
 	}
@@ -844,6 +831,8 @@ void RepeatGraph::separatePath(const GraphPath& graphPath)
 	//last edge
 	vecRemove(graphPath.back()->nodeLeft->outEdges, graphPath.back());
 	graphPath.back()->nodeLeft = prevNode;
+
+	return edgesAdded;
 }
 
 RepeatGraph::GraphPath RepeatGraph::complementPath(const GraphPath& path)
@@ -862,6 +851,8 @@ RepeatGraph::GraphPath RepeatGraph::complementPath(const GraphPath& path)
 
 void RepeatGraph::resolveConnections(const std::vector<GraphPath>& connections)
 {
+	const float MIN_CONFIDENCE = 0.7f;
+
 	typedef std::pair<GraphEdge*, GraphEdge*> EdgePair;
 	std::unordered_map<EdgePair, int, pairhash> edges;
 
@@ -878,8 +869,8 @@ void RepeatGraph::resolveConnections(const std::vector<GraphPath>& connections)
 			  [&edges](const EdgePair& e1, const EdgePair& e2)
 			  {return edges[e1] > edges[e2];});
 
-	std::unordered_set<GraphEdge*> usedInEdges;
-	std::unordered_set<GraphEdge*> usedOutEdges;
+	std::unordered_set<FastaRecord::Id> usedInEdges;
+	std::unordered_set<FastaRecord::Id> usedOutEdges;
 	int totalLinks = 0;
 	std::vector<GraphPath> uniquePaths;
 
@@ -890,12 +881,12 @@ void RepeatGraph::resolveConnections(const std::vector<GraphPath>& connections)
 		for (auto& conn : sortedConnections)
 		{
 			if (conn.first == edgePair.first &&
-				!usedOutEdges.count(conn.second))
+				!usedOutEdges.count(conn.second->edgeId))
 			{
 				coverage += edges[conn];
 			}
 			if (conn.second == edgePair.second &&
-				!usedInEdges.count(conn.first))
+				!usedInEdges.count(conn.first->edgeId))
 			{
 				coverage += edges[conn];
 			}
@@ -903,9 +894,9 @@ void RepeatGraph::resolveConnections(const std::vector<GraphPath>& connections)
 		float confidence = 2.0f * edges[edgePair] / coverage;
 		//
 
-		if (!usedInEdges.count(edgePair.first) &&
-			!usedOutEdges.count(edgePair.second) &&
-			confidence > 0.0f)
+		if (!usedInEdges.count(edgePair.first->edgeId) &&
+			!usedOutEdges.count(edgePair.second->edgeId) &&
+			confidence > MIN_CONFIDENCE)
 		{
 
 			Logger::get().debug() << "\tConnection " 
@@ -916,9 +907,11 @@ void RepeatGraph::resolveConnections(const std::vector<GraphPath>& connections)
 				<< "\t" << edges[edgePair]
 				<< "\t" << confidence;
 
-			usedInEdges.insert(edgePair.first);
-			usedOutEdges.insert(edgePair.second);
-			++totalLinks;
+			usedInEdges.insert(edgePair.first->edgeId);
+			usedInEdges.insert(edgePair.second->edgeId.rc());
+			usedOutEdges.insert(edgePair.second->edgeId);
+			usedOutEdges.insert(edgePair.first->edgeId.rc());
+			totalLinks += 2;
 
 			//TODO: get a path of median length instead, not just the first one?
 			for (auto& path : connections)
@@ -935,7 +928,11 @@ void RepeatGraph::resolveConnections(const std::vector<GraphPath>& connections)
 
 	for (auto& path : uniquePaths)
 	{
-		this->separatePath(path);
+		GraphPath complPath = this->complementPath(path);
+		size_t addedFwd = this->separatePath(path, _nextEdgeId);
+		size_t addedRev = this->separatePath(complPath, _nextEdgeId + 1);
+		assert(addedFwd == addedRev);
+		_nextEdgeId += addedFwd + addedRev;
 	}
 
 	Logger::get().debug() << "Edges: " << totalLinks << " links: "

@@ -114,7 +114,7 @@ private:
 								  std::vector<EdgeAlignment> ovlps);
 	bool isRepetitive(GluePoint gpLeft, GluePoint gpRight);
 	void fixTips();
-	void separatePath(const GraphPath& path);
+	size_t separatePath(const GraphPath& path, size_t startId);
 	GraphPath complementPath(const GraphPath& path);
 
 	////////////////////////////////////////////////////////////////
