@@ -758,12 +758,7 @@ void RepeatGraph::fixTips()
 
 	for (auto& edges : toCollapse)
 	{
-		GraphPath complEdges;
-		for (auto itEdge = edges.rbegin(); itEdge != edges.rend(); ++itEdge)
-		{
-			complEdges.push_back(idToEdge[(*itEdge)->edgeId.rc()]);
-		}
-
+		GraphPath complEdges = this->complementPath(edges);
 		collapseEdges(edges);
 		collapseEdges(complEdges);
 	}
@@ -849,6 +844,20 @@ void RepeatGraph::separatePath(const GraphPath& graphPath)
 	//last edge
 	vecRemove(graphPath.back()->nodeLeft->outEdges, graphPath.back());
 	graphPath.back()->nodeLeft = prevNode;
+}
+
+RepeatGraph::GraphPath RepeatGraph::complementPath(const GraphPath& path)
+{
+	std::unordered_map<FastaRecord::Id, GraphEdge*> idToEdge;
+	for (auto& edge : _graphEdges) idToEdge[edge.edgeId] = &edge;
+
+	GraphPath complEdges;
+	for (auto itEdge = path.rbegin(); itEdge != path.rend(); ++itEdge)
+	{
+		complEdges.push_back(idToEdge[(*itEdge)->edgeId.rc()]);
+	}
+
+	return complEdges;
 }
 
 void RepeatGraph::resolveConnections(const std::vector<GraphPath>& connections)
@@ -965,9 +974,6 @@ void RepeatGraph::resolveRepeats()
 	OverlapContainer readsContainer(readsOverlapper, _readSeqs);
 	readsContainer.findAllOverlaps();
 
-	std::unordered_map<FastaRecord::Id, GraphEdge*> idToEdge;
-	for (auto& edge : _graphEdges) idToEdge[edge.edgeId] = &edge;
-
 	//get connections
 	std::vector<GraphPath> allConnections;
 	for (auto& seqOverlaps : readsContainer.getOverlapIndex())
@@ -1010,13 +1016,7 @@ void RepeatGraph::resolveRepeats()
 		for (auto& conn : readConnections)
 		{
 			allConnections.push_back(conn);
-			GraphPath complEdges;
-			for (auto itEdge = conn.rbegin(); itEdge != conn.rend(); ++itEdge)
-			{
-				complEdges.push_back(idToEdge[(*itEdge)->edgeId.rc()]);
-			}
-
-			allConnections.push_back(complEdges);
+			allConnections.push_back(this->complementPath(conn));
 		}
 	}
 

@@ -115,6 +115,7 @@ private:
 	bool isRepetitive(GluePoint gpLeft, GluePoint gpRight);
 	void fixTips();
 	void separatePath(const GraphPath& path);
+	GraphPath complementPath(const GraphPath& path);
 
 	////////////////////////////////////////////////////////////////
 
