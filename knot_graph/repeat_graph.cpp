@@ -851,7 +851,28 @@ RepeatGraph::GraphPath RepeatGraph::complementPath(const GraphPath& path)
 
 void RepeatGraph::resolveConnections(const std::vector<GraphPath>& connections)
 {
-	const float MIN_CONFIDENCE = 0.7f;
+	///////////
+	std::unordered_map<GraphEdge*, std::unordered_map<GraphEdge*, int>> stats;
+	for (auto& conn : connections)
+	{
+		++stats[conn.front()][conn.back()];
+	}
+	for (auto& inEdge : stats)
+	{
+		Logger::get().debug() << "For " << inEdge.first->edgeId << " "
+			<< inEdge.first->seqSegments.front().seqId << " "
+			<< inEdge.first->seqSegments.front().end;
+		for (auto& outEdge : inEdge.second)
+		{
+			Logger::get().debug() << "\t" << outEdge.first->edgeId << " "
+				<< outEdge.first->seqSegments.front().seqId << " "
+				<< outEdge.first->seqSegments.front().start << " " << outEdge.second;
+		}
+		Logger::get().debug() << "";
+	}
+	///////////
+	
+	const float MIN_CONFIDENCE = 0.0f;
 
 	typedef std::pair<GraphEdge*, GraphEdge*> EdgePair;
 	std::unordered_map<EdgePair, int, pairhash> edges;

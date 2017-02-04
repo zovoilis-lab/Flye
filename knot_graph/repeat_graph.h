@@ -120,6 +120,7 @@ private:
 	////////////////////////////////////////////////////////////////
 
 	const int _maxSeparation = 1500;
+	const int _readJump = 500;
 	const SequenceContainer& _asmSeqs;
 	const SequenceContainer& _readSeqs;
 
