@@ -361,6 +361,9 @@ namespace
 
 bool RepeatGraph::isRepetitive(GluePoint gpLeft, GluePoint gpRight)
 {
+	//a little hack for tandem repeats
+	if (gpLeft.pointId == gpRight.pointId) return true;
+	
 	for (auto& cluster : _repeatClusters[gpLeft.seqId])
 	{
 		int32_t overlap = std::min(gpRight.position, cluster.end) -
@@ -473,30 +476,22 @@ void RepeatGraph::initializeEdges()
 				addRepeat(gpLeft, gpRight);
 				addRepeat(complLeft, complRight);
 			}
+
+			std::string shift = repetitive ? "--" : std::to_string(_nextEdgeId);
+			Logger::get().debug() << shift << "\t" 
+								  << gpLeft.seqId << "\t"
+								  << gpLeft.position << "\t" 
+								  << gpRight.position << "\t"
+								  << gpRight.position - gpLeft.position;
+								  //<< "\t" << repetitive;
 		}
 	}
-	
-	/*
-	for (auto& seqEdges : _graphEdges)
-	{
-		for (auto& edge : seqEdges.second)
-		{
-			Logger::get().debug() << edge.edgeId << "\t" 
-								  << edge.gpLeft.seqId << "\t"
-								  << edge.gpLeft.position << "\t" 
-								  << edge.gpRight.position << "\t"
-								  << edge.gpRight.position - edge.gpLeft.position
-								  << "\t" << edge.repetitive;
-		}
-	}*/
 }
 
 RepeatGraph::GraphPath
 RepeatGraph::chainReadAlignments(const SequenceContainer& edgeSeqs,
 								 std::vector<EdgeAlignment> ovlps)
 {
-	const int32_t JUMP = 1500;
-
 	std::sort(ovlps.begin(), ovlps.end(),
 			  [](const EdgeAlignment& e1, const EdgeAlignment& e2)
 			  	{return e1.overlap.curBegin < e2.overlap.curBegin;});
@@ -518,9 +513,9 @@ RepeatGraph::chainReadAlignments(const SequenceContainer& edgeSeqs,
 			int32_t graphDiff = nextOvlp.extBegin +
 							edgeSeqs.seqLen(prevOvlp.extId) - prevOvlp.extEnd;
 
-			if (JUMP > readDiff && readDiff > 0 &&
-				JUMP > graphDiff && graphDiff > 0 &&
-				abs(readDiff - graphDiff) < JUMP / 10 &&
+			if (_readJump > readDiff && readDiff > 0 &&
+				_readJump > graphDiff && graphDiff > 0 &&
+				abs(readDiff - graphDiff) < _readJump / 10 &&
 				chain.back()->edge->nodeRight == 
 				edgeAlignment.edge->nodeLeft)
 			{
@@ -541,7 +536,7 @@ RepeatGraph::chainReadAlignments(const SequenceContainer& edgeSeqs,
 		}
 
 		activeChains.splice(activeChains.end(), newChains);
-		if (edgeAlignment.overlap.curBegin < Constants::maximumOverhang)
+		if (edgeAlignment.overlap.curBegin < _readOverhang)
 		{
 			activeChains.push_back({&edgeAlignment});
 		}
@@ -554,7 +549,7 @@ RepeatGraph::chainReadAlignments(const SequenceContainer& edgeSeqs,
 		//check right overhang
 		int32_t overhang = _readSeqs.seqLen(chain.back()->overlap.curId) -
 							chain.back()->overlap.curEnd;
-		if (overhang < Constants::maximumOverhang) continue;
+		if (overhang < _readOverhang) continue;
 
 		int32_t readSpan = chain.back()->overlap.curEnd - 
 						   chain.front()->overlap.curBegin;
@@ -602,6 +597,7 @@ RepeatGraph::chainReadAlignments(const SequenceContainer& edgeSeqs,
 void RepeatGraph::fixTips()
 {
 	const int THRESHOLD = 1500;
+
 	std::unordered_set<FastaRecord::Id> suspicious;
 	std::unordered_map<FastaRecord::Id, GraphEdge*> idToEdge;
 	for (auto& edge : _graphEdges) idToEdge[edge.edgeId] = &edge;
@@ -632,6 +628,7 @@ void RepeatGraph::fixTips()
 
 	auto collapseEdges = [this, &suspicious](const GraphPath& edges)
 	{
+		/*
 		Logger::get().debug() << "-----";
 		for (auto& edge : edges) 
 		{
@@ -640,7 +637,7 @@ void RepeatGraph::fixTips()
 			{
 				Logger::get().debug() << "\t" << seg.seqId << " " << seg.start << " " << seg.end;
 			}
-		}
+		}*/
 
 		std::list<SequenceSegment> growingSeqs(edges.front()->seqSegments.begin(),
 											   edges.front()->seqSegments.end());
@@ -676,10 +673,11 @@ void RepeatGraph::fixTips()
 			}
 		}
 			
+		/*
 		for (auto& seg : growingSeqs)
 		{
 			Logger::get().debug() << seg.seqId << " " << seg.start << " " << seg.end;
-		}
+		}*/
 
 		///New edge
 		_graphEdges.emplace_back(edges.front()->nodeLeft,
@@ -803,6 +801,13 @@ void RepeatGraph::fixTips()
 
 size_t RepeatGraph::separatePath(const GraphPath& graphPath, size_t startId)
 {
+	/*
+	Logger::get().debug() << "---";
+	for (auto edge : graphPath)
+	{
+		Logger::get().debug() << edge->edgeId << " " << edge->multiplicity;
+	}*/
+
 	//first edge
 	_graphNodes.emplace_back();
 	vecRemove(graphPath.front()->nodeRight->inEdges, graphPath.front());
@@ -988,7 +993,7 @@ void RepeatGraph::resolveRepeats()
 	pathsIndex.countKmers(1);
 	pathsIndex.buildIndex(1, 5000, 1);
 	OverlapDetector readsOverlapper(pathsContainer, pathsIndex, 
-									500, 1500, 0);
+									_readJump, _maxSeparation, 0);
 	OverlapContainer readsContainer(readsOverlapper, _readSeqs);
 	readsContainer.findAllOverlaps();
 
@@ -1019,15 +1024,14 @@ void RepeatGraph::resolveRepeats()
 								  << edge->edge->edgeId << "\t"
 								  << edge->overlap.curBegin << "\t" 
 								  << edge->overlap.curEnd;*/
+			if (edge->isRepetitive() && currentPath.empty()) continue;
+
 			currentPath.push_back(edge);
-			if (!edge->isRepetitive())
+			if (!edge->isRepetitive() && currentPath.size() > 1)
 			{
-				if (currentPath.size() > 1)
-				{
-					readConnections.push_back(currentPath);
-					currentPath.clear();
-					currentPath.push_back(edge);
-				}
+				readConnections.push_back(currentPath);
+				currentPath.clear();
+				currentPath.push_back(edge);
 			}
 		}
 
