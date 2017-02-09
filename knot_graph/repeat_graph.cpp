@@ -167,10 +167,10 @@ void RepeatGraph::getGluepoints(const OverlapContainer& asmOverlaps)
 										 ovlp.extId, ovlp.extEnd));
 		}
 
-		_gluePoints[seqOvlps.first].emplace_back(pointId, seqOvlps.first, 0);
-		_gluePoints[seqOvlps.first].emplace_back(pointId + 1, seqOvlps.first, 
-											 _asmSeqs.seqLen(seqOvlps.first));
-		pointId += 2;
+		//_gluePoints[seqOvlps.first].emplace_back(pointId, seqOvlps.first, 0);
+		//_gluePoints[seqOvlps.first].emplace_back(pointId + 1, seqOvlps.first, 
+		//									 _asmSeqs.seqLen(seqOvlps.first));
+		//pointId += 2;
 	}
 
 	for (auto& p1 : endpoints)
@@ -315,6 +315,12 @@ void RepeatGraph::getGluepoints(const OverlapContainer& asmOverlaps)
 		std::sort(seqPoints.second.begin(), seqPoints.second.end(),
 				  [](const GluePoint& pt1, const GluePoint& pt2)
 				  {return pt1.position < pt2.position;});
+
+		//flanking points
+		seqPoints.second.emplace(seqPoints.second.begin(), pointId++, 
+								 seqPoints.first, 0);
+		seqPoints.second.emplace_back(pointId++, seqPoints.first, 
+									  _asmSeqs.seqLen(seqPoints.first));
 	}
 }
 
@@ -459,7 +465,6 @@ void RepeatGraph::initializeEdges()
 			GluePoint complLeft = _gluePoints[complId][complPos];
 			GluePoint complRight = _gluePoints[complId][complPos + 1];
 
-
 			bool repetitive = this->isRepetitive(gpLeft, gpRight);
 			if (this->isRepetitive(complLeft, complRight) != repetitive)
 			{
@@ -483,7 +488,6 @@ void RepeatGraph::initializeEdges()
 								  << gpLeft.position << "\t" 
 								  << gpRight.position << "\t"
 								  << gpRight.position - gpLeft.position;
-								  //<< "\t" << repetitive;
 		}
 	}
 }
@@ -628,6 +632,7 @@ void RepeatGraph::fixTips()
 
 	auto collapseEdges = [this, &suspicious](const GraphPath& edges)
 	{
+		
 		/*
 		Logger::get().debug() << "-----";
 		for (auto& edge : edges) 
