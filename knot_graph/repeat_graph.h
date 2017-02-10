@@ -56,6 +56,14 @@ struct GraphEdge
 struct GraphNode
 {
 	bool isBifurcation() {return outEdges.size() > 1 || inEdges.size() > 1;}
+	std::vector<GraphNode*> neighbors()
+	{
+		std::unordered_set<GraphNode*> result;
+		for (auto& edge : inEdges) result.insert(edge->nodeLeft);
+		for (auto& edge : outEdges) result.insert(edge->nodeRight);
+
+		return std::vector<GraphNode*>(result.begin(), result.end());
+	}
 
 	std::vector<GraphEdge*> inEdges;
 	std::vector<GraphEdge*> outEdges;
@@ -115,7 +123,9 @@ private:
 	GraphPath chainReadAlignments(const SequenceContainer& edgeSeqs,
 								  std::vector<EdgeAlignment> ovlps);
 	bool isRepetitive(GluePoint gpLeft, GluePoint gpRight);
-	void fixTips();
+	void trimTips();
+	void removeLoops();
+	void condenceEdges();
 	size_t separatePath(const GraphPath& path, size_t startId);
 	GraphPath complementPath(const GraphPath& path);
 
@@ -128,11 +138,11 @@ private:
 	const SequenceContainer& _asmSeqs;
 	const SequenceContainer& _readSeqs;
 
-
 	std::unordered_map<FastaRecord::Id, 
 					   std::vector<GluePoint>> _gluePoints;
 	std::list<GraphNode> _graphNodes;
 	std::list<GraphEdge> _graphEdges;
+	std::unordered_set<FastaRecord::Id> _outdatedEdges;
 
 	std::unordered_map<FastaRecord::Id, 
 					   std::vector<RepeatCluster>> _repeatClusters;

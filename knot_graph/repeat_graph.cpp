@@ -4,6 +4,176 @@
 #include "config.h"
 #include "disjoint_set.h"
 
+namespace
+{
+	template<class T>
+	void vecRemove(std::vector<T>& v, T val)
+	{
+		v.erase(std::remove(v.begin(), v.end(), val), v.end()); 
+	}
+
+	std::vector<OverlapRange> filterOvlp(const std::vector<OverlapRange>& ovlps)
+	{
+		std::vector<OverlapRange> filtered;
+		for (auto& ovlp : ovlps)
+		{
+			bool found = false;
+			for (auto& otherOvlp : filtered)
+			{
+				if (otherOvlp.curBegin == ovlp.curBegin &&
+					otherOvlp.curEnd == ovlp.curEnd &&
+					otherOvlp.extBegin == ovlp.extBegin &&
+					otherOvlp.extEnd == ovlp.extEnd)
+				{
+					found = true;
+					break;
+				}
+			}
+			if (!found) filtered.push_back(ovlp);
+		}
+		return filtered;
+	}
+
+	/*
+	std::vector<OverlapRange> 
+	filterContained(const std::vector<OverlapRange>& ovlps)
+	{
+		std::list<OverlapRange> filtered;
+		for (auto& ovlp : ovlps)
+		{
+			for (auto itFiltered = filtered.begin(); 
+				 itFiltered != filtered.end();)
+			{
+				if (itFiltered->curBegin >= ovlp.curBegin &&
+					itFiltered->curEnd <= ovlp.curEnd &&
+					itFiltered->extBegin >= ovlp.extBegin &&
+					itFiltered->extEnd <= ovlp.extEnd &&
+					itFiltered->curId == ovlp.curId &&
+					itFiltered->extId == ovlp.extId)
+				{
+					itFiltered = filtered.erase(itFiltered);
+				}
+				else
+				{
+					++itFiltered;
+				}
+			}
+			filtered.push_back(ovlp);
+		}
+
+		Logger::get().debug() << "From " << ovlps.size() << " to " 
+							  << filtered.size();
+
+		return std::vector<OverlapRange>(filtered.begin(), filtered.end());
+	}*/
+
+	struct pairhash 
+	{
+	public:
+		template <typename T, typename U>
+		std::size_t operator()(const std::pair<T, U> &x) const
+		{
+			return std::hash<T>()(x.first) ^ std::hash<U>()(x.second);
+		}
+	};
+}
+
+void RepeatGraph::removeLoops()
+{
+	auto unwrapEdge = [](GraphEdge& loopEdge)
+	{
+		GraphEdge* prevEdge = nullptr;
+		for (auto& inEdge : loopEdge.nodeLeft->inEdges)
+		{
+			if (inEdge != &loopEdge) prevEdge = inEdge;
+		}
+		GraphEdge* nextEdge = nullptr;
+		for (auto& outEdge : loopEdge.nodeLeft->outEdges)
+		{
+			if (outEdge != &loopEdge) nextEdge = outEdge;
+		}
+
+		/*
+		Logger::get().debug() << "In";
+		for (auto seg : prevEdge->seqSegments)
+		{
+			Logger::get().debug() << seg.seqId << " " << seg.start << " " << seg.end;
+		}
+		Logger::get().debug() << "Out";
+		for (auto seg : nextEdge->seqSegments)
+		{
+			Logger::get().debug() << seg.seqId << " " << seg.start << " " << seg.end;
+		}*/
+
+		auto growingSeqs = prevEdge->seqSegments;
+		std::vector<SequenceSegment> updatedSeqs;
+		for (auto& seq : growingSeqs)
+		{
+			while (true)
+			{
+				bool updated = false;
+				for (auto& otherSeq : loopEdge.seqSegments)
+				{
+					if (seq.seqId != otherSeq.seqId ||
+						seq.end != otherSeq.start) continue;
+
+					updated = true;
+					seq.end = otherSeq.end;
+					break;
+				}
+
+				bool complete = false;
+				for (auto& otherSeq : nextEdge->seqSegments)
+				{
+					if (seq.seqId != otherSeq.seqId ||
+						seq.end != otherSeq.start) continue;
+
+					complete = true;
+					break;
+				}
+
+				if (complete)
+				{
+					updatedSeqs.push_back(seq);
+					break;
+				}
+				if (!updated) break;
+			}
+		}
+		if (!updatedSeqs.empty())
+		{
+			prevEdge->seqSegments = updatedSeqs;
+			return true;
+		}
+		else
+		{
+			Logger::get().debug() << "Can't unwrap";
+			return false;
+		}
+	};
+
+	for (auto itEdge = _graphEdges.begin(); itEdge != _graphEdges.end();)
+	{
+		if (itEdge->nodeLeft == itEdge->nodeRight &&
+			itEdge->nodeLeft->inEdges.size() == 2 &&
+			itEdge->nodeLeft->outEdges.size() == 2 &&
+			itEdge->nodeLeft->neighbors().size() == 3) 	//including itself
+		{
+			Logger::get().debug() << itEdge->edgeId;
+			if (unwrapEdge(*itEdge))
+			{
+				Logger::get().debug() << "Unwrap!";
+				vecRemove(itEdge->nodeLeft->inEdges, &(*itEdge));
+				vecRemove(itEdge->nodeLeft->outEdges, &(*itEdge));
+				itEdge = _graphEdges.erase(itEdge);
+				continue;
+			}
+		}
+		++itEdge;
+	}
+}
+
+
 struct Point
 {
 	Point(FastaRecord::Id curId = FastaRecord::ID_NONE, int32_t curPos = 0, 
@@ -42,7 +212,10 @@ void RepeatGraph::build()
 	this->getRepeatClusters(asmOverlaps);
 	this->getGluepoints(asmOverlaps);
 	this->initializeEdges();
-	this->fixTips();
+
+	this->trimTips();
+	this->removeLoops();
+	this->condenceEdges();
 }
 
 void RepeatGraph::getRepeatClusters(const OverlapContainer& asmOverlaps)
@@ -57,8 +230,6 @@ void RepeatGraph::getRepeatClusters(const OverlapContainer& asmOverlaps)
 		{
 			overlapClusters[ovlp.curId].emplace_back(ovlp);
 			overlapClusters[ovlp.extId].emplace_back(ovlp.reverse());
-			//unionSet(&overlapClusters[ovlp.curId].back(),
-			//		 &overlapClusters[ovlp.extId].back());
 
 			//reverse complement
 			int32_t curLen = _asmSeqs.seqLen(ovlp.curId);
@@ -68,53 +239,11 @@ void RepeatGraph::getRepeatClusters(const OverlapContainer& asmOverlaps)
 
 			overlapClusters[complOvlp.curId].emplace_back(complOvlp);
 			overlapClusters[complOvlp.extId].emplace_back(complOvlp.reverse());
-			//unionSet(&overlapClusters[complOvlp.curId].back(),
-			//		 &overlapClusters[complOvlp.extId].back());
-			//
 		}
 	}
-	
-	/*
-	for (auto& ovlpHash : overlapClusters)
-	{
-		for (auto& ovlp1 : ovlpHash.second)
-		{
-			for (auto& ovlp2 : ovlpHash.second)
-			{
-				if (ovlp1.data.curIntersect(ovlp2.data) > -_maxSeparation)
-				{
-					unionSet(&ovlp1, &ovlp2);
-				}
-			}
-		}
-	}
-
-	//getting cluster assignments
-	std::unordered_map<DjsOverlap*, size_t> knotMappings;
-	std::unordered_map<DjsOverlap*, size_t> reprToKnot;
-	size_t nextKnotId = 0;
-
-	for (auto& ovlpHash : overlapClusters)
-	{
-		for (auto& ovlp : ovlpHash.second)
-		{
-			if (!reprToKnot.count(findSet(&ovlp)))
-			{
-				reprToKnot[findSet(&ovlp)] = nextKnotId++;
-			}
-			knotMappings[&ovlp] = reprToKnot[findSet(&ovlp)];
-		}
-	}*/
 
 	for (auto& seqClusterPair : overlapClusters)
 	{
-		//forming intersection-based clusters
-		/*for (auto& ovlp : seqClusterPair.second)
-		{
-			ovlp.parent = &ovlp;
-			ovlp.rank = 0;
-		}*/
-
 		for (auto& ovlp1 : seqClusterPair.second)
 		{
 			for (auto& ovlp2 : seqClusterPair.second)
@@ -142,7 +271,6 @@ void RepeatGraph::getRepeatClusters(const OverlapContainer& asmOverlaps)
 				clustEnd = std::max(clustEnd, ovlp->data.curEnd);
 			}
 
-			//auto knotId = knotMappings[clustHash.second.front()];
 			_repeatClusters[seqClusterPair.first]
 					.emplace_back(seqClusterPair.first, 0,
 								  clustStart, clustEnd);
@@ -166,11 +294,6 @@ void RepeatGraph::getGluepoints(const OverlapContainer& asmOverlaps)
 			endpoints.emplace_back(Point(ovlp.curId, ovlp.curEnd, 
 										 ovlp.extId, ovlp.extEnd));
 		}
-
-		//_gluePoints[seqOvlps.first].emplace_back(pointId, seqOvlps.first, 0);
-		//_gluePoints[seqOvlps.first].emplace_back(pointId + 1, seqOvlps.first, 
-		//									 _asmSeqs.seqLen(seqOvlps.first));
-		//pointId += 2;
 	}
 
 	for (auto& p1 : endpoints)
@@ -322,47 +445,6 @@ void RepeatGraph::getGluepoints(const OverlapContainer& asmOverlaps)
 		seqPoints.second.emplace_back(pointId++, seqPoints.first, 
 									  _asmSeqs.seqLen(seqPoints.first));
 	}
-}
-
-namespace
-{
-	template<class T>
-	void vecRemove(std::vector<T>& v, T val)
-	{
-		v.erase(std::remove(v.begin(), v.end(), val), v.end()); 
-	}
-
-	std::vector<OverlapRange> filterOvlp(const std::vector<OverlapRange>& ovlps)
-	{
-		std::vector<OverlapRange> filtered;
-		for (auto& ovlp : ovlps)
-		{
-			bool found = false;
-			for (auto& otherOvlp : filtered)
-			{
-				if (otherOvlp.curBegin == ovlp.curBegin &&
-					otherOvlp.curEnd == ovlp.curEnd &&
-					otherOvlp.extBegin == ovlp.extBegin &&
-					otherOvlp.extEnd == ovlp.extEnd)
-				{
-					found = true;
-					break;
-				}
-			}
-			if (!found) filtered.push_back(ovlp);
-		}
-		return filtered;
-	}
-
-	struct pairhash 
-	{
-	public:
-		template <typename T, typename U>
-		std::size_t operator()(const std::pair<T, U> &x) const
-		{
-			return std::hash<T>()(x.first) ^ std::hash<U>()(x.second);
-		}
-	};
 }
 
 bool RepeatGraph::isRepetitive(GluePoint gpLeft, GluePoint gpRight)
@@ -598,13 +680,9 @@ RepeatGraph::chainReadAlignments(const SequenceContainer& edgeSeqs,
 	return result;
 }
 
-void RepeatGraph::fixTips()
+void RepeatGraph::trimTips()
 {
 	const int THRESHOLD = 1500;
-
-	std::unordered_set<FastaRecord::Id> suspicious;
-	std::unordered_map<FastaRecord::Id, GraphEdge*> idToEdge;
-	for (auto& edge : _graphEdges) idToEdge[edge.edgeId] = &edge;
 
 	for (auto itEdge = _graphEdges.begin(); itEdge != _graphEdges.end();)
 	{
@@ -621,18 +699,26 @@ void RepeatGraph::fixTips()
 			itEdge = _graphEdges.erase(itEdge);
 			Logger::get().debug() << "Chop!";
 
-			for (auto& edge : toFix->inEdges) suspicious.insert(edge->edgeId);
-			for (auto& edge : toFix->outEdges) suspicious.insert(edge->edgeId);
+			for (auto& edge : toFix->inEdges) 
+			{
+				_outdatedEdges.insert(edge->edgeId);
+			}
+			for (auto& edge : toFix->outEdges) 
+			{
+				_outdatedEdges.insert(edge->edgeId);
+			}
 		}
 		else
 		{
 			++itEdge;
 		}
 	}
+}
 
-	auto collapseEdges = [this, &suspicious](const GraphPath& edges)
+void RepeatGraph::condenceEdges()
+{
+	auto collapseEdges = [this](const GraphPath& edges)
 	{
-		
 		/*
 		Logger::get().debug() << "-----";
 		for (auto& edge : edges) 
@@ -695,7 +781,7 @@ void RepeatGraph::fixTips()
 		_graphEdges.back().nodeRight->inEdges.push_back(&_graphEdges.back());
 		Logger::get().debug() << "Added " << _graphEdges.back().edgeId;
 		///
-		suspicious.insert(_graphEdges.back().edgeId);
+		_outdatedEdges.insert(_graphEdges.back().edgeId);
 		
 		std::unordered_set<GraphEdge*> toRemove(edges.begin(), edges.end());
 		for (auto itEdge = _graphEdges.begin(); itEdge != _graphEdges.end(); )
@@ -756,7 +842,7 @@ void RepeatGraph::fixTips()
 		anyChanges = false;
 		for (auto& edge : _graphEdges)
 		{
-			if (!suspicious.count(edge.edgeId)) continue;
+			if (!_outdatedEdges.count(edge.edgeId)) continue;
 			if (edge.nodeLeft == edge.nodeRight) continue;
 
 			//check beginning
@@ -768,7 +854,7 @@ void RepeatGraph::fixTips()
 				if (otherEdge->edgeId == edge.edgeId) continue;
 				if (otherEdge->nodeLeft == otherEdge->nodeRight) continue;
 
-				if (!suspicious.count(otherEdge->edgeId))
+				if (!_outdatedEdges.count(otherEdge->edgeId))
 				{
 					outDegree += otherEdge->multiplicity;
 				}
@@ -781,7 +867,7 @@ void RepeatGraph::fixTips()
 			{
 				if (otherEdge->nodeLeft == otherEdge->nodeRight) continue;
 
-				if (!suspicious.count(otherEdge->edgeId))
+				if (!_outdatedEdges.count(otherEdge->edgeId))
 				{
 					inDegree += otherEdge->multiplicity;
 				}
@@ -797,7 +883,7 @@ void RepeatGraph::fixTips()
 									  << edge.multiplicity 
 									  << " " << inDegree - outDegree;
 				edge.multiplicity = inDegree - outDegree;
-				suspicious.erase(edge.edgeId);
+				_outdatedEdges.erase(edge.edgeId);
 				anyChanges = true;
 			}
 		}
@@ -853,7 +939,7 @@ RepeatGraph::GraphPath RepeatGraph::complementPath(const GraphPath& path)
 	GraphPath complEdges;
 	for (auto itEdge = path.rbegin(); itEdge != path.rend(); ++itEdge)
 	{
-		complEdges.push_back(idToEdge[(*itEdge)->edgeId.rc()]);
+		complEdges.push_back(idToEdge.at((*itEdge)->edgeId.rc()));
 	}
 
 	return complEdges;
