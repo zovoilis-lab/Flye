@@ -904,6 +904,7 @@ size_t RepeatGraph::separatePath(const GraphPath& graphPath, size_t startId)
 	vecRemove(graphPath.front()->nodeRight->inEdges, graphPath.front());
 	graphPath.front()->nodeRight = &_graphNodes.back();
 	GraphNode* prevNode = &_graphNodes.back();
+	prevNode->inEdges.push_back(graphPath.front());
 
 	//repetitive edges in the middle
 	size_t edgesAdded = 0;
@@ -921,12 +922,15 @@ size_t RepeatGraph::separatePath(const GraphPath& graphPath, size_t startId)
 		startId += 2;
 		edgesAdded += 1;
 
+		prevNode->outEdges.push_back(&_graphEdges.back());
+		nextNode->inEdges.push_back(&_graphEdges.back());
 		prevNode = nextNode;
 	}
 
 	//last edge
 	vecRemove(graphPath.back()->nodeLeft->outEdges, graphPath.back());
 	graphPath.back()->nodeLeft = prevNode;
+	prevNode->outEdges.push_back(graphPath.back());
 
 	return edgesAdded;
 }
@@ -1140,9 +1144,9 @@ void RepeatGraph::resolveRepeats()
 void RepeatGraph::outputDot(const std::string& filename, bool collapseRepeats)
 {
 	const std::string COLORS[] = {"red", "darkgreen", "blue", "goldenrod", 
-								  "cadetblue",
-								  "darkorchid", "aquamarine1", "darkgoldenrod1",
-								  "deepskyblue1", "darkolivegreen3"};
+								  "cadetblue", "darkorchid", "aquamarine1", 
+								  "darkgoldenrod1", "deepskyblue1", 
+								  "darkolivegreen3"};
 	size_t nextColor = 0;
 
 	std::ofstream fout(filename);
@@ -1159,26 +1163,57 @@ void RepeatGraph::outputDot(const std::string& filename, bool collapseRepeats)
 		return nodeIds[node];
 	};
 
-	for (auto& edge : _graphEdges)
+	std::unordered_set<FastaRecord::Id> usedDirections;
+	for (auto& node : _graphNodes)
 	{
-		if (!edge.isRepetitive())
-		{
-			fout << "\"" << nodeToId(edge.nodeLeft) << "\" -> \"" 
-				 << nodeToId(edge.nodeRight)
-				 << "\" [label = \"" << edge.edgeId << " "
-				 << edge.length() << "\", color = \"black\"] ;\n";
-		}
-		else
-		{
-			std::string color = COLORS[nextColor];
-			nextColor = (nextColor + 1) % 10;
+		if (!node.isBifurcation()) continue;
 
-			fout << "\"" << nodeToId(edge.nodeLeft) << "\" -> \"" 
-				 << nodeToId(edge.nodeRight)
-				 << "\" [label = \"" << edge.edgeId << " ("
-				 << edge.multiplicity << ") "
-				 << edge.length() << "\", color = \"" << color << "\" "
-				 << " penwidth = 3] ;\n";
+		for (auto& direction : node.outEdges)
+		{
+			//if (usedDirections.count(direction->edgeId)) continue;
+			//usedDirections.insert(direction->edgeId);
+
+			GraphNode* curNode = direction->nodeRight;
+			GraphPath traversed;
+			traversed.push_back(direction);
+
+			while (!curNode->isBifurcation() &&
+				   !curNode->outEdges.empty())
+			{
+				traversed.push_back(curNode->outEdges.front());
+				curNode = curNode->outEdges.front()->nodeRight;
+			}
+			//usedDirections.insert(traversed.back()->edgeId.rc());
+			
+			if (traversed.size() == 1 && traversed.front()->multiplicity == 0)
+			{
+				continue;	//resolved repeat
+			}
+
+			if (traversed.size() == 1 && traversed.front()->isRepetitive())
+			{
+				std::string color = COLORS[nextColor];
+				nextColor = (nextColor + 1) % 10;
+
+				fout << "\"" << nodeToId(traversed.front()->nodeLeft) 
+					 << "\" -> \"" << nodeToId(traversed.front()->nodeRight)
+					 << "\" [label = \"" << traversed.front()->edgeId << " ("
+					 << traversed.front()->multiplicity << ") "
+					 << traversed.front()->length() << "\", color = \"" 
+					 << color << "\" " << " penwidth = 3] ;\n";
+			}
+			else
+			{
+				int32_t edgeLength = 0;
+				for (auto& edge : traversed) edgeLength += edge->length();
+
+				size_t edgeId = 0;
+
+				fout << "\"" << nodeToId(traversed.front()->nodeLeft) 
+					 << "\" -> \"" << nodeToId(traversed.back()->nodeRight)
+					 << "\" [label = \"" << edgeId << " "
+					 << edgeLength << "\", color = \"black\"] ;\n";
+			}
 		}
 	}
 

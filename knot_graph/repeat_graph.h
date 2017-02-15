@@ -55,7 +55,7 @@ struct GraphEdge
 
 struct GraphNode
 {
-	bool isBifurcation() {return outEdges.size() > 1 || inEdges.size() > 1;}
+	bool isBifurcation() {return outEdges.size() != 1 || inEdges.size() != 1;}
 	std::vector<GraphNode*> neighbors()
 	{
 		std::unordered_set<GraphNode*> result;
