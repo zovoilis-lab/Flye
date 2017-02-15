@@ -35,11 +35,9 @@ struct GraphEdge
 	}
 	int32_t length()
 	{
-		//int32_t maxLen = std::numeric_limits<int32_t>::min();
 		int64_t sumLen = 0;
 		for (auto& seqSeg : seqSegments)
 		{
-			//maxLen = std::max(maxLen, seqSeg.end - seqSeg.start);
 			sumLen += seqSeg.end - seqSeg.start;
 		}
 		return sumLen / seqSegments.size();

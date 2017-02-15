@@ -371,7 +371,10 @@ void RepeatGraph::getGluepoints(const OverlapContainer& asmOverlaps)
 		{
 			if (ovlp.curBegin <= clusterXpos && clusterXpos <= ovlp.curEnd)
 			{
+				int32_t maxPos = _asmSeqs.seqLen(ovlp.extId);
 				int32_t projectedPos = clusterXpos - ovlp.curBegin + ovlp.extBegin;
+				projectedPos = std::max(0, std::min(projectedPos, maxPos));
+
 				extCoords.emplace_back(Point(clustSeq, clusterXpos,
 											 ovlp.extId, projectedPos));
 			}
@@ -398,6 +401,7 @@ void RepeatGraph::getGluepoints(const OverlapContainer& asmOverlaps)
 		//now, get coordinates for each cluster
 		for (auto& extClust : extClusters)
 		{
+
 			int64_t sum = 0;
 			for (auto& ep : extClust.second)
 			{
@@ -1153,17 +1157,30 @@ void RepeatGraph::outputDot(const std::string& filename, bool collapseRepeats)
 	fout << "digraph {\n";
 	
 	std::unordered_map<GraphNode*, int> nodeIds;
-	int nextId = 0;
-	auto nodeToId = [&nodeIds, &nextId](GraphNode* node)
+	int nextNodeId = 0;
+	auto nodeToId = [&nodeIds, &nextNodeId](GraphNode* node)
 	{
 		if (!nodeIds.count(node))
 		{
-			nodeIds[node] = nextId++;
+			nodeIds[node] = nextNodeId++;
 		}
 		return nodeIds[node];
 	};
 
-	std::unordered_set<FastaRecord::Id> usedDirections;
+	std::unordered_map<FastaRecord::Id, size_t> edgeIds;
+	size_t nextEdgeId = 0;
+	auto pathToId = [&edgeIds, &nextEdgeId](GraphPath path)
+	{
+		if (!edgeIds.count(path.front()->edgeId))
+		{
+			edgeIds[path.front()->edgeId] = nextEdgeId;
+			edgeIds[path.back()->edgeId.rc()] = nextEdgeId + 1;
+			nextEdgeId += 2;
+		}
+		return edgeIds[path.front()->edgeId];
+	};
+
+	//std::unordered_set<FastaRecord::Id> usedDirections;
 	for (auto& node : _graphNodes)
 	{
 		if (!node.isBifurcation()) continue;
@@ -1189,15 +1206,14 @@ void RepeatGraph::outputDot(const std::string& filename, bool collapseRepeats)
 			{
 				continue;	//resolved repeat
 			}
-
-			if (traversed.size() == 1 && traversed.front()->isRepetitive())
+			if (traversed.front()->isRepetitive())
 			{
 				std::string color = COLORS[nextColor];
 				nextColor = (nextColor + 1) % 10;
 
 				fout << "\"" << nodeToId(traversed.front()->nodeLeft) 
 					 << "\" -> \"" << nodeToId(traversed.front()->nodeRight)
-					 << "\" [label = \"" << traversed.front()->edgeId << " ("
+					 << "\" [label = \"" << pathToId(traversed) << " ("
 					 << traversed.front()->multiplicity << ") "
 					 << traversed.front()->length() << "\", color = \"" 
 					 << color << "\" " << " penwidth = 3] ;\n";
@@ -1207,11 +1223,9 @@ void RepeatGraph::outputDot(const std::string& filename, bool collapseRepeats)
 				int32_t edgeLength = 0;
 				for (auto& edge : traversed) edgeLength += edge->length();
 
-				size_t edgeId = 0;
-
 				fout << "\"" << nodeToId(traversed.front()->nodeLeft) 
 					 << "\" -> \"" << nodeToId(traversed.back()->nodeRight)
-					 << "\" [label = \"" << edgeId << " "
+					 << "\" [label = \"" << pathToId(traversed) << " "
 					 << edgeLength << "\", color = \"black\"] ;\n";
 			}
 		}
