@@ -27,7 +27,7 @@ struct GraphEdge
 		edgeId(edgeId), multiplicity(0)
 		{}
 
-	bool isRepetitive() {return multiplicity > 1 || nodeLeft == nodeRight;}
+	bool isRepetitive() {return multiplicity > 1;}
 	void addSequence(FastaRecord::Id id, int32_t start, int32_t end)
 	{
 		seqSegments.emplace_back(id, start, end);

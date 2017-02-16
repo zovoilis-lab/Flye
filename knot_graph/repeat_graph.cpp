@@ -367,13 +367,17 @@ void RepeatGraph::getGluepoints(const OverlapContainer& asmOverlaps)
 			extCoords.emplace_back(ep->data);
 		}
 		
+		//projections on other overlaps
 		for (auto& ovlp : asmOverlaps.getOverlapIndex().at(clustSeq))
 		{
 			if (ovlp.curBegin <= clusterXpos && clusterXpos <= ovlp.curEnd)
 			{
-				int32_t maxPos = _asmSeqs.seqLen(ovlp.extId);
-				int32_t projectedPos = clusterXpos - ovlp.curBegin + ovlp.extBegin;
-				projectedPos = std::max(0, std::min(projectedPos, maxPos));
+				//TODO: projection with k-mers / alignment
+				float lengthRatio = (float)ovlp.extRange() / ovlp.curRange();
+				int32_t projectedPos = ovlp.extBegin + 
+								float(clusterXpos - ovlp.curBegin) * lengthRatio;
+				projectedPos = std::max(ovlp.extBegin, 
+										std::min(projectedPos, ovlp.extEnd));
 
 				extCoords.emplace_back(Point(clustSeq, clusterXpos,
 											 ovlp.extId, projectedPos));
@@ -401,7 +405,6 @@ void RepeatGraph::getGluepoints(const OverlapContainer& asmOverlaps)
 		//now, get coordinates for each cluster
 		for (auto& extClust : extClusters)
 		{
-
 			int64_t sum = 0;
 			for (auto& ep : extClust.second)
 			{
@@ -453,21 +456,20 @@ void RepeatGraph::getGluepoints(const OverlapContainer& asmOverlaps)
 
 bool RepeatGraph::isRepetitive(GluePoint gpLeft, GluePoint gpRight)
 {
-	//a little hack for tandem repeats
-	if (gpLeft.pointId == gpRight.pointId) return true;
+	float maxRate = 0.0f;
+	int32_t maxOverlap = 0;
 	
 	for (auto& cluster : _repeatClusters[gpLeft.seqId])
 	{
 		int32_t overlap = std::min(gpRight.position, cluster.end) -
 						  std::max(gpLeft.position, cluster.start);
 		float rate = float(overlap) / (gpRight.position - gpLeft.position);
+		maxRate = std::max(maxRate, rate);
+		maxOverlap = std::max(overlap, maxOverlap);
 
-		if (rate > 0.5)
-		{
-			return true;
-		}
 	}
-	return false;
+	//Logger::get().debug() << maxRate << " " << maxOverlap;
+	return maxRate > 0.5;
 }
 
 void RepeatGraph::initializeEdges()
@@ -1180,15 +1182,12 @@ void RepeatGraph::outputDot(const std::string& filename, bool collapseRepeats)
 		return edgeIds[path.front()->edgeId];
 	};
 
-	//std::unordered_set<FastaRecord::Id> usedDirections;
 	for (auto& node : _graphNodes)
 	{
 		if (!node.isBifurcation()) continue;
 
 		for (auto& direction : node.outEdges)
 		{
-			//if (usedDirections.count(direction->edgeId)) continue;
-			//usedDirections.insert(direction->edgeId);
 
 			GraphNode* curNode = direction->nodeRight;
 			GraphPath traversed;
@@ -1200,12 +1199,14 @@ void RepeatGraph::outputDot(const std::string& filename, bool collapseRepeats)
 				traversed.push_back(curNode->outEdges.front());
 				curNode = curNode->outEdges.front()->nodeRight;
 			}
-			//usedDirections.insert(traversed.back()->edgeId.rc());
 			
-			if (traversed.size() == 1 && traversed.front()->multiplicity == 0)
+			bool resolvedRepeat = true;
+			for (auto& edge : traversed)
 			{
-				continue;	//resolved repeat
+				if (edge->multiplicity != 0) resolvedRepeat = false;
 			}
+			if (resolvedRepeat) continue;
+			
 			if (traversed.front()->isRepetitive())
 			{
 				std::string color = COLORS[nextColor];
