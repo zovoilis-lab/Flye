@@ -114,18 +114,29 @@ private:
 		SequenceSegment* segment;
 	};
 
+	struct Connection
+	{
+		GraphPath path;
+		int32_t leftOverlap;
+		int32_t rightOverlap;
+	};
+
+	//building
 	void getGluepoints(const OverlapContainer& ovlps);
 	void getRepeatClusters(const OverlapContainer& ovlps);
 	void initializeEdges();
-	void resolveConnections(const std::vector<GraphPath>& conns);
-	GraphPath chainReadAlignments(const SequenceContainer& edgeSeqs,
-								  std::vector<EdgeAlignment> ovlps);
-	bool isRepetitive(GluePoint gpLeft, GluePoint gpRight);
 	void trimTips();
 	void removeLoops();
 	void condenceEdges();
+
+	//resolving
+	void resolveConnections(const std::vector<Connection>& conns);
+	bool isRepetitive(GluePoint gpLeft, GluePoint gpRight);
 	size_t separatePath(const GraphPath& path, size_t startId);
 	GraphPath complementPath(const GraphPath& path);
+	std::vector<EdgeAlignment> 
+		chainReadAlignments(const SequenceContainer& edgeSeqs,
+							std::vector<EdgeAlignment> ovlps);
 
 	////////////////////////////////////////////////////////////////
 
@@ -144,7 +155,6 @@ private:
 
 	std::unordered_map<FastaRecord::Id, 
 					   std::vector<RepeatCluster>> _repeatClusters;
-	std::unordered_map<FastaRecord::Id, GraphPath> _readsAlignments;
 
 	size_t _nextEdgeId;
 };
