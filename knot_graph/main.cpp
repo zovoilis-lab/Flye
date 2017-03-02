@@ -147,6 +147,8 @@ int main(int argc, char** argv)
 		RepeatGraph rg(seqAssembly, seqReads);
 		rg.build();
 		rg.outputDot(outAssembly + "_before.dot", false);
+		rg.simplify();
+		rg.outputDot(outAssembly + "_simplified.dot", false);
 		rg.resolveRepeats();
 		rg.outputDot(outAssembly + "_after.dot", false);
 		rg.outputDot(outAssembly + "_condensed.dot", true);

@@ -78,6 +78,7 @@ public:
 
 	void build();
 	void resolveRepeats();
+	void simplify();
 	void outputDot(const std::string& filename, bool collapseRepeats);
 
 private:

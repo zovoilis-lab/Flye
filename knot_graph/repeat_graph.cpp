@@ -4,6 +4,8 @@
 #include "config.h"
 #include "disjoint_set.h"
 
+#include <deque>
+
 namespace
 {
 	template<class T>
@@ -179,7 +181,10 @@ void RepeatGraph::build()
 	this->getRepeatClusters(asmOverlaps);
 	this->getGluepoints(asmOverlaps);
 	this->initializeEdges();
+}
 
+void RepeatGraph::simplify()
+{
 	this->trimTips();
 	this->removeLoops();
 	this->condenceEdges();
@@ -551,12 +556,25 @@ void RepeatGraph::initializeEdges()
 				addRepeat(complLeft, complRight);
 			}
 
-			std::string shift = repetitive ? "--" : std::to_string(_nextEdgeId);
-			Logger::get().debug() << shift << "\t" 
+			///
+			FastaRecord::Id edgeId = FastaRecord::ID_NONE;
+			if(!repetitive)
+			{
+				edgeId = FastaRecord::Id(_nextEdgeId - 2);
+			}
+			else
+			{
+				auto edge = repeatEdges[std::make_pair(idToNode[gpLeft.pointId], 
+													idToNode[gpRight.pointId])];
+				edgeId = edge->edgeId;
+			}
+			std::string unique = !repetitive ? "*" : " ";
+			Logger::get().debug() << unique << "\t" << edgeId << "\t" 
 								  << gpLeft.seqId << "\t"
 								  << gpLeft.position << "\t" 
 								  << gpRight.position << "\t"
 								  << gpRight.position - gpLeft.position;
+			///
 		}
 	}
 }
@@ -692,14 +710,35 @@ void RepeatGraph::trimTips()
 			itEdge = _graphEdges.erase(itEdge);
 			Logger::get().debug() << "Chop!";
 
-			for (auto& edge : toFix->inEdges) 
+			//label all adjacent repetitive edges
+			std::unordered_set<GraphNode*> visited;
+			std::deque<GraphNode*> queue;
+			queue.push_back(toFix);
+			while (!queue.empty())
 			{
-				_outdatedEdges.insert(edge->edgeId);
+				GraphNode* node = queue.back();
+				queue.pop_back();
+				if (visited.count(node)) continue;
+				visited.insert(node);
+
+				for (auto& edge : node->inEdges) 
+				{
+					if (edge->isRepetitive())
+					{
+						_outdatedEdges.insert(edge->edgeId);
+						queue.push_back(edge->nodeLeft);
+					}
+				}
+				for (auto& edge : node->outEdges) 
+				{
+					if (edge->isRepetitive())
+					{
+						_outdatedEdges.insert(edge->edgeId);
+						queue.push_back(edge->nodeRight);
+					}
+				}
 			}
-			for (auto& edge : toFix->outEdges) 
-			{
-				_outdatedEdges.insert(edge->edgeId);
-			}
+			///
 		}
 		else
 		{
@@ -837,6 +876,7 @@ void RepeatGraph::condenceEdges()
 				else
 				{
 					allReliable = false;
+					break;
 				}
 			}
 			for (auto& otherEdge : edge.nodeLeft->inEdges)
@@ -850,16 +890,21 @@ void RepeatGraph::condenceEdges()
 				else
 				{
 					allReliable = false;
+					break;
 				}
 			}
 
 			if (allReliable)
 			{
-				Logger::get().debug() << "Updated: "<< edge.edgeId << " " 
+				Logger::get().debug() << "Updated: " << edge.edgeId << " " 
 									  << edge.multiplicity 
 									  << " " << inDegree - outDegree;
+
+				GraphEdge* complEdge = this->complementPath({&edge}).front();
 				edge.multiplicity = inDegree - outDegree;
+				complEdge->multiplicity = inDegree - outDegree;
 				_outdatedEdges.erase(edge.edgeId);
+				_outdatedEdges.erase(complEdge->edgeId);
 				anyChanges = true;
 			}
 		}
@@ -965,7 +1010,7 @@ void RepeatGraph::resolveConnections(const std::vector<Connection>& connections)
 	}
 	///////////
 	
-	const float MIN_CONFIDENCE = 0.0f;
+	const float MIN_CONFIDENCE = 0.5f;
 
 	typedef std::pair<GraphEdge*, GraphEdge*> EdgePair;
 	std::unordered_map<EdgePair, int, pairhash> edges;
@@ -1153,15 +1198,10 @@ void RepeatGraph::resolveRepeats()
 void RepeatGraph::outputDot(const std::string& filename, 
 							bool collapseUnbranching)
 {
-	const std::string COLORS[] = {"red", "darkgreen", "blue", "goldenrod", 
-								  "cadetblue", "darkorchid", "aquamarine1", 
-								  "darkgoldenrod1", "deepskyblue1", 
-								  "darkolivegreen3"};
-	size_t nextColor = 0;
-
 	std::ofstream fout(filename);
 	fout << "digraph {\n";
 	
+	///re-enumerating helper functions
 	std::unordered_map<GraphNode*, int> nodeIds;
 	int nextNodeId = 0;
 	auto nodeToId = [&nodeIds, &nextNodeId](GraphNode* node)
@@ -1183,8 +1223,26 @@ void RepeatGraph::outputDot(const std::string& filename,
 			edgeIds[path.back()->edgeId.rc()] = nextEdgeId + 1;
 			nextEdgeId += 2;
 		}
-		return edgeIds[path.front()->edgeId];
+		return FastaRecord::Id(edgeIds[path.front()->edgeId]);
 	};
+	
+	const std::string COLORS[] = {"red", "darkgreen", "blue", "goldenrod", 
+								  "cadetblue", "darkorchid", "aquamarine1", 
+								  "darkgoldenrod1", "deepskyblue1", 
+								  "darkolivegreen3"};
+	std::unordered_map<FastaRecord::Id, size_t> colorIds;
+	size_t nextColorId = 0;
+	auto idToColor = [&colorIds, &nextColorId, &COLORS](FastaRecord::Id id)
+	{
+		if (!id.strand()) id = id.rc();
+		if (!colorIds.count(id))
+		{
+			colorIds[id] = nextColorId;
+			nextColorId = (nextColorId + 1) % 10;
+		}
+		return COLORS[colorIds[id]];
+	};
+	/////////////
 
 	for (auto& node : _graphNodes)
 	{
@@ -1219,12 +1277,12 @@ void RepeatGraph::outputDot(const std::string& filename,
 
 				if (traversed.front()->isRepetitive())
 				{
-					std::string color = COLORS[nextColor];
-					nextColor = (nextColor + 1) % 10;
+					FastaRecord::Id edgeId = pathToId(traversed);
+					std::string color = idToColor(edgeId);
 
 					fout << "\"" << nodeToId(traversed.front()->nodeLeft) 
 						 << "\" -> \"" << nodeToId(traversed.back()->nodeRight)
-						 << "\" [label = \"" << pathToId(traversed) << " ("
+						 << "\" [label = \"" << edgeId << " ("
 						 << traversed.front()->multiplicity << ") "
 						 << edgeLength << "\", color = \"" 
 						 << color << "\" " << " penwidth = 3] ;\n";
@@ -1243,12 +1301,12 @@ void RepeatGraph::outputDot(const std::string& filename,
 				{
 					if (edge->isRepetitive())
 					{
-						std::string color = COLORS[nextColor];
-						nextColor = (nextColor + 1) % 10;
+						FastaRecord::Id edgeId = edge->edgeId;
+						std::string color = idToColor(edgeId);
 
 						fout << "\"" << nodeToId(edge->nodeLeft) 
 							 << "\" -> \"" << nodeToId(edge->nodeRight)
-							 << "\" [label = \"" << edge->edgeId << " ("
+							 << "\" [label = \"" << edgeId << " ("
 							 << edge->multiplicity << ") "
 							 << edge->length() << "\", color = \"" 
 							 << color << "\" " << " penwidth = 3] ;\n";
