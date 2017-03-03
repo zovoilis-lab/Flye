@@ -1,8 +1,14 @@
+//(c) 2016 by Authors
+//This file is a part of ABruijn program.
+//Released under the BSD license (see LICENSE file)
+
+
 #include "repeat_graph.h"
 #include "overlap.h"
 #include "vertex_index.h"
 #include "config.h"
 #include "disjoint_set.h"
+#include "bipartie_mincost.h"
 
 #include <deque>
 
@@ -47,9 +53,9 @@ namespace
 	};
 }
 
-void RepeatGraph::removeLoops()
+void RepeatGraph::unrollLoops()
 {
-	auto unwrapEdge = [](GraphEdge& loopEdge)
+	auto unrollEdge = [](GraphEdge& loopEdge)
 	{
 		GraphEdge* prevEdge = nullptr;
 		for (auto& inEdge : loopEdge.nodeLeft->inEdges)
@@ -116,7 +122,7 @@ void RepeatGraph::removeLoops()
 		}
 		else
 		{
-			Logger::get().debug() << "Can't unwrap";
+			Logger::get().debug() << "Can't unroll";
 			return false;
 		}
 	};
@@ -129,9 +135,9 @@ void RepeatGraph::removeLoops()
 			itEdge->nodeLeft->neighbors().size() == 3) 	//including itself
 		{
 			Logger::get().debug() << itEdge->edgeId;
-			if (unwrapEdge(*itEdge))
+			if (unrollEdge(*itEdge))
 			{
-				Logger::get().debug() << "Unwrap!";
+				Logger::get().debug() << "Unroll!";
 				vecRemove(itEdge->nodeLeft->inEdges, &(*itEdge));
 				vecRemove(itEdge->nodeLeft->outEdges, &(*itEdge));
 				itEdge = _graphEdges.erase(itEdge);
@@ -186,8 +192,9 @@ void RepeatGraph::build()
 void RepeatGraph::simplify()
 {
 	this->trimTips();
-	this->removeLoops();
+	this->unrollLoops();
 	this->condenceEdges();
+	this->updateEdgesMultiplicity();
 }
 
 void RepeatGraph::getRepeatClusters(const OverlapContainer& asmOverlaps)
@@ -850,7 +857,10 @@ void RepeatGraph::condenceEdges()
 		collapseEdges(edges);
 		collapseEdges(complEdges);
 	}
+}
 
+void RepeatGraph::updateEdgesMultiplicity()
+{
 	bool anyChanges = true;
 	while (anyChanges)
 	{
@@ -974,121 +984,105 @@ void RepeatGraph::resolveConnections(const std::vector<Connection>& connections)
 {
 	///////////
 	std::unordered_map<GraphEdge*, std::unordered_map<GraphEdge*, int>> stats;
-	std::unordered_map<GraphEdge*, std::vector<Connection>> byStart;
 	for (auto& conn : connections)
 	{
 		++stats[conn.path.front()][conn.path.back()];
-		byStart[conn.path.front()].push_back(conn);
 	}
-	for (auto& inEdge : byStart)
+	for (auto& inEdge : stats)
 	{
-		//if (!inEdge.first->edgeId.strand()) continue;
-
 		Logger::get().debug() << "For " << inEdge.first->edgeId << " "
 			<< inEdge.first->seqSegments.front().seqId << " "
 			<< inEdge.first->seqSegments.front().end;
-
-		std::sort(inEdge.second.begin(), inEdge.second.end(),
-				  [](const Connection& c1, const Connection& c2)
-				  		{return c1.rightOverlap < c2.rightOverlap;});
-		for (auto& outConn : inEdge.second)
-		{
-			GraphEdge* edge = outConn.path.back();
-			Logger::get().debug() << "\t" << edge->edgeId << "\t"
-				<< edge->seqSegments.front().seqId << "\t"
-				<< edge->seqSegments.front().start << "\t" 
-				<< outConn.leftOverlap << "\t" << outConn.rightOverlap;
-		}
-		/*
+		
 		for (auto& outEdge : inEdge.second)
 		{
 			Logger::get().debug() << "\t" << outEdge.first->edgeId << " "
 				<< outEdge.first->seqSegments.front().seqId << " "
 				<< outEdge.first->seqSegments.front().start << " " << outEdge.second;
-		}*/
+		}
 		Logger::get().debug() << "";
 	}
 	///////////
+	std::unordered_map<GraphEdge*, int> inCoverage;
+	std::unordered_map<GraphEdge*, int> outCoverage;
 	
-	const float MIN_CONFIDENCE = 0.5f;
-
-	typedef std::pair<GraphEdge*, GraphEdge*> EdgePair;
-	std::unordered_map<EdgePair, int, pairhash> edges;
+	//create bipartie graph matrix
+	std::unordered_map<GraphEdge*, size_t> inEdgesId;
+	std::unordered_map<size_t, GraphEdge*> inIdToEdge;
+	size_t nextInId = 0;
+	std::unordered_map<GraphEdge*, size_t> outEdgesId;
+	std::unordered_map<size_t, GraphEdge*> outIdToEdge;
+	size_t nextOutId = 0;
 
 	for (auto& conn : connections)
 	{
-		GraphEdge* inEdge = conn.path.front(); 
-		GraphEdge* outEdge = conn.path.back(); 
-		//prohibited transitions
-		if (inEdge->edgeId == outEdge->edgeId || 
-			inEdge->edgeId.rc() == outEdge->edgeId) continue;
+		GraphEdge* inEdge = conn.path.front();
+		GraphEdge* outEdge = conn.path.back();
+		++inCoverage[inEdge];
+		++outCoverage[outEdge];
 
-		++edges[EdgePair(inEdge, outEdge)];
-	}
-	std::vector<EdgePair> sortedConnections;
-	for (auto& edgeCount : edges)
-	{
-		sortedConnections.push_back(edgeCount.first);
-	}
-	std::sort(sortedConnections.begin(), sortedConnections.end(),
-			  [&edges](const EdgePair& e1, const EdgePair& e2)
-			  {return edges[e1] > edges[e2];});
-
-	std::unordered_set<FastaRecord::Id> usedInEdges;
-	std::unordered_set<FastaRecord::Id> usedOutEdges;
-	int totalLinks = 0;
-	std::vector<GraphPath> uniquePaths;
-
-	for (auto& edgePair : sortedConnections)
-	{
-		if (!edgePair.first->edgeId.strand()) continue;	//only forward strand
-
-		//
-		int32_t coverage = 0;
-		for (auto& conn : sortedConnections)
+		if (!inEdgesId.count(inEdge))
 		{
-			if (conn.first == edgePair.first &&
-				!usedOutEdges.count(conn.second->edgeId))
-			{
-				coverage += edges[conn];
-			}
-			if (conn.second == edgePair.second &&
-				!usedInEdges.count(conn.first->edgeId))
-			{
-				coverage += edges[conn];
-			}
+			inEdgesId[inEdge] = nextInId;
+			inIdToEdge[nextInId++] = inEdge;
 		}
-		float confidence = 2.0f * edges[edgePair] / coverage;
-		//
-
-		if (!usedInEdges.count(edgePair.first->edgeId) &&
-			!usedOutEdges.count(edgePair.second->edgeId) &&
-			confidence > MIN_CONFIDENCE)
+		if (!outEdgesId.count(outEdge))
 		{
+			outEdgesId[outEdge] = nextOutId;
+			outIdToEdge[nextOutId++] = outEdge;
+		}
+	}
 
-			Logger::get().debug() << "\tConnection " 
-				<< edgePair.first->seqSegments.front().seqId
-				<< "\t" << edgePair.first->seqSegments.front().end << "\t"
-				<< edgePair.second->seqSegments.front().seqId
-				<< "\t" << edgePair.second->seqSegments.front().start
-				<< "\t" << edges[edgePair]
-				<< "\t" << confidence;
+	size_t numNodes = std::max(inEdgesId.size(), outEdgesId.size());
+	BipartieTable table;
+	table.assign(numNodes, std::vector<double>(numNodes, 0));
+	for (auto& conn : connections)
+	{
+		GraphEdge* inEdge = conn.path.front();
+		GraphEdge* outEdge = conn.path.back();
+		if (inEdge->edgeId == outEdge->edgeId ||
+			inEdge->edgeId == outEdge->edgeId.rc()) continue;
 
-			usedInEdges.insert(edgePair.first->edgeId);
-			usedInEdges.insert(edgePair.second->edgeId.rc());
-			usedOutEdges.insert(edgePair.second->edgeId);
-			usedOutEdges.insert(edgePair.first->edgeId.rc());
-			totalLinks += 2;
+		//solving min cost mathcing
+		--table[inEdgesId[inEdge]][outEdgesId[outEdge]];
+	}
+	auto edges = bipartieMincost(table);
+	std::vector<GraphPath> uniquePaths;
+	int totalLinks = 0;
 
-			//TODO: get a path of median length instead, not just the first one?
-			for (auto& conn : connections)
+	const float MIN_SUPPORT = 0.75f;
+	std::unordered_set<FastaRecord::Id> usedEdges;
+	for (size_t i = 0; i < edges.size(); ++i)
+	{
+		GraphEdge* inEdge = inIdToEdge[i];
+		GraphEdge* outEdge = outIdToEdge[edges[i]];
+
+		int support = -table[i][edges[i]];
+		//float confidence = 2.0f * support / (inCoverage[inEdge] + 
+		//									 outCoverage[outEdge]);
+		float confidence = std::max((float)support / inCoverage[inEdge], +
+									(float)support / outCoverage[outEdge]);
+		if (!support) continue;
+		if (usedEdges.count(inEdge->edgeId)) continue;
+		usedEdges.insert(outEdge->edgeId.rc());
+
+		Logger::get().debug() << "\tConnection " 
+			<< inEdge->seqSegments.front().seqId
+			<< "\t" << inEdge->seqSegments.front().end << "\t"
+			<< outEdge->seqSegments.front().seqId
+			<< "\t" << outEdge->seqSegments.front().start
+			<< "\t" << support << "\t" << confidence;
+
+		if (support < MIN_SUPPORT) continue;
+
+		totalLinks += 2;
+		for (auto& conn : connections)
+		{
+			if (conn.path.front() == inEdge && 
+				conn.path.back() == outEdge)
 			{
-				if (conn.path.front() == edgePair.first && 
-					conn.path.back() == edgePair.second)
-				{
-					uniquePaths.push_back(conn.path);
-					break;
-				}
+				uniquePaths.push_back(conn.path);
+				break;
 			}
 		}
 	}
@@ -1192,6 +1186,10 @@ void RepeatGraph::resolveRepeats()
 	}
 
 	this->resolveConnections(readConnections);
+
+	//this->unrollLoops();
+	//this->condenceEdges();
+	//this->updateEdgesMultiplicity();
 }
 
 

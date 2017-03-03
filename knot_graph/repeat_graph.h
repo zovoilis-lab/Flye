@@ -127,8 +127,9 @@ private:
 	void getRepeatClusters(const OverlapContainer& ovlps);
 	void initializeEdges();
 	void trimTips();
-	void removeLoops();
+	void unrollLoops();
 	void condenceEdges();
+	void updateEdgesMultiplicity();
 
 	//resolving
 	void resolveConnections(const std::vector<Connection>& conns);
