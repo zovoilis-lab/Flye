@@ -143,7 +143,7 @@ private:
 	////////////////////////////////////////////////////////////////
 
 	const int _maxSeparation = 500;
-	const int _readJump = 500;
+	const int _readJump = 1500;
 	const int _readOverhang = 500;
 
 	const SequenceContainer& _asmSeqs;

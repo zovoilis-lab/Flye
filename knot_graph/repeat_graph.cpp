@@ -988,98 +988,112 @@ void RepeatGraph::resolveConnections(const std::vector<Connection>& connections)
 	{
 		++stats[conn.path.front()][conn.path.back()];
 	}
-	for (auto& inEdge : stats)
+	for (auto& leftEdge : stats)
 	{
-		Logger::get().debug() << "For " << inEdge.first->edgeId << " "
-			<< inEdge.first->seqSegments.front().seqId << " "
-			<< inEdge.first->seqSegments.front().end;
+		Logger::get().debug() << "For " << leftEdge.first->edgeId << " "
+			<< leftEdge.first->seqSegments.front().seqId << " "
+			<< leftEdge.first->seqSegments.front().end;
 		
-		for (auto& outEdge : inEdge.second)
+		for (auto& rightEdge : leftEdge.second)
 		{
-			Logger::get().debug() << "\t" << outEdge.first->edgeId << " "
-				<< outEdge.first->seqSegments.front().seqId << " "
-				<< outEdge.first->seqSegments.front().start << " " << outEdge.second;
+			Logger::get().debug() << "\t" << rightEdge.first->edgeId << " "
+				<< rightEdge.first->seqSegments.front().seqId << " "
+				<< rightEdge.first->seqSegments.front().start << " " 
+				<< rightEdge.second;
 		}
 		Logger::get().debug() << "";
 	}
 	///////////
-	std::unordered_map<GraphEdge*, int> inCoverage;
-	std::unordered_map<GraphEdge*, int> outCoverage;
+	std::unordered_map<GraphEdge*, int> leftCoverage;
+	std::unordered_map<GraphEdge*, int> rightCoverage;
 	
 	//create bipartie graph matrix
-	std::unordered_map<GraphEdge*, size_t> inEdgesId;
-	std::unordered_map<size_t, GraphEdge*> inIdToEdge;
-	size_t nextInId = 0;
-	std::unordered_map<GraphEdge*, size_t> outEdgesId;
-	std::unordered_map<size_t, GraphEdge*> outIdToEdge;
-	size_t nextOutId = 0;
+	std::unordered_map<GraphEdge*, size_t> leftEdgesId;
+	std::unordered_map<size_t, GraphEdge*> leftIdToEdge;
+	size_t nextLeftId = 0;
+	std::unordered_map<GraphEdge*, size_t> rightEdgesId;
+	std::unordered_map<size_t, GraphEdge*> rightIdToEdge;
+	size_t nextRightId = 0;
 
 	for (auto& conn : connections)
 	{
-		GraphEdge* inEdge = conn.path.front();
-		GraphEdge* outEdge = conn.path.back();
-		++inCoverage[inEdge];
-		++outCoverage[outEdge];
+		GraphEdge* leftEdge = conn.path.front();
+		GraphEdge* rightEdge = conn.path.back();
+		++leftCoverage[leftEdge];
+		++rightCoverage[rightEdge];
 
-		if (!inEdgesId.count(inEdge))
+		if (!leftEdgesId.count(leftEdge))
 		{
-			inEdgesId[inEdge] = nextInId;
-			inIdToEdge[nextInId++] = inEdge;
+			leftEdgesId[leftEdge] = nextLeftId;
+			leftIdToEdge[nextLeftId++] = leftEdge;
 		}
-		if (!outEdgesId.count(outEdge))
+		if (!rightEdgesId.count(rightEdge))
 		{
-			outEdgesId[outEdge] = nextOutId;
-			outIdToEdge[nextOutId++] = outEdge;
+			rightEdgesId[rightEdge] = nextRightId;
+			rightIdToEdge[nextRightId++] = rightEdge;
 		}
 	}
 
-	size_t numNodes = std::max(inEdgesId.size(), outEdgesId.size());
+	size_t numNodes = std::max(leftEdgesId.size(), rightEdgesId.size());
 	BipartieTable table;
 	table.assign(numNodes, std::vector<double>(numNodes, 0));
 	for (auto& conn : connections)
 	{
-		GraphEdge* inEdge = conn.path.front();
-		GraphEdge* outEdge = conn.path.back();
-		if (inEdge->edgeId == outEdge->edgeId ||
-			inEdge->edgeId == outEdge->edgeId.rc()) continue;
+		GraphEdge* leftEdge = conn.path.front();
+		GraphEdge* rightEdge = conn.path.back();
+		if (leftEdge->edgeId == rightEdge->edgeId ||
+			leftEdge->edgeId == rightEdge->edgeId.rc()) continue;
 
 		//solving min cost mathcing
-		--table[inEdgesId[inEdge]][outEdgesId[outEdge]];
+		--table[leftEdgesId[leftEdge]][rightEdgesId[rightEdge]];
 	}
 	auto edges = bipartieMincost(table);
-	std::vector<GraphPath> uniquePaths;
-	int totalLinks = 0;
-
-	const float MIN_SUPPORT = 0.75f;
-	std::unordered_set<FastaRecord::Id> usedEdges;
+	typedef std::pair<size_t, size_t> MatchPair;
+	std::vector<MatchPair> matchingPairs;
 	for (size_t i = 0; i < edges.size(); ++i)
 	{
-		GraphEdge* inEdge = inIdToEdge[i];
-		GraphEdge* outEdge = outIdToEdge[edges[i]];
+		matchingPairs.emplace_back(i, edges[i]);
+	}
+	//std::sort(matchingPairs.begin(), matchingPairs.end(), 
+	//		[&table, &edges](MatchPair m1, MatchPair m2)
+	//		{return table[m1.first][m1.second] < table[m2.first][m2.second];});
 
-		int support = -table[i][edges[i]];
-		//float confidence = 2.0f * support / (inCoverage[inEdge] + 
-		//									 outCoverage[outEdge]);
-		float confidence = std::max((float)support / inCoverage[inEdge], +
-									(float)support / outCoverage[outEdge]);
+	const float MIN_SUPPORT = 0.5f;
+	std::unordered_set<FastaRecord::Id> usedEdges;
+	std::vector<GraphPath> uniquePaths;
+	int totalLinks = 0;
+	for (auto match : matchingPairs)
+	{
+		GraphEdge* leftEdge = leftIdToEdge[match.first];
+		GraphEdge* rightEdge = rightIdToEdge[match.second];
+
+		int support = -table[match.first][match.second];
+		float confidence = 2.0f * support / (leftCoverage[leftEdge] + 
+											 rightCoverage[rightEdge]);
 		if (!support) continue;
-		if (usedEdges.count(inEdge->edgeId)) continue;
-		usedEdges.insert(outEdge->edgeId.rc());
+		if (usedEdges.count(leftEdge->edgeId)) continue;
+		usedEdges.insert(rightEdge->edgeId.rc());
 
 		Logger::get().debug() << "\tConnection " 
-			<< inEdge->seqSegments.front().seqId
-			<< "\t" << inEdge->seqSegments.front().end << "\t"
-			<< outEdge->seqSegments.front().seqId
-			<< "\t" << outEdge->seqSegments.front().start
+			<< leftEdge->seqSegments.front().seqId
+			<< "\t" << leftEdge->seqSegments.front().end << "\t"
+			<< rightEdge->seqSegments.front().seqId
+			<< "\t" << rightEdge->seqSegments.front().start
 			<< "\t" << support << "\t" << confidence;
 
 		if (support < MIN_SUPPORT) continue;
 
 		totalLinks += 2;
+		//for (size_t otherId = 0; otherId < table.size(); ++otherId)
+		//{
+			//rightCoverage[rightIdToEdge[otherId]] += table[match.first][otherId];
+			//leftCoverage[leftIdToEdge[otherId]] += table[otherId][match.second];
+		//}
+
 		for (auto& conn : connections)
 		{
-			if (conn.path.front() == inEdge && 
-				conn.path.back() == outEdge)
+			if (conn.path.front() == leftEdge && 
+				conn.path.back() == rightEdge)
 			{
 				uniquePaths.push_back(conn.path);
 				break;
