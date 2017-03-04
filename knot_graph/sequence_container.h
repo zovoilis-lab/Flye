@@ -26,6 +26,8 @@ struct FastaRecord
 			{return !(_id % 2);}
 		size_t hash() const 
 			{return 0x9ddfea08eb382d69ULL * (size_t)_id;}
+		int signedId() const
+			{return (_id % 2) ? -((int)_id + 1) / 2 : (int)_id / 2 + 1;}
 
 		friend std::ostream& operator << (std::ostream& stream, const Id& id)
 		{

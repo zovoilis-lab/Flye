@@ -534,6 +534,7 @@ void RepeatGraph::initializeEdges()
 
 		if (seqEdgesPair.second.size() != _gluePoints[complId].size())
 		{
+			std::cout << seqEdgesPair.second.size() << " " << _gluePoints[complId].size() << std::endl;
 			throw std::runtime_error("Graph is not symmetric");
 		}
 
@@ -1294,17 +1295,17 @@ void RepeatGraph::outputDot(const std::string& filename,
 
 					fout << "\"" << nodeToId(traversed.front()->nodeLeft) 
 						 << "\" -> \"" << nodeToId(traversed.back()->nodeRight)
-						 << "\" [label = \"" << edgeId << " ("
-						 << traversed.front()->multiplicity << ") "
-						 << edgeLength << "\", color = \"" 
+						 << "\" [label = \"" << edgeId.signedId() << 
+						 " " << edgeLength << " (" 
+						 << traversed.front()->multiplicity << ")\", color = \"" 
 						 << color << "\" " << " penwidth = 3] ;\n";
 				}
 				else
 				{
 					fout << "\"" << nodeToId(traversed.front()->nodeLeft) 
 						 << "\" -> \"" << nodeToId(traversed.back()->nodeRight)
-						 << "\" [label = \"" << pathToId(traversed) << " "
-						 << edgeLength << "\", color = \"black\"] ;\n";
+						 << "\" [label = \"" << pathToId(traversed).signedId() 
+						 << " " << edgeLength << "\", color = \"black\"] ;\n";
 				}
 			}
 			else
@@ -1318,16 +1319,16 @@ void RepeatGraph::outputDot(const std::string& filename,
 
 						fout << "\"" << nodeToId(edge->nodeLeft) 
 							 << "\" -> \"" << nodeToId(edge->nodeRight)
-							 << "\" [label = \"" << edgeId << " ("
-							 << edge->multiplicity << ") "
-							 << edge->length() << "\", color = \"" 
+							 << "\" [label = \"" << edgeId.signedId() 
+							 << " " << edge->length() << " ("
+							 << edge->multiplicity << ")" << "\", color = \"" 
 							 << color << "\" " << " penwidth = 3] ;\n";
 					}
 					else
 					{
 						fout << "\"" << nodeToId(edge->nodeLeft) 
 							 << "\" -> \"" << nodeToId(edge->nodeRight)
-							 << "\" [label = \"" << edge->edgeId << " "
+							 << "\" [label = \"" << edge->edgeId.signedId() << " "
 							 << edge->length() << "\", color = \"black\"] ;\n";
 					}
 				}
