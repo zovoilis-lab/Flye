@@ -24,7 +24,7 @@ struct GraphEdge
 	GraphEdge(GraphNode* nodeLeft, GraphNode* nodeRight, 
 			  FastaRecord::Id edgeId):
 		nodeLeft(nodeLeft), nodeRight(nodeRight), 
-		edgeId(edgeId), multiplicity(0)
+		edgeId(edgeId), multiplicity(0), selfComplement(false)
 		{}
 
 	bool isRepetitive() {return multiplicity > 1;}
@@ -49,6 +49,7 @@ struct GraphEdge
 	FastaRecord::Id edgeId;
 	std::vector<SequenceSegment> seqSegments;
 	int multiplicity;
+	bool selfComplement;
 };
 
 struct GraphNode

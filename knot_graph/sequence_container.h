@@ -101,7 +101,7 @@ public:
 		{return _seqIndex;}
 	const std::string& getSeq(FastaRecord::Id readId) const
 		{return _seqIndex.at(readId).sequence;}
-	size_t seqLen(FastaRecord::Id readId) const
+	int32_t seqLen(FastaRecord::Id readId) const
 		{return _seqIndex.at(readId).sequence.length();}
 	std::string seqName(FastaRecord::Id readId) const
 		{return _seqIndex.at(readId).description;}

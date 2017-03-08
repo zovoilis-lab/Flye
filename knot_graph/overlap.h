@@ -47,12 +47,12 @@ struct OverlapRange
 		comp.rightShift = -comp.rightShift;
 
 		std::swap(comp.curBegin, comp.curEnd);
-		comp.curBegin = curLen - comp.curBegin;
-		comp.curEnd = curLen - comp.curEnd;
+		comp.curBegin = curLen - comp.curBegin - 1;
+		comp.curEnd = curLen - comp.curEnd - 1;
 
 		std::swap(comp.extBegin, comp.extEnd);
-		comp.extBegin = extLen - comp.extBegin;
-		comp.extEnd = extLen - comp.extEnd;
+		comp.extBegin = extLen - comp.extBegin - 1;
+		comp.extEnd = extLen - comp.extEnd - 1;
 
 		comp.curId = comp.curId.rc();
 		comp.extId = comp.extId.rc();
