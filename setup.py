@@ -24,6 +24,7 @@ setup(name='abruijn',
       license='BSD-3-Clause',
       packages=['abruijn'],
       package_data={'abruijn': ['resource/*.mat']},
-      scripts = ['bin/abruijn-assemble', 'bin/abruijn-polish', 'bin/abruijn'],
+      scripts = ['bin/abruijn-assemble', 'bin/abruijn-polish',
+                 'bin/abruijn-repeat', 'bin/abruijn'],
       cmdclass={'build': MakeBuild}
       )

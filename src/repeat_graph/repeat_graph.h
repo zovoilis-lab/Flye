@@ -4,8 +4,8 @@
 
 #pragma once
 
-#include "sequence_container.h"
-#include "overlap.h"
+#include "../sequence/sequence_container.h"
+#include "../sequence/overlap.h"
 
 struct SequenceSegment
 {

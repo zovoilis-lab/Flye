@@ -5,11 +5,11 @@
 #include <iostream>
 #include <getopt.h>
 
-#include "vertex_index.h"
-#include "sequence_container.h"
-#include "overlap.h"
+#include "../sequence/vertex_index.h"
+#include "../sequence/sequence_container.h"
+#include "../sequence/overlap.h"
+#include "../sequence/config.h"
 #include "logger.h"
-#include "config.h"
 #include "repeat_graph.h"
 
 bool parseArgs(int argc, char** argv, std::string& readsFasta, 

@@ -3,10 +3,10 @@
 //Released under the BSD license (see LICENSE file)
 
 
+#include "../sequence/overlap.h"
+#include "../sequence/vertex_index.h"
+#include "../sequence/config.h"
 #include "repeat_graph.h"
-#include "overlap.h"
-#include "vertex_index.h"
-#include "config.h"
 #include "disjoint_set.h"
 #include "bipartie_mincost.h"
 
