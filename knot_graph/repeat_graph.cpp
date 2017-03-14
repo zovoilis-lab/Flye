@@ -155,10 +155,9 @@ void RepeatGraph::unrollLoops()
 			itEdge->nodeLeft->outEdges.size() == 2 &&
 			itEdge->nodeLeft->neighbors().size() == 3) 	//including itself
 		{
-			Logger::get().debug() << itEdge->edgeId;
 			if (unrollEdge(*itEdge))
 			{
-				Logger::get().debug() << "Unroll!";
+				Logger::get().debug() << "Unroll " << itEdge->edgeId.signedId();
 				vecRemove(itEdge->nodeLeft->inEdges, &(*itEdge));
 				vecRemove(itEdge->nodeLeft->outEdges, &(*itEdge));
 				itEdge = _graphEdges.erase(itEdge);
@@ -556,7 +555,7 @@ void RepeatGraph::initializeEdges()
 				edgeId = edge->edgeId;
 			}
 			std::string unique = !repetitive ? "*" : " ";
-			Logger::get().debug() << unique << "\t" << edgeId << "\t" 
+			Logger::get().debug() << unique << "\t" << edgeId.signedId() << "\t" 
 								  << gpLeft.seqId << "\t"
 								  << gpLeft.position << "\t" 
 								  << gpRight.position << "\t"
@@ -682,6 +681,7 @@ void RepeatGraph::trimTips()
 {
 	const int THRESHOLD = 1500;
 
+	int trimmed = 0;
 	for (auto itEdge = _graphEdges.begin(); itEdge != _graphEdges.end();)
 	{
 		int prevDegree = itEdge->nodeLeft->inEdges.size();
@@ -695,7 +695,8 @@ void RepeatGraph::trimTips()
 			vecRemove(itEdge->nodeRight->inEdges, &(*itEdge));
 			vecRemove(itEdge->nodeLeft->outEdges, &(*itEdge));
 			itEdge = _graphEdges.erase(itEdge);
-			Logger::get().debug() << "Chop!";
+
+			++trimmed;
 
 			//label all adjacent repetitive edges
 			std::unordered_set<GraphNode*> visited;
@@ -710,7 +711,8 @@ void RepeatGraph::trimTips()
 
 				for (auto& edge : node->inEdges) 
 				{
-					if (edge->isRepetitive())
+					if (edge->isRepetitive() &&
+						edge->nodeLeft != edge->nodeRight)
 					{
 						_outdatedEdges.insert(edge->edgeId);
 						queue.push_back(edge->nodeLeft);
@@ -718,7 +720,8 @@ void RepeatGraph::trimTips()
 				}
 				for (auto& edge : node->outEdges) 
 				{
-					if (edge->isRepetitive())
+					if (edge->isRepetitive() &&
+						edge->nodeLeft != edge->nodeRight)
 					{
 						_outdatedEdges.insert(edge->edgeId);
 						queue.push_back(edge->nodeRight);
@@ -732,6 +735,8 @@ void RepeatGraph::trimTips()
 			++itEdge;
 		}
 	}
+
+	Logger::get().debug() << trimmed << " tips removed";
 }
 
 void RepeatGraph::condenceEdges()
@@ -778,10 +783,10 @@ void RepeatGraph::condenceEdges()
 								 FastaRecord::Id(_nextEdgeId++));
 		std::copy(growingSeqs.begin(), growingSeqs.end(),
 				  std::back_inserter(_graphEdges.back().seqSegments));
-		_graphEdges.back().multiplicity = growingSeqs.size();
+		_graphEdges.back().multiplicity = std::max((int)growingSeqs.size(), 2);
 		_graphEdges.back().nodeLeft->outEdges.push_back(&_graphEdges.back());
 		_graphEdges.back().nodeRight->inEdges.push_back(&_graphEdges.back());
-		Logger::get().debug() << "Added " << _graphEdges.back().edgeId;
+		Logger::get().debug() << "Added " << _graphEdges.back().edgeId.signedId();
 		///
 		_outdatedEdges.insert(_graphEdges.back().edgeId);
 		
@@ -790,9 +795,11 @@ void RepeatGraph::condenceEdges()
 		{
 			if (toRemove.count(&(*itEdge)))
 			{
-				Logger::get().debug() << "Removed " << itEdge->edgeId;
+				Logger::get().debug() << "Removed " << itEdge->edgeId.signedId();
 				vecRemove(itEdge->nodeRight->inEdges, &(*itEdge));
 				vecRemove(itEdge->nodeLeft->outEdges, &(*itEdge));
+				_outdatedEdges.erase(itEdge->edgeId);
+
 				itEdge = _graphEdges.erase(itEdge);
 			}
 			else
@@ -845,59 +852,68 @@ void RepeatGraph::updateEdgesMultiplicity()
 	while (anyChanges)
 	{
 		anyChanges = false;
-		for (auto& edge : _graphEdges)
+		for (auto& node : _graphNodes)
 		{
-			if (!_outdatedEdges.count(edge.edgeId)) continue;
-			if (edge.nodeLeft == edge.nodeRight) continue;
-
-			//check beginning
-			bool allReliable = true;
+			int numUnknown = 0;
+			bool isOut = false;
 			int inDegree = 0;
 			int outDegree = 0;
-			for (auto& otherEdge : edge.nodeLeft->outEdges)
-			{
-				if (otherEdge->edgeId == edge.edgeId) continue;
-				if (otherEdge->nodeLeft == otherEdge->nodeRight) continue;
+			GraphEdge* unknownEdge = nullptr;
 
-				if (!_outdatedEdges.count(otherEdge->edgeId))
+			for (auto& outEdge : node.outEdges)
+			{
+				if (outEdge->nodeLeft == outEdge->nodeRight) continue;
+
+				if (!_outdatedEdges.count(outEdge->edgeId))
 				{
-					outDegree += otherEdge->multiplicity;
+					outDegree += outEdge->multiplicity;
 				}
 				else
 				{
-					allReliable = false;
-					break;
+					++numUnknown;
+					unknownEdge = outEdge;
+					isOut = true;
 				}
 			}
-			for (auto& otherEdge : edge.nodeLeft->inEdges)
+			for (auto& inEdge : node.inEdges)
 			{
-				if (otherEdge->nodeLeft == otherEdge->nodeRight) continue;
+				if (inEdge->nodeLeft == inEdge->nodeRight) continue;
 
-				if (!_outdatedEdges.count(otherEdge->edgeId))
+				if (!_outdatedEdges.count(inEdge->edgeId))
 				{
-					inDegree += otherEdge->multiplicity;
+					inDegree += inEdge->multiplicity;
 				}
 				else
 				{
-					allReliable = false;
-					break;
+					++numUnknown;
+					unknownEdge = inEdge;
+					isOut = false;
 				}
 			}
+			int newMultiplicity = isOut ? inDegree - outDegree : 
+										  outDegree - inDegree;
 
-			if (allReliable)
+			if (numUnknown == 1)
 			{
-				Logger::get().debug() << "Updated: " << edge.edgeId << " " 
-									  << edge.multiplicity 
-									  << " " << inDegree - outDegree;
+				Logger::get().debug() << "Updated: " 
+					<< unknownEdge->edgeId.signedId() << " " 
+					<< unknownEdge->multiplicity 
+					<< " " << newMultiplicity;
 
-				GraphEdge* complEdge = this->complementPath({&edge}).front();
-				edge.multiplicity = inDegree - outDegree;
-				complEdge->multiplicity = inDegree - outDegree;
-				_outdatedEdges.erase(edge.edgeId);
+				GraphEdge* complEdge = this->complementPath({unknownEdge}).front();
+				unknownEdge->multiplicity = newMultiplicity;
+				complEdge->multiplicity = newMultiplicity;
+				_outdatedEdges.erase(unknownEdge->edgeId);
 				_outdatedEdges.erase(complEdge->edgeId);
 				anyChanges = true;
 			}
 		}
+	}
+
+	Logger::get().debug() << _outdatedEdges.size() << " edges were not updated!";
+	for (auto edge : _outdatedEdges)
+	{
+		Logger::get().debug() << edge.signedId();
 	}
 }
 
@@ -1041,9 +1057,6 @@ void RepeatGraph::resolveConnections(const std::vector<Connection>& connections)
 	{
 		matchingPairs.emplace_back(i, edges[i]);
 	}
-	//std::sort(matchingPairs.begin(), matchingPairs.end(), 
-	//		[&table, &edges](MatchPair m1, MatchPair m2)
-	//		{return table[m1.first][m1.second] < table[m2.first][m2.second];});
 
 	const float MIN_SUPPORT = 0.5f;
 	std::unordered_set<FastaRecord::Id> usedEdges;
@@ -1071,12 +1084,6 @@ void RepeatGraph::resolveConnections(const std::vector<Connection>& connections)
 		if (support < MIN_SUPPORT) continue;
 
 		totalLinks += 2;
-		//for (size_t otherId = 0; otherId < table.size(); ++otherId)
-		//{
-			//rightCoverage[rightIdToEdge[otherId]] += table[match.first][otherId];
-			//leftCoverage[leftIdToEdge[otherId]] += table[otherId][match.second];
-		//}
-
 		for (auto& conn : connections)
 		{
 			if (conn.path.front() == leftEdge && 
@@ -1278,6 +1285,7 @@ void RepeatGraph::outputDot(const std::string& filename,
 				{
 					FastaRecord::Id edgeId = pathToId(traversed);
 					std::string color = idToColor(edgeId);
+					//std::string color = _outdatedEdges.count(edgeId) ? "red" : "green";
 
 					fout << "\"" << nodeToId(traversed.front()->nodeLeft) 
 						 << "\" -> \"" << nodeToId(traversed.back()->nodeRight)
@@ -1302,6 +1310,7 @@ void RepeatGraph::outputDot(const std::string& filename,
 					{
 						FastaRecord::Id edgeId = edge->edgeId;
 						std::string color = idToColor(edgeId);
+						//std::string color = _outdatedEdges.count(edgeId) ? "red" : "green";
 
 						fout << "\"" << nodeToId(edge->nodeLeft) 
 							 << "\" -> \"" << nodeToId(edge->nodeRight)
