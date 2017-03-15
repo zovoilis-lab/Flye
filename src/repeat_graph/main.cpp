@@ -13,6 +13,7 @@
 #include "logger.h"
 #include "repeat_graph.h"
 #include "graph_processing.h"
+#include "repeat_resolver.h"
 
 bool parseArgs(int argc, char** argv, std::string& readsFasta, 
 			   std::string& outAssembly, std::string& logFile, std::string& inAssembly,
@@ -146,7 +147,7 @@ int main(int argc, char** argv)
 		SequenceContainer seqReads;
 		seqReads.readFasta(readsFasta);
 
-		RepeatGraph rg(seqAssembly, seqReads);
+		RepeatGraph rg(seqAssembly);
 		rg.build();
 		rg.outputDot(outAssembly + "_before.dot", false);
 
@@ -154,9 +155,11 @@ int main(int argc, char** argv)
 		proc.simplify();
 		rg.outputDot(outAssembly + "_simplified.dot", false);
 
-		rg.resolveRepeats();
+		RepeatResolver resolver(rg, seqAssembly, seqReads);
+		resolver.resolveRepeats();
 		rg.outputDot(outAssembly + "_after.dot", false);
 		rg.outputDot(outAssembly + "_condensed.dot", true);
+
 		return 0;
 
 	}

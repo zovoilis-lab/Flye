@@ -6,15 +6,8 @@
 
 #include "graph_processing.h"
 #include "logger.h"
+#include "utils.h"
 
-namespace
-{
-	template<class T>
-	void vecRemove(std::vector<T>& v, T val)
-	{
-		v.erase(std::remove(v.begin(), v.end(), val), v.end()); 
-	}
-}
 
 void GraphProcessor::unrollLoops()
 {

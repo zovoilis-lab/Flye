@@ -74,16 +74,15 @@ typedef std::vector<GraphEdge*> GraphPath;
 class RepeatGraph
 {
 public:
-	RepeatGraph(const SequenceContainer& asmSeqs,
-				const SequenceContainer& readSeqs):
-		_asmSeqs(asmSeqs), _readSeqs(readSeqs), _nextEdgeId(0)
+	RepeatGraph(const SequenceContainer& asmSeqs):
+		_asmSeqs(asmSeqs), _nextEdgeId(0)
 	{}
 
 	void build();
-	void resolveRepeats();
 	void outputDot(const std::string& filename, bool collapseRepeats);
 
 	friend class GraphProcessor;	//temporary
+	friend class RepeatResolver;
 
 private:
 	struct GluePoint
@@ -110,48 +109,23 @@ private:
 		int32_t end;
 	};
 
-	struct EdgeAlignment
-	{
-		OverlapRange overlap;
-		GraphEdge* edge;
-		SequenceSegment* segment;
-	};
-
-	struct Connection
-	{
-		GraphPath path;
-		int32_t leftOverlap;
-		int32_t rightOverlap;
-	};
+	GraphPath complementPath(const GraphPath& path);
 
 	void getGluepoints(const OverlapContainer& ovlps);
 	void getRepeatClusters(const OverlapContainer& ovlps);
 	void initializeEdges();
-	GraphPath complementPath(const GraphPath& path);
-	
-	//resolving
-	void resolveConnections(const std::vector<Connection>& conns);
 	bool isRepetitive(GluePoint gpLeft, GluePoint gpRight);
-	size_t separatePath(const GraphPath& path, size_t startId);
-	std::vector<EdgeAlignment> 
-		chainReadAlignments(const SequenceContainer& edgeSeqs,
-							std::vector<EdgeAlignment> ovlps);
-	////////////////////////////////////////////////////////////////
-
+	
 	const int _maxSeparation = 500;
-	const int _readJump = 1500;
-	const int _readOverhang = 500;
 
 	const SequenceContainer& _asmSeqs;
-	const SequenceContainer& _readSeqs;
 
 	std::unordered_map<FastaRecord::Id, 
 					   std::vector<GluePoint>> _gluePoints;
-	std::list<GraphNode> _graphNodes;
-	std::list<GraphEdge> _graphEdges;
-
 	std::unordered_map<FastaRecord::Id, 
 					   std::vector<RepeatCluster>> _repeatClusters;
+	std::list<GraphNode> _graphNodes;
+	std::list<GraphEdge> _graphEdges;
 
 	size_t _nextEdgeId;
 };
