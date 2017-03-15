@@ -154,10 +154,10 @@ size_t RepeatResolver::separatePath(const GraphPath& graphPath, size_t startId)
 	}*/
 
 	//first edge
-	_graph._graphNodes.emplace_back();
+	GraphNode* newNode = _graph.addNode();
 	vecRemove(graphPath.front()->nodeRight->inEdges, graphPath.front());
-	graphPath.front()->nodeRight = &_graph._graphNodes.back();
-	GraphNode* prevNode = &_graph._graphNodes.back();
+	graphPath.front()->nodeRight = newNode;
+	GraphNode* prevNode = newNode;
 	prevNode->inEdges.push_back(graphPath.front());
 
 	//repetitive edges in the middle
@@ -166,18 +166,17 @@ size_t RepeatResolver::separatePath(const GraphPath& graphPath, size_t startId)
 	{
 		--graphPath[i]->multiplicity;
 
-		_graph._graphNodes.emplace_back();
-		GraphNode* nextNode = &_graph._graphNodes.back();
+		GraphNode* nextNode = _graph.addNode();
 
-		_graph._graphEdges.emplace_back(prevNode, nextNode, 
-								 FastaRecord::Id(startId));
-		_graph._graphEdges.back().seqSegments = graphPath[i]->seqSegments;
-		_graph._graphEdges.back().multiplicity = 1;
+		GraphEdge* newEdge = _graph.addEdge(GraphEdge(prevNode, nextNode, 
+								 			FastaRecord::Id(startId)));
+		newEdge->seqSegments = graphPath[i]->seqSegments;
+		newEdge->multiplicity = 1;
 		startId += 2;
 		edgesAdded += 1;
 
-		prevNode->outEdges.push_back(&_graph._graphEdges.back());
-		nextNode->inEdges.push_back(&_graph._graphEdges.back());
+		prevNode->outEdges.push_back(newEdge);
+		nextNode->inEdges.push_back(newEdge);
 		prevNode = nextNode;
 	}
 
@@ -323,16 +322,16 @@ void RepeatResolver::resolveRepeats()
 	SequenceContainer pathsContainer;
 
 	size_t nextSeqId = 0;
-	for (auto& edge : _graph._graphEdges)
+	for (auto& edge : _graph.iterEdges())
 	{
-		for (auto& segment : edge.seqSegments)
+		for (auto& segment : edge->seqSegments)
 		{
 			size_t len = segment.end - segment.start;
 			std::string sequence = _asmSeqs.getSeq(segment.seqId)
 												.substr(segment.start, len);
 			pathsContainer.addSequence(FastaRecord(sequence, "",
 												   FastaRecord::Id(nextSeqId)));
-			idToSegment[FastaRecord::Id(nextSeqId)] = {&edge, &segment};
+			idToSegment[FastaRecord::Id(nextSeqId)] = {edge, &segment};
 			++nextSeqId;
 		}
 	}
@@ -342,7 +341,7 @@ void RepeatResolver::resolveRepeats()
 	pathsIndex.countKmers(1);
 	pathsIndex.buildIndex(1, 5000, 1);
 	OverlapDetector readsOverlapper(pathsContainer, pathsIndex, 
-									_readJump, _graph._maxSeparation, 0);
+									_readJump, _maxSeparation, 0);
 	OverlapContainer readsContainer(readsOverlapper, _readSeqs);
 	readsContainer.findAllOverlaps();
 

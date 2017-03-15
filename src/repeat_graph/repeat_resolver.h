@@ -38,6 +38,7 @@ private:
 
 	const int _readJump = 1500;
 	const int _readOverhang = 500;
+	const int _maxSeparation = 500;
 
 	RepeatGraph& _graph;
 

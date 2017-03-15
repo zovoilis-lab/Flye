@@ -328,8 +328,7 @@ void RepeatGraph::initializeEdges()
 	{
 		if (!nodeIndex.count(nodeId))
 		{
-			_graphNodes.emplace_back();
-			nodeIndex[nodeId] = &_graphNodes.back();
+			nodeIndex[nodeId] = this->addNode();
 		}
 		return nodeIndex[nodeId];
 	};
@@ -340,14 +339,14 @@ void RepeatGraph::initializeEdges()
 		GraphNode* leftNode = idToNode(gpLeft.pointId);
 		GraphNode* rightNode = idToNode(gpRight.pointId);
 
-		_graphEdges.emplace_back(leftNode, rightNode, 
-								 FastaRecord::Id(_nextEdgeId));
-		leftNode->outEdges.push_back(&_graphEdges.back());
-		rightNode->inEdges.push_back(&_graphEdges.back());
+		GraphEdge* newEdge = this->addEdge(GraphEdge(leftNode, rightNode, 
+										   FastaRecord::Id(_nextEdgeId)));
+		leftNode->outEdges.push_back(newEdge);
+		rightNode->inEdges.push_back(newEdge);
 		++_nextEdgeId;
 
-		_graphEdges.back().addSequence(gpLeft.seqId, gpLeft.position, 
-									   gpRight.position);
+		newEdge->addSequence(gpLeft.seqId, gpLeft.position, 
+							 gpRight.position);
 	};
 
 	auto addRepeat = [&idToNode, this, &repeatEdges]
@@ -358,15 +357,14 @@ void RepeatGraph::initializeEdges()
 
 		if (!repeatEdges.count({leftNode, rightNode}))
 		{
-			_graphEdges.emplace_back(leftNode, rightNode, 
-									 FastaRecord::Id(_nextEdgeId));
-			leftNode->outEdges.push_back(&_graphEdges.back());
-			rightNode->inEdges.push_back(&_graphEdges.back());
+			GraphEdge* newEdge = this->addEdge(GraphEdge(leftNode, rightNode, 
+											   FastaRecord::Id(_nextEdgeId)));
+			leftNode->outEdges.push_back(newEdge);
+			rightNode->inEdges.push_back(newEdge);
 			++_nextEdgeId;
 			if (selfComplement) ++_nextEdgeId;
 
-			repeatEdges[std::make_pair(leftNode, rightNode)] = 
-												&_graphEdges.back();
+			repeatEdges[std::make_pair(leftNode, rightNode)] = newEdge;
 		}
 
 		GraphEdge* edge = repeatEdges[std::make_pair(leftNode, rightNode)];
@@ -440,12 +438,12 @@ void RepeatGraph::initializeEdges()
 GraphPath RepeatGraph::complementPath(const GraphPath& path)
 {
 	std::unordered_map<FastaRecord::Id, GraphEdge*> idToEdge;
-	for (auto& edge : _graphEdges) 
+	for (auto& edge : this->iterEdges()) 
 	{
-		idToEdge[edge.edgeId] = &edge;
-		if (edge.selfComplement)
+		idToEdge[edge->edgeId] = edge;
+		if (edge->selfComplement)
 		{
-			idToEdge[edge.edgeId.rc()] = &edge;
+			idToEdge[edge->edgeId.rc()] = edge;
 		}
 	}
 
@@ -507,11 +505,11 @@ void RepeatGraph::outputDot(const std::string& filename,
 	};
 	/////////////
 
-	for (auto& node : _graphNodes)
+	for (auto& node : this->iterNodes())
 	{
-		if (!node.isBifurcation()) continue;
+		if (!node->isBifurcation()) continue;
 
-		for (auto& direction : node.outEdges)
+		for (auto& direction : node->outEdges)
 		{
 
 			GraphNode* curNode = direction->nodeRight;

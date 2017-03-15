@@ -83,47 +83,44 @@ void GraphProcessor::unrollLoops()
 		}
 	};
 
-	for (auto itEdge = _graph._graphEdges.begin(); 
-		 itEdge != _graph._graphEdges.end();)
+	std::unordered_set<GraphEdge*> toRemove;
+	for (GraphEdge* edge : _graph.iterEdges())
 	{
-		if (itEdge->nodeLeft == itEdge->nodeRight &&
-			itEdge->nodeLeft->inEdges.size() == 2 &&
-			itEdge->nodeLeft->outEdges.size() == 2 &&
-			itEdge->nodeLeft->neighbors().size() == 3) 	//including itself
+		if (edge->nodeLeft == edge->nodeRight &&
+			edge->nodeLeft->inEdges.size() == 2 &&
+			edge->nodeLeft->outEdges.size() == 2 &&
+			edge->nodeLeft->neighbors().size() == 3) 	//including itself
 		{
-			if (unrollEdge(*itEdge))
+			if (unrollEdge(*edge))
 			{
-				Logger::get().debug() << "Unroll " << itEdge->edgeId.signedId();
-				vecRemove(itEdge->nodeLeft->inEdges, &(*itEdge));
-				vecRemove(itEdge->nodeLeft->outEdges, &(*itEdge));
-				itEdge = _graph._graphEdges.erase(itEdge);
-				continue;
+				Logger::get().debug() << "Unroll " << edge->edgeId.signedId();
+				vecRemove(edge->nodeLeft->inEdges, edge);
+				vecRemove(edge->nodeLeft->outEdges, edge);
+				toRemove.insert(edge);
 			}
 		}
-		++itEdge;
 	}
+
+	for (auto edge : toRemove)	{_graph.removeEdge(edge);};
 }
 
 void GraphProcessor::trimTips()
 {
 
-	int trimmed = 0;
-	for (auto itEdge = _graph._graphEdges.begin(); 
-		 itEdge != _graph._graphEdges.end();)
+	std::unordered_set<GraphEdge*> toRemove;
+	for (GraphEdge* edge : _graph.iterEdges())
 	{
-		int prevDegree = itEdge->nodeLeft->inEdges.size();
-		int nextDegree = itEdge->nodeRight->outEdges.size();
-		if (itEdge->length() < _tipThreshold && 
+		int prevDegree = edge->nodeLeft->inEdges.size();
+		int nextDegree = edge->nodeRight->outEdges.size();
+		if (edge->length() < _tipThreshold && 
 			(prevDegree == 0 || nextDegree == 0))
 		{
-			GraphNode* toFix = (prevDegree != 0) ? itEdge->nodeLeft : 
-								itEdge->nodeRight;
+			GraphNode* toFix = (prevDegree != 0) ? edge->nodeLeft : 
+								edge->nodeRight;
 			//remove the edge
-			vecRemove(itEdge->nodeRight->inEdges, &(*itEdge));
-			vecRemove(itEdge->nodeLeft->outEdges, &(*itEdge));
-			itEdge = _graph._graphEdges.erase(itEdge);
-
-			++trimmed;
+			vecRemove(edge->nodeRight->inEdges, edge);
+			vecRemove(edge->nodeLeft->outEdges, edge);
+			toRemove.insert(edge);
 
 			//label all adjacent repetitive edges
 			std::unordered_set<GraphNode*> visited;
@@ -155,15 +152,11 @@ void GraphProcessor::trimTips()
 					}
 				}
 			}
-			///
-		}
-		else
-		{
-			++itEdge;
 		}
 	}
 
-	Logger::get().debug() << trimmed << " tips removed";
+	Logger::get().debug() << toRemove.size() << " tips removed";
+	for (auto edge : toRemove)	{_graph.removeEdge(edge);};
 }
 
 void GraphProcessor::condenceEdges()
@@ -205,22 +198,19 @@ void GraphProcessor::condenceEdges()
 		}
 
 		///New edge
-		_graph._graphEdges.emplace_back(edges.front()->nodeLeft,
-								 edges.back()->nodeRight,
-								 FastaRecord::Id(_graph._nextEdgeId++));
+		GraphEdge* newEdge = _graph.addEdge(GraphEdge(edges.front()->nodeLeft,
+								 		edges.back()->nodeRight,
+								 		FastaRecord::Id(_graph._nextEdgeId++)));
 		std::copy(growingSeqs.begin(), growingSeqs.end(),
-				  std::back_inserter(_graph._graphEdges.back().seqSegments));
-		_graph._graphEdges.back().multiplicity = 
-								std::max((int)growingSeqs.size(), 2);
-		_graph._graphEdges.back().nodeLeft->outEdges
-								.push_back(&_graph._graphEdges.back());
-		_graph._graphEdges.back().nodeRight->inEdges
-								.push_back(&_graph._graphEdges.back());
-		Logger::get().debug() << "Added " 
-						<< _graph._graphEdges.back().edgeId.signedId();
+				  std::back_inserter(newEdge->seqSegments));
+		newEdge->multiplicity = std::max((int)growingSeqs.size(), 2);
+		newEdge->nodeLeft->outEdges.push_back(newEdge);
+		newEdge->nodeRight->inEdges.push_back(newEdge);
+		Logger::get().debug() << "Added " << newEdge->edgeId.signedId();
 		///
-		_outdatedEdges.insert(_graph._graphEdges.back().edgeId);
+		_outdatedEdges.insert(newEdge->edgeId);
 		
+		/*
 		std::unordered_set<GraphEdge*> toRemove(edges.begin(), edges.end());
 		for (auto itEdge = _graph._graphEdges.begin(); 
 			 itEdge != _graph._graphEdges.end(); )
@@ -238,16 +228,25 @@ void GraphProcessor::condenceEdges()
 			{
 				++itEdge;
 			}
+		}*/
+		for (GraphEdge* edge : edges)
+		{
+			Logger::get().debug() << "Removed " << edge->edgeId.signedId();
+			vecRemove(edge->nodeRight->inEdges, edge);
+			vecRemove(edge->nodeLeft->outEdges, edge);
+			_outdatedEdges.erase(edge->edgeId);
+
+			_graph.removeEdge(edge);
 		}
 	};
 
 	std::vector<GraphPath> toCollapse;
 	std::unordered_set<FastaRecord::Id> usedDirections;
-	for (auto& node : _graph._graphNodes)
+	for (auto& node : _graph.iterNodes())
 	{
-		if (!node.isBifurcation()) continue;
+		if (!node->isBifurcation()) continue;
 
-		for (auto& direction : node.outEdges)
+		for (auto& direction : node->outEdges)
 		{
 			if (usedDirections.count(direction->edgeId)) continue;
 			usedDirections.insert(direction->edgeId);
@@ -284,7 +283,7 @@ void GraphProcessor::updateEdgesMultiplicity()
 	while (anyChanges)
 	{
 		anyChanges = false;
-		for (auto& node : _graph._graphNodes)
+		for (auto& node : _graph.iterNodes())
 		{
 			int numUnknown = 0;
 			bool isOut = false;
@@ -292,7 +291,7 @@ void GraphProcessor::updateEdgesMultiplicity()
 			int outDegree = 0;
 			GraphEdge* unknownEdge = nullptr;
 
-			for (auto& outEdge : node.outEdges)
+			for (auto& outEdge : node->outEdges)
 			{
 				if (outEdge->nodeLeft == outEdge->nodeRight) continue;
 
@@ -307,7 +306,7 @@ void GraphProcessor::updateEdgesMultiplicity()
 					isOut = true;
 				}
 			}
-			for (auto& inEdge : node.inEdges)
+			for (auto& inEdge : node->inEdges)
 			{
 				if (inEdge->nodeLeft == inEdge->nodeRight) continue;
 

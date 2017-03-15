@@ -75,14 +75,67 @@ class RepeatGraph
 {
 public:
 	RepeatGraph(const SequenceContainer& asmSeqs):
-		_asmSeqs(asmSeqs), _nextEdgeId(0)
+		 _nextEdgeId(0), _asmSeqs(asmSeqs)
 	{}
 
 	void build();
 	void outputDot(const std::string& filename, bool collapseRepeats);
 
-	friend class GraphProcessor;	//temporary
-	friend class RepeatResolver;
+	//nodes
+	GraphNode* addNode()
+	{
+		GraphNode* node = new GraphNode();
+		_graphNodes.insert(node);
+		return node;
+	}
+
+	class IterNodes
+	{
+	public:
+		IterNodes(RepeatGraph& graph): _graph(graph) {}
+
+		std::unordered_set<GraphNode*>::iterator begin() 
+			{return _graph._graphNodes.begin();}
+		std::unordered_set<GraphNode*>::iterator end() 
+			{return _graph._graphNodes.end();}
+	
+	private:
+		RepeatGraph& _graph;
+	};
+	IterNodes iterNodes() {return IterNodes(*this);}
+	//
+	
+	//edges
+	GraphEdge* addEdge(GraphEdge&& edge)
+	{
+		GraphEdge* newEdge = new GraphEdge(edge);
+		_graphEdges.insert(newEdge);
+		return newEdge;
+	}
+	class IterEdges
+	{
+	public:
+		IterEdges(RepeatGraph& graph): _graph(graph) {}
+
+		std::unordered_set<GraphEdge*>::iterator begin() 
+			{return _graph._graphEdges.begin();}
+		std::unordered_set<GraphEdge*>::iterator end() 
+			{return _graph._graphEdges.end();}
+	
+	private:
+		RepeatGraph& _graph;
+	};
+	IterEdges iterEdges() {return IterEdges(*this);}
+	void removeEdge(GraphEdge* edge)
+	{
+		delete edge;
+		_graphEdges.erase(edge);
+	}
+	//
+
+	GraphPath complementPath(const GraphPath& path);
+
+	size_t _nextEdgeId;
 
 private:
 	struct GluePoint
@@ -109,7 +162,6 @@ private:
 		int32_t end;
 	};
 
-	GraphPath complementPath(const GraphPath& path);
 
 	void getGluepoints(const OverlapContainer& ovlps);
 	void getRepeatClusters(const OverlapContainer& ovlps);
@@ -124,8 +176,7 @@ private:
 					   std::vector<GluePoint>> _gluePoints;
 	std::unordered_map<FastaRecord::Id, 
 					   std::vector<RepeatCluster>> _repeatClusters;
-	std::list<GraphNode> _graphNodes;
-	std::list<GraphEdge> _graphEdges;
 
-	size_t _nextEdgeId;
+	std::unordered_set<GraphNode*> _graphNodes;
+	std::unordered_set<GraphEdge*> _graphEdges;
 };
