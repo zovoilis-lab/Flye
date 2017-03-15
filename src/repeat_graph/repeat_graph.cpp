@@ -6,7 +6,6 @@
 #include "../sequence/overlap.h"
 #include "../sequence/vertex_index.h"
 #include "../sequence/config.h"
-#include "utils.h"
 
 #include "repeat_graph.h"
 #include "disjoint_set.h"
@@ -341,8 +340,6 @@ void RepeatGraph::initializeEdges()
 
 		GraphEdge* newEdge = this->addEdge(GraphEdge(leftNode, rightNode, 
 										   FastaRecord::Id(_nextEdgeId)));
-		leftNode->outEdges.push_back(newEdge);
-		rightNode->inEdges.push_back(newEdge);
 		++_nextEdgeId;
 
 		newEdge->addSequence(gpLeft.seqId, gpLeft.position, 
@@ -359,8 +356,6 @@ void RepeatGraph::initializeEdges()
 		{
 			GraphEdge* newEdge = this->addEdge(GraphEdge(leftNode, rightNode, 
 											   FastaRecord::Id(_nextEdgeId)));
-			leftNode->outEdges.push_back(newEdge);
-			rightNode->inEdges.push_back(newEdge);
 			++_nextEdgeId;
 			if (selfComplement) ++_nextEdgeId;
 

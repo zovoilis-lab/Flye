@@ -36,9 +36,9 @@ private:
 		chainReadAlignments(const SequenceContainer& edgeSeqs,
 							std::vector<EdgeAlignment> ovlps);
 
-	const int _readJump = 1500;
-	const int _readOverhang = 500;
-	const int _maxSeparation = 500;
+	const int _readJump = Constants::maximumJump;
+	const int _readOverhang = Constants::maximumOverhang;
+	const int _maxSeparation = Constants::maxSeparation;
 
 	RepeatGraph& _graph;
 

@@ -30,6 +30,9 @@ namespace Constants
 	const int minExtensionsRate = 10;
 	const int shiftToReadLen = 40;
 	const float minGoodReads = 0.05f;
+
+	//repeat graph
+	const int maxSeparation = 500;
 }
 
 struct Parameters

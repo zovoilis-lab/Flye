@@ -175,8 +175,6 @@ size_t RepeatResolver::separatePath(const GraphPath& graphPath, size_t startId)
 		startId += 2;
 		edgesAdded += 1;
 
-		prevNode->outEdges.push_back(newEdge);
-		nextNode->inEdges.push_back(newEdge);
 		prevNode = nextNode;
 	}
 

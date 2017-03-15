@@ -6,6 +6,8 @@
 
 #include "../sequence/sequence_container.h"
 #include "../sequence/overlap.h"
+#include "../sequence/config.h"
+#include "utils.h"
 #include <list>
 
 struct SequenceSegment
@@ -110,6 +112,8 @@ public:
 	{
 		GraphEdge* newEdge = new GraphEdge(edge);
 		_graphEdges.insert(newEdge);
+		newEdge->nodeLeft->outEdges.push_back(newEdge);
+		newEdge->nodeRight->inEdges.push_back(newEdge);
 		return newEdge;
 	}
 	class IterEdges
@@ -128,8 +132,10 @@ public:
 	IterEdges iterEdges() {return IterEdges(*this);}
 	void removeEdge(GraphEdge* edge)
 	{
-		delete edge;
+		vecRemove(edge->nodeRight->inEdges, edge);
+		vecRemove(edge->nodeLeft->outEdges, edge);
 		_graphEdges.erase(edge);
+		delete edge;
 	}
 	//
 
@@ -162,15 +168,13 @@ private:
 		int32_t end;
 	};
 
-
 	void getGluepoints(const OverlapContainer& ovlps);
 	void getRepeatClusters(const OverlapContainer& ovlps);
 	void initializeEdges();
 	bool isRepetitive(GluePoint gpLeft, GluePoint gpRight);
 	
-	const int _maxSeparation = 500;
-
 	const SequenceContainer& _asmSeqs;
+	const int _maxSeparation = Constants::maxSeparation;
 
 	std::unordered_map<FastaRecord::Id, 
 					   std::vector<GluePoint>> _gluePoints;
