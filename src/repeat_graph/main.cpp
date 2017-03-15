@@ -9,8 +9,10 @@
 #include "../sequence/sequence_container.h"
 #include "../sequence/overlap.h"
 #include "../sequence/config.h"
+
 #include "logger.h"
 #include "repeat_graph.h"
+#include "graph_processing.h"
 
 bool parseArgs(int argc, char** argv, std::string& readsFasta, 
 			   std::string& outAssembly, std::string& logFile, std::string& inAssembly,
@@ -147,8 +149,11 @@ int main(int argc, char** argv)
 		RepeatGraph rg(seqAssembly, seqReads);
 		rg.build();
 		rg.outputDot(outAssembly + "_before.dot", false);
-		rg.simplify();
+
+		GraphProcessor proc(rg);
+		proc.simplify();
 		rg.outputDot(outAssembly + "_simplified.dot", false);
+
 		rg.resolveRepeats();
 		rg.outputDot(outAssembly + "_after.dot", false);
 		rg.outputDot(outAssembly + "_condensed.dot", true);

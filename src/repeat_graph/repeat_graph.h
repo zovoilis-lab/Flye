@@ -6,6 +6,7 @@
 
 #include "../sequence/sequence_container.h"
 #include "../sequence/overlap.h"
+#include <list>
 
 struct SequenceSegment
 {
@@ -68,6 +69,7 @@ struct GraphNode
 	std::vector<GraphEdge*> outEdges;
 };
 
+typedef std::vector<GraphEdge*> GraphPath;
 
 class RepeatGraph
 {
@@ -79,8 +81,9 @@ public:
 
 	void build();
 	void resolveRepeats();
-	void simplify();
 	void outputDot(const std::string& filename, bool collapseRepeats);
+
+	friend class GraphProcessor;	//temporary
 
 private:
 	struct GluePoint
@@ -107,8 +110,6 @@ private:
 		int32_t end;
 	};
 
-	typedef std::vector<GraphEdge*> GraphPath;
-
 	struct EdgeAlignment
 	{
 		OverlapRange overlap;
@@ -123,24 +124,18 @@ private:
 		int32_t rightOverlap;
 	};
 
-	//building
 	void getGluepoints(const OverlapContainer& ovlps);
 	void getRepeatClusters(const OverlapContainer& ovlps);
 	void initializeEdges();
-	void trimTips();
-	void unrollLoops();
-	void condenceEdges();
-	void updateEdgesMultiplicity();
-
+	GraphPath complementPath(const GraphPath& path);
+	
 	//resolving
 	void resolveConnections(const std::vector<Connection>& conns);
 	bool isRepetitive(GluePoint gpLeft, GluePoint gpRight);
 	size_t separatePath(const GraphPath& path, size_t startId);
-	GraphPath complementPath(const GraphPath& path);
 	std::vector<EdgeAlignment> 
 		chainReadAlignments(const SequenceContainer& edgeSeqs,
 							std::vector<EdgeAlignment> ovlps);
-
 	////////////////////////////////////////////////////////////////
 
 	const int _maxSeparation = 500;
@@ -154,7 +149,6 @@ private:
 					   std::vector<GluePoint>> _gluePoints;
 	std::list<GraphNode> _graphNodes;
 	std::list<GraphEdge> _graphEdges;
-	std::unordered_set<FastaRecord::Id> _outdatedEdges;
 
 	std::unordered_map<FastaRecord::Id, 
 					   std::vector<RepeatCluster>> _repeatClusters;
