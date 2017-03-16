@@ -7,11 +7,12 @@
 #include <unordered_set>
 #include <unordered_map>
 
+#include "../sequence/config.h"
 #include "chimera.h"
 #include "logger.h"
-#include "config.h"
 
 
+/*
 void ChimeraDetector::detectChimeras()
 {
 	Logger::get().debug() << "Overlap-estimated coverage: "
@@ -28,8 +29,20 @@ void ChimeraDetector::detectChimeras()
 
 	Logger::get().debug() << _chimeras.size() / 2 
 						  << " sequences were marked as chimeric";
+}*/
+
+bool ChimeraDetector::isChimeric(FastaRecord::Id readId)
+{
+	if (!_chimeras.count(readId))
+	{
+		bool result = this->testReadByCoverage(readId);
+		_chimeras[readId] = result;
+		_chimeras[readId.rc()] = result;
+	}
+	return _chimeras[readId];
 }
 
+/*
 int ChimeraDetector::estimateOverlapCoverage()
 {
 	size_t total = 0;
@@ -38,15 +51,19 @@ int ChimeraDetector::estimateOverlapCoverage()
 		total += _ovlpDetector.getOverlapIndex().at(seqHash.first).size();
 	}
 	return total / _seqContainer.getIndex().size();
-}
+}*/
 
 bool ChimeraDetector::testReadByCoverage(FastaRecord::Id readId)
 {
 	//Logger::get().debug() << _seqContainer.seqName(readId);
 	//self overlaps
-	for (auto& ovlp : _ovlpDetector.getOverlapIndex().at(readId))
+	for (auto& ovlp : _ovlpContainer.getSeqOverlaps(readId))
 	{
-		if (ovlp.curId == ovlp.extId.rc()) return true;
+		if (ovlp.curId == ovlp.extId.rc()) 
+		{
+			Logger::get().debug() << "yes!";
+			return true;
+		}
 	}
 
 	static const int WINDOW = Constants::chimeraWindow;
@@ -58,7 +75,7 @@ bool ChimeraDetector::testReadByCoverage(FastaRecord::Id readId)
 	if (numWindows - 2 * FLANK <= 0) return false;
 
 	coverage.assign(numWindows - 2 * FLANK, 0);
-	for (auto& ovlp : _ovlpDetector.getOverlapIndex().at(readId))
+	for (auto& ovlp : _ovlpContainer.getSeqOverlaps(readId))
 	{
 		if (ovlp.curId == ovlp.extId.rc()) continue;
 

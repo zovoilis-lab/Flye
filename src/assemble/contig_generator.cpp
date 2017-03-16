@@ -6,9 +6,9 @@
 #include <algorithm>
 #include <fstream>
 
+#include "../sequence/config.h"
 #include "contig_generator.h"
 #include "logger.h"
-#include "config.h"
 #include "parallel.h"
 
 
@@ -245,20 +245,25 @@ ContigGenerator::generateAlignments(const ContigPath& path)
 	std::function<void(const AlnTask&)> alnFunc =
 	[this, &alnResults](const AlnTask& aln)
 	{
-		const OverlapRange* readsOvlp = nullptr;
-		for (auto& ovlp : _overlapDetector.getOverlapIndex()
-											.at(std::get<0>(aln)))
+		OverlapRange readsOvlp;
+		bool found = false;
+		for (auto& ovlp : _overlapContainer.getSeqOverlaps(std::get<0>(aln)))
 		{
-			if (ovlp.extId == std::get<1>(aln)) readsOvlp = &ovlp;
+			if (ovlp.extId == std::get<1>(aln)) 
+			{
+				readsOvlp = ovlp;
+				found = true;
+				break;
+			}
 		}
-		if (readsOvlp == nullptr) Logger::get().error() << "Nullptr!";
+		if (!found) throw std::runtime_error("Ovlp not found!");
 
 		std::string leftSeq = _seqContainer.getIndex().at(std::get<0>(aln))
-									.sequence.substr(readsOvlp->curBegin,
-													 readsOvlp->curRange());
+									.sequence.substr(readsOvlp.curBegin,
+													 readsOvlp.curRange());
 		std::string rightSeq = _seqContainer.getIndex().at(std::get<1>(aln))
-									.sequence.substr(readsOvlp->extBegin, 
-													 readsOvlp->extRange());
+									.sequence.substr(readsOvlp.extBegin, 
+													 readsOvlp.extRange());
 
 		const int bandWidth = abs((int)leftSeq.length() - 
 								  (int)rightSeq.length()) + 
@@ -269,8 +274,8 @@ ContigGenerator::generateAlignments(const ContigPath& path)
 						  alignedRight, bandWidth);
 
 		alnResults[std::get<2>(aln)] = {alignedLeft, alignedRight, 
-							  		    readsOvlp->curBegin, 
-										readsOvlp->extBegin};
+							  		    readsOvlp.curBegin, 
+										readsOvlp.extBegin};
 	};
 
 	std::vector<AlnTask> tasks;

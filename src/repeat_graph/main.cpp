@@ -17,72 +17,41 @@
 
 bool parseArgs(int argc, char** argv, std::string& readsFasta, 
 			   std::string& outAssembly, std::string& logFile, std::string& inAssembly,
-			   int& kmerSize, int& minKmer, int& maxKmer, bool& debug,
-			   size_t& numThreads, std::string& overlapsFile, int& minOverlap)
+			   bool& debug, size_t& numThreads)
 {
 	auto printUsage = [argv]()
 	{
 		std::cerr << "Usage: " << argv[0]
 				  << "\tin_assembly reads_file out_assembly \n\t\t\t\t"
-				  << "[-k kmer_size] [-m min_kmer_cov] \n\t\t\t\t"
-				  << "[-x max_kmer_cov] [-l log_file] [-t num_threads] [-d]\n\n"
+				  << "[-l log_file] [-t num_threads] [-d]\n\n"
 				  << "positional arguments:\n"
 				  << "\tin_assembly\tpath to input assembly\n"
 				  << "\treads file\tpath to fasta with reads\n"
 				  << "\tout_assembly\tpath to output assembly\n"
 				  << "\noptional arguments:\n"
-				  << "\t-k kmer_size\tk-mer size [default = 15] \n"
-				  << "\t-m min_kmer_cov\tminimum k-mer coverage "
-				  << "[default = auto] \n"
-				  << "\t-x max_kmer_cov\tmaximum k-mer coverage "
-				  << "[default = auto] \n"
-				  << "\t-v min_overlap\tminimum overlap between reads "
-				  << "[default = 5000] \n"
 				  << "\t-d \t\tenable debug output "
 				  << "[default = false] \n"
 				  << "\t-l log_file\toutput log to file "
-				  << "[default = not set] \n"
-				  << "\t-o ovlp_file\tstore/load overlaps to/from file "
 				  << "[default = not set] \n"
 				  << "\t-t num_threads\tnumber of parallel threads "
 				  << "[default = 1] \n";
 	};
 
-	kmerSize = 15;
-	minKmer = -1;
-	maxKmer = -1;
 	numThreads = 1;
 	debug = false;
 	logFile = "";
-	overlapsFile = "";
-	minOverlap = 5000;
 
-	const char optString[] = "k:m:x:l:t:o:v:hd";
+	const char optString[] = "l:t:hd";
 	int opt = 0;
 	while ((opt = getopt(argc, argv, optString)) != -1)
 	{
 		switch(opt)
 		{
-		case 'k':
-			kmerSize = atoi(optarg);
-			break;
-		case 'm':
-			minKmer = atoi(optarg);
-			break;
-		case 'x':
-			maxKmer = atoi(optarg);
-			break;
 		case 't':
 			numThreads = atoi(optarg);
 			break;
-		case 'v':
-			minOverlap = atoi(optarg);
-			break;
 		case 'l':
 			logFile = optarg;
-			break;
-		case 'o':
-			overlapsFile = optarg;
 			break;
 		case 'd':
 			debug = true;
@@ -112,26 +81,20 @@ bool fileExists(const std::string& path)
 
 int main(int argc, char** argv)
 {
-	int kmerSize = 0;
-	int minKmerCov = 0;
-	int maxKmerCov = 0;
-	int minOverlap = 0;
 	bool debugging = false;
 	size_t numThreads;
 	std::string readsFasta;
 	std::string inAssembly;
 	std::string outAssembly;
 	std::string logFile;
-	std::string overlapsFile;
 
 	if (!parseArgs(argc, argv, readsFasta, outAssembly, logFile, inAssembly,
-				   kmerSize, minKmerCov, maxKmerCov, debugging, numThreads,
-				   overlapsFile, minOverlap)) 
+				   debugging, numThreads)) 
 	{
 		return 1;
 	}
-	Parameters::minimumOverlap = minOverlap;
-	Parameters::kmerSize = kmerSize;
+	Parameters::minimumOverlap = 5000;
+	Parameters::kmerSize = 15;
 	Parameters::numThreads = numThreads;
 
 	try

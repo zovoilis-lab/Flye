@@ -6,9 +6,9 @@
 
 #include <vector>
 
-#include "sequence_container.h"
+#include "../sequence/sequence_container.h"
+#include "../sequence/overlap.h"
 #include "extender.h"
-#include "overlap.h"
 
 #include "matrix.h"
 
@@ -16,19 +16,18 @@ class ContigGenerator
 {
 public:
 	ContigGenerator(const Extender& extender, 
-					const OverlapDetector& overlapDetector):
+					const SequenceContainer& seqContainer,
+	 				const OverlapContainer& overlapContainer):
 		_extender(extender), 
-		_overlapDetector(overlapDetector),
-		_vertexIndex(VertexIndex::get()), 
-		_seqContainer(SequenceContainer::get()) {}
+		_overlapContainer(overlapContainer),
+		_seqContainer(seqContainer) {}
 	
 	void generateContigs();
 	void outputContigs(const std::string& fileName);
 	
 private:
 	const Extender& _extender;
-	const OverlapDetector& _overlapDetector;
-	const VertexIndex& _vertexIndex;
+	const OverlapContainer& _overlapContainer;
 	const SequenceContainer& _seqContainer;
 
 	struct AlignmentInfo

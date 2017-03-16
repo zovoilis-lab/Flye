@@ -7,11 +7,12 @@
 #include <iomanip>
 #include <stack>
 
+#include "../sequence/config.h"
 #include "logger.h"
 #include "extender.h"
-#include "config.h"
 
 
+/*
 namespace
 {
 	int robustStd(const std::vector<int>& shifts)
@@ -45,18 +46,18 @@ namespace
 
 		return _std(inliers);
 	}
-}
+}*/
 
 ContigPath Extender::extendContig(FastaRecord::Id startRead)
 {
 	ContigPath contigPath;
 	FastaRecord::Id curRead = startRead;
-	_chromosomeStart.clear();
-	_overlapsStart = true;
+	//_chromosomeStart.clear();
+	//_overlapsStart = true;
 	_rightExtension = true;
 
 	Logger::get().debug() << "Start Read: " << 
-				_seqContainer.seqName(startRead);
+				_readsContainer.seqName(startRead);
 
 	while(true)
 	{
@@ -78,7 +79,7 @@ ContigPath Extender::extendContig(FastaRecord::Id startRead)
 		if (extRead != FastaRecord::ID_NONE) 
 		{
 			Logger::get().debug() << "Extension: " << 
-				    	_seqContainer.seqName(extRead);
+				    	_readsContainer.seqName(extRead);
 			if (_visitedReads.count(extRead)) 
 				Logger::get().debug() << "Visited globally";
 		}
@@ -135,18 +136,16 @@ void Extender::assembleContigs()
 {
 	Logger::get().info() << "Extending reads";
 
-	/*
 	uint64_t lenSum = 0;
-	for (auto indexPair : _seqContainer.getIndex()) 
+	for (auto indexPair : _readsContainer.getIndex()) 
 	{
-		if (this->countRightExtensions(indexPair.first) > 0)
-		{
-			lenSum += _seqContainer.seqLen(indexPair.first);
-		}
+		//if (this->countRightExtensions(indexPair.first) > 0)
+		//{
+		lenSum += _readsContainer.seqLen(indexPair.first);
+		//}
 	}
-	_minimumShift = lenSum / _seqContainer.getIndex().size() 
+	_minimumShift = lenSum / _readsContainer.getIndex().size() 
 						/ Constants::shiftToReadLen;
-	*/
 
 	//left for debugging
 	//for (auto& indexPair : _seqContainer.getIndex())
@@ -156,16 +155,16 @@ void Extender::assembleContigs()
 	//}
 	//
 
-	//const int MIN_EXTENSIONS = std::max(_coverage / 
-	//									Constants::minExtensionsRate, 1);
+	const int MIN_EXTENSIONS = std::max(_coverage / 
+										Constants::minExtensionsRate, 1);
 	_visitedReads.clear();
-	for (auto& indexPair : _seqContainer.getIndex())
+	for (auto& indexPair : _readsContainer.getIndex())
 	{	
-		if (_visitedReads.count(indexPair.first))
-			//_chimDetector.isChimeric(indexPair.first) ||
-			//this->countRightExtensions(indexPair.first) < MIN_EXTENSIONS ||
-			//this->countRightExtensions(indexPair.first.rc()) < MIN_EXTENSIONS ||
-			//this->isBranching(indexPair.first)) 
+		Logger::get().debug() << _visitedReads.size();
+		if (_visitedReads.count(indexPair.first) ||
+			_chimDetector.isChimeric(indexPair.first) ||
+			this->countRightExtensions(indexPair.first) < MIN_EXTENSIONS ||
+			this->countRightExtensions(indexPair.first.rc()) < MIN_EXTENSIONS)
 		{
 			continue;
 		}
@@ -174,15 +173,11 @@ void Extender::assembleContigs()
 		//marking visited reads
 		for (auto& readId : path.reads)
 		{
-			//if (!this->isBranching(readId) &&
-			//	!this->isBranching(readId.rc()))
-			//{
-				for (auto& ovlp : _ovlpDetector.getOverlapIndex().at(readId))
-				{
-					_visitedReads.insert(ovlp.extId);
-					_visitedReads.insert(ovlp.extId.rc());
-				}
-			//}
+			for (auto& ovlp : _ovlpContainer.getSeqOverlaps(readId))
+			{
+				_visitedReads.insert(ovlp.extId);
+				_visitedReads.insert(ovlp.extId.rc());
+			}
 		}
 
 		if (path.reads.size() >= Constants::minReadsInContig)
@@ -298,7 +293,7 @@ int Extender::rightMultiplicity(FastaRecord::Id readId)
 //makes one extension to the right
 FastaRecord::Id Extender::stepRight(FastaRecord::Id readId)
 {
-	auto& overlaps = _ovlpDetector.getOverlapIndex().at(readId);
+	auto overlaps = _ovlpContainer.getSeqOverlaps(readId);
 	std::vector<OverlapRange> extensions;
 
 	//bool locOverlapsStart = false;
@@ -331,7 +326,8 @@ FastaRecord::Id Extender::stepRight(FastaRecord::Id readId)
 
 	for (auto& ovlp : extensions)
 	{
-		if (this->countRightExtensions(ovlp.extId) > 0) return ovlp.extId;
+		if (!_chimDetector.isChimeric(ovlp.extId) &&
+			this->countRightExtensions(ovlp.extId) > 0) return ovlp.extId;
 	}
 
 	return FastaRecord::ID_NONE;
@@ -465,7 +461,7 @@ bool Extender::majorClusterAgreement(FastaRecord::Id leftRead,
 int Extender::countRightExtensions(FastaRecord::Id readId)
 {
 	int count = 0;
-	for (auto& ovlp : _ovlpDetector.getOverlapIndex().at(readId))
+	for (auto& ovlp : _ovlpContainer.getSeqOverlaps(readId))
 	{
 		if (this->extendsRight(ovlp)) ++count;
 	}
@@ -483,8 +479,7 @@ bool Extender::isBranching(FastaRecord::Id readId)
 
 bool Extender::extendsRight(const OverlapRange& ovlp)
 {
-	return !_chimDetector.isChimeric(ovlp.extId) && 
-		   ovlp.rightShift > Constants::maximumJump;
+	return ovlp.rightShift > Constants::maximumJump;
 }
 
 /*

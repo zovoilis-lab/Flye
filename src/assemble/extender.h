@@ -6,8 +6,8 @@
 
 #include <deque>
 
-#include "sequence_container.h"
-#include "overlap.h"
+#include "../sequence/sequence_container.h"
+#include "../sequence/overlap.h"
 #include "chimera.h"
 
 struct ContigPath
@@ -29,13 +29,13 @@ struct ContigPath
 class Extender
 {
 public:
-	Extender(const OverlapDetector& ovlpDetector, 
-			 const ChimeraDetector& chimDetector,
+	Extender(const SequenceContainer& readsContainer, 
+			 OverlapContainer& ovlpContainer,
 			 int coverage):
-		_ovlpDetector(ovlpDetector), 
-		_chimDetector(chimDetector),
-		_seqContainer(SequenceContainer::get()), 
-		_coverage(coverage)
+		_readsContainer(readsContainer), 
+		_ovlpContainer(ovlpContainer),
+		_coverage(coverage),
+		_chimDetector(coverage, readsContainer, ovlpContainer)
 	{}
 
 	void assembleContigs();
@@ -43,32 +43,32 @@ public:
 		{return _contigPaths;}
 
 private:
-	const OverlapDetector&   _ovlpDetector;
-	const ChimeraDetector&   _chimDetector;
-	const SequenceContainer& _seqContainer;
-	const int _coverage;
+	const SequenceContainer& _readsContainer;
+	OverlapContainer& _ovlpContainer;
+	const int 		  _coverage;
+	ChimeraDetector   _chimDetector;
 
 	FastaRecord::Id stepRight(FastaRecord::Id readId);
 	ContigPath extendContig(FastaRecord::Id startingRead);
 
-	int   rightMultiplicity(FastaRecord::Id readId);
-	bool  isBranching(FastaRecord::Id readId);
+	//int   rightMultiplicity(FastaRecord::Id readId);
+	//bool  isBranching(FastaRecord::Id readId);
 	int   countRightExtensions(FastaRecord::Id readId);
 	bool  extendsRight(const OverlapRange& ovlp);
-	bool  coversRight(const OverlapRange& ovlp);
-	bool  stepAhead(FastaRecord::Id);
-	bool  resolvesRepeat(FastaRecord::Id leftRead, FastaRecord::Id rightRead);
+	//bool  coversRight(const OverlapRange& ovlp);
+	//bool  stepAhead(FastaRecord::Id);
+	//bool  resolvesRepeat(FastaRecord::Id leftRead, FastaRecord::Id rightRead);
 
-	void  coveredReads(const std::unordered_set<FastaRecord::Id>& allReads,
-					   FastaRecord::Id startRead, 
-					   std::unordered_set<FastaRecord::Id>& result);
-	bool majorClusterAgreement(FastaRecord::Id leftRead,
-							   FastaRecord::Id rightRead);
+	//void  coveredReads(const std::unordered_set<FastaRecord::Id>& allReads,
+	//				   FastaRecord::Id startRead, 
+	//				   std::unordered_set<FastaRecord::Id>& result);
+	//bool majorClusterAgreement(FastaRecord::Id leftRead,
+	//						   FastaRecord::Id rightRead);
 
 	std::vector<ContigPath> 				 _contigPaths;
 	std::unordered_set<FastaRecord::Id>		 _visitedReads;
-	std::unordered_set<FastaRecord::Id>		 _chromosomeStart;
-	bool 									 _overlapsStart;
+	//std::unordered_set<FastaRecord::Id>		 _chromosomeStart;
+	//bool 									 _overlapsStart;
 	bool 									 _rightExtension;
 	int 									 _minimumShift;
 	std::unordered_map<FastaRecord::Id, int> _readsMultiplicity;

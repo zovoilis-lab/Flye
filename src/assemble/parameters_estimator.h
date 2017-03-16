@@ -2,15 +2,16 @@
 //This file is a part of ABruijn program.
 //Released under the BSD license (see LICENSE file)
 
-#include "vertex_index.h"
-#include "sequence_container.h"
+#include "../sequence/vertex_index.h"
+#include "../sequence/sequence_container.h"
 
 class ParametersEstimator
 {
 public:
-	ParametersEstimator():
-		_vertexIndex(VertexIndex::get()), 
-		_seqContainer(SequenceContainer::get())
+	ParametersEstimator(const SequenceContainer& seqContainer,
+						const VertexIndex& vertexIndex):
+		_vertexIndex(vertexIndex), 
+		_seqContainer(seqContainer)
 	{}
 
 	int estimateMinKmerCount(int coverage, int upperCutoff);

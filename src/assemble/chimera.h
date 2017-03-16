@@ -4,34 +4,31 @@
 
 #pragma once
 
-#include "overlap.h"
-#include "sequence_container.h"
-#include <unordered_set>
+#include "../sequence/overlap.h"
+#include "../sequence/sequence_container.h"
+#include <unordered_map>
 
 class ChimeraDetector
 {
 public:
 	ChimeraDetector(int coverage,
-					const OverlapDetector& ovlpDetector):
-		_ovlpDetector(ovlpDetector), 
-		_seqContainer(SequenceContainer::get()),
+					const SequenceContainer& readContainer,
+					const OverlapContainer& ovlpContainer):
+		_ovlpContainer(ovlpContainer), 
+		_seqContainer(readContainer),
 		_coverage(coverage)
 	{}
 
-	void detectChimeras();
-	bool isChimeric(FastaRecord::Id readId) const
-		{return _chimeras.count(readId) != 0;}
+	bool isChimeric(FastaRecord::Id readId);
 	int getCoverage() const {return _coverage;}
 
 private:
-	int  estimateOverlapCoverage();
+	//int  estimateOverlapCoverage();
 	bool testReadByCoverage(FastaRecord::Id readId);
-	bool testReadByClusters(FastaRecord::Id readId);
-	bool testSelfOverlap(FastaRecord::Id readId);
 
-	const OverlapDetector& _ovlpDetector;
+	const OverlapContainer& _ovlpContainer;
 	const SequenceContainer& _seqContainer;
 
-	std::unordered_set<FastaRecord::Id> _chimeras;
+	std::unordered_map<FastaRecord::Id, bool> _chimeras;
 	float _coverage;
 };

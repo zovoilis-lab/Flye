@@ -12,17 +12,9 @@ export CXXFLAGS = -I${LIBCUCKOO} -I${INCLUDE}
 
 all: 
 	make release -C src
-	make release -C ${ASSEMBLE}
-	make release -C ${POLISH}
 profile:
 	make profile -C src
-	make profile -C ${POLISH}
-	make profile -C ${ASSEMBLE}
 debug:
 	make debug -C src
-	make debug -C ${ASSEMBLE}
-	make debug -C ${POLISH}
 clean: 
 	make clean -C src
-	make clean -C ${POLISH}
-	make clean -C ${ASSEMBLE}

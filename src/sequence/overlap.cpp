@@ -94,7 +94,7 @@ OverlapDetector::getSeqOverlaps(const std::string& sequence,
 					   std::vector<OverlapRange>> activePaths;
 	std::set<size_t> eraseMarks;
 	size_t curLen = sequence.length();
-	//std::vector<KmerPosition> solidKmersCache;
+	std::vector<KmerPosition> solidKmersCache;
 
 	//for all kmers in this read
 	for (auto curKmerPos : IterKmers(sequence))
@@ -102,7 +102,7 @@ OverlapDetector::getSeqOverlaps(const std::string& sequence,
 		if (!_vertexIndex.isSolid(curKmerPos.kmer)) continue;
 
 		int32_t curPos = curKmerPos.position;
-		//solidKmersCache.push_back(curKmerPos);
+		solidKmersCache.push_back(curKmerPos);
 
 		//for all other occurences of this kmer (extension candidates)
 		for (const auto& extReadPos : _vertexIndex.byKmer(curKmerPos.kmer))
@@ -182,7 +182,8 @@ OverlapDetector::getSeqOverlaps(const std::string& sequence,
 			}
 			//if no extensions possible (or there are no active paths), start a new path
 			if (!extendsClose && !extendsFar &&
-				this->goodStart(curPos, extPos, curLen, extLen))
+				(this->goodStart(curPos, extPos, curLen, extLen) ||
+				idTrivial == extReadPos.readId.rc()))	//TODO: temporary bypass overhang
 			{
 				extPaths.emplace_back(FastaRecord::ID_NONE, extReadPos.readId,
 									  curPos, extPos);
@@ -205,6 +206,7 @@ OverlapDetector::getSeqOverlaps(const std::string& sequence,
 		{
 			if (this->overlapTest(ovlp, curLen, extLen))
 			{
+				this->addOverlapShifts(ovlp, solidKmersCache, curLen, extLen);
 				detectedOverlaps.push_back(ovlp);
 			}
 		}
@@ -301,7 +303,7 @@ void OverlapContainer::loadOverlaps(const std::string& filename)
 	}
 }
 
-/*
+
 namespace
 {
 	template<typename T>
@@ -315,6 +317,7 @@ namespace
 		return vec[vec.size() / 2];
 	}
 }
+
 
 void OverlapDetector::addOverlapShifts(OverlapRange& ovlp,
 									   const std::vector<KmerPosition>& 
@@ -341,4 +344,4 @@ void OverlapDetector::addOverlapShifts(OverlapRange& ovlp,
 
 	ovlp.leftShift = median(ovlpShifts);
 	ovlp.rightShift = extLen - curLen + ovlp.leftShift;
-}*/
+}

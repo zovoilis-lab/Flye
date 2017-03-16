@@ -5,15 +5,15 @@
 #include <iostream>
 #include <getopt.h>
 
-#include "vertex_index.h"
-#include "sequence_container.h"
-#include "overlap.h"
+#include "../sequence/vertex_index.h"
+#include "../sequence/sequence_container.h"
+#include "../sequence/overlap.h"
+#include "../sequence/config.h"
 #include "chimera.h"
 #include "extender.h"
 #include "contig_generator.h"
 #include "parameters_estimator.h"
 #include "logger.h"
-#include "config.h"
 
 bool parseArgs(int argc, char** argv, std::string& readsFasta, 
 			   std::string& outAssembly, std::string& logFile, int& coverage,
@@ -139,16 +139,16 @@ int main(int argc, char** argv)
 		Logger::get().setDebugging(debugging);
 		if (!logFile.empty()) Logger::get().setOutputFile(logFile);
 
-		SequenceContainer& seqContainer = SequenceContainer::get();
+		SequenceContainer readsContainer;
 		Logger::get().debug() << "Build date: " << __DATE__ << " " << __TIME__;
 		Logger::get().debug() << "Reading FASTA";
-		seqContainer.readFasta(readsFasta);
-		VertexIndex& vertexIndex = VertexIndex::get();
+		readsContainer.readFasta(readsFasta);
+		VertexIndex vertexIndex(readsContainer);
 	
 		//rough estimate
 		size_t hardThreshold = std::max(1, coverage / 
 										Constants::hardMinCoverageRate);
-		vertexIndex.countKmers(seqContainer, hardThreshold);
+		vertexIndex.countKmers(hardThreshold);
 
 		if (maxKmerCov == -1)
 		{
@@ -156,13 +156,18 @@ int main(int argc, char** argv)
 		}
 		if (minKmerCov == -1)
 		{
-			ParametersEstimator estimator;
+			ParametersEstimator estimator(readsContainer, vertexIndex);
 			minKmerCov = estimator.estimateMinKmerCount(coverage, maxKmerCov);
 		}
 
-		vertexIndex.buildIndex(minKmerCov, maxKmerCov);
+		vertexIndex.buildIndex(minKmerCov, maxKmerCov, 1);
 
-		OverlapDetector ovlp(coverage);
+		OverlapDetector ovlp(readsContainer, vertexIndex,
+							 Constants::maximumJump, Parameters::minimumOverlap,
+							 Constants::maximumOverhang);
+		OverlapContainer readOverlaps(ovlp, readsContainer);
+
+		/*
 		if (overlapsFile.empty())
 		{
 			ovlp.findAllOverlaps();
@@ -181,15 +186,15 @@ int main(int argc, char** argv)
 				ovlp.saveOverlaps(overlapsFile);
 			}
 		}
-		vertexIndex.clear();
+		vertexIndex.clear();*/
 
-		ChimeraDetector chimDetect(coverage, ovlp);
-		chimDetect.detectChimeras();
+		//ChimeraDetector chimDetect(coverage, readsContainer, readOverlaps);
+		//chimDetect.detectChimeras();
 
-		Extender extender(ovlp, chimDetect, coverage);
+		Extender extender(readsContainer, readOverlaps, coverage);
 		extender.assembleContigs();
 
-		ContigGenerator contGen(extender, ovlp);
+		ContigGenerator contGen(extender, readsContainer, readOverlaps);
 		contGen.generateContigs();
 		contGen.outputContigs(outAssembly);
 	}
