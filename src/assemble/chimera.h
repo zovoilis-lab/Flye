@@ -13,9 +13,9 @@ class ChimeraDetector
 public:
 	ChimeraDetector(int coverage,
 					const SequenceContainer& readContainer,
-					const OverlapContainer& ovlpContainer):
-		_ovlpContainer(ovlpContainer), 
+					OverlapContainer& ovlpContainer):
 		_seqContainer(readContainer),
+		_ovlpContainer(ovlpContainer), 
 		_coverage(coverage)
 	{}
 
@@ -26,8 +26,8 @@ private:
 	//int  estimateOverlapCoverage();
 	bool testReadByCoverage(FastaRecord::Id readId);
 
-	const OverlapContainer& _ovlpContainer;
 	const SequenceContainer& _seqContainer;
+	OverlapContainer& _ovlpContainer;
 
 	std::unordered_map<FastaRecord::Id, bool> _chimeras;
 	float _coverage;

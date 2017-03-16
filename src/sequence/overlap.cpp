@@ -69,7 +69,7 @@ bool OverlapDetector::overlapTest(const OverlapRange& ovlp, int32_t curLen,
 		return false;
 	}
 
-	if (_checkOverhang)
+	if (_checkOverhang && ovlp.curId != ovlp.extId.rc())
 	{
 		if (std::min(ovlp.curBegin, ovlp.extBegin) > 
 			_maxOverhang) 
@@ -87,17 +87,17 @@ bool OverlapDetector::overlapTest(const OverlapRange& ovlp, int32_t curLen,
 }
 
 std::vector<OverlapRange> 
-OverlapDetector::getSeqOverlaps(const std::string& sequence,
-								FastaRecord::Id idTrivial) const
+OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec, 
+								bool uniqueExtensions) const
 {
 	std::unordered_map<FastaRecord::Id, 
 					   std::vector<OverlapRange>> activePaths;
 	std::set<size_t> eraseMarks;
-	size_t curLen = sequence.length();
+	size_t curLen = fastaRec.sequence.length();
 	std::vector<KmerPosition> solidKmersCache;
 
 	//for all kmers in this read
-	for (auto curKmerPos : IterKmers(sequence))
+	for (auto curKmerPos : IterKmers(fastaRec.sequence))
 	{
 		if (!_vertexIndex.isSolid(curKmerPos.kmer)) continue;
 
@@ -114,7 +114,7 @@ OverlapDetector::getSeqOverlaps(const std::string& sequence,
 			}
 
 			//no trivial matches
-			if (extReadPos.readId == idTrivial &&
+			if (extReadPos.readId == fastaRec.id &&
 				extReadPos.position == curPos) continue;
 
 			size_t extLen = _seqContainer.seqLen(extReadPos.readId);
@@ -183,9 +183,9 @@ OverlapDetector::getSeqOverlaps(const std::string& sequence,
 			//if no extensions possible (or there are no active paths), start a new path
 			if (!extendsClose && !extendsFar &&
 				(this->goodStart(curPos, extPos, curLen, extLen) ||
-				idTrivial == extReadPos.readId.rc()))	//TODO: temporary bypass overhang
+				fastaRec.id == extReadPos.readId.rc()))	//TODO: temporary bypass overhang
 			{
-				extPaths.emplace_back(FastaRecord::ID_NONE, extReadPos.readId,
+				extPaths.emplace_back(fastaRec.id, extReadPos.readId,
 									  curPos, extPos);
 			}
 			//cleaning up
@@ -202,18 +202,59 @@ OverlapDetector::getSeqOverlaps(const std::string& sequence,
 	for (auto& ap : activePaths)
 	{
 		size_t extLen = _seqContainer.seqLen(ap.first);
+		OverlapRange maxOverlap;
+		bool passedTest = false;
 		for (auto& ovlp : ap.second)
 		{
 			if (this->overlapTest(ovlp, curLen, extLen))
 			{
-				this->addOverlapShifts(ovlp, solidKmersCache, curLen, extLen);
-				detectedOverlaps.push_back(ovlp);
+				if (!uniqueExtensions)
+				{
+					this->addOverlapShifts(ovlp, solidKmersCache, 
+										   curLen, extLen);
+					detectedOverlaps.push_back(ovlp);
+				}
+				else
+				{
+					passedTest = true;
+					if (ovlp.curRange() > maxOverlap.curRange())
+					{
+						maxOverlap = ovlp;
+					}
+				}
 			}
+		}
+		if (uniqueExtensions && passedTest)
+		{
+			this->addOverlapShifts(maxOverlap, solidKmersCache, curLen, extLen);
+			detectedOverlaps.push_back(maxOverlap);
 		}
 	}
 
 	return detectedOverlaps;
 
+}
+
+std::vector<OverlapRange> 
+OverlapContainer::getSeqOverlaps(FastaRecord::Id readId, 
+								 bool uniqueExtensions)
+{
+	if (!_overlapIndex.count(readId))
+	{
+		const FastaRecord& record = _queryContainer.getIndex().at(readId);
+		auto overlaps = _ovlpDetect.getSeqOverlaps(record, uniqueExtensions);
+		std::vector<OverlapRange> complOverlaps;
+
+		for (auto& ovlp : overlaps)
+		{
+			int32_t extLen = _queryContainer.seqLen(ovlp.extId);
+			complOverlaps.push_back(ovlp.complement(record.sequence.length(), 
+													extLen));
+		}
+		_overlapIndex[record.id] = std::move(overlaps);
+		_overlapIndex[record.id.rc()] = std::move(complOverlaps);
+	}
+	return _overlapIndex[readId];
 }
 
 void OverlapContainer::findAllOverlaps()
@@ -229,13 +270,12 @@ void OverlapContainer::findAllOverlaps()
 	std::function<void(const FastaRecord::Id&)> indexUpdate = 
 	[this, &indexMutex] (const FastaRecord::Id& seqId)
 	{
-		const std::string& seq = _queryContainer.getSeq(seqId);
-		auto overlaps = _ovlpDetect.getSeqOverlaps(seq, seqId);
+		auto& fastaRec = _queryContainer.getIndex().at(seqId);
+		auto overlaps = _ovlpDetect.getSeqOverlaps(fastaRec, false);
 
 		indexMutex.lock();
 		for (auto& ovlp : overlaps)
 		{
-			ovlp.curId = seqId;
 			_overlapIndex[seqId].push_back(ovlp);
 		}
 		indexMutex.unlock();

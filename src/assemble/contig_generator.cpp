@@ -247,7 +247,9 @@ ContigGenerator::generateAlignments(const ContigPath& path)
 	{
 		OverlapRange readsOvlp;
 		bool found = false;
-		for (auto& ovlp : _overlapContainer.getSeqOverlaps(std::get<0>(aln)))
+		FastaRecord::Id idLeft = std::get<0>(aln);
+		FastaRecord::Id idRight = std::get<1>(aln);
+		for (auto& ovlp : _overlapContainer.getSeqOverlaps(idLeft, true))
 		{
 			if (ovlp.extId == std::get<1>(aln)) 
 			{
@@ -258,10 +260,10 @@ ContigGenerator::generateAlignments(const ContigPath& path)
 		}
 		if (!found) throw std::runtime_error("Ovlp not found!");
 
-		std::string leftSeq = _seqContainer.getIndex().at(std::get<0>(aln))
+		std::string leftSeq = _seqContainer.getIndex().at(idLeft)
 									.sequence.substr(readsOvlp.curBegin,
 													 readsOvlp.curRange());
-		std::string rightSeq = _seqContainer.getIndex().at(std::get<1>(aln))
+		std::string rightSeq = _seqContainer.getIndex().at(idRight)
 									.sequence.substr(readsOvlp.extBegin, 
 													 readsOvlp.extRange());
 

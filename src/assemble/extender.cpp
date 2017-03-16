@@ -160,7 +160,6 @@ void Extender::assembleContigs()
 	_visitedReads.clear();
 	for (auto& indexPair : _readsContainer.getIndex())
 	{	
-		Logger::get().debug() << _visitedReads.size();
 		if (_visitedReads.count(indexPair.first) ||
 			_chimDetector.isChimeric(indexPair.first) ||
 			this->countRightExtensions(indexPair.first) < MIN_EXTENSIONS ||
@@ -173,7 +172,7 @@ void Extender::assembleContigs()
 		//marking visited reads
 		for (auto& readId : path.reads)
 		{
-			for (auto& ovlp : _ovlpContainer.getSeqOverlaps(readId))
+			for (auto& ovlp : _ovlpContainer.getSeqOverlaps(readId, true))
 			{
 				_visitedReads.insert(ovlp.extId);
 				_visitedReads.insert(ovlp.extId.rc());
@@ -293,7 +292,7 @@ int Extender::rightMultiplicity(FastaRecord::Id readId)
 //makes one extension to the right
 FastaRecord::Id Extender::stepRight(FastaRecord::Id readId)
 {
-	auto overlaps = _ovlpContainer.getSeqOverlaps(readId);
+	auto overlaps = _ovlpContainer.getSeqOverlaps(readId, true);
 	std::vector<OverlapRange> extensions;
 
 	//bool locOverlapsStart = false;
@@ -320,9 +319,14 @@ FastaRecord::Id Extender::stepRight(FastaRecord::Id readId)
 		}
 	}
 
+	int64_t sum = 0;
+	for (auto& ovlp : extensions) sum += ovlp.rightShift;
+	int32_t meanShift = !extensions.empty() ? sum / extensions.size() : 0;
+
 	std::sort(extensions.begin(), extensions.end(), 
-			  [](const OverlapRange& a, const OverlapRange& b)
-			  	 {return a.curRange() > b.curRange();});
+			  [meanShift](const OverlapRange& a, const OverlapRange& b)
+			  	 {return abs(a.rightShift - meanShift) < 
+				 		 abs(b.rightShift - meanShift);});
 
 	for (auto& ovlp : extensions)
 	{
@@ -461,7 +465,7 @@ bool Extender::majorClusterAgreement(FastaRecord::Id leftRead,
 int Extender::countRightExtensions(FastaRecord::Id readId)
 {
 	int count = 0;
-	for (auto& ovlp : _ovlpContainer.getSeqOverlaps(readId))
+	for (auto& ovlp : _ovlpContainer.getSeqOverlaps(readId, true))
 	{
 		if (this->extendsRight(ovlp)) ++count;
 	}

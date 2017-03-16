@@ -17,18 +17,18 @@ class ContigGenerator
 public:
 	ContigGenerator(const Extender& extender, 
 					const SequenceContainer& seqContainer,
-	 				const OverlapContainer& overlapContainer):
+	 				OverlapContainer& overlapContainer):
 		_extender(extender), 
-		_overlapContainer(overlapContainer),
-		_seqContainer(seqContainer) {}
+		_seqContainer(seqContainer),
+		_overlapContainer(overlapContainer) {}
 	
 	void generateContigs();
 	void outputContigs(const std::string& fileName);
 	
 private:
 	const Extender& _extender;
-	const OverlapContainer& _overlapContainer;
 	const SequenceContainer& _seqContainer;
+	OverlapContainer& _overlapContainer;
 
 	struct AlignmentInfo
 	{

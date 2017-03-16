@@ -117,8 +117,7 @@ public:
 	{}
 
 	std::vector<OverlapRange> 
-	getSeqOverlaps(const std::string& sequence,
-				   FastaRecord::Id idTrivial = FastaRecord::ID_NONE) const;
+	getSeqOverlaps(const FastaRecord& fastaRec, bool uniqueExtensions) const;
 
 private:
 	enum JumpRes {J_END, J_INCONS, J_CLOSE, J_FAR};
@@ -161,24 +160,16 @@ public:
 	void loadOverlaps(const std::string& filename);
 
 	void findAllOverlaps();
+	std::vector<OverlapRange> getSeqOverlaps(FastaRecord::Id readId, 
+											 bool uniqueExtensions);
 	const OverlapIndex& getOverlapIndex() const {return _overlapIndex;}
 
-	std::vector<OverlapRange> getSeqOverlaps(FastaRecord::Id readId) const
-	{
-		if (!_overlapIndex.count(readId))
-		{
-			const std::string& sequence = _queryContainer.getSeq(readId);
-			_overlapIndex[readId] = _ovlpDetect.getSeqOverlaps(sequence, 
-															   readId);
-		}
-		return _overlapIndex[readId];
-	}
 
 private:
 
 	const OverlapDetector& _ovlpDetect;
 	const SequenceContainer& _queryContainer;
 
-	mutable OverlapIndex _overlapIndex;
+	OverlapIndex _overlapIndex;
 	//cuckoohash_map<FastaRecord::IdPair, bool> _overlapMatrix;
 };

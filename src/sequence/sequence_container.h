@@ -119,4 +119,5 @@ private:
 	void 	validateHeader(std::string& header);
 
 	SequenceIndex _seqIndex;
+	static size_t g_nextSeqId;
 };

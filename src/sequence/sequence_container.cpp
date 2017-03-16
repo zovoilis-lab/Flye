@@ -8,6 +8,8 @@
 
 #include "sequence_container.h"
 
+size_t SequenceContainer::g_nextSeqId = 0;
+
 namespace
 {
 	class ParseException : public std::runtime_error 
@@ -72,7 +74,6 @@ size_t SequenceContainer::getSequences(std::vector<FastaRecord>& record,
 
 	int line = 1;
 	record.clear();
-	int seqNum = 0;
 
 	try
 	{
@@ -88,8 +89,9 @@ size_t SequenceContainer::getSequences(std::vector<FastaRecord>& record,
 				{
 					if (sequence.empty()) throw ParseException("empty sequence");
 
-					record.push_back(FastaRecord(sequence, header, FastaRecord::Id(seqNum)));
-					seqNum += 2;
+					record.push_back(FastaRecord(sequence, header, 
+												 FastaRecord::Id(g_nextSeqId)));
+					g_nextSeqId += 2;
 					sequence.clear();
 					header.clear();
 				}
@@ -106,7 +108,9 @@ size_t SequenceContainer::getSequences(std::vector<FastaRecord>& record,
 		}
 		
 		if (sequence.empty()) throw ParseException("empty sequence");
-		record.push_back(FastaRecord(sequence, header, FastaRecord::Id(seqNum)));
+		record.push_back(FastaRecord(sequence, header, 
+									 FastaRecord::Id(g_nextSeqId)));
+		g_nextSeqId += 2;
 	}
 	catch (ParseException & e)
 	{
