@@ -86,15 +86,35 @@ bool OverlapDetector::overlapTest(const OverlapRange& ovlp, int32_t curLen,
 	return true;
 }
 
+namespace
+{
+	struct DPRecord
+	{
+		OverlapRange ovlp;
+		std::vector<int32_t> shifts;
+	};
+	
+	template<typename T>
+	T median(std::vector<T>& vec)
+	{
+		std::sort(vec.begin(), vec.end());
+		//NOTE: there's a bug in libstdc++ nth_element, 
+		//that sometimes leads to a segfault
+		//std::nth_element(vec.begin(), vec.begin() + vec.size() / 2, 
+		//				 vec.end());
+		return vec[vec.size() / 2];
+	}
+}
+
 std::vector<OverlapRange> 
 OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec, 
 								bool uniqueExtensions) const
 {
 	std::unordered_map<FastaRecord::Id, 
-					   std::vector<OverlapRange>> activePaths;
+					   std::vector<DPRecord>> activePaths;
 	std::set<size_t> eraseMarks;
 	size_t curLen = fastaRec.sequence.length();
-	std::vector<KmerPosition> solidKmersCache;
+	//std::vector<KmerPosition> solidKmersCache;
 
 	//for all kmers in this read
 	for (auto curKmerPos : IterKmers(fastaRec.sequence))
@@ -102,7 +122,7 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 		if (!_vertexIndex.isSolid(curKmerPos.kmer)) continue;
 
 		int32_t curPos = curKmerPos.position;
-		solidKmersCache.push_back(curKmerPos);
+		//solidKmersCache.push_back(curKmerPos);
 
 		//for all other occurences of this kmer (extension candidates)
 		for (const auto& extReadPos : _vertexIndex.byKmer(curKmerPos.kmer))
@@ -134,9 +154,10 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 			//searching for longest possible extension
 			for (size_t pathId = 0; pathId < extPaths.size(); ++pathId)
 			{
-				JumpRes jumpResult = this->jumpTest(extPaths[pathId].curEnd, curPos,
-													extPaths[pathId].extEnd, extPos);
-				int32_t jumpLength = curPos - extPaths[pathId].curBegin;
+				JumpRes jumpResult = 
+					this->jumpTest(extPaths[pathId].ovlp.curEnd, curPos,
+								   extPaths[pathId].ovlp.extEnd, extPos);
+				int32_t jumpLength = curPos - extPaths[pathId].ovlp.curBegin;
 				//int32_t jumpLength = extPaths[pathId].score + 1;
 
 				switch (jumpResult)
@@ -168,16 +189,18 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 			if (extendsClose)
 			{
 				eraseMarks.erase(maxCloseId);
-				extPaths[maxCloseId].curEnd = curPos;
-				extPaths[maxCloseId].extEnd = extPos;
+				extPaths[maxCloseId].ovlp.curEnd = curPos;
+				extPaths[maxCloseId].ovlp.extEnd = extPos;
+				extPaths[maxCloseId].shifts.push_back(curPos - extPos);
 				//++extPaths[maxCloseId].score;
 			}
 			//update the best far extension, keep the old path as a copy
 			if (extendsFar)
 			{
 				extPaths.push_back(extPaths[maxFarId]);
-				extPaths.back().curEnd = curPos;
-				extPaths.back().extEnd = extPos;
+				extPaths.back().ovlp.curEnd = curPos;
+				extPaths.back().ovlp.extEnd = extPos;
+				extPaths.back().shifts.push_back(curPos - extPos);
 				//++extPaths.back().score;
 			}
 			//if no extensions possible (or there are no active paths), start a new path
@@ -185,8 +208,9 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 				(this->goodStart(curPos, extPos, curLen, extLen) ||
 				fastaRec.id == extReadPos.readId.rc()))	//TODO: temporary bypass overhang
 			{
-				extPaths.emplace_back(fastaRec.id, extReadPos.readId,
-									  curPos, extPos);
+				OverlapRange ovlp(fastaRec.id, extReadPos.readId,
+								  curPos, extPos);
+				extPaths.push_back({ovlp});
 			}
 			//cleaning up
 			for (auto itEraseId = eraseMarks.rbegin(); 
@@ -204,29 +228,30 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 		size_t extLen = _seqContainer.seqLen(ap.first);
 		OverlapRange maxOverlap;
 		bool passedTest = false;
-		for (auto& ovlp : ap.second)
+		for (auto& dpRec : ap.second)
 		{
-			if (this->overlapTest(ovlp, curLen, extLen))
+			if (this->overlapTest(dpRec.ovlp, curLen, extLen))
 			{
+				dpRec.ovlp.leftShift = median(dpRec.shifts);
+				dpRec.ovlp.rightShift = extLen - curLen + 
+										dpRec.ovlp.leftShift;
+
 				if (!uniqueExtensions)
 				{
-					this->addOverlapShifts(ovlp, solidKmersCache, 
-										   curLen, extLen);
-					detectedOverlaps.push_back(ovlp);
+					detectedOverlaps.push_back(dpRec.ovlp);
 				}
 				else
 				{
 					passedTest = true;
-					if (ovlp.curRange() > maxOverlap.curRange())
+					if (dpRec.ovlp.curRange() > maxOverlap.curRange())
 					{
-						maxOverlap = ovlp;
+						maxOverlap = dpRec.ovlp;
 					}
 				}
 			}
 		}
 		if (uniqueExtensions && passedTest)
 		{
-			this->addOverlapShifts(maxOverlap, solidKmersCache, curLen, extLen);
 			detectedOverlaps.push_back(maxOverlap);
 		}
 	}
@@ -341,47 +366,4 @@ void OverlapContainer::loadOverlaps(const std::string& filename)
 		ovlp.unserialize(buffer);
 		_overlapIndex[ovlp.curId].push_back(ovlp);
 	}
-}
-
-
-namespace
-{
-	template<typename T>
-	T median(std::vector<T>& vec)
-	{
-		std::sort(vec.begin(), vec.end());
-		//NOTE: there's a bug in libstdc++ nth_element, 
-		//that sometimes leads to a segfault
-		//std::nth_element(vec.begin(), vec.begin() + vec.size() / 2, 
-		//				 vec.end());
-		return vec[vec.size() / 2];
-	}
-}
-
-
-void OverlapDetector::addOverlapShifts(OverlapRange& ovlp,
-									   const std::vector<KmerPosition>& 
-									   		solidKmersCache,
-									   int32_t curLen, int32_t extLen) const
-{
-	std::vector<int32_t> ovlpShifts;
-	for (auto curKmer : solidKmersCache)
-	{
-		if (ovlp.curBegin <= curKmer.position &&
-			curKmer.position <= ovlp.curEnd)
-		{
-			for (const auto& extKmer : _vertexIndex.byKmer(curKmer.kmer))
-			{
-				if (extKmer.readId == ovlp.extId &&
-				    ovlp.extBegin <= extKmer.position &&
-					extKmer.position <= ovlp.extEnd)
-				{
-					ovlpShifts.push_back(curKmer.position - extKmer.position);
-				}
-			}
-		}
-	}
-
-	ovlp.leftShift = median(ovlpShifts);
-	ovlp.rightShift = extLen - curLen + ovlp.leftShift;
 }

@@ -154,10 +154,12 @@ int main(int argc, char** argv)
 		{
 			maxKmerCov = Constants::repeatCoverageRate * coverage;
 		}
+
+		ParametersEstimator estimator(readsContainer, vertexIndex, coverage);
+		estimator.estimateMinKmerCount(maxKmerCov);
 		if (minKmerCov == -1)
 		{
-			ParametersEstimator estimator(readsContainer, vertexIndex);
-			minKmerCov = estimator.estimateMinKmerCount(coverage, maxKmerCov);
+			minKmerCov = estimator.minKmerCount();
 		}
 
 		vertexIndex.buildIndex(minKmerCov, maxKmerCov, 1);
@@ -191,7 +193,8 @@ int main(int argc, char** argv)
 		//ChimeraDetector chimDetect(coverage, readsContainer, readOverlaps);
 		//chimDetect.detectChimeras();
 
-		Extender extender(readsContainer, readOverlaps, coverage);
+		Extender extender(readsContainer, readOverlaps, coverage, 
+						  estimator.genomeSizeEstimate());
 		extender.assembleContigs();
 
 		ContigGenerator contGen(extender, readsContainer, readOverlaps);

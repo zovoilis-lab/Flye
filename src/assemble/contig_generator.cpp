@@ -258,7 +258,10 @@ ContigGenerator::generateAlignments(const ContigPath& path)
 				break;
 			}
 		}
-		if (!found) throw std::runtime_error("Ovlp not found!");
+		if (!found) 
+		{
+			throw std::runtime_error("Ovlp not found!");
+		}
 
 		std::string leftSeq = _seqContainer.getIndex().at(idLeft)
 									.sequence.substr(readsOvlp.curBegin,

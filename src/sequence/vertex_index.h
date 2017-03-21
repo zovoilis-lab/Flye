@@ -46,12 +46,19 @@ public:
 
 	const ReadVector& byKmer(Kmer kmer) const
 		{return *_kmerIndex[kmer];}
+
 	bool isSolid(Kmer kmer) const
 		{return _kmerIndex.contains(kmer);}
+
+	int numSolid() const 
+		{return _kmerIndex.size();}
+
 	bool isRepetitive(Kmer kmer) const
 		{return _repetitiveKmers.count(kmer);}
+
 	const KmerDistribution& getKmerHist() const
 		{return _kmerDistribution;}
+
 
 private:
 	const SequenceContainer& _seqContainer;

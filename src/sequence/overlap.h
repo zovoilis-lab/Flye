@@ -130,9 +130,9 @@ private:
 	JumpRes jumpTest(int32_t currentPrev, int32_t currentNext,
 				     int32_t extensionPrev, int32_t extensionNext) const;
 
-	void 	addOverlapShifts(OverlapRange& ovlp,
-							 const std::vector<KmerPosition>& solidKmersCache,
-							 int32_t curLen, int32_t extLen) const;
+	//void 	addOverlapShifts(OverlapRange& ovlp,
+	//						 const std::vector<KmerPosition>& solidKmersCache,
+	//						 int32_t curLen, int32_t extLen) const;
 
 	const int _maxJump;
 	const int _minOverlap;

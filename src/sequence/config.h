@@ -27,9 +27,10 @@ namespace Constants
 
 	//extension
 	const int minReadsInContig = 10;
-	const int minExtensionsRate = 10;
-	const int shiftToReadLen = 40;
-	const float minGoodReads = 0.05f;
+	const int extensionTries = 1000;
+	//const int minExtensionsRate = 10;
+	//const int shiftToReadLen = 40;
+	//const float minGoodReads = 0.05f;
 
 	//repeat graph
 	const int maxSeparation = 500;

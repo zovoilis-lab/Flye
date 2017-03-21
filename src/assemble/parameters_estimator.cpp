@@ -5,15 +5,28 @@
 #include "parameters_estimator.h"
 #include "logger.h"
 
-int ParametersEstimator::estimateMinKmerCount(int coverage, 
-											  int upperCutoff)
+
+int ParametersEstimator::genomeSizeEstimate()
+{
+	/*
+	int kmersNeeded = 0;
+	for (auto& seqPair : _seqContainer.getIndex()) 
+	{
+		kmersNeeded += _seqContainer.seqLen(seqPair.first) / _coverage;
+	}
+	return kmersNeeded / 2;*/
+	return _takenKmers / 2;
+}
+
+
+void ParametersEstimator::estimateMinKmerCount(int upperCutoff)
 {
 	const int MIN_CUTOFF = 2;
 
 	int kmersNeeded = 0;
 	for (auto& seqPair : _seqContainer.getIndex()) 
 	{
-		kmersNeeded += _seqContainer.seqLen(seqPair.first) / coverage;
+		kmersNeeded += _seqContainer.seqLen(seqPair.first) / _coverage;
 	}
 	Logger::get().debug() << "Genome size estimate: " << kmersNeeded / 2;
 	
@@ -60,5 +73,7 @@ int ParametersEstimator::estimateMinKmerCount(int coverage,
 						  << " repetitive kmers";
 	Logger::get().debug() << "Estimated minimum kmer coverage: " << cutoff 
 						  << ", " << takenKmers << " unique kmers selected";
-	return cutoff;
+
+	_takenKmers = takenKmers;
+	_minKmerCount = cutoff;
 }
