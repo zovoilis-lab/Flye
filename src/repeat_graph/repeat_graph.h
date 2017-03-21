@@ -6,7 +6,7 @@
 
 #include "../sequence/sequence_container.h"
 #include "../sequence/overlap.h"
-#include "../sequence/config.h"
+#include "config.h"
 #include "utils.h"
 #include <list>
 

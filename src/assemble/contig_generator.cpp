@@ -6,7 +6,7 @@
 #include <algorithm>
 #include <fstream>
 
-#include "../sequence/config.h"
+#include "config.h"
 #include "contig_generator.h"
 #include "logger.h"
 #include "parallel.h"
@@ -289,7 +289,7 @@ ContigGenerator::generateAlignments(const ContigPath& path)
 		tasks.push_back(std::make_tuple(path.reads[i], path.reads[i + 1], i));
 	}
 	alnResults.resize(tasks.size());
-	processInParallel(tasks, alnFunc, Parameters::numThreads, false);
+	processInParallel(tasks, alnFunc, Parameters::get().numThreads, false);
 
 	return alnResults;
 }
@@ -316,7 +316,7 @@ ContigGenerator::getSwitchPositions(AlignmentInfo aln,
 		{
 			matchRun = 0;
 		}
-		if (matchRun == (int)Parameters::kmerSize)
+		if (matchRun == (int)Parameters::get().kmerSize)
 		{
 			return {leftPos, rightPos};
 		}

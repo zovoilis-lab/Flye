@@ -8,7 +8,7 @@
 #include "../sequence/vertex_index.h"
 #include "../sequence/sequence_container.h"
 #include "../sequence/overlap.h"
-#include "../sequence/config.h"
+#include "config.h"
 
 #include "logger.h"
 #include "repeat_graph.h"
@@ -93,9 +93,9 @@ int main(int argc, char** argv)
 	{
 		return 1;
 	}
-	Parameters::minimumOverlap = 5000;
-	Parameters::kmerSize = 15;
-	Parameters::numThreads = numThreads;
+	Parameters::get().minimumOverlap = 5000;
+	Parameters::get().kmerSize = 15;
+	Parameters::get().numThreads = numThreads;
 
 	try
 	{

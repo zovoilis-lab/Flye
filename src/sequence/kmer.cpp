@@ -50,7 +50,7 @@ namespace
 Kmer::Kmer(const std::string& dnaString):
 	_representation(0)
 {
-	if (dnaString.length() != Parameters::kmerSize)
+	if (dnaString.length() != Parameters::get().kmerSize)
 	{
 		throw std::runtime_error("Kmer length inconsistency");
 	}
@@ -67,7 +67,7 @@ void Kmer::appendRight(char dnaSymbol)
 	_representation <<= 2;
 	_representation += dnaToId(dnaSymbol);
 
-	KmerRepr kmerSize = Parameters::kmerSize;
+	KmerRepr kmerSize = Parameters::get().kmerSize;
 	KmerRepr kmerMask = ((KmerRepr)1 << kmerSize * 2) - 1;
 	_representation &= kmerMask;
 }
@@ -76,7 +76,7 @@ void Kmer::appendLeft(char dnaSymbol)
 {
 	_representation >>= 2;
 
-	KmerRepr kmerSize = Parameters::kmerSize;
+	KmerRepr kmerSize = Parameters::get().kmerSize;
 	KmerRepr shift = kmerSize * 2 - 2;
 	_representation += dnaToId(dnaSymbol) << shift;
 }
@@ -87,7 +87,7 @@ void Kmer::reverseComplement()
 	_representation = 0;
 	KmerRepr mask = 3;
 
-	for (unsigned int i = 0; i < Parameters::kmerSize; ++i)
+	for (unsigned int i = 0; i < Parameters::get().kmerSize; ++i)
 	{
 		_representation <<= 2;
 		_representation += ~(mask & tmpRepr);
@@ -100,7 +100,7 @@ std::string Kmer::dnaRepresentation() const
 	std::string repr;
 	KmerRepr mask = 3;
 	KmerRepr tempRepr = _representation;
-	for (unsigned int i = 0; i < Parameters::kmerSize; ++i)
+	for (unsigned int i = 0; i < Parameters::get().kmerSize; ++i)
 	{
 		repr.push_back(idToDna(tempRepr & mask));
 		tempRepr >>= 2;
@@ -113,9 +113,9 @@ KmerIterator::KmerIterator(const std::string* readSeq, size_t position):
 	_readSeq(readSeq),
 	_position(position)
 {
-	if (position != readSeq->length() - Parameters::kmerSize)
+	if (position != readSeq->length() - Parameters::get().kmerSize)
 	{
-		_kmer = Kmer(readSeq->substr(0, Parameters::kmerSize));
+		_kmer = Kmer(readSeq->substr(0, Parameters::get().kmerSize));
 	}
 }
 
@@ -131,7 +131,7 @@ bool KmerIterator::operator!=(const KmerIterator& other) const
 
 KmerIterator& KmerIterator::operator++()
 {
-	size_t appendPos = _position + Parameters::kmerSize;
+	size_t appendPos = _position + Parameters::get().kmerSize;
 	_kmer.appendRight((*_readSeq)[appendPos]);
 	++_position;
 	return *this;
@@ -184,7 +184,7 @@ bool SolidKmerIterator::operator!=(const SolidKmerIterator& other) const
 
 KmerIterator IterKmers::begin()
 {
-	if (_sequence.length() < Parameters::kmerSize) 
+	if (_sequence.length() < Parameters::get().kmerSize) 
 		return this->end();
 
 	return KmerIterator(&_sequence, 0);
@@ -192,7 +192,8 @@ KmerIterator IterKmers::begin()
 
 KmerIterator IterKmers::end()
 {
-	return KmerIterator(&_sequence, _sequence.length() - Parameters::kmerSize);
+	return KmerIterator(&_sequence, _sequence.length() - 
+									Parameters::get().kmerSize);
 }
 
 /*

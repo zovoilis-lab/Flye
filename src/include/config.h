@@ -38,7 +38,13 @@ namespace Constants
 
 struct Parameters
 {
-	static int minimumOverlap;
-	static size_t kmerSize;
-	static size_t numThreads;
+	static Parameters& get()
+	{
+		static Parameters param;
+		return param;
+	}
+
+	int minimumOverlap;
+	size_t kmerSize;
+	size_t numThreads;
 };

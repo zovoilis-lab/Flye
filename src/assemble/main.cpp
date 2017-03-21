@@ -8,7 +8,7 @@
 #include "../sequence/vertex_index.h"
 #include "../sequence/sequence_container.h"
 #include "../sequence/overlap.h"
-#include "../sequence/config.h"
+#include "config.h"
 #include "chimera.h"
 #include "extender.h"
 #include "contig_generator.h"
@@ -130,9 +130,9 @@ int main(int argc, char** argv)
 	{
 		return 1;
 	}
-	Parameters::minimumOverlap = minOverlap;
-	Parameters::kmerSize = kmerSize;
-	Parameters::numThreads = numThreads;
+	Parameters::get().minimumOverlap = minOverlap;
+	Parameters::get().kmerSize = kmerSize;
+	Parameters::get().numThreads = numThreads;
 
 	try
 	{
@@ -165,7 +165,8 @@ int main(int argc, char** argv)
 		vertexIndex.buildIndex(minKmerCov, maxKmerCov, 1);
 
 		OverlapDetector ovlp(readsContainer, vertexIndex,
-							 Constants::maximumJump, Parameters::minimumOverlap,
+							 Constants::maximumJump, 
+							 Parameters::get().minimumOverlap,
 							 Constants::maximumOverhang);
 		OverlapContainer readOverlaps(ovlp, readsContainer);
 

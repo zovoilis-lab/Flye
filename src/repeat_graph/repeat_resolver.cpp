@@ -3,7 +3,7 @@
 //Released under the BSD license (see LICENSE file)
 
 #include "repeat_resolver.h"
-#include "../sequence/config.h"
+#include "config.h"
 #include "utils.h"
 #include "bipartie_mincost.h"
 

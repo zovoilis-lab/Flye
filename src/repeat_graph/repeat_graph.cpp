@@ -5,7 +5,7 @@
 
 #include "../sequence/overlap.h"
 #include "../sequence/vertex_index.h"
-#include "../sequence/config.h"
+#include "config.h"
 
 #include "repeat_graph.h"
 #include "disjoint_set.h"
@@ -56,7 +56,7 @@ void RepeatGraph::build()
 
 	OverlapDetector asmOverlapper(_asmSeqs, asmIndex, 
 								  Constants::maximumJump, 
-								  Parameters::minimumOverlap,
+								  Parameters::get().minimumOverlap,
 								  0);
 	OverlapContainer asmOverlaps(asmOverlapper, _asmSeqs);
 	asmOverlaps.findAllOverlaps();

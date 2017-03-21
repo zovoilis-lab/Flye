@@ -7,7 +7,7 @@
 #include <iomanip>
 #include <stack>
 
-#include "../sequence/config.h"
+#include "config.h"
 #include "logger.h"
 #include "extender.h"
 

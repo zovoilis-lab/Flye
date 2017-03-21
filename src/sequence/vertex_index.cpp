@@ -60,7 +60,8 @@ void VertexIndex::countKmers(size_t hardThreshold)
 	{
 		allReads.push_back(hashPair.first);
 	}
-	processInParallel(allReads, countUpdate, Parameters::numThreads, true);
+	processInParallel(allReads, countUpdate, 
+					  Parameters::get().numThreads, true);
 	
 	for (auto kmer : _kmerCounts.lock_table())
 	{
@@ -111,7 +112,8 @@ void VertexIndex::buildIndex(int minCoverage, int maxCoverage, int filterRatio)
 	{
 		allReads.push_back(hashPair.first);
 	}
-	processInParallel(allReads, indexUpdate, Parameters::numThreads, true);
+	processInParallel(allReads, indexUpdate, 
+					  Parameters::get().numThreads, true);
 
 	_kmerCounts.clear();
 	_kmerCounts.reserve(0);

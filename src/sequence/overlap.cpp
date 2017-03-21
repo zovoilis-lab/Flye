@@ -328,7 +328,8 @@ void OverlapContainer::findAllOverlaps()
 		_overlapMatrix[std::make_tuple(ovlp.curId, ovlp.extId)] = true;
 		_overlapIndex[ovlp.curId].push_back(ovlp);
 		*/
-	processInParallel(allQueries, indexUpdate, Parameters::numThreads, true);
+	processInParallel(allQueries, indexUpdate, 
+					  Parameters::get().numThreads, true);
 }
 
 

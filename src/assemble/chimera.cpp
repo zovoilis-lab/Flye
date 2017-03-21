@@ -7,29 +7,11 @@
 #include <unordered_set>
 #include <unordered_map>
 
-#include "../sequence/config.h"
+#include "config.h"
 #include "chimera.h"
 #include "logger.h"
 
 
-/*
-void ChimeraDetector::detectChimeras()
-{
-	Logger::get().debug() << "Overlap-estimated coverage: "
-						  << this->estimateOverlapCoverage();
-	for (auto& seqHash : _seqContainer.getIndex())
-	{
-		if (this->testReadByCoverage(seqHash.first))
-		{
-			_chimeras.insert(seqHash.first);
-			_chimeras.insert(seqHash.first.rc());
-			//Logger::get().debug() << "Chimeric!";
-		}
-	}
-
-	Logger::get().debug() << _chimeras.size() / 2 
-						  << " sequences were marked as chimeric";
-}*/
 
 bool ChimeraDetector::isChimeric(FastaRecord::Id readId)
 {
@@ -42,20 +24,9 @@ bool ChimeraDetector::isChimeric(FastaRecord::Id readId)
 	return _chimeras[readId];
 }
 
-/*
-int ChimeraDetector::estimateOverlapCoverage()
-{
-	size_t total = 0;
-	for (auto& seqHash : _seqContainer.getIndex())
-	{
-		total += _ovlpDetector.getOverlapIndex().at(seqHash.first).size();
-	}
-	return total / _seqContainer.getIndex().size();
-}*/
 
 bool ChimeraDetector::testReadByCoverage(FastaRecord::Id readId)
 {
-	//Logger::get().debug() << _seqContainer.seqName(readId);
 	//self overlaps
 	for (auto& ovlp : _ovlpContainer.getSeqOverlaps(readId, true))
 	{
