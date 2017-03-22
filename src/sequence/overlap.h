@@ -20,9 +20,10 @@ struct OverlapRange
 {
 	OverlapRange(FastaRecord::Id curId = FastaRecord::ID_NONE, 
 				 FastaRecord::Id extId = FastaRecord::ID_NONE, 
-				 int32_t curInit = 0, int32_t extInit = 0): 
-		curId(curId), curBegin(curInit), curEnd(curInit), 
-		extId(extId), extBegin(extInit), extEnd(extInit)
+				 int32_t curInit = 0, int32_t extInit = 0,
+				 int32_t curLen = 0, int32_t extLen = 0): 
+		curId(curId), curBegin(curInit), curEnd(curInit), curLen(curLen),
+		extId(extId), extBegin(extInit), extEnd(extInit), extLen(extLen)
 		//score(0)
 	{}
 	int32_t curRange() const {return curEnd - curBegin;}
@@ -34,12 +35,13 @@ struct OverlapRange
 		std::swap(rev.curId, rev.extId);
 		std::swap(rev.curBegin, rev.extBegin);
 		std::swap(rev.curEnd, rev.extEnd);
+		std::swap(rev.curLen, rev.extLen);
 		rev.leftShift = -rev.leftShift;
 		rev.rightShift = -rev.rightShift;
 		return rev;
 	}
 
-	OverlapRange complement(int32_t curLen, int32_t extLen) const
+	OverlapRange complement() const
 	{
 		OverlapRange comp(*this);
 		std::swap(comp.leftShift, comp.rightShift);
@@ -92,14 +94,15 @@ struct OverlapRange
 	FastaRecord::Id curId;
 	int32_t curBegin;
 	int32_t curEnd;
+	int32_t curLen;
 	int32_t leftShift;
+
 	//extension read
 	FastaRecord::Id extId;
 	int32_t extBegin;
 	int32_t extEnd;
+	int32_t extLen;
 	int32_t rightShift;
-
-	//int32_t score;
 };
 
 class OverlapDetector
@@ -125,8 +128,7 @@ private:
 	
 	bool    goodStart(int32_t currentPos, int32_t extensionPos, 
 				      int32_t curLen, int32_t extLen) const;
-	bool    overlapTest(const OverlapRange& ovlp, 
-						int32_t curLen, int32_t extLen) const;
+	bool    overlapTest(const OverlapRange& ovlp) const;
 	JumpRes jumpTest(int32_t currentPrev, int32_t currentNext,
 				     int32_t extensionPrev, int32_t extensionNext) const;
 

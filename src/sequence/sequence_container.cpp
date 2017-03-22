@@ -60,6 +60,24 @@ void SequenceContainer::readFasta(const std::string& fileName)
 	}
 }
 
+
+const FastaRecord& SequenceContainer::addSequence(const std::string& sequence, 
+												  const std::string& description)
+{
+	FastaRecord fwdRecord(sequence, "+" + description, 
+						  FastaRecord::Id(g_nextSeqId));
+	_seqIndex[fwdRecord.id] = fwdRecord;
+
+	std::string revComplement;
+	reverseComplement(sequence, revComplement);
+	FastaRecord revRecord(revComplement, "-" + description, 
+						  FastaRecord::Id(g_nextSeqId + 1));
+	_seqIndex[revRecord.id] = revRecord;
+
+	g_nextSeqId += 2;
+	return _seqIndex[fwdRecord.id];
+}
+
 size_t SequenceContainer::getSequences(std::vector<FastaRecord>& record, 
 									   const std::string& fileName)
 {

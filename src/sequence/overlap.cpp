@@ -52,8 +52,7 @@ OverlapDetector::jumpTest(int32_t curPrev, int32_t curNext,
 
 
 //Check if it is a proper overlap
-bool OverlapDetector::overlapTest(const OverlapRange& ovlp, int32_t curLen, 
-								  int32_t extLen) const
+bool OverlapDetector::overlapTest(const OverlapRange& ovlp) const
 {
 
 	if (ovlp.curRange() < _minOverlap || 
@@ -76,7 +75,7 @@ bool OverlapDetector::overlapTest(const OverlapRange& ovlp, int32_t curLen,
 		{
 			return false;
 		}
-		if (std::min(curLen - ovlp.curEnd, extLen - ovlp.extEnd) > 
+		if (std::min(ovlp.curLen - ovlp.curEnd, ovlp.extLen - ovlp.extEnd) > 
 			_maxOverhang)
 		{
 			return false;
@@ -114,7 +113,6 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 					   std::vector<DPRecord>> activePaths;
 	std::set<size_t> eraseMarks;
 	size_t curLen = fastaRec.sequence.length();
-	//std::vector<KmerPosition> solidKmersCache;
 
 	//for all kmers in this read
 	for (auto curKmerPos : IterKmers(fastaRec.sequence))
@@ -122,7 +120,6 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 		if (!_vertexIndex.isSolid(curKmerPos.kmer)) continue;
 
 		int32_t curPos = curKmerPos.position;
-		//solidKmersCache.push_back(curKmerPos);
 
 		//for all other occurences of this kmer (extension candidates)
 		for (const auto& extReadPos : _vertexIndex.byKmer(curKmerPos.kmer))
@@ -209,7 +206,7 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 				fastaRec.id == extReadPos.readId.rc()))	//TODO: temporary bypass overhang
 			{
 				OverlapRange ovlp(fastaRec.id, extReadPos.readId,
-								  curPos, extPos);
+								  curPos, extPos, curLen, extLen);
 				extPaths.push_back({ovlp});
 			}
 			//cleaning up
@@ -230,7 +227,7 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 		bool passedTest = false;
 		for (auto& dpRec : ap.second)
 		{
-			if (this->overlapTest(dpRec.ovlp, curLen, extLen))
+			if (this->overlapTest(dpRec.ovlp))
 			{
 				dpRec.ovlp.leftShift = median(dpRec.shifts);
 				dpRec.ovlp.rightShift = extLen - curLen + 
@@ -291,15 +288,12 @@ void OverlapContainer::storeOverlaps(const std::vector<OverlapRange>& overlaps,
 	{
 		if (_onlyMax && extisting.count(ovlp.extId)) continue;
 
-		int32_t curLen = _queryContainer.seqLen(ovlp.curId);
-		int32_t extLen = _queryContainer.seqLen(ovlp.extId);
-
 		auto revOvlp = ovlp.reverse();
+
 		fwdOverlaps.push_back(ovlp);
-		revOverlaps.push_back(ovlp.complement(curLen, extLen));
+		revOverlaps.push_back(ovlp.complement());
 		_overlapIndex[revOvlp.curId].push_back(revOvlp);
-		_overlapIndex[revOvlp.curId.rc()]
-				.push_back(revOvlp.complement(extLen, curLen));
+		_overlapIndex[revOvlp.curId.rc()].push_back(revOvlp.complement());
 	}
 }
 
@@ -320,12 +314,7 @@ void OverlapContainer::findAllOverlaps()
 		auto overlaps = _ovlpDetect.getSeqOverlaps(fastaRec, false);
 
 		indexMutex.lock();
-		//this->storeOverlaps(overlaps, seqId);
-		for (auto& ovlp : overlaps)
-		{
-			_overlapIndex[seqId].push_back(ovlp);
-			_overlapIndex[ovlp.extId].push_back(ovlp.reverse());
-		}
+		this->storeOverlaps(overlaps, seqId);
 		indexMutex.unlock();
 	};
 
