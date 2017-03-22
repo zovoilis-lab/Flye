@@ -168,7 +168,7 @@ int main(int argc, char** argv)
 							 Constants::maximumJump, 
 							 Parameters::get().minimumOverlap,
 							 Constants::maximumOverhang);
-		OverlapContainer readOverlaps(ovlp, readsContainer);
+		OverlapContainer readOverlaps(ovlp, readsContainer, true);
 
 		/*
 		if (overlapsFile.empty())

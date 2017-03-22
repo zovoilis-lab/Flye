@@ -130,10 +130,6 @@ private:
 	JumpRes jumpTest(int32_t currentPrev, int32_t currentNext,
 				     int32_t extensionPrev, int32_t extensionNext) const;
 
-	//void 	addOverlapShifts(OverlapRange& ovlp,
-	//						 const std::vector<KmerPosition>& solidKmersCache,
-	//						 int32_t curLen, int32_t extLen) const;
-
 	const int _maxJump;
 	const int _minOverlap;
 	const int _maxOverhang;
@@ -148,9 +144,11 @@ class OverlapContainer
 {
 public:
 	OverlapContainer(const OverlapDetector& ovlpDetect,
-					 const SequenceContainer& queryContainer):
+					 const SequenceContainer& queryContainer,
+					 bool onlyMax):
 		_ovlpDetect(ovlpDetect),
-		_queryContainer(queryContainer)
+		_queryContainer(queryContainer),
+		_onlyMax(onlyMax)
 	{}
 
 	typedef std::unordered_map<FastaRecord::Id, 
@@ -160,8 +158,7 @@ public:
 	void loadOverlaps(const std::string& filename);
 
 	void findAllOverlaps();
-	std::vector<OverlapRange> getSeqOverlaps(FastaRecord::Id readId, 
-											 bool uniqueExtensions);
+	const std::vector<OverlapRange>& getSeqOverlaps(FastaRecord::Id readId);
 	const OverlapIndex& getOverlapIndex() const {return _overlapIndex;}
 
 
@@ -169,7 +166,9 @@ private:
 
 	const OverlapDetector& _ovlpDetect;
 	const SequenceContainer& _queryContainer;
+	const bool _onlyMax;
 
 	OverlapIndex _overlapIndex;
+	std::unordered_set<FastaRecord::Id> _cached;
 	//cuckoohash_map<FastaRecord::IdPair, bool> _overlapMatrix;
 };

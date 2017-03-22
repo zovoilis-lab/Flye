@@ -260,24 +260,40 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 
 }
 
-std::vector<OverlapRange> 
-OverlapContainer::getSeqOverlaps(FastaRecord::Id readId, 
-								 bool uniqueExtensions)
+const std::vector<OverlapRange>&
+OverlapContainer::getSeqOverlaps(FastaRecord::Id readId)
 {
-	if (!_overlapIndex.count(readId))
+	if (!_cached.count(readId))
 	{
+		_cached.insert(readId);
+		_cached.insert(readId.rc());
+
 		const FastaRecord& record = _queryContainer.getIndex().at(readId);
-		auto overlaps = _ovlpDetect.getSeqOverlaps(record, uniqueExtensions);
-		std::vector<OverlapRange> complOverlaps;
+		auto overlaps = _ovlpDetect.getSeqOverlaps(record, _onlyMax);
+
+		auto& fwdOverlaps = _overlapIndex[record.id];
+		auto& revOverlaps = _overlapIndex[record.id.rc()];
+
+		std::unordered_set<FastaRecord::Id> extisting;
+		if (_onlyMax)
+		{
+			for (auto& ovlp : fwdOverlaps) extisting.insert(ovlp.extId);
+		}
 
 		for (auto& ovlp : overlaps)
 		{
+			if (_onlyMax && extisting.count(ovlp.extId)) continue;
+
+			int32_t curLen = _queryContainer.seqLen(ovlp.curId);
 			int32_t extLen = _queryContainer.seqLen(ovlp.extId);
-			complOverlaps.push_back(ovlp.complement(record.sequence.length(), 
-													extLen));
+
+			auto revOvlp = ovlp.reverse();
+			fwdOverlaps.push_back(ovlp);
+			revOverlaps.push_back(ovlp.complement(curLen, extLen));
+			_overlapIndex[revOvlp.curId].push_back(revOvlp);
+			_overlapIndex[revOvlp.curId.rc()]
+					.push_back(revOvlp.complement(extLen, curLen));
 		}
-		_overlapIndex[record.id] = std::move(overlaps);
-		_overlapIndex[record.id.rc()] = std::move(complOverlaps);
 	}
 	return _overlapIndex[readId];
 }

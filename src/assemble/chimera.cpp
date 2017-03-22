@@ -28,7 +28,7 @@ bool ChimeraDetector::isChimeric(FastaRecord::Id readId)
 bool ChimeraDetector::testReadByCoverage(FastaRecord::Id readId)
 {
 	//self overlaps
-	for (auto& ovlp : _ovlpContainer.getSeqOverlaps(readId, true))
+	for (auto& ovlp : _ovlpContainer.getSeqOverlaps(readId))
 	{
 		if (ovlp.curId == ovlp.extId.rc()) 
 		{
@@ -45,7 +45,7 @@ bool ChimeraDetector::testReadByCoverage(FastaRecord::Id readId)
 	if (numWindows - 2 * FLANK <= 0) return false;
 
 	coverage.assign(numWindows - 2 * FLANK, 0);
-	for (auto& ovlp : _ovlpContainer.getSeqOverlaps(readId, true))
+	for (auto& ovlp : _ovlpContainer.getSeqOverlaps(readId))
 	{
 		if (ovlp.curId == ovlp.extId.rc()) continue;
 

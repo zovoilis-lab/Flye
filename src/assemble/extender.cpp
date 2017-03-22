@@ -25,7 +25,7 @@ ContigPath Extender::extendContig(FastaRecord::Id startRead)
 	std::vector<int> numOverlaps;
 	while(true)
 	{
-		auto overlaps = _ovlpContainer.getSeqOverlaps(currentRead, true);
+		auto overlaps = _ovlpContainer.getSeqOverlaps(currentRead);
 		std::vector<OverlapRange> extensions;
 
 		//std::vector<int> extensionShifts;
@@ -54,8 +54,8 @@ ContigPath Extender::extendContig(FastaRecord::Id startRead)
 		{
 			if (_visitedReads.count(ovlp.extId)) ++numVisited;
 		}
-		if (numVisited <= (int)extensions.size() / 2)
-		{
+		//if (numVisited <= (int)extensions.size() / 2)
+		//{
 			for (auto& ovlp : extensions)
 			{
 				if (!_chimDetector.isChimeric(ovlp.extId) &&
@@ -67,22 +67,25 @@ ContigPath Extender::extendContig(FastaRecord::Id startRead)
 					break;
 				}
 			}
-		}
+		//}
 		Logger::get().debug() << extensions.size() << " " << numVisited;
 
-		if (foundExtension && !_visitedReads.count(currentRead)) 
+		if (foundExtension) 
 		{
 			Logger::get().debug() << "Extension: " << 
 				    	_readsContainer.seqName(currentRead);
+
+			contigPath.reads.push_back(currentRead);
+			_progress.setValue(_assembledSequence);
+
+			if (_visitedReads.count(currentRead))
+			{
+				Logger::get().debug() << "Already visited"; 
+			}
 		}
-		
-		if (!foundExtension)
+		else
 		{
 			Logger::get().debug() << "No extension found"; 
-		}
-		if (_visitedReads.count(currentRead))
-		{
-			Logger::get().debug() << "Already visited"; 
 		}
 
 		if (!foundExtension || _visitedReads.count(currentRead))
@@ -97,7 +100,7 @@ ContigPath Extender::extendContig(FastaRecord::Id startRead)
 				{
 					contigPath.reads[i] = contigPath.reads[i].rc();
 				}
-				contigPath.reads.pop_back();
+				//contigPath.reads.pop_back();
 			}
 			else
 			{
@@ -108,9 +111,6 @@ ContigPath Extender::extendContig(FastaRecord::Id startRead)
 
 		_visitedReads.insert(currentRead);
 		_visitedReads.insert(currentRead.rc());
-
-		contigPath.reads.push_back(currentRead);
-		_progress.setValue(_assembledSequence);
 	}
 
 	int64_t meanOvlps = 0;
@@ -165,7 +165,7 @@ void Extender::assembleContigs()
 
 		for (auto& readId : path.reads)
 		{
-			for (auto& ovlp : _ovlpContainer.getSeqOverlaps(readId, true))
+			for (auto& ovlp : _ovlpContainer.getSeqOverlaps(readId))
 			{
 				_visitedReads.insert(ovlp.extId);
 				_visitedReads.insert(ovlp.extId.rc());
@@ -186,7 +186,7 @@ void Extender::assembleContigs()
 //makes one extension to the right
 FastaRecord::Id Extender::stepRight(FastaRecord::Id readId)
 {
-	auto overlaps = _ovlpContainer.getSeqOverlaps(readId, true);
+	auto overlaps = _ovlpContainer.getSeqOverlaps(readId);
 	std::vector<OverlapRange> extensions;
 	//Logger::get().debug() << "Ovlps: " << overlaps.size();
 	//Logger::get().debug() << "Index: " << _ovlpContainer.getOverlapIndex().size();
@@ -304,7 +304,7 @@ FastaRecord::Id Extender::stepRight(FastaRecord::Id readId)
 int Extender::countRightExtensions(FastaRecord::Id readId)
 {
 	int count = 0;
-	for (auto& ovlp : _ovlpContainer.getSeqOverlaps(readId, true))
+	for (auto& ovlp : _ovlpContainer.getSeqOverlaps(readId))
 	{
 		if (this->extendsRight(ovlp)) ++count;
 	}

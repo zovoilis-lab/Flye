@@ -340,7 +340,7 @@ void RepeatResolver::resolveRepeats()
 	pathsIndex.buildIndex(1, 5000, 1);
 	OverlapDetector readsOverlapper(pathsContainer, pathsIndex, 
 									_readJump, _maxSeparation, 0);
-	OverlapContainer readsContainer(readsOverlapper, _readSeqs);
+	OverlapContainer readsContainer(readsOverlapper, _readSeqs, false);
 	readsContainer.findAllOverlaps();
 
 	//get connections

@@ -58,7 +58,7 @@ void RepeatGraph::build()
 								  Constants::maximumJump, 
 								  Parameters::get().minimumOverlap,
 								  0);
-	OverlapContainer asmOverlaps(asmOverlapper, _asmSeqs);
+	OverlapContainer asmOverlaps(asmOverlapper, _asmSeqs, false);
 	asmOverlaps.findAllOverlaps();
 
 	this->getRepeatClusters(asmOverlaps);
@@ -79,7 +79,7 @@ void RepeatGraph::getRepeatClusters(const OverlapContainer& asmOverlaps)
 		for (auto& ovlp : ovlpHash.second)
 		{
 			overlapClusters[ovlp.curId].emplace_back(ovlp);
-			overlapClusters[ovlp.extId].emplace_back(ovlp.reverse());
+			/*overlapClusters[ovlp.extId].emplace_back(ovlp.reverse());
 
 			//reverse complement
 			int32_t curLen = _asmSeqs.seqLen(ovlp.curId);
@@ -88,7 +88,7 @@ void RepeatGraph::getRepeatClusters(const OverlapContainer& asmOverlaps)
 			//
 
 			overlapClusters[complOvlp.curId].emplace_back(complOvlp);
-			overlapClusters[complOvlp.extId].emplace_back(complOvlp.reverse());
+			overlapClusters[complOvlp.extId].emplace_back(complOvlp.reverse());*/
 		}
 	}
 
