@@ -249,7 +249,7 @@ ContigGenerator::generateAlignments(const ContigPath& path)
 		bool found = false;
 		FastaRecord::Id idLeft = std::get<0>(aln);
 		FastaRecord::Id idRight = std::get<1>(aln);
-		for (auto& ovlp : _overlapContainer.getSeqOverlaps(idLeft))
+		for (auto& ovlp : _overlapContainer.lazySeqOverlaps(idLeft))
 		{
 			if (ovlp.extId == idRight) 
 			{

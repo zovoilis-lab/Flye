@@ -261,41 +261,46 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 }
 
 const std::vector<OverlapRange>&
-OverlapContainer::getSeqOverlaps(FastaRecord::Id readId)
+OverlapContainer::lazySeqOverlaps(FastaRecord::Id readId)
 {
 	if (!_cached.count(readId))
 	{
-		_cached.insert(readId);
-		_cached.insert(readId.rc());
-
 		const FastaRecord& record = _queryContainer.getIndex().at(readId);
 		auto overlaps = _ovlpDetect.getSeqOverlaps(record, _onlyMax);
-
-		auto& fwdOverlaps = _overlapIndex[record.id];
-		auto& revOverlaps = _overlapIndex[record.id.rc()];
-
-		std::unordered_set<FastaRecord::Id> extisting;
-		if (_onlyMax)
-		{
-			for (auto& ovlp : fwdOverlaps) extisting.insert(ovlp.extId);
-		}
-
-		for (auto& ovlp : overlaps)
-		{
-			if (_onlyMax && extisting.count(ovlp.extId)) continue;
-
-			int32_t curLen = _queryContainer.seqLen(ovlp.curId);
-			int32_t extLen = _queryContainer.seqLen(ovlp.extId);
-
-			auto revOvlp = ovlp.reverse();
-			fwdOverlaps.push_back(ovlp);
-			revOverlaps.push_back(ovlp.complement(curLen, extLen));
-			_overlapIndex[revOvlp.curId].push_back(revOvlp);
-			_overlapIndex[revOvlp.curId.rc()]
-					.push_back(revOvlp.complement(extLen, curLen));
-		}
+		this->storeOverlaps(overlaps, readId);	
 	}
 	return _overlapIndex[readId];
+}
+
+void OverlapContainer::storeOverlaps(const std::vector<OverlapRange>& overlaps,
+									 FastaRecord::Id seqId)
+{
+	_cached.insert(seqId);
+	_cached.insert(seqId.rc());
+
+	auto& fwdOverlaps = _overlapIndex[seqId];
+	auto& revOverlaps = _overlapIndex[seqId.rc()];
+
+	std::unordered_set<FastaRecord::Id> extisting;
+	if (_onlyMax)
+	{
+		for (auto& ovlp : fwdOverlaps) extisting.insert(ovlp.extId);
+	}
+
+	for (auto& ovlp : overlaps)
+	{
+		if (_onlyMax && extisting.count(ovlp.extId)) continue;
+
+		int32_t curLen = _queryContainer.seqLen(ovlp.curId);
+		int32_t extLen = _queryContainer.seqLen(ovlp.extId);
+
+		auto revOvlp = ovlp.reverse();
+		fwdOverlaps.push_back(ovlp);
+		revOverlaps.push_back(ovlp.complement(curLen, extLen));
+		_overlapIndex[revOvlp.curId].push_back(revOvlp);
+		_overlapIndex[revOvlp.curId.rc()]
+				.push_back(revOvlp.complement(extLen, curLen));
+	}
 }
 
 void OverlapContainer::findAllOverlaps()
@@ -315,35 +320,15 @@ void OverlapContainer::findAllOverlaps()
 		auto overlaps = _ovlpDetect.getSeqOverlaps(fastaRec, false);
 
 		indexMutex.lock();
+		//this->storeOverlaps(overlaps, seqId);
 		for (auto& ovlp : overlaps)
 		{
 			_overlapIndex[seqId].push_back(ovlp);
+			_overlapIndex[ovlp.extId].push_back(ovlp.reverse());
 		}
 		indexMutex.unlock();
 	};
 
-		/*
-		if (_overlapMatrix.contains(std::make_tuple(ovlp.curId, 
-													ovlp.extId)))
-		{
-			continue;
-		}
-		//detected overlap
-		_overlapMatrix[std::make_tuple(ovlp.curId, ovlp.extId)] = true;
-		_overlapIndex[ovlp.curId].push_back(ovlp);
-		//in opposite direction
-		ovlp = ovlp.reverse();
-		_overlapMatrix[std::make_tuple(ovlp.curId, ovlp.extId)] = true;
-		_overlapIndex[ovlp.curId].push_back(ovlp);
-		//on reverse strands
-		ovlp = ovlp.complement();
-		_overlapMatrix[std::make_tuple(ovlp.curId, ovlp.extId)] = true;
-		_overlapIndex[ovlp.curId].push_back(ovlp);
-		//opposite again
-		ovlp = ovlp.reverse();
-		_overlapMatrix[std::make_tuple(ovlp.curId, ovlp.extId)] = true;
-		_overlapIndex[ovlp.curId].push_back(ovlp);
-		*/
 	processInParallel(allQueries, indexUpdate, 
 					  Parameters::get().numThreads, true);
 }

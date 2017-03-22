@@ -7,6 +7,14 @@
 #include "graph_processing.h"
 #include "logger.h"
 
+void GraphProcessor::simplify()
+{
+	_outdatedEdges.clear();
+	this->trimTips();
+	this->unrollLoops();
+	//this->condenceEdges();
+	this->updateEdgesMultiplicity();
+}
 
 void GraphProcessor::unrollLoops()
 {

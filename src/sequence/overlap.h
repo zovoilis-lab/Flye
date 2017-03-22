@@ -158,11 +158,12 @@ public:
 	void loadOverlaps(const std::string& filename);
 
 	void findAllOverlaps();
-	const std::vector<OverlapRange>& getSeqOverlaps(FastaRecord::Id readId);
+	const std::vector<OverlapRange>& lazySeqOverlaps(FastaRecord::Id readId);
 	const OverlapIndex& getOverlapIndex() const {return _overlapIndex;}
 
-
 private:
+	void storeOverlaps(const std::vector<OverlapRange>& overlaps, 
+					   FastaRecord::Id seqId);
 
 	const OverlapDetector& _ovlpDetect;
 	const SequenceContainer& _queryContainer;
@@ -170,5 +171,4 @@ private:
 
 	OverlapIndex _overlapIndex;
 	std::unordered_set<FastaRecord::Id> _cached;
-	//cuckoohash_map<FastaRecord::IdPair, bool> _overlapMatrix;
 };

@@ -12,20 +12,14 @@ public:
 	GraphProcessor(RepeatGraph& graph):
 		_graph(graph) {}
 
-	void simplify()
-	{
-		this->trimTips();
-		this->unrollLoops();
-		this->condenceEdges();
-		this->updateEdgesMultiplicity();
-	}
-
-	void trimTips();
+	void simplify();
 	void unrollLoops();
+
+private:
+	void trimTips();
 	void condenceEdges();
 	void updateEdgesMultiplicity();
 
-private:
 	RepeatGraph& _graph;
 
 	std::unordered_set<FastaRecord::Id> _outdatedEdges;

@@ -340,15 +340,16 @@ void RepeatResolver::resolveRepeats()
 	pathsIndex.buildIndex(1, 5000, 1);
 	OverlapDetector readsOverlapper(pathsContainer, pathsIndex, 
 									_readJump, _maxSeparation, 0);
-	OverlapContainer readsContainer(readsOverlapper, _readSeqs, false);
-	readsContainer.findAllOverlaps();
+	OverlapContainer readsOverlaps(readsOverlapper, _readSeqs, false);
+	readsOverlaps.findAllOverlaps();
 
 	//get connections
 	std::vector<Connection> readConnections;
-	for (auto& seqOverlaps : readsContainer.getOverlapIndex())
+	for (auto& readId : pathsContainer.getIndex())
 	{
+		auto& overlaps = readsOverlaps.getOverlapIndex().at(readId.first);
 		std::vector<EdgeAlignment> alignments;
-		for (auto& ovlp : filterOvlp(seqOverlaps.second))
+		for (auto& ovlp : filterOvlp(overlaps))
 		{
 			alignments.push_back({ovlp, idToSegment[ovlp.extId].first,
 								  idToSegment[ovlp.extId].second});
@@ -397,8 +398,4 @@ void RepeatResolver::resolveRepeats()
 	}
 
 	this->resolveConnections(readConnections);
-
-	//this->unrollLoops();
-	//this->condenceEdges();
-	//this->updateEdgesMultiplicity();
 }

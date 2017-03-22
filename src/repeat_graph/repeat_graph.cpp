@@ -79,7 +79,8 @@ void RepeatGraph::getRepeatClusters(const OverlapContainer& asmOverlaps)
 		for (auto& ovlp : ovlpHash.second)
 		{
 			overlapClusters[ovlp.curId].emplace_back(ovlp);
-			/*overlapClusters[ovlp.extId].emplace_back(ovlp.reverse());
+			/*
+			overlapClusters[ovlp.extId].emplace_back(ovlp.reverse());
 
 			//reverse complement
 			int32_t curLen = _asmSeqs.seqLen(ovlp.curId);
