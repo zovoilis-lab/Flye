@@ -79,17 +79,6 @@ void RepeatGraph::getRepeatClusters(const OverlapContainer& asmOverlaps)
 		for (auto& ovlp : ovlpHash.second)
 		{
 			overlapClusters[ovlp.curId].emplace_back(ovlp);
-			/*
-			overlapClusters[ovlp.extId].emplace_back(ovlp.reverse());
-
-			//reverse complement
-			int32_t curLen = _asmSeqs.seqLen(ovlp.curId);
-			int32_t extLen = _asmSeqs.seqLen(ovlp.extId);
-			OverlapRange complOvlp = ovlp.complement(curLen, extLen);
-			//
-
-			overlapClusters[complOvlp.curId].emplace_back(complOvlp);
-			overlapClusters[complOvlp.extId].emplace_back(complOvlp.reverse());*/
 		}
 	}
 
@@ -452,13 +441,13 @@ GraphPath RepeatGraph::complementPath(const GraphPath& path)
 	return complEdges;
 }
 
-void RepeatGraph::outputDot(const std::string& filename, 
-							bool collapseUnbranching)
+void RepeatGraph::outputDot(const std::string& filename)
 {
 	std::ofstream fout(filename);
+	if (!fout.is_open()) throw std::runtime_error("Can't open " + filename);
+
 	fout << "digraph {\n";
 	
-	///re-enumerating helper functions
 	std::unordered_map<GraphNode*, int> nodeIds;
 	int nextNodeId = 0;
 	auto nodeToId = [&nodeIds, &nextNodeId](GraphNode* node)
@@ -470,19 +459,6 @@ void RepeatGraph::outputDot(const std::string& filename,
 		return nodeIds[node];
 	};
 
-	std::unordered_map<FastaRecord::Id, size_t> edgeIds;
-	size_t nextEdgeId = 0;
-	auto pathToId = [&edgeIds, &nextEdgeId](GraphPath path)
-	{
-		if (!edgeIds.count(path.front()->edgeId))
-		{
-			edgeIds[path.front()->edgeId] = nextEdgeId;
-			edgeIds[path.back()->edgeId.rc()] = nextEdgeId + 1;
-			nextEdgeId += 2;
-		}
-		return FastaRecord::Id(edgeIds[path.front()->edgeId]);
-	};
-	
 	const std::string COLORS[] = {"red", "darkgreen", "blue", "goldenrod", 
 								  "cadetblue", "darkorchid", "aquamarine1", 
 								  "darkgoldenrod1", "deepskyblue1", 
@@ -527,56 +503,26 @@ void RepeatGraph::outputDot(const std::string& filename,
 			if (resolvedRepeat) continue;
 
 			///
-			if (collapseUnbranching)
+			for (auto& edge : traversed)
 			{
-				int32_t edgeLength = 0;
-				for (auto& edge : traversed) edgeLength += edge->length();
-
-				if (traversed.front()->isRepetitive())
+				if (edge->isRepetitive())
 				{
-					FastaRecord::Id edgeId = pathToId(traversed);
+					FastaRecord::Id edgeId = edge->edgeId;
 					std::string color = idToColor(edgeId);
-					//std::string color = _outdatedEdges.count(edgeId) ? "red" : "green";
 
-					fout << "\"" << nodeToId(traversed.front()->nodeLeft) 
-						 << "\" -> \"" << nodeToId(traversed.back()->nodeRight)
-						 << "\" [label = \"" << edgeId.signedId() << 
-						 " " << edgeLength << " (" 
-						 << traversed.front()->multiplicity << ")\", color = \"" 
+					fout << "\"" << nodeToId(edge->nodeLeft) 
+						 << "\" -> \"" << nodeToId(edge->nodeRight)
+						 << "\" [label = \"" << edgeId.signedId() 
+						 << " " << edge->length() << " ("
+						 << edge->multiplicity << ")" << "\", color = \"" 
 						 << color << "\" " << " penwidth = 3] ;\n";
 				}
 				else
 				{
-					fout << "\"" << nodeToId(traversed.front()->nodeLeft) 
-						 << "\" -> \"" << nodeToId(traversed.back()->nodeRight)
-						 << "\" [label = \"" << pathToId(traversed).signedId() 
-						 << " " << edgeLength << "\", color = \"black\"] ;\n";
-				}
-			}
-			else
-			{
-				for (auto& edge : traversed)
-				{
-					if (edge->isRepetitive())
-					{
-						FastaRecord::Id edgeId = edge->edgeId;
-						std::string color = idToColor(edgeId);
-						//std::string color = _outdatedEdges.count(edgeId) ? "red" : "green";
-
-						fout << "\"" << nodeToId(edge->nodeLeft) 
-							 << "\" -> \"" << nodeToId(edge->nodeRight)
-							 << "\" [label = \"" << edgeId.signedId() 
-							 << " " << edge->length() << " ("
-							 << edge->multiplicity << ")" << "\", color = \"" 
-							 << color << "\" " << " penwidth = 3] ;\n";
-					}
-					else
-					{
-						fout << "\"" << nodeToId(edge->nodeLeft) 
-							 << "\" -> \"" << nodeToId(edge->nodeRight)
-							 << "\" [label = \"" << edge->edgeId.signedId() << " "
-							 << edge->length() << "\", color = \"black\"] ;\n";
-					}
+					fout << "\"" << nodeToId(edge->nodeLeft) 
+						 << "\" -> \"" << nodeToId(edge->nodeRight)
+						 << "\" [label = \"" << edge->edgeId.signedId() << " "
+						 << edge->length() << "\", color = \"black\"] ;\n";
 				}
 			}
 		}

@@ -16,13 +16,13 @@
 #include "repeat_resolver.h"
 
 bool parseArgs(int argc, char** argv, std::string& readsFasta, 
-			   std::string& outAssembly, std::string& logFile, std::string& inAssembly,
+			   std::string& outFolder, std::string& logFile, std::string& inAssembly,
 			   bool& debug, size_t& numThreads)
 {
 	auto printUsage = [argv]()
 	{
 		std::cerr << "Usage: " << argv[0]
-				  << "\tin_assembly reads_file out_assembly \n\t\t\t\t"
+				  << "\tin_assembly reads_file out_folder \n\t\t\t\t"
 				  << "[-l log_file] [-t num_threads] [-d]\n\n"
 				  << "positional arguments:\n"
 				  << "\tin_assembly\tpath to input assembly\n"
@@ -68,7 +68,7 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 	}
 	inAssembly = *(argv + optind);
 	readsFasta = *(argv + optind + 1);
-	outAssembly = *(argv + optind + 2);
+	outFolder = *(argv + optind + 2);
 
 	return true;
 }
@@ -85,10 +85,10 @@ int main(int argc, char** argv)
 	size_t numThreads;
 	std::string readsFasta;
 	std::string inAssembly;
-	std::string outAssembly;
+	std::string outFolder;
 	std::string logFile;
 
-	if (!parseArgs(argc, argv, readsFasta, outAssembly, logFile, inAssembly,
+	if (!parseArgs(argc, argv, readsFasta, outFolder, logFile, inAssembly,
 				   debugging, numThreads)) 
 	{
 		return 1;
@@ -103,7 +103,6 @@ int main(int argc, char** argv)
 		if (!logFile.empty()) Logger::get().setOutputFile(logFile);
 
 		Logger::get().debug() << "Build date: " << __DATE__ << " " << __TIME__;
-		Logger::get().debug() << "Reading FASTA";
 
 		SequenceContainer seqAssembly; 
 		seqAssembly.readFasta(inAssembly);
@@ -112,16 +111,19 @@ int main(int argc, char** argv)
 
 		RepeatGraph rg(seqAssembly);
 		rg.build();
-		rg.outputDot(outAssembly + "_before.dot", false);
+		rg.outputDot(outFolder + "/graph_before.dot");
 
-		GraphProcessor proc(rg);
+		GraphProcessor proc(rg, seqAssembly, seqReads);
 		proc.simplify();
-		rg.outputDot(outAssembly + "_simplified.dot", false);
+		rg.outputDot(outFolder + "/graph_simplified.dot");
 
 		RepeatResolver resolver(rg, seqAssembly, seqReads);
 		resolver.resolveRepeats();
-		rg.outputDot(outAssembly + "_after.dot", false);
-		rg.outputDot(outAssembly + "_condensed.dot", true);
+		rg.outputDot(outFolder + "/graph_after.dot");
+
+		proc.generateContigs();
+		proc.outputContigsGraph(outFolder + "/graph_condensed.dot");
+		proc.outputContigsFasta(outFolder + "/graph_edges.fasta");
 
 		return 0;
 

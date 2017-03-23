@@ -143,46 +143,36 @@ std::vector<RepeatResolver::EdgeAlignment>
 	return result;
 }
 
-size_t RepeatResolver::separatePath(const GraphPath& graphPath, size_t startId)
+void RepeatResolver::separatePath(const GraphPath& graphPath, 
+								  SequenceSegment readSegment, size_t newId)
 {
-	/*
-	Logger::get().debug() << "---";
-	for (auto edge : graphPath)
-	{
-		Logger::get().debug() << edge->edgeId << " " << edge->multiplicity;
-	}*/
-
 	//first edge
-	GraphNode* newNode = _graph.addNode();
+	GraphNode* leftNode = _graph.addNode();
 	vecRemove(graphPath.front()->nodeRight->inEdges, graphPath.front());
-	graphPath.front()->nodeRight = newNode;
-	GraphNode* prevNode = newNode;
-	prevNode->inEdges.push_back(graphPath.front());
+	graphPath.front()->nodeRight = leftNode;
+	leftNode->inEdges.push_back(graphPath.front());
 
 	//repetitive edges in the middle
-	size_t edgesAdded = 0;
 	for (size_t i = 1; i < graphPath.size() - 1; ++i)
 	{
 		--graphPath[i]->multiplicity;
+	}
 
-		GraphNode* nextNode = _graph.addNode();
-
-		GraphEdge* newEdge = _graph.addEdge(GraphEdge(prevNode, nextNode, 
-								 			FastaRecord::Id(startId)));
-		newEdge->seqSegments = graphPath[i]->seqSegments;
+	GraphNode* rightNode = leftNode;
+	if (graphPath.size() > 2)
+	{
+		rightNode = _graph.addNode();
+		GraphEdge* newEdge = _graph.addEdge(GraphEdge(leftNode, rightNode,
+													  FastaRecord::Id(newId)));
 		newEdge->multiplicity = 1;
-		startId += 2;
-		edgesAdded += 1;
-
-		prevNode = nextNode;
+		newEdge->seqSegments.push_back(readSegment);
+		newEdge->readSequence = true;
 	}
 
 	//last edge
 	vecRemove(graphPath.back()->nodeLeft->outEdges, graphPath.back());
-	graphPath.back()->nodeLeft = prevNode;
-	prevNode->outEdges.push_back(graphPath.back());
-
-	return edgesAdded;
+	graphPath.back()->nodeLeft = rightNode;
+	rightNode->outEdges.push_back(graphPath.back());
 }
 
 void RepeatResolver::resolveConnections(const std::vector<Connection>& connections)
@@ -262,7 +252,7 @@ void RepeatResolver::resolveConnections(const std::vector<Connection>& connectio
 
 	const float MIN_SUPPORT = 0.5f;
 	std::unordered_set<FastaRecord::Id> usedEdges;
-	std::vector<GraphPath> uniquePaths;
+	std::vector<Connection> uniqueConnections;
 	int totalLinks = 0;
 	for (auto match : matchingPairs)
 	{
@@ -291,19 +281,25 @@ void RepeatResolver::resolveConnections(const std::vector<Connection>& connectio
 			if (conn.path.front() == leftEdge && 
 				conn.path.back() == rightEdge)
 			{
-				uniquePaths.push_back(conn.path);
+				uniqueConnections.push_back(conn);
 				break;
 			}
 		}
 	}
 
-	for (auto& path : uniquePaths)
+	for (auto& conn : uniqueConnections)
 	{
-		GraphPath complPath = _graph.complementPath(path);
-		size_t addedFwd = this->separatePath(path, _graph._nextEdgeId);
-		size_t addedRev = this->separatePath(complPath, _graph._nextEdgeId + 1);
-		assert(addedFwd == addedRev);
-		_graph._nextEdgeId += addedFwd + addedRev;
+		GraphPath complPath = _graph.complementPath(conn.path);
+		int32_t complStart = _readSeqs.seqLen(conn.readSequence.seqId) - 
+							 conn.readSequence.end - 1;
+		int32_t complEnd = _readSeqs.seqLen(conn.readSequence.seqId) - 
+							 conn.readSequence.start - 1;
+		SequenceSegment complSegment(conn.readSequence.seqId.rc(), complStart, 
+									 complEnd);
+
+		this->separatePath(conn.path, conn.readSequence, _graph._nextEdgeId);
+		this->separatePath(complPath, complSegment, _graph._nextEdgeId + 1);
+		_graph._nextEdgeId += 2;
 	}
 
 	Logger::get().debug() << "Edges: " << totalLinks << " links: "
@@ -365,13 +361,14 @@ void RepeatResolver::resolveRepeats()
 		}*/
 
 		GraphPath currentPath;
-		int32_t prevFlank = 0;
+		int32_t readStart = 0;
 		for (auto& aln : readPath)
 		{
 			if (currentPath.empty()) 
 			{
 				if (aln.edge->isRepetitive()) continue;
-				prevFlank = aln.overlap.curRange();
+				readStart = aln.overlap.curEnd + aln.overlap.extLen - 
+							aln.overlap.extEnd;
 			}
 			
 			/*if (!aln.edge->isRepetitive())
@@ -386,14 +383,22 @@ void RepeatResolver::resolveRepeats()
 			currentPath.push_back(aln.edge);
 			if (!aln.edge->isRepetitive() && currentPath.size() > 1)
 			{
-				int32_t curFlank = aln.overlap.curRange();
-				readConnections.push_back({currentPath, prevFlank, curFlank});
-				readConnections.push_back({_graph.complementPath(currentPath),
-										   curFlank, prevFlank});
+				GraphPath complPath = _graph.complementPath(currentPath);
+
+				int32_t readEnd = aln.overlap.curBegin - aln.overlap.extBegin;
+				int32_t complStart = aln.overlap.curLen - readEnd - 1;
+				int32_t complEnd = aln.overlap.curLen - readStart - 1;
+				SequenceSegment segment(aln.overlap.curId, readStart, readEnd);
+				SequenceSegment complSegment(aln.overlap.curId.rc(), complStart,
+											 complEnd);
+
+				readConnections.push_back({currentPath, segment});
+				readConnections.push_back({complPath, complSegment});
 
 				currentPath.clear();
 				currentPath.push_back(aln.edge);
-				prevFlank = curFlank;
+				readStart = aln.overlap.curEnd + aln.overlap.extLen - 
+							aln.overlap.extEnd;
 			}
 		}
 	}

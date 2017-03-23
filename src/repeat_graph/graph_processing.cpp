@@ -161,6 +161,7 @@ void GraphProcessor::trimTips()
 	for (auto edge : toRemove)	{_graph.removeEdge(edge);};
 }
 
+/*
 void GraphProcessor::condenceEdges()
 {
 	auto collapseEdges = [this](const GraphPath& edges)
@@ -252,6 +253,153 @@ void GraphProcessor::condenceEdges()
 		collapseEdges(edges);
 		collapseEdges(complEdges);
 	}
+}*/
+
+void GraphProcessor::generateContigs()
+{
+	std::unordered_map<FastaRecord::Id, size_t> edgeIds;
+	size_t nextEdgeId = 0;
+	auto pathToId = [&edgeIds, &nextEdgeId](GraphPath path)
+	{
+		if (!edgeIds.count(path.front()->edgeId))
+		{
+			edgeIds[path.front()->edgeId] = nextEdgeId;
+			edgeIds[path.back()->edgeId.rc()] = nextEdgeId + 1;
+			nextEdgeId += 2;
+		}
+		return FastaRecord::Id(edgeIds[path.front()->edgeId]);
+	};
+	
+	for (auto& node : _graph.iterNodes())
+	{
+		if (!node->isBifurcation()) continue;
+
+		for (auto& direction : node->outEdges)
+		{
+			GraphNode* curNode = direction->nodeRight;
+			GraphPath traversed;
+			traversed.push_back(direction);
+
+			while (!curNode->isBifurcation() &&
+				   !curNode->outEdges.empty())
+			{
+				traversed.push_back(curNode->outEdges.front());
+				curNode = curNode->outEdges.front()->nodeRight;
+			}
+			
+			bool resolvedRepeat = true;
+			for (auto& edge : traversed)
+			{
+				if (edge->multiplicity != 0) resolvedRepeat = false;
+			}
+			if (resolvedRepeat) continue;
+
+			FastaRecord::Id edgeId = pathToId(traversed);
+			_contigs.emplace_back(traversed, edgeId);
+		}
+	}
+}
+
+void GraphProcessor::outputContigsFasta(const std::string& filename)
+{
+	static const size_t FASTA_SLICE = 80;
+
+	std::ofstream fout(filename);
+	if (!fout.is_open()) throw std::runtime_error("Can't open " + filename);
+	
+	for (auto& contig : _contigs)
+	{
+		if (!contig.id.strand()) continue;
+
+		std::string contigSequence;
+		for (auto& edge : contig.path) 
+		{
+			if (!edge->seqSegments.empty())
+			{
+				const SequenceSegment& seg = edge->seqSegments.front();
+				const std::string& edgeSeq = !edge->readSequence ? 
+											 _asmSeqs.getSeq(seg.seqId) : 
+											 _readSeqs.getSeq(seg.seqId);
+				contigSequence += edgeSeq.substr(seg.start, seg.end - seg.start);
+			}
+			else
+			{
+				Logger::get().warning() << "Edge without sequence!";
+			}
+		}
+
+		fout << ">edge_" << contig.id.signedId() << std::endl;
+		for (size_t c = 0; c < contigSequence.length(); c += FASTA_SLICE)
+		{
+			fout << contigSequence.substr(c, FASTA_SLICE) << std::endl;
+		}
+	}
+}
+
+void GraphProcessor::outputContigsGraph(const std::string& filename)
+{
+	std::ofstream fout(filename);
+	if (!fout.is_open()) throw std::runtime_error("Can't open " + filename);
+
+	fout << "digraph {\n";
+	
+	///re-enumerating helper functions
+	std::unordered_map<GraphNode*, int> nodeIds;
+	int nextNodeId = 0;
+	auto nodeToId = [&nodeIds, &nextNodeId](GraphNode* node)
+	{
+		if (!nodeIds.count(node))
+		{
+			nodeIds[node] = nextNodeId++;
+		}
+		return nodeIds[node];
+	};
+
+	const std::string COLORS[] = {"red", "darkgreen", "blue", "goldenrod", 
+								  "cadetblue", "darkorchid", "aquamarine1", 
+								  "darkgoldenrod1", "deepskyblue1", 
+								  "darkolivegreen3"};
+	std::unordered_map<FastaRecord::Id, size_t> colorIds;
+	size_t nextColorId = 0;
+	auto idToColor = [&colorIds, &nextColorId, &COLORS](FastaRecord::Id id)
+	{
+		if (!id.strand()) id = id.rc();
+		if (!colorIds.count(id))
+		{
+			colorIds[id] = nextColorId;
+			nextColorId = (nextColorId + 1) % 10;
+		}
+		return COLORS[colorIds[id]];
+	};
+	/////////////
+
+	for (auto& contig : _contigs)
+	{
+		int32_t contigLength = 0;
+		for (auto& edge : contig.path) contigLength += edge->length();
+
+		if (contig.path.front()->isRepetitive())
+		{
+			std::string color = idToColor(contig.id);
+
+			fout << "\"" << nodeToId(contig.path.front()->nodeLeft) 
+				 << "\" -> \"" << nodeToId(contig.path.back()->nodeRight)
+				 << "\" [label = \"" << contig.id.signedId() << 
+				 " " << contigLength << " (" 
+				 << contig.path.front()->multiplicity << ")\", color = \"" 
+				 << color << "\" " << " penwidth = 3] ;\n";
+		}
+		else
+		{
+			fout << "\"" << nodeToId(contig.path.front()->nodeLeft) 
+				 << "\" -> \"" << nodeToId(contig.path.back()->nodeRight)
+				 << "\" [label = \"" << contig.id
+				 << " " << contigLength << "\", color = \"black\"] ;\n";
+		}
+	}
+
+	fout << "}\n";
+
 }
 
 void GraphProcessor::updateEdgesMultiplicity()

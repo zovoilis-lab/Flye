@@ -26,12 +26,12 @@ private:
 	struct Connection
 	{
 		GraphPath path;
-		int32_t leftOverlap;
-		int32_t rightOverlap;
+		SequenceSegment readSequence;
 	};
 
 	void resolveConnections(const std::vector<Connection>& conns);
-	size_t separatePath(const GraphPath& path, size_t startId);
+	void separatePath(const GraphPath& path, SequenceSegment segment,
+					  size_t startId);
 	std::vector<EdgeAlignment> 
 		chainReadAlignments(const SequenceContainer& edgeSeqs,
 							std::vector<EdgeAlignment> ovlps);

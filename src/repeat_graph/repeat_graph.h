@@ -27,7 +27,8 @@ struct GraphEdge
 	GraphEdge(GraphNode* nodeLeft, GraphNode* nodeRight, 
 			  FastaRecord::Id edgeId):
 		nodeLeft(nodeLeft), nodeRight(nodeRight), 
-		edgeId(edgeId), multiplicity(0), selfComplement(false)
+		edgeId(edgeId), multiplicity(0), selfComplement(false), 
+		readSequence(false)
 		{}
 
 	bool isRepetitive() {return multiplicity > 1;}
@@ -38,6 +39,8 @@ struct GraphEdge
 	}
 	int32_t length()
 	{
+		if (seqSegments.empty()) return 0;
+
 		int64_t sumLen = 0;
 		for (auto& seqSeg : seqSegments)
 		{
@@ -53,6 +56,7 @@ struct GraphEdge
 	std::vector<SequenceSegment> seqSegments;
 	int multiplicity;
 	bool selfComplement;
+	bool readSequence;
 };
 
 struct GraphNode
@@ -81,7 +85,8 @@ public:
 	{}
 
 	void build();
-	void outputDot(const std::string& filename, bool collapseRepeats);
+	void outputDot(const std::string& filename);
+	GraphPath complementPath(const GraphPath& path);
 
 	//nodes
 	GraphNode* addNode()
@@ -139,9 +144,7 @@ public:
 	}
 	//
 
-	GraphPath complementPath(const GraphPath& path);
-
-	size_t _nextEdgeId;
+	size_t _nextEdgeId;	//TODO: temporary
 
 private:
 	struct GluePoint
