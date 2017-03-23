@@ -70,17 +70,22 @@ void RepeatGraph::build()
 
 void RepeatGraph::getRepeatClusters(const OverlapContainer& asmOverlaps)
 {
+	Logger::get().debug() << "Creating repeat clusters";
 	//forming overlap-based clusters
 	typedef SetNode<OverlapRange> DjsOverlap;
 	std::unordered_map<FastaRecord::Id, 
 					   std::list<DjsOverlap>> overlapClusters;
+
+	int numOverlaps = 0;
 	for (auto& ovlpHash : asmOverlaps.getOverlapIndex())
 	{
 		for (auto& ovlp : ovlpHash.second)
 		{
 			overlapClusters[ovlp.curId].emplace_back(ovlp);
+			++numOverlaps;
 		}
 	}
+	Logger::get().debug() << "Processing " << numOverlaps << " overlaps" ;
 
 	for (auto& seqClusterPair : overlapClusters)
 	{
@@ -120,6 +125,7 @@ void RepeatGraph::getRepeatClusters(const OverlapContainer& asmOverlaps)
 
 void RepeatGraph::getGluepoints(const OverlapContainer& asmOverlaps)
 {
+	Logger::get().debug() << "Computing gluepoints";
 	//cluster interval endpoints
 	typedef SetNode<Point2d> SetPoint2d;
 	std::list<SetPoint2d> endpoints;
@@ -309,6 +315,8 @@ bool RepeatGraph::isRepetitive(GluePoint gpLeft, GluePoint gpRight)
 
 void RepeatGraph::initializeEdges()
 {
+	Logger::get().debug() << "Initializing edges";
+
 	typedef std::pair<GraphNode*, GraphNode*> NodePair;
 	std::unordered_map<NodePair, GraphEdge*, pairhash> repeatEdges;
 

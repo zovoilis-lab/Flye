@@ -19,7 +19,8 @@ class GraphProcessor
 public:
 	GraphProcessor(RepeatGraph& graph, const SequenceContainer& asmSeqs,
 				   const SequenceContainer& readSeqs):
-		_graph(graph), _asmSeqs(asmSeqs), _readSeqs(readSeqs) {}
+		_graph(graph), _asmSeqs(asmSeqs), _readSeqs(readSeqs),
+		_tipThreshold(Parameters::get().minimumOverlap) {}
 
 	void simplify();
 	void unrollLoops();
@@ -36,7 +37,7 @@ private:
 	RepeatGraph& _graph;
 	const SequenceContainer& _asmSeqs;
 	const SequenceContainer& _readSeqs;
-	const int _tipThreshold = 1500;
+	const int _tipThreshold;
 
 	std::vector<Contig> _contigs;
 	std::unordered_set<FastaRecord::Id> _outdatedEdges;

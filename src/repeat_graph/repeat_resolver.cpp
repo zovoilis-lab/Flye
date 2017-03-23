@@ -7,30 +7,6 @@
 #include "utils.h"
 #include "bipartie_mincost.h"
 
-namespace
-{
-	std::vector<OverlapRange> filterOvlp(const std::vector<OverlapRange>& ovlps)
-	{
-		std::vector<OverlapRange> filtered;
-		for (auto& ovlp : ovlps)
-		{
-			bool found = false;
-			for (auto& otherOvlp : filtered)
-			{
-				if (otherOvlp.curBegin == ovlp.curBegin &&
-					otherOvlp.curEnd == ovlp.curEnd &&
-					otherOvlp.extBegin == ovlp.extBegin &&
-					otherOvlp.extEnd == ovlp.extEnd)
-				{
-					found = true;
-					break;
-				}
-			}
-			if (!found) filtered.push_back(ovlp);
-		}
-		return filtered;
-	}
-}
 
 std::vector<RepeatResolver::EdgeAlignment>
 	RepeatResolver::chainReadAlignments(const SequenceContainer& edgeSeqs,
@@ -177,6 +153,8 @@ void RepeatResolver::separatePath(const GraphPath& graphPath,
 
 void RepeatResolver::resolveConnections(const std::vector<Connection>& connections)
 {
+	Logger::get().debug() << "Resolving repeats";
+
 	///////////
 	std::unordered_map<GraphEdge*, std::unordered_map<GraphEdge*, int>> stats;
 	for (auto& conn : connections)
@@ -336,6 +314,7 @@ void RepeatResolver::resolveRepeats()
 	OverlapContainer readsOverlaps(readsOverlapper, _readSeqs, false);
 	readsOverlaps.findAllOverlaps();
 
+	Logger::get().debug() << "Threading reads through the graph";
 	//get connections
 	std::vector<Connection> readConnections;
 	for (auto& readId : _readSeqs.getIndex())
@@ -343,7 +322,7 @@ void RepeatResolver::resolveRepeats()
 		auto& overlaps = readsOverlaps.getOverlapIndex().at(readId.first);
 		std::vector<EdgeAlignment> alignments;
 
-		for (auto& ovlp : filterOvlp(overlaps))
+		for (auto& ovlp : overlaps)
 		{
 			if (idToSegment.count(ovlp.extId))
 			{

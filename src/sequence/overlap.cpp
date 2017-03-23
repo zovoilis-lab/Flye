@@ -289,7 +289,6 @@ void OverlapContainer::storeOverlaps(const std::vector<OverlapRange>& overlaps,
 		if (_onlyMax && extisting.count(ovlp.extId)) continue;
 
 		auto revOvlp = ovlp.reverse();
-
 		fwdOverlaps.push_back(ovlp);
 		revOverlaps.push_back(ovlp.complement());
 		_overlapIndex[revOvlp.curId].push_back(revOvlp);
@@ -320,6 +319,66 @@ void OverlapContainer::findAllOverlaps()
 
 	processInParallel(allQueries, indexUpdate, 
 					  Parameters::get().numThreads, true);
+
+	this->filterOverlaps();
+}
+
+
+void OverlapContainer::filterOverlaps()
+{
+	Logger::get().debug() << "Filtering overlaps";
+
+	//filter identical overlaps
+	int filteredIdent = 0;
+	for (auto seqId : _queryContainer.getIndex())
+	{
+		auto& overlaps = _overlapIndex[seqId.first];
+		std::vector<OverlapRange> filtered;
+		for (auto& ovlp : overlaps)
+		{
+			bool found = false;
+			for (auto& otherOvlp : filtered)
+			{
+				if (ovlp.equals(otherOvlp))
+				{
+					found = true;
+					break;
+				}
+			}
+			if (!found) filtered.push_back(ovlp);
+		}
+		filteredIdent += overlaps.size() - filtered.size();
+		overlaps = std::move(filtered);
+	}
+
+	//filter contained overlaps
+	int filteredContained = 0;
+	std::unordered_set<OverlapRange*> contained;
+	for (auto seqId : _queryContainer.getIndex())
+	{
+		auto& overlaps = _overlapIndex[seqId.first];
+		for (auto& ovlp : overlaps)
+		{
+			for (auto& otherOvlp : overlaps)
+			{
+				if (ovlp.containedBy(otherOvlp))
+				{
+					contained.insert(&ovlp);
+					break;
+				}
+			}
+		}
+		std::vector<OverlapRange> filtered;
+		for (auto& ovlp : _overlapIndex[seqId.first])
+		{
+			if (!contained.count(&ovlp)) filtered.push_back(ovlp);
+		}
+		filteredContained += overlaps.size() - filtered.size();
+		overlaps = std::move(filtered);
+	}
+
+	Logger::get().debug() << "Filtered " << filteredIdent << " identical and "
+		<< filteredContained << " contained overlaps";
 }
 
 

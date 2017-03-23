@@ -68,10 +68,25 @@ struct OverlapRange
 			   extBegin <= extPos && extPos <= extEnd;
 	}
 
+	bool containedBy(const OverlapRange& other) const
+	{
+		if (curId != other.curId || extId != other.curId) return false;
+
+		return other.curBegin < curBegin && curEnd < other.curEnd &&
+			   other.extBegin < extBegin && extEnd <= other.extEnd;
+	}
+
 	int32_t curIntersect(const OverlapRange& other) const
 	{
 		return std::min(curEnd, other.curEnd) - 
 			   std::max(curBegin, other.curBegin);
+	}
+
+	bool equals(const OverlapRange& other) const
+	{
+		return other.curId == curId && other.extId == extId &&
+			   other.curBegin == curBegin && other.curEnd == curEnd &&
+			   other.extBegin == extBegin && other.extEnd == extEnd;
 	}
 
 	std::string serialize() const
@@ -166,6 +181,7 @@ public:
 private:
 	void storeOverlaps(const std::vector<OverlapRange>& overlaps, 
 					   FastaRecord::Id seqId);
+	void filterOverlaps();
 
 	const OverlapDetector& _ovlpDetect;
 	const SequenceContainer& _queryContainer;

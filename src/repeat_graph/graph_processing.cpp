@@ -111,7 +111,6 @@ void GraphProcessor::unrollLoops()
 
 void GraphProcessor::trimTips()
 {
-
 	std::unordered_set<GraphEdge*> toRemove;
 	for (GraphEdge* edge : _graph.iterEdges())
 	{
@@ -298,6 +297,7 @@ void GraphProcessor::generateContigs()
 			_contigs.emplace_back(traversed, edgeId);
 		}
 	}
+	Logger::get().info() << "Generated " << _contigs.size() / 2 << " contigs";
 }
 
 void GraphProcessor::outputContigsFasta(const std::string& filename)
