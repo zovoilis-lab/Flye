@@ -16,19 +16,24 @@
 #include "repeat_resolver.h"
 
 bool parseArgs(int argc, char** argv, std::string& readsFasta, 
-			   std::string& outFolder, std::string& logFile, std::string& inAssembly,
-			   bool& debug, size_t& numThreads)
+			   std::string& outFolder, std::string& logFile, 
+			   std::string& inAssembly, int& kmerSize,
+			   int& minOverlap, bool& debug, size_t& numThreads)
 {
 	auto printUsage = [argv]()
 	{
 		std::cerr << "Usage: " << argv[0]
 				  << "\tin_assembly reads_file out_folder \n\t\t\t\t"
-				  << "[-l log_file] [-t num_threads] [-d]\n\n"
+				  << "[-l log_file] [-t num_threads] [-v min_overlap]\n\t\t\t\t"
+				  << "[-k kmer_size] [-d]\n\n"
 				  << "positional arguments:\n"
 				  << "\tin_assembly\tpath to input assembly\n"
 				  << "\treads file\tpath to fasta with reads\n"
 				  << "\tout_assembly\tpath to output assembly\n"
 				  << "\noptional arguments:\n"
+				  << "\t-k kmer_size\tk-mer size [default = 15] \n"
+				  << "\t-v min_overlap\tminimum overlap between reads "
+				  << "[default = 5000] \n"
 				  << "\t-d \t\tenable debug output "
 				  << "[default = false] \n"
 				  << "\t-l log_file\toutput log to file "
@@ -40,8 +45,10 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 	numThreads = 1;
 	debug = false;
 	logFile = "";
+	minOverlap = 5000;
+	kmerSize = 15;
 
-	const char optString[] = "l:t:hd";
+	const char optString[] = "l:t:k:v:hd";
 	int opt = 0;
 	while ((opt = getopt(argc, argv, optString)) != -1)
 	{
@@ -49,6 +56,12 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 		{
 		case 't':
 			numThreads = atoi(optarg);
+			break;
+		case 'v':
+			minOverlap = atoi(optarg);
+			break;
+		case 'k':
+			kmerSize = atoi(optarg);
 			break;
 		case 'l':
 			logFile = optarg;
@@ -66,6 +79,7 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 		printUsage();
 		return false;
 	}
+
 	inAssembly = *(argv + optind);
 	readsFasta = *(argv + optind + 1);
 	outFolder = *(argv + optind + 2);
@@ -83,18 +97,20 @@ int main(int argc, char** argv)
 {
 	bool debugging = false;
 	size_t numThreads;
+	int kmerSize;
+	int minOverlap;
 	std::string readsFasta;
 	std::string inAssembly;
 	std::string outFolder;
 	std::string logFile;
 
 	if (!parseArgs(argc, argv, readsFasta, outFolder, logFile, inAssembly,
-				   debugging, numThreads)) 
+				   kmerSize, minOverlap, debugging, numThreads)) 
 	{
 		return 1;
 	}
-	Parameters::get().minimumOverlap = 5000;
-	Parameters::get().kmerSize = 15;
+	Parameters::get().minimumOverlap = minOverlap;
+	Parameters::get().kmerSize = kmerSize;
 	Parameters::get().numThreads = numThreads;
 
 	try

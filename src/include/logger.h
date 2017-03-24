@@ -26,7 +26,6 @@ public:
 		{
 			throw std::runtime_error("Can't open log file");
 		}
-		_logFile << "-----------Begin assembly log------------\n";
 	}
 
 	void setDebugging(bool debug) {_debug = debug;}

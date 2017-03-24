@@ -18,6 +18,7 @@ import abruijn.bubbles as bbl
 import abruijn.polish as pol
 import abruijn.fasta_parser as fp
 import abruijn.assemble as asm
+import abruijn.repeat_graph as repeat
 from abruijn.__version__ import __version__
 
 
@@ -85,6 +86,25 @@ class JobAssembly(Job):
         Job.run_description["stage_name"] = self.name
 
 
+class JobRepeat(Job):
+    def __init__(self, in_assembly, out_folder, log_file):
+        super(JobRepeat, self).__init__()
+        self.in_assembly = in_assembly
+        self.log_file = log_file
+        self.out_folder = out_folder
+        self.name = "repeat"
+
+        edges_sequences = os.path.join(out_folder, "graph_edges.fasta")
+        repeat_graph = os.path.join(out_folder, "graph_condensed.dot")
+        self.out_files = [edges_sequences, repeat_graph]
+
+    def run(self):
+        logger.info("Performing repeat analysis")
+        repeat.analyse_repeats(self.args, self.in_assembly, self.out_folder,
+                               self.log_file)
+        Job.run_description["stage_name"] = self.name
+
+
 class JobAlignment(Job):
     def __init__(self, in_reference, out_alignment, stage_id):
         super(JobAlignment, self).__init__()
@@ -110,11 +130,9 @@ class JobAlignment(Job):
 
 
 class JobPolishing(Job):
-    def __init__(self, in_alignment, in_reference,
-                 out_consensus, stage_id, seq_platform):
+    def __init__(self, in_alignment, out_consensus, stage_id, seq_platform):
         super(JobPolishing, self).__init__()
         self.in_alignment = in_alignment
-        self.in_reference = in_reference
         self.out_consensus = out_consensus
         self.name = "polishing"
         self.stage_id = stage_id
@@ -142,21 +160,34 @@ def _create_job_list(args, work_dir, log_file):
     Build pipeline as a list of consecutive jobs
     """
     jobs = []
+
+    #Assembly job
     draft_assembly = os.path.join(work_dir, "draft_assembly.fasta")
     jobs.append(JobAssembly(draft_assembly, log_file))
 
-    prev_assembly = draft_assembly
+    #Pre-polishing
+    alignment_file = os.path.join(work_dir, "blasr_0.m5")
+    pre_polished_file = os.path.join(work_dir, "polished_0.fasta")
+    jobs.append(JobAlignment(draft_assembly, alignment_file, 0))
+    jobs.append(JobPolishing(alignment_file, pre_polished_file,
+                             0, args.sequencing_platform))
+
+    #Repeat analysis
+    edges_sequences = os.path.join(work_dir, "graph_edges.fasta")
+    jobs.append(JobRepeat(pre_polished_file, work_dir, log_file))
+
+    #Full polishing
+    prev_assembly = edges_sequences
     for i in xrange(args.num_iters):
         alignment_file = os.path.join(work_dir, "blasr_{0}.m5".format(i + 1))
         polished_file = os.path.join(work_dir,
                                      "polished_{0}.fasta".format(i + 1))
         jobs.append(JobAlignment(prev_assembly, alignment_file, i + 1))
-        jobs.append(JobPolishing(alignment_file, prev_assembly,
-                                 polished_file, i + 1,
+        jobs.append(JobPolishing(alignment_file, polished_file, i + 1,
                                  args.sequencing_platform))
         prev_assembly = polished_file
 
-    for i, job in enumerate(jobs):
+    for job in jobs:
         job.args = args
         job.work_dir = work_dir
 
@@ -257,8 +288,8 @@ def main():
                         "(default: 1)")
     parser.add_argument("-i", "--iterations", dest="num_iters",
                         type=lambda v: check_int_range(v, 0, 10),
-                        default=2, help="number of polishing iterations "
-                        "(default: 2)")
+                        default=1, help="number of polishing iterations "
+                        "(default: 1)")
     parser.add_argument("-p", "--platform", dest="sequencing_platform",
                         default="pacbio",
                         choices=["pacbio", "nano", "pacbio_hi_err"],
@@ -267,7 +298,7 @@ def main():
                         type=lambda v: check_int_range(v, 10, 32),
                         default=15, help="kmer size (default: 15)")
     parser.add_argument("-o", "--min-overlap", dest="min_overlap",
-                        type=lambda v: check_int_range(v, 3000, 10000),
+                        type=lambda v: check_int_range(v, 2000, 10000),
                         default=5000, help="minimum overlap between reads "
                         "(default: 5000)")
     parser.add_argument("-m", "--min-coverage", dest="min_kmer_count",

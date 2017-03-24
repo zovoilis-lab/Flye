@@ -34,7 +34,7 @@ def check_binaries():
 
 def assemble(args, out_file, log_file):
     logger.info("Assembling reads")
-
+    logger.debug("-----Begin assembly log------")
     cmdline = [ASSEMBLE_BIN, "-k", str(args.kmer_size), "-l", log_file,
                "-t", str(args.threads), "-v", str(args.min_overlap)]
     if args.debug:
