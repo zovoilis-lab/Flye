@@ -112,16 +112,25 @@ void GraphProcessor::unrollLoops()
 void GraphProcessor::trimTips()
 {
 	std::unordered_set<GraphEdge*> toRemove;
-	for (GraphEdge* edge : _graph.iterEdges())
+	for (GraphEdge* tipEdge : _graph.iterEdges())
 	{
-		int prevDegree = edge->nodeLeft->inEdges.size();
-		int nextDegree = edge->nodeRight->outEdges.size();
-		if (edge->length() < _tipThreshold && 
+		int prevDegree = tipEdge->nodeLeft->inEdges.size();
+		int nextDegree = tipEdge->nodeRight->outEdges.size();
+		if (tipEdge->length() < _tipThreshold && 
 			(prevDegree == 0 || nextDegree == 0))
 		{
-			GraphNode* toFix = (prevDegree != 0) ? edge->nodeLeft : 
-								edge->nodeRight;
-			toRemove.insert(edge);
+			GraphNode* toFix = (prevDegree != 0) ? tipEdge->nodeLeft : 
+								tipEdge->nodeRight;
+			toRemove.insert(tipEdge);
+
+			for (auto edge : toFix->inEdges) 
+			{
+				if (edge != tipEdge) _outdatedEdges.insert(edge->edgeId);
+			}
+			for (auto edge : toFix->outEdges) 
+			{
+				if (edge != tipEdge) _outdatedEdges.insert(edge->edgeId);
+			}
 
 			//label all adjacent repetitive edges
 			std::unordered_set<GraphNode*> visited;
