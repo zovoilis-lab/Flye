@@ -2,15 +2,17 @@
 //This file is a part of ABruijn program.
 //Released under the BSD license (see LICENSE file)
 
+#include <cmath>
+
 #include "repeat_resolver.h"
 #include "config.h"
 #include "utils.h"
 #include "bipartie_mincost.h"
 
 
-std::vector<RepeatResolver::EdgeAlignment>
+RepeatResolver::GraphAlignment
 	RepeatResolver::chainReadAlignments(const SequenceContainer& edgeSeqs,
-								 	 std::vector<EdgeAlignment> ovlps)
+								 	    std::vector<EdgeAlignment> ovlps)
 {
 	std::sort(ovlps.begin(), ovlps.end(),
 			  [](const EdgeAlignment& e1, const EdgeAlignment& e2)
@@ -84,18 +86,9 @@ std::vector<RepeatResolver::EdgeAlignment>
 		outEdges.insert(chain.back()->edge->edgeId);
 	}
 
-	std::vector<EdgeAlignment> result;
+	GraphAlignment result;
 	if (maxChain)
 	{
-		//chech number of non-repetitive edges
-		int numUnique = 0;
-		for (auto& edge : *maxChain) 
-		{
-			if (!edge->edge->isRepetitive()) ++numUnique;
-		}
-		if (numUnique < 2) return {};
-		if (inEdges.size() != 1 || outEdges.size() != 1) return {};
-		
 		//check length consistency
 		int32_t readSpan = maxChain->back()->overlap.curEnd - 
 						   maxChain->front()->overlap.curBegin;
@@ -112,6 +105,8 @@ std::vector<RepeatResolver::EdgeAlignment>
 		{
 			return {};
 		}
+
+		if (inEdges.size() != 1 || outEdges.size() != 1) return {};
 
 		for (auto& aln : *maxChain) result.push_back(*aln);
 	}
@@ -163,13 +158,13 @@ void RepeatResolver::resolveConnections(const std::vector<Connection>& connectio
 	}
 	for (auto& leftEdge : stats)
 	{
-		Logger::get().debug() << "For " << leftEdge.first->edgeId << " "
+		Logger::get().debug() << "For " << leftEdge.first->edgeId.signedId() << " "
 			<< leftEdge.first->seqSegments.front().seqId << " "
 			<< leftEdge.first->seqSegments.front().end;
 		
 		for (auto& rightEdge : leftEdge.second)
 		{
-			Logger::get().debug() << "\t" << rightEdge.first->edgeId << " "
+			Logger::get().debug() << "\t" << rightEdge.first->edgeId.signedId() << " "
 				<< rightEdge.first->seqSegments.front().seqId << " "
 				<< rightEdge.first->seqSegments.front().start << " " 
 				<< rightEdge.second;
@@ -284,8 +279,157 @@ void RepeatResolver::resolveConnections(const std::vector<Connection>& connectio
 						  << connections.size();
 }
 
-
 void RepeatResolver::resolveRepeats()
+{
+	std::vector<Connection> readConnections;
+	for (auto& readPath : _readAlignments)
+	{
+		/*
+		if (!readPath.empty())
+		{
+			Logger::get().debug() << _readSeqs.seqName(readId.first);
+		}*/
+
+		GraphPath currentPath;
+		int32_t readStart = 0;
+		for (auto& aln : readPath)
+		{
+			if (currentPath.empty()) 
+			{
+				if (aln.edge->isRepetitive() || aln.edge->isLooped()) continue;
+				readStart = aln.overlap.curEnd + aln.overlap.extLen - 
+							aln.overlap.extEnd;
+			}
+			
+			/*if (!aln.edge->isRepetitive())
+			{
+				Logger::get().debug() << aln.edge->edgeId << "\t" 
+									  << aln.edge->seqSegments.front().seqId << "\t"
+									  << aln.edge->seqSegments.front().start << "\t"
+									  << aln.edge->seqSegments.front().end << "\t"
+									  << aln.overlap.curRange();
+			}*/
+
+			currentPath.push_back(aln.edge);
+			if (!aln.edge->isRepetitive() && !aln.edge->isLooped() && 
+				currentPath.size() > 1)
+			{
+				GraphPath complPath = _graph.complementPath(currentPath);
+
+				int32_t readEnd = aln.overlap.curBegin - aln.overlap.extBegin;
+				int32_t complStart = aln.overlap.curLen - readEnd - 1;
+				int32_t complEnd = aln.overlap.curLen - readStart - 1;
+				SequenceSegment segment(aln.overlap.curId, readStart, readEnd);
+				SequenceSegment complSegment(aln.overlap.curId.rc(), complStart,
+											 complEnd);
+
+				readConnections.push_back({currentPath, segment});
+				readConnections.push_back({complPath, complSegment});
+
+				currentPath.clear();
+				currentPath.push_back(aln.edge);
+				readStart = aln.overlap.curEnd + aln.overlap.extLen - 
+							aln.overlap.extEnd;
+			}
+		}
+	}
+
+	this->resolveConnections(readConnections);
+}
+
+
+void RepeatResolver::correctEdgesMultiplicity()
+{
+	std::unordered_map<GraphEdge*, int64_t> edgesCoverage;
+	//update coverage
+	for (auto& path : _readAlignments)
+	{
+		//for (auto& aln : path)
+		for (size_t i = 0; i < path.size(); ++i)
+		{
+			if (0 < i && i < path.size() - 1)
+			{
+				edgesCoverage[path[i].edge] += path[i].edge->length();
+			}
+			else
+			{
+				edgesCoverage[path[i].edge] += path[i].overlap.extRange();
+			}
+		}
+	}
+
+	int64_t sumCov = 0;
+	int64_t sumLength = 0;
+	for (auto edgeCov : edgesCoverage)
+	{
+		sumCov += edgeCov.second;
+		sumLength += edgeCov.first->length();
+	}
+	int meanCoverage = sumCov / sumLength;
+	Logger::get().debug() << "Mean edge coverage: " << meanCoverage;
+
+	for (auto edgeCov : edgesCoverage)
+	{
+		if (!edgeCov.first->edgeId.strand()) continue;
+
+		GraphEdge* complEdge = _graph.complementPath({edgeCov.first}).front();
+		int normCov = (edgeCov.second + edgesCoverage[complEdge]) / 
+									(2 * edgeCov.first->length());
+		edgeCov.first->coverage = std::max(1.0f, roundf((float)normCov / meanCoverage));
+		complEdge->coverage = std::max(1.0f, roundf((float)normCov / meanCoverage));
+	}
+
+	//smooth edges coverage
+	//TODO: do not update tips
+	for (size_t i = 0; i < 20; ++i)
+	{
+		float divergence = 0;
+		for (auto edge : _graph.iterEdges())
+		{
+			float sumLeft = 0;
+			for (auto inEdge : edge->nodeLeft->inEdges) 
+				sumLeft += inEdge->coverage;
+			for (auto outEdge : edge->nodeLeft->outEdges) 
+				sumLeft -= outEdge->coverage;
+
+			float sumRight = 0;
+			for (auto inEdge : edge->nodeRight->inEdges) 
+				sumRight += inEdge->coverage;
+			for (auto outEdge : edge->nodeRight->outEdges) 
+				sumRight -= outEdge->coverage;
+
+			float updatedEst = edge->coverage + (sumLeft - sumRight) / 2;
+			divergence += fabsf(sumLeft - sumRight);
+			edge->coverage = std::max(1.0f, updatedEst);
+		}
+
+		Logger::get().debug() << "Smothing iteration: " << divergence;
+	}
+
+	for (auto edge : _graph.iterEdges())
+	{
+		if (!edge->edgeId.strand()) continue;
+		GraphEdge* complEdge = _graph.complementPath({edge}).front();
+
+		int estMult = std::max(1.0f, roundf(edge->coverage));
+
+		if (edge->multiplicity != estMult && !edge->isLooped())
+		{
+			Logger::get().debug() << "Coverage: " 
+						<< edge->edgeId.signedId()
+						<< " " << edge->multiplicity << " " << estMult;
+
+			edge->multiplicity = estMult;
+			edge->unknownMult = false;
+			complEdge->multiplicity = estMult;
+			complEdge->unknownMult = false;
+		}
+
+	}
+}
+
+
+void RepeatResolver::alignReads()
 {
 	//create database
 	std::unordered_map<FastaRecord::Id, 
@@ -316,7 +460,6 @@ void RepeatResolver::resolveRepeats()
 
 	Logger::get().debug() << "Threading reads through the graph";
 	//get connections
-	std::vector<Connection> readConnections;
 	for (auto& readId : _readSeqs.getIndex())
 	{
 		auto& overlaps = readsOverlaps.getOverlapIndex().at(readId.first);
@@ -331,56 +474,8 @@ void RepeatResolver::resolveRepeats()
 			}
 		}
 
-		auto readPath = this->chainReadAlignments(pathsContainer, alignments);
+		_readAlignments.push_back(this->chainReadAlignments(pathsContainer, 
+															alignments));
 
-		/*
-		if (!readPath.empty())
-		{
-			Logger::get().debug() << _readSeqs.seqName(readId.first);
-		}*/
-
-		GraphPath currentPath;
-		int32_t readStart = 0;
-		for (auto& aln : readPath)
-		{
-			if (currentPath.empty()) 
-			{
-				if (aln.edge->isRepetitive()) continue;
-				readStart = aln.overlap.curEnd + aln.overlap.extLen - 
-							aln.overlap.extEnd;
-			}
-			
-			/*if (!aln.edge->isRepetitive())
-			{
-				Logger::get().debug() << aln.edge->edgeId << "\t" 
-									  << aln.edge->seqSegments.front().seqId << "\t"
-									  << aln.edge->seqSegments.front().start << "\t"
-									  << aln.edge->seqSegments.front().end << "\t"
-									  << aln.overlap.curRange();
-			}*/
-
-			currentPath.push_back(aln.edge);
-			if (!aln.edge->isRepetitive() && currentPath.size() > 1)
-			{
-				GraphPath complPath = _graph.complementPath(currentPath);
-
-				int32_t readEnd = aln.overlap.curBegin - aln.overlap.extBegin;
-				int32_t complStart = aln.overlap.curLen - readEnd - 1;
-				int32_t complEnd = aln.overlap.curLen - readStart - 1;
-				SequenceSegment segment(aln.overlap.curId, readStart, readEnd);
-				SequenceSegment complSegment(aln.overlap.curId.rc(), complStart,
-											 complEnd);
-
-				readConnections.push_back({currentPath, segment});
-				readConnections.push_back({complPath, complSegment});
-
-				currentPath.clear();
-				currentPath.push_back(aln.edge);
-				readStart = aln.overlap.curEnd + aln.overlap.extLen - 
-							aln.overlap.extEnd;
-			}
-		}
 	}
-
-	this->resolveConnections(readConnections);
 }

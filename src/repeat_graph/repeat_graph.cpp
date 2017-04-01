@@ -485,54 +485,30 @@ void RepeatGraph::outputDot(const std::string& filename)
 	};
 	/////////////
 
-	for (auto& node : this->iterNodes())
+	for (auto edge : this->iterEdges())
 	{
-		if (!node->isBifurcation()) continue;
+		if (edge->multiplicity < 1) continue;
 
-		for (auto& direction : node->outEdges)
+		if (edge->isRepetitive())
 		{
+			FastaRecord::Id edgeId = edge->edgeId;
+			std::string color = idToColor(edgeId);
 
-			GraphNode* curNode = direction->nodeRight;
-			GraphPath traversed;
-			traversed.push_back(direction);
-
-			while (!curNode->isBifurcation() &&
-				   !curNode->outEdges.empty())
-			{
-				traversed.push_back(curNode->outEdges.front());
-				curNode = curNode->outEdges.front()->nodeRight;
-			}
-			
-			bool resolvedRepeat = true;
-			for (auto& edge : traversed)
-			{
-				if (edge->multiplicity != 0) resolvedRepeat = false;
-			}
-			if (resolvedRepeat) continue;
-
-			///
-			for (auto& edge : traversed)
-			{
-				if (edge->isRepetitive())
-				{
-					FastaRecord::Id edgeId = edge->edgeId;
-					std::string color = idToColor(edgeId);
-
-					fout << "\"" << nodeToId(edge->nodeLeft) 
-						 << "\" -> \"" << nodeToId(edge->nodeRight)
-						 << "\" [label = \"" << edgeId.signedId() 
-						 << " " << edge->length() << " ("
-						 << edge->multiplicity << ")" << "\", color = \"" 
-						 << color << "\" " << " penwidth = 3] ;\n";
-				}
-				else
-				{
-					fout << "\"" << nodeToId(edge->nodeLeft) 
-						 << "\" -> \"" << nodeToId(edge->nodeRight)
-						 << "\" [label = \"" << edge->edgeId.signedId() << " "
-						 << edge->length() << "\", color = \"black\"] ;\n";
-				}
-			}
+			fout << "\"" << nodeToId(edge->nodeLeft) 
+				 << "\" -> \"" << nodeToId(edge->nodeRight)
+				 << "\" [label = \"" << edgeId.signedId() 
+				 << " " << edge->length() << " ("
+				 << edge->multiplicity << ") "
+				 << edge->coverage << "\", color = \"" 
+				 << color << "\" " << " penwidth = 3] ;\n";
+		}
+		else
+		{
+			fout << "\"" << nodeToId(edge->nodeLeft) 
+				 << "\" -> \"" << nodeToId(edge->nodeRight)
+				 << "\" [label = \"" << edge->edgeId.signedId() << " "
+				 << edge->length() << " " << edge->coverage <<
+				 "\", color = \"black\"] ;\n";
 		}
 	}
 

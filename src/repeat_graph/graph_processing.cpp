@@ -9,10 +9,13 @@
 
 void GraphProcessor::simplify()
 {
-	_outdatedEdges.clear();
 	this->trimTips();
+
 	this->unrollLoops();
-	//this->condenceEdges();
+	this->condenceEdges();
+	this->unrollLoops();
+	this->condenceEdges();
+
 	this->updateEdgesMultiplicity();
 }
 
@@ -93,7 +96,7 @@ void GraphProcessor::unrollLoops()
 	std::unordered_set<GraphEdge*> toRemove;
 	for (GraphEdge* edge : _graph.iterEdges())
 	{
-		if (edge->nodeLeft == edge->nodeRight &&
+		if (edge->isLooped() &&
 			edge->nodeLeft->inEdges.size() == 2 &&
 			edge->nodeLeft->outEdges.size() == 2 &&
 			edge->nodeLeft->neighbors().size() == 3) 	//including itself
@@ -112,6 +115,7 @@ void GraphProcessor::unrollLoops()
 void GraphProcessor::trimTips()
 {
 	std::unordered_set<GraphEdge*> toRemove;
+	std::unordered_set<GraphEdge*> unknownEdges;
 	for (GraphEdge* tipEdge : _graph.iterEdges())
 	{
 		int prevDegree = tipEdge->nodeLeft->inEdges.size();
@@ -123,14 +127,14 @@ void GraphProcessor::trimTips()
 								tipEdge->nodeRight;
 			toRemove.insert(tipEdge);
 
-			for (auto edge : toFix->inEdges) 
+			/*for (auto edge : toFix->inEdges) 
 			{
-				if (edge != tipEdge) _outdatedEdges.insert(edge->edgeId);
+				if (edge != tipEdge) edge->unknownMult = true;
 			}
 			for (auto edge : toFix->outEdges) 
 			{
-				if (edge != tipEdge) _outdatedEdges.insert(edge->edgeId);
-			}
+				if (edge != tipEdge) edge->unknownMult = true;;
+			}*/
 
 			//label all adjacent repetitive edges
 			std::unordered_set<GraphNode*> visited;
@@ -145,19 +149,35 @@ void GraphProcessor::trimTips()
 
 				for (auto& edge : node->inEdges) 
 				{
-					if (edge->isRepetitive() &&
-						edge->nodeLeft != edge->nodeRight)
+					bool hasContig = false;
+					for (auto segment : edge->seqSegments)
 					{
-						_outdatedEdges.insert(edge->edgeId);
+						if (segment.seqId == tipEdge->seqSegments.front().seqId)
+						{
+							hasContig = true;
+						}
+					}
+					if (hasContig && edge->isRepetitive() && !edge->isLooped())
+					{
+						//edge->unknownMult = true;
+						unknownEdges.insert(edge);
 						queue.push_back(edge->nodeLeft);
 					}
 				}
 				for (auto& edge : node->outEdges) 
 				{
-					if (edge->isRepetitive() &&
-						edge->nodeLeft != edge->nodeRight)
+					bool hasContig = false;
+					for (auto segment : edge->seqSegments)
 					{
-						_outdatedEdges.insert(edge->edgeId);
+						if (segment.seqId == tipEdge->seqSegments.front().seqId)
+						{
+							hasContig = true;
+						}
+					}
+					if (hasContig && edge->isRepetitive() && edge->isLooped())
+					{
+						//edge->unknownMult = true;
+						unknownEdges.insert(edge);
 						queue.push_back(edge->nodeRight);
 					}
 				}
@@ -167,12 +187,34 @@ void GraphProcessor::trimTips()
 
 	Logger::get().debug() << toRemove.size() << " tips removed";
 	for (auto edge : toRemove)	{_graph.removeEdge(edge);};
+
+	//marking other edges within nonbranching path
+	for (auto edge : unknownEdges)
+	{
+		GraphNode* curNode = edge->nodeRight;
+		while (!curNode->isBifurcation() &&
+			   !curNode->outEdges.empty())
+		{
+			curNode->outEdges.front()->unknownMult = true;
+			curNode = curNode->outEdges.front()->nodeRight;
+		}
+		curNode = edge->nodeLeft;
+		while (!curNode->isBifurcation() &&
+			   !curNode->inEdges.empty())
+		{
+			curNode->inEdges.front()->unknownMult = true;
+			curNode = curNode->inEdges.front()->nodeLeft;
+		}
+	}
 }
 
-/*
 void GraphProcessor::condenceEdges()
 {
-	auto collapseEdges = [this](const GraphPath& edges)
+	int edgesRemoved = 0;
+	int edgesAdded = 0;
+
+	auto collapseEdges = [this, &edgesAdded, &edgesRemoved]
+	(const GraphPath& edges)
 	{
 		std::list<SequenceSegment> growingSeqs(edges.front()->seqSegments.begin(),
 											   edges.front()->seqSegments.end());
@@ -215,13 +257,12 @@ void GraphProcessor::condenceEdges()
 		std::copy(growingSeqs.begin(), growingSeqs.end(),
 				  std::back_inserter(newEdge->seqSegments));
 		newEdge->multiplicity = std::max((int)growingSeqs.size(), 2);
-		Logger::get().debug() << "Added " << newEdge->edgeId.signedId();
-		_outdatedEdges.insert(newEdge->edgeId);
+		++edgesAdded;
+		newEdge->unknownMult = true;
 		
 		for (GraphEdge* edge : edges)
 		{
-			Logger::get().debug() << "Removed " << edge->edgeId.signedId();
-			_outdatedEdges.erase(edge->edgeId);
+			++edgesRemoved;
 			_graph.removeEdge(edge);
 		}
 	};
@@ -261,7 +302,10 @@ void GraphProcessor::condenceEdges()
 		collapseEdges(edges);
 		collapseEdges(complEdges);
 	}
-}*/
+
+	Logger::get().debug() << "Removed " << edgesRemoved << " edges";
+	Logger::get().debug() << "Added " << edgesAdded << " edges";
+}
 
 void GraphProcessor::generateContigs()
 {
@@ -271,40 +315,58 @@ void GraphProcessor::generateContigs()
 	{
 		if (!edgeIds.count(path.front()->edgeId))
 		{
-			edgeIds[path.front()->edgeId] = nextEdgeId;
-			edgeIds[path.back()->edgeId.rc()] = nextEdgeId + 1;
+			for (auto edge : path)
+			{
+				edgeIds[edge->edgeId] = nextEdgeId;
+				edgeIds[edge->edgeId.rc()] = nextEdgeId + 1;
+			}
 			nextEdgeId += 2;
 		}
 		return FastaRecord::Id(edgeIds[path.front()->edgeId]);
 	};
 	
-	for (auto& node : _graph.iterNodes())
+	std::unordered_set<GraphEdge*> visitedEdges;
+	for (auto edge : _graph.iterEdges())
 	{
-		if (!node->isBifurcation()) continue;
+		if (visitedEdges.count(edge)) continue;
+		visitedEdges.insert(edge);
 
-		for (auto& direction : node->outEdges)
+		GraphPath traversed;
+		GraphNode* curNode = edge->nodeLeft;
+		while (!curNode->isBifurcation() &&
+			   !curNode->inEdges.empty() &&
+			   !visitedEdges.count(curNode->inEdges.front()))
 		{
-			GraphNode* curNode = direction->nodeRight;
-			GraphPath traversed;
-			traversed.push_back(direction);
-
-			while (!curNode->isBifurcation() &&
-				   !curNode->outEdges.empty())
-			{
-				traversed.push_back(curNode->outEdges.front());
-				curNode = curNode->outEdges.front()->nodeRight;
-			}
-			
-			bool resolvedRepeat = true;
-			for (auto& edge : traversed)
-			{
-				if (edge->multiplicity != 0) resolvedRepeat = false;
-			}
-			if (resolvedRepeat) continue;
-
-			FastaRecord::Id edgeId = pathToId(traversed);
-			_contigs.emplace_back(traversed, edgeId);
+			traversed.push_back(curNode->inEdges.front());
+			visitedEdges.insert(traversed.back());
+			curNode = curNode->inEdges.front()->nodeLeft;
 		}
+
+		std::reverse(traversed.begin(), traversed.end());
+		traversed.push_back(edge);
+
+		curNode = edge->nodeRight;
+		while (!curNode->isBifurcation() &&
+			   !curNode->outEdges.empty() &&
+			   !visitedEdges.count(curNode->outEdges.front()))
+		{
+			traversed.push_back(curNode->outEdges.front());
+			visitedEdges.insert(traversed.back());
+			curNode = curNode->outEdges.front()->nodeRight;
+		}
+		
+		bool resolvedRepeat = false;
+		for (auto& edge : traversed)
+		{
+			if (edge->multiplicity < 1) 
+			{
+				resolvedRepeat = true;
+			}
+		}
+		if (resolvedRepeat) continue;
+
+		FastaRecord::Id edgeId = pathToId(traversed);
+		_contigs.emplace_back(traversed, edgeId);
 	}
 	Logger::get().info() << "Generated " << _contigs.size() / 2 << " contigs";
 }
@@ -402,7 +464,7 @@ void GraphProcessor::outputContigsGraph(const std::string& filename)
 		{
 			fout << "\"" << nodeToId(contig.path.front()->nodeLeft) 
 				 << "\" -> \"" << nodeToId(contig.path.back()->nodeRight)
-				 << "\" [label = \"" << contig.id
+				 << "\" [label = \"" << contig.id.signedId()
 				 << " " << contigLength << "\", color = \"black\"] ;\n";
 		}
 	}
@@ -427,9 +489,9 @@ void GraphProcessor::updateEdgesMultiplicity()
 
 			for (auto& outEdge : node->outEdges)
 			{
-				if (outEdge->nodeLeft == outEdge->nodeRight) continue;
+				if (outEdge->isLooped()) continue;
 
-				if (!_outdatedEdges.count(outEdge->edgeId))
+				if (!outEdge->unknownMult)
 				{
 					outDegree += outEdge->multiplicity;
 				}
@@ -442,9 +504,9 @@ void GraphProcessor::updateEdgesMultiplicity()
 			}
 			for (auto& inEdge : node->inEdges)
 			{
-				if (inEdge->nodeLeft == inEdge->nodeRight) continue;
+				if (inEdge->isLooped()) continue;
 
-				if (!_outdatedEdges.count(inEdge->edgeId))
+				if (!inEdge->unknownMult)
 				{
 					inDegree += inEdge->multiplicity;
 				}
@@ -467,18 +529,24 @@ void GraphProcessor::updateEdgesMultiplicity()
 
 				GraphEdge* complEdge = _graph.complementPath({unknownEdge}).front();
 				unknownEdge->multiplicity = newMultiplicity;
+				unknownEdge->unknownMult = false;
 				complEdge->multiplicity = newMultiplicity;
-				_outdatedEdges.erase(unknownEdge->edgeId);
-				_outdatedEdges.erase(complEdge->edgeId);
+				complEdge->unknownMult = false;
 				anyChanges = true;
 			}
 		}
 	}
-
-	Logger::get().debug() << _outdatedEdges.size() << " edges were not updated!";
-	for (auto edge : _outdatedEdges)
+	
+	Logger::get().debug() << "Not updated:";
+	int total = 0;
+	for (auto& edge : _graph.iterEdges())
 	{
-		Logger::get().debug() << edge.signedId();
+		if (edge->unknownMult && edge->edgeId.strand())
+		{
+			Logger::get().debug() << edge->edgeId.signedId();
+			++total;
+		}
 	}
+	Logger::get().debug() << "Total: " << total;
 }
 

@@ -31,7 +31,7 @@ public:
 
 private:
 	void trimTips();
-	//void condenceEdges();
+	void condenceEdges();
 	void updateEdgesMultiplicity();
 
 	RepeatGraph& _graph;
@@ -40,5 +40,4 @@ private:
 	const int _tipThreshold;
 
 	std::vector<Contig> _contigs;
-	std::unordered_set<FastaRecord::Id> _outdatedEdges;
 };
