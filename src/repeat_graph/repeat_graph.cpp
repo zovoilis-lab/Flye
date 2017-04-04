@@ -487,7 +487,7 @@ void RepeatGraph::outputDot(const std::string& filename)
 
 	for (auto edge : this->iterEdges())
 	{
-		if (edge->multiplicity < 1) continue;
+		if (edge->wasResolved) continue;
 
 		if (edge->isRepetitive())
 		{
@@ -498,8 +498,7 @@ void RepeatGraph::outputDot(const std::string& filename)
 				 << "\" -> \"" << nodeToId(edge->nodeRight)
 				 << "\" [label = \"" << edgeId.signedId() 
 				 << " " << edge->length() << " ("
-				 << edge->multiplicity << ") "
-				 << edge->coverage << "\", color = \"" 
+				 << edge->multiplicity << ")" << "\", color = \"" 
 				 << color << "\" " << " penwidth = 3] ;\n";
 		}
 		else
@@ -507,8 +506,7 @@ void RepeatGraph::outputDot(const std::string& filename)
 			fout << "\"" << nodeToId(edge->nodeLeft) 
 				 << "\" -> \"" << nodeToId(edge->nodeRight)
 				 << "\" [label = \"" << edge->edgeId.signedId() << " "
-				 << edge->length() << " " << edge->coverage <<
-				 "\", color = \"black\"] ;\n";
+				 << edge->length() << " " << "\", color = \"black\"] ;\n";
 		}
 	}
 

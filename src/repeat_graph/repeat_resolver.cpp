@@ -9,6 +9,9 @@
 #include "utils.h"
 #include "bipartie_mincost.h"
 
+#include <simplex.h>
+#include <variable.h>
+
 
 RepeatResolver::GraphAlignment
 	RepeatResolver::chainReadAlignments(const SequenceContainer& edgeSeqs,
@@ -126,7 +129,7 @@ void RepeatResolver::separatePath(const GraphPath& graphPath,
 	//repetitive edges in the middle
 	for (size_t i = 1; i < graphPath.size() - 1; ++i)
 	{
-		--graphPath[i]->multiplicity;
+		graphPath[i]->wasResolved = true;
 	}
 
 	GraphNode* rightNode = leftNode;
@@ -375,43 +378,21 @@ void RepeatResolver::correctEdgesMultiplicity()
 		GraphEdge* complEdge = _graph.complementPath({edgeCov.first}).front();
 		int normCov = (edgeCov.second + edgesCoverage[complEdge]) / 
 									(2 * edgeCov.first->length());
-		edgeCov.first->coverage = std::max(1.0f, roundf((float)normCov / meanCoverage));
-		complEdge->coverage = std::max(1.0f, roundf((float)normCov / meanCoverage));
+		edgeCov.first->coverage = (float)normCov;
+		complEdge->coverage = (float)normCov;
+
+		int estMult = std::max(1.0f, roundf((float)normCov / meanCoverage));
+		edgeCov.first->multiplicity = estMult;
+		complEdge->multiplicity = estMult;
 	}
 
-	//smooth edges coverage
-	//TODO: do not update tips
-	for (size_t i = 0; i < 20; ++i)
-	{
-		float divergence = 0;
-		for (auto edge : _graph.iterEdges())
-		{
-			float sumLeft = 0;
-			for (auto inEdge : edge->nodeLeft->inEdges) 
-				sumLeft += inEdge->coverage;
-			for (auto outEdge : edge->nodeLeft->outEdges) 
-				sumLeft -= outEdge->coverage;
-
-			float sumRight = 0;
-			for (auto inEdge : edge->nodeRight->inEdges) 
-				sumRight += inEdge->coverage;
-			for (auto outEdge : edge->nodeRight->outEdges) 
-				sumRight -= outEdge->coverage;
-
-			float updatedEst = edge->coverage + (sumLeft - sumRight) / 2;
-			divergence += fabsf(sumLeft - sumRight);
-			edge->coverage = std::max(1.0f, updatedEst);
-		}
-
-		Logger::get().debug() << "Smothing iteration: " << divergence;
-	}
-
+	/*
 	for (auto edge : _graph.iterEdges())
 	{
 		if (!edge->edgeId.strand()) continue;
 		GraphEdge* complEdge = _graph.complementPath({edge}).front();
 
-		int estMult = std::max(1.0f, roundf(edge->coverage));
+		int estMult = std::max(1.0f, roundf(edge->coverage / meanCoverage));
 
 		if (edge->multiplicity != estMult && !edge->isLooped())
 		{
@@ -420,11 +401,100 @@ void RepeatResolver::correctEdgesMultiplicity()
 						<< " " << edge->multiplicity << " " << estMult;
 
 			edge->multiplicity = estMult;
-			edge->unknownMult = false;
 			complEdge->multiplicity = estMult;
-			complEdge->unknownMult = false;
+		}
+	}*/
+
+	this->correctWeights();
+}
+
+void RepeatResolver::correctWeights()
+{
+	using namespace optimization;
+
+	std::unordered_map<FastaRecord::Id, size_t> edgeToId;
+	size_t nextId = 0;
+
+	auto edgeNumber = [&edgeToId, &nextId](GraphEdge* edge)
+	{
+		if (!edgeToId.count(edge->edgeId))
+		{
+			edgeToId[edge->edgeId] = nextId;
+			edgeToId[edge->edgeId.rc()] = nextId;
+			++nextId;
+		}
+		return edgeToId[edge->edgeId];
+	};
+
+	//enumerating
+	for (auto edge : _graph.iterEdges())
+	{
+		if (!edge->edgeId.strand() || edge->isLooped()) continue;
+		edgeNumber(edge);
+	}
+
+	//formulate linear programming
+	Simplex simplex("");
+	for (auto edge : _graph.iterEdges())
+	{
+		if (!edge->edgeId.strand() || edge->isLooped()) continue;
+
+		size_t varNumber = edgeNumber(edge);
+
+		Matrix eye(1, nextId, 0);
+		eye(varNumber) = 1;
+
+		std::string varName = std::to_string(edge->edgeId.signedId());
+		simplex.add_variable(new Variable(&simplex, varName.c_str()));
+	
+		simplex.add_constraint(Constraint(eye, CT_MORE_EQUAL, 
+										  (float)edge->multiplicity));    
+		simplex.add_constraint(Constraint(eye, CT_LESS_EQUAL, 999.0f));
+	}
+
+	std::unordered_set<GraphNode*> processedNodes;
+	for (auto node : _graph.iterNodes())
+	{
+		if (node->inEdges.empty() || node->outEdges.empty()) continue;
+		if (node->neighbors().size() < 2) continue;
+		if (processedNodes.count(node)) continue;
+
+		GraphNode* complNode = _graph.complementPath({node->outEdges.front()})
+															.front()->nodeRight;
+		processedNodes.insert(complNode);
+
+		std::vector<int> coefficients(nextId, 0);
+		for (auto edge : node->inEdges) 
+		{
+			if (!edge->isLooped()) coefficients[edgeNumber(edge)] += 1;
+		}
+		for (auto edge : node->outEdges) 
+		{
+			if (!edge->isLooped()) coefficients[edgeNumber(edge)] -= 1;
 		}
 
+		//for (int x : coefficients) std::cout << x << "\t";
+		//std::cout << "= 0\n";
+
+        Matrix coefMatrix(1, nextId, 0);
+		for (size_t i = 0; i < nextId; ++i) coefMatrix(i) = coefficients[i];
+        simplex.add_constraint(Constraint(coefMatrix, CT_EQUAL, 0.0f));
+	}
+
+    Matrix costs(1, nextId, 1.0f);
+    simplex.set_objective_function(ObjectiveFunction(OFT_MINIMIZE, costs));   
+
+	simplex.solve();
+	if (!simplex.has_solutions() || simplex.must_be_fixed() || 
+		simplex.is_unlimited()) throw std::runtime_error("Error while solving LP");
+
+	simplex.print_solution();
+	for (auto edge : _graph.iterEdges())
+	{
+		if (!edge->isLooped())
+		{
+			edge->multiplicity = simplex.get_solution()(edgeNumber(edge));
+		}
 	}
 }
 

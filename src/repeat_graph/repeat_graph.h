@@ -27,19 +27,18 @@ struct GraphEdge
 	GraphEdge(GraphNode* nodeLeft, GraphNode* nodeRight, 
 			  FastaRecord::Id edgeId):
 		nodeLeft(nodeLeft), nodeRight(nodeRight), 
-		edgeId(edgeId), multiplicity(0), coverage(0), unknownMult(false),
+		edgeId(edgeId), multiplicity(0), coverage(0), wasResolved(false),
 		selfComplement(false), readSequence(false)
 		{}
 
-	//bool isRepetitive() {return unknownMult || multiplicity != 1;}
-	bool isRepetitive() {return multiplicity != 1;}
-	bool isLooped() {return nodeLeft == nodeRight;}
+	bool isRepetitive() const {return multiplicity != 1;}
+	bool isLooped() const {return nodeLeft == nodeRight;}
 	void addSequence(FastaRecord::Id id, int32_t start, int32_t end)
 	{
 		seqSegments.emplace_back(id, start, end);
 		++multiplicity;
 	}
-	int32_t length()
+	int32_t length() const
 	{
 		if (seqSegments.empty()) return 0;
 
@@ -59,7 +58,7 @@ struct GraphEdge
 
 	int  multiplicity;
 	float  coverage;
-	bool unknownMult;
+	bool wasResolved;
 	bool selfComplement;
 	bool readSequence;
 };

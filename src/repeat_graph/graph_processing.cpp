@@ -16,7 +16,7 @@ void GraphProcessor::simplify()
 	this->unrollLoops();
 	this->condenceEdges();
 
-	this->updateEdgesMultiplicity();
+	//this->updateEdgesMultiplicity();
 }
 
 void GraphProcessor::unrollLoops()
@@ -195,14 +195,14 @@ void GraphProcessor::trimTips()
 		while (!curNode->isBifurcation() &&
 			   !curNode->outEdges.empty())
 		{
-			curNode->outEdges.front()->unknownMult = true;
+			//curNode->outEdges.front()->unknownMult = true;
 			curNode = curNode->outEdges.front()->nodeRight;
 		}
 		curNode = edge->nodeLeft;
 		while (!curNode->isBifurcation() &&
 			   !curNode->inEdges.empty())
 		{
-			curNode->inEdges.front()->unknownMult = true;
+			//curNode->inEdges.front()->unknownMult = true;
 			curNode = curNode->inEdges.front()->nodeLeft;
 		}
 	}
@@ -258,7 +258,7 @@ void GraphProcessor::condenceEdges()
 				  std::back_inserter(newEdge->seqSegments));
 		newEdge->multiplicity = std::max((int)growingSeqs.size(), 2);
 		++edgesAdded;
-		newEdge->unknownMult = true;
+		//newEdge->unknownMult = true;
 		
 		for (GraphEdge* edge : edges)
 		{
@@ -358,10 +358,7 @@ void GraphProcessor::generateContigs()
 		bool resolvedRepeat = false;
 		for (auto& edge : traversed)
 		{
-			if (edge->multiplicity < 1) 
-			{
-				resolvedRepeat = true;
-			}
+			if (edge->wasResolved) resolvedRepeat = true;
 		}
 		if (resolvedRepeat) continue;
 
@@ -473,6 +470,7 @@ void GraphProcessor::outputContigsGraph(const std::string& filename)
 
 }
 
+/*
 void GraphProcessor::updateEdgesMultiplicity()
 {
 	bool anyChanges = true;
@@ -549,4 +547,4 @@ void GraphProcessor::updateEdgesMultiplicity()
 	}
 	Logger::get().debug() << "Total: " << total;
 }
-
+*/

@@ -18,6 +18,8 @@ public:
 	void resolveRepeats();
 
 private:
+	void correctWeights();
+
 	struct EdgeAlignment
 	{
 		OverlapRange overlap;
