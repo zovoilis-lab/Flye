@@ -129,7 +129,7 @@ void RepeatResolver::separatePath(const GraphPath& graphPath,
 	//repetitive edges in the middle
 	for (size_t i = 1; i < graphPath.size() - 1; ++i)
 	{
-		graphPath[i]->wasResolved = true;
+		--graphPath[i]->multiplicity;
 	}
 
 	GraphNode* rightNode = leftNode;
@@ -299,7 +299,7 @@ void RepeatResolver::resolveRepeats()
 		{
 			if (currentPath.empty()) 
 			{
-				if (aln.edge->isRepetitive() || aln.edge->isLooped()) continue;
+				if (aln.edge->isRepetitive()) continue;
 				readStart = aln.overlap.curEnd + aln.overlap.extLen - 
 							aln.overlap.extEnd;
 			}
@@ -314,8 +314,7 @@ void RepeatResolver::resolveRepeats()
 			}*/
 
 			currentPath.push_back(aln.edge);
-			if (!aln.edge->isRepetitive() && !aln.edge->isLooped() && 
-				currentPath.size() > 1)
+			if (!aln.edge->isRepetitive() && currentPath.size() > 1)
 			{
 				GraphPath complPath = _graph.complementPath(currentPath);
 
@@ -338,6 +337,7 @@ void RepeatResolver::resolveRepeats()
 	}
 
 	this->resolveConnections(readConnections);
+	this->clearResolvedRepeats();
 }
 
 
@@ -386,26 +386,77 @@ void RepeatResolver::correctEdgesMultiplicity()
 		complEdge->multiplicity = estMult;
 	}
 
-	/*
-	for (auto edge : _graph.iterEdges())
-	{
-		if (!edge->edgeId.strand()) continue;
-		GraphEdge* complEdge = _graph.complementPath({edge}).front();
-
-		int estMult = std::max(1.0f, roundf(edge->coverage / meanCoverage));
-
-		if (edge->multiplicity != estMult && !edge->isLooped())
-		{
-			Logger::get().debug() << "Coverage: " 
-						<< edge->edgeId.signedId()
-						<< " " << edge->multiplicity << " " << estMult;
-
-			edge->multiplicity = estMult;
-			complEdge->multiplicity = estMult;
-		}
-	}*/
-
 	this->correctWeights();
+}
+
+void RepeatResolver::clearResolvedRepeats()
+{
+	auto nextEdge = [](GraphNode* node)
+	{
+		for (auto edge : node->outEdges)
+		{
+			if (!edge->isLooped()) return edge;
+		}
+		return (GraphEdge*)nullptr;
+	};
+
+	std::unordered_set<GraphNode*> toRemove;
+
+	for (auto& node : _graph.iterNodes())
+	{
+		if (node->neighbors().size() == 0)
+		{
+			bool resolvedRepeat = true;
+			for (auto& edge : node->outEdges) 
+			{
+				if (edge->multiplicity != 0) resolvedRepeat = false;
+			}
+			if (resolvedRepeat) toRemove.insert(node);
+		}
+
+		if (node->neighbors().size() != 1) continue;
+
+		GraphEdge* direction = nextEdge(node);
+		if (!direction) continue;
+
+		GraphPath traversed;
+		traversed.push_back(direction);
+		GraphNode* curNode = direction->nodeRight;
+		while (curNode->neighbors().size() == 2)
+		{
+			traversed.push_back(nextEdge(curNode));
+			curNode = traversed.back()->nodeRight;
+		}
+		if (traversed.empty()) continue;
+
+		bool removeLast = curNode->neighbors().size() == 1;
+		bool resolvedRepeat = true;
+		for (auto& edge : traversed) 
+		{
+			if (edge->multiplicity != 0) resolvedRepeat = false;
+		}
+
+		GraphPath complPath = _graph.complementPath(traversed);
+		if (resolvedRepeat)
+		{
+			//first-last
+			toRemove.insert(traversed.front()->nodeLeft);
+			if (removeLast) toRemove.insert(complPath.front()->nodeLeft);
+
+			//middle nodes
+			for (size_t i = 0; i < traversed.size() - 1; ++i)
+			{
+				toRemove.insert(traversed[i]->nodeRight);
+				toRemove.insert(complPath[i]->nodeRight);
+			}
+
+			//last-first
+			if (removeLast) toRemove.insert(traversed.back()->nodeRight);
+			toRemove.insert(complPath.back()->nodeRight);
+		}
+	}
+
+	for (auto node : toRemove) _graph.removeNode(node);
 }
 
 void RepeatResolver::correctWeights()
@@ -546,6 +597,5 @@ void RepeatResolver::alignReads()
 
 		_readAlignments.push_back(this->chainReadAlignments(pathsContainer, 
 															alignments));
-
 	}
 }

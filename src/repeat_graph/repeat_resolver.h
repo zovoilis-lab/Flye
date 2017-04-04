@@ -18,7 +18,6 @@ public:
 	void resolveRepeats();
 
 private:
-	void correctWeights();
 
 	struct EdgeAlignment
 	{
@@ -35,6 +34,8 @@ private:
 		SequenceSegment readSequence;
 	};
 
+	void correctWeights();
+	void clearResolvedRepeats();
 	void resolveConnections(const std::vector<Connection>& conns);
 	void separatePath(const GraphPath& path, SequenceSegment segment,
 					  size_t startId);

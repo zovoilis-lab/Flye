@@ -27,7 +27,7 @@ struct GraphEdge
 	GraphEdge(GraphNode* nodeLeft, GraphNode* nodeRight, 
 			  FastaRecord::Id edgeId):
 		nodeLeft(nodeLeft), nodeRight(nodeRight), 
-		edgeId(edgeId), multiplicity(0), coverage(0), wasResolved(false),
+		edgeId(edgeId), multiplicity(0), coverage(0),
 		selfComplement(false), readSequence(false)
 		{}
 
@@ -58,7 +58,7 @@ struct GraphEdge
 
 	int  multiplicity;
 	float  coverage;
-	bool wasResolved;
+
 	bool selfComplement;
 	bool readSequence;
 };
@@ -66,13 +66,14 @@ struct GraphEdge
 struct GraphNode
 {
 	bool isBifurcation() {return outEdges.size() != 1 || inEdges.size() != 1;}
-	std::vector<GraphNode*> neighbors()
+	std::unordered_set<GraphNode*> neighbors()
 	{
 		std::unordered_set<GraphNode*> result;
 		for (auto& edge : inEdges) result.insert(edge->nodeLeft);
 		for (auto& edge : outEdges) result.insert(edge->nodeRight);
 
-		return std::vector<GraphNode*>(result.begin(), result.end());
+		result.erase(this);
+		return result;
 	}
 
 	std::vector<GraphEdge*> inEdges;
@@ -145,6 +146,23 @@ public:
 		vecRemove(edge->nodeLeft->outEdges, edge);
 		_graphEdges.erase(edge);
 		delete edge;
+	}
+	void removeNode(GraphNode* node)
+	{
+		for (auto edge : node->outEdges) 
+		{
+			vecRemove(edge->nodeRight->inEdges, edge);
+			_graphEdges.erase(edge);
+			delete edge;
+		}
+		for (auto edge : node->inEdges) 
+		{
+			vecRemove(edge->nodeLeft->outEdges, edge);
+			_graphEdges.erase(edge);
+			delete edge;
+		}
+		_graphNodes.erase(node);
+		delete node;
 	}
 	//
 

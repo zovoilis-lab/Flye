@@ -487,8 +487,6 @@ void RepeatGraph::outputDot(const std::string& filename)
 
 	for (auto edge : this->iterEdges())
 	{
-		if (edge->wasResolved) continue;
-
 		if (edge->isRepetitive())
 		{
 			FastaRecord::Id edgeId = edge->edgeId;
