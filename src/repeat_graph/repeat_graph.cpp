@@ -449,6 +449,21 @@ GraphPath RepeatGraph::complementPath(const GraphPath& path)
 	return complEdges;
 }
 
+GraphNode* RepeatGraph::complementNode(GraphNode* node)
+{
+	if (!node->outEdges.empty())
+	{
+		return this->complementPath({node->outEdges.front()})
+									.front()->nodeRight;
+	}
+	else if(!node->inEdges.empty())
+	{
+		return this->complementPath({node->inEdges.front()})
+									.front()->nodeLeft;
+	}
+	return nullptr;
+}
+
 void RepeatGraph::outputDot(const std::string& filename)
 {
 	std::ofstream fout(filename);

@@ -510,8 +510,7 @@ void RepeatResolver::correctWeights()
 		if (node->neighbors().size() < 2) continue;
 		if (processedNodes.count(node)) continue;
 
-		GraphNode* complNode = _graph.complementPath({node->outEdges.front()})
-															.front()->nodeRight;
+		GraphNode* complNode = _graph.complementNode(node);
 		processedNodes.insert(complNode);
 
 		std::vector<int> coefficients(nextId, 0);

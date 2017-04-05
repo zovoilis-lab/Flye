@@ -131,6 +131,7 @@ int main(int argc, char** argv)
 
 		GraphProcessor proc(rg, seqAssembly, seqReads);
 		proc.simplify();
+		//rg.outputDot(outFolder + "/graph_simplified.dot");
 
 		RepeatResolver resolver(rg, seqAssembly, seqReads);
 		resolver.alignReads();

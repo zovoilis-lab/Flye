@@ -136,14 +136,16 @@ void GraphProcessor::condenceEdges()
 	int edgesRemoved = 0;
 	int edgesAdded = 0;
 
-	auto collapseEdges = [this, &edgesAdded, &edgesRemoved]
-	(const GraphPath& edges)
+	auto collapseEdges = [] (const GraphPath& edges)
 	{
+		std::vector<GraphEdge> newEdges;
 		std::list<SequenceSegment> growingSeqs(edges.front()->seqSegments.begin(),
 											   edges.front()->seqSegments.end());
 		assert(edges.size() > 1);
+		size_t prevStart = 0;
 		for (size_t i = 1; i < edges.size(); ++i)
 		{
+			auto prevSeqs = growingSeqs;
 			for (auto prevSeg = growingSeqs.begin(); 
 				 prevSeg != growingSeqs.end(); )
 			{
@@ -166,27 +168,29 @@ void GraphProcessor::condenceEdges()
 					++prevSeg;
 				}
 			}
+
 			if (growingSeqs.empty())
 			{
-				Logger::get().debug() << "Can't collape edge";
-				return;
+				newEdges.emplace_back(edges[prevStart]->nodeLeft, 
+									  edges[i - 1]->nodeRight);
+				std::copy(prevSeqs.begin(), prevSeqs.end(),
+				  		  std::back_inserter(newEdges.back().seqSegments));
+				newEdges.back().multiplicity = edges[prevStart]->multiplicity;
+
+				std::copy(edges[i]->seqSegments.begin(), 
+						  edges[i]->seqSegments.end(), 
+						  std::back_inserter(growingSeqs));
+				prevStart = i;
 			}
 		}
 
-		///New edge
-		GraphEdge* newEdge = _graph.addEdge(GraphEdge(edges.front()->nodeLeft,
-								 		edges.back()->nodeRight,
-								 		FastaRecord::Id(_graph._nextEdgeId++)));
+		newEdges.emplace_back(edges[prevStart]->nodeLeft, 
+							  edges.back()->nodeRight);
 		std::copy(growingSeqs.begin(), growingSeqs.end(),
-				  std::back_inserter(newEdge->seqSegments));
-		newEdge->multiplicity = std::max((int)growingSeqs.size(), 2);
-		++edgesAdded;
-		
-		for (GraphEdge* edge : edges)
-		{
-			++edgesRemoved;
-			_graph.removeEdge(edge);
-		}
+				  std::back_inserter(newEdges.back().seqSegments));
+		newEdges.back().multiplicity = edges[prevStart]->multiplicity;
+
+		return newEdges;
 	};
 
 	std::vector<GraphPath> toCollapse;
@@ -218,11 +222,39 @@ void GraphProcessor::condenceEdges()
 		}
 	}
 
-	for (auto& edges : toCollapse)
+	for (auto& unbranchingPath : toCollapse)
 	{
-		GraphPath complEdges = _graph.complementPath(edges);
-		collapseEdges(edges);
-		collapseEdges(complEdges);
+		GraphPath complPath = _graph.complementPath(unbranchingPath);
+		auto newEdges = collapseEdges(unbranchingPath);
+		for (auto& edge : newEdges)
+		{
+			GraphEdge addFwd = edge;
+			addFwd.edgeId = FastaRecord::Id(_graph._nextEdgeId);
+
+			GraphEdge addRev(_graph.complementNode(edge.nodeRight),
+							 _graph.complementNode(edge.nodeLeft),
+							 FastaRecord::Id(_graph._nextEdgeId + 1));
+			addRev.multiplicity = addFwd.multiplicity;
+
+			//complementary segments
+			for (auto seqSeg : addFwd.seqSegments)
+			{
+				int32_t seqLen = _asmSeqs.seqLen(seqSeg.seqId);
+				addRev.seqSegments.emplace_back(seqSeg.seqId.rc(),
+												seqLen - seqSeg.end - 1,
+												seqLen - seqSeg.start - 1);
+			}
+
+			_graph.addEdge(std::move(addFwd));
+			_graph.addEdge(std::move(addRev));
+			_graph._nextEdgeId += 2;
+		}
+
+		for (auto edge : unbranchingPath) _graph.removeEdge(edge);
+		for (auto edge : complPath) _graph.removeEdge(edge);
+
+		edgesRemoved += unbranchingPath.size();
+		edgesAdded += newEdges.size();
 	}
 
 	Logger::get().debug() << "Removed " << edgesRemoved << " edges";

@@ -25,7 +25,7 @@ struct GraphNode;
 struct GraphEdge
 {
 	GraphEdge(GraphNode* nodeLeft, GraphNode* nodeRight, 
-			  FastaRecord::Id edgeId):
+			  FastaRecord::Id edgeId = FastaRecord::ID_NONE):
 		nodeLeft(nodeLeft), nodeRight(nodeRight), 
 		edgeId(edgeId), multiplicity(0), coverage(0),
 		selfComplement(false), readSequence(false)
@@ -92,6 +92,7 @@ public:
 	void build();
 	void outputDot(const std::string& filename);
 	GraphPath complementPath(const GraphPath& path);
+	GraphNode* complementNode(GraphNode* node);
 
 	//nodes
 	GraphNode* addNode()
