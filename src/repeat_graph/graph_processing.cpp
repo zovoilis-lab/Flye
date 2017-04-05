@@ -15,8 +15,6 @@ void GraphProcessor::simplify()
 	this->condenceEdges();
 	this->unrollLoops();
 	this->condenceEdges();
-
-	//this->updateEdgesMultiplicity();
 }
 
 void GraphProcessor::unrollLoops()
@@ -33,18 +31,6 @@ void GraphProcessor::unrollLoops()
 		{
 			if (outEdge != &loopEdge) nextEdge = outEdge;
 		}
-
-		/*
-		Logger::get().debug() << "In";
-		for (auto seg : prevEdge->seqSegments)
-		{
-			Logger::get().debug() << seg.seqId << " " << seg.start << " " << seg.end;
-		}
-		Logger::get().debug() << "Out";
-		for (auto seg : nextEdge->seqSegments)
-		{
-			Logger::get().debug() << seg.seqId << " " << seg.start << " " << seg.end;
-		}*/
 
 		auto growingSeqs = prevEdge->seqSegments;
 		std::vector<SequenceSegment> updatedSeqs;
@@ -86,30 +72,29 @@ void GraphProcessor::unrollLoops()
 			prevEdge->seqSegments = updatedSeqs;
 			return true;
 		}
-		else
-		{
-			Logger::get().debug() << "Can't unroll";
-			return false;
-		}
+		//Logger::get().debug() << "Can't unroll " << loopEdge.edgeId.signedId();
+		return false;
 	};
 
+	int unrollLoops = 0;
 	std::unordered_set<GraphEdge*> toRemove;
 	for (GraphEdge* edge : _graph.iterEdges())
 	{
-		if (edge->isLooped() &&
-			edge->nodeLeft->inEdges.size() == 2 &&
+		if (!edge->isLooped()) continue;
+		if (edge->nodeLeft->inEdges.size() == 2 &&
 			edge->nodeLeft->outEdges.size() == 2 &&
 			edge->nodeLeft->neighbors().size() == 2)
 		{
 			if (unrollEdge(*edge))
 			{
-				Logger::get().debug() << "Unroll " << edge->edgeId.signedId();
+				++unrollLoops;
 				toRemove.insert(edge);
 			}
 		}
 	}
-
 	for (auto edge : toRemove)	{_graph.removeEdge(edge);};
+
+	Logger::get().debug() << "Unrolled " << unrollLoops << " loops";
 }
 
 void GraphProcessor::trimTips()

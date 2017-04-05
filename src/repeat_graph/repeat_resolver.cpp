@@ -299,7 +299,8 @@ void RepeatResolver::resolveRepeats()
 		{
 			if (currentPath.empty()) 
 			{
-				if (aln.edge->isRepetitive()) continue;
+				if (aln.edge->isRepetitive() || 
+					aln.edge->length() < Constants::maximumJump) continue;
 				readStart = aln.overlap.curEnd + aln.overlap.extLen - 
 							aln.overlap.extEnd;
 			}
@@ -314,7 +315,8 @@ void RepeatResolver::resolveRepeats()
 			}*/
 
 			currentPath.push_back(aln.edge);
-			if (!aln.edge->isRepetitive() && currentPath.size() > 1)
+			if (!aln.edge->isRepetitive() && currentPath.size() > 1 &&
+				aln.edge->length() >= Constants::maximumJump)
 			{
 				GraphPath complPath = _graph.complementPath(currentPath);
 
@@ -344,10 +346,8 @@ void RepeatResolver::resolveRepeats()
 void RepeatResolver::correctEdgesMultiplicity()
 {
 	std::unordered_map<GraphEdge*, int64_t> edgesCoverage;
-	//update coverage
 	for (auto& path : _readAlignments)
 	{
-		//for (auto& aln : path)
 		for (size_t i = 0; i < path.size(); ++i)
 		{
 			if (0 < i && i < path.size() - 1)
@@ -374,6 +374,8 @@ void RepeatResolver::correctEdgesMultiplicity()
 	for (auto edgeCov : edgesCoverage)
 	{
 		if (!edgeCov.first->edgeId.strand()) continue;
+		if (edgeCov.first->isLooped() && 
+			edgeCov.first->length() < Constants::maximumJump) continue;
 
 		GraphEdge* complEdge = _graph.complementPath({edgeCov.first}).front();
 		int normCov = (edgeCov.second + edgesCoverage[complEdge]) / 
@@ -404,16 +406,23 @@ void RepeatResolver::clearResolvedRepeats()
 
 	for (auto& node : _graph.iterNodes())
 	{
+		//single looped nodes
 		if (node->neighbors().size() == 0)
 		{
 			bool resolvedRepeat = true;
 			for (auto& edge : node->outEdges) 
 			{
-				if (edge->multiplicity != 0) resolvedRepeat = false;
+				if (edge->multiplicity > 0) resolvedRepeat = false;
 			}
-			if (resolvedRepeat) toRemove.insert(node);
+
+			bool smallLoop = node->outEdges.size() == 1 && 
+				node->outEdges.front()->isRepetitive() &&
+				node->outEdges.front()->length() < Constants::maximumJump;
+
+			if (resolvedRepeat || smallLoop) toRemove.insert(node);
 		}
 
+		//other nodes
 		if (node->neighbors().size() != 1) continue;
 
 		GraphEdge* direction = nextEdge(node);

@@ -416,12 +416,12 @@ void RepeatGraph::initializeEdges()
 													idToNode(gpRight.pointId))];
 				edgeId = edge->edgeId;
 			}
-			std::string unique = !repetitive ? "*" : " ";
-			Logger::get().debug() << unique << "\t" << edgeId.signedId() << "\t" 
-								  << gpLeft.seqId << "\t"
-								  << gpLeft.position << "\t" 
-								  << gpRight.position << "\t"
-								  << gpRight.position - gpLeft.position;
+			//std::string unique = !repetitive ? "*" : " ";
+			//Logger::get().debug() << unique << "\t" << edgeId.signedId() << "\t" 
+			//					  << gpLeft.seqId << "\t"
+			//					  << gpLeft.position << "\t" 
+			//					  << gpRight.position << "\t"
+			//					  << gpRight.position - gpLeft.position;
 			///
 		}
 	}
