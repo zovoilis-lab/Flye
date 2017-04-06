@@ -99,8 +99,7 @@ void GraphProcessor::unrollLoops()
 
 void GraphProcessor::trimTips()
 {
-	std::unordered_set<GraphEdge*> toRemove;
-	std::unordered_set<GraphEdge*> unknownEdges;
+	std::unordered_set<GraphNode*> toRemove;
 	for (GraphEdge* tipEdge : _graph.iterEdges())
 	{
 		int leftDegree = tipEdge->nodeLeft->inEdges.size();
@@ -108,12 +107,13 @@ void GraphProcessor::trimTips()
 		if (tipEdge->length() < _tipThreshold && 
 			(leftDegree == 0 || rightDegree == 0))
 		{
-			toRemove.insert(tipEdge);
+			toRemove.insert(leftDegree == 0 ? tipEdge->nodeLeft : 
+							tipEdge->nodeRight);
 		}
 	}
 
 	Logger::get().debug() << toRemove.size() << " tips removed";
-	for (auto edge : toRemove)	{_graph.removeEdge(edge);};
+	for (auto edge : toRemove)	{_graph.removeNode(edge);};
 }
 
 void GraphProcessor::condenceEdges()
@@ -295,7 +295,9 @@ void GraphProcessor::generateContigs()
 		}
 
 		FastaRecord::Id edgeId = pathToId(traversed);
-		_contigs.emplace_back(traversed, edgeId);
+		bool circular = traversed.front()->nodeLeft == 
+						traversed.back()->nodeRight;
+		_contigs.emplace_back(traversed, edgeId, circular);
 
 		/*Logger::get().debug() << "Contig " << edgeId.signedId();
 		for (auto& edge : traversed)
@@ -334,7 +336,8 @@ void GraphProcessor::outputContigsFasta(const std::string& filename)
 			}
 		}
 
-		fout << ">edge_" << contig.id.signedId() << std::endl;
+		std::string nameTag = contig.circular ? "circular" : "linear";
+		fout << ">" << nameTag << "_" << contig.id.signedId() << std::endl;
 		for (size_t c = 0; c < contigSequence.length(); c += FASTA_SLICE)
 		{
 			fout << contigSequence.substr(c, FASTA_SLICE) << std::endl;

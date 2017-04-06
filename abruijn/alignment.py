@@ -25,6 +25,9 @@ Alignment = namedtuple("Alignment", ["qry_id", "trg_id", "qry_start", "qry_end",
                                      "trg_end", "trg_sign", "trg_len",
                                      "qry_seq", "trg_seq", "err_rate"])
 
+ContigInfo = namedtuple("ContigInfo", ["id", "length", "type"])
+
+
 class AlignmentException(Exception):
     pass
 
@@ -87,8 +90,20 @@ def parse_alignment(alignment_file):
     """
     Parses BLASR alignment and choses error profile base on error rate
     """
+    circular_window = config.vals["circular_window"]
     alignment, mean_error = _parse_blasr(alignment_file, change_strand=True)
-    return alignment, mean_error
+    contigs_info = {}
+
+    for aln in alignment:
+        if aln.trg_id not in contigs_info:
+            contig_type = aln.trg_id.split("_")[0]
+            contig_len = aln.trg_len
+            if contig_type == "circular" and contig_len > circular_window:
+                contig_len -= circular_window
+            contigs_info[aln.trg_id] = ContigInfo(aln.trg_id, contig_len,
+                                                  contig_type)
+
+    return alignment, contigs_info, mean_error
 
 
 def choose_error_mode(err_rate):
@@ -102,6 +117,33 @@ def choose_error_mode(err_rate):
 
     logger.info("Chosen '{0}' error mode".format(profile))
     return profile
+
+
+def shift_gaps(seq_trg, seq_qry):
+    """
+    Shifts all ambigious query gaps to the right
+    """
+    lst_trg, lst_qry = list("$" + seq_trg + "$"), list("$" + seq_qry + "$")
+    is_gap = False
+    gap_start = 0
+    for i in xrange(len(lst_trg)):
+        if is_gap and lst_qry[i] != "-":
+            is_gap = False
+            swap_left = gap_start - 1
+            swap_right = i - 1
+
+            while (swap_left > 0 and swap_right >= gap_start and
+                   lst_qry[swap_left] == lst_trg[swap_right]):
+                lst_qry[swap_left], lst_qry[swap_right] = \
+                            lst_qry[swap_right], lst_qry[swap_left]
+                swap_left -= 1
+                swap_right -= 1
+
+        if not is_gap and lst_qry[i] == "-":
+            is_gap = True
+            gap_start = i
+
+    return "".join(lst_qry[1 : -1])
 
 
 def _parse_blasr(filename, change_strand):

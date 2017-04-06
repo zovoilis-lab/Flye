@@ -19,6 +19,7 @@ import abruijn.polish as pol
 import abruijn.fasta_parser as fp
 import abruijn.assemble as asm
 import abruijn.repeat_graph as repeat
+import abruijn.consensus as cons
 from abruijn.__version__ import __version__
 
 
@@ -129,6 +130,23 @@ class JobAlignment(Job):
         Job.run_description["stage_id"] = self.stage_id
 
 
+class JobConsensus(Job):
+    def __init__(self, in_alignment, out_consensus):
+        super(JobConsensus, self).__init__()
+        self.in_alignment = in_alignment
+        self.out_consensus = out_consensus
+        self.name = "consensus"
+        self.out_files = [out_consensus]
+
+    def run(self):
+        alignment, contigs_info, mean_error = \
+                                aln.parse_alignment(self.in_alignment)
+        consensus_fasta = cons.get_consensus(alignment, contigs_info)
+        fp.write_fasta_dict(consensus_fasta, self.out_consensus)
+
+        Job.run_description["stage_name"] = self.name
+
+
 class JobPolishing(Job):
     def __init__(self, in_alignment, out_consensus, stage_id, seq_platform):
         super(JobPolishing, self).__init__()
@@ -140,12 +158,10 @@ class JobPolishing(Job):
         self.out_files = [out_consensus]
 
     def run(self):
-        alignment, mean_error = aln.parse_alignment(self.in_alignment)
-        #if Job.run_description["error_profile"] == "":
-        #    Job.run_description["error_profile"] = \
-        #                            aln.choose_error_mode(mean_error)
+        alignment, contigs_info, mean_error \
+                            = aln.parse_alignment(self.in_alignment)
 
-        bubbles = bbl.get_bubbles(alignment, self.seq_platform)
+        bubbles = bbl.get_bubbles(alignment, contigs_info, self.seq_platform)
         polished_fasta = pol.polish(bubbles, self.args.threads,
                                     self.seq_platform, self.work_dir,
                                     self.stage_id)
@@ -169,8 +185,9 @@ def _create_job_list(args, work_dir, log_file):
     alignment_file = os.path.join(work_dir, "blasr_0.m5")
     pre_polished_file = os.path.join(work_dir, "polished_0.fasta")
     jobs.append(JobAlignment(draft_assembly, alignment_file, 0))
-    jobs.append(JobPolishing(alignment_file, pre_polished_file,
-                             0, args.sequencing_platform))
+    jobs.append(JobConsensus(alignment_file, pre_polished_file))
+    #jobs.append(JobPolishing(alignment_file, pre_polished_file,
+    #                         0, args.sequencing_platform))
 
     #Repeat analysis
     edges_sequences = os.path.join(work_dir, "graph_edges.fasta")

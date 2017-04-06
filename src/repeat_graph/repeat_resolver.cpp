@@ -536,8 +536,16 @@ void RepeatResolver::correctWeights()
 		//std::cout << "= 0\n";
 
         Matrix coefMatrix(1, nextId, 0);
-		for (size_t i = 0; i < nextId; ++i) coefMatrix(i) = coefficients[i];
-        simplex.add_constraint(Constraint(coefMatrix, CT_EQUAL, 0.0f));
+		bool nonTrivial = false;
+		for (size_t i = 0; i < nextId; ++i) 
+		{
+			coefMatrix(i) = coefficients[i];
+			if (coefficients[i]) nonTrivial = true;
+		}
+		if (nonTrivial)
+		{
+        	simplex.add_constraint(Constraint(coefMatrix, CT_EQUAL, 0.0f));
+		}
 	}
 
     Matrix costs(1, nextId, 1.0f);

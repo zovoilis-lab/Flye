@@ -14,8 +14,8 @@ import math
 
 import abruijn.fasta_parser as fp
 import abruijn.config as config
+from abruijn.alignment import shift_gaps
 
-ContigInfo = namedtuple("ContigInfo", ["id", "length", "type"])
 
 logger = logging.getLogger()
 
@@ -37,24 +37,15 @@ class Bubble:
         self.consensus = ""
 
 
-def get_bubbles(alignment, err_mode):
+def get_bubbles(alignment, contigs_info, err_mode):
     """
     The main function: takes an alignment and returns bubbles
     """
     logger.info("Separating draft genome into bubbles")
     aln_by_ctg = defaultdict(list)
-    contigs_info = {}
-    circular_window = config.vals["circular_window"]
 
     for aln in alignment:
         aln_by_ctg[aln.trg_id].append(aln)
-        if aln.trg_id not in contigs_info:
-            contig_type = aln.trg_id.split("_")[0]
-            contig_len = aln.trg_len
-            if contig_type == "circular" and contig_len > circular_window:
-                contig_len -= circular_window
-            contigs_info[aln.trg_id] = ContigInfo(aln.trg_id, contig_len,
-                                                  contig_type)
 
     bubbles = []
     for ctg_id, ctg_aln in aln_by_ctg.iteritems():
@@ -167,34 +158,6 @@ def _is_simple_kmer(profile, position):
     return True
 
 
-
-def _shift_gaps(seq_trg, seq_qry):
-    """
-    Shifts all ambigious query gaps to the right
-    """
-    lst_trg, lst_qry = list("$" + seq_trg + "$"), list("$" + seq_qry + "$")
-    is_gap = False
-    gap_start = 0
-    for i in xrange(len(lst_trg)):
-        if is_gap and lst_qry[i] != "-":
-            is_gap = False
-            swap_left = gap_start - 1
-            swap_right = i - 1
-
-            while (swap_left > 0 and swap_right >= gap_start and
-                   lst_qry[swap_left] == lst_trg[swap_right]):
-                lst_qry[swap_left], lst_qry[swap_right] = \
-                            lst_qry[swap_right], lst_qry[swap_left]
-                swap_left -= 1
-                swap_right -= 1
-
-        if not is_gap and lst_qry[i] == "-":
-            is_gap = True
-            gap_start = i
-
-    return "".join(lst_qry[1 : -1])
-
-
 def _compute_profile(alignment, genome_len):
     """
     Computes alignment profile
@@ -207,9 +170,11 @@ def _compute_profile(alignment, genome_len):
         if aln.err_rate > 0.5 or aln.trg_end - aln.trg_start < MIN_ALIGNMENT:
             continue
 
-        qry_seq = _shift_gaps(aln.trg_seq, aln.qry_seq)
+        qry_seq = shift_gaps(aln.trg_seq, aln.qry_seq)
+        trg_seq = shift_gaps(qry_seq, aln.trg_seq)
+
         trg_pos = aln.trg_start
-        for trg_nuc, qry_nuc in izip(aln.trg_seq, qry_seq):
+        for trg_nuc, qry_nuc in izip(trg_seq, qry_seq):
             if trg_nuc == "-":
                 trg_pos -= 1
             if trg_pos >= genome_len:
