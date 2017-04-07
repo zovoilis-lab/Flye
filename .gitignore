@@ -1,6 +1,7 @@
 *.pyc
 *.o
 *.swp
+*.so
 libbf/libbf.a
 bin/abruijn-assemble
 bin/abruijn-polish
