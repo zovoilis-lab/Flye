@@ -555,7 +555,7 @@ void RepeatResolver::correctWeights()
 	if (!simplex.has_solutions() || simplex.must_be_fixed() || 
 		simplex.is_unlimited()) throw std::runtime_error("Error while solving LP");
 
-	simplex.print_solution();
+	//simplex.print_solution();
 	for (auto edge : _graph.iterEdges())
 	{
 		if (!edge->isLooped())
