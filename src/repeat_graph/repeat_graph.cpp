@@ -49,10 +49,11 @@ namespace
 
 void RepeatGraph::build()
 {
+	const int KMERS_STRAND = 5;
 	//getting overlaps
 	VertexIndex asmIndex(_asmSeqs);
 	asmIndex.countKmers(1);
-	asmIndex.buildIndex(1, 500, 10);
+	asmIndex.buildIndex(1, 500, KMERS_STRAND);
 
 	OverlapDetector asmOverlapper(_asmSeqs, asmIndex, 
 								  Constants::maximumJump, 

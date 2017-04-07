@@ -96,8 +96,4 @@ def _flattern_profile(profile):
         if max_insert and ins_group[max_insert] > coverage / 2:
             growing_seq += max_insert
 
-        #print(dict(ins_group))
-        #print(elem.matches)
-        #print("------------")
-
     return "".join(growing_seq)

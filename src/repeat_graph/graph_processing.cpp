@@ -295,15 +295,10 @@ void GraphProcessor::generateContigs()
 		}
 
 		FastaRecord::Id edgeId = pathToId(traversed);
-		bool circular = traversed.front()->nodeLeft == 
-						traversed.back()->nodeRight;
+		bool circular = (traversed.front()->nodeLeft == 
+						traversed.back()->nodeRight) &&
+						traversed.front()->nodeLeft->outEdges.size() == 1;
 		_contigs.emplace_back(traversed, edgeId, circular);
-
-		/*Logger::get().debug() << "Contig " << edgeId.signedId();
-		for (auto& edge : traversed)
-		{
-			Logger::get().debug() << "\t" << edge->edgeId.signedId();
-		}*/
 	}
 	Logger::get().info() << "Generated " << _contigs.size() / 2 << " contigs";
 }

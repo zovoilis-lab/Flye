@@ -186,8 +186,6 @@ def _create_job_list(args, work_dir, log_file):
     pre_polished_file = os.path.join(work_dir, "polished_0.fasta")
     jobs.append(JobAlignment(draft_assembly, alignment_file, 0))
     jobs.append(JobConsensus(alignment_file, pre_polished_file))
-    #jobs.append(JobPolishing(alignment_file, pre_polished_file,
-    #                         0, args.sequencing_platform))
 
     #Repeat analysis
     edges_sequences = os.path.join(work_dir, "graph_edges.fasta")
