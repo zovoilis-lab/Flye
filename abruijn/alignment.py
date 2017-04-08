@@ -133,7 +133,7 @@ def _parse_blasr(filename, change_strand):
     return alignments, mean_err
 
 
-def _need_two_dashes():
+def _guess_blasr_version():
     """
     Tries to guess whether we need one or two dashed in command line
     """
@@ -141,20 +141,20 @@ def _need_two_dashes():
         devnull = open(os.devnull, "w")
         stdout = subprocess.check_output([BLASR_BIN, "-version"])
     except subprocess.CalledProcessError as e:
-        return True
+        return "pacbio_new"
 
     version = stdout.splitlines()[0].split()[-1]
     tokens = version.split(".", 1)
-    if len(tokens) == 1:    #unknown version
-        return False
+    if len(tokens) == 1:    #probably original one
+        return "original"
 
     major, minor = tokens[0], tokens[1].split(".", 1)[0]
-    if int(major) < 5:
-        return False
-    if int(minor) < 1:
-        return False
+    if int(major) < 2:
+        return "original"
+    if int(major) < 5 or int(minor) < 1:
+        return "pacbio_old"
 
-    return True
+    return "pacbio_new"
 
 
 def _run_blasr(reference_file, reads_file, num_proc, out_file):
@@ -162,10 +162,12 @@ def _run_blasr(reference_file, reads_file, num_proc, out_file):
                "-bestn", "1", "-minMatch", "15",
                "-maxMatch", "20", "-m", "5",
                "-nproc", str(num_proc), "-out", out_file,
-               "-advanceHalf", "-advanceExactMatches", "10",
-               "-fastSDP", "-aggressiveIntervalCut"]
-    two_dashes = _need_two_dashes()
-    if two_dashes:
+               "-advanceHalf", "-advanceExactMatches", "10"]
+
+    blasr_version = _guess_blasr_version()
+    if blasr_version in ["pacbio_old", "pacbio_new"]:
+        cmdline.extend(["-fastSDP", "-aggressiveIntervalCut"])
+    if blasr_version == "pacbio_new":
         cmdline = map(lambda cmd: cmd.replace("-", "--")
                       if cmd.startswith("-") and len(cmd) > 2 else cmd,
                       cmdline)
