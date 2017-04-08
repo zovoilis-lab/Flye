@@ -28,7 +28,7 @@ ABruijn is written in both C++ and Python and requires a Python 2.7 environment.
 
 First, to build ABruijn, run:
 
-    python install.py build
+    python setup.py build
 
 ABruijn could be invoked with the following command:
 
@@ -36,7 +36,7 @@ ABruijn could be invoked with the following command:
 
 Additonally, you may install the package for the better OS integration:
 
-    python setup.pu install
+    python setup.py install
 
 Alternatively, you can perform local user installation by adding '--user' or '--prefix'
 options to the previous command.
