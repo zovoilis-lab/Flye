@@ -163,14 +163,31 @@ void Extender::assembleContigs()
 			path = this->extendContig(indexPair.first);
 		}
 
+		///
+		std::unordered_set<FastaRecord::Id> rightExtended;
+		std::unordered_set<FastaRecord::Id> leftExtended;
 		for (auto& readId : path.reads)
 		{
+			//so each read is covered by at least two others, from left and right
 			for (auto& ovlp : _ovlpContainer.lazySeqOverlaps(readId))
 			{
-				_visitedReads.insert(ovlp.extId);
-				_visitedReads.insert(ovlp.extId.rc());
+				if (ovlp.leftShift > Constants::maximumJump)
+				{
+					leftExtended.insert(ovlp.extId);
+					rightExtended.insert(ovlp.extId.rc());
+				}
+				else if (ovlp.rightShift < -Constants::maximumJump)	
+				{
+					rightExtended.insert(ovlp.extId);
+					leftExtended.insert(ovlp.extId.rc());
+				}
 			}
 		}
+		for (auto& read : rightExtended)
+		{
+			if (leftExtended.count(read)) _visitedReads.insert(read);
+		}
+		///
 		
 		if (path.reads.size() >= Constants::minReadsInContig)
 		{
