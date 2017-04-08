@@ -1,7 +1,6 @@
 PREFIX		=	.
 CXXFLAGS	= 	-Wall -W -pedantic-errors -Wno-unused-parameter # -Werror
 CXXFLAGS	+=  -Wmissing-braces -Wparentheses -ansi
-CXXFLAGS 	+=  -O3 -DNDEBUG
 
 # Directories
 
@@ -24,7 +23,11 @@ LIB			=   libcpplex.so
 # all library clean wipe
 .PHONY:	all clean wipe
 
+all: CXXFLAGS += -O3 -DNDEBUG
 all: libcpplex
+
+debug: CXXFLAGS += -Og -g -D_GLIBCXX_DEBUG
+debug: libcpplex
 
 #$(CXX) $^ -o $@
 libcpplex: $(OBJS)

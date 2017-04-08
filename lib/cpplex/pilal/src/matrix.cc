@@ -527,8 +527,37 @@ namespace pilal {
 	
 	AnonymousMatrix Matrix::gaussian_elimination() {
 	
-	    AnonymousMatrix r(*this);
+	    AnonymousMatrix new_matrix(*this);
 	
+		for (int k = 0; k < std::min(columns, rows); ++k)
+		{
+			int max_pos = 0;
+			long double max_val = new_matrix(max_pos, k);
+			for (int i = k; i < rows; ++i)
+			{
+				if (fabsf(new_matrix(i, k)) > fabsf(max_val))
+				{
+					max_pos = i;
+					max_val = new_matrix(i, k);
+				}
+			}
+			if (fabsf(max_val) < 0.000001) break;
+
+			if (k != max_pos) new_matrix.swap_rows(k, max_pos);
+
+			for (int i = k + 1; i < rows; ++i)
+			{
+				double temp = new_matrix(i, k) / max_val;
+				for (int j = k + 1; j < columns; ++j)
+				{
+					new_matrix(i, j) = new_matrix(i, j) - new_matrix(k, j) * temp;
+				}
+				new_matrix(i, k) = 0;
+			}
+		}
+
+		return new_matrix;
+		/*
 	    int j = 0, pivot = 0;
 	    while (j < columns && pivot < rows) {
     
@@ -574,7 +603,7 @@ namespace pilal {
 			++j;
 		}
 
-		return r;
+		return r;*/
 	
 	}
 
