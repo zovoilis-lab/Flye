@@ -5,10 +5,9 @@
 
 #include "../sequence/overlap.h"
 #include "../sequence/vertex_index.h"
-#include "config.h"
-
+#include "../common/config.h"
+#include "../common/disjoint_set.h"
 #include "repeat_graph.h"
-#include "disjoint_set.h"
 
 #include <deque>
 

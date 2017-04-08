@@ -5,7 +5,7 @@ export LIBCUCKOO = -I$(shell pwd)/lib/libcuckoo
 export LIBCPPLEX = -I${LIBCPPLEX_DIR}/pilal/include -I${LIBCPPLEX_DIR}/simplex/include
 export BIN_DIR = $(shell pwd)/bin
 
-export CXXFLAGS = ${COMMON} ${LIBCUCKOO} ${LIBCPPLEX}
+export CXXFLAGS = ${LIBCUCKOO} ${LIBCPPLEX}
 export LDFLAGS = -L${LIBCPPLEX_DIR} -lcpplex
 
 .PHONY: clean all profile debug
@@ -19,7 +19,7 @@ profile:
 	make all -C ${LIBCPPLEX_DIR}
 	make profile -C src
 debug:
-	make all -C ${LIBCPPLEX_DIR}
+	make debug -C ${LIBCPPLEX_DIR}
 	make debug -C src
 clean: 
 	make clean -C ${LIBCPPLEX_DIR}

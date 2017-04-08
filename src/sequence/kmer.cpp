@@ -8,7 +8,7 @@
 #include "kmer.h"
 #include "vertex_index.h"
 #include "sequence_container.h"
-#include "config.h"
+#include "../common/config.h"
 
 namespace
 {

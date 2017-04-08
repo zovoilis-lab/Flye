@@ -4,13 +4,13 @@
 
 #include <cmath>
 
-#include "repeat_resolver.h"
-#include "config.h"
-#include "utils.h"
-#include "bipartie_mincost.h"
-
 #include <simplex.h>
 #include <variable.h>
+
+#include "repeat_resolver.h"
+#include "../common/config.h"
+#include "../common/utils.h"
+#include "bipartie_mincost.h"
 
 
 RepeatResolver::GraphAlignment
@@ -368,7 +368,7 @@ void RepeatResolver::correctEdgesMultiplicity()
 		sumCov += edgeCov.second;
 		sumLength += edgeCov.first->length();
 	}
-	int meanCoverage = sumCov / sumLength;
+	int meanCoverage = (sumLength != 0) ? sumCov / sumLength : 1;
 	Logger::get().debug() << "Mean edge coverage: " << meanCoverage;
 
 	for (auto edgeCov : edgesCoverage)
@@ -379,7 +379,7 @@ void RepeatResolver::correctEdgesMultiplicity()
 
 		GraphEdge* complEdge = _graph.complementPath({edgeCov.first}).front();
 		int normCov = (edgeCov.second + edgesCoverage[complEdge]) / 
-									(2 * edgeCov.first->length());
+									(2 * edgeCov.first->length() + 1);
 		edgeCov.first->coverage = (float)normCov;
 		complEdge->coverage = (float)normCov;
 
@@ -473,15 +473,15 @@ void RepeatResolver::correctWeights()
 	using namespace optimization;
 
 	std::unordered_map<FastaRecord::Id, size_t> edgeToId;
-	size_t nextId = 0;
+	size_t numberEdges = 0;
 
-	auto edgeNumber = [&edgeToId, &nextId](GraphEdge* edge)
+	auto edgeNumber = [&edgeToId, &numberEdges](GraphEdge* edge)
 	{
 		if (!edgeToId.count(edge->edgeId))
 		{
-			edgeToId[edge->edgeId] = nextId;
-			edgeToId[edge->edgeId.rc()] = nextId;
-			++nextId;
+			edgeToId[edge->edgeId] = numberEdges;
+			edgeToId[edge->edgeId.rc()] = numberEdges;
+			++numberEdges;
 		}
 		return edgeToId[edge->edgeId];
 	};
@@ -501,7 +501,7 @@ void RepeatResolver::correctWeights()
 
 		size_t varNumber = edgeNumber(edge);
 
-		Matrix eye(1, nextId, 0);
+		pilal::Matrix eye(1, numberEdges, 0);
 		eye(varNumber) = 1;
 
 		std::string varName = std::to_string(edge->edgeId.signedId());
@@ -513,6 +513,8 @@ void RepeatResolver::correctWeights()
 	}
 
 	std::unordered_set<GraphNode*> processedNodes;
+	std::vector<std::vector<int>> incorporatedEquations;
+
 	for (auto node : _graph.iterNodes())
 	{
 		if (node->inEdges.empty() || node->outEdges.empty()) continue;
@@ -522,7 +524,7 @@ void RepeatResolver::correctWeights()
 		GraphNode* complNode = _graph.complementNode(node);
 		processedNodes.insert(complNode);
 
-		std::vector<int> coefficients(nextId, 0);
+		std::vector<int> coefficients(numberEdges, 0);
 		for (auto edge : node->inEdges) 
 		{
 			if (!edge->isLooped()) coefficients[edgeNumber(edge)] += 1;
@@ -535,27 +537,44 @@ void RepeatResolver::correctWeights()
 		//for (int x : coefficients) std::cout << x << "\t";
 		//std::cout << "= 0\n";
 
-        Matrix coefMatrix(1, nextId, 0);
-		bool nonTrivial = false;
-		for (size_t i = 0; i < nextId; ++i) 
+		//build the matrix with all equations and check if it's linearly independend
+		pilal::Matrix problemMatrix(incorporatedEquations.size() + 1, 
+									numberEdges, 0);
+		for (size_t column = 0; column < incorporatedEquations.size(); ++column)
+		{
+			for (size_t row = 0; row < numberEdges; ++row)
+			{
+				problemMatrix(column, row) = incorporatedEquations[column][row];
+			}
+		}
+		for (size_t row = 0; row < numberEdges; ++row)
+		{
+			int x = coefficients[row];
+			problemMatrix(incorporatedEquations.size(), row) = x;
+		}
+		if (!problemMatrix.rows_linearly_independent())
+		{
+			Logger::get().debug() << "Linearly dependent!";
+			continue;
+		}
+
+        pilal::Matrix coefMatrix(1, numberEdges, 0);
+		for (size_t i = 0; i < numberEdges; ++i) 
 		{
 			coefMatrix(i) = coefficients[i];
-			if (coefficients[i]) nonTrivial = true;
 		}
-		if (nonTrivial)
-		{
-        	simplex.add_constraint(Constraint(coefMatrix, CT_EQUAL, 0.0f));
-		}
+        simplex.add_constraint(Constraint(coefMatrix, CT_EQUAL, 0.0f));
+		incorporatedEquations.push_back(std::move(coefficients));
 	}
 
-    Matrix costs(1, nextId, 1.0f);
+    pilal::Matrix costs(1, numberEdges, 1.0f);
     simplex.set_objective_function(ObjectiveFunction(OFT_MINIMIZE, costs));   
 
 	simplex.solve();
 	if (!simplex.has_solutions() || simplex.must_be_fixed() || 
 		simplex.is_unlimited()) throw std::runtime_error("Error while solving LP");
 
-	//simplex.print_solution();
+	simplex.print_solution();
 	for (auto edge : _graph.iterEdges())
 	{
 		if (!edge->isLooped())

@@ -10,7 +10,7 @@
 #include <iomanip>
 #include <stdexcept>
 
-#include "matrix.h"
+#include "../common/matrix.h"
 #include "subs_matrix.h"
 
 

@@ -11,7 +11,7 @@ profile: release
 release: CXXFLAGS += -D_LOG -O3 -DNDEBUG
 release: abruijn-repeat
 
-debug: CXXFLAGS += -g -O0 -D_GLIBCXX_DEBUG -D_DEBUG -D_DEBUG_LOG -D_LOG
+debug: CXXFLAGS += -g -Og -D_GLIBCXX_DEBUG -D_DEBUG -D_DEBUG_LOG -D_LOG
 debug: abruijn-repeat
 
 objects := ${patsubst %.cpp,%.o,${wildcard *.cpp}}

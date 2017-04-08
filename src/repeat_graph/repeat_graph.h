@@ -4,11 +4,12 @@
 
 #pragma once
 
+#include <list>
+
 #include "../sequence/sequence_container.h"
 #include "../sequence/overlap.h"
-#include "config.h"
-#include "utils.h"
-#include <list>
+#include "../common/config.h"
+#include "../common/utils.h"
 
 struct SequenceSegment
 {

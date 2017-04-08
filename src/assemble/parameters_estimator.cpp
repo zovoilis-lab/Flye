@@ -3,7 +3,7 @@
 //Released under the BSD license (see LICENSE file)
 
 #include "parameters_estimator.h"
-#include "logger.h"
+#include "../common/logger.h"
 
 
 int ParametersEstimator::genomeSizeEstimate()

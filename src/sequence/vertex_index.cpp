@@ -8,9 +8,9 @@
 #include <algorithm>
 
 #include "vertex_index.h"
-#include "logger.h"
-#include "parallel.h"
-#include "config.h"
+#include "../common/logger.h"
+#include "../common/parallel.h"
+#include "../common/config.h"
 
 
 void VertexIndex::countKmers(size_t hardThreshold)

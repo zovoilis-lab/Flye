@@ -6,7 +6,7 @@
 #include <unordered_set>
 
 #include "homo_polisher.h"
-#include "matrix.h"
+#include "../common/matrix.h"
 
 
 namespace

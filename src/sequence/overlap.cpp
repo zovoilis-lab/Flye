@@ -9,8 +9,8 @@
 #include <thread>
 
 #include "overlap.h"
-#include "config.h"
-#include "parallel.h"
+#include "../common/config.h"
+#include "../common/parallel.h"
 
 
 //pre-filtering

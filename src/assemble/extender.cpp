@@ -7,8 +7,8 @@
 #include <iomanip>
 #include <stack>
 
-#include "config.h"
-#include "logger.h"
+#include "../common/config.h"
+#include "../common/logger.h"
 #include "extender.h"
 
 

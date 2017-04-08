@@ -6,10 +6,12 @@
 #include <algorithm>
 #include <fstream>
 
-#include "config.h"
 #include "contig_generator.h"
-#include "logger.h"
-#include "parallel.h"
+
+#include "../common/config.h"
+#include "../common/logger.h"
+#include "../common/parallel.h"
+#include "../common/matrix.h"
 
 
 namespace

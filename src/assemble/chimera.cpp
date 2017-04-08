@@ -7,9 +7,9 @@
 #include <unordered_set>
 #include <unordered_map>
 
-#include "config.h"
+#include "../common/config.h"
+#include "../common/logger.h"
 #include "chimera.h"
-#include "logger.h"
 
 
 

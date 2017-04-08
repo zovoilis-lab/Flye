@@ -8,9 +8,8 @@
 #include "../sequence/vertex_index.h"
 #include "../sequence/sequence_container.h"
 #include "../sequence/overlap.h"
-#include "config.h"
-
-#include "logger.h"
+#include "../common/config.h"
+#include "../common/logger.h"
 #include "repeat_graph.h"
 #include "graph_processing.h"
 #include "repeat_resolver.h"

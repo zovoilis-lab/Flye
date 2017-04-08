@@ -5,7 +5,7 @@
 #include <deque>
 
 #include "graph_processing.h"
-#include "logger.h"
+#include "../common/logger.h"
 
 void GraphProcessor::simplify()
 {

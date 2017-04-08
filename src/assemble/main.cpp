@@ -8,12 +8,12 @@
 #include "../sequence/vertex_index.h"
 #include "../sequence/sequence_container.h"
 #include "../sequence/overlap.h"
-#include "config.h"
+#include "../common/config.h"
 #include "chimera.h"
 #include "extender.h"
 #include "contig_generator.h"
 #include "parameters_estimator.h"
-#include "logger.h"
+#include "../common/logger.h"
 
 bool parseArgs(int argc, char** argv, std::string& readsFasta, 
 			   std::string& outAssembly, std::string& logFile, int& coverage,
