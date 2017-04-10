@@ -529,32 +529,64 @@ namespace pilal {
 	
 	    AnonymousMatrix new_matrix(*this);
 	
-		for (int k = 0; k < std::min(columns, rows); ++k)
+		/*for (int i = 0; i < this->dim().first; ++i)
 		{
-			int max_pos = 0;
-			long double max_val = new_matrix(max_pos, k);
-			for (int i = k; i < rows; ++i)
+			for (int j = 0; j < this->dim().second; ++j)
 			{
-				if (fabsf(new_matrix(i, k)) > fabsf(max_val))
-				{
-					max_pos = i;
-					max_val = new_matrix(i, k);
-				}
+				std::cout << (*this)(i, j) << " ";
 			}
-			if (fabsf(max_val) < 0.000001) break;
-
-			if (k != max_pos) new_matrix.swap_rows(k, max_pos);
-
-			for (int i = k + 1; i < rows; ++i)
-			{
-				double temp = new_matrix(i, k) / max_val;
-				for (int j = k + 1; j < columns; ++j)
-				{
-					new_matrix(i, j) = new_matrix(i, j) - new_matrix(k, j) * temp;
-				}
-				new_matrix(i, k) = 0;
-			}
+			std::cout << std::endl;
 		}
+		std::cout << std::endl;*/
+
+		int pivotRow = 0;
+		int pivotCol = 0;
+		while (pivotRow < rows && pivotCol < columns)
+		{
+			int maxRow = pivotRow;
+			long double maxVal = 0.0f;
+			for (int i = pivotRow; i < rows; ++i)
+			{
+				if (fabsl(new_matrix(i, pivotCol)) > fabsl(maxVal))
+				{
+					maxRow = i;
+					maxVal = new_matrix(i, pivotCol);
+				}
+			}
+			if (fabsl(maxVal) < 0.00000001f) 
+			{
+				new_matrix(maxRow, pivotCol) = 0.0f;
+				++pivotCol;
+				continue;
+			}
+
+			if (pivotRow != maxRow) new_matrix.swap_rows(pivotRow, maxRow);
+
+			for (int i = pivotRow + 1; i < rows; ++i)
+			{
+				double temp = new_matrix(i, pivotCol) / maxVal;
+				for (int j = pivotCol + 1; j < columns; ++j)
+				{
+					new_matrix(i, j) = new_matrix(i, j) - 
+									   new_matrix(pivotRow, j) * temp;
+				}
+				new_matrix(i, pivotCol) = 0.0f;
+			}
+
+			++pivotRow;
+			++pivotCol;
+		}
+
+		/*std::cout << "-------\n";
+		for (int i = 0; i < new_matrix.dim().first; ++i)
+		{
+			for (int j = 0; j < new_matrix.dim().second; ++j)
+			{
+				std::cout << new_matrix(i, j) << " ";
+			}
+			std::cout << std::endl;
+		}
+		std::cout << std::endl;*/
 
 		return new_matrix;
 		/*
