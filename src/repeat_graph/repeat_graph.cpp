@@ -45,6 +45,10 @@ namespace
 	};
 }
 
+bool GraphEdge::isTip() const
+{
+	return nodeLeft->inEdges.empty() || nodeRight->outEdges.empty();
+}
 
 void RepeatGraph::build()
 {
@@ -126,38 +130,45 @@ void RepeatGraph::getRepeatClusters(const OverlapContainer& asmOverlaps)
 void RepeatGraph::getGluepoints(const OverlapContainer& asmOverlaps)
 {
 	Logger::get().debug() << "Computing gluepoints";
-	//cluster interval endpoints
 	typedef SetNode<Point2d> SetPoint2d;
-	std::list<SetPoint2d> endpoints;
+	std::unordered_map<FastaRecord::Id, 
+					   std::vector<SetPoint2d*>> endpoints;
 	size_t pointId = 0;
 
 	for (auto& seqOvlps : asmOverlaps.getOverlapIndex())
 	{
 		for (auto& ovlp : seqOvlps.second)
 		{
-			endpoints.emplace_back(Point2d(ovlp.curId, ovlp.curBegin, 
-										 ovlp.extId, ovlp.extBegin));
-			endpoints.emplace_back(Point2d(ovlp.curId, ovlp.curEnd, 
-										 ovlp.extId, ovlp.extEnd));
+			endpoints[ovlp.curId]
+				.push_back(new SetPoint2d(Point2d(ovlp.curId, ovlp.curBegin,
+										  ovlp.extId, ovlp.extBegin)));
+			endpoints[ovlp.curId]
+				.push_back(new SetPoint2d(Point2d(ovlp.curId, ovlp.curEnd,
+										  ovlp.extId, ovlp.extEnd)));
 		}
 	}
 
-	for (auto& p1 : endpoints)
+	for (auto& seqPoints : endpoints)
 	{
-		for (auto& p2 : endpoints)
+		for (auto& p1 : seqPoints.second)
 		{
-			if (p1.data.curId == p2.data.curId &&
-				abs(p1.data.curPos - p2.data.curPos) < _maxSeparation)
+			for (auto& p2 : seqPoints.second)
 			{
-				unionSet(&p1, &p2);
+				if (abs(p1->data.curPos - p2->data.curPos) < _maxSeparation)
+				{
+					unionSet(p1, p2);
+				}
 			}
 		}
 	}
 
 	std::unordered_map<SetPoint2d*, std::vector<SetPoint2d*>> clusters;
-	for (auto& endpoint : endpoints)
+	for (auto seqPoints : endpoints)
 	{
-		clusters[findSet(&endpoint)].push_back(&endpoint);
+		for (auto& endpoint : seqPoints.second)
+		{
+			clusters[findSet(endpoint)].push_back(endpoint);
+		}
 	}
 
 	typedef SetNode<Point1d> SetPoint1d;
@@ -293,6 +304,11 @@ void RepeatGraph::getGluepoints(const OverlapContainer& asmOverlaps)
 								 seqPoints.first, 0);
 		seqPoints.second.emplace_back(pointId++, seqPoints.first, 
 									  _asmSeqs.seqLen(seqPoints.first) - 1);
+	}
+
+	for (auto& seqEndpoints : endpoints)
+	{
+		for (auto ep : seqEndpoints.second) delete ep;
 	}
 }
 

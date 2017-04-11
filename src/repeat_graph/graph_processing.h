@@ -24,15 +24,15 @@ public:
 		_graph(graph), _asmSeqs(asmSeqs), _readSeqs(readSeqs),
 		_tipThreshold(Parameters::get().minimumOverlap) {}
 
-	void simplify();
-	void unrollLoops();
+	void condence();
+	void trimTips();
 	void generateContigs();
 
 	void outputContigsGraph(const std::string& filename);
 	void outputContigsFasta(const std::string& filename);
 
 private:
-	void trimTips();
+	void unrollLoops();
 	void condenceEdges();
 	void updateEdgesMultiplicity();
 

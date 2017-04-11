@@ -383,7 +383,7 @@ void RepeatResolver::correctEdgesMultiplicity()
 		edgeCov.first->coverage = (float)normCov;
 		complEdge->coverage = (float)normCov;
 
-		int estMult = std::max(1.0f, roundf((float)normCov / meanCoverage));
+		int estMult = roundf((float)normCov / meanCoverage);
 		edgeCov.first->multiplicity = estMult;
 		complEdge->multiplicity = estMult;
 	}
@@ -423,7 +423,7 @@ void RepeatResolver::clearResolvedRepeats()
 		}
 
 		//other nodes
-		if (node->neighbors().size() != 1) continue;
+		if (!node->isEnd()) continue;
 
 		GraphEdge* direction = nextEdge(node);
 		if (!direction) continue;
@@ -431,14 +431,14 @@ void RepeatResolver::clearResolvedRepeats()
 		GraphPath traversed;
 		traversed.push_back(direction);
 		GraphNode* curNode = direction->nodeRight;
-		while (curNode->neighbors().size() == 2)
+		while (curNode->resolved())
 		{
 			traversed.push_back(nextEdge(curNode));
 			curNode = traversed.back()->nodeRight;
 		}
 		if (traversed.empty()) continue;
 
-		bool removeLast = curNode->neighbors().size() == 1;
+		bool removeLast = curNode->isEnd();
 		bool resolvedRepeat = true;
 		for (auto& edge : traversed) 
 		{
@@ -472,70 +472,90 @@ void RepeatResolver::correctWeights()
 {
 	using namespace optimization;
 
-	std::unordered_map<FastaRecord::Id, size_t> edgeToId;
+	//enumerating edges
+	std::unordered_map<GraphEdge*, size_t> edgeToId;
+	std::map<size_t, GraphEdge*> idToEdge;
 	size_t numberEdges = 0;
-
-	auto edgeNumber = [&edgeToId, &numberEdges](GraphEdge* edge)
+	for (auto edge : _graph.iterEdges())
 	{
-		if (!edgeToId.count(edge->edgeId))
+		if (edge->isLooped()) continue;
+
+		if (!edgeToId.count(edge))
 		{
-			edgeToId[edge->edgeId] = numberEdges;
-			edgeToId[edge->edgeId.rc()] = numberEdges;
+			GraphEdge* complEdge = _graph.complementPath({edge}).front();
+			edgeToId[edge] = numberEdges;
+			edgeToId[complEdge] = numberEdges;
+			idToEdge[numberEdges] = edge;
 			++numberEdges;
 		}
-		return edgeToId[edge->edgeId];
-	};
-
-	//enumerating
-	for (auto edge : _graph.iterEdges())
-	{
-		if (!edge->edgeId.strand() || edge->isLooped()) continue;
-		edgeNumber(edge);
 	}
 
-	//formulate linear programming
-	Simplex simplex("");
-	for (auto edge : _graph.iterEdges())
-	{
-		if (!edge->edgeId.strand() || edge->isLooped()) continue;
-
-		size_t varNumber = edgeNumber(edge);
-
-		pilal::Matrix eye(1, numberEdges, 0);
-		eye(varNumber) = 1;
-
-		std::string varName = std::to_string(edge->edgeId.signedId());
-		simplex.add_variable(new Variable(&simplex, varName.c_str()));
-	
-		simplex.add_constraint(Constraint(eye, CT_MORE_EQUAL, 
-										  (float)edge->multiplicity));    
-		simplex.add_constraint(Constraint(eye, CT_LESS_EQUAL, 999.0f));
-	}
-
-	std::unordered_set<GraphNode*> processedNodes;
-	std::vector<std::vector<int>> incorporatedEquations;
-
+	//enumerating nodes
+	std::unordered_map<GraphNode*, size_t> nodeToId;
+	std::map<size_t, GraphNode*> idToNode;
+	size_t numberNodes = 0;
 	for (auto node : _graph.iterNodes())
 	{
 		if (node->inEdges.empty() || node->outEdges.empty()) continue;
 		if (node->neighbors().size() < 2) continue;
-		if (processedNodes.count(node)) continue;
 
-		GraphNode* complNode = _graph.complementNode(node);
-		processedNodes.insert(complNode);
+		if (!nodeToId.count(node))
+		{
+			GraphNode* complNode = _graph.complementNode(node);
+			nodeToId[complNode] = numberNodes;
+			nodeToId[node] = numberNodes;
+			idToNode[numberNodes] = node;
+			++numberNodes;
+		}
+	}
 
+	//formulate linear programming
+	Simplex simplex("");
+	size_t numVariables = numberEdges + numberNodes * 2;
+	for (auto& idEdgePair : idToEdge)
+	{
+		pilal::Matrix eye(1, numVariables, 0);
+		eye(idEdgePair.first) = 1;
+
+		std::string varName = std::to_string(idEdgePair.second->edgeId.signedId());
+		simplex.add_variable(new Variable(&simplex, varName.c_str()));
+	
+		simplex.add_constraint(Constraint(eye, CT_MORE_EQUAL, 
+										  (float)idEdgePair.second->multiplicity));
+		//int minMultiplicity = !edge->isTip() ? edge->multiplicity : 0;
+		//int maxMultiplicity = !edge->isTip() ? 1000 : 1000;
+		//simplex.add_constraint(Constraint(eye, CT_LESS_EQUAL, 1000.0f));
+	}
+
+	std::vector<std::vector<int>> incorporatedEquations;
+	for (auto& idNodePair : idToNode)
+	{
+		size_t sourceId = numberEdges + idNodePair.first * 2;
+		size_t sinkId = numberEdges + idNodePair.first * 2 + 1;
+
+		//emergency source
+		std::string sourceName = std::to_string(idNodePair.first) + "_source";
+		simplex.add_variable(new Variable(&simplex, sourceName.c_str()));
+		pilal::Matrix sourceMat(1, numVariables, 0);
+		sourceMat(sourceId) = 1;
+		simplex.add_constraint(Constraint(sourceMat, CT_MORE_EQUAL, 0.0f));
+
+		//emergency sink
+		std::string sinkName = std::to_string(idNodePair.first) + "_sink";
+		simplex.add_variable(new Variable(&simplex, sinkName.c_str()));
+		pilal::Matrix sinkMat(1, numVariables, 0);
+		sinkMat(sinkId) = 1;
+		simplex.add_constraint(Constraint(sinkMat, CT_MORE_EQUAL, 0.0f));
+		
 		std::vector<int> coefficients(numberEdges, 0);
-		for (auto edge : node->inEdges) 
+		for (auto edge : idNodePair.second->inEdges) 
 		{
-			if (!edge->isLooped()) coefficients[edgeNumber(edge)] += 1;
+			if (!edge->isLooped()) coefficients[edgeToId[edge]] += 1;
 		}
-		for (auto edge : node->outEdges) 
+		for (auto edge : idNodePair.second->outEdges) 
 		{
-			if (!edge->isLooped()) coefficients[edgeNumber(edge)] -= 1;
+			if (!edge->isLooped()) coefficients[edgeToId[edge]] -= 1;
 		}
-
-		//for (int x : coefficients) std::cout << x << "\t";
-		//std::cout << "= 0\n";
 
 		//build the matrix with all equations and check if it's linearly independend
 		pilal::Matrix problemMatrix(incorporatedEquations.size() + 1, 
@@ -549,25 +569,28 @@ void RepeatResolver::correctWeights()
 		}
 		for (size_t row = 0; row < numberEdges; ++row)
 		{
-			int x = coefficients[row];
-			problemMatrix(incorporatedEquations.size(), row) = x;
+			problemMatrix(incorporatedEquations.size(), row) = coefficients[row];
 		}
-		if (!problemMatrix.rows_linearly_independent())
-		{
-			Logger::get().debug() << "Linearly dependent!";
-			continue;
-		}
+		if (!problemMatrix.rows_linearly_independent()) continue;
+		//
 
-        pilal::Matrix coefMatrix(1, numberEdges, 0);
+		pilal::Matrix coefMatrix(1, numVariables, 0);
 		for (size_t i = 0; i < numberEdges; ++i) 
 		{
 			coefMatrix(i) = coefficients[i];
 		}
-        simplex.add_constraint(Constraint(coefMatrix, CT_EQUAL, 0.0f));
+		coefMatrix(sourceId) = 1;
+		coefMatrix(sinkId) = -1;
+		simplex.add_constraint(Constraint(coefMatrix, CT_EQUAL, 0.0f));
 		incorporatedEquations.push_back(std::move(coefficients));
+
+		//std::cout << std::showpos;
+		//for (size_t i = 0; i < numVariables; ++i) std::cout << coefMatrix(i) << " ";
+		//std::cout << std::endl << std::noshowpos;
 	}
 
-    pilal::Matrix costs(1, numberEdges, 1.0f);
+    pilal::Matrix costs(1, numVariables, 1.0f);
+	for (size_t i = numberEdges; i < numVariables; ++i) costs(i) = 1000.0f;
     simplex.set_objective_function(ObjectiveFunction(OFT_MINIMIZE, costs));   
 
 	simplex.solve();
@@ -575,12 +598,10 @@ void RepeatResolver::correctWeights()
 		simplex.is_unlimited()) throw std::runtime_error("Error while solving LP");
 
 	simplex.print_solution();
-	for (auto edge : _graph.iterEdges())
+	for (auto& edgeIdPair : edgeToId)
 	{
-		if (!edge->isLooped())
-		{
-			edge->multiplicity = simplex.get_solution()(edgeNumber(edge));
-		}
+		edgeIdPair.first->multiplicity = 
+			simplex.get_solution()(edgeIdPair.second);
 	}
 }
 

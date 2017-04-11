@@ -34,6 +34,7 @@ struct GraphEdge
 
 	bool isRepetitive() const {return multiplicity != 1;}
 	bool isLooped() const {return nodeLeft == nodeRight;}
+	bool isTip() const;
 	void addSequence(FastaRecord::Id id, int32_t start, int32_t end)
 	{
 		seqSegments.emplace_back(id, start, end);
@@ -75,6 +76,26 @@ struct GraphNode
 
 		result.erase(this);
 		return result;
+	}
+	bool isEnd() const
+	{
+		return (inEdges.size() == 0 && outEdges.empty()) || 
+				(outEdges.size() == 1 && inEdges.empty());
+	}
+
+	bool resolved() const
+	{
+		int inDegree = 0;
+		for (auto& edge : inEdges)
+		{
+			if (!edge->isLooped()) ++inDegree;
+		}
+		int outDegree = 0;
+		for (auto& edge : outEdges)
+		{
+			if (!edge->isLooped()) ++outDegree;
+		}
+		return inDegree == 1 && outDegree == 1;
 	}
 
 	std::vector<GraphEdge*> inEdges;

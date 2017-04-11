@@ -7,7 +7,7 @@
 #include "graph_processing.h"
 #include "../common/logger.h"
 
-void GraphProcessor::simplify()
+void GraphProcessor::condence()
 {
 	this->trimTips();
 
@@ -102,11 +102,9 @@ void GraphProcessor::trimTips()
 	std::unordered_set<GraphNode*> toRemove;
 	for (GraphEdge* tipEdge : _graph.iterEdges())
 	{
-		int leftDegree = tipEdge->nodeLeft->inEdges.size();
-		int rightDegree = tipEdge->nodeRight->outEdges.size();
-		if (tipEdge->length() < _tipThreshold && 
-			(leftDegree == 0 || rightDegree == 0))
+		if (tipEdge->length() < _tipThreshold && tipEdge->isTip())
 		{
+			int leftDegree = tipEdge->nodeLeft->inEdges.size();
 			toRemove.insert(leftDegree == 0 ? tipEdge->nodeLeft : 
 							tipEdge->nodeRight);
 		}

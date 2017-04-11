@@ -54,20 +54,17 @@ ContigPath Extender::extendContig(FastaRecord::Id startRead)
 		{
 			if (_visitedReads.count(ovlp.extId)) ++numVisited;
 		}
-		//if (numVisited <= (int)extensions.size() / 2)
-		//{
-			for (auto& ovlp : extensions)
+		for (auto& ovlp : extensions)
+		{
+			if (!_chimDetector.isChimeric(ovlp.extId) &&
+				this->countRightExtensions(ovlp.extId) > 0)
 			{
-				if (!_chimDetector.isChimeric(ovlp.extId) &&
-					this->countRightExtensions(ovlp.extId) > 0)
-				{
-					foundExtension = true;
-					currentRead = ovlp.extId;
-					_assembledSequence += ovlp.rightShift;
-					break;
-				}
+				foundExtension = true;
+				currentRead = ovlp.extId;
+				_assembledSequence += ovlp.rightShift;
+				break;
 			}
-		//}
+		}
 		Logger::get().debug() << extensions.size() << " " << numVisited;
 
 		if (foundExtension) 

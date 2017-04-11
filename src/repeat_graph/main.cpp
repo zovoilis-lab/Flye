@@ -129,12 +129,11 @@ int main(int argc, char** argv)
 		rg.outputDot(outFolder + "/graph_before.dot");
 
 		GraphProcessor proc(rg, seqAssembly, seqReads);
-		proc.simplify();
+		proc.condence();
 
 		RepeatResolver resolver(rg, seqAssembly, seqReads);
 		resolver.alignReads();
 		resolver.correctEdgesMultiplicity();
-
 		rg.outputDot(outFolder + "/graph_simplified.dot");
 
 		resolver.resolveRepeats();
