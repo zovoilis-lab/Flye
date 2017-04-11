@@ -14,11 +14,10 @@ public:
 		_graph(graph), _asmSeqs(asmSeqs), _readSeqs(readSeqs) {}
 
 	void alignReads();
-	void correctEdgesMultiplicity();
+	void estimateEdgesCoverage();
 	void resolveRepeats();
 
 private:
-
 	struct EdgeAlignment
 	{
 		OverlapRange overlap;
@@ -34,8 +33,8 @@ private:
 		SequenceSegment readSequence;
 	};
 
-	void correctWeights();
 	void clearResolvedRepeats();
+	std::vector<Connection> getConnections();
 	void resolveConnections(const std::vector<Connection>& conns);
 	void separatePath(const GraphPath& path, SequenceSegment segment,
 					  size_t startId);

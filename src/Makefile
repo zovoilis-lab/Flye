@@ -11,7 +11,7 @@ profile: CXXFLAGS += -pg
 profile: LDFLAGS += -pg
 profile: release
 
-release: CXXFLAGS += -D_LOG -O3 -DNDEBUG
+release: CXXFLAGS += -D_LOG -O3 -DNDEBUG -g
 release: abruijn-repeat abruijn-polish abruijn-assemble
 
 debug: CXXFLAGS += -g -O0 -D_GLIBCXX_DEBUG -D_DEBUG -D_DEBUG_LOG -D_LOG
@@ -21,7 +21,7 @@ debug: abruijn-repeat abruijn-polish abruijn-assemble
 #sequence module
 sequence_obj := ${patsubst %.cpp,%.o,${wildcard sequence/*.cpp}}
 
-sequence/%.o: sequence/%.cpp sequence/*.h include/*h
+sequence/%.o: sequence/%.cpp sequence/*.h common/*h
 	${CXX} -c ${CXXFLAGS} $< -o $@
 
 #abruijn-assemble module
@@ -29,7 +29,7 @@ assemble_obj := ${patsubst %.cpp,%.o,${wildcard assemble/*.cpp}}
 abruijn-assemble: ${assemble_obj} ${sequence_obj}
 	${CXX} ${assemble_obj} ${sequence_obj} -o ${ASSEMBLE_BIN} ${LDFLAGS}
 
-assemble/%.o: assemble/%.cpp assemble/*.h sequence/*.h include/*h
+assemble/%.o: assemble/%.cpp assemble/*.h sequence/*.h common/*h
 	${CXX} -c ${CXXFLAGS} $< -o $@
 
 #abruijn-repeat module
@@ -37,7 +37,7 @@ repeat_obj := ${patsubst %.cpp,%.o,${wildcard repeat_graph/*.cpp}}
 abruijn-repeat: ${repeat_obj} ${sequence_obj}
 	${CXX} ${repeat_obj} ${sequence_obj} -o ${REPEAT_BIN} ${LDFLAGS}
 
-repeat_graph/%.o: repeat_graph/%.cpp repeat_graph/*.h sequence/*.h include/*h
+repeat_graph/%.o: repeat_graph/%.cpp repeat_graph/*.h sequence/*.h common/*.h
 	${CXX} -c ${CXXFLAGS} $< -o $@
 
 #abruijn-polish module
@@ -45,7 +45,7 @@ polish_obj := ${patsubst %.cpp,%.o,${wildcard polishing/*.cpp}}
 abruijn-polish: ${polish_obj}
 	${CXX} ${polish_obj} -o ${POLISH_BIN} ${LDFLAGS}
 
-polishing/%.o: polishing/%.cpp polishing/*.h include/*h
+polishing/%.o: polishing/%.cpp polishing/*.h common/*h
 	${CXX} -c ${CXXFLAGS} $< -o $@
 
 

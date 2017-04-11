@@ -68,22 +68,37 @@ struct GraphEdge
 struct GraphNode
 {
 	bool isBifurcation() {return outEdges.size() != 1 || inEdges.size() != 1;}
-	std::unordered_set<GraphNode*> neighbors()
+	std::unordered_set<GraphNode*> neighbors() const
 	{
 		std::unordered_set<GraphNode*> result;
-		for (auto& edge : inEdges) result.insert(edge->nodeLeft);
-		for (auto& edge : outEdges) result.insert(edge->nodeRight);
+		for (auto& edge : inEdges) 
+		{
+			if (edge->nodeLeft != this) result.insert(edge->nodeLeft);
+		}
+		for (auto& edge : outEdges) 
+		{
+			if (edge->nodeRight != this) result.insert(edge->nodeRight);
+		}
 
-		result.erase(this);
 		return result;
 	}
 	bool isEnd() const
 	{
-		return (inEdges.size() == 0 && outEdges.empty()) || 
-				(outEdges.size() == 1 && inEdges.empty());
+		int inDegree = 0;
+		for (auto& edge : inEdges)
+		{
+			if (!edge->isLooped()) ++inDegree;
+		}
+		int outDegree = 0;
+		for (auto& edge : outEdges)
+		{
+			if (!edge->isLooped()) ++outDegree;
+		}
+		return (inDegree == 1 && outDegree == 0) || 
+			   (inDegree == 0 && outDegree == 1);
 	}
 
-	bool resolved() const
+	bool isResolved() const
 	{
 		int inDegree = 0;
 		for (auto& edge : inEdges)

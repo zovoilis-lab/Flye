@@ -11,6 +11,7 @@
 #include "../common/config.h"
 #include "../common/logger.h"
 #include "repeat_graph.h"
+#include "multiplicity_inferer.h"
 #include "graph_processing.h"
 #include "repeat_resolver.h"
 
@@ -133,11 +134,14 @@ int main(int argc, char** argv)
 
 		RepeatResolver resolver(rg, seqAssembly, seqReads);
 		resolver.alignReads();
-		resolver.correctEdgesMultiplicity();
+		resolver.estimateEdgesCoverage();
+		
+		MultiplicityInferer multInf(rg);
+		multInf.fixEdgesMultiplicity();
 		rg.outputDot(outFolder + "/graph_simplified.dot");
 
 		resolver.resolveRepeats();
-		rg.outputDot(outFolder + "/graph_after.dot");
+		rg.outputDot(outFolder + "/graph_resolved.dot");
 
 		proc.generateContigs();
 		proc.outputContigsGraph(outFolder + "/graph_condensed.dot");

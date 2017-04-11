@@ -23,7 +23,7 @@ LIB			=   libcpplex.so
 # all library clean wipe
 .PHONY:	all clean wipe
 
-all: CXXFLAGS += -O3 -DNDEBUG
+all: CXXFLAGS += -O3 -DNDEBUG -g
 all: libcpplex
 
 debug: CXXFLAGS += -Og -g -D_GLIBCXX_DEBUG
