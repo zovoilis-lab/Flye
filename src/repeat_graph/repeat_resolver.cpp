@@ -138,7 +138,7 @@ void RepeatResolver::separatePath(const GraphPath& graphPath,
 													  FastaRecord::Id(newId)));
 		newEdge->multiplicity = 1;
 		newEdge->seqSegments.push_back(readSegment);
-		newEdge->readSequence = true;
+		//newEdge->readSequence = true;
 	}
 
 	//last edge
@@ -265,12 +265,7 @@ void RepeatResolver::resolveConnections(const std::vector<Connection>& connectio
 	for (auto& conn : uniqueConnections)
 	{
 		GraphPath complPath = _graph.complementPath(conn.path);
-		int32_t complStart = _readSeqs.seqLen(conn.readSequence.seqId) - 
-							 conn.readSequence.end - 1;
-		int32_t complEnd = _readSeqs.seqLen(conn.readSequence.seqId) - 
-							 conn.readSequence.start - 1;
-		SequenceSegment complSegment(conn.readSequence.seqId.rc(), complStart, 
-									 complEnd);
+		SequenceSegment complSegment = conn.readSequence.complement();
 
 		this->separatePath(conn.path, conn.readSequence, _graph._nextEdgeId);
 		this->separatePath(complPath, complSegment, _graph._nextEdgeId + 1);
@@ -339,11 +334,10 @@ std::vector<RepeatResolver::Connection> RepeatResolver::getConnections()
 				GraphPath complPath = _graph.complementPath(currentPath);
 
 				int32_t readEnd = aln.overlap.curBegin - aln.overlap.extBegin;
-				int32_t complStart = aln.overlap.curLen - readEnd - 1;
-				int32_t complEnd = aln.overlap.curLen - readStart - 1;
-				SequenceSegment segment(aln.overlap.curId, readStart, readEnd);
-				SequenceSegment complSegment(aln.overlap.curId.rc(), complStart,
-											 complEnd);
+				SequenceSegment segment(aln.overlap.curId, aln.overlap.curLen, 
+										readStart, readEnd);
+				segment.readSequence = true;
+				SequenceSegment complSegment = segment.complement();
 
 				readConnections.push_back({currentPath, segment});
 				readConnections.push_back({complPath, complSegment});

@@ -142,6 +142,7 @@ int main(int argc, char** argv)
 
 		resolver.resolveRepeats();
 		rg.outputDot(outFolder + "/graph_resolved.dot");
+		proc.condence();
 
 		proc.generateContigs();
 		proc.outputContigsGraph(outFolder + "/graph_condensed.dot");

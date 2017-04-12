@@ -222,10 +222,7 @@ void GraphProcessor::condenceEdges()
 			//complementary segments
 			for (auto seqSeg : addFwd.seqSegments)
 			{
-				int32_t seqLen = _asmSeqs.seqLen(seqSeg.seqId);
-				addRev.seqSegments.emplace_back(seqSeg.seqId.rc(),
-												seqLen - seqSeg.end - 1,
-												seqLen - seqSeg.start - 1);
+				addRev.seqSegments.push_back(seqSeg.complement());
 			}
 
 			_graph.addEdge(std::move(addFwd));
@@ -318,7 +315,7 @@ void GraphProcessor::outputContigsFasta(const std::string& filename)
 			if (!edge->seqSegments.empty())
 			{
 				const SequenceSegment& seg = edge->seqSegments.front();
-				const std::string& edgeSeq = !edge->readSequence ? 
+				const std::string& edgeSeq = !seg.readSequence ? 
 											 _asmSeqs.getSeq(seg.seqId) : 
 											 _readSeqs.getSeq(seg.seqId);
 				contigSequence += edgeSeq.substr(seg.start, seg.end - seg.start);

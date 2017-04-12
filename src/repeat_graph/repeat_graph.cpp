@@ -356,7 +356,8 @@ void RepeatGraph::initializeEdges()
 										   FastaRecord::Id(_nextEdgeId)));
 		++_nextEdgeId;
 
-		newEdge->addSequence(gpLeft.seqId, gpLeft.position, 
+		int32_t seqLen = _asmSeqs.seqLen(gpLeft.seqId);
+		newEdge->addSequence(gpLeft.seqId, seqLen, gpLeft.position, 
 							 gpRight.position);
 	};
 
@@ -378,7 +379,9 @@ void RepeatGraph::initializeEdges()
 
 		GraphEdge* edge = repeatEdges[std::make_pair(leftNode, rightNode)];
 		edge->selfComplement = selfComplement;
-		edge->addSequence(gpLeft.seqId, gpLeft.position, gpRight.position);
+		int32_t seqLen = _asmSeqs.seqLen(gpLeft.seqId);
+		edge->addSequence(gpLeft.seqId, seqLen, gpLeft.position, 
+						  gpRight.position);
 	};
 
 	for (auto& seqEdgesPair : _gluePoints)

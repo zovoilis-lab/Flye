@@ -13,12 +13,25 @@
 
 struct SequenceSegment
 {
-	SequenceSegment(FastaRecord::Id seqId, int32_t start, int32_t end):
-		seqId(seqId), start(start), end(end) {}
+	SequenceSegment(FastaRecord::Id seqId, int32_t seqLen, 
+					int32_t start, int32_t end):
+		seqId(seqId), seqLen(seqLen), start(start), 
+		end(end), readSequence(false) {}
+
+	SequenceSegment complement() const
+	{
+		SequenceSegment other(*this);
+		other.seqId = seqId.rc();
+		other.start = seqLen - end - 1;
+		other.end = seqLen - start - 1;
+		return other;
+	}
 
 	FastaRecord::Id seqId;
+	int32_t seqLen;
 	int32_t start;
 	int32_t end;
+	bool readSequence;
 };
 
 struct GraphNode;
@@ -28,18 +41,23 @@ struct GraphEdge
 	GraphEdge(GraphNode* nodeLeft, GraphNode* nodeRight, 
 			  FastaRecord::Id edgeId = FastaRecord::ID_NONE):
 		nodeLeft(nodeLeft), nodeRight(nodeRight), 
-		edgeId(edgeId), multiplicity(0), coverage(0),
-		selfComplement(false), readSequence(false)
-		{}
+		edgeId(edgeId), multiplicity(0), coverage(0), selfComplement(false) {}
 
-	bool isRepetitive() const {return multiplicity != 1;}
-	bool isLooped() const {return nodeLeft == nodeRight;}
+	bool isRepetitive() const 
+		{return multiplicity != 1;}
+
+	bool isLooped() const 
+		{return nodeLeft == nodeRight;}
+
 	bool isTip() const;
-	void addSequence(FastaRecord::Id id, int32_t start, int32_t end)
+
+	void addSequence(FastaRecord::Id id, int32_t length, 
+					 int32_t start, int32_t end)
 	{
-		seqSegments.emplace_back(id, start, end);
+		seqSegments.emplace_back(id, length, start, end);
 		++multiplicity;
 	}
+
 	int32_t length() const
 	{
 		if (seqSegments.empty()) return 0;
@@ -60,14 +78,14 @@ struct GraphEdge
 
 	int  multiplicity;
 	float  coverage;
-
 	bool selfComplement;
-	bool readSequence;
 };
 
 struct GraphNode
 {
-	bool isBifurcation() {return outEdges.size() != 1 || inEdges.size() != 1;}
+	bool isBifurcation() const
+		{return outEdges.size() != 1 || inEdges.size() != 1;}
+
 	std::unordered_set<GraphNode*> neighbors() const
 	{
 		std::unordered_set<GraphNode*> result;
@@ -82,6 +100,7 @@ struct GraphNode
 
 		return result;
 	}
+
 	bool isEnd() const
 	{
 		int inDegree = 0;
