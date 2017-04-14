@@ -465,6 +465,8 @@ void RepeatResolver::clearResolvedRepeats()
 
 void RepeatResolver::alignReads()
 {
+	const int MAX_KMER_COUNT = 1000;
+
 	//create database
 	std::unordered_map<FastaRecord::Id, 
 					   std::pair<GraphEdge*, SequenceSegment*>> idToSegment;
@@ -486,7 +488,7 @@ void RepeatResolver::alignReads()
 	//index it and align reads
 	VertexIndex pathsIndex(pathsContainer);
 	pathsIndex.countKmers(1);
-	pathsIndex.buildIndex(1, 5000, 1);
+	pathsIndex.buildIndex(1, MAX_KMER_COUNT, 1);
 	OverlapDetector readsOverlapper(pathsContainer, pathsIndex, 
 									_readJump, _maxSeparation, 0);
 	OverlapContainer readsOverlaps(readsOverlapper, _readSeqs, false);

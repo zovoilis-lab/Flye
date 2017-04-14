@@ -33,7 +33,7 @@ public:
 
 		if (percent > _prevPercent)
 		{
-			int expected = percent - 1;
+			int expected = _prevPercent;
 			if (_prevPercent.compare_exchange_weak(expected, percent))
 			{
 				std::cerr << percent * 10 << "% ";

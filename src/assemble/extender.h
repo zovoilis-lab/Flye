@@ -52,7 +52,8 @@ private:
 
 
 	std::vector<ContigPath> 				 _contigPaths;
-	std::unordered_set<FastaRecord::Id>		 _visitedReads;
+	std::unordered_set<FastaRecord::Id>		 _coveredReads;
+	std::unordered_set<FastaRecord::Id>		 _usedReads;
 	bool _rightExtension;
 	int  _assembledSequence;
 };

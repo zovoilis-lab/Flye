@@ -52,11 +52,13 @@ bool GraphEdge::isTip() const
 
 void RepeatGraph::build()
 {
+	const int MAX_KMER_COUNT = 1000;
 	const int KMERS_STRAND = 5;
+
 	//getting overlaps
 	VertexIndex asmIndex(_asmSeqs);
 	asmIndex.countKmers(1);
-	asmIndex.buildIndex(1, 500, KMERS_STRAND);
+	asmIndex.buildIndex(1, MAX_KMER_COUNT, KMERS_STRAND);
 
 	OverlapDetector asmOverlapper(_asmSeqs, asmIndex, 
 								  Constants::maximumJump, 
@@ -435,12 +437,12 @@ void RepeatGraph::initializeEdges()
 													idToNode(gpRight.pointId))];
 				edgeId = edge->edgeId;
 			}
-			//std::string unique = !repetitive ? "*" : " ";
-			//Logger::get().debug() << unique << "\t" << edgeId.signedId() << "\t" 
-			//					  << gpLeft.seqId << "\t"
-			//					  << gpLeft.position << "\t" 
-			//					  << gpRight.position << "\t"
-			//					  << gpRight.position - gpLeft.position;
+			std::string unique = !repetitive ? "*" : " ";
+			Logger::get().debug() << unique << "\t" << edgeId.signedId() << "\t" 
+								  << gpLeft.seqId << "\t"
+								  << gpLeft.position << "\t" 
+								  << gpRight.position << "\t"
+								  << gpRight.position - gpLeft.position;
 			///
 		}
 	}
