@@ -3,6 +3,7 @@
 //Released under the BSD license (see LICENSE file)
 
 #include <deque>
+#include <iomanip>
 
 #include "graph_processing.h"
 #include "../common/logger.h"
@@ -341,6 +342,7 @@ void GraphProcessor::outputContigsGraph(const std::string& filename)
 	if (!fout.is_open()) throw std::runtime_error("Can't open " + filename);
 
 	fout << "digraph {\n";
+	fout << "node [shape = circle, label = \"\"]\n";
 	
 	///re-enumerating helper functions
 	std::unordered_map<GraphNode*, int> nodeIds;
@@ -377,14 +379,25 @@ void GraphProcessor::outputContigsGraph(const std::string& filename)
 		int32_t contigLength = 0;
 		for (auto& edge : contig.path) contigLength += edge->length();
 
+		std::stringstream lengthStr;
+		if (contigLength < 5000)
+		{
+			lengthStr << std::fixed << std::setprecision(1) 
+				<< (float)contigLength / 1000 << "k";
+		}
+		else
+		{
+			lengthStr << contigLength / 1000 << "k";
+		}
+
 		if (contig.path.front()->isRepetitive())
 		{
 			std::string color = idToColor(contig.id);
 
 			fout << "\"" << nodeToId(contig.path.front()->nodeLeft) 
 				 << "\" -> \"" << nodeToId(contig.path.back()->nodeRight)
-				 << "\" [label = \"" << contig.id.signedId() << 
-				 " " << contigLength << " (" 
+				 << "\" [label = \"id " << contig.id.signedId() << 
+				 "\\l" << lengthStr.str() << " (" 
 				 << contig.path.front()->multiplicity << ")\", color = \"" 
 				 << color << "\" " << " penwidth = 3] ;\n";
 		}
@@ -392,8 +405,8 @@ void GraphProcessor::outputContigsGraph(const std::string& filename)
 		{
 			fout << "\"" << nodeToId(contig.path.front()->nodeLeft) 
 				 << "\" -> \"" << nodeToId(contig.path.back()->nodeRight)
-				 << "\" [label = \"" << contig.id.signedId()
-				 << " " << contigLength << "\", color = \"black\"] ;\n";
+				 << "\" [label = \"id " << contig.id.signedId()
+				 << "\\l" << lengthStr.str() << "\", color = \"black\"] ;\n";
 		}
 	}
 

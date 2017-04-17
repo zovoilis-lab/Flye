@@ -2,6 +2,8 @@
 //This file is a part of ABruijn program.
 //Released under the BSD license (see LICENSE file)
 
+#include <deque>
+#include <iomanip>
 
 #include "../sequence/overlap.h"
 #include "../sequence/vertex_index.h"
@@ -9,7 +11,6 @@
 #include "../common/disjoint_set.h"
 #include "repeat_graph.h"
 
-#include <deque>
 
 namespace
 {
@@ -491,6 +492,7 @@ void RepeatGraph::outputDot(const std::string& filename)
 	if (!fout.is_open()) throw std::runtime_error("Can't open " + filename);
 
 	fout << "digraph {\n";
+	fout << "node [shape = \"circle\", label = \"\"]\n";
 	
 	std::unordered_map<GraphNode*, int> nodeIds;
 	int nextNodeId = 0;
@@ -523,6 +525,18 @@ void RepeatGraph::outputDot(const std::string& filename)
 
 	for (auto edge : this->iterEdges())
 	{
+
+		std::stringstream length;
+		if (edge->length() < 5000)
+		{
+			length << std::fixed << std::setprecision(1) 
+				<< (float)edge->length() / 1000 << "k";
+		}
+		else
+		{
+			length << edge->length() / 1000 << "k";
+		}
+
 		if (edge->isRepetitive())
 		{
 			FastaRecord::Id edgeId = edge->edgeId;
@@ -530,8 +544,8 @@ void RepeatGraph::outputDot(const std::string& filename)
 
 			fout << "\"" << nodeToId(edge->nodeLeft) 
 				 << "\" -> \"" << nodeToId(edge->nodeRight)
-				 << "\" [label = \"" << edgeId.signedId() 
-				 << " " << edge->length() << " ("
+				 << "\" [label = \"id " << edgeId.signedId() 
+				 << "\\l" << length.str() << " ("
 				 << edge->multiplicity << ")" << "\", color = \"" 
 				 << color << "\" " << " penwidth = 3] ;\n";
 		}
@@ -539,8 +553,8 @@ void RepeatGraph::outputDot(const std::string& filename)
 		{
 			fout << "\"" << nodeToId(edge->nodeLeft) 
 				 << "\" -> \"" << nodeToId(edge->nodeRight)
-				 << "\" [label = \"" << edge->edgeId.signedId() << " "
-				 << edge->length() << " " << "\", color = \"black\"] ;\n";
+				 << "\" [label = \"id " << edge->edgeId.signedId() << "\\l"
+				 << length.str() << "\", color = \"black\"] ;\n";
 		}
 	}
 
