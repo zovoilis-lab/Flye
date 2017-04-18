@@ -152,7 +152,6 @@ void RepeatResolver::resolveConnections(const std::vector<Connection>& connectio
 	//Logger::get().debug() << "Resolving repeats";
 
 	///////////
-	/*
 	std::unordered_map<GraphEdge*, std::unordered_map<GraphEdge*, int>> stats;
 	for (auto& conn : connections)
 	{
@@ -172,7 +171,7 @@ void RepeatResolver::resolveConnections(const std::vector<Connection>& connectio
 				<< rightEdge.second;
 		}
 		Logger::get().debug() << "";
-	}*/
+	}
 	///////////
 	std::unordered_map<GraphEdge*, int> leftCoverage;
 	std::unordered_map<GraphEdge*, int> rightCoverage;
@@ -242,11 +241,16 @@ void RepeatResolver::resolveConnections(const std::vector<Connection>& connectio
 		usedEdges.insert(rightEdge->edgeId.rc());
 
 		Logger::get().debug() << "\tConnection " 
+			<< leftEdge->edgeId.signedId()
+			<< "\t" << rightEdge->edgeId.signedId()
+			<< "\t" << support << "\t" << confidence;
+		/*
+		Logger::get().debug() << "\tConnection " 
 			<< leftEdge->seqSegments.front().seqId
 			<< "\t" << leftEdge->seqSegments.front().end << "\t"
 			<< rightEdge->seqSegments.front().seqId
 			<< "\t" << rightEdge->seqSegments.front().start
-			<< "\t" << support << "\t" << confidence;
+			<< "\t" << support << "\t" << confidence;*/
 
 		if (support < MIN_SUPPORT) continue;
 
@@ -283,8 +287,8 @@ void RepeatResolver::resolveRepeats()
 	this->resolveConnections(connections);
 
 	//one more time
-	//connections = this->getConnections();
-	//this->resolveConnections(connections);
+	connections = this->getConnections();
+	this->resolveConnections(connections);
 
 	this->clearResolvedRepeats();
 }
@@ -331,6 +335,16 @@ std::vector<RepeatResolver::Connection> RepeatResolver::getConnections()
 				if (!currentPath.back()->nodeLeft->isBifurcation() &&
 					!currentPath.front()->nodeRight->isBifurcation()) continue;
 
+				//check that the path is still viable
+				//in case of 2nd RR iteration
+				bool inconsistent = false;
+				for (size_t i = 0; i < currentPath.size() - 1; ++i)
+				{
+					if (currentPath[i]->nodeRight != 
+						currentPath[i + 1]->nodeLeft) inconsistent = true;
+				}
+				if (inconsistent) continue;
+
 				GraphPath complPath = _graph.complementPath(currentPath);
 
 				int32_t readEnd = aln.overlap.curBegin - aln.overlap.extBegin;
@@ -375,8 +389,8 @@ void RepeatResolver::estimateEdgesCoverage()
 	for (auto edgeCov : edgesCoverage)
 	{
 		if (!edgeCov.first->edgeId.strand()) continue;
-		if (edgeCov.first->isLooped() && 
-			edgeCov.first->length() < Constants::maximumJump) continue;
+		//if (edgeCov.first->isLooped() && 
+		//	edgeCov.first->length() < Constants::maximumJump) continue;
 
 		GraphEdge* complEdge = _graph.complementPath({edgeCov.first}).front();
 		int normCov = (edgeCov.second + edgesCoverage[complEdge]) / 

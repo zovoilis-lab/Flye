@@ -27,8 +27,8 @@ void MultiplicityInferer::estimateByCoverage()
 
 	for (auto edge : _graph.iterEdges())
 	{
-		if (edge->isLooped() &&
-			edge->length() < Constants::maximumJump) continue;
+		//if (edge->isLooped() &&
+		//	edge->length() < Constants::maximumJump) continue;
 
 		float minMult = (!edge->isTip()) ? 1 : 0;
 		int estMult = std::max(minMult, roundf((float)edge->coverage / 
@@ -165,8 +165,15 @@ void MultiplicityInferer::balanceGraph()
 	//simplex.print_solution();
 	for (auto& edgeIdPair : edgeToId)
 	{
-		edgeIdPair.first->multiplicity = 
-			simplex.get_solution()(edgeIdPair.second);
+		int inferredMult = simplex.get_solution()(edgeIdPair.second);
+		if (edgeIdPair.first->multiplicity != inferredMult)
+		{
+			Logger::get().debug() << "Mult " 	
+				<< edgeIdPair.first->edgeId.signedId() << " " <<
+				edgeIdPair.first->multiplicity << " -> " << inferredMult;
+
+			edgeIdPair.first->multiplicity = inferredMult;
+		}
 	}
 
 	//show warning if the graph remained unbalanced
