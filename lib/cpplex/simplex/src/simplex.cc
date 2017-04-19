@@ -683,7 +683,7 @@ namespace optimization {
                 }
                 
             } else {
-                std::cout << "Optimal found at step " << step << "." << std::endl;
+                if (VERBOSE) std::cout << "Optimal found at step " << step << "." << std::endl;
                 Matrix objective_function_base(1,(int)current_base.size(),0);
                 Matrix full_solution(solution_dimension, 1, 0);
 
@@ -746,9 +746,9 @@ namespace optimization {
         if (VERBOSE) log();
         
         // Preprocessing
-        std::cout << "Generating problem in standard form ...";
+        if (VERBOSE) std::cout << "Generating problem in standard form ...";
         standard_form_problem.process_to_standard_form();
-        std::cout << " done." << std::endl;
+        if (VERBOSE) std::cout << " done." << std::endl;
 
         if (VERBOSE) standard_form_problem.log();
                                   
@@ -757,20 +757,20 @@ namespace optimization {
             // Create copy of standard form problem to create artificial problem
             Simplex artificial_problem = standard_form_problem;
             
-            std::cout << "Generating artificial problem ...";
+            if (VERBOSE) std::cout << "Generating artificial problem ...";
             artificial_problem.process_to_artificial_problem();
-            std::cout << " done." << std::endl;
+            if (VERBOSE) std::cout << " done." << std::endl;
             
             if (VERBOSE) artificial_problem.log();
                                                                   
             // Use artificial problem suggested base to solve it
-            std::cout << "Solving artificial problem ..." << std::endl;
+            if (VERBOSE) std::cout << "Solving artificial problem ..." << std::endl;
             artificial_problem.solve_with_base( artificial_problem.suggested_base );
-            std::cout << "Done." << std::endl;
+            if (VERBOSE) std::cout << "Done." << std::endl;
             
             if (artificial_problem.solution_value != 0) {
                 
-                std::cout << "Problem has no solution." << std::endl;
+                if (VERBOSE) std::cout << "Problem has no solution." << std::endl;
                 overconstrained = true;
                 return;
                 
@@ -796,7 +796,7 @@ namespace optimization {
                 // If index is still -1 (no artificial variables)
                 if (artificial_variable == -1) {
                                                                 
-                    std::cout << "Base is clear about artificial variables, proceed ..." << std::endl;    
+                    if (VERBOSE) std::cout << "Base is clear about artificial variables, proceed ..." << std::endl;    
                     standard_form_problem.suggested_base = artificial_problem.current_base;
                 
                 } else {        
@@ -868,16 +868,16 @@ namespace optimization {
             }
         }
         
-        std::cout << "Solving problem ..." << std::endl;        
+        if (VERBOSE) std::cout << "Solving problem ..." << std::endl;        
         standard_form_problem.solve_with_base(standard_form_problem.suggested_base);
-        std::cout << "Done." << std::endl;                 
+        if (VERBOSE) std::cout << "Done." << std::endl;                 
         
         /*
             The solution of the standard form problem must be transposed to
             the original problem.
         */                          
         
-        std::cout << "Processing standard form solution ..." << std::endl;
+        if (VERBOSE) std::cout << "Processing standard form solution ..." << std::endl;
             
         if ( standard_form_problem.unlimited ) {
             unlimited = true;
@@ -895,7 +895,7 @@ namespace optimization {
             constraints_vector = standard_form_problem.constraints_vector;
             changed_sign = standard_form_problem.changed_sign;        
         }
-        std::cout << "Done." << std::endl;
+        if (VERBOSE) std::cout << "Done." << std::endl;
     }        
 }
 
