@@ -5,6 +5,7 @@
 #include <stdexcept>
 #include <fstream>
 #include <sstream>
+#include <iostream>
 
 #include "sequence_container.h"
 
@@ -36,12 +37,14 @@ namespace
 		}
 	}
 
-	void reverseComplement(const std::string& dnaIn, std::string& dnaOut)
+	void reverseComplement(const FastaRecord::DnaRepr& dnaIn, 
+						   FastaRecord::DnaRepr& dnaOut)
 	{
-		dnaOut.clear();
+		//std::string buffer;
+		//buffer.reserve(dnaIn.length());
 		for (size_t i = dnaIn.length(); i > 0; --i)
 		{
-			dnaOut += complementSymbol(dnaIn[i - 1]);
+			dnaOut.push_back(complementSymbol(dnaIn.at(i - 1)));
 		}
 	}
 }
@@ -54,36 +57,37 @@ void SequenceContainer::readFasta(const std::string& fileName)
 {
 	std::vector<FastaRecord> records;
 	this->getSequencesWithComplements(records, fileName);
+	_seqIndex.reserve(records.size());
 	for (auto& rec : records)
 	{
-		_seqIndex[rec.id] = rec;
+		_seqIndex[rec.id] = std::move(rec);
 	}
 }
 
 
-const FastaRecord& SequenceContainer::addSequence(const std::string& sequence, 
-												  const std::string& description)
+const FastaRecord& 
+	SequenceContainer::addSequence(const FastaRecord::DnaRepr& sequence, 
+								   const std::string& description)
 {
-	FastaRecord fwdRecord(sequence, "+" + description, 
-						  FastaRecord::Id(g_nextSeqId));
-	_seqIndex[fwdRecord.id] = fwdRecord;
+	FastaRecord::Id newId = FastaRecord::Id(g_nextSeqId);
+	FastaRecord fwdRecord(sequence, "+" + description, newId);
+	_seqIndex[fwdRecord.id] = std::move(fwdRecord);
 
-	std::string revComplement;
+	FastaRecord::DnaRepr revComplement;
 	reverseComplement(sequence, revComplement);
-	FastaRecord revRecord(revComplement, "-" + description, 
-						  FastaRecord::Id(g_nextSeqId + 1));
-	_seqIndex[revRecord.id] = revRecord;
+	FastaRecord revRecord(revComplement, "-" + description, newId.rc());
+	_seqIndex[revRecord.id] = std::move(revRecord);
 
 	g_nextSeqId += 2;
-	return _seqIndex[fwdRecord.id];
+	return _seqIndex[newId];
 }
 
 size_t SequenceContainer::getSequences(std::vector<FastaRecord>& record, 
 									   const std::string& fileName)
 {
 	std::string buffer;
-	std::string sequence;
 	std::string header; 
+	std::string sequence;
 	std::ifstream inputStream(fileName);
 	if (!inputStream.is_open())
 	{
@@ -107,8 +111,9 @@ size_t SequenceContainer::getSequences(std::vector<FastaRecord>& record,
 				{
 					if (sequence.empty()) throw ParseException("empty sequence");
 
-					record.push_back(FastaRecord(sequence, header, 
-												 FastaRecord::Id(g_nextSeqId)));
+					sequence.shrink_to_fit();
+					record.emplace_back(FastaRecord::DnaRepr(sequence), header, 
+										FastaRecord::Id(g_nextSeqId));
 					g_nextSeqId += 2;
 					sequence.clear();
 					header.clear();
@@ -119,16 +124,18 @@ size_t SequenceContainer::getSequences(std::vector<FastaRecord>& record,
 			else
 			{
 				this->validateSequence(buffer);
-				sequence += buffer;
+				std::copy(buffer.begin(), buffer.end(), 
+						  std::back_inserter(sequence));
 			}
 
 			++line;
 		}
 		
 		if (sequence.empty()) throw ParseException("empty sequence");
-		record.push_back(FastaRecord(sequence, header, 
-									 FastaRecord::Id(g_nextSeqId)));
+		record.emplace_back(FastaRecord::DnaRepr(sequence), header, 
+							FastaRecord::Id(g_nextSeqId));
 		g_nextSeqId += 2;
+
 	}
 	catch (ParseException & e)
 	{
@@ -144,17 +151,24 @@ size_t SequenceContainer::getSequencesWithComplements(std::vector<FastaRecord>& 
 													  const std::string& fileName)
 {
 	this->getSequences(records, fileName);
+
+	records.reserve(records.size() * 2);
 	std::vector<FastaRecord> complements;
 	for (auto &record : records)
 	{
 		std::string header = "-" + record.description;
 		record.description = "+" + record.description;
-		std::string revComplement;
+
+		FastaRecord::DnaRepr revComplement;
 		reverseComplement(record.sequence, revComplement);
-		complements.push_back(FastaRecord(revComplement, header, 
-										  record.id.rc()));
+		complements.emplace_back(revComplement, header, record.id.rc());
 	}
-	std::copy(complements.begin(), complements.end(), std::back_inserter(records));
+
+	for (auto& rec : complements)
+	{
+		records.push_back(std::move(rec));
+	}
+
 	return records.size();
 }
 
@@ -196,6 +210,6 @@ void SequenceContainer::writeFasta(const std::vector<FastaRecord>& records,
 	{
 		fout << ">" << rec.description << std::endl;
 		for (size_t c = 0; c < rec.sequence.length(); c += FASTA_SLICE)
-			fout << rec.sequence.substr(c, FASTA_SLICE) << std::endl;
+			fout << rec.sequence.substr(c, FASTA_SLICE).str() << std::endl;
 	}
 }

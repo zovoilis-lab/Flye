@@ -47,18 +47,20 @@ namespace
 	}
 }
 
-Kmer::Kmer(const std::string& dnaString):
+Kmer::Kmer(const FastaRecord::DnaRepr& dnaString, 
+		   size_t start, size_t length):
 	_representation(0)
 {
-	if (dnaString.length() != Parameters::get().kmerSize)
+	if (length != Parameters::get().kmerSize)
 	{
 		throw std::runtime_error("Kmer length inconsistency");
 	}
 
-	for (auto dnaChar : dnaString)	
+	//for (auto dnaChar : dnaString)	
+	for (size_t i = start; i < start + length; ++i)	
 	{
 		_representation <<= 2;
-		_representation += dnaToId(dnaChar);
+		_representation += dnaToId(dnaString.at(i));
 	}
 }
 
@@ -109,13 +111,15 @@ std::string Kmer::dnaRepresentation() const
 	return repr;
 }
 
-KmerIterator::KmerIterator(const std::string* readSeq, size_t position):
+KmerIterator::KmerIterator(const FastaRecord::DnaRepr* readSeq, 
+						   size_t position):
 	_readSeq(readSeq),
 	_position(position)
 {
 	if (position != readSeq->length() - Parameters::get().kmerSize)
 	{
-		_kmer = Kmer(readSeq->substr(0, Parameters::get().kmerSize));
+		//_kmer = Kmer(readSeq->substr(0, Parameters::get().kmerSize));
+		_kmer = Kmer(*readSeq, 0, Parameters::get().kmerSize);
 	}
 }
 
@@ -132,7 +136,7 @@ bool KmerIterator::operator!=(const KmerIterator& other) const
 KmerIterator& KmerIterator::operator++()
 {
 	size_t appendPos = _position + Parameters::get().kmerSize;
-	_kmer.appendRight((*_readSeq)[appendPos]);
+	_kmer.appendRight(_readSeq->at(appendPos));
 	++_position;
 	return *this;
 }
@@ -142,45 +146,6 @@ KmerPosition KmerIterator::operator*() const
 	return KmerPosition(_kmer, _position);
 }
 
-/*
-KmerPosition SolidKmerIterator::operator*() const
-{
-	assert(VertexIndex::get().isSolid(_kmer));
-	return KmerPosition(_kmer, _position);
-}
-
-SolidKmerIterator::SolidKmerIterator(const std::string* readSeq, 
-									 size_t position):
-	KmerIterator(readSeq, position)
-{
-	if (!VertexIndex::get().isSolid(_kmer) && _position == 0) ++(*this);
-}
-
-
-SolidKmerIterator& SolidKmerIterator::operator++()
-{
-	size_t appendPos = _position + Parameters::kmerSize;
-	do
-	{
-		_kmer.appendRight((*_readSeq)[appendPos++]);
-	}
-	while(!VertexIndex::get().isSolid(_kmer) &&
-		  appendPos < _readSeq->length());
-
-	_position = appendPos - Parameters::kmerSize;
-	return *this;
-}
-
-bool SolidKmerIterator::operator==(const SolidKmerIterator& other) const
-{
-	return _readSeq == other._readSeq && 
-		   _position == other._position;
-}
-
-bool SolidKmerIterator::operator!=(const SolidKmerIterator& other) const
-{
-	return !(*this == other);
-}*/
 
 KmerIterator IterKmers::begin()
 {
@@ -195,24 +160,3 @@ KmerIterator IterKmers::end()
 	return KmerIterator(&_sequence, _sequence.length() - 
 									Parameters::get().kmerSize);
 }
-
-/*
-SolidKmerIterator IterSolidKmers::begin()
-{
-	const std::string& seq = SequenceContainer::get().getIndex()
-										   .at(_readId).sequence;
-	if (seq.length() < Parameters::kmerSize) 
-		return this->end();
-
-	return SolidKmerIterator(&seq, 0);
-}
-
-SolidKmerIterator IterSolidKmers::end()
-{
-
-	const std::string& seq = SequenceContainer::get().getIndex()
-										   .at(_readId).sequence;
-
-	return SolidKmerIterator(&seq, seq.length() - Parameters::kmerSize);
-}
-*/

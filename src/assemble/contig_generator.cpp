@@ -165,8 +165,8 @@ ContigGenerator::generateLinear(const ContigPath& path)
 			prevSwitch = curSwitch;
 		}
 
-		std::string partSeq = _seqContainer.getIndex().at(path.reads[i])
-							 .sequence.substr(leftCut, rightCut - leftCut);
+		auto partSeq = _seqContainer.getSeq(path.reads[i])
+								.substr(leftCut, rightCut - leftCut);
 		std::string partName = 
 			(path.circular ? "circular_" : "linear_") + 
 			std::to_string(_contigs.size()) +
@@ -210,8 +210,8 @@ ContigGenerator::generateCircular(const ContigPath& path)
 			if (rightCut - leftCut <= 0) rightCut = leftCut;
 		}
 
-		std::string partSeq = _seqContainer.getIndex().at(circPath.reads[i])
-							 .sequence.substr(leftCut, rightCut - leftCut);
+		auto partSeq = _seqContainer.getSeq(circPath.reads[i])
+							 	.substr(leftCut, rightCut - leftCut);
 		std::string partName = 
 			(path.circular ? "circular_" : "linear_") + 
 			std::to_string(_contigs.size()) +
@@ -269,10 +269,10 @@ ContigGenerator::generateAlignments(const ContigPath& path)
 
 		std::string leftSeq = _seqContainer.getIndex().at(idLeft)
 									.sequence.substr(readsOvlp.curBegin,
-													 readsOvlp.curRange());
+													 readsOvlp.curRange()).str();
 		std::string rightSeq = _seqContainer.getIndex().at(idRight)
 									.sequence.substr(readsOvlp.extBegin, 
-													 readsOvlp.extRange());
+													 readsOvlp.extRange()).str();
 
 		const int bandWidth = abs((int)leftSeq.length() - 
 								  (int)rightSeq.length()) + 

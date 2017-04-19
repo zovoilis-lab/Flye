@@ -316,10 +316,12 @@ void GraphProcessor::outputContigsFasta(const std::string& filename)
 			if (!edge->seqSegments.empty())
 			{
 				const SequenceSegment& seg = edge->seqSegments.front();
-				const std::string& edgeSeq = !seg.readSequence ? 
-											 _asmSeqs.getSeq(seg.seqId) : 
-											 _readSeqs.getSeq(seg.seqId);
-				contigSequence += edgeSeq.substr(seg.start, seg.end - seg.start);
+				auto& sequence = (!seg.readSequence) ? 
+								  _asmSeqs.getSeq(seg.seqId) :
+								  _readSeqs.getSeq(seg.seqId);
+												
+					contigSequence += sequence.substr(seg.start, 
+													  seg.end - seg.start).str();
 			}
 			else
 			{

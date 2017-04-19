@@ -41,6 +41,8 @@ void MultiplicityInferer::balanceGraph()
 {
 	using namespace optimization;
 
+	Logger::get().info() << "Updating edges multiplicity";
+
 	//enumerating edges
 	std::unordered_map<GraphEdge*, size_t> edgeToId;
 	std::map<size_t, GraphEdge*> idToEdge;

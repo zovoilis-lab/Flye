@@ -15,7 +15,8 @@ class Kmer
 {
 public:
 	Kmer(): _representation(0) {}
-	Kmer(const std::string& dnaString);
+	Kmer(const FastaRecord::DnaRepr& dnaString, 
+		 size_t start, size_t length);
 
 	void reverseComplement();
 	void appendRight(char dnaSymbol);
@@ -65,7 +66,7 @@ class KmerIterator
 public:
     typedef std::forward_iterator_tag iterator_category;
 
-	KmerIterator(const std::string* readSeq, size_t position);
+	KmerIterator(const FastaRecord::DnaRepr* readSeq, size_t position);
 
     bool operator==(const KmerIterator&) const;
     bool operator!=(const KmerIterator&) const;
@@ -74,15 +75,15 @@ public:
 	KmerIterator& operator++();
 
 protected:
-	const std::string* 	_readSeq;
-	size_t 				_position;
-	Kmer 				_kmer;
+	const FastaRecord::DnaRepr* _readSeq;
+	size_t 	_position;
+	Kmer 	_kmer;
 };
 
 class IterKmers
 {
 public:
-	IterKmers(const std::string& sequence):
+	IterKmers(const FastaRecord::DnaRepr& sequence):
 		_sequence(sequence)
 	{}
 
@@ -90,5 +91,5 @@ public:
 	KmerIterator end();
 
 private:
-	const std::string& _sequence;
+	const FastaRecord::DnaRepr& _sequence;
 };
