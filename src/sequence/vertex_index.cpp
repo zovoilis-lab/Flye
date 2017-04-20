@@ -74,6 +74,17 @@ void VertexIndex::buildIndex(int minCoverage, int maxCoverage, int filterRatio)
 {
 	Logger::get().info() << "Building kmer index";
 
+	size_t kmerEntries = 0;
+	for (auto kmer : _kmerCounts.lock_table())
+	{
+		if ((size_t)minCoverage <= kmer.second && 
+			kmer.second <= (size_t)maxCoverage)
+		{
+			kmerEntries += kmer.second;
+		}
+	}
+	Logger::get().debug() << "Kmer index size: " << kmerEntries;
+
 	std::function<void(const FastaRecord::Id&)> indexUpdate = 
 	[minCoverage, maxCoverage, filterRatio, this] 
 	(const FastaRecord::Id& readId)

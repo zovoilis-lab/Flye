@@ -299,6 +299,86 @@ void GraphProcessor::generateContigs()
 	Logger::get().info() << "Generated " << _contigs.size() / 2 << " contigs";
 }
 
+void GraphProcessor::dumpRepeats(const std::vector<GraphAlignment>& readAlignments,
+								 const std::string& outFile)
+{
+	std::ofstream fout(outFile);
+	if (!fout.is_open()) throw std::runtime_error("Can't open " + outFile);
+
+	for (auto& contig : _contigs)
+	{
+		if (!contig.path.front()->isRepetitive()) continue;
+
+		bool isSimple = true;
+		std::unordered_set<GraphEdge*> inputs;
+		for (auto& edge : contig.path.front()->nodeLeft->inEdges)
+		{
+			inputs.insert(edge);
+			if (edge->isRepetitive()) isSimple = false;
+		}
+		std::unordered_set<GraphEdge*> outputs;
+		for (auto& edge : contig.path.back()->nodeRight->outEdges)
+		{
+			outputs.insert(edge);
+			if (edge->isRepetitive()) isSimple = false;
+		}
+		if (!isSimple || inputs.size() != outputs.size()) continue;
+
+		std::unordered_set<GraphEdge*> innerEdges(contig.path.begin(), 
+												  contig.path.end());
+
+		std::unordered_set<FastaRecord::Id> allReads;
+		std::unordered_map<GraphEdge*, 
+						   std::unordered_set<FastaRecord::Id>> inputEdges;
+
+		fout << "#Repeat " << contig.id.signedId() << "\t"
+			<< inputs.size() << std::endl;
+		for (auto& readAln : readAlignments)
+		{
+			bool repeatRead = false;
+			for (auto& alnEdge : readAln)
+			{
+				if (innerEdges.count(alnEdge.edge)) repeatRead = true;
+			}
+
+			if (!repeatRead) continue;
+
+			allReads.insert(readAln.front().overlap.curId);
+			for (auto& alnEdge : readAln)
+			{
+				for (auto& inputEdge : inputs)
+				{
+					if (alnEdge.edge == inputEdge) 
+					{
+						inputEdges[inputEdge]
+							.insert(readAln.front().overlap.curId);
+					}
+				}
+			}
+		}
+
+		fout << "\n#All reads\t" << allReads.size() << std::endl;
+		for (auto& readId : allReads)
+		{
+			fout << _readSeqs.seqName(readId) << std::endl;
+		}
+		fout << std::endl;
+
+		int inputNumber = 0;
+		for (auto& inputEdge : inputs)
+		{
+			fout << "#Input " << inputNumber++ << "\t" 
+				<< inputEdges[inputEdge].size() << std::endl;
+
+			for (auto& readId : inputEdges[inputEdge])
+			{
+				fout << _readSeqs.seqName(readId) << std::endl;
+			}
+			fout << std::endl;
+		}
+	}
+}
+
 void GraphProcessor::outputContigsFasta(const std::string& filename)
 {
 	static const size_t FASTA_SLICE = 80;

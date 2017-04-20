@@ -124,11 +124,11 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 		//for all other occurences of this kmer (extension candidates)
 		for (const auto& extReadPos : _vertexIndex.byKmer(curKmerPos.kmer))
 		{
-			if (_vertexIndex.isRepetitive(curKmerPos.kmer) &&
+			/*if (_vertexIndex.isRepetitive(curKmerPos.kmer) &&
 				!activePaths.count(extReadPos.readId))
 			{
 				continue;
-			}
+			}*/
 
 			//no trivial matches
 			if (extReadPos.readId == fastaRec.id &&
@@ -155,7 +155,6 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 					this->jumpTest(extPaths[pathId].ovlp.curEnd, curPos,
 								   extPaths[pathId].ovlp.extEnd, extPos);
 				int32_t jumpLength = curPos - extPaths[pathId].ovlp.curBegin;
-				//int32_t jumpLength = extPaths[pathId].score + 1;
 
 				switch (jumpResult)
 				{
@@ -189,7 +188,6 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 				extPaths[maxCloseId].ovlp.curEnd = curPos;
 				extPaths[maxCloseId].ovlp.extEnd = extPos;
 				extPaths[maxCloseId].shifts.push_back(curPos - extPos);
-				//++extPaths[maxCloseId].score;
 			}
 			//update the best far extension, keep the old path as a copy
 			if (extendsFar)
@@ -198,7 +196,6 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 				extPaths.back().ovlp.curEnd = curPos;
 				extPaths.back().ovlp.extEnd = extPos;
 				extPaths.back().shifts.push_back(curPos - extPos);
-				//++extPaths.back().score;
 			}
 			//if no extensions possible (or there are no active paths), start a new path
 			if (!extendsClose && !extendsFar &&

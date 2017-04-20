@@ -6,6 +6,14 @@
 
 #include "repeat_graph.h"
 
+struct EdgeAlignment
+{
+	OverlapRange overlap;
+	GraphEdge* edge;
+	SequenceSegment* segment;
+};
+typedef std::vector<EdgeAlignment> GraphAlignment;
+
 class RepeatResolver
 {
 public:
@@ -14,19 +22,15 @@ public:
 		_graph(graph), _asmSeqs(asmSeqs), _readSeqs(readSeqs) {}
 
 	void alignReads();
-	void estimateEdgesCoverage();
+	//void estimateEdgesCoverage();
 	void resolveRepeats();
 
-private:
-	struct EdgeAlignment
+	const std::vector<GraphAlignment>& getReadsAlignment() const
 	{
-		OverlapRange overlap;
-		GraphEdge* edge;
-		SequenceSegment* segment;
-	};
+		return _readAlignments;
+	}
 
-	typedef std::vector<RepeatResolver::EdgeAlignment> GraphAlignment;
-
+private:
 	struct Connection
 	{
 		GraphPath path;

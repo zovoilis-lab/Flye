@@ -5,6 +5,7 @@
 #pragma once
 
 #include "repeat_graph.h"
+#include "repeat_resolver.h"
 
 
 class MultiplicityInferer
@@ -13,10 +14,10 @@ public:
 	MultiplicityInferer(RepeatGraph& graph):
 		_graph(graph) {}
 
-	void fixEdgesMultiplicity();
+	void fixEdgesMultiplicity(const std::vector<GraphAlignment>& readAln);
 
 private:
-	void estimateByCoverage();
+	void estimateByCoverage(const std::vector<GraphAlignment>& readAln);
 	void balanceGraph();
 
 	RepeatGraph& _graph;

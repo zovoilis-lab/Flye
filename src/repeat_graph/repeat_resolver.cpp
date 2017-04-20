@@ -11,7 +11,7 @@
 #include "bipartie_mincost.h"
 
 
-RepeatResolver::GraphAlignment
+GraphAlignment
 	RepeatResolver::chainReadAlignments(const SequenceContainer& edgeSeqs,
 								 	    std::vector<EdgeAlignment> ovlps)
 {
@@ -367,38 +367,6 @@ std::vector<RepeatResolver::Connection> RepeatResolver::getConnections()
 	return readConnections;
 }
 
-
-void RepeatResolver::estimateEdgesCoverage()
-{
-	std::unordered_map<GraphEdge*, int64_t> edgesCoverage;
-	for (auto& path : _readAlignments)
-	{
-		for (size_t i = 0; i < path.size(); ++i)
-		{
-			if (0 < i && i < path.size() - 1)
-			{
-				edgesCoverage[path[i].edge] += path[i].edge->length();
-			}
-			else
-			{
-				edgesCoverage[path[i].edge] += path[i].overlap.extRange();
-			}
-		}
-	}
-
-	for (auto edgeCov : edgesCoverage)
-	{
-		if (!edgeCov.first->edgeId.strand()) continue;
-		//if (edgeCov.first->isLooped() && 
-		//	edgeCov.first->length() < Constants::maximumJump) continue;
-
-		GraphEdge* complEdge = _graph.complementPath({edgeCov.first}).front();
-		int normCov = (edgeCov.second + edgesCoverage[complEdge]) / 
-									(2 * edgeCov.first->length() + 1);
-		edgeCov.first->coverage = (float)normCov;
-		complEdge->coverage = (float)normCov;
-	}
-}
 
 void RepeatResolver::clearResolvedRepeats()
 {

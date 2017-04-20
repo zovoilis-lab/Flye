@@ -7,20 +7,39 @@
 #include <simplex.h>
 #include <variable.h>
 
-void MultiplicityInferer::fixEdgesMultiplicity()
+void MultiplicityInferer::
+	fixEdgesMultiplicity(const std::vector<GraphAlignment>& readAln)
 {
-	this->estimateByCoverage();
+	this->estimateByCoverage(readAln);
 	this->balanceGraph();
 }
 
-void MultiplicityInferer::estimateByCoverage()
+
+void MultiplicityInferer::
+	estimateByCoverage(const std::vector<GraphAlignment>& readAln)
 {
+	std::unordered_map<GraphEdge*, int64_t> edgesCoverage;
+	for (auto& path : readAln)
+	{
+		for (size_t i = 0; i < path.size(); ++i)
+		{
+			if (0 < i && i < path.size() - 1)
+			{
+				edgesCoverage[path[i].edge] += path[i].edge->length();
+			}
+			else
+			{
+				edgesCoverage[path[i].edge] += path[i].overlap.extRange();
+			}
+		}
+	}
+
 	int64_t sumCov = 0;
 	int64_t sumLength = 0;
-	for (auto edge : _graph.iterEdges())
+	for (auto edgeCov : edgesCoverage)
 	{
-		sumCov += edge->coverage * edge->length();
-		sumLength += edge->length();
+		sumCov += edgeCov.second;
+		sumLength += edgeCov.first->length();
 	}
 	int meanCoverage = (sumLength != 0) ? sumCov / sumLength : 1;
 	Logger::get().debug() << "Mean edge coverage: " << meanCoverage;
@@ -29,10 +48,14 @@ void MultiplicityInferer::estimateByCoverage()
 	{
 		//if (edge->isLooped() &&
 		//	edge->length() < Constants::maximumJump) continue;
+		
+		GraphEdge* complEdge = _graph.complementPath({edge}).front();
+		float normCov = (edgesCoverage[edge] + edgesCoverage[complEdge]) / 
+									(2 * edge->length() + 1);
 
 		float minMult = (!edge->isTip()) ? 1 : 0;
-		int estMult = std::max(minMult, roundf((float)edge->coverage / 
-												meanCoverage));
+		int estMult = std::max(minMult, roundf(normCov / meanCoverage));
+		Logger::get().debug() << normCov << " " << estMult;
 		edge->multiplicity = estMult;
 	}
 }

@@ -5,6 +5,7 @@
 #pragma once
 
 #include "repeat_graph.h"
+#include "repeat_resolver.h"
 
 struct Contig
 {
@@ -27,6 +28,8 @@ public:
 	void condence();
 	void trimTips();
 	void generateContigs();
+	void dumpRepeats(const std::vector<GraphAlignment>& readAlignments,
+					 const std::string& outFile);
 
 	void outputContigsGraph(const std::string& filename);
 	void outputContigsFasta(const std::string& filename);
