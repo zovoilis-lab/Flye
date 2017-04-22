@@ -124,12 +124,6 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 		//for all other occurences of this kmer (extension candidates)
 		for (const auto& extReadPos : _vertexIndex.byKmer(curKmerPos.kmer))
 		{
-			/*if (_vertexIndex.isRepetitive(curKmerPos.kmer) &&
-				!activePaths.count(extReadPos.readId))
-			{
-				continue;
-			}*/
-
 			//no trivial matches
 			if (extReadPos.readId == fastaRec.id &&
 				extReadPos.position == curPos) continue;
@@ -220,33 +214,36 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 	for (auto& ap : activePaths)
 	{
 		size_t extLen = _seqContainer.seqLen(ap.first);
-		OverlapRange maxOverlap;
+		DPRecord* maxOverlap = nullptr;
 		bool passedTest = false;
 		for (auto& dpRec : ap.second)
 		{
 			if (this->overlapTest(dpRec.ovlp))
 			{
-				dpRec.ovlp.leftShift = median(dpRec.shifts);
-				dpRec.ovlp.rightShift = extLen - curLen + 
-										dpRec.ovlp.leftShift;
-
 				if (!uniqueExtensions)
 				{
+					dpRec.ovlp.leftShift = median(dpRec.shifts);
+					dpRec.ovlp.rightShift = extLen - curLen + 
+											dpRec.ovlp.leftShift;
 					detectedOverlaps.push_back(dpRec.ovlp);
 				}
 				else
 				{
 					passedTest = true;
-					if (dpRec.ovlp.curRange() > maxOverlap.curRange())
+					if (!maxOverlap || 
+						dpRec.ovlp.curRange() > maxOverlap->ovlp.curRange())
 					{
-						maxOverlap = dpRec.ovlp;
+						maxOverlap = &dpRec;
 					}
 				}
 			}
 		}
 		if (uniqueExtensions && passedTest)
 		{
-			detectedOverlaps.push_back(maxOverlap);
+			maxOverlap->ovlp.leftShift = median(maxOverlap->shifts);
+			maxOverlap->ovlp.rightShift = extLen - curLen + 
+									maxOverlap->ovlp.leftShift;
+			detectedOverlaps.push_back(maxOverlap->ovlp);
 		}
 	}
 

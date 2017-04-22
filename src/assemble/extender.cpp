@@ -16,6 +16,8 @@ ContigPath Extender::extendContig(FastaRecord::Id startRead)
 {
 	ContigPath contigPath;
 	contigPath.reads.push_back(startRead);
+	_usedReads.insert(startRead);
+	_usedReads.insert(startRead.rc());
 	_rightExtension = true;
 
 	Logger::get().debug() << "Start Read: " << 
@@ -160,10 +162,10 @@ void Extender::assembleContigs()
 	_coveredReads.clear();
 	_usedReads.clear();
 
-	int extended = 0;
+	int numFails = 0;
 	for (auto& indexPair : _readsContainer.getIndex())
 	{
-		if (extended++ > Constants::extensionTries) break;
+		if (numFails++ > Constants::extensionTries) break;
 		if (_coveredReads.count(indexPair.first)) continue;
 		if (_chimDetector.isChimeric(indexPair.first)) continue;
 
@@ -196,6 +198,7 @@ void Extender::assembleContigs()
 		
 		if (path.reads.size() >= Constants::minReadsInContig)
 		{
+			numFails = 0;
 			Logger::get().debug() << "Assembled contig with " 
 				<< path.reads.size() << " reads";
 			_contigPaths.push_back(std::move(path));
