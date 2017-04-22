@@ -14,42 +14,53 @@
 
 ContigPath Extender::extendContig(FastaRecord::Id startRead)
 {
-	ContigPath contigPath;
-	contigPath.reads.push_back(startRead);
-	_usedReads.insert(startRead);
-	_usedReads.insert(startRead.rc());
-	_rightExtension = true;
-
 	Logger::get().debug() << "Start Read: " << 
 				_readsContainer.seqName(startRead);
 
+	_usedReads.insert(startRead);
+	_usedReads.insert(startRead.rc());
+	_rightExtension = true;
 	FastaRecord::Id currentRead = startRead;
 	std::vector<int> numOverlaps;
+	ContigPath contigPath;
+	contigPath.reads.push_back(startRead);
+
+	auto leftExtendsStart = [startRead, this](const FastaRecord::Id readId)
+	{
+		for (auto& ovlp : _ovlpContainer.lazySeqOverlaps(readId))
+		{
+			if (ovlp.extId == startRead &&
+				ovlp.leftShift > Constants::maximumJump) 
+			{
+				return true;
+			}
+		}
+		return false;
+	};
+
 	while(true)
 	{
-		auto overlaps = _ovlpContainer.lazySeqOverlaps(currentRead);
+		auto& overlaps = _ovlpContainer.lazySeqOverlaps(currentRead);
 		std::vector<OverlapRange> extensions;
-
-		//std::vector<int> extensionShifts;
 		for (auto& ovlp : overlaps)
 		{
 			if (this->extendsRight(ovlp)) 
 			{
 				extensions.push_back(ovlp);
-				//extensionShifts.push_back(ovlp.rightShift);
 			}
 		}
 		numOverlaps.push_back(overlaps.size());
 
+		//getting mean shift, sorting extensions according to it
 		int64_t sum = 0;
 		for (auto& ovlp : extensions) sum += ovlp.rightShift;
 		int32_t meanShift = !extensions.empty() ? sum / extensions.size() : 0;
-
 		std::sort(extensions.begin(), extensions.end(), 
 				  [meanShift](const OverlapRange& a, const OverlapRange& b)
 					 {return abs(a.rightShift - meanShift) < 
 							 abs(b.rightShift - meanShift);});
 
+		//checking if read overlaps with one of the used reads
 		bool foundExtension = false;
 		bool overlapsVisited = false;
 		for (auto& ovlp : extensions)
@@ -63,12 +74,14 @@ ContigPath Extender::extendContig(FastaRecord::Id startRead)
 			}
 		}
 
+		//getting extension
 		if (!overlapsVisited)
 		{
 			for (auto& ovlp : extensions)
 			{
 				if (!_chimDetector.isChimeric(ovlp.extId) &&
-					this->countRightExtensions(ovlp.extId) > 0)
+					this->countRightExtensions(ovlp.extId) > 0 &&
+					!leftExtendsStart(ovlp.extId))
 				{
 					foundExtension = true;
 					currentRead = ovlp.extId;
@@ -116,24 +129,8 @@ ContigPath Extender::extendContig(FastaRecord::Id startRead)
 			}
 		}
 
-		//make sure this read does not left-extend start read,
-		//otherwise there will be problems when changing direction
-		bool pastStart = true;
-		for (auto& ovlp : _ovlpContainer.lazySeqOverlaps(currentRead))
-		{
-			if (ovlp.extId == startRead &&
-				ovlp.leftShift > Constants::maximumJump) 
-			{
-				pastStart = false;
-				break;
-			}
-		}
-
-		if (pastStart)
-		{
-			_usedReads.insert(currentRead);
-			_usedReads.insert(currentRead.rc());
-		}
+		_usedReads.insert(currentRead);
+		_usedReads.insert(currentRead.rc());
 	}
 
 	int64_t meanOvlps = 0;
