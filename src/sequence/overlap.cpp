@@ -320,13 +320,19 @@ void OverlapContainer::findAllOverlaps()
 
 void OverlapContainer::filterOverlaps()
 {
-	Logger::get().debug() << "Filtering overlaps";
-
-	//filter identical overlaps
-	int filteredIdent = 0;
-	for (auto seqId : _queryContainer.getIndex())
+	std::vector<FastaRecord::Id> seqIds;
+	for (auto seqIndex : _overlapIndex)
 	{
-		auto& overlaps = _overlapIndex[seqId.first];
+		seqIds.push_back(seqIndex.first);
+	}
+
+	Logger::get().debug() << "Filtering overlaps";
+	std::atomic<size_t> numIdent(0);
+	std::atomic<size_t> numContained(0);
+	std::function<void(const FastaRecord::Id& seqId)> filterParallel =
+	[&numIdent, &numContained, this] (const FastaRecord::Id& seqId)
+	{
+		auto& overlaps = _overlapIndex.at(seqId);
 		std::vector<OverlapRange> filtered;
 		for (auto& ovlp : overlaps)
 		{
@@ -341,16 +347,11 @@ void OverlapContainer::filterOverlaps()
 			}
 			if (!found) filtered.push_back(ovlp);
 		}
-		filteredIdent += overlaps.size() - filtered.size();
+		numIdent += overlaps.size() - filtered.size();
 		overlaps = std::move(filtered);
-	}
 
-	//filter contained overlaps
-	int filteredContained = 0;
-	std::unordered_set<OverlapRange*> contained;
-	for (auto seqId : _queryContainer.getIndex())
-	{
-		auto& overlaps = _overlapIndex[seqId.first];
+		/////////////
+		std::unordered_set<OverlapRange*> contained;
 		for (auto& ovlp : overlaps)
 		{
 			for (auto& otherOvlp : overlaps)
@@ -362,17 +363,21 @@ void OverlapContainer::filterOverlaps()
 				}
 			}
 		}
-		std::vector<OverlapRange> filtered;
-		for (auto& ovlp : _overlapIndex[seqId.first])
+
+		filtered.clear();
+		for (auto& ovlp : overlaps)
 		{
 			if (!contained.count(&ovlp)) filtered.push_back(ovlp);
 		}
-		filteredContained += overlaps.size() - filtered.size();
+		numContained += overlaps.size() - filtered.size();
 		overlaps = std::move(filtered);
-	}
 
-	Logger::get().debug() << "Filtered " << filteredIdent << " identical and "
-		<< filteredContained << " contained overlaps";
+	};
+	processInParallel(seqIds, filterParallel, 
+					  Parameters::get().numThreads, false);
+
+	Logger::get().debug() << "Filtered " << numIdent << " identical and "
+		<< numContained << " contained overlaps";
 }
 
 
