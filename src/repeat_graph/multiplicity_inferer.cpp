@@ -55,13 +55,16 @@ void MultiplicityInferer::
 
 		float minMult = (!edge->isTip()) ? 1 : 0;
 		int estMult = std::max(minMult, roundf(normCov / meanCoverage));
-		Logger::get().debug() << normCov << " " << estMult;
 		edge->multiplicity = estMult;
+		//Logger::get().debug() << edge->edgeId.signedId() 
+		//<< " " << normCov << " " << estMult;
 	}
 }
 
 void MultiplicityInferer::balanceGraph()
 {
+	const int TRUSTED_EDGE_LEN = 50000;
+
 	using namespace optimization;
 
 	Logger::get().info() << "Updating edges multiplicity";
@@ -111,14 +114,17 @@ void MultiplicityInferer::balanceGraph()
 		pilal::Matrix eye(1, numVariables, 0);
 		eye(idEdgePair.first) = 1;
 
-		std::string varName = std::to_string(idEdgePair.second->edgeId.signedId());
+		std::string varName = 
+				std::to_string(idEdgePair.second->edgeId.signedId());
 		simplex.add_variable(new Variable(&simplex, varName.c_str()));
 	
 		simplex.add_constraint(Constraint(eye, CT_MORE_EQUAL, 
-										  (float)idEdgePair.second->multiplicity));
-		//int minMultiplicity = !edge->isTip() ? edge->multiplicity : 0;
-		//int maxMultiplicity = !edge->isTip() ? 1000 : 1000;
-		//simplex.add_constraint(Constraint(eye, CT_LESS_EQUAL, 1000.0f));
+									  (float)idEdgePair.second->multiplicity));
+		if (idEdgePair.second->length() > TRUSTED_EDGE_LEN)
+		{
+			simplex.add_constraint(Constraint(eye, CT_LESS_EQUAL, 
+									  (float)idEdgePair.second->multiplicity));
+		}
 	}
 
 	std::vector<std::vector<int>> incorporatedEquations;

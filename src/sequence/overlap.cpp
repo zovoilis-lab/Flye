@@ -321,7 +321,7 @@ void OverlapContainer::findAllOverlaps()
 void OverlapContainer::filterOverlaps()
 {
 	std::vector<FastaRecord::Id> seqIds;
-	for (auto seqIndex : _overlapIndex)
+	for (auto seqIndex : _queryContainer.getIndex())
 	{
 		seqIds.push_back(seqIndex.first);
 	}
