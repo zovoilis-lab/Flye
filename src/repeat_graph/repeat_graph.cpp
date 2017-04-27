@@ -277,8 +277,6 @@ void RepeatGraph::initializeEdges(const OverlapContainer& asmOverlaps)
 		return nodeIndex[nodeId];
 	};
 
-	//std::unordered_map<FastaRecord::Id, 
-	//				   std::vector<GraphEdge*>> savedEdges;
 	for (auto& seqEdgesPair : _gluePoints)
 	{
 		if (!seqEdgesPair.first.strand()) continue;
@@ -356,7 +354,7 @@ void RepeatGraph::initializeEdges(const OverlapContainer& asmOverlaps)
 					float rateOne = (float)intersectOne / 
 						(segOne->data->end - segOne->data->start);
 					float rateTwo = (float)intersectTwo / 
-						(segOne->data->end - segOne->data->start);
+						(segTwo->data->end - segTwo->data->start);
 
 					if (rateOne > 0.5 && rateTwo > 0.5)
 					{
@@ -409,26 +407,46 @@ void RepeatGraph::initializeEdges(const OverlapContainer& asmOverlaps)
 		for (auto& s : segmentsClusters) delete s;
 	}
 
-	//just some logging
-	/*
-	for (auto& seqEdgesPair : _gluePoints)
+	this->logEdges();
+}
+
+
+void RepeatGraph::logEdges()
+{
+	typedef std::pair<SequenceSegment*, GraphEdge*> SegEdgePair;
+	std::unordered_map<FastaRecord::Id, 
+					   std::vector<SegEdgePair>> sequenceEdges;
+	for (auto& edge : this->iterEdges())
+	{
+		for (auto& segment : edge->seqSegments)
+		{
+			sequenceEdges[segment.seqId].push_back({&segment, edge});
+		}
+	}
+	for (auto& seqEdgesPair : sequenceEdges)
+	{
+		std::sort(seqEdgesPair.second.begin(), seqEdgesPair.second.end(),
+				  [](const SegEdgePair& s1, const SegEdgePair& s2)
+				  	{return s1.first->start < s2.first->start;});
+	}
+	for (auto& seqEdgesPair : sequenceEdges)
 	{
 		if (!seqEdgesPair.first.strand()) continue;
+
 		for (size_t i = 0; i < seqEdgesPair.second.size() - 1; ++i)
 		{
-			GluePoint gpLeft = seqEdgesPair.second[i];
-			GluePoint gpRight = seqEdgesPair.second[i + 1];
+			SequenceSegment* segment = seqEdgesPair.second[i].first;
+			GraphEdge* edge = seqEdgesPair.second[i].second;
 
-			GraphEdge* edge = savedEdges[seqEdgesPair.first][i];
 			std::string unique = !edge->isRepetitive() ? "*" : " ";
 			Logger::get().debug() << unique << "\t" 
 								  << edge->edgeId.signedId() << "\t" 
-								  << gpLeft.seqId << "\t"
-								  << gpLeft.position << "\t" 
-								  << gpRight.position << "\t"
-								  << gpRight.position - gpLeft.position;
+								  << _asmSeqs.seqName(segment->seqId) << "\t"
+								  << segment->start << "\t" 
+								  << segment->end << "\t"
+								  << segment->end - segment->start;
 		}
-	}*/
+	}
 }
 
 

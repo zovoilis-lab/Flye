@@ -256,6 +256,7 @@ private:
 
 	void getGluepoints(const OverlapContainer& ovlps);
 	void initializeEdges(const OverlapContainer& asmOverlaps);
+	void logEdges();
 	
 	const SequenceContainer& _asmSeqs;
 	const int _maxSeparation = Constants::maxSeparation;
