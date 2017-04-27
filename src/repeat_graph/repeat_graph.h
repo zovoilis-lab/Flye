@@ -27,6 +27,11 @@ struct SequenceSegment
 		return other;
 	}
 
+	bool operator==(const SequenceSegment& other)
+	{
+		return seqId == other.seqId && start == other.start && end == other.end;
+	}
+
 	FastaRecord::Id seqId;
 	int32_t seqLen;
 	int32_t start;
@@ -77,7 +82,6 @@ struct GraphEdge
 	std::vector<SequenceSegment> seqSegments;
 
 	int  multiplicity;
-	//float  coverage;
 	bool selfComplement;
 };
 
@@ -251,17 +255,13 @@ private:
 	};
 
 	void getGluepoints(const OverlapContainer& ovlps);
-	void getRepeatClusters(const OverlapContainer& ovlps);
-	void initializeEdges();
-	bool isRepetitive(GluePoint gpLeft, GluePoint gpRight);
+	void initializeEdges(const OverlapContainer& asmOverlaps);
 	
 	const SequenceContainer& _asmSeqs;
 	const int _maxSeparation = Constants::maxSeparation;
 
 	std::unordered_map<FastaRecord::Id, 
 					   std::vector<GluePoint>> _gluePoints;
-	std::unordered_map<FastaRecord::Id, 
-					   std::vector<RepeatCluster>> _repeatClusters;
 
 	std::unordered_set<GraphNode*> _graphNodes;
 	std::unordered_set<GraphEdge*> _graphEdges;

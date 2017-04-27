@@ -68,67 +68,10 @@ void RepeatGraph::build()
 	OverlapContainer asmOverlaps(asmOverlapper, _asmSeqs, false);
 	asmOverlaps.findAllOverlaps();
 
-	this->getRepeatClusters(asmOverlaps);
 	this->getGluepoints(asmOverlaps);
-	this->initializeEdges();
+	this->initializeEdges(asmOverlaps);
 }
 
-
-
-void RepeatGraph::getRepeatClusters(const OverlapContainer& asmOverlaps)
-{
-	Logger::get().debug() << "Creating repeat clusters";
-	//forming overlap-based clusters
-	typedef SetNode<OverlapRange> DjsOverlap;
-	std::unordered_map<FastaRecord::Id, 
-					   std::list<DjsOverlap>> overlapClusters;
-
-	int numOverlaps = 0;
-	for (auto& ovlpHash : asmOverlaps.getOverlapIndex())
-	{
-		for (auto& ovlp : ovlpHash.second)
-		{
-			overlapClusters[ovlp.curId].emplace_back(ovlp);
-			++numOverlaps;
-		}
-	}
-	Logger::get().debug() << "Processing " << numOverlaps << " overlaps" ;
-
-	for (auto& seqClusterPair : overlapClusters)
-	{
-		for (auto& ovlp1 : seqClusterPair.second)
-		{
-			for (auto& ovlp2 : seqClusterPair.second)
-			{
-				if (ovlp1.data.curIntersect(ovlp2.data) > -_maxSeparation)
-				{
-					unionSet(&ovlp1, &ovlp2);
-				}
-			}
-		}
-		std::unordered_map<DjsOverlap*, 
-						   std::vector<DjsOverlap*>> intersectClusters;
-		for (auto& ovlp : seqClusterPair.second)
-		{
-			intersectClusters[findSet(&ovlp)].push_back(&ovlp);
-		}
-
-		for (auto& clustHash : intersectClusters)
-		{
-			int32_t clustStart = std::numeric_limits<int32_t>::max();
-			int32_t clustEnd = std::numeric_limits<int32_t>::min();
-			for (auto& ovlp : clustHash.second)
-			{
-				clustStart = std::min(clustStart, ovlp->data.curBegin);
-				clustEnd = std::max(clustEnd, ovlp->data.curEnd);
-			}
-
-			_repeatClusters[seqClusterPair.first]
-					.emplace_back(seqClusterPair.first, 0,
-								  clustStart, clustEnd);
-		}
-	}
-}
 
 void RepeatGraph::getGluepoints(const OverlapContainer& asmOverlaps)
 {
@@ -315,29 +258,14 @@ void RepeatGraph::getGluepoints(const OverlapContainer& asmOverlaps)
 	}
 }
 
-bool RepeatGraph::isRepetitive(GluePoint gpLeft, GluePoint gpRight)
-{
-	float maxRate = 0.0f;
-	int32_t maxOverlap = 0;
-	
-	for (auto& cluster : _repeatClusters[gpLeft.seqId])
-	{
-		int32_t overlap = std::min(gpRight.position, cluster.end) -
-						  std::max(gpLeft.position, cluster.start);
-		float rate = float(overlap) / (gpRight.position - gpLeft.position);
-		maxRate = std::max(maxRate, rate);
-		maxOverlap = std::max(overlap, maxOverlap);
-
-	}
-	return maxRate > 0.5;
-}
-
-void RepeatGraph::initializeEdges()
+void RepeatGraph::initializeEdges(const OverlapContainer& asmOverlaps)
 {
 	Logger::get().debug() << "Initializing edges";
 
 	typedef std::pair<GraphNode*, GraphNode*> NodePair;
-	std::unordered_map<NodePair, GraphEdge*, pairhash> repeatEdges;
+	std::unordered_map<NodePair, std::vector<SequenceSegment>, 
+					   pairhash> parallelSegments;
+	std::unordered_map<NodePair, NodePair, pairhash> complEdges;
 
 	std::unordered_map<size_t, GraphNode*> nodeIndex;
 	auto idToNode = [&nodeIndex, this](size_t nodeId)
@@ -349,44 +277,8 @@ void RepeatGraph::initializeEdges()
 		return nodeIndex[nodeId];
 	};
 
-	auto addUnique = [&idToNode, this](GluePoint gpLeft, 
-									   GluePoint gpRight)
-	{
-		GraphNode* leftNode = idToNode(gpLeft.pointId);
-		GraphNode* rightNode = idToNode(gpRight.pointId);
-
-		GraphEdge* newEdge = this->addEdge(GraphEdge(leftNode, rightNode, 
-										   FastaRecord::Id(_nextEdgeId)));
-		++_nextEdgeId;
-
-		int32_t seqLen = _asmSeqs.seqLen(gpLeft.seqId);
-		newEdge->addSequence(gpLeft.seqId, seqLen, gpLeft.position, 
-							 gpRight.position);
-	};
-
-	auto addRepeat = [&idToNode, this, &repeatEdges]
-		(GluePoint gpLeft, GluePoint gpRight, bool selfComplement)
-	{
-		GraphNode* leftNode = idToNode(gpLeft.pointId);
-		GraphNode* rightNode = idToNode(gpRight.pointId);
-
-		if (!repeatEdges.count({leftNode, rightNode}))
-		{
-			GraphEdge* newEdge = this->addEdge(GraphEdge(leftNode, rightNode, 
-											   FastaRecord::Id(_nextEdgeId)));
-			++_nextEdgeId;
-			if (selfComplement) ++_nextEdgeId;
-
-			repeatEdges[std::make_pair(leftNode, rightNode)] = newEdge;
-		}
-
-		GraphEdge* edge = repeatEdges[std::make_pair(leftNode, rightNode)];
-		edge->selfComplement = selfComplement;
-		int32_t seqLen = _asmSeqs.seqLen(gpLeft.seqId);
-		edge->addSequence(gpLeft.seqId, seqLen, gpLeft.position, 
-						  gpRight.position);
-	};
-
+	//std::unordered_map<FastaRecord::Id, 
+	//				   std::vector<GraphEdge*>> savedEdges;
 	for (auto& seqEdgesPair : _gluePoints)
 	{
 		if (!seqEdgesPair.first.strand()) continue;
@@ -406,47 +298,137 @@ void RepeatGraph::initializeEdges()
 			GluePoint complLeft = _gluePoints[complId][complPos];
 			GluePoint complRight = _gluePoints[complId][complPos + 1];
 
-			bool repetitive = this->isRepetitive(gpLeft, gpRight);
-			if (this->isRepetitive(complLeft, complRight) != repetitive)
+			//bool selfComplement = (gpLeft.pointId == gpRight.pointId &&
+			//					   gpRight.pointId == complLeft.pointId &&
+			//					   complLeft.pointId == complRight.pointId);
+
+			GraphNode* leftNode = idToNode(gpLeft.pointId);
+			GraphNode* rightNode = idToNode(gpRight.pointId);
+			NodePair fwdPair = std::make_pair(leftNode, rightNode);
+
+			GraphNode* complLeftNode = idToNode(complLeft.pointId);
+			GraphNode* complRightNode = idToNode(complRight.pointId);
+			NodePair revPair = std::make_pair(complLeftNode, complRightNode);
+
+			int32_t seqLen = _asmSeqs.seqLen(gpLeft.seqId);
+			parallelSegments[fwdPair].emplace_back(gpLeft.seqId, seqLen, 
+												   gpLeft.position, 
+							  					   gpRight.position);
+			parallelSegments[revPair]
+				.push_back(parallelSegments[fwdPair].back().complement());
+
+			complEdges[fwdPair] = revPair;
+			complEdges[revPair] = fwdPair;
+		}
+	}
+
+	auto segIntersect = [] (const SequenceSegment& s, const OverlapRange& o)
+	{
+		return std::min(o.curEnd, s.end) - std::max(o.curBegin, s.start);
+	};
+
+	std::unordered_set<NodePair, pairhash> usedPairs;
+	for (auto& nodePairSeqs : parallelSegments)
+	{
+		if (usedPairs.count(nodePairSeqs.first)) continue;
+		usedPairs.insert(complEdges[nodePairSeqs.first]);
+
+		//cluster segments based on their overlaps
+		std::vector<SetNode<SequenceSegment*>*> segmentsClusters;
+		for (auto& seg : nodePairSeqs.second) 
+		{
+			segmentsClusters.push_back(new SetNode<SequenceSegment*>(&seg));
+		}
+		for (auto& segOne : segmentsClusters)
+		{
+			for (auto& segTwo : segmentsClusters)
 			{
-				throw std::runtime_error("Complementary repeats error");
+				//TODO: very inefficient, reimplement
+				auto& overlaps = asmOverlaps.getOverlapIndex()
+												.at(segOne->data->seqId);
+				for (auto& ovlp : overlaps)
+				{
+					if (ovlp.extId != segTwo->data->seqId) continue;
+
+					int32_t intersectOne = segIntersect(*segOne->data, ovlp);
+					int32_t intersectTwo = segIntersect(*segTwo->data, 
+														ovlp.reverse());
+					float rateOne = (float)intersectOne / 
+						(segOne->data->end - segOne->data->start);
+					float rateTwo = (float)intersectTwo / 
+						(segOne->data->end - segOne->data->start);
+
+					if (rateOne > 0.5 && rateTwo > 0.5)
+					{
+						unionSet(segOne, segTwo);
+					}
+				}
+			}
+		}
+		std::unordered_map<SetNode<SequenceSegment*>*, 
+						   std::vector<SequenceSegment*>> edgeClusters;
+		for (auto& setNode : segmentsClusters)
+		{
+			edgeClusters[findSet(setNode)].push_back(setNode->data);
+		}
+		//
+
+		//add edge foe each cluster
+		std::vector<SequenceSegment> usedSegments;
+		for (auto& edgeClust : edgeClusters)
+		{
+			//in case we have complement edges within the node pair
+			auto anySegment = *edgeClust.second.front();
+			if (std::find(usedSegments.begin(), usedSegments.end(), anySegment) 
+						  != usedSegments.end()) continue;
+
+			GraphNode* leftNode = nodePairSeqs.first.first;
+			GraphNode* rightNode = nodePairSeqs.first.second;
+			GraphEdge* newEdge = this->addEdge(GraphEdge(leftNode, rightNode, 
+										   	   FastaRecord::Id(_nextEdgeId)));
+			for (auto& seg : edgeClust.second)
+			{
+				newEdge->seqSegments.push_back(*seg);
+				++newEdge->multiplicity;
+				usedSegments.push_back(seg->complement());
 			}
 
-			bool selfComplement = (gpLeft.pointId == gpRight.pointId &&
-								   gpRight.pointId == complLeft.pointId &&
-								   complLeft.pointId == complRight.pointId);
-			if (!repetitive)
+			leftNode = complEdges[nodePairSeqs.first].first;
+			rightNode = complEdges[nodePairSeqs.first].second;
+			GraphEdge* complEdge = this->addEdge(GraphEdge(leftNode, rightNode, 
+										   	FastaRecord::Id(_nextEdgeId + 1)));
+			for (auto& seg : edgeClust.second)
 			{
-				addUnique(gpLeft, gpRight);
-				addUnique(complLeft, complRight);
+				complEdge->seqSegments.push_back(seg->complement());
+				++complEdge->multiplicity;
 			}
-			else
-			{
-				addRepeat(gpLeft, gpRight, selfComplement);
-				addRepeat(complLeft, complRight, selfComplement);
-			}
-			
-			///
-			FastaRecord::Id edgeId = FastaRecord::ID_NONE;
-			if(!repetitive)
-			{
-				edgeId = FastaRecord::Id(_nextEdgeId - 2);
-			}
-			else
-			{
-				auto edge = repeatEdges[std::make_pair(idToNode(gpLeft.pointId), 
-													idToNode(gpRight.pointId))];
-				edgeId = edge->edgeId;
-			}
-			std::string unique = !repetitive ? "*" : " ";
-			Logger::get().debug() << unique << "\t" << edgeId.signedId() << "\t" 
+
+			_nextEdgeId += 2;
+		}
+
+		for (auto& s : segmentsClusters) delete s;
+	}
+
+	//just some logging
+	/*
+	for (auto& seqEdgesPair : _gluePoints)
+	{
+		if (!seqEdgesPair.first.strand()) continue;
+		for (size_t i = 0; i < seqEdgesPair.second.size() - 1; ++i)
+		{
+			GluePoint gpLeft = seqEdgesPair.second[i];
+			GluePoint gpRight = seqEdgesPair.second[i + 1];
+
+			GraphEdge* edge = savedEdges[seqEdgesPair.first][i];
+			std::string unique = !edge->isRepetitive() ? "*" : " ";
+			Logger::get().debug() << unique << "\t" 
+								  << edge->edgeId.signedId() << "\t" 
 								  << gpLeft.seqId << "\t"
 								  << gpLeft.position << "\t" 
 								  << gpRight.position << "\t"
 								  << gpRight.position - gpLeft.position;
-			///
 		}
-	}
+	}*/
 }
 
 
