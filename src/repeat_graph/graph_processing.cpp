@@ -461,6 +461,9 @@ void GraphProcessor::outputContigsGraph(const std::string& filename)
 		int32_t contigLength = 0;
 		for (auto& edge : contig.path) contigLength += edge->length();
 
+		int numSegments = std::log10(contigLength) * 2;
+		int extraNodes = std::min(std::max(numSegments, 1), 20) - 1;
+
 		std::stringstream lengthStr;
 		if (contigLength < 5000)
 		{
@@ -485,10 +488,28 @@ void GraphProcessor::outputContigsGraph(const std::string& filename)
 		}
 		else
 		{
-			fout << "\"" << nodeToId(contig.path.front()->nodeLeft) 
-				 << "\" -> \"" << nodeToId(contig.path.back()->nodeRight)
-				 << "\" [label = \"id " << contig.id.signedId()
-				 << "\\l" << lengthStr.str() << "\", color = \"black\"] ;\n";
+			int prevNodeId = nodeToId(contig.path.front()->nodeLeft);
+			for (int i = 0; i < extraNodes; ++i)
+			{
+				std::string label;
+				if (i == extraNodes / 2)
+				{
+					label = "label = \"id " + std::to_string(contig.id.signedId()) 
+										+ "\\l" + lengthStr.str() + "\"";
+				}
+				fout << "\"" << prevNodeId
+				 	<< "\" -> \"" << nextNodeId << "\" [arrowhead = none "
+					<< label << " ] ;\n";
+				fout << "\"" << nextNodeId << "\"[height = 0.1];\n";
+				prevNodeId = nextNodeId++;
+			}
+			fout << "\"" << prevNodeId << "\" -> \"" 
+				<< nodeToId(contig.path.back()->nodeRight) << "\";\n";
+
+			//fout << "\"" << prevNodeId
+			//	 << "\" -> \"" << nodeToId(contig.path.back()->nodeRight)
+			//	 << "\" [label = \"id " << contig.id.signedId()
+			//	 << "\\l" << lengthStr.str() << "\", color = \"black\"] ;\n";
 		}
 	}
 

@@ -144,6 +144,14 @@ int main(int argc, char** argv)
 		Logger::get().debug() << "Reading FASTA";
 		readsContainer.readFasta(readsFasta);
 		VertexIndex vertexIndex(readsContainer);
+
+		int64_t sumLength = 0;
+		for (auto& seqId : readsContainer.getIndex())
+		{
+			sumLength += seqId.second.sequence.length();
+		}
+		Logger::get().debug() << "Mean read length: " 
+			<< sumLength / readsContainer.getIndex().size();
 	
 		//rough estimate
 		size_t hardThreshold = std::max(1, coverage / 
@@ -169,30 +177,6 @@ int main(int argc, char** argv)
 							 Parameters::get().minimumOverlap,
 							 Constants::maximumOverhang);
 		OverlapContainer readOverlaps(ovlp, readsContainer, true);
-
-		/*
-		if (overlapsFile.empty())
-		{
-			ovlp.findAllOverlaps();
-		}
-		else
-		{
- 			if (fileExists(overlapsFile))
-			{
-				Logger::get().debug() << "Loading overlaps from " << overlapsFile;
-				ovlp.loadOverlaps(overlapsFile);
-			}
-			else
-			{
-				ovlp.findAllOverlaps();
-				Logger::get().debug() << "Saving overlaps to " << overlapsFile;
-				ovlp.saveOverlaps(overlapsFile);
-			}
-		}
-		vertexIndex.clear();*/
-
-		//ChimeraDetector chimDetect(coverage, readsContainer, readOverlaps);
-		//chimDetect.detectChimeras();
 
 		Extender extender(readsContainer, readOverlaps, coverage, 
 						  estimator.genomeSizeEstimate());
