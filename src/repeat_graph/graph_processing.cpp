@@ -191,10 +191,16 @@ void GraphProcessor::condenceEdges()
 			GraphNode* curNode = direction->nodeRight;
 			GraphPath traversed;
 			traversed.push_back(direction);
+
+			std::unordered_set<FastaRecord::Id> complementEdges;
+			complementEdges.insert(direction->edgeId.rc());
+
 			while (!curNode->isBifurcation() &&
-				   !curNode->outEdges.empty())
+				   !curNode->outEdges.empty() &&
+				   !complementEdges.count(curNode->outEdges.front()->edgeId))
 			{
 				traversed.push_back(curNode->outEdges.front());
+				complementEdges.insert(traversed.back()->edgeId.rc());
 				curNode = curNode->outEdges.front()->nodeRight;
 			}
 			usedDirections.insert(traversed.back()->edgeId.rc());
@@ -461,8 +467,6 @@ void GraphProcessor::outputContigsGraph(const std::string& filename)
 		int32_t contigLength = 0;
 		for (auto& edge : contig.path) contigLength += edge->length();
 
-		int numSegments = std::log10(contigLength) * 2;
-		int extraNodes = std::min(std::max(numSegments, 1), 20) - 1;
 
 		std::stringstream lengthStr;
 		if (contigLength < 5000)
@@ -488,6 +492,9 @@ void GraphProcessor::outputContigsGraph(const std::string& filename)
 		}
 		else
 		{
+
+			/*int numSegments = std::log10(contigLength) * 2;
+			int extraNodes = std::min(std::max(numSegments, 1), 20) - 1;
 			int prevNodeId = nodeToId(contig.path.front()->nodeLeft);
 			for (int i = 0; i < extraNodes; ++i)
 			{
@@ -504,12 +511,12 @@ void GraphProcessor::outputContigsGraph(const std::string& filename)
 				prevNodeId = nextNodeId++;
 			}
 			fout << "\"" << prevNodeId << "\" -> \"" 
-				<< nodeToId(contig.path.back()->nodeRight) << "\";\n";
+				<< nodeToId(contig.path.back()->nodeRight) << "\";\n";*/
 
-			//fout << "\"" << prevNodeId
-			//	 << "\" -> \"" << nodeToId(contig.path.back()->nodeRight)
-			//	 << "\" [label = \"id " << contig.id.signedId()
-			//	 << "\\l" << lengthStr.str() << "\", color = \"black\"] ;\n";
+			fout << "\"" << nodeToId(contig.path.front()->nodeLeft)
+				 << "\" -> \"" << nodeToId(contig.path.back()->nodeRight)
+				 << "\" [label = \"id " << contig.id.signedId()
+				 << "\\l" << lengthStr.str() << "\", color = \"black\"] ;\n";
 		}
 	}
 
