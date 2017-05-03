@@ -27,22 +27,12 @@ bool ChimeraDetector::isChimeric(FastaRecord::Id readId)
 
 bool ChimeraDetector::testReadByCoverage(FastaRecord::Id readId)
 {
-	//self overlaps
-	for (auto& ovlp : _ovlpContainer.lazySeqOverlaps(readId))
-	{
-		if (ovlp.curId == ovlp.extId.rc()) 
-		{
-			return true;
-		}
-	}
-
 	static const int WINDOW = Constants::chimeraWindow;
-	const int FLANK = (Constants::maximumJump + 
-					   Constants::maximumOverhang) / WINDOW;
+	const int FLANK = Constants::maximumOverhang / WINDOW;
 
 	std::vector<int> coverage;
 	int numWindows = _seqContainer.seqLen(readId) / WINDOW;
-	if (numWindows - 2 * FLANK <= 0) return false;
+	if (numWindows - 2 * FLANK <= 0) return true;
 
 	coverage.assign(numWindows - 2 * FLANK, 0);
 	for (auto& ovlp : _ovlpContainer.lazySeqOverlaps(readId))
@@ -60,25 +50,35 @@ bool ChimeraDetector::testReadByCoverage(FastaRecord::Id readId)
 		}
 	}
 
-	/*
 	std::string covStr;
 	for (int cov : coverage)
 	{
 		covStr += std::to_string(cov) + " ";
 	}
-	Logger::get().debug() << covStr;
-	*/
 
-	//exclude low-coverage reads
 	int maxCoverage = *std::max_element(coverage.begin(), coverage.end());
-	if (maxCoverage < Constants::maxCoverageDropRate) return false;
-
-	for (size_t i = 0; i < coverage.size() - 1; ++i)
+	for (auto cov : coverage)
 	{
-		int low = std::min(coverage[i], coverage[i + 1]);
-		int high = std::max(coverage[i], coverage[i + 1]);
-		if (low == 0 && high > 0) return true;
-		if (low != 0 && high / low > Constants::maxCoverageDropRate) return true;
+		if (cov == 0) return true;
+
+		if ((float)maxCoverage / cov > (float)Constants::maxCoverageDropRate) 
+		{
+			//Logger::get().debug() << "Chimeric: " 
+			//	<< _seqContainer.seqName(readId) << covStr;
+			return true;
+		}
 	}
+
+	//self overlaps
+	for (auto& ovlp : _ovlpContainer.lazySeqOverlaps(readId))
+	{
+		if (ovlp.curId == ovlp.extId.rc()) 
+		{
+			Logger::get().debug() << "Self-ovlp: " 
+				<< _seqContainer.seqName(readId) << covStr;
+			return true;
+		}
+	}
+
 	return false;
 }

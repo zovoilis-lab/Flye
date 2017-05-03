@@ -23,14 +23,12 @@ namespace Constants
 
 	//chimera detection
 	const int maxCoverageDropRate = 5;
-	const int chimeraWindow = 500;
+	const int chimeraWindow = 100;
 
 	//extension
 	const int minReadsInContig = 10;
 	const int extensionTries = 1000;
-	//const int minExtensionsRate = 10;
-	//const int shiftToReadLen = 40;
-	//const float minGoodReads = 0.05f;
+	const int minExtensions = 2;
 
 	//repeat graph
 	const int maxSeparation = 500;

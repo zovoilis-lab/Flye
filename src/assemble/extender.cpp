@@ -163,8 +163,15 @@ void Extender::assembleContigs()
 	for (auto& indexPair : _readsContainer.getIndex())
 	{
 		if (numFails++ > Constants::extensionTries) break;
-		if (_coveredReads.count(indexPair.first)) continue;
-		if (_chimDetector.isChimeric(indexPair.first)) continue;
+		if (_coveredReads.count(indexPair.first) ||
+			_chimDetector.isChimeric(indexPair.first) ||
+			this->countRightExtensions(indexPair.first) < 
+				Constants::minExtensions ||
+			this->countRightExtensions(indexPair.first.rc()) < 
+				Constants::minExtensions)
+		{
+			continue;
+		}
 
 		ContigPath path = this->extendContig(indexPair.first);
 		
