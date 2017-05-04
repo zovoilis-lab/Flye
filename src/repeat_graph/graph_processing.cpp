@@ -336,9 +336,14 @@ void GraphProcessor::dumpRepeats(const std::vector<GraphAlignment>& readAlignmen
 		std::unordered_set<FastaRecord::Id> allReads;
 		std::unordered_map<GraphEdge*, 
 						   std::unordered_set<FastaRecord::Id>> inputEdges;
+		std::unordered_map<GraphEdge*, 
+						   std::unordered_set<FastaRecord::Id>> outputEdges;
+
 
 		fout << "#Repeat " << contig.id.signedId() << "\t"
 			<< inputs.size() << std::endl;
+
+		//classifying reads into inner, input, output
 		for (auto& readAln : readAlignments)
 		{
 			bool repeatRead = false;
@@ -360,9 +365,18 @@ void GraphProcessor::dumpRepeats(const std::vector<GraphAlignment>& readAlignmen
 							.insert(readAln.front().overlap.curId);
 					}
 				}
+				for (auto& outputEdge : outputs)
+				{
+					if (alnEdge.edge == outputEdge) 
+					{
+						outputEdges[outputEdge]
+							.insert(readAln.front().overlap.curId);
+					}
+				}
 			}
 		}
 
+		//dump as text
 		fout << "\n#All reads\t" << allReads.size() << std::endl;
 		for (auto& readId : allReads)
 		{
@@ -370,13 +384,43 @@ void GraphProcessor::dumpRepeats(const std::vector<GraphAlignment>& readAlignmen
 		}
 		fout << std::endl;
 
-		int inputNumber = 0;
 		for (auto& inputEdge : inputs)
 		{
-			fout << "#Input " << inputNumber++ << "\t" 
+			//TODO: more accurate version!
+			int ctgId = 0;
+			for (auto& ctg : _contigs)
+			{
+				for (auto& edge : ctg.path) 
+				{
+					if (edge == inputEdge) ctgId = ctg.id.signedId();
+				}
+			}
+
+			fout << "#Input " << ctgId << "\t" 
 				<< inputEdges[inputEdge].size() << std::endl;
 
 			for (auto& readId : inputEdges[inputEdge])
+			{
+				fout << _readSeqs.seqName(readId) << std::endl;
+			}
+			fout << std::endl;
+		}
+
+		for (auto& outputEdge : outputs)
+		{
+			int ctgId = 0;
+			for (auto& ctg : _contigs)
+			{
+				for (auto& edge : ctg.path) 
+				{
+					if (edge == outputEdge) ctgId = ctg.id.signedId();
+				}
+			}
+
+			fout << "#Output " << ctgId << "\t" 
+				<< outputEdges[outputEdge].size() << std::endl;
+
+			for (auto& readId : outputEdges[outputEdge])
 			{
 				fout << _readSeqs.seqName(readId) << std::endl;
 			}
