@@ -75,12 +75,16 @@ ContigPath Extender::extendContig(FastaRecord::Id startRead)
 		}
 
 		//getting extension
+		int minExtensions = (int)extensions.size() / 
+							Constants::maxCoverageDropRate;
+		//Logger::get().debug() << extensions.size();
 		if (!overlapsVisited)
 		{
 			for (auto& ovlp : extensions)
 			{
+				//Logger::get().debug() << "\t" << this->countRightExtensions(ovlp.extId);
 				if (!_chimDetector.isChimeric(ovlp.extId) &&
-					this->countRightExtensions(ovlp.extId) > 0 &&
+					this->countRightExtensions(ovlp.extId) > minExtensions &&
 					!leftExtendsStart(ovlp.extId))
 				{
 					foundExtension = true;

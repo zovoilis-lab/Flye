@@ -56,12 +56,14 @@ bool ChimeraDetector::testReadByCoverage(FastaRecord::Id readId)
 		covStr += std::to_string(cov) + " ";
 	}
 
+	int LOW_COV_THRESHOLD = 10;
 	int maxCoverage = *std::max_element(coverage.begin(), coverage.end());
 	for (auto cov : coverage)
 	{
 		if (cov == 0) return true;
 
-		if ((float)maxCoverage / cov > (float)Constants::maxCoverageDropRate) 
+		if ((float)maxCoverage / cov > (float)Constants::maxCoverageDropRate &&
+			cov < LOW_COV_THRESHOLD) 
 		{
 			//Logger::get().debug() << "Chimeric: " 
 			//	<< _seqContainer.seqName(readId) << covStr;
