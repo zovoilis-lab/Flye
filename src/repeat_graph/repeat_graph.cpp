@@ -376,7 +376,7 @@ void RepeatGraph::initializeEdges(const OverlapContainer& asmOverlaps)
 		for (auto& edgeClust : edgeClusters)
 		{
 			//in case we have complement edges within the node pair
-			auto anySegment = *edgeClust.second.front();
+			auto& anySegment = *edgeClust.second.front();
 			if (std::find(usedSegments.begin(), usedSegments.end(), anySegment) 
 						  != usedSegments.end()) continue;
 
@@ -391,14 +391,22 @@ void RepeatGraph::initializeEdges(const OverlapContainer& asmOverlaps)
 				usedSegments.push_back(seg->complement());
 			}
 
-			leftNode = complEdges[nodePairSeqs.first].first;
-			rightNode = complEdges[nodePairSeqs.first].second;
-			GraphEdge* complEdge = this->addEdge(GraphEdge(leftNode, rightNode, 
-										   	FastaRecord::Id(_nextEdgeId + 1)));
-			for (auto& seg : edgeClust.second)
+			//check if it's self-complmenet
+			bool selfComplement = std::find(usedSegments.begin(), 
+						usedSegments.end(), anySegment) != usedSegments.end();
+
+			newEdge->selfComplement = selfComplement;
+			if (!selfComplement)
 			{
-				complEdge->seqSegments.push_back(seg->complement());
-				++complEdge->multiplicity;
+				leftNode = complEdges[nodePairSeqs.first].first;
+				rightNode = complEdges[nodePairSeqs.first].second;
+				GraphEdge* complEdge = this->addEdge(GraphEdge(leftNode, rightNode, 
+												FastaRecord::Id(_nextEdgeId + 1)));
+				for (auto& seg : edgeClust.second)
+				{
+					complEdge->seqSegments.push_back(seg->complement());
+					++complEdge->multiplicity;
+				}
 			}
 
 			_nextEdgeId += 2;
