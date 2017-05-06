@@ -19,6 +19,7 @@ void MultiplicityInferer::
 	estimateByCoverage(const std::vector<GraphAlignment>& readAln)
 {
 	std::unordered_map<GraphEdge*, int64_t> edgesCoverage;
+	//std::unordered_map<GraphEdge*, int64_t> numReads;
 	for (auto& path : readAln)
 	{
 		for (size_t i = 0; i < path.size(); ++i)
@@ -26,10 +27,12 @@ void MultiplicityInferer::
 			if (0 < i && i < path.size() - 1)
 			{
 				edgesCoverage[path[i].edge] += path[i].edge->length();
+				//++numReads[path[i].edge];
 			}
 			else
 			{
 				edgesCoverage[path[i].edge] += path[i].overlap.extRange();
+				//++numReads[path[i].edge];
 			}
 		}
 	}
@@ -55,9 +58,14 @@ void MultiplicityInferer::
 
 		float minMult = (!edge->isTip()) ? 1 : 0;
 		int estMult = std::max(minMult, roundf(normCov / meanCoverage));
+
+		//std::string match = estMult != edge->multiplicity ? "*" : " ";
+		//Logger::get().debug() << match << "\t" << edge->edgeId.signedId() << "\t"
+		//		<< edge->multiplicity << "\t" << estMult << "\t" << normCov
+		//		<< "\t" << numReads[edge] << "\t" 
+		//		<< (float)normCov / meanCoverage;
+
 		edge->multiplicity = estMult;
-		//Logger::get().debug() << edge->edgeId.signedId() 
-		//<< " " << normCov << " " << estMult;
 	}
 }
 

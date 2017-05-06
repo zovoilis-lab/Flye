@@ -38,7 +38,8 @@ private:
 	};
 
 	void clearResolvedRepeats();
-	std::vector<Connection> getConnections();
+	std::vector<Connection> getConnections(const std::unordered_set<GraphEdge*>
+										   skipEdges);
 	void resolveConnections(const std::vector<Connection>& conns);
 	void separatePath(const GraphPath& path, SequenceSegment segment,
 					  size_t startId);

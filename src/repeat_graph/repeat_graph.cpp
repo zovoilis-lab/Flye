@@ -441,7 +441,7 @@ void RepeatGraph::logEdges()
 	{
 		if (!seqEdgesPair.first.strand()) continue;
 
-		for (size_t i = 0; i < seqEdgesPair.second.size() - 1; ++i)
+		for (size_t i = 0; i < seqEdgesPair.second.size(); ++i)
 		{
 			SequenceSegment* segment = seqEdgesPair.second[i].first;
 			GraphEdge* edge = seqEdgesPair.second[i].second;
