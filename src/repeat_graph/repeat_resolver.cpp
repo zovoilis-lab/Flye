@@ -67,7 +67,8 @@ GraphAlignment
 	{
 		int32_t readSpan = chain.back()->overlap.curEnd - 
 						   chain.front()->overlap.curBegin;
-		if (readSpan > Parameters::get().minimumOverlap && readSpan > maxSpan)
+		//if (readSpan > Parameters::get().minimumOverlap && readSpan > maxSpan)
+		if (readSpan > maxSpan)
 		{
 			maxSpan = readSpan;
 			maxChain = &chain;
@@ -229,13 +230,6 @@ void RepeatResolver::resolveConnections(const std::vector<Connection>& connectio
 			<< leftEdge->edgeId.signedId()
 			<< "\t" << rightEdge->edgeId.signedId()
 			<< "\t" << support << "\t" << confidence;
-		/*
-		Logger::get().debug() << "\tConnection " 
-			<< leftEdge->seqSegments.front().seqId
-			<< "\t" << leftEdge->seqSegments.front().end << "\t"
-			<< rightEdge->seqSegments.front().seqId
-			<< "\t" << rightEdge->seqSegments.front().start
-			<< "\t" << support << "\t" << confidence;*/
 
 		if (support < MIN_SUPPORT) continue;
 
@@ -323,10 +317,10 @@ std::vector<RepeatResolver::Connection>
 	std::vector<Connection> readConnections;
 	for (auto& readPath : _readAlignments)
 	{
-		/*
-		if (!readPath.empty())
+		/*if (readPath.size() > 1)
 		{
-			Logger::get().debug() << _readSeqs.seqName(readId.first);
+			Logger::get().debug() 
+				<< _readSeqs.seqName(readPath.front().overlap.curId);
 		}*/
 
 		GraphPath currentPath;
@@ -340,12 +334,11 @@ std::vector<RepeatResolver::Connection>
 							aln.overlap.extEnd;
 			}
 			
-			/*if (!aln.edge->isRepetitive())
+			/*if (readPath.size() > 1)
 			{
-				Logger::get().debug() << aln.edge->edgeId << "\t" 
-									  << aln.edge->seqSegments.front().seqId << "\t"
-									  << aln.edge->seqSegments.front().start << "\t"
-									  << aln.edge->seqSegments.front().end << "\t"
+				Logger::get().debug() << aln.edge->edgeId.signedId() << "\t" 
+									  << aln.overlap.curBegin << "\t"
+									  << aln.overlap.curEnd << "\t"
 									  << aln.overlap.curRange();
 			}*/
 

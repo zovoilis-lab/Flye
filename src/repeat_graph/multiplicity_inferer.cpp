@@ -59,11 +59,10 @@ void MultiplicityInferer::
 		float minMult = (!edge->isTip()) ? 1 : 0;
 		int estMult = std::max(minMult, roundf(normCov / meanCoverage));
 
-		//std::string match = estMult != edge->multiplicity ? "*" : " ";
-		//Logger::get().debug() << match << "\t" << edge->edgeId.signedId() << "\t"
-		//		<< edge->multiplicity << "\t" << estMult << "\t" << normCov
-		//		<< "\t" << numReads[edge] << "\t" 
-		//		<< (float)normCov / meanCoverage;
+		std::string match = estMult != edge->multiplicity ? "*" : " ";
+		Logger::get().debug() << match << "\t" << edge->edgeId.signedId() << "\t"
+				<< edge->multiplicity << "\t" << estMult << "\t" << normCov << "\t"
+				<< (float)normCov / meanCoverage;
 
 		edge->multiplicity = estMult;
 	}
@@ -128,11 +127,11 @@ void MultiplicityInferer::balanceGraph()
 	
 		simplex.add_constraint(Constraint(eye, CT_MORE_EQUAL, 
 									  (float)idEdgePair.second->multiplicity));
-		//if (idEdgePair.second->length() > TRUSTED_EDGE_LEN)
-		//{
-		//	simplex.add_constraint(Constraint(eye, CT_LESS_EQUAL, 
-		//							  (float)idEdgePair.second->multiplicity));
-		//}
+		if (idEdgePair.second->length() > TRUSTED_EDGE_LEN)
+		{
+			simplex.add_constraint(Constraint(eye, CT_LESS_EQUAL, 
+									  (float)idEdgePair.second->multiplicity));
+		}
 	}
 
 	std::vector<std::vector<int>> incorporatedEquations;
@@ -194,13 +193,13 @@ void MultiplicityInferer::balanceGraph()
 	}
 
     pilal::Matrix costs(1, numVariables, 1.0f);
-	for (auto& idEdgePair : idToEdge)
+	/*for (auto& idEdgePair : idToEdge)
 	{
 		if (idEdgePair.second->length() > TRUSTED_EDGE_LEN)
 		{
 			costs(idEdgePair.first) = 10.0f;
 		}
-	}
+	}*/
 	for (size_t i = numberEdges; i < numVariables; ++i) costs(i) = 1000.0f;
     simplex.set_objective_function(ObjectiveFunction(OFT_MINIMIZE, costs));   
 
