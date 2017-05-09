@@ -102,8 +102,8 @@ size_t SequenceContainer::getSequences(std::vector<FastaRecord>& record,
 		while(!inputStream.eof())
 		{
 			std::getline(inputStream, buffer, '\n');
-			if (*buffer.rbegin() == '\r') buffer.erase(buffer.size() - 1);
 			if (buffer.empty()) continue;
+			if (*buffer.rbegin() == '\r') buffer.erase(buffer.size() - 1);
 
 			if (buffer[0] == '>')
 			{

@@ -210,15 +210,19 @@ public:
 	}
 	void removeNode(GraphNode* node)
 	{
-		for (auto edge : node->outEdges) 
+		std::unordered_set<GraphEdge*> toRemove;
+		for (auto& edge : node->outEdges) 
 		{
 			vecRemove(edge->nodeRight->inEdges, edge);
-			_graphEdges.erase(edge);
-			delete edge;
+			toRemove.insert(edge);
 		}
-		for (auto edge : node->inEdges) 
+		for (auto& edge : node->inEdges) 
 		{
 			vecRemove(edge->nodeLeft->outEdges, edge);
+			toRemove.insert(edge);
+		}
+		for (auto& edge : toRemove)
+		{
 			_graphEdges.erase(edge);
 			delete edge;
 		}
