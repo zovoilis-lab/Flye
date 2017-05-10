@@ -93,7 +93,7 @@ void GraphProcessor::unrollLoops()
 			}
 		}
 	}
-	for (auto edge : toRemove)	{_graph.removeEdge(edge);};
+	for (auto& edge : toRemove)	_graph.removeEdge(edge);
 
 	Logger::get().debug() << "Unrolled " << unrollLoops << " loops";
 }
@@ -112,7 +112,7 @@ void GraphProcessor::trimTips()
 	}
 
 	Logger::get().debug() << toRemove.size() << " tips removed";
-	for (auto edge : toRemove)	{_graph.removeNode(edge);};
+	for (auto& edge : toRemove)	_graph.removeNode(edge);
 }
 
 void GraphProcessor::condenceEdges()
@@ -237,8 +237,10 @@ void GraphProcessor::condenceEdges()
 			_graph._nextEdgeId += 2;
 		}
 
-		for (auto edge : unbranchingPath) _graph.removeEdge(edge);
-		for (auto edge : complPath) _graph.removeEdge(edge);
+		std::unordered_set<GraphEdge*> toRemove;
+		for (auto& edge : unbranchingPath) toRemove.insert(edge);
+		for (auto& edge : complPath) toRemove.insert(edge);
+		for (auto& edge : toRemove) _graph.removeEdge(edge);
 
 		edgesRemoved += unbranchingPath.size();
 		edgesAdded += newEdges.size();
