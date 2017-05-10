@@ -31,7 +31,7 @@ namespace Constants
 	const int minExtensions = 2;
 
 	//repeat graph
-	const int maxSeparation = 500;
+	const int maxSeparation = 1500;
 }
 
 struct Parameters
