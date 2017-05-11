@@ -27,7 +27,7 @@ public:
 			 int coverage, int genomeSize):
 		_readsContainer(readsContainer), 
 		_ovlpContainer(ovlpContainer),
-		_chimDetector(coverage, readsContainer, ovlpContainer),
+		_chimDetector(readsContainer, ovlpContainer),
 		_coverage(coverage), _genomeSize(genomeSize),
 		_progress(genomeSize)
 	{}

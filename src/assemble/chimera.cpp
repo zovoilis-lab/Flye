@@ -24,15 +24,59 @@ bool ChimeraDetector::isChimeric(FastaRecord::Id readId)
 	return _chimeras[readId];
 }
 
+void ChimeraDetector::estimateGlobalCoverage()
+{
+	const int NUM_SAMPLES = 100;
+	int sampleNum = 0;
+	std::vector<int32_t> readMeans;
 
-bool ChimeraDetector::testReadByCoverage(FastaRecord::Id readId)
+	for (auto& seq : _seqContainer.getIndex())
+	{
+		auto coverage = this->getReadCoverage(seq.first);
+
+		bool isZero = false;
+		int64_t sum = 0;
+		for (auto c : coverage)
+		{
+			isZero |= (c == 0);
+			sum += c;
+		}
+		
+		if (!isZero)
+		{
+			readMeans.push_back(sum / coverage.size());
+			++sampleNum;
+		
+			/*std::string covStr;
+			for (int cov : coverage)
+			{
+				covStr += std::to_string(cov) + " ";
+			}
+			Logger::get().debug() << "\t" << covStr;*/
+		}
+
+
+		if (sampleNum >= NUM_SAMPLES) break;
+	}
+
+	int64_t sum = 0;
+	for (auto m : readMeans) sum += m;
+
+	if (!readMeans.empty())
+	{
+		_coverage = sum / readMeans.size();
+		Logger::get().debug() << "Mean read coverage: " << _coverage;
+	}
+}
+
+std::vector<int32_t> ChimeraDetector::getReadCoverage(FastaRecord::Id readId)
 {
 	static const int WINDOW = Constants::chimeraWindow;
 	const int FLANK = Constants::maximumOverhang / WINDOW;
 
 	std::vector<int> coverage;
 	int numWindows = _seqContainer.seqLen(readId) / WINDOW;
-	if (numWindows - 2 * FLANK <= 0) return true;
+	if (numWindows - 2 * FLANK <= 0) return {0};
 
 	coverage.assign(numWindows - 2 * FLANK, 0);
 	for (auto& ovlp : _ovlpContainer.lazySeqOverlaps(readId))
@@ -50,23 +94,31 @@ bool ChimeraDetector::testReadByCoverage(FastaRecord::Id readId)
 		}
 	}
 
+	return coverage;
+}
+
+
+bool ChimeraDetector::testReadByCoverage(FastaRecord::Id readId)
+{
+	auto coverage = this->getReadCoverage(readId);
+
 	std::string covStr;
 	for (int cov : coverage)
 	{
 		covStr += std::to_string(cov) + " ";
 	}
+	//Logger::get().debug() << "\t" << _seqContainer.seqName(readId) << covStr;
 
-	int LOW_COV_THRESHOLD = 10;
-	int maxCoverage = *std::max_element(coverage.begin(), coverage.end());
+	//int LOW_COV_THRESHOLD = 10;
+	//int maxCoverage = *std::max_element(coverage.begin(), coverage.end());
 	for (auto cov : coverage)
 	{
 		if (cov == 0) return true;
 
-		if ((float)maxCoverage / cov > (float)Constants::maxCoverageDropRate &&
-			cov < LOW_COV_THRESHOLD) 
+		if ((float)_coverage / cov > (float)Constants::maxCoverageDropRate) 
 		{
-			//Logger::get().debug() << "Chimeric: " 
-			//	<< _seqContainer.seqName(readId) << covStr;
+			Logger::get().debug() << "Chimeric: " 
+				<< _seqContainer.seqName(readId) << covStr;
 			return true;
 		}
 	}

@@ -147,7 +147,7 @@ ContigPath Extender::extendContig(FastaRecord::Id startRead)
 void Extender::assembleContigs()
 {
 	Logger::get().info() << "Extending reads";
-
+	_chimDetector.estimateGlobalCoverage();
 	/*
 	uint64_t lenSum = 0;
 	for (auto indexPair : _readsContainer.getIndex()) 
