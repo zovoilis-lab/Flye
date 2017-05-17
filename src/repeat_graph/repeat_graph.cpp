@@ -96,15 +96,19 @@ void RepeatGraph::getGluepoints(const OverlapContainer& asmOverlaps)
 
 	for (auto& seqPoints : endpoints)
 	{
-		for (auto& p1 : seqPoints.second)
+		std::sort(seqPoints.second.begin(), seqPoints.second.end(),
+				  [](const SetPoint2d* p1, const SetPoint2d* p2)
+				  {return p1->data.curPos < p2->data.curPos;});
+
+		for (size_t i = 0; i < seqPoints.second.size() - 1; ++i)
 		{
-			for (auto& p2 : seqPoints.second)
+			auto* p1 = seqPoints.second[i];
+			auto* p2 = seqPoints.second[i + 1];
+			if (abs(p1->data.curPos - p2->data.curPos) < _maxSeparation)
 			{
-				if (abs(p1->data.curPos - p2->data.curPos) < _maxSeparation)
-				{
-					unionSet(p1, p2);
-				}
+				unionSet(p1, p2);
 			}
+
 		}
 	}
 
@@ -143,6 +147,7 @@ void RepeatGraph::getGluepoints(const OverlapContainer& asmOverlaps)
 		}
 		
 		//projections on other overlaps
+		//TODO: index overlaps by start / end?
 		for (auto& ovlp : asmOverlaps.getOverlapIndex().at(clustSeq))
 		{
 			if (ovlp.curBegin <= clusterXpos && clusterXpos <= ovlp.curEnd)

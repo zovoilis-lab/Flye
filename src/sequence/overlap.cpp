@@ -333,24 +333,28 @@ void OverlapContainer::filterOverlaps()
 	[&numIdent, &numContained, this] (const FastaRecord::Id& seqId)
 	{
 		auto& overlaps = _overlapIndex.at(seqId);
-		std::vector<OverlapRange> filtered;
+		std::unordered_map<int32_t, std::vector<OverlapRange*>> ovlpsByStart;
 		for (auto& ovlp : overlaps)
 		{
 			bool found = false;
-			for (auto& otherOvlp : filtered)
+			for (auto& otherOvlp : ovlpsByStart[ovlp.curBegin])
 			{
-				if (ovlp.equals(otherOvlp))
+				if (ovlp.equals(*otherOvlp))
 				{
 					found = true;
 					break;
 				}
 			}
-			if (!found) filtered.push_back(ovlp);
+			if (!found) ovlpsByStart[ovlp.curBegin].push_back(&ovlp);
 		}
-		numIdent += overlaps.size() - filtered.size();
-		overlaps = std::move(filtered);
-
+		numIdent += overlaps.size() - ovlpsByStart.size();
+		overlaps.clear();
+		for (auto& pointOvlps : ovlpsByStart)
+		{
+			for (auto& ovlp : pointOvlps.second) overlaps.push_back(*ovlp);
+		}
 		/////////////
+		
 		std::unordered_set<OverlapRange*> contained;
 		for (auto& ovlp : overlaps)
 		{
@@ -364,13 +368,13 @@ void OverlapContainer::filterOverlaps()
 			}
 		}
 
-		filtered.clear();
+		std::vector<OverlapRange> nonContained;
 		for (auto& ovlp : overlaps)
 		{
-			if (!contained.count(&ovlp)) filtered.push_back(ovlp);
+			if (!contained.count(&ovlp)) nonContained.push_back(ovlp);
 		}
-		numContained += overlaps.size() - filtered.size();
-		overlaps = std::move(filtered);
+		numContained += overlaps.size() - nonContained.size();
+		overlaps = std::move(nonContained);
 
 	};
 	processInParallel(seqIds, filterParallel, 
