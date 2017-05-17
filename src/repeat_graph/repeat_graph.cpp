@@ -122,7 +122,7 @@ void RepeatGraph::getGluepoints(const OverlapContainer& asmOverlaps)
 	}
 
 	typedef SetNode<Point1d> SetPoint1d;
-	std::list<SetPoint1d> glueSets;
+	std::unordered_map<FastaRecord::Id, std::list<SetPoint1d>> tempGluepoints;
 	std::unordered_map<SetPoint1d*, SetPoint1d*> complements;
 
 	for (auto& clustEndpoints : clusters)
@@ -210,10 +210,10 @@ void RepeatGraph::getGluepoints(const OverlapContainer& asmOverlaps)
 			Point1d complPt(clustPt.seqId.rc(), seqLen - clustPt.pos - 1);
 
 			bool used = false;
-			for (auto& glueNode : glueSets)
+			auto& seqGluepoints = tempGluepoints[clustPt.seqId];
+			for (auto& glueNode : seqGluepoints)
 			{
-				if (glueNode.data.seqId == clustPt.seqId &&
-					abs(glueNode.data.pos - clustPt.pos) < _maxSeparation)
+				if (abs(glueNode.data.pos - clustPt.pos) < _maxSeparation)
 				{
 					used = true;
 					toMerge.push_back(&glueNode);
@@ -221,10 +221,10 @@ void RepeatGraph::getGluepoints(const OverlapContainer& asmOverlaps)
 			}
 			if (!used)
 			{
-				glueSets.emplace_back(clustPt);
-				auto fwdPtr = &glueSets.back();
-				glueSets.emplace_back(complPt);
-				auto revPtr = &glueSets.back();
+				seqGluepoints.emplace_back(clustPt);
+				auto fwdPtr = &seqGluepoints.back();
+				seqGluepoints.emplace_back(complPt);
+				auto revPtr = &seqGluepoints.back();
 
 				complements[fwdPtr] = revPtr;
 				complements[revPtr] = fwdPtr;
@@ -240,15 +240,17 @@ void RepeatGraph::getGluepoints(const OverlapContainer& asmOverlaps)
 	}
 
 	std::unordered_map<SetPoint1d*, size_t> setToId;
-	for (auto& setNode : glueSets)
+	for (auto& seqGluepoints : tempGluepoints)
 	{
-		if (!setToId.count(findSet(&setNode)))
+		for (auto& gp : seqGluepoints.second)
 		{
-			setToId[findSet(&setNode)] = pointId++;
+			if (!setToId.count(findSet(&gp)))
+			{
+				setToId[findSet(&gp)] = pointId++;
+			}
+			_gluePoints[gp.data.seqId].emplace_back(setToId[findSet(&gp)],
+													gp.data.seqId, gp.data.pos);
 		}
-		_gluePoints[setNode.data.seqId].emplace_back(setToId[findSet(&setNode)],
-													 setNode.data.seqId,
-													 setNode.data.pos);
 	}
 
 	for (auto& seqPoints : _gluePoints)
