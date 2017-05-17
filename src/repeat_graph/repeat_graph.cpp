@@ -147,20 +147,27 @@ void RepeatGraph::getGluepoints(const OverlapContainer& asmOverlaps)
 		}
 		
 		//projections on other overlaps
-		//TODO: index overlaps by start / end?
-		for (auto& ovlp : asmOverlaps.getOverlapIndex().at(clustSeq))
+		auto startCmp = [] (const OverlapRange& ovlp, int32_t pos)
+						{return ovlp.curBegin < pos;};
+		auto& allOvlp = asmOverlaps.getOverlapIndex().at(clustSeq);
+		auto leftPos = std::lower_bound(allOvlp.begin(), allOvlp.end(), 
+										clusterXpos - 50000, startCmp);
+		auto rightPos = std::lower_bound(allOvlp.begin(), allOvlp.end(), 
+										 clusterXpos, startCmp);
+
+		for (auto& ovlp = leftPos; ovlp != rightPos; ++ovlp)
 		{
-			if (ovlp.curBegin <= clusterXpos && clusterXpos <= ovlp.curEnd)
+			if (ovlp->curBegin <= clusterXpos && clusterXpos <= ovlp->curEnd)
 			{
 				//TODO: projection with k-mers / alignment
-				float lengthRatio = (float)ovlp.extRange() / ovlp.curRange();
-				int32_t projectedPos = ovlp.extBegin + 
-								float(clusterXpos - ovlp.curBegin) * lengthRatio;
-				projectedPos = std::max(ovlp.extBegin, 
-										std::min(projectedPos, ovlp.extEnd));
+				float lengthRatio = (float)ovlp->extRange() / ovlp->curRange();
+				int32_t projectedPos = ovlp->extBegin + 
+								float(clusterXpos - ovlp->curBegin) * lengthRatio;
+				projectedPos = std::max(ovlp->extBegin, 
+										std::min(projectedPos, ovlp->extEnd));
 
 				extCoords.emplace_back(Point2d(clustSeq, clusterXpos,
-									   		   ovlp.extId, projectedPos));
+									   		   ovlp->extId, projectedPos));
 			}
 		}
 

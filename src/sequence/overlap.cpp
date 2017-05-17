@@ -332,7 +332,11 @@ void OverlapContainer::filterOverlaps()
 	std::function<void(const FastaRecord::Id& seqId)> filterParallel =
 	[&numIdent, &numContained, this] (const FastaRecord::Id& seqId)
 	{
-		auto& overlaps = _overlapIndex.at(seqId);
+		auto& overlaps = _overlapIndex[seqId];
+		std::sort(overlaps.begin(), overlaps.end(), 
+				  [](const OverlapRange& o1, const OverlapRange& o2)
+				  {return o1.curBegin < o2.curBegin;});
+
 		std::unordered_map<int32_t, std::vector<OverlapRange*>> ovlpsByStart;
 		for (auto& ovlp : overlaps)
 		{
