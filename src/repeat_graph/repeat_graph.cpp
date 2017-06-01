@@ -211,6 +211,7 @@ void RepeatGraph::getGluepoints(const OverlapContainer& asmOverlaps)
 
 			bool used = false;
 			auto& seqGluepoints = tempGluepoints[clustPt.seqId];
+			auto& complGluepoints = tempGluepoints[clustPt.seqId.rc()];
 			for (auto& glueNode : seqGluepoints)
 			{
 				if (abs(glueNode.data.pos - clustPt.pos) < _maxSeparation)
@@ -223,8 +224,8 @@ void RepeatGraph::getGluepoints(const OverlapContainer& asmOverlaps)
 			{
 				seqGluepoints.emplace_back(clustPt);
 				auto fwdPtr = &seqGluepoints.back();
-				seqGluepoints.emplace_back(complPt);
-				auto revPtr = &seqGluepoints.back();
+				complGluepoints.emplace_back(complPt);
+				auto revPtr = &complGluepoints.back();
 
 				complements[fwdPtr] = revPtr;
 				complements[revPtr] = fwdPtr;
