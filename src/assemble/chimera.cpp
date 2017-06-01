@@ -102,11 +102,11 @@ bool ChimeraDetector::testReadByCoverage(FastaRecord::Id readId)
 {
 	auto coverage = this->getReadCoverage(readId);
 
-	std::string covStr;
+	/*std::string covStr;
 	for (int cov : coverage)
 	{
 		covStr += std::to_string(cov) + " ";
-	}
+	}*/
 	//Logger::get().debug() << "\t" << _seqContainer.seqName(readId) << covStr;
 
 	//int LOW_COV_THRESHOLD = 10;
@@ -117,14 +117,14 @@ bool ChimeraDetector::testReadByCoverage(FastaRecord::Id readId)
 
 		if ((float)_coverage / cov > (float)Constants::maxCoverageDropRate) 
 		{
-			Logger::get().debug() << "Chimeric: " 
-				<< _seqContainer.seqName(readId) << covStr;
+			//Logger::get().debug() << "Chimeric: " 
+			//	<< _seqContainer.seqName(readId) << covStr;
 			return true;
 		}
 	}
 
 	//self overlaps
-	for (auto& ovlp : _ovlpContainer.lazySeqOverlaps(readId))
+	/*for (auto& ovlp : _ovlpContainer.lazySeqOverlaps(readId))
 	{
 		if (ovlp.curId == ovlp.extId.rc()) 
 		{
@@ -132,7 +132,7 @@ bool ChimeraDetector::testReadByCoverage(FastaRecord::Id readId)
 				<< _seqContainer.seqName(readId) << covStr;
 			return true;
 		}
-	}
+	}*/
 
 	return false;
 }

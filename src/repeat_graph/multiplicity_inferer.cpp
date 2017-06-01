@@ -70,7 +70,11 @@ void MultiplicityInferer::
 
 void MultiplicityInferer::balanceGraph()
 {
-	const int TRUSTED_EDGE_LEN = 50000;
+	const int TRUSTED_EDGE_LEN = 10000;
+	auto trustedEdge = [](const GraphEdge* edge)
+	{
+		return edge->length() > TRUSTED_EDGE_LEN && edge->multiplicity == 1;
+	};
 
 	using namespace optimization;
 
@@ -80,9 +84,16 @@ void MultiplicityInferer::balanceGraph()
 	std::unordered_map<GraphEdge*, size_t> edgeToId;
 	std::map<size_t, GraphEdge*> idToEdge;
 	size_t numberEdges = 0;
+	size_t numTrusted = 0;
 	for (auto edge : _graph.iterEdges())
 	{
 		if (edge->isLooped()) continue;
+
+		if (trustedEdge(edge))
+		{
+			++numTrusted;
+			continue;
+		}
 
 		if (!edgeToId.count(edge))
 		{
@@ -113,6 +124,10 @@ void MultiplicityInferer::balanceGraph()
 		}
 	}
 
+	Logger::get().debug() << "Processing graph with " << numberNodes 
+		<< " nodes, " << numberEdges << " edges";
+	Logger::get().debug() << "Found " << numTrusted / 2 << " trusted edges";
+
 	//formulate linear programming
 	Simplex simplex("");
 	size_t numVariables = numberEdges + numberNodes * 2;
@@ -127,11 +142,11 @@ void MultiplicityInferer::balanceGraph()
 	
 		simplex.add_constraint(Constraint(eye, CT_MORE_EQUAL, 
 									  (float)idEdgePair.second->multiplicity));
-		if (idEdgePair.second->length() > TRUSTED_EDGE_LEN)
+		/*if (idEdgePair.second->length() > TRUSTED_EDGE_LEN &&
+			idEdgePair.second->multiplicity == 1)
 		{
-			simplex.add_constraint(Constraint(eye, CT_LESS_EQUAL, 
-									  (float)idEdgePair.second->multiplicity));
-		}
+			simplex.add_constraint(Constraint(eye, CT_LESS_EQUAL, 1.0f));
+		}*/
 	}
 
 	std::vector<std::vector<int>> incorporatedEquations;
@@ -154,15 +169,38 @@ void MultiplicityInferer::balanceGraph()
 		sinkMat(sinkId) = 1;
 		simplex.add_constraint(Constraint(sinkMat, CT_MORE_EQUAL, 0.0f));
 		
+		//adding in/out edges into the problem
 		std::vector<int> coefficients(numberEdges, 0);
+		int degreeSum = 0;
 		for (auto edge : idNodePair.second->inEdges) 
 		{
-			if (!edge->isLooped()) coefficients[edgeToId[edge]] += 1;
+			if (!edge->isLooped())
+			{
+				if (trustedEdge(edge)) 
+				{
+					degreeSum -= 1;
+				}
+				else
+				{
+					coefficients[edgeToId[edge]] += 1;
+				}
+			}
 		}
 		for (auto edge : idNodePair.second->outEdges) 
 		{
-			if (!edge->isLooped()) coefficients[edgeToId[edge]] -= 1;
+			if (!edge->isLooped())
+			{
+				if (trustedEdge(edge)) 
+				{
+					degreeSum += 1;
+				}
+				else
+				{
+					coefficients[edgeToId[edge]] -= 1;
+				}
+			}
 		}
+		//
 
 		//build the matrix with all equations and check if it's linearly independend
 		pilal::Matrix problemMatrix(incorporatedEquations.size() + 1, 
@@ -188,7 +226,7 @@ void MultiplicityInferer::balanceGraph()
 		}
 		coefMatrix(sourceId) = 1;
 		coefMatrix(sinkId) = -1;
-		simplex.add_constraint(Constraint(coefMatrix, CT_EQUAL, 0.0f));
+		simplex.add_constraint(Constraint(coefMatrix, CT_EQUAL, (float)degreeSum));
 		incorporatedEquations.push_back(std::move(coefficients));
 	}
 
