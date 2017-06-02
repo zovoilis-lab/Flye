@@ -42,8 +42,10 @@ ContigPath Extender::extendContig(FastaRecord::Id startRead)
 	{
 		auto& overlaps = _ovlpContainer.lazySeqOverlaps(currentRead);
 		std::vector<OverlapRange> extensions;
+		int usedOvlps = 0;
 		for (auto& ovlp : overlaps)
 		{
+			if (_usedReads.count(ovlp.extId)) ++usedOvlps;
 			if (this->extendsRight(ovlp)) 
 			{
 				extensions.push_back(ovlp);
@@ -99,7 +101,8 @@ ContigPath Extender::extendContig(FastaRecord::Id startRead)
 		if (foundExtension) 
 		{
 			Logger::get().debug() << "Extension: " << 
-				    	_readsContainer.seqName(currentRead);
+				    	_readsContainer.seqName(currentRead) << " " << usedOvlps
+						<< " " << _readsContainer.seqLen(currentRead);
 
 			contigPath.reads.push_back(currentRead);
 			_progress.setValue(_assembledSequence);
@@ -166,7 +169,7 @@ void Extender::assembleContigs()
 	int numFails = 0;
 	for (auto& indexPair : _readsContainer.getIndex())
 	{
-		if (numFails++ > Constants::extensionTries) break;
+		if (numFails++ > 10000) break;
 		if (_coveredReads.count(indexPair.first) ||
 			_chimDetector.isChimeric(indexPair.first) ||
 			this->countRightExtensions(indexPair.first) < 
@@ -176,6 +179,16 @@ void Extender::assembleContigs()
 		{
 			continue;
 		}
+
+		auto& overlaps = _ovlpContainer.lazySeqOverlaps(indexPair.first);
+		int numOvlp = 0;
+		for (auto& ovlp : overlaps)
+		{
+			if (_coveredReads.count(ovlp.extId)) ++numOvlp;
+		}
+		//float usedIndex = (float)numOvlp / overlaps.size();
+		//Logger::get().debug() << "Used: " << usedIndex;
+		if (numOvlp > 0) continue;
 
 		ContigPath path = this->extendContig(indexPair.first);
 		
@@ -204,7 +217,7 @@ void Extender::assembleContigs()
 		}
 		///
 		
-		if (path.reads.size() >= Constants::minReadsInContig)
+		if (path.reads.size() >= 3)
 		{
 			numFails = 0;
 			Logger::get().debug() << "Assembled contig with " 
