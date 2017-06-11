@@ -3,6 +3,7 @@
 //Released under the BSD license (see LICENSE file)
 
 #include "multiplicity_inferer.h"
+#include "../common/disjoint_set.h"
 
 #include <simplex.h>
 #include <variable.h>
@@ -82,6 +83,7 @@ void MultiplicityInferer::balanceGraph()
 
 	//enumerating edges
 	std::unordered_map<GraphEdge*, size_t> edgeToId;
+	std::unordered_map<GraphEdge*, SetNode<GraphEdge*>*> edgeClusters;
 	std::map<size_t, GraphEdge*> idToEdge;
 	size_t numberEdges = 0;
 	size_t numTrusted = 0;
@@ -94,6 +96,8 @@ void MultiplicityInferer::balanceGraph()
 			++numTrusted;
 			continue;
 		}
+
+		edgeClusters[edge] = new SetNode<GraphEdge*>(edge);
 
 		if (!edgeToId.count(edge))
 		{
@@ -114,6 +118,18 @@ void MultiplicityInferer::balanceGraph()
 		if (node->inEdges.empty() || node->outEdges.empty()) continue;
 		if (node->neighbors().size() < 2) continue;
 
+		for (auto& inEdge : node->inEdges)
+		{
+			if (trustedEdge(inEdge) || inEdge->isLooped()) continue;
+			for (auto& outEdge : node->outEdges)
+			{
+				if (trustedEdge(outEdge) || outEdge->isLooped()) continue;
+
+				unionSet(edgeClusters[inEdge], 
+						 edgeClusters[outEdge]);
+			}
+		}
+
 		if (!nodeToId.count(node))
 		{
 			GraphNode* complNode = _graph.complementNode(node);
@@ -127,6 +143,10 @@ void MultiplicityInferer::balanceGraph()
 	Logger::get().debug() << "Processing graph with " << numberNodes 
 		<< " nodes, " << numberEdges << " edges";
 	Logger::get().debug() << "Found " << numTrusted / 2 << " trusted edges";
+
+	std::unordered_set<SetNode<GraphEdge*>*> clusters;
+	for (auto nodePair : edgeClusters) clusters.insert(findSet(nodePair.second));
+	Logger::get().debug() << "Clusters: " << clusters.size();
 
 	//formulate linear programming
 	Simplex simplex("");
