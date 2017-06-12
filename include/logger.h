@@ -88,10 +88,10 @@ public:
 	}
 
 private:
-	static std::string timestamp(const char* format = "[%H:%M:%S]")
+	static std::string timestamp(const char* format = "[%Y-%m-%d %H:%M:%S]")
 	{
 		std::time_t t = std::time(0);
-		char cstr[128];
+		char cstr[256];
 		std::strftime(cstr, sizeof(cstr), format, std::localtime(&t));
 		return cstr;
 	}
