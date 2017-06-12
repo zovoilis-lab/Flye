@@ -144,9 +144,13 @@ void MultiplicityInferer::balanceGraph()
 		<< " nodes, " << numberEdges << " edges";
 	Logger::get().debug() << "Found " << numTrusted / 2 << " trusted edges";
 
-	std::unordered_set<SetNode<GraphEdge*>*> clusters;
-	for (auto nodePair : edgeClusters) clusters.insert(findSet(nodePair.second));
+	std::unordered_map<SetNode<GraphEdge*>*, int> clusters;
+	for (auto nodePair : edgeClusters) clusters[findSet(nodePair.second)] += 1;
 	Logger::get().debug() << "Clusters: " << clusters.size();
+	for (auto clSize : clusters)
+	{
+		Logger::get().debug() << "\t" << clSize.second;
+	}
 
 	//formulate linear programming
 	Simplex simplex("");
