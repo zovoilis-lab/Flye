@@ -97,7 +97,7 @@ ContigPath Extender::extendContig(FastaRecord::Id startRead)
 			}
 		}
 
-		overlapsVisited |= _coveredReads.count(currentRead);
+		overlapsVisited |= _innerReads.count(currentRead);
 		if (foundExtension) 
 		{
 			Logger::get().debug() << "Extension: " << 
@@ -151,25 +151,22 @@ void Extender::assembleContigs()
 {
 	Logger::get().info() << "Extending reads";
 	_chimDetector.estimateGlobalCoverage();
-	/*
-	uint64_t lenSum = 0;
-	for (auto indexPair : _readsContainer.getIndex()) 
-	{
-		lenSum += _readsContainer.seqLen(indexPair.first);
-	}
-	_minimumShift = lenSum / _readsContainer.getIndex().size() 
-						/ Constants::shiftToReadLen;*/
-
-	//const int MIN_EXTENSIONS = std::max(_coverage / 
-	//									Constants::minExtensionsRate, 1);
-
 	_coveredReads.clear();
+	_innerReads.clear();
 	_usedReads.clear();
 
-	int numFails = 0;
+	int numChecked = 0;
+	int readsToCheck = Constants::startReadsPercent * 
+							_readsContainer.getIndex().size();
 	for (auto& indexPair : _readsContainer.getIndex())
 	{
-		if (numFails++ > 10000) break;
+		if (numChecked++ > readsToCheck) break;
+		/*Logger::get().debug() << _readsContainer.seqName(indexPair.first) << "\t"
+			<< _coveredReads.count(indexPair.first) << "\t"
+			<< _chimDetector.isChimeric(indexPair.first) << "\t"
+			<< this->countRightExtensions(indexPair.first) << "\t"
+			<< this->countRightExtensions(indexPair.first.rc());*/
+
 		if (_coveredReads.count(indexPair.first) ||
 			_chimDetector.isChimeric(indexPair.first) ||
 			this->countRightExtensions(indexPair.first) < 
@@ -184,7 +181,7 @@ void Extender::assembleContigs()
 		int numOvlp = 0;
 		for (auto& ovlp : overlaps)
 		{
-			if (_coveredReads.count(ovlp.extId)) ++numOvlp;
+			if (_innerReads.count(ovlp.extId)) ++numOvlp;
 		}
 		//float usedIndex = (float)numOvlp / overlaps.size();
 		//Logger::get().debug() << "Used: " << usedIndex;
@@ -196,15 +193,17 @@ void Extender::assembleContigs()
 		std::unordered_set<FastaRecord::Id> leftExtended;
 		for (auto& readId : path.reads)
 		{
-			//so each read is covered by at least two others, from left and right
+			//so each read is covered from the left and right
 			for (auto& ovlp : _ovlpContainer.lazySeqOverlaps(readId))
 			{
+				_coveredReads.insert(ovlp.extId);
+				_coveredReads.insert(ovlp.extId.rc());
 				if (ovlp.leftShift > Constants::maximumJump)
 				{
 					leftExtended.insert(ovlp.extId);
 					rightExtended.insert(ovlp.extId.rc());
 				}
-				else if (ovlp.rightShift < -Constants::maximumJump)	
+				if (ovlp.rightShift < -Constants::maximumJump)	
 				{
 					rightExtended.insert(ovlp.extId);
 					leftExtended.insert(ovlp.extId.rc());
@@ -213,13 +212,12 @@ void Extender::assembleContigs()
 		}
 		for (auto& read : rightExtended)
 		{
-			if (leftExtended.count(read)) _coveredReads.insert(read);
+			if (leftExtended.count(read)) _innerReads.insert(read);
 		}
 		///
 		
-		if (path.reads.size() >= 3)
+		if (path.reads.size() >= Constants::minReadsInContig)
 		{
-			numFails = 0;
 			Logger::get().debug() << "Assembled contig with " 
 				<< path.reads.size() << " reads";
 			_contigPaths.push_back(std::move(path));

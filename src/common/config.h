@@ -26,12 +26,13 @@ namespace Constants
 	const int chimeraWindow = 100;
 
 	//extension
-	const int minReadsInContig = 10;
-	const int extensionTries = 1000;
+	const int minReadsInContig = 4;
 	const int minExtensions = 2;
+	const float startReadsPercent = 0.1;
 
 	//repeat graph
 	const int maxSeparation = 1500;
+	const int trustedEdgeLength = 10000;
 }
 
 struct Parameters

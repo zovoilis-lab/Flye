@@ -71,10 +71,10 @@ void MultiplicityInferer::
 
 void MultiplicityInferer::balanceGraph()
 {
-	const int TRUSTED_EDGE_LEN = 10000;
 	auto trustedEdge = [](const GraphEdge* edge)
 	{
-		return edge->length() > TRUSTED_EDGE_LEN && edge->multiplicity == 1;
+		return edge->length() > Constants::trustedEdgeLength && 
+			   edge->multiplicity == 1;
 	};
 
 	using namespace optimization;
@@ -166,11 +166,6 @@ void MultiplicityInferer::balanceGraph()
 	
 		simplex.add_constraint(Constraint(eye, CT_MORE_EQUAL, 
 									  (float)idEdgePair.second->multiplicity));
-		/*if (idEdgePair.second->length() > TRUSTED_EDGE_LEN &&
-			idEdgePair.second->multiplicity == 1)
-		{
-			simplex.add_constraint(Constraint(eye, CT_LESS_EQUAL, 1.0f));
-		}*/
 	}
 
 	std::vector<std::vector<int>> incorporatedEquations;
@@ -255,13 +250,6 @@ void MultiplicityInferer::balanceGraph()
 	}
 
     pilal::Matrix costs(1, numVariables, 1.0f);
-	/*for (auto& idEdgePair : idToEdge)
-	{
-		if (idEdgePair.second->length() > TRUSTED_EDGE_LEN)
-		{
-			costs(idEdgePair.first) = 10.0f;
-		}
-	}*/
 	for (size_t i = numberEdges; i < numVariables; ++i) costs(i) = 1000.0f;
     simplex.set_objective_function(ObjectiveFunction(OFT_MINIMIZE, costs));   
 
