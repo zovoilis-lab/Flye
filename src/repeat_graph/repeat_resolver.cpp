@@ -484,8 +484,10 @@ void RepeatResolver::alignReads()
 	VertexIndex pathsIndex(pathsContainer);
 	pathsIndex.countKmers(1);
 	pathsIndex.buildIndex(1, MAX_KMER_COUNT, 1);
+	//OverlapDetector readsOverlapper(pathsContainer, pathsIndex, _readJump,
+	//								_maxSeparation - _readOverhang, 0);
 	OverlapDetector readsOverlapper(pathsContainer, pathsIndex, _readJump,
-									_maxSeparation - _readOverhang, 0);
+									_maxSeparation, 0);
 	OverlapContainer readsOverlaps(readsOverlapper, _readSeqs, false);
 	readsOverlaps.findAllOverlaps();
 

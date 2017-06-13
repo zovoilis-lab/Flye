@@ -20,6 +20,8 @@ namespace Constants
 	const int closeJumpRate = 100;
 	const int farJumpRate = 2;
 	const int overlapDivergenceRate = 5;
+	const int gapJump = 500;
+	const int penaltyWindow = 100;
 
 	//chimera detection
 	const int maxCoverageDropRate = 5;
@@ -31,7 +33,7 @@ namespace Constants
 	const float startReadsPercent = 0.1;
 
 	//repeat graph
-	const int maxSeparation = 1500;
+	const int maxSeparation = 500;
 	const int trustedEdgeLength = 10000;
 }
 
