@@ -23,8 +23,8 @@ struct OverlapRange
 				 int32_t curInit = 0, int32_t extInit = 0,
 				 int32_t curLen = 0, int32_t extLen = 0): 
 		curId(curId), curBegin(curInit), curEnd(curInit), curLen(curLen),
-		extId(extId), extBegin(extInit), extEnd(extInit), extLen(extLen)
-		//score(0)
+		extId(extId), extBegin(extInit), extEnd(extInit), extLen(extLen),
+		score(0)
 	{}
 	int32_t curRange() const {return curEnd - curBegin;}
 	int32_t extRange() const {return extEnd - extBegin;}
@@ -82,6 +82,12 @@ struct OverlapRange
 			   std::max(curBegin, other.curBegin);
 	}
 
+	int32_t extIntersect(const OverlapRange& other) const
+	{
+		return std::min(extEnd, other.extEnd) - 
+			   std::max(extBegin, other.extBegin);
+	}
+
 	bool equals(const OverlapRange& other) const
 	{
 		return other.curId == curId && other.extId == extId &&
@@ -118,6 +124,8 @@ struct OverlapRange
 	int32_t extEnd;
 	int32_t extLen;
 	int32_t rightShift;
+
+	int32_t score;
 };
 
 class OverlapDetector

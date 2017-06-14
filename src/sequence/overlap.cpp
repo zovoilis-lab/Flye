@@ -89,10 +89,11 @@ namespace
 {
 	struct DPRecord
 	{
-		DPRecord(const OverlapRange& ovlp): ovlp(ovlp), score(0) {}
+		DPRecord() {}
+		DPRecord(const OverlapRange& ovlp): ovlp(ovlp) {}
 
 		OverlapRange ovlp;
-		int score;
+		//int score;
 		std::vector<int32_t> shifts;
 	};
 	
@@ -106,6 +107,16 @@ namespace
 		//				 vec.end());
 		return vec[vec.size() / 2];
 	}
+
+	struct pairhash 
+	{
+	public:
+		template <typename T, typename U>
+		std::size_t operator()(const std::pair<T, U> &x) const
+		{
+			return std::hash<T>()(x.first) ^ std::hash<U>()(x.second);
+		}
+	};
 }
 
 std::vector<OverlapRange> 
@@ -157,7 +168,7 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 													   Constants::penaltyWindow;
 				if (jumpLength < Constants::gapJump) gapScore = 1;
 
-				int32_t jumpScore = extPaths[pathId].score + gapScore;
+				int32_t jumpScore = extPaths[pathId].ovlp.score + gapScore;
 
 				switch (jumpResult)
 				{
@@ -190,7 +201,7 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 				eraseMarks.erase(maxCloseId);
 				extPaths[maxCloseId].ovlp.curEnd = curPos;
 				extPaths[maxCloseId].ovlp.extEnd = extPos;
-				extPaths[maxCloseId].score = maxCloseScore;
+				extPaths[maxCloseId].ovlp.score = maxCloseScore;
 				extPaths[maxCloseId].shifts.push_back(curPos - extPos);
 			}
 			//update the best far extension, keep the old path as a copy
@@ -199,7 +210,7 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 				extPaths.push_back(extPaths[maxFarId]);
 				extPaths.back().ovlp.curEnd = curPos;
 				extPaths.back().ovlp.extEnd = extPos;
-				extPaths.back().score = maxFarScore;
+				extPaths.back().ovlp.score = maxFarScore;
 				extPaths.back().shifts.push_back(curPos - extPos);
 			}
 			//if no extensions possible (or there are no active paths), start a new path
@@ -220,12 +231,30 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 			}
 		} //end loop over kmer occurences in other reads
 	} //end loop over kmers in the current read
+
+	//leave only one overlap for each starting position
+	for (auto& ap : activePaths)
+	{
+		std::unordered_map<std::pair<int32_t, int32_t>, 
+						   DPRecord, pairhash> maxByStart;
+		for (auto& dpRec : ap.second)
+		{
+			auto& curMax = maxByStart[std::make_pair(dpRec.ovlp.curBegin, 
+													 dpRec.ovlp.extBegin)];
+			if (dpRec.ovlp.score > curMax.ovlp.score)
+			{
+				curMax = dpRec;
+			}
+		}
+		ap.second.clear();
+		for (auto& maxDp : maxByStart) ap.second.push_back(maxDp.second);
+	}
 	
 	std::vector<OverlapRange> detectedOverlaps;
 	for (auto& ap : activePaths)
 	{
 		size_t extLen = _seqContainer.seqLen(ap.first);
-		DPRecord* maxOverlap = nullptr;
+		DPRecord* maxRecord = nullptr;
 		bool passedTest = false;
 		for (auto& dpRec : ap.second)
 		{
@@ -241,19 +270,19 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 				else
 				{
 					passedTest = true;
-					if (!maxOverlap || dpRec.score > maxOverlap->score)
+					if (!maxRecord || dpRec.ovlp.score > maxRecord->ovlp.score)
 					{
-						maxOverlap = &dpRec;
+						maxRecord = &dpRec;
 					}
 				}
 			}
 		}
 		if (uniqueExtensions && passedTest)
 		{
-			maxOverlap->ovlp.leftShift = median(maxOverlap->shifts);
-			maxOverlap->ovlp.rightShift = extLen - curLen + 
-									maxOverlap->ovlp.leftShift;
-			detectedOverlaps.push_back(maxOverlap->ovlp);
+			maxRecord->ovlp.leftShift = median(maxRecord->shifts);
+			maxRecord->ovlp.rightShift = extLen - curLen + 
+									maxRecord->ovlp.leftShift;
+			detectedOverlaps.push_back(maxRecord->ovlp);
 		}
 	}
 
@@ -343,28 +372,6 @@ void OverlapContainer::filterOverlaps()
 	[&numIdent, &numContained, this] (const FastaRecord::Id& seqId)
 	{
 		auto& overlaps = _overlapIndex[seqId];
-
-		std::unordered_map<int32_t, std::vector<OverlapRange*>> ovlpsByStart;
-		for (auto& ovlp : overlaps)
-		{
-			bool found = false;
-			for (auto& otherOvlp : ovlpsByStart[ovlp.curBegin])
-			{
-				if (ovlp.equals(*otherOvlp))
-				{
-					found = true;
-					break;
-				}
-			}
-			if (!found) ovlpsByStart[ovlp.curBegin].push_back(&ovlp);
-		}
-		numIdent += overlaps.size() - ovlpsByStart.size();
-		overlaps.clear();
-		for (auto& pointOvlps : ovlpsByStart)
-		{
-			for (auto& ovlp : pointOvlps.second) overlaps.push_back(*ovlp);
-		}
-		/////////////
 		
 		std::unordered_set<OverlapRange*> contained;
 		for (auto& ovlp : overlaps)
@@ -390,6 +397,30 @@ void OverlapContainer::filterOverlaps()
 		std::sort(overlaps.begin(), overlaps.end(), 
 				  [](const OverlapRange& o1, const OverlapRange& o2)
 				  {return o1.curBegin < o2.curBegin;});
+
+		/*for (auto& ovlpRef : overlaps)
+		{
+			bool matched = false;
+			for (auto& ovlpSnd : overlaps)
+			{
+				if (ovlpRef.equals(ovlpSnd)) continue;
+
+				float curRate = (float)ovlpRef.curIntersect(ovlpSnd) / ovlpRef.curRange();
+				float extRate = (float)ovlpRef.extIntersect(ovlpSnd) / ovlpRef.extRange();
+				if (curRate > 0.9 && extRate > 0.9)
+				{
+					Logger::get().debug() << ovlpSnd.curBegin << "\t" 
+						<< ovlpSnd.curEnd << "\t" << ovlpSnd.extBegin << "\t"
+						<< ovlpSnd.extEnd << "\t" << ovlpSnd.score << "\t"
+						<< std::min(curRate, extRate);
+					matched = true;
+				}
+			}
+			if (matched) 
+			{
+				Logger::get().debug() << "";
+			}
+		}*/
 	};
 	processInParallel(seqIds, filterParallel, 
 					  Parameters::get().numThreads, false);
