@@ -11,6 +11,16 @@
 #include "bipartie_mincost.h"
 
 
+namespace
+{
+	struct Chain
+	{
+		Chain(): score(0) {}
+		std::vector<EdgeAlignment*> aln;
+		int32_t score;
+	};
+}
+
 GraphAlignment
 	RepeatResolver::chainReadAlignments(const SequenceContainer& edgeSeqs,
 								 	    std::vector<EdgeAlignment> ovlps)
@@ -19,18 +29,16 @@ GraphAlignment
 			  [](const EdgeAlignment& e1, const EdgeAlignment& e2)
 			  	{return e1.overlap.curBegin < e2.overlap.curBegin;});
 
-	typedef std::vector<EdgeAlignment*> Chain;
-
 	std::list<Chain> activeChains;
 	for (auto& edgeAlignment : ovlps)
 	{
 		std::list<Chain> newChains;
-		int32_t maxSpan = 0;
+		int32_t maxScore = 0;
 		Chain* maxChain = nullptr;
 		for (auto& chain : activeChains)
 		{
 			OverlapRange& nextOvlp = edgeAlignment.overlap;
-			OverlapRange& prevOvlp = chain.back()->overlap;
+			OverlapRange& prevOvlp = chain.aln.back()->overlap;
 
 			int32_t readDiff = nextOvlp.curBegin - prevOvlp.curEnd;
 			int32_t graphDiff = nextOvlp.extBegin +
@@ -39,13 +47,14 @@ GraphAlignment
 			if (_readJump > readDiff && readDiff > 0 &&
 				_readJump > graphDiff && graphDiff > 0 &&
 				abs(readDiff - graphDiff) < _readJump / Constants::farJumpRate &&
-				chain.back()->edge->nodeRight == edgeAlignment.edge->nodeLeft)
+				chain.aln.back()->edge->nodeRight == edgeAlignment.edge->nodeLeft)
 			{
-				int32_t readSpan = nextOvlp.curEnd -
-								   chain.front()->overlap.curBegin;
-				if (readSpan > maxSpan)
+				//int32_t readSpan = nextOvlp.curEnd -
+				//				   chain.front()->overlap.curBegin;
+				int32_t score = chain.score + nextOvlp.score;
+				if (score > maxScore)
 				{
-					maxSpan = readSpan;
+					maxScore = score;
 					maxChain = &chain;
 				}
 			}
@@ -54,23 +63,23 @@ GraphAlignment
 		if (maxChain)
 		{
 			newChains.push_back(*maxChain);
-			maxChain->push_back(&edgeAlignment);
+			maxChain->aln.push_back(&edgeAlignment);
+			maxChain->score = maxScore;
 		}
 
 		activeChains.splice(activeChains.end(), newChains);
-		activeChains.push_back({&edgeAlignment});
+		activeChains.push_back(Chain());
+		activeChains.back().aln.push_back(&edgeAlignment);
+		activeChains.back().score = edgeAlignment.overlap.score;
 	}
 
-	int32_t maxSpan = 0;
+	int32_t maxScore = 0;
 	Chain* maxChain = nullptr;
 	for (auto& chain : activeChains)
 	{
-		int32_t readSpan = chain.back()->overlap.curEnd - 
-						   chain.front()->overlap.curBegin;
-		//if (readSpan > Parameters::get().minimumOverlap && readSpan > maxSpan)
-		if (readSpan > maxSpan)
+		if (chain.score > maxScore)
 		{
-			maxSpan = readSpan;
+			maxScore = chain.score;
 			maxChain = &chain;
 		}
 	}
@@ -79,14 +88,14 @@ GraphAlignment
 	if (maxChain)
 	{
 		//check length consistency
-		int32_t readSpan = maxChain->back()->overlap.curEnd - 
-						   maxChain->front()->overlap.curBegin;
-		int32_t graphSpan = maxChain->front()->overlap.extRange();
-		for (size_t i = 1; i < maxChain->size(); ++i)
+		int32_t readSpan = maxChain->aln.back()->overlap.curEnd - 
+						   maxChain->aln.front()->overlap.curBegin;
+		int32_t graphSpan = maxChain->aln.front()->overlap.extRange();
+		for (size_t i = 1; i < maxChain->aln.size(); ++i)
 		{
-			graphSpan += (*maxChain)[i]->overlap.extEnd +
-						 (*maxChain)[i - 1]->overlap.extLen - 
-						 (*maxChain)[i - 1]->overlap.extEnd;	
+			graphSpan += maxChain->aln[i]->overlap.extEnd +
+						 maxChain->aln[i - 1]->overlap.extLen - 
+						 maxChain->aln[i - 1]->overlap.extEnd;	
 		}
 		float lengthDiff = abs(readSpan - graphSpan);
 		float meanLength = (readSpan + graphSpan) / 2.0f;
@@ -95,7 +104,7 @@ GraphAlignment
 			return {};
 		}
 
-		for (auto& aln : *maxChain) result.push_back(*aln);
+		for (auto& aln : maxChain->aln) result.push_back(*aln);
 	}
 
 	return result;

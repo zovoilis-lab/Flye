@@ -35,7 +35,7 @@ namespace Constants
 	//repeat graph
 	const int maxSeparation = 500;
 	const int trustedEdgeLength = 10000;
-	const float minRepeatResSupport = 0.5f;
+	const float minRepeatResSupport = 0.25f;
 }
 
 struct Parameters
