@@ -210,7 +210,6 @@ void RepeatResolver::resolveConnections(const std::vector<Connection>& connectio
 		matchingPairs.emplace_back(i, edges[i]);
 	}
 
-	const float MIN_SUPPORT = 0.5f;
 	std::unordered_set<FastaRecord::Id> usedEdges;
 	std::vector<Connection> uniqueConnections;
 	int totalLinks = 0;
@@ -231,7 +230,7 @@ void RepeatResolver::resolveConnections(const std::vector<Connection>& connectio
 			<< "\t" << rightEdge->edgeId.signedId()
 			<< "\t" << support << "\t" << confidence;
 
-		if (support < MIN_SUPPORT) continue;
+		if (support < Constants::minRepeatResSupport) continue;
 
 		totalLinks += 2;
 		for (auto& conn : connections)

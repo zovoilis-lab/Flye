@@ -11,6 +11,7 @@
 #include "overlap.h"
 #include "../common/config.h"
 #include "../common/parallel.h"
+#include "../common/disjoint_set.h"
 
 
 //pre-filtering
@@ -365,34 +366,55 @@ void OverlapContainer::filterOverlaps()
 		seqIds.push_back(seqIndex.first);
 	}
 
-	Logger::get().debug() << "Filtering overlaps";
-	std::atomic<size_t> numIdent(0);
-	std::atomic<size_t> numContained(0);
 	std::function<void(const FastaRecord::Id& seqId)> filterParallel =
-	[&numIdent, &numContained, this] (const FastaRecord::Id& seqId)
+	[this] (const FastaRecord::Id& seqId)
 	{
 		auto& overlaps = _overlapIndex[seqId];
 		
-		std::unordered_set<OverlapRange*> contained;
-		for (auto& ovlp : overlaps)
+		std::vector<SetNode<OverlapRange*>*> overlapSets;
+		for (auto& ovlp : overlaps) 
 		{
-			for (auto& otherOvlp : overlaps)
+			overlapSets.push_back(new SetNode<OverlapRange*>(&ovlp));
+		}
+		for (size_t i = 0; i < overlapSets.size(); ++i)
+		{
+			for (size_t j = i + 1; j < overlapSets.size(); ++j)
 			{
-				if (ovlp.containedBy(otherOvlp))
+				OverlapRange& ovlpOne = *overlapSets[i]->data;
+				OverlapRange& ovlpTwo = *overlapSets[j]->data;
+
+				if (ovlpOne.extId != ovlpTwo.extId) continue;
+				float curRate = (float)ovlpOne.curIntersect(ovlpTwo) / 
+														ovlpOne.curRange();
+				float extRate = (float)ovlpOne.extIntersect(ovlpTwo) / 
+														ovlpOne.extRange();
+
+				if (std::min(curRate, extRate) > 0.9) 
 				{
-					contained.insert(&ovlp);
-					break;
+					unionSet(overlapSets[i], overlapSets[j]);
 				}
 			}
 		}
-
-		std::vector<OverlapRange> nonContained;
-		for (auto& ovlp : overlaps)
+		std::unordered_map<SetNode<OverlapRange*>*, 
+						   std::vector<OverlapRange>> clusters;
+		for (auto& ovlp: overlapSets) 
 		{
-			if (!contained.count(&ovlp)) nonContained.push_back(ovlp);
+			clusters[findSet(ovlp)].push_back(*ovlp->data);
 		}
-		numContained += overlaps.size() - nonContained.size();
-		overlaps = std::move(nonContained);
+		overlaps.clear();
+		for (auto& cluster : clusters)
+		{
+			OverlapRange* maxOvlp = nullptr;
+			for (auto& ovlp : cluster.second)
+			{
+				if (!maxOvlp || ovlp.score > maxOvlp->score)
+				{
+					maxOvlp = &ovlp;
+				}
+			}
+			overlaps.push_back(*maxOvlp);
+		}
+		for (auto& ovlpNode : overlapSets) delete ovlpNode;
 
 		std::sort(overlaps.begin(), overlaps.end(), 
 				  [](const OverlapRange& o1, const OverlapRange& o2)
@@ -424,9 +446,6 @@ void OverlapContainer::filterOverlaps()
 	};
 	processInParallel(seqIds, filterParallel, 
 					  Parameters::get().numThreads, false);
-
-	Logger::get().debug() << "Filtered " << numIdent << " identical and "
-		<< numContained << " contained overlaps";
 }
 
 

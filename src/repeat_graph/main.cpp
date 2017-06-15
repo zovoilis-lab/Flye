@@ -142,10 +142,10 @@ int main(int argc, char** argv)
 
 		resolver.resolveRepeats();
 		rg.outputDot(outFolder + "/graph_resolved.dot");
-		proc.condence();
+		//proc.condence();
 
 		proc.generateContigs();
-		//proc.dumpRepeats(readAlignments, outFolder + "/repeats_dump.txt");
+		proc.dumpRepeats(readAlignments, outFolder + "/repeats_dump.txt");
 		proc.outputContigsGraph(outFolder + "/graph_condensed.dot");
 		proc.outputContigsFasta(outFolder + "/graph_edges.fasta");
 
