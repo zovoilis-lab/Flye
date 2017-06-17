@@ -19,7 +19,7 @@ class Profile:
     def __init__(self):
         self.insertions = defaultdict(str)
         #self.deletions = 0
-        self.matches = {"A" : 0, "C": 0, "G" : 0, "T" : 0, "-" : 0}
+        self.matches = {"A" : 0, "C": 0, "G" : 0, "T" : 0, "N" : 0, "-" : 0}
         self.nucl = None
 
 
