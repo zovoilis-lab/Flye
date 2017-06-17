@@ -43,10 +43,12 @@ GraphAlignment
 			int32_t readDiff = nextOvlp.curBegin - prevOvlp.curEnd;
 			int32_t graphDiff = nextOvlp.extBegin +
 								prevOvlp.extLen - prevOvlp.extEnd;
+			int32_t maxDiscordance = std::max(_readJump / Constants::farJumpRate,
+											  _maxSeparation);
 
-			if (_readJump > readDiff && readDiff > 0 &&
-				_readJump > graphDiff && graphDiff > 0 &&
-				abs(readDiff - graphDiff) < _readJump / Constants::farJumpRate &&
+			if (_readJump > readDiff && readDiff > -_maxSeparation &&
+				_readJump > graphDiff && graphDiff > -_maxSeparation &&
+				abs(readDiff - graphDiff) < maxDiscordance &&
 				chain.aln.back()->edge->nodeRight == edgeAlignment.edge->nodeLeft)
 			{
 				//int32_t readSpan = nextOvlp.curEnd -
@@ -88,7 +90,7 @@ GraphAlignment
 	if (maxChain)
 	{
 		//check length consistency
-		int32_t readSpan = maxChain->aln.back()->overlap.curEnd - 
+		/*int32_t readSpan = maxChain->aln.back()->overlap.curEnd - 
 						   maxChain->aln.front()->overlap.curBegin;
 		int32_t graphSpan = maxChain->aln.front()->overlap.extRange();
 		for (size_t i = 1; i < maxChain->aln.size(); ++i)
@@ -102,7 +104,7 @@ GraphAlignment
 		if (lengthDiff > meanLength / Constants::overlapDivergenceRate)
 		{
 			return {};
-		}
+		}*/
 
 		for (auto& aln : maxChain->aln) result.push_back(*aln);
 	}
@@ -237,7 +239,7 @@ void RepeatResolver::resolveConnections(const std::vector<Connection>& connectio
 		Logger::get().debug() << "\tConnection " 
 			<< leftEdge->edgeId.signedId()
 			<< "\t" << rightEdge->edgeId.signedId()
-			<< "\t" << support << "\t" << confidence;
+			<< "\t" << support / 2 << "\t" << confidence;
 
 		if (support < Constants::minRepeatResSupport) continue;
 
@@ -469,6 +471,7 @@ void RepeatResolver::clearResolvedRepeats()
 void RepeatResolver::alignReads()
 {
 	const int MAX_KMER_COUNT = 1000;
+	//std::ofstream alnDump("../alignment_dump.txt");
 
 	//create database
 	std::unordered_map<FastaRecord::Id, 
@@ -518,7 +521,20 @@ void RepeatResolver::alignReads()
 
 		_readAlignments.push_back(this->chainReadAlignments(pathsContainer, 
 															alignments));
-		if (!_readAlignments.back().empty()) ++numAligned;
+		/*if (!_readAlignments.back().empty())
+		{
+			++numAligned;
+			alnDump << _readSeqs.seqName(readId.first)
+				<< "\t" << _readSeqs.seqLen(readId.first) << std::endl;
+			for (auto& aln : _readAlignments.back())
+			{
+				alnDump << "\t" << aln.edge->edgeId.signedId()
+					<< "\t" << aln.overlap.extBegin << "\t" << aln.overlap.extEnd
+					<< "\t" << aln.overlap.extRange() << "\t|\t"
+					<< aln.overlap.curBegin << "\t" << aln.overlap.curEnd
+					<< "\t" << aln.overlap.curRange() << std::endl;
+			}
+		}*/
 	}
 
 	Logger::get().debug() << "Aligned " << numAligned << " / " 
