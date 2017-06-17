@@ -44,6 +44,17 @@ namespace
 		FastaRecord::Id seqId;
 		int32_t pos;
 	};
+	
+	template<typename T>
+	T median(std::vector<T>& vec)
+	{
+		std::sort(vec.begin(), vec.end());
+		//NOTE: there's a bug in libstdc++ nth_element, 
+		//that sometimes leads to a segfault
+		//std::nth_element(vec.begin(), vec.begin() + vec.size() / 2, 
+		//				 vec.end());
+		return vec[vec.size() / 2];
+	}
 }
 
 bool GraphEdge::isTip() const
@@ -130,12 +141,12 @@ void RepeatGraph::getGluepoints(const OverlapContainer& asmOverlaps)
 		FastaRecord::Id clustSeq = clustEndpoints.second.front()->data.curId;
 		if (!clustSeq.strand()) continue;	//only for forward strands
 
-		int64_t sum = 0;
-		for (auto& ep : clustEndpoints.second)
+		std::vector<int32_t> positions;
+		for (auto& ep : clustEndpoints.second) 
 		{
-			sum += ep->data.curPos;
+			positions.push_back(ep->data.curPos);
 		}
-		int32_t clusterXpos = sum / clustEndpoints.second.size();
+		int32_t clusterXpos = median(positions);
 
 		std::vector<Point1d> clusterPoints;
 		clusterPoints.emplace_back(clustSeq, clusterXpos);
@@ -192,12 +203,14 @@ void RepeatGraph::getGluepoints(const OverlapContainer& asmOverlaps)
 		//now, get coordinates for each cluster
 		for (auto& extClust : extClusters)
 		{
-			int64_t sum = 0;
-			for (auto& ep : extClust.second)
+			std::vector<int32_t> positions;
+			for (auto& ep : extClust.second) 
 			{
-				sum += ep->data.extPos;
+				positions.push_back(ep->data.extPos);
 			}
-			int32_t clusterYpos = sum / extClust.second.size();
+			int32_t clusterYpos = median(positions);
+
+
 			FastaRecord::Id extSeq = extClust.second.front()->data.extId;
 			clusterPoints.emplace_back(extSeq, clusterYpos);
 		}

@@ -521,10 +521,10 @@ void RepeatResolver::alignReads()
 
 		_readAlignments.push_back(this->chainReadAlignments(pathsContainer, 
 															alignments));
-		/*if (!_readAlignments.back().empty())
+		if (!_readAlignments.back().empty())
 		{
 			++numAligned;
-			alnDump << _readSeqs.seqName(readId.first)
+			/*alnDump << _readSeqs.seqName(readId.first)
 				<< "\t" << _readSeqs.seqLen(readId.first) << std::endl;
 			for (auto& aln : _readAlignments.back())
 			{
@@ -533,8 +533,8 @@ void RepeatResolver::alignReads()
 					<< "\t" << aln.overlap.extRange() << "\t|\t"
 					<< aln.overlap.curBegin << "\t" << aln.overlap.curEnd
 					<< "\t" << aln.overlap.curRange() << std::endl;
-			}
-		}*/
+			}*/
+		}
 	}
 
 	Logger::get().debug() << "Aligned " << numAligned << " / " 
