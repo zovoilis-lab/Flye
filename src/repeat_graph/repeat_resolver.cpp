@@ -51,8 +51,6 @@ GraphAlignment
 				abs(readDiff - graphDiff) < maxDiscordance &&
 				chain.aln.back()->edge->nodeRight == edgeAlignment.edge->nodeLeft)
 			{
-				//int32_t readSpan = nextOvlp.curEnd -
-				//				   chain.front()->overlap.curBegin;
 				int32_t score = chain.score + nextOvlp.score;
 				if (score > maxScore)
 				{
@@ -154,6 +152,7 @@ void RepeatResolver::resolveConnections(const std::vector<Connection>& connectio
 	{
 		++stats[conn.path.front()][conn.path.back()];
 	}
+	
 	for (auto& leftEdge : stats)
 	{
 		Logger::get().debug() << "For " << leftEdge.first->edgeId.signedId() << " "
@@ -265,13 +264,103 @@ void RepeatResolver::resolveConnections(const std::vector<Connection>& connectio
 		_graph._nextEdgeId += 2;
 	}
 
-	Logger::get().debug() << "Edges: " << totalLinks << " links: "
-						  << connections.size();
+	Logger::get().debug() << "Resolved: " << totalLinks / 2 << " links: "
+						  << connections.size() / 2;
+}
+
+
+void RepeatResolver::findRepeats()
+{
+	std::unordered_map<GraphEdge*, 
+					   std::unordered_map<GraphEdge*, int>> outConnections;
+	for (auto& readPath : _readAlignments)
+	{
+		if (readPath.size() < 2) continue;
+
+		for (size_t i = 0; i < readPath.size() - 1; ++i)
+		{
+			if (readPath[i].edge == readPath[i + 1].edge &&
+				readPath[i].edge->isLooped()) continue;
+
+			int32_t minAln = std::min(_readJump, 
+									  readPath[i].edge->length() - _maxSeparation);
+			if (readPath[i].overlap.extRange() > minAln)
+			{
+				++outConnections[readPath[i].edge][readPath[i + 1].edge];
+			}
+		}
+		/*std::string pathStr;
+		for (auto& aln : readPath)
+		{
+			pathStr += std::to_string(aln.edge->edgeId.signedId()) + " ";
+		}
+		Logger::get().debug() << "Path: " << pathStr;*/
+	}
+	
+	for (auto& edgeList : outConnections)
+	{
+		Logger::get().debug() << "Outputs: " << edgeList.first->edgeId.signedId()
+			<< " " << edgeList.first->multiplicity;
+		for (auto& outEdgeCount : edgeList.second)
+		{
+			Logger::get().debug() << "\t" << outEdgeCount.first->edgeId.signedId()
+				<< " " << outEdgeCount.second << " " << outEdgeCount.first->isLooped();
+		}
+		Logger::get().debug() << "";
+	}
+
+	const int RATIO_THLD = 10;
+	for (auto& edge : outConnections)
+	{
+		if (!edge.first->edgeId.strand()) continue;
+
+		int rightCoverage = 0;
+		int rightMult = 0;
+		for (auto& outConn : edge.second)
+		{
+			rightCoverage = std::max(rightCoverage, outConn.second);
+		}
+		for (auto& outConn : edge.second) 
+		{
+			if (outConn.second > rightCoverage / RATIO_THLD) ++rightMult;
+		}
+
+		auto complEdge = _graph.complementPath({edge.first}).front();
+		int leftCoverage = 0;
+		int leftMult = 0;
+		if (outConnections.count(complEdge))
+		{
+			for (auto& outConn : outConnections.at(complEdge))
+			{
+				leftCoverage = std::max(leftCoverage, outConn.second);
+			}
+			for (auto& outConn : outConnections.at(complEdge)) 
+			{
+				if (outConn.second > leftCoverage / RATIO_THLD) ++leftMult;
+			}
+		}
+
+		int mult = std::max(leftMult, rightMult);
+		if (mult > 1) 
+		{
+			edge.first->repetitive = true;
+			complEdge->repetitive = true;
+		}
+		bool multRepeat = edge.first->multiplicity != 1;
+		bool readRepeat = mult != 1;
+		std::string match = multRepeat != readRepeat ? "*" : " ";
+
+		Logger::get().debug() << match << " " << edge.first->edgeId.signedId()
+			<< " " << edge.first->multiplicity << " -> " << mult << " ("
+			<< leftMult << "," << rightMult << ") " << edge.first->meanCoverage;
+	}
 }
 
 
 void RepeatResolver::resolveRepeats()
 {
+	//this->findRepeats();
+
 	int PATHS_TO_SKIP = 5;
 	std::unordered_map<GraphEdge*, int> coveredEdges;
 	for (auto& readPath : _readAlignments)
@@ -279,8 +368,7 @@ void RepeatResolver::resolveRepeats()
 		std::vector<GraphEdge*> safeEdges;
 		for (auto& aln : readPath)
 		{
-			if (!aln.edge->isRepetitive() &&
-				aln.edge->length() > Constants::maximumJump) 
+			if (!aln.edge->isRepetitive() && aln.edge->length() > _readJump) 
 			{
 				safeEdges.push_back(aln.edge);
 			}
@@ -308,8 +396,8 @@ void RepeatResolver::resolveRepeats()
 	this->resolveConnections(connections);
 
 	//one more time
-	connections = this->getConnections(skipEdges);
-	this->resolveConnections(connections);
+	//connections = this->getConnections(skipEdges);
+	//this->resolveConnections(connections);
 
 	this->clearResolvedRepeats();
 }
@@ -317,10 +405,11 @@ void RepeatResolver::resolveRepeats()
 std::vector<RepeatResolver::Connection> 
 	RepeatResolver::getConnections(const std::unordered_set<GraphEdge*> skipEdges)
 {
-	auto safeEdge = [&skipEdges](GraphEdge* edge)
+	
+	auto safeEdge = [&skipEdges, this](GraphEdge* edge)
 	{
 		return !edge->isRepetitive() && 
-			   edge->length() > Constants::maximumJump &&
+			   edge->length() > _readJump &&
 			   !skipEdges.count(edge);
 	};
 

@@ -525,7 +525,12 @@ void GraphProcessor::outputContigsGraph(const std::string& filename)
 			lengthStr << contigLength / 1000 << "k";
 		}
 
-		if (contig.path.front()->isRepetitive())
+		bool repetitive = true;
+		for (auto& edge : contig.path)
+		{
+			if (!edge->isRepetitive()) repetitive = false;
+		}
+		if (repetitive)
 		{
 			std::string color = idToColor(contig.id);
 

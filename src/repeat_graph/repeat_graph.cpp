@@ -572,6 +572,7 @@ void RepeatGraph::outputDot(const std::string& filename)
 		{
 			length << edge->length() / 1000 << "k";
 		}
+		length << " " << edge->meanCoverage << "x";
 
 		if (edge->isRepetitive())
 		{

@@ -15,6 +15,20 @@ void MultiplicityInferer::
 	this->balanceGraph();
 }
 
+namespace
+{
+	template<typename T>
+	T median(std::vector<T>& vec)
+	{
+		std::sort(vec.begin(), vec.end());
+		//NOTE: there's a bug in libstdc++ nth_element, 
+		//that sometimes leads to a segfault
+		//std::nth_element(vec.begin(), vec.begin() + vec.size() / 2, 
+		//				 vec.end());
+		return vec[vec.size() / 2];
+	}
+}
+
 
 void MultiplicityInferer::
 	estimateByCoverage(const std::vector<GraphAlignment>& readAln)
@@ -34,6 +48,33 @@ void MultiplicityInferer::
 			{
 				edgesCoverage[path[i].edge] += path[i].overlap.extRange();
 				//++numReads[path[i].edge];
+			}
+		}
+	}
+
+	//alternative coverage
+	std::unordered_map<GraphEdge*, std::vector<int>> altCoverage;
+	const int WINDOW = 100;
+	for (auto& edge : _graph.iterEdges())
+	{
+		int numWindows = edge->length() / WINDOW;
+		altCoverage[edge].assign(numWindows, 0);
+	}
+
+	for (auto& path : readAln)
+	{
+		for (size_t i = 0; i < path.size(); ++i)
+		{
+			auto& ovlp = path[i].overlap;
+			auto& coverage = altCoverage[path[i].edge];
+			for (int pos = ovlp.extBegin / WINDOW + 1; 
+			 	 pos < ovlp.extEnd / WINDOW; ++pos)
+			{
+				if (pos >= 0 && 
+					pos < (int)coverage.size())
+				{
+					++coverage[pos];
+				}
 			}
 		}
 	}
@@ -61,11 +102,21 @@ void MultiplicityInferer::
 		int estMult = std::max(minMult, roundf(normCov / meanCoverage));
 
 		std::string match = estMult != edge->multiplicity ? "*" : " ";
+		std::string covStr;
+		/*for (int cov : altCoverage[edge])
+		{
+			covStr += std::to_string(cov) + " ";
+		}*/
+		int medianCov = median(altCoverage[edge]);
 		Logger::get().debug() << match << "\t" << edge->edgeId.signedId() << "\t"
+				<< edge->length() << "\t"
 				<< edge->multiplicity << "\t" << estMult << "\t" << normCov << "\t"
+				<< medianCov << "\t"
 				<< (float)normCov / meanCoverage;
+		//Logger::get().debug() << covStr;
 
 		edge->multiplicity = estMult;
+		edge->meanCoverage = medianCov;
 	}
 }
 

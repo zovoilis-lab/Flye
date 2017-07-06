@@ -138,6 +138,7 @@ int main(int argc, char** argv)
 		
 		MultiplicityInferer multInf(rg);
 		multInf.fixEdgesMultiplicity(readAlignments);
+		resolver.findRepeats();
 		rg.outputDot(outFolder + "/graph_simplified.dot");
 
 		resolver.resolveRepeats();
