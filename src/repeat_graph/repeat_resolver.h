@@ -22,7 +22,7 @@ public:
 		_graph(graph), _asmSeqs(asmSeqs), _readSeqs(readSeqs) {}
 
 	void alignReads();
-	void findRepeats();
+	void findRepeats(int uniqueCovThreshold);
 	void resolveRepeats();
 
 	const std::vector<GraphAlignment>& getReadsAlignment() const

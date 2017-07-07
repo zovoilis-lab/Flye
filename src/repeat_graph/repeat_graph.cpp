@@ -474,7 +474,8 @@ void RepeatGraph::logEdges()
 			SequenceSegment* segment = seqEdgesPair.second[i].first;
 			GraphEdge* edge = seqEdgesPair.second[i].second;
 
-			std::string unique = !edge->isRepetitive() ? "*" : " ";
+			//std::string unique = !edge->isRepetitive() ? "*" : " ";
+			std::string unique = edge->seqSegments.size() == 1 ? "*" : " ";
 			Logger::get().debug() << unique << "\t" 
 								  << edge->edgeId.signedId() << "\t" 
 								  << _asmSeqs.seqName(segment->seqId) << "\t"

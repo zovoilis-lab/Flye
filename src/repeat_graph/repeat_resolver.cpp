@@ -269,7 +269,7 @@ void RepeatResolver::resolveConnections(const std::vector<Connection>& connectio
 }
 
 
-void RepeatResolver::findRepeats()
+void RepeatResolver::findRepeats(int uniqueCovThreshold)
 {
 	std::unordered_map<GraphEdge*, 
 					   std::unordered_map<GraphEdge*, int>> outConnections;
@@ -341,14 +341,15 @@ void RepeatResolver::findRepeats()
 		}
 
 		int mult = std::max(leftMult, rightMult);
-		if (mult > 1) 
+		if (mult > 1 || edge.first->meanCoverage > uniqueCovThreshold * 2) 
 		{
 			edge.first->repetitive = true;
 			complEdge->repetitive = true;
 		}
-		bool multRepeat = edge.first->multiplicity != 1;
-		bool readRepeat = mult != 1;
-		std::string match = multRepeat != readRepeat ? "*" : " ";
+
+		////////
+		std::string match = (edge.first->multiplicity != 1) != (mult != 1) 
+																? "*" : " ";
 
 		Logger::get().debug() << match << " " << edge.first->edgeId.signedId()
 			<< " " << edge.first->multiplicity << " -> " << mult << " ("

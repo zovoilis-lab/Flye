@@ -27,38 +27,33 @@ namespace
 		//				 vec.end());
 		return vec[vec.size() / 2];
 	}
+
+	template<typename T>
+	T q75(std::vector<T>& vec)
+	{
+		std::sort(vec.begin(), vec.end());
+		//NOTE: there's a bug in libstdc++ nth_element, 
+		//that sometimes leads to a segfault
+		//std::nth_element(vec.begin(), vec.begin() + vec.size() / 2, 
+		//				 vec.end());
+		return vec[vec.size() * 3 / 4];
+	}
 }
 
 
 void MultiplicityInferer::
 	estimateByCoverage(const std::vector<GraphAlignment>& readAln)
 {
-	std::unordered_map<GraphEdge*, int64_t> edgesCoverage;
-	//std::unordered_map<GraphEdge*, int64_t> numReads;
-	for (auto& path : readAln)
-	{
-		for (size_t i = 0; i < path.size(); ++i)
-		{
-			if (0 < i && i < path.size() - 1)
-			{
-				edgesCoverage[path[i].edge] += path[i].edge->length();
-				//++numReads[path[i].edge];
-			}
-			else
-			{
-				edgesCoverage[path[i].edge] += path[i].overlap.extRange();
-				//++numReads[path[i].edge];
-			}
-		}
-	}
+	const int WINDOW = 100;
+	const int SHORT_EDGE = 10000;
 
 	//alternative coverage
-	std::unordered_map<GraphEdge*, std::vector<int>> altCoverage;
-	const int WINDOW = 100;
+	std::unordered_map<GraphEdge*, std::vector<int>> wndCoverage;
+
 	for (auto& edge : _graph.iterEdges())
 	{
 		int numWindows = edge->length() / WINDOW;
-		altCoverage[edge].assign(numWindows, 0);
+		wndCoverage[edge].assign(numWindows, 0);
 	}
 
 	for (auto& path : readAln)
@@ -66,7 +61,7 @@ void MultiplicityInferer::
 		for (size_t i = 0; i < path.size(); ++i)
 		{
 			auto& ovlp = path[i].overlap;
-			auto& coverage = altCoverage[path[i].edge];
+			auto& coverage = wndCoverage[path[i].edge];
 			for (int pos = ovlp.extBegin / WINDOW + 1; 
 			 	 pos < ovlp.extEnd / WINDOW; ++pos)
 			{
@@ -81,25 +76,33 @@ void MultiplicityInferer::
 
 	int64_t sumCov = 0;
 	int64_t sumLength = 0;
-	for (auto edgeCov : edgesCoverage)
+	for (auto& edgeCoverage : wndCoverage)
 	{
-		sumCov += edgeCov.second;
-		sumLength += edgeCov.first->length();
+		if (edgeCoverage.first->length() < SHORT_EDGE) continue;
+		for (auto& cov : edgeCoverage.second)
+		{
+			sumCov += cov;
+			++sumLength;
+		}
 	}
 	int meanCoverage = (sumLength != 0) ? sumCov / sumLength : 1;
+
 	Logger::get().debug() << "Mean edge coverage: " << meanCoverage;
 
+	std::vector<int> edgesCoverage;
 	for (auto edge : _graph.iterEdges())
 	{
-		//if (edge->isLooped() &&
-		//	edge->length() < Constants::maximumJump) continue;
-		
 		GraphEdge* complEdge = _graph.complementPath({edge}).front();
-		float normCov = (edgesCoverage[edge] + edgesCoverage[complEdge]) / 
-									(2 * edge->length() + 1);
+		int medianCov = (median(wndCoverage[edge]) + 
+						 median(wndCoverage[complEdge])) / 2;
 
 		float minMult = (!edge->isTip()) ? 1 : 0;
-		int estMult = std::max(minMult, roundf(normCov / meanCoverage));
+		int estMult = std::max(minMult, 
+							   roundf((float)medianCov / meanCoverage));
+		if (estMult == 1)
+		{
+			edgesCoverage.push_back(medianCov);
+		}
 
 		std::string match = estMult != edge->multiplicity ? "*" : " ";
 		std::string covStr;
@@ -107,17 +110,19 @@ void MultiplicityInferer::
 		{
 			covStr += std::to_string(cov) + " ";
 		}*/
-		int medianCov = median(altCoverage[edge]);
 		Logger::get().debug() << match << "\t" << edge->edgeId.signedId() << "\t"
 				<< edge->length() << "\t"
-				<< edge->multiplicity << "\t" << estMult << "\t" << normCov << "\t"
+				<< edge->multiplicity << "\t" << estMult << "\t"
 				<< medianCov << "\t"
-				<< (float)normCov / meanCoverage;
+				<< (float)medianCov / meanCoverage;
 		//Logger::get().debug() << covStr;
 
 		edge->multiplicity = estMult;
 		edge->meanCoverage = medianCov;
 	}
+
+	_uniqueCovThreshold = q75(edgesCoverage);
+	Logger::get().debug() << "Unique coverage threshold " << _uniqueCovThreshold;
 }
 
 void MultiplicityInferer::balanceGraph()
