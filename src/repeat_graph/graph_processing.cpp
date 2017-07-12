@@ -78,6 +78,7 @@ void GraphProcessor::unrollLoops()
 	};
 
 	int unrollLoops = 0;
+
 	std::unordered_set<GraphEdge*> toRemove;
 	for (GraphEdge* edge : _graph.iterEdges())
 	{
@@ -89,13 +90,15 @@ void GraphProcessor::unrollLoops()
 			if (unrollEdge(*edge))
 			{
 				++unrollLoops;
-				toRemove.insert(edge);
+				//Logger::get().debug() << "Unroll " << edge->edgeId.signedId();
 			}
+			toRemove.insert(edge);
 		}
 	}
 	for (auto& edge : toRemove)	_graph.removeEdge(edge);
 
-	Logger::get().debug() << "Unrolled " << unrollLoops << " loops";
+	Logger::get().debug() << "Unrolled " << unrollLoops 
+		<< ", removed " << toRemove.size();
 }
 
 void GraphProcessor::trimTips()

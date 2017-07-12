@@ -33,7 +33,7 @@ namespace Constants
 	const float startReadsPercent = 0.1;
 
 	//repeat graph
-	const int maxSeparation = 500;
+	const int maxSeparation = 1500;
 	const int trustedEdgeLength = 10000;
 	const float minRepeatResSupport = 0.25f;
 }

@@ -92,6 +92,8 @@ void MultiplicityInferer::
 	std::vector<int> edgesCoverage;
 	for (auto edge : _graph.iterEdges())
 	{
+		if (wndCoverage[edge].empty()) continue;
+
 		GraphEdge* complEdge = _graph.complementPath({edge}).front();
 		int medianCov = (median(wndCoverage[edge]) + 
 						 median(wndCoverage[complEdge])) / 2;

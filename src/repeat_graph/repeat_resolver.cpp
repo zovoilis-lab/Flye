@@ -46,8 +46,8 @@ GraphAlignment
 			int32_t maxDiscordance = std::max(_readJump / Constants::farJumpRate,
 											  _maxSeparation);
 
-			if (_readJump > readDiff && readDiff > -_maxSeparation &&
-				_readJump > graphDiff && graphDiff > -_maxSeparation &&
+			if (_readJump > readDiff && readDiff > -500 &&
+				_readJump > graphDiff && graphDiff > -500 &&
 				abs(readDiff - graphDiff) < maxDiscordance &&
 				chain.aln.back()->edge->nodeRight == edgeAlignment.edge->nodeLeft)
 			{
@@ -273,28 +273,56 @@ void RepeatResolver::findRepeats(int uniqueCovThreshold)
 {
 	std::unordered_map<GraphEdge*, 
 					   std::unordered_map<GraphEdge*, int>> outConnections;
+
+	//first, by coverage
+	for (auto& edge : _graph.iterEdges())
+	{
+		auto complEdge = _graph.complementPath({edge}).front();
+				if (edge->meanCoverage > uniqueCovThreshold * 2) 
+		{
+			edge->repetitive = true;
+			complEdge->repetitive = true;
+		}
+	}
+
 	for (auto& readPath : _readAlignments)
 	{
 		if (readPath.size() < 2) continue;
+
+		if (readPath.front().overlap.curBegin > 
+			Constants::maximumOverhang) continue;
+		if (readPath.back().overlap.curLen - readPath.back().overlap.curEnd > 
+			Constants::maximumOverhang) continue;
 
 		for (size_t i = 0; i < readPath.size() - 1; ++i)
 		{
 			if (readPath[i].edge == readPath[i + 1].edge &&
 				readPath[i].edge->isLooped()) continue;
 
-			int32_t minAln = std::min(_readJump, 
-									  readPath[i].edge->length() - _maxSeparation);
-			if (readPath[i].overlap.extRange() > minAln)
+
+			//int32_t minLeft = std::min(_readJump, readPath[i].edge->length() - 
+			//									  _maxSeparation);
+			//int32_t minRight = std::min(_readJump, readPath[i + 1].edge->length() - 
+			//									   _maxSeparation)
+			bool goodLeft = readPath[i].overlap.extRange() > 3000 ||
+							(0 < i && i < readPath.size());
+			bool goodRight = readPath[i + 1].overlap.extRange() > 3000 ||
+							(0 < i + 1 && i + 1 < readPath.size());
+			if (goodLeft && goodRight)
 			{
 				++outConnections[readPath[i].edge][readPath[i + 1].edge];
 			}
 		}
-		/*std::string pathStr;
+		std::stringstream pathStr;
 		for (auto& aln : readPath)
 		{
-			pathStr += std::to_string(aln.edge->edgeId.signedId()) + " ";
+			pathStr << "(" << aln.edge->edgeId.signedId() << " " <<
+				aln.overlap.extLen << " " << aln.overlap.extBegin 
+				<< " " << aln.overlap.extEnd << " " << aln.overlap.curBegin
+				<< " " << aln.overlap.curEnd << ") -> ";
 		}
-		Logger::get().debug() << "Path: " << pathStr;*/
+		Logger::get().debug() << _readSeqs.seqName(readPath.front().overlap.curId);
+		Logger::get().debug() << "Path: " << pathStr.str();
 	}
 	
 	for (auto& edgeList : outConnections)
@@ -341,27 +369,26 @@ void RepeatResolver::findRepeats(int uniqueCovThreshold)
 		}
 
 		int mult = std::max(leftMult, rightMult);
-		if (mult > 1 || edge.first->meanCoverage > uniqueCovThreshold * 2) 
+		if (mult > 1) 
 		{
 			edge.first->repetitive = true;
 			complEdge->repetitive = true;
 		}
 
 		////////
-		std::string match = (edge.first->multiplicity != 1) != (mult != 1) 
-																? "*" : " ";
+		std::string match = (edge.first->multiplicity != 1) != 
+							(edge.first->repetitive) ? "*" : " ";
 
 		Logger::get().debug() << match << " " << edge.first->edgeId.signedId()
 			<< " " << edge.first->multiplicity << " -> " << mult << " ("
-			<< leftMult << "," << rightMult << ") " << edge.first->meanCoverage;
+			<< leftMult << "," << rightMult << ") " << edge.first->length() << "\t"
+			<< edge.first->meanCoverage;
 	}
 }
 
 
 void RepeatResolver::resolveRepeats()
 {
-	//this->findRepeats();
-
 	int PATHS_TO_SKIP = 5;
 	std::unordered_map<GraphEdge*, int> coveredEdges;
 	for (auto& readPath : _readAlignments)
@@ -387,7 +414,7 @@ void RepeatResolver::resolveRepeats()
 	{
 		if (edge.second >= PATHS_TO_SKIP)
 		{
-			skipEdges.insert(edge.first);
+			//skipEdges.insert(edge.first);
 			Logger::get().debug() << "Skip: " << edge.first->edgeId.signedId() 
 				<< " " << edge.second;
 		}
@@ -586,7 +613,7 @@ void RepeatResolver::alignReads()
 	pathsIndex.countKmers(1);
 	pathsIndex.buildIndex(1, MAX_KMER_COUNT, 1);
 	//OverlapDetector readsOverlapper(pathsContainer, pathsIndex, _readJump,
-	//								_maxSeparation - _readOverhang, 0);
+	//								_maxSeparation - 2 * _readOverhang, 0);
 	OverlapDetector readsOverlapper(pathsContainer, pathsIndex, _readJump,
 									_maxSeparation, 0);
 	OverlapContainer readsOverlaps(readsOverlapper, _readSeqs, false);
