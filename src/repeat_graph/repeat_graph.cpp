@@ -583,8 +583,7 @@ void RepeatGraph::outputDot(const std::string& filename)
 			fout << "\"" << nodeToId(edge->nodeLeft) 
 				 << "\" -> \"" << nodeToId(edge->nodeRight)
 				 << "\" [label = \"id " << edgeId.signedId() 
-				 << "\\l" << length.str() << " ("
-				 << edge->multiplicity << ")" << "\", color = \"" 
+				 << "\\l" << length.str() << "\", color = \"" 
 				 << color << "\" " << " penwidth = 3] ;\n";
 		}
 		else

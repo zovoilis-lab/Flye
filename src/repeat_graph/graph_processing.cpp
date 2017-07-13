@@ -20,7 +20,7 @@ void GraphProcessor::condence()
 
 void GraphProcessor::unrollLoops()
 {
-	auto unrollEdge = [](GraphEdge& loopEdge)
+	auto unrollEdge = [this](GraphEdge& loopEdge)
 	{
 		GraphEdge* prevEdge = nullptr;
 		for (auto& inEdge : loopEdge.nodeLeft->inEdges)
@@ -34,6 +34,26 @@ void GraphProcessor::unrollLoops()
 		}
 
 		auto growingSeqs = prevEdge->seqSegments;
+		/*
+		Logger::get().debug() << "Prev seqs " << prevEdge->edgeId.signedId();
+		for (auto& seq : growingSeqs)
+		{
+			Logger::get().debug() << "\t" << _asmSeqs.seqName(seq.seqId) 
+				<< " " << seq.start << " " << seq.end;
+		}
+		Logger::get().debug() << "Loop seqs " << loopEdge.edgeId.signedId();
+		for (auto& seq : loopEdge.seqSegments)
+		{
+			Logger::get().debug() << "\t" << _asmSeqs.seqName(seq.seqId)
+				<< " " << seq.start << " " << seq.end;
+		}
+		Logger::get().debug() << "Next seqs " << nextEdge->edgeId.signedId();
+		for (auto& seq : nextEdge->seqSegments)
+		{
+			Logger::get().debug() << "\t" << _asmSeqs.seqName(seq.seqId) 
+				<< " " << seq.start << " " << seq.end;
+		}*/
+
 		std::vector<SequenceSegment> updatedSeqs;
 		for (auto& seq : growingSeqs)
 		{
@@ -68,10 +88,12 @@ void GraphProcessor::unrollLoops()
 				if (!updated) break;
 			}
 		}
-		if (!updatedSeqs.empty())
+		if (updatedSeqs.size() == prevEdge->seqSegments.size())
 		{
 			prevEdge->seqSegments = updatedSeqs;
+			//Logger::get().debug() << "Unroll " << loopEdge.edgeId.signedId();
 			return true;
+
 		}
 		//Logger::get().debug() << "Can't unroll " << loopEdge.edgeId.signedId();
 		return false;
@@ -305,7 +327,18 @@ void GraphProcessor::generateContigs()
 		bool circular = (traversed.front()->nodeLeft == 
 						traversed.back()->nodeRight) &&
 						traversed.front()->nodeLeft->outEdges.size() == 1;
-		_contigs.emplace_back(traversed, edgeId, circular);
+
+		int contigLength = 0;
+		int64_t sumCov = 0;
+		for (auto& edge : traversed) 
+		{
+			contigLength += edge->length();
+			sumCov += edge->meanCoverage * edge->length();
+		}
+		int meanCoverage = contigLength ? sumCov / contigLength : 0;
+
+		_contigs.emplace_back(traversed, edgeId, circular, 
+							  contigLength, meanCoverage);
 	}
 	Logger::get().info() << "Generated " << _contigs.size() / 2 << " contigs";
 }
@@ -513,20 +546,20 @@ void GraphProcessor::outputContigsGraph(const std::string& filename)
 
 	for (auto& contig : _contigs)
 	{
-		int32_t contigLength = 0;
-		for (auto& edge : contig.path) contigLength += edge->length();
-
+		//int32_t contigLength = 0;
+		//for (auto& edge : contig.path) contigLength += edge->length();
 
 		std::stringstream lengthStr;
-		if (contigLength < 5000)
+		if (contig.length < 5000)
 		{
 			lengthStr << std::fixed << std::setprecision(1) 
-				<< (float)contigLength / 1000 << "k";
+				<< (float)contig.length / 1000 << "k";
 		}
 		else
 		{
-			lengthStr << contigLength / 1000 << "k";
+			lengthStr << contig.length / 1000 << "k";
 		}
+		lengthStr << " " << contig.meanCoverage << "x";
 
 		bool repetitive = true;
 		for (auto& edge : contig.path)
@@ -540,8 +573,7 @@ void GraphProcessor::outputContigsGraph(const std::string& filename)
 			fout << "\"" << nodeToId(contig.path.front()->nodeLeft) 
 				 << "\" -> \"" << nodeToId(contig.path.back()->nodeRight)
 				 << "\" [label = \"id " << contig.id.signedId() << 
-				 "\\l" << lengthStr.str() << " (" 
-				 << contig.path.front()->multiplicity << ")\", color = \"" 
+				 "\\l" << lengthStr.str() << "\", color = \"" 
 				 << color << "\" " << " penwidth = 3] ;\n";
 		}
 		else

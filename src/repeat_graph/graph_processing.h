@@ -10,11 +10,14 @@
 struct Contig
 {
 	Contig(const GraphPath& path, FastaRecord::Id id = FastaRecord::ID_NONE,
-		   bool circular = false):
-		   	path(path), id(id), circular(circular) {}
+		   bool circular = false, int length = 0, int meanCoverage = 0):
+		   	path(path), id(id), circular(circular), length(length),
+			meanCoverage(meanCoverage) {}
 	GraphPath path;
 	FastaRecord::Id id;
 	bool circular;
+	int length;
+	int meanCoverage;
 };
 
 class GraphProcessor

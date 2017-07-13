@@ -299,21 +299,18 @@ void RepeatResolver::findRepeats(int uniqueCovThreshold)
 			if (readPath[i].edge == readPath[i + 1].edge &&
 				readPath[i].edge->isLooped()) continue;
 
-
-			//int32_t minLeft = std::min(_readJump, readPath[i].edge->length() - 
-			//									  _maxSeparation);
-			//int32_t minRight = std::min(_readJump, readPath[i + 1].edge->length() - 
-			//									   _maxSeparation)
-			bool goodLeft = readPath[i].overlap.extRange() > 3000 ||
+			bool goodLeft = readPath[i].overlap.extRange() > 
+								_readJump ||
 							(0 < i && i < readPath.size());
-			bool goodRight = readPath[i + 1].overlap.extRange() > 3000 ||
+			bool goodRight = readPath[i + 1].overlap.extRange() > 
+								_readJump ||
 							(0 < i + 1 && i + 1 < readPath.size());
 			if (goodLeft && goodRight)
 			{
 				++outConnections[readPath[i].edge][readPath[i + 1].edge];
 			}
 		}
-		std::stringstream pathStr;
+		/*std::stringstream pathStr;
 		for (auto& aln : readPath)
 		{
 			pathStr << "(" << aln.edge->edgeId.signedId() << " " <<
@@ -322,10 +319,10 @@ void RepeatResolver::findRepeats(int uniqueCovThreshold)
 				<< " " << aln.overlap.curEnd << ") -> ";
 		}
 		Logger::get().debug() << _readSeqs.seqName(readPath.front().overlap.curId);
-		Logger::get().debug() << "Path: " << pathStr.str();
+		Logger::get().debug() << "Path: " << pathStr.str();*/
 	}
 	
-	for (auto& edgeList : outConnections)
+	/*for (auto& edgeList : outConnections)
 	{
 		Logger::get().debug() << "Outputs: " << edgeList.first->edgeId.signedId()
 			<< " " << edgeList.first->multiplicity;
@@ -335,7 +332,7 @@ void RepeatResolver::findRepeats(int uniqueCovThreshold)
 				<< " " << outEdgeCount.second << " " << outEdgeCount.first->isLooped();
 		}
 		Logger::get().debug() << "";
-	}
+	}*/
 
 	const int RATIO_THLD = 10;
 	for (auto& edge : outConnections)
@@ -389,6 +386,8 @@ void RepeatResolver::findRepeats(int uniqueCovThreshold)
 
 void RepeatResolver::resolveRepeats()
 {
+	std::unordered_set<GraphEdge*> skipEdges;
+	/*
 	int PATHS_TO_SKIP = 5;
 	std::unordered_map<GraphEdge*, int> coveredEdges;
 	for (auto& readPath : _readAlignments)
@@ -409,16 +408,15 @@ void RepeatResolver::resolveRepeats()
 			}
 		}
 	}
-	std::unordered_set<GraphEdge*> skipEdges;
 	for (auto& edge : coveredEdges)
 	{
 		if (edge.second >= PATHS_TO_SKIP)
 		{
-			//skipEdges.insert(edge.first);
+			skipEdges.insert(edge.first);
 			Logger::get().debug() << "Skip: " << edge.first->edgeId.signedId() 
 				<< " " << edge.second;
 		}
-	}
+	}*/
 
 	auto connections = this->getConnections(skipEdges);
 	this->resolveConnections(connections);
