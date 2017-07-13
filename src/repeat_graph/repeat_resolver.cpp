@@ -278,13 +278,14 @@ void RepeatResolver::findRepeats(int uniqueCovThreshold)
 	for (auto& edge : _graph.iterEdges())
 	{
 		auto complEdge = _graph.complementPath({edge}).front();
-				if (edge->meanCoverage > uniqueCovThreshold * 2) 
+		if (edge->meanCoverage > uniqueCovThreshold * 2) 
 		{
 			edge->repetitive = true;
 			complEdge->repetitive = true;
 		}
 	}
 
+	//then, by read alignments
 	for (auto& readPath : _readAlignments)
 	{
 		if (readPath.size() < 2) continue;
@@ -380,6 +381,18 @@ void RepeatResolver::findRepeats(int uniqueCovThreshold)
 			<< " " << edge.first->multiplicity << " -> " << mult << " ("
 			<< leftMult << "," << rightMult << ") " << edge.first->length() << "\t"
 			<< edge.first->meanCoverage;
+	}
+
+	//mark all unprocessed edges as repetitive
+	for (auto& edge : _graph.iterEdges())
+	{
+		auto complEdge = _graph.complementPath({edge}).front();
+		if (!outConnections.count(edge) && !outConnections.count(complEdge))
+		{
+			Logger::get().debug() << "Not updated: " << edge->edgeId.signedId();
+			edge->repetitive = true;
+			complEdge->repetitive = true;
+		}
 	}
 }
 
