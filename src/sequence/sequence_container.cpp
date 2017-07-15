@@ -6,6 +6,8 @@
 #include <fstream>
 #include <sstream>
 #include <iostream>
+#include <random>
+#include <algorithm>
 
 #include "sequence_container.h"
 
@@ -58,9 +60,15 @@ void SequenceContainer::readFasta(const std::string& fileName)
 	std::vector<FastaRecord> records;
 	this->getSequencesWithComplements(records, fileName);
 	_seqIndex.reserve(records.size());
-	for (auto& rec : records)
+
+	//shuffling input reads
+	std::vector<size_t> indicesPerm(records.size());
+	for (size_t i = 0; i < indicesPerm.size(); ++i) indicesPerm[i] = i;
+	std::random_shuffle(indicesPerm.begin(), indicesPerm.end());
+
+	for (size_t i : indicesPerm)
 	{
-		_seqIndex[rec.id] = std::move(rec);
+		_seqIndex[records[i].id] = std::move(records[i]);
 	}
 }
 
