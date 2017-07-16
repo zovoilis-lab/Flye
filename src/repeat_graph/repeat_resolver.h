@@ -45,6 +45,7 @@ private:
 					  size_t startId);
 	GraphAlignment chainReadAlignments(const SequenceContainer& edgeSeqs,
 									   std::vector<EdgeAlignment> ovlps);
+	int updateAlignments();
 
 	std::vector<GraphAlignment> _readAlignments;
 

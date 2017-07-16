@@ -47,10 +47,8 @@ struct GraphEdge
 			  FastaRecord::Id edgeId = FastaRecord::ID_NONE):
 		nodeLeft(nodeLeft), nodeRight(nodeRight), 
 		edgeId(edgeId), multiplicity(0), repetitive(false), 
-		selfComplement(false), meanCoverage(0) {}
+		selfComplement(false), resolved(false), meanCoverage(0) {}
 
-	//bool isRepetitive() const 
-	//	{return multiplicity != 1;}
 	bool isRepetitive() const 
 		{return repetitive;}
 
@@ -87,6 +85,7 @@ struct GraphEdge
 	int  multiplicity;
 	bool repetitive;
 	bool selfComplement;
+	bool resolved;
 	int  meanCoverage;
 };
 

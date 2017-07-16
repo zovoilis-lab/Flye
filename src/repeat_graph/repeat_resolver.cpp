@@ -122,7 +122,8 @@ void RepeatResolver::separatePath(const GraphPath& graphPath,
 	//repetitive edges in the middle
 	for (size_t i = 1; i < graphPath.size() - 1; ++i)
 	{
-		--graphPath[i]->multiplicity;
+		//--graphPath[i]->multiplicity;
+		graphPath[i]->resolved = true;
 	}
 
 	GraphNode* rightNode = leftNode;
@@ -131,7 +132,7 @@ void RepeatResolver::separatePath(const GraphPath& graphPath,
 		rightNode = _graph.addNode();
 		GraphEdge* newEdge = _graph.addEdge(GraphEdge(leftNode, rightNode,
 													  FastaRecord::Id(newId)));
-		newEdge->multiplicity = 1;
+		//newEdge->multiplicity = 1;
 		newEdge->seqSegments.push_back(readSegment);
 		//newEdge->readSequence = true;
 	}
@@ -277,8 +278,14 @@ void RepeatResolver::findRepeats(int uniqueCovThreshold)
 	//first, by coverage
 	for (auto& edge : _graph.iterEdges())
 	{
+		if (!edge->edgeId.strand()) continue;
+
 		auto complEdge = _graph.complementPath({edge}).front();
-		if (edge->meanCoverage > uniqueCovThreshold * 2) 
+		edge->repetitive = false;
+		complEdge->repetitive = false;
+
+		if (edge->meanCoverage > uniqueCovThreshold * 2 ||
+			(edge->isLooped() && edge->length() < 5000))
 		{
 			edge->repetitive = true;
 			complEdge->repetitive = true;
@@ -435,10 +442,61 @@ void RepeatResolver::resolveRepeats()
 	this->resolveConnections(connections);
 
 	//one more time
-	//connections = this->getConnections(skipEdges);
-	//this->resolveConnections(connections);
+	int potentialEdges = this->updateAlignments();
+	if (potentialEdges > 0)
+	{
+		connections = this->getConnections(skipEdges);
+		this->resolveConnections(connections);
+	}
 
 	this->clearResolvedRepeats();
+}
+
+int RepeatResolver::updateAlignments()
+{
+	//removes alignments that are no longer supported by the graph
+	std::vector<GraphAlignment> newAlignments;
+	int split = 0;
+	for (auto& aln : _readAlignments)
+	{
+		GraphAlignment curAlignment;
+		for (size_t i = 0; i < aln.size() - 1; ++i)
+		{
+			curAlignment.push_back(aln[i]);
+
+			if (aln[i].edge->nodeRight != aln[i + 1].edge->nodeLeft)
+			{
+				++split;
+				newAlignments.push_back(curAlignment);
+				curAlignment.clear();
+			}
+		}
+
+		curAlignment.push_back(aln.back());
+		newAlignments.push_back(curAlignment);
+	}
+	Logger::get().debug() << "Split " << split << " alignments";
+
+	_readAlignments = newAlignments;
+
+	//mark resolved repeats
+	int determinedRepeats = 0;
+	for (auto& edge : _graph.iterEdges())
+	{
+		if (!edge->isRepetitive()) continue;
+
+		if ((edge->nodeRight->outEdges.size() == 1 &&
+			!edge->nodeRight->outEdges.front()->repetitive) ||
+			(edge->nodeLeft->inEdges.size() == 1 &&
+			!edge->nodeLeft->inEdges.front()->repetitive))
+		{
+			++determinedRepeats;
+			edge->repetitive = false;
+		}
+	}
+
+	Logger::get().debug() << "Determined " << determinedRepeats << " repeats";
+	return determinedRepeats;
 }
 
 std::vector<RepeatResolver::Connection> 
@@ -488,13 +546,13 @@ std::vector<RepeatResolver::Connection>
 
 				//check that the path is still viable
 				//in case of 2nd RR iteration
-				bool inconsistent = false;
+				/*bool inconsistent = false;
 				for (size_t i = 0; i < currentPath.size() - 1; ++i)
 				{
 					if (currentPath[i]->nodeRight != 
 						currentPath[i + 1]->nodeLeft) inconsistent = true;
 				}
-				if (inconsistent) continue;
+				if (inconsistent) continue;*/
 
 				GraphPath complPath = _graph.complementPath(currentPath);
 
@@ -541,7 +599,7 @@ void RepeatResolver::clearResolvedRepeats()
 			bool resolved = true;
 			for (auto& edge : node->outEdges) 
 			{
-				if (edge->multiplicity > 0 &&
+				if (!edge->resolved &&
 					edge->length() > MIN_LOOP) resolved = false;
 			}
 
@@ -568,7 +626,7 @@ void RepeatResolver::clearResolvedRepeats()
 		bool resolvedRepeat = true;
 		for (auto& edge : traversed) 
 		{
-			if (edge->multiplicity > 0) resolvedRepeat = false;
+			if (!edge->resolved) resolvedRepeat = false;
 		}
 
 		GraphPath complPath = _graph.complementPath(traversed);
@@ -647,10 +705,10 @@ void RepeatResolver::alignReads()
 			}
 		}
 
-		_readAlignments.push_back(this->chainReadAlignments(pathsContainer, 
-															alignments));
-		if (!_readAlignments.back().empty())
+		auto readChain = this->chainReadAlignments(pathsContainer, alignments);
+		if (!readChain.empty())
 		{
+			_readAlignments.push_back(readChain);
 			++numAligned;
 			/*alnDump << _readSeqs.seqName(readId.first)
 				<< "\t" << _readSeqs.seqLen(readId.first) << std::endl;

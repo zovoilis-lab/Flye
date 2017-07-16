@@ -417,7 +417,7 @@ void RepeatGraph::initializeEdges(const OverlapContainer& asmOverlaps)
 			for (auto& seg : edgeClust.second)
 			{
 				newEdge->seqSegments.push_back(*seg);
-				++newEdge->multiplicity;
+				//++newEdge->multiplicity;
 				usedSegments.push_back(seg->complement());
 			}
 
@@ -435,7 +435,7 @@ void RepeatGraph::initializeEdges(const OverlapContainer& asmOverlaps)
 				for (auto& seg : edgeClust.second)
 				{
 					complEdge->seqSegments.push_back(seg->complement());
-					++complEdge->multiplicity;
+					//++complEdge->multiplicity;
 				}
 			}
 

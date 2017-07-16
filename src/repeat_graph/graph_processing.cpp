@@ -184,7 +184,7 @@ void GraphProcessor::condenceEdges()
 									  edges[i - 1]->nodeRight);
 				std::copy(prevSeqs.begin(), prevSeqs.end(),
 				  		  std::back_inserter(newEdges.back().seqSegments));
-				newEdges.back().multiplicity = edges[prevStart]->multiplicity;
+				//newEdges.back().multiplicity = edges[prevStart]->multiplicity;
 
 				std::copy(edges[i]->seqSegments.begin(), 
 						  edges[i]->seqSegments.end(), 
@@ -197,7 +197,7 @@ void GraphProcessor::condenceEdges()
 							  edges.back()->nodeRight);
 		std::copy(growingSeqs.begin(), growingSeqs.end(),
 				  std::back_inserter(newEdges.back().seqSegments));
-		newEdges.back().multiplicity = edges[prevStart]->multiplicity;
+		//newEdges.back().multiplicity = edges[prevStart]->multiplicity;
 
 		return newEdges;
 	};
@@ -249,7 +249,7 @@ void GraphProcessor::condenceEdges()
 			GraphEdge addRev(_graph.complementNode(edge.nodeRight),
 							 _graph.complementNode(edge.nodeLeft),
 							 FastaRecord::Id(_graph._nextEdgeId + 1));
-			addRev.multiplicity = addFwd.multiplicity;
+			//addRev.multiplicity = addFwd.multiplicity;
 
 			//complementary segments
 			for (auto seqSeg : addFwd.seqSegments)
