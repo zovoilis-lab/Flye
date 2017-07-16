@@ -267,17 +267,19 @@ void RepeatGraph::getGluepoints(const OverlapContainer& asmOverlaps)
 		}
 	}
 
-	for (auto& seqPoints : _gluePoints)
+	//for (auto& seqPoints : _gluePoints)
+	for (auto& seqRec : _asmSeqs.getIndex())
 	{
-		std::sort(seqPoints.second.begin(), seqPoints.second.end(),
+		auto& seqPoints = _gluePoints[seqRec.first];
+		std::sort(seqPoints.begin(), seqPoints.end(),
 				  [](const GluePoint& pt1, const GluePoint& pt2)
 				  {return pt1.position < pt2.position;});
 
 		//flanking points
-		seqPoints.second.emplace(seqPoints.second.begin(), pointId++, 
-								 seqPoints.first, 0);
-		seqPoints.second.emplace_back(pointId++, seqPoints.first, 
-									  _asmSeqs.seqLen(seqPoints.first) - 1);
+		seqPoints.emplace(seqPoints.begin(), pointId++, 
+						  seqRec.first, 0);
+		seqPoints.emplace_back(pointId++, seqRec.first, 
+							   _asmSeqs.seqLen(seqRec.first) - 1);
 	}
 
 	for (auto& seqEndpoints : endpoints)
