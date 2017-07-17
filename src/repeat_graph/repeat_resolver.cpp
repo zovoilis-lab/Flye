@@ -589,6 +589,11 @@ void RepeatResolver::clearResolvedRepeats()
 		return (GraphEdge*)nullptr;
 	};
 
+	auto shouldRemove = [](GraphEdge* edge)
+	{
+		return edge->isRepetitive() || edge->meanCoverage == 0;
+	};
+
 	std::unordered_set<GraphNode*> toRemove;
 
 	for (auto& node : _graph.iterNodes())
@@ -599,7 +604,7 @@ void RepeatResolver::clearResolvedRepeats()
 			bool resolved = true;
 			for (auto& edge : node->outEdges) 
 			{
-				if (!edge->resolved &&
+				if (!shouldRemove(edge) &&
 					edge->length() > MIN_LOOP) resolved = false;
 			}
 
@@ -626,7 +631,7 @@ void RepeatResolver::clearResolvedRepeats()
 		bool resolvedRepeat = true;
 		for (auto& edge : traversed) 
 		{
-			if (!edge->resolved) resolvedRepeat = false;
+			if (!shouldRemove(edge)) resolvedRepeat = false;
 		}
 
 		GraphPath complPath = _graph.complementPath(traversed);
