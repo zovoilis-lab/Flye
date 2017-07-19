@@ -478,23 +478,43 @@ void GraphProcessor::outputContigsFasta(const std::string& filename)
 	{
 		if (!contig.id.strand()) continue;
 
+		std::unordered_map<FastaRecord::Id, int> seqIdFreq;
+		for (auto& edge : contig.path) 
+		{
+			std::unordered_set<FastaRecord::Id> edgeSeqIds;
+			for (auto& seg: edge->seqSegments) 
+			{
+				edgeSeqIds.insert(seg.seqId);
+			}
+			for (auto& seqId : edgeSeqIds)
+			{
+				seqIdFreq[seqId] += 1;
+			}
+		}
+
 		std::string contigSequence;
 		for (auto& edge : contig.path) 
 		{
-			if (!edge->seqSegments.empty())
+			if (edge->seqSegments.empty()) 
 			{
-				const SequenceSegment& seg = edge->seqSegments.front();
-				auto& sequence = (!seg.readSequence) ? 
-								  _asmSeqs.getSeq(seg.seqId) :
-								  _readSeqs.getSeq(seg.seqId);
-												
-					contigSequence += sequence.substr(seg.start, 
-													  seg.end - seg.start).str();
+				throw std::runtime_error("Edge without sequence");
 			}
-			else
+
+			//get the sequence with maximum frequency
+			SequenceSegment* bestSegment = nullptr;
+			for (auto& seg : edge->seqSegments)
 			{
-				Logger::get().warning() << "Edge without sequence!";
+				if (!bestSegment || seqIdFreq[seg.seqId] > seqIdFreq[bestSegment->seqId])
+				{
+					bestSegment = &seg;
+				}
 			}
+
+			auto& sequence = (!bestSegment->readSequence) ? 
+							  _asmSeqs.getSeq(bestSegment->seqId) :
+							  _readSeqs.getSeq(bestSegment->seqId);
+			contigSequence += sequence.substr(bestSegment->start, 
+											  bestSegment->end - bestSegment->start).str();
 		}
 
 		std::string nameTag = contig.circular ? "circular" : "linear";
