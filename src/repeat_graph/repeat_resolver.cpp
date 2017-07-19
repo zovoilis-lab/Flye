@@ -241,7 +241,8 @@ void RepeatResolver::resolveConnections(const std::vector<Connection>& connectio
 			<< "\t" << rightEdge->edgeId.signedId()
 			<< "\t" << support / 2 << "\t" << confidence;
 
-		if (support < Constants::minRepeatResSupport) continue;
+		if (confidence < Constants::minRepeatResSupport) continue;
+		//if (support < 4) continue;
 
 		totalLinks += 2;
 		for (auto& conn : connections)
@@ -285,7 +286,21 @@ void RepeatResolver::findRepeats(int uniqueCovThreshold)
 		complEdge->repetitive = false;
 
 		if (edge->meanCoverage > uniqueCovThreshold * 2 ||
-			(edge->isLooped() && edge->length() < 5000))
+			(edge->isLooped() && edge->length() < Parameters::get().minimumOverlap))
+		{
+			edge->repetitive = true;
+			complEdge->repetitive = true;
+		}
+	}
+
+	//by structure
+	for (auto& edge : _graph.iterEdges())
+	{
+		auto complEdge = _graph.complementPath({edge}).front();
+		if ((edge->nodeLeft->outEdges.size() == 1 &&
+			edge->nodeLeft->inEdges.size() > 1) ||
+			(edge->nodeRight->inEdges.size() == 1 &&
+			edge->nodeRight->outEdges.size() > 1))
 		{
 			edge->repetitive = true;
 			complEdge->repetitive = true;
@@ -394,7 +409,8 @@ void RepeatResolver::findRepeats(int uniqueCovThreshold)
 	for (auto& edge : _graph.iterEdges())
 	{
 		auto complEdge = _graph.complementPath({edge}).front();
-		if (!outConnections.count(edge) && !outConnections.count(complEdge))
+		if (!outConnections.count(edge) && !outConnections.count(complEdge)
+			&& edge->length() < Parameters::get().minimumOverlap)
 		{
 			Logger::get().debug() << "Not updated: " << edge->edgeId.signedId();
 			edge->repetitive = true;
@@ -591,7 +607,8 @@ void RepeatResolver::clearResolvedRepeats()
 
 	auto shouldRemove = [](GraphEdge* edge)
 	{
-		return edge->isRepetitive() || edge->meanCoverage == 0;
+		return (edge->isRepetitive() && edge->resolved) ||
+				edge->meanCoverage == 0;
 	};
 
 	std::unordered_set<GraphNode*> toRemove;
