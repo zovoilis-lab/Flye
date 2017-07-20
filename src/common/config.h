@@ -10,7 +10,7 @@ namespace Constants
 {
 	//global constants
 	const int maximumJump = 1500;
-	const int maximumOverhang = 500;
+	const int maximumOverhang = 1500;
 
 	//kmer enumeration
 	const int hardMinCoverageRate = 10;
