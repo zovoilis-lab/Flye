@@ -84,9 +84,12 @@ ContigPath Extender::extendContig(FastaRecord::Id startRead)
 		//checking if read overlaps with one of the used reads
 		bool foundExtension = false;
 		bool overlapsVisited = false;
+		bool mayStop = _innerReads.empty() || 
+			innerOverlaps > extensions.size() / Constants::maxCoverageDropRate;
 		for (auto& ovlp : extensions)
 		{
-			if (currentReads.count(ovlp.extId)) 
+			if (mayStop && (currentReads.count(ovlp.extId) ||
+				_innerReads.count(ovlp.extId))) 
 			{
 				overlapsVisited = true;
 				foundExtension = true;
@@ -133,6 +136,7 @@ ContigPath Extender::extendContig(FastaRecord::Id startRead)
 		}
 
 		overlapsVisited |= _innerReads.count(currentRead);
+		overlapsVisited |= currentReads.count(currentRead);
 		if (foundExtension) 
 		{
 			Logger::get().debug() << "Extension: " << 
