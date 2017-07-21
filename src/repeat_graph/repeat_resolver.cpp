@@ -120,11 +120,15 @@ void RepeatResolver::separatePath(const GraphPath& graphPath,
 	leftNode->inEdges.push_back(graphPath.front());
 
 	//repetitive edges in the middle
+	int64_t covSum = 0;
 	for (size_t i = 1; i < graphPath.size() - 1; ++i)
 	{
 		//--graphPath[i]->multiplicity;
 		graphPath[i]->resolved = true;
+		covSum += graphPath[i]->meanCoverage;
 	}
+	int32_t numEdges = graphPath.size() - 2;
+	int32_t meanCov = numEdges ? covSum / numEdges : 0;
 
 	GraphNode* rightNode = leftNode;
 	if (graphPath.size() > 2)
@@ -132,9 +136,8 @@ void RepeatResolver::separatePath(const GraphPath& graphPath,
 		rightNode = _graph.addNode();
 		GraphEdge* newEdge = _graph.addEdge(GraphEdge(leftNode, rightNode,
 													  FastaRecord::Id(newId)));
-		//newEdge->multiplicity = 1;
 		newEdge->seqSegments.push_back(readSegment);
-		//newEdge->readSequence = true;
+		newEdge->meanCoverage = meanCov;
 	}
 
 	//last edge
@@ -145,8 +148,6 @@ void RepeatResolver::separatePath(const GraphPath& graphPath,
 
 void RepeatResolver::resolveConnections(const std::vector<Connection>& connections)
 {
-	//Logger::get().debug() << "Resolving repeats";
-
 	///////////
 	std::unordered_map<GraphEdge*, std::unordered_map<GraphEdge*, int>> stats;
 	for (auto& conn : connections)
@@ -529,12 +530,6 @@ std::vector<RepeatResolver::Connection>
 	std::vector<Connection> readConnections;
 	for (auto& readPath : _readAlignments)
 	{
-		/*if (readPath.size() > 1)
-		{
-			Logger::get().debug() 
-				<< _readSeqs.seqName(readPath.front().overlap.curId);
-		}*/
-
 		GraphPath currentPath;
 		int32_t readStart = 0;
 		for (auto& aln : readPath)
@@ -545,30 +540,12 @@ std::vector<RepeatResolver::Connection>
 				readStart = aln.overlap.curEnd + aln.overlap.extLen - 
 							aln.overlap.extEnd;
 			}
-			
-			/*if (readPath.size() > 1)
-			{
-				Logger::get().debug() << aln.edge->edgeId.signedId() << "\t" 
-									  << aln.overlap.curBegin << "\t"
-									  << aln.overlap.curEnd << "\t"
-									  << aln.overlap.curRange();
-			}*/
 
 			currentPath.push_back(aln.edge);
 			if (safeEdge(aln.edge) && currentPath.size() > 1)
 			{
 				if (!currentPath.back()->nodeLeft->isBifurcation() &&
 					!currentPath.front()->nodeRight->isBifurcation()) continue;
-
-				//check that the path is still viable
-				//in case of 2nd RR iteration
-				/*bool inconsistent = false;
-				for (size_t i = 0; i < currentPath.size() - 1; ++i)
-				{
-					if (currentPath[i]->nodeRight != 
-						currentPath[i + 1]->nodeLeft) inconsistent = true;
-				}
-				if (inconsistent) continue;*/
 
 				GraphPath complPath = _graph.complementPath(currentPath);
 
@@ -595,6 +572,18 @@ std::vector<RepeatResolver::Connection>
 
 void RepeatResolver::clearResolvedRepeats()
 {
+	std::unordered_set<GraphEdge*> edgesRemove;
+	for (auto& edge : _graph.iterEdges())
+	{
+		auto complEdge = _graph.complementPath({edge}).front();
+		if (edge->meanCoverage == 0)
+		{
+			edgesRemove.insert(edge);
+			edgesRemove.insert(complEdge);
+		}
+	}
+	for (auto& edge : edgesRemove) _graph.removeEdge(edge);
+
 	const int MIN_LOOP = Parameters::get().minimumOverlap;
 	auto nextEdge = [](GraphNode* node)
 	{
@@ -607,8 +596,7 @@ void RepeatResolver::clearResolvedRepeats()
 
 	auto shouldRemove = [](GraphEdge* edge)
 	{
-		return (edge->isRepetitive() && edge->resolved) ||
-				edge->meanCoverage == 0;
+		return edge->isRepetitive() && edge->resolved;
 	};
 
 	std::unordered_set<GraphNode*> toRemove;
