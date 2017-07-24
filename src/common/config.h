@@ -8,9 +8,8 @@
 
 namespace Constants
 {
-	//global constants
-	const int maximumJump = 1500;
-	const int maximumOverhang = 1500;
+	const int maximumJump = 500;
+	const int maximumOverhang = 500;
 
 	//kmer enumeration
 	const int hardMinCoverageRate = 10;
@@ -28,12 +27,12 @@ namespace Constants
 	const int chimeraWindow = 100;
 
 	//extension
-	const int minReadsInContig = 4;
+	const int minReadsInContig = 2;
 	const int minExtensions = 2;
-	const float startReadsPercent = 0.1;
+	const float startReadsPercent = 0.5;
 
 	//repeat graph
-	const int maxSeparation = 1500;
+	const int maxSeparation = 500;
 	const int trustedEdgeLength = 10000;
 	const float minRepeatResSupport = 0.25f;
 }
