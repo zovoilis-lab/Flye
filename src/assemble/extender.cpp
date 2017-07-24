@@ -85,7 +85,7 @@ ContigPath Extender::extendContig(FastaRecord::Id startRead)
 		bool foundExtension = false;
 		bool overlapsVisited = false;
 		bool mayStop = _innerReads.empty() || 
-			innerOverlaps > extensions.size() / Constants::maxCoverageDropRate;
+			innerOverlaps > (int)extensions.size() / Constants::maxCoverageDropRate;
 		for (auto& ovlp : extensions)
 		{
 			if (mayStop && (currentReads.count(ovlp.extId) ||

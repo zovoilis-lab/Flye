@@ -679,8 +679,8 @@ void RepeatResolver::alignReads()
 		for (auto& segment : edge->seqSegments)
 		{
 			size_t len = segment.end - segment.start;
-			FastaRecord::DnaRepr sequence = _asmSeqs.getSeq(segment.seqId)
-												.substr(segment.start, len);
+			auto sequence = _asmSeqs.getSeq(segment.seqId)
+										.substr(segment.start, len);
 			auto& newRec = pathsContainer.addSequence(sequence, "");
 			idToSegment[newRec.id] = {edge, &segment};
 			//idToSegment[newRec.id.rc()] = {edge, &segment};

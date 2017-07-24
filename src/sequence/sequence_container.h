@@ -9,6 +9,8 @@
 #include <string>
 #include <limits>
 
+#include "sequence.h"
+
 struct FastaRecord
 {
 	class Id
@@ -50,41 +52,8 @@ struct FastaRecord
 	static const Id ID_NONE; 
 	typedef std::tuple<Id, Id> IdPair;
 
-	class DnaRepr
-	{
-	public:
-		explicit DnaRepr() {}
-		explicit DnaRepr(const std::string& string):
-			_representation(string.begin(), string.end()) {}
-
-		size_t length() const {return _representation.size();}
-		char at(size_t index) const {return _representation[index];}
-		DnaRepr substr(size_t start, size_t length) const 
-		{
-			if (start + length > _representation.size())
-			{
-				length = _representation.size() - start;
-			}
-
-			DnaRepr substr;
-			std::copy(_representation.begin() + start,
-					  _representation.begin() + start + length,
-					  std::back_inserter(substr._representation));
-			return substr;
-		}
-		void push_back(char c) {_representation.push_back(c);}
-		std::string str() 
-		{
-			return std::string(_representation.begin(), _representation.end());
-		}
-		void swap(DnaRepr& other) {_representation.swap(other._representation);}
-
-	private:
-		std::vector<char> _representation;
-	};
-
 	FastaRecord(): id(ID_NONE) {}
-	FastaRecord(const DnaRepr& sequence, const std::string& description,
+	FastaRecord(const DnaSequence& sequence, const std::string& description,
 				Id id):
 		id(id), sequence(sequence), description(description)
 	{
@@ -111,14 +80,14 @@ struct FastaRecord
 	FastaRecord& operator=(FastaRecord&& other)
 	{
 		id = other.id;
-		sequence.swap(other.sequence);
-		description.swap(other.description);
+		sequence = std::move(other.sequence);
+		description = std::move(other.description);
 		return *this;
 	}
 	
 	Id id;
-	DnaRepr sequence;
-	std::string description;		
+	DnaSequence sequence;
+	std::string description;
 };
 
 namespace std
@@ -162,7 +131,7 @@ public:
 		return _seqIndex;
 	}
 
-	const FastaRecord::DnaRepr& getSeq(FastaRecord::Id readId) const
+	const DnaSequence& getSeq(FastaRecord::Id readId) const
 	{
 		return _seqIndex.at(readId).sequence;
 	}
@@ -176,7 +145,7 @@ public:
 		return _seqIndex.at(readId).description;
 	}
 	void readFasta(const std::string& filename);
-	const FastaRecord&  addSequence(const FastaRecord::DnaRepr& sequence, 
+	const FastaRecord&  addSequence(const DnaSequence& sequence, 
 									const std::string& description);
 
 private:
@@ -185,7 +154,7 @@ private:
 						 const std::string& fileName);
 	size_t 	getSequencesWithComplements(std::vector<FastaRecord>& record, 
 										const std::string& fileName);
-	void 	validateSequence(const std::string& sequence);
+	void 	validateSequence(std::string& sequence);
 	void 	validateHeader(std::string& header);
 
 	SequenceIndex _seqIndex;

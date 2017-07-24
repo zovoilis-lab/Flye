@@ -22,33 +22,6 @@ namespace
 			std::runtime_error(what)
 		{}
 	};
-
-	char complementSymbol(char c)
-	{
-		switch (c)
-		{
-			case 'A': return 'T';
-			case 'C': return 'G';
-			case 'G': return 'C';
-			case 'T': return 'A';
-			case 'a': return 't';
-			case 'c': return 'g';
-			case 'g': return 'c';
-			case 't': return 'a';
-			default: return c;
-		}
-	}
-
-	void reverseComplement(const FastaRecord::DnaRepr& dnaIn, 
-						   FastaRecord::DnaRepr& dnaOut)
-	{
-		//std::string buffer;
-		//buffer.reserve(dnaIn.length());
-		for (size_t i = dnaIn.length(); i > 0; --i)
-		{
-			dnaOut.push_back(complementSymbol(dnaIn.at(i - 1)));
-		}
-	}
 }
 
 const FastaRecord::Id FastaRecord::ID_NONE = 
@@ -74,16 +47,15 @@ void SequenceContainer::readFasta(const std::string& fileName)
 
 
 const FastaRecord& 
-	SequenceContainer::addSequence(const FastaRecord::DnaRepr& sequence, 
+	SequenceContainer::addSequence(const DnaSequence& sequence, 
 								   const std::string& description)
 {
 	FastaRecord::Id newId = FastaRecord::Id(g_nextSeqId);
 	FastaRecord fwdRecord(sequence, "+" + description, newId);
 	_seqIndex[fwdRecord.id] = std::move(fwdRecord);
 
-	FastaRecord::DnaRepr revComplement;
-	reverseComplement(sequence, revComplement);
-	FastaRecord revRecord(revComplement, "-" + description, newId.rc());
+	FastaRecord revRecord(sequence.complement(), "-" + description, 
+						  newId.rc());
 	_seqIndex[revRecord.id] = std::move(revRecord);
 
 	g_nextSeqId += 2;
@@ -120,7 +92,7 @@ size_t SequenceContainer::getSequences(std::vector<FastaRecord>& record,
 					if (sequence.empty()) throw ParseException("empty sequence");
 
 					sequence.shrink_to_fit();
-					record.emplace_back(FastaRecord::DnaRepr(sequence), header, 
+					record.emplace_back(DnaSequence(sequence), header, 
 										FastaRecord::Id(g_nextSeqId));
 					g_nextSeqId += 2;
 					sequence.clear();
@@ -140,7 +112,7 @@ size_t SequenceContainer::getSequences(std::vector<FastaRecord>& record,
 		}
 		
 		if (sequence.empty()) throw ParseException("empty sequence");
-		record.emplace_back(FastaRecord::DnaRepr(sequence), header, 
+		record.emplace_back(DnaSequence(sequence), header, 
 							FastaRecord::Id(g_nextSeqId));
 		g_nextSeqId += 2;
 
@@ -167,8 +139,7 @@ size_t SequenceContainer::getSequencesWithComplements(std::vector<FastaRecord>& 
 		std::string header = "-" + record.description;
 		record.description = "+" + record.description;
 
-		FastaRecord::DnaRepr revComplement;
-		reverseComplement(record.sequence, revComplement);
+		DnaSequence revComplement = record.sequence.complement();
 		complements.emplace_back(revComplement, header, record.id.rc());
 	}
 
@@ -196,15 +167,14 @@ void SequenceContainer::validateHeader(std::string& header)
 	if (header.empty()) throw ParseException("empty header");
 }
 
-void SequenceContainer::validateSequence(const std::string& sequence)
+void SequenceContainer::validateSequence(std::string& sequence)
 {
-	const std::string VALID_CHARS = "ACGTURYKMSWBDHWNX-";
+	const std::string VALID_CHARS = "ACGT";
 	for (size_t i = 0; i < sequence.length(); ++i)
 	{
 		if (VALID_CHARS.find(toupper(sequence[i])) == std::string::npos) 
 		{
-			throw ParseException((std::string("illegal character: ") + 
-								  sequence[i]).c_str());
+			sequence[i] = VALID_CHARS[rand() % 4];
 		}
 	}
 }

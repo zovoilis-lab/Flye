@@ -10,6 +10,7 @@
 #include "sequence_container.h"
 #include "../common/config.h"
 
+/*
 namespace
 {
 	static std::vector<size_t> table;
@@ -45,9 +46,9 @@ namespace
 		if (num > 4) throw std::runtime_error("Error converting number to DNA");
 		return LETTERS[num];
 	}
-}
+}*/
 
-Kmer::Kmer(const FastaRecord::DnaRepr& dnaString, 
+Kmer::Kmer(const DnaSequence& dnaString, 
 		   size_t start, size_t length):
 	_representation(0)
 {
@@ -60,27 +61,27 @@ Kmer::Kmer(const FastaRecord::DnaRepr& dnaString,
 	for (size_t i = start; i < start + length; ++i)	
 	{
 		_representation <<= 2;
-		_representation += dnaToId(dnaString.at(i));
+		_representation += dnaString.atRaw(i);
 	}
 }
 
-void Kmer::appendRight(char dnaSymbol)
+void Kmer::appendRight(DnaSequence::NuclType dnaSymbol)
 {
 	_representation <<= 2;
-	_representation += dnaToId(dnaSymbol);
+	_representation += dnaSymbol;
 
 	KmerRepr kmerSize = Parameters::get().kmerSize;
 	KmerRepr kmerMask = ((KmerRepr)1 << kmerSize * 2) - 1;
 	_representation &= kmerMask;
 }
 
-void Kmer::appendLeft(char dnaSymbol)
+void Kmer::appendLeft(DnaSequence::NuclType dnaSymbol)
 {
 	_representation >>= 2;
 
 	KmerRepr kmerSize = Parameters::get().kmerSize;
 	KmerRepr shift = kmerSize * 2 - 2;
-	_representation += dnaToId(dnaSymbol) << shift;
+	_representation += dnaSymbol << shift;
 }
 
 void Kmer::reverseComplement()
@@ -97,7 +98,7 @@ void Kmer::reverseComplement()
 	}
 }
 
-std::string Kmer::dnaRepresentation() const
+/*std::string Kmer::dnaRepresentation() const
 {
 	std::string repr;
 	KmerRepr mask = 3;
@@ -109,9 +110,9 @@ std::string Kmer::dnaRepresentation() const
 	}
 	std::reverse(repr.begin(), repr.end());
 	return repr;
-}
+}*/
 
-KmerIterator::KmerIterator(const FastaRecord::DnaRepr* readSeq, 
+KmerIterator::KmerIterator(const DnaSequence* readSeq, 
 						   size_t position):
 	_readSeq(readSeq),
 	_position(position)
@@ -136,7 +137,7 @@ bool KmerIterator::operator!=(const KmerIterator& other) const
 KmerIterator& KmerIterator::operator++()
 {
 	size_t appendPos = _position + Parameters::get().kmerSize;
-	_kmer.appendRight(_readSeq->at(appendPos));
+	_kmer.appendRight(_readSeq->atRaw(appendPos));
 	++_position;
 	return *this;
 }
