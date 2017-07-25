@@ -89,10 +89,15 @@ void VertexIndex::buildIndex(int minCoverage, int maxCoverage, int filterRatio)
 	[minCoverage, maxCoverage, filterRatio, this] 
 	(const FastaRecord::Id& readId)
 	{
-		int counter = 0;
 		for (auto kmerPos : IterKmers(_seqContainer.getSeq(readId)))
 		{
-			if ((counter++) % filterRatio) continue;
+			int32_t samplePos = kmerPos.position;
+			if (!readId.strand())	//keeping strands synchonized
+			{
+				samplePos = _seqContainer.seqLen(readId) - samplePos -
+							Parameters::get().kmerSize;
+			}
+			if (samplePos % filterRatio) continue;
 
 			size_t count = 0;
 			_kmerCounts.find(kmerPos.kmer, count);

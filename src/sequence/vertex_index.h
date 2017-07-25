@@ -66,7 +66,7 @@ public:
 			{
 				pos.readId = pos.readId.rc();
 				int32_t seqLen = seqContainer.seqLen(pos.readId);
-				pos.position = seqLen - pos.position + 
+				pos.position = seqLen - pos.position - 
 							   Parameters::get().kmerSize;
 			}
 			return pos;
