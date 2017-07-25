@@ -120,8 +120,7 @@ ContigPath Extender::extendContig(FastaRecord::Id startRead)
 					_assembledSequence += ovlp.rightShift;
 					break;
 				}
-				else if(bestSuspicious == FastaRecord::ID_NONE &&
-						this->countRightExtensions(ovlp.extId) > 0)
+				else if(bestSuspicious == FastaRecord::ID_NONE)
 				{
 					bestSuspicious = ovlp.extId;
 				}

@@ -2,6 +2,7 @@
 *.o
 *.swp
 *.so
+*.DS_Store
 libbf/libbf.a
 bin/abruijn-assemble
 bin/abruijn-polish
