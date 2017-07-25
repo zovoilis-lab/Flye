@@ -10,8 +10,8 @@ a draft assembly by concatenating different parts of raw reads.
 This coarse sequence is then polished into a high quality assembly.
 
 ABruijn works for both bacterial and eukaryotic genomes. Typically, assembly
-of a bacteria with 50x coverage takes less than an hour on a modern desktop,
-while yeast assembly takes about 5 hours. A eukaryotic genome of size 200 Mbp
+of a bacteria with 50x coverage takes less than half an hour on a modern desktop,
+while 100x yeast assembly takes about two hours. A eukaryotic genome of size 200 Mbp
 can be assembled within a day on a computational server.
 
 
