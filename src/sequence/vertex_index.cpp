@@ -98,7 +98,8 @@ void VertexIndex::buildIndex(int minCoverage, int maxCoverage, int filterRatio)
 			_kmerCounts.find(kmerPos.kmer, count);
 
 			//if ((size_t)minCoverage <= count && count <= 10UL * (size_t)maxCoverage)
-			if ((size_t)minCoverage <= count && count <= (size_t)maxCoverage)
+			bool revCmp = kmerPos.kmer.standardForm();
+			if (!revCmp && (size_t)minCoverage <= count && count <= (size_t)maxCoverage)
 			{
 				_kmerIndex.insert(kmerPos.kmer, nullptr);
 				_kmerIndex.update_fn(kmerPos.kmer, 
@@ -143,6 +144,6 @@ void VertexIndex::clear()
 	_kmerCounts.clear();
 	_kmerCounts.reserve(0);
 
-	_repetitiveKmers.clear();
-	_repetitiveKmers.reserve(0);
+	//_repetitiveKmers.clear();
+	//_repetitiveKmers.reserve(0);
 }

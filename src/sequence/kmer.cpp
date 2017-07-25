@@ -10,43 +10,6 @@
 #include "sequence_container.h"
 #include "../common/config.h"
 
-/*
-namespace
-{
-	static std::vector<size_t> table;
-	size_t dnaToId(char c)
-	{
-		return table[(size_t)c];
-	}
-	struct TableFiller
-	{
-		TableFiller()
-		{
-			static bool tableFilled = false;
-			if (!tableFilled)
-			{
-				tableFilled = true;
-				table.assign(256, -1);	//256 chars
-				table[(size_t)'A'] = 0;
-				table[(size_t)'a'] = 0;
-				table[(size_t)'C'] = 1;
-				table[(size_t)'c'] = 1;
-				table[(size_t)'T'] = 2;
-				table[(size_t)'t'] = 2;
-				table[(size_t)'G'] = 3;
-				table[(size_t)'g'] = 3;
-				table[(size_t)'-'] = 4;
-			}
-		}
-	};
-	TableFiller filler;
-	char idToDna(unsigned int num)
-	{
-		static const char LETTERS[] = "ACTG-";
-		if (num > 4) throw std::runtime_error("Error converting number to DNA");
-		return LETTERS[num];
-	}
-}*/
 
 Kmer::Kmer(const DnaSequence& dnaString, 
 		   size_t start, size_t length):
@@ -57,7 +20,6 @@ Kmer::Kmer(const DnaSequence& dnaString,
 		throw std::runtime_error("Kmer length inconsistency");
 	}
 
-	//for (auto dnaChar : dnaString)	
 	for (size_t i = start; i < start + length; ++i)	
 	{
 		_representation <<= 2;
@@ -84,33 +46,31 @@ void Kmer::appendLeft(DnaSequence::NuclType dnaSymbol)
 	_representation += dnaSymbol << shift;
 }
 
-void Kmer::reverseComplement()
+Kmer Kmer::reverseComplement()
 {
 	KmerRepr tmpRepr = _representation;
-	_representation = 0;
-	KmerRepr mask = 3;
+	Kmer newKmer;
 
 	for (unsigned int i = 0; i < Parameters::get().kmerSize; ++i)
 	{
-		_representation <<= 2;
-		_representation += ~(mask & tmpRepr);
+		newKmer._representation <<= 2;
+		newKmer._representation += ~tmpRepr & 3;
 		tmpRepr >>= 2;
 	}
+
+	return newKmer;
 }
 
-/*std::string Kmer::dnaRepresentation() const
+bool Kmer::standardForm()
 {
-	std::string repr;
-	KmerRepr mask = 3;
-	KmerRepr tempRepr = _representation;
-	for (unsigned int i = 0; i < Parameters::get().kmerSize; ++i)
+	Kmer complKmer = this->reverseComplement();
+	if (complKmer._representation < _representation)
 	{
-		repr.push_back(idToDna(tempRepr & mask));
-		tempRepr >>= 2;
+		_representation = complKmer._representation;
+		return true;
 	}
-	std::reverse(repr.begin(), repr.end());
-	return repr;
-}*/
+	return false;
+}
 
 KmerIterator::KmerIterator(const DnaSequence* readSeq, 
 						   size_t position):

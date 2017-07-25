@@ -18,10 +18,10 @@ public:
 	Kmer(const DnaSequence& dnaString, 
 		 size_t start, size_t length);
 
-	void reverseComplement();
+	Kmer reverseComplement();
+	bool standardForm();
 	void appendRight(DnaSequence::NuclType dnaSymbol);
 	void appendLeft(DnaSequence::NuclType dnaSymbol);
-	//std::string dnaRepresentation() const;
 	typedef size_t KmerRepr;
 
 	bool operator == (const Kmer& other) const
