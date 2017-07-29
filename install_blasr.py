@@ -13,6 +13,7 @@ import sys, os, stat
 import subprocess
 import shutil
 import argparse
+import platform
 try:
     from urllib import urlretrieve
 except ImportError:
@@ -90,9 +91,14 @@ def make_wrapper():
     wrapper_path = os.path.join(BIN_DIR, "blasr")
     hdf5_lib = os.path.join(HDF5_PREFIX, "lib")
 
+    if platform.system() == "Darwin":
+        library_env = "DYLD_LIBRARY_PATH"
+    else:
+        library_env = "LD_LIBRARY_PATH"
+
     cur_env = ""
     try:
-        cur_env = os.environ["LD_LIBRARY_PATH"]
+        cur_env = os.environ[library_env]
     except KeyError:
         pass
 
@@ -103,7 +109,7 @@ def make_wrapper():
                       cur_env)
 
     script_text = ("#!/bin/bash\n" +
-                   "export LD_LIBRARY_PATH={0}\n".format(ld_library_path) +
+                   "export {0}={1}\n".format(library_env, ld_library_path) +
                    "if [ ! -f {0} ]; then\n".format(blasr_bin) +
                    "\techo \"Something happened since the last BLASR installation. "+
                    "Please re-run install_blasr.py\"\n" +
