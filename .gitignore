@@ -7,4 +7,6 @@ libbf/libbf.a
 bin/abruijn-assemble
 bin/abruijn-polish
 bin/abruijn-repeat
+bin/blasr
 build
+lib/blasr_install/*

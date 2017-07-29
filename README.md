@@ -28,8 +28,7 @@ See the *docs/USAGE.md* file.
 Publications
 ------------
 Yu Lin, Jeffrey Yuan, Mikhail Kolmogorov, Max W Shen, Pavel Pevzner, 
-"Assembly of Long Error-Prone Reads Using de Bruijn Graphs"
-(http://biorxiv.org/content/early/2016/04/13/048413)
+"Assembly of Long Error-Prone Reads Using de Bruijn Graphs", PNAS 2016
 
 
 Third-party
