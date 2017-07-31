@@ -12,7 +12,7 @@ void MultiplicityInferer::
 	fixEdgesMultiplicity(const std::vector<GraphAlignment>& readAln)
 {
 	this->estimateByCoverage(readAln);
-	this->balanceGraph();
+	//this->balanceGraph();
 }
 
 namespace

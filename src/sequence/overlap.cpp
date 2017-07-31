@@ -137,7 +137,7 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 		int32_t curPos = curKmerPos.position;
 
 		//for all other occurences of this kmer (extension candidates)
-		for (const auto& extReadPos : _vertexIndex.byKmer(curKmerPos.kmer))
+		for (const auto& extReadPos : _vertexIndex.iterKmerPos(curKmerPos.kmer))
 		{
 			//no trivial matches
 			if (extReadPos.readId == fastaRec.id &&
