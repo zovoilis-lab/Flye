@@ -116,8 +116,9 @@ class JobAlignment(Job):
         self.out_files = [out_alignment]
 
     def run(self):
-        logger.info("Polishing genome ({0}/{1})".format(self.stage_id,
-                                                        self.args.num_iters))
+        #logger.info("Polishing genome ({0}/{1})".format(self.stage_id,
+        #                                                self.args.num_iters))
+        logger.info("Running BLASR")
         contigs_fasta = fp.read_fasta_dict(self.in_reference)
         reference_file = os.path.join(self.work_dir, "blasr_ref_{0}.fasta"
                                                         .format(self.stage_id))
@@ -139,6 +140,7 @@ class JobConsensus(Job):
         self.out_files = [out_consensus]
 
     def run(self):
+        logger.info("Computing rough consensus")
         alignment, contigs_info, mean_error = \
                                 aln.parse_alignment(self.in_alignment)
         consensus_fasta = cons.get_consensus(alignment, contigs_info)
@@ -158,10 +160,14 @@ class JobPolishing(Job):
         self.out_files = [out_consensus]
 
     def run(self):
+        logger.info("Polishing genome ({0}/{1})".format(self.stage_id,
+                                                        self.args.num_iters))
         alignment, contigs_info, mean_error \
                             = aln.parse_alignment(self.in_alignment)
 
+        logger.info("Separating alignment into bubbles")
         bubbles = bbl.get_bubbles(alignment, contigs_info, self.seq_platform)
+        logger.info("Correcting bubbles")
         polished_fasta = pol.polish(bubbles, self.args.threads,
                                     self.seq_platform, self.work_dir,
                                     self.stage_id)

@@ -423,46 +423,14 @@ void RepeatResolver::findRepeats(int uniqueCovThreshold)
 
 void RepeatResolver::resolveRepeats()
 {
-	std::unordered_set<GraphEdge*> skipEdges;
-	/*
-	int PATHS_TO_SKIP = 5;
-	std::unordered_map<GraphEdge*, int> coveredEdges;
-	for (auto& readPath : _readAlignments)
-	{
-		std::vector<GraphEdge*> safeEdges;
-		for (auto& aln : readPath)
-		{
-			if (!aln.edge->isRepetitive() && aln.edge->length() > _readJump) 
-			{
-				safeEdges.push_back(aln.edge);
-			}
-		}
-		if (safeEdges.size() > 2)
-		{
-			for (size_t i = 1; i < safeEdges.size() - 1; ++i)
-			{
-				coveredEdges[safeEdges[i]] += 1;
-			}
-		}
-	}
-	for (auto& edge : coveredEdges)
-	{
-		if (edge.second >= PATHS_TO_SKIP)
-		{
-			skipEdges.insert(edge.first);
-			Logger::get().debug() << "Skip: " << edge.first->edgeId.signedId() 
-				<< " " << edge.second;
-		}
-	}*/
-
-	auto connections = this->getConnections(skipEdges);
+	auto connections = this->getConnections();
 	this->resolveConnections(connections);
 
 	//one more time
 	int potentialEdges = this->updateAlignments();
 	if (potentialEdges > 0)
 	{
-		connections = this->getConnections(skipEdges);
+		connections = this->getConnections();
 		this->resolveConnections(connections);
 	}
 
@@ -517,14 +485,13 @@ int RepeatResolver::updateAlignments()
 }
 
 std::vector<RepeatResolver::Connection> 
-	RepeatResolver::getConnections(const std::unordered_set<GraphEdge*> skipEdges)
+	RepeatResolver::getConnections()
 {
 	
-	auto safeEdge = [&skipEdges, this](GraphEdge* edge)
+	auto safeEdge = [this](GraphEdge* edge)
 	{
 		return !edge->isRepetitive() && 
-			   edge->length() > _readJump &&
-			   !skipEdges.count(edge);
+			   edge->length() > _readJump;
 	};
 
 	std::vector<Connection> readConnections;

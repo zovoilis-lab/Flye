@@ -326,10 +326,6 @@ void RepeatGraph::initializeEdges(const OverlapContainer& asmOverlaps)
 			GluePoint complLeft = _gluePoints[complId][complPos];
 			GluePoint complRight = _gluePoints[complId][complPos + 1];
 
-			//bool selfComplement = (gpLeft.pointId == gpRight.pointId &&
-			//					   gpRight.pointId == complLeft.pointId &&
-			//					   complLeft.pointId == complRight.pointId);
-
 			GraphNode* leftNode = idToNode(gpLeft.pointId);
 			GraphNode* rightNode = idToNode(gpRight.pointId);
 			NodePair fwdPair = std::make_pair(leftNode, rightNode);
@@ -417,7 +413,6 @@ void RepeatGraph::initializeEdges(const OverlapContainer& asmOverlaps)
 			for (auto& seg : edgeClust.second)
 			{
 				newEdge->seqSegments.push_back(*seg);
-				//++newEdge->multiplicity;
 				usedSegments.push_back(seg->complement());
 			}
 
@@ -435,7 +430,6 @@ void RepeatGraph::initializeEdges(const OverlapContainer& asmOverlaps)
 				for (auto& seg : edgeClust.second)
 				{
 					complEdge->seqSegments.push_back(seg->complement());
-					//++complEdge->multiplicity;
 				}
 			}
 
@@ -476,7 +470,6 @@ void RepeatGraph::logEdges()
 			SequenceSegment* segment = seqEdgesPair.second[i].first;
 			GraphEdge* edge = seqEdgesPair.second[i].second;
 
-			//std::string unique = !edge->isRepetitive() ? "*" : " ";
 			std::string unique = edge->seqSegments.size() == 1 ? "*" : " ";
 			Logger::get().debug() << unique << "\t" 
 								  << edge->edgeId.signedId() << "\t" 

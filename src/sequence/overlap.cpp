@@ -332,7 +332,7 @@ void OverlapContainer::storeOverlaps(const std::vector<OverlapRange>& overlaps,
 
 void OverlapContainer::findAllOverlaps()
 {
-	Logger::get().info() << "Finding overlaps:";
+	//Logger::get().info() << "Finding overlaps:";
 	std::vector<FastaRecord::Id> allQueries;
 	for (auto& hashPair : _queryContainer.getIndex())
 	{

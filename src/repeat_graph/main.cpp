@@ -120,19 +120,23 @@ int main(int argc, char** argv)
 
 		Logger::get().debug() << "Build date: " << __DATE__ << " " << __TIME__;
 
+		Logger::get().info() << "Readsing FASTA";
 		SequenceContainer seqAssembly; 
 		seqAssembly.readFasta(inAssembly);
 		SequenceContainer seqReads;
 		seqReads.readFasta(readsFasta);
 
+		Logger::get().info() << "Building repeat graph";
 		RepeatGraph rg(seqAssembly);
 		rg.build();
 		rg.outputDot(outFolder + "/graph_before.dot");
 
+		Logger::get().info() << "Simplifying the graph";
 		GraphProcessor proc(rg, seqAssembly, seqReads);
 		proc.condence();
 
 		RepeatResolver resolver(rg, seqAssembly, seqReads);
+		Logger::get().info() << "Aligning reads to the graph";
 		resolver.alignReads();
 		auto& readAlignments = resolver.getReadsAlignment();
 		
@@ -141,10 +145,12 @@ int main(int argc, char** argv)
 		resolver.findRepeats(multInf.getUniqueCovThreshold());
 		rg.outputDot(outFolder + "/graph_simplified.dot");
 
+		Logger::get().info() << "Resolving repeats";
 		resolver.resolveRepeats();
 		rg.outputDot(outFolder + "/graph_resolved.dot");
 		//proc.condence();
 
+		Logger::get().info() << "Generating contigs";
 		proc.generateContigs();
 		proc.dumpRepeats(readAlignments, outFolder + "/repeats_dump.txt");
 		proc.outputContigsGraph(outFolder + "/graph_condensed.dot");

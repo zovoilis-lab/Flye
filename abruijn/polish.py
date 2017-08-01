@@ -44,8 +44,6 @@ def check_binaries():
 
 
 def polish(bubbles, num_proc, err_mode, work_dir, iter_id):
-    logger.info("Correcting bubbles")
-    
     _ROOT = get_root()
 
     subs_matrix = os.path.join(_ROOT, 'resource',

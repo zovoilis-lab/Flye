@@ -24,8 +24,6 @@ class Profile:
 
 
 def get_consensus(alignment, contigs_info):
-    logger.info("Computing consensus")
-
     out_fasta = {}
     aln_by_ctg = defaultdict(list)
     for aln in alignment:

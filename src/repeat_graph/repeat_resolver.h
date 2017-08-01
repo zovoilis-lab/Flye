@@ -38,8 +38,7 @@ private:
 	};
 
 	void clearResolvedRepeats();
-	std::vector<Connection> getConnections(const std::unordered_set<GraphEdge*>
-										   skipEdges);
+	std::vector<Connection> getConnections();
 	void resolveConnections(const std::vector<Connection>& conns);
 	void separatePath(const GraphPath& path, SequenceSegment segment,
 					  size_t startId);
@@ -50,7 +49,6 @@ private:
 	std::vector<GraphAlignment> _readAlignments;
 
 	const int _readJump = Constants::maximumJump;
-	const int _readOverhang = Constants::maximumOverhang;
 	const int _maxSeparation = Constants::maxSeparation;
 
 	RepeatGraph& _graph;

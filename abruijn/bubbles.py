@@ -41,7 +41,6 @@ def get_bubbles(alignment, contigs_info, err_mode):
     """
     The main function: takes an alignment and returns bubbles
     """
-    logger.info("Separating draft genome into bubbles")
     aln_by_ctg = defaultdict(list)
 
     for aln in alignment:

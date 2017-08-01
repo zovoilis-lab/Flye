@@ -82,7 +82,6 @@ def make_alignment(reference_file, reads_file, num_proc,
     """
     Runs BLASR
     """
-    logger.info("Running BLASR")
     _run_blasr(reference_file, reads_file, num_proc, out_alignment)
 
 
