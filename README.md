@@ -16,7 +16,7 @@ The algorithm also produces the graph representation of the final assembly.
 ABruijn has moderate memory requirements and is designed to run on a single node.
 Typically, assembly of a bacteria with 50x coverage takes less than half an hour 
 on a modern desktop and yeast assembly takes about 2 hours. A metagenome of total size 200 Mbp
-can be assembled within a day on a machine with 128Gb of memory and 20 CPUs.
+can be assembled within a day on using 70Gb of memory and 20 CPUs.
 
 Install
 -------
