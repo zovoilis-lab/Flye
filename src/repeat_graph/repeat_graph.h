@@ -154,7 +154,6 @@ public:
 	{}
 
 	void build();
-	void outputDot(const std::string& filename);
 	GraphPath complementPath(const GraphPath& path);
 	GraphNode* complementNode(GraphNode* node);
 

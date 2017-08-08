@@ -95,8 +95,8 @@ class JobRepeat(Job):
         self.out_folder = out_folder
         self.name = "repeat"
 
-        edges_sequences = os.path.join(out_folder, "graph_edges.fasta")
-        repeat_graph = os.path.join(out_folder, "graph_condensed.dot")
+        edges_sequences = os.path.join(out_folder, "graph_final.fasta")
+        repeat_graph = os.path.join(out_folder, "graph_final.gfa")
         self.out_files = [edges_sequences, repeat_graph]
 
     def run(self):
@@ -194,7 +194,7 @@ def _create_job_list(args, work_dir, log_file):
     jobs.append(JobConsensus(alignment_file, pre_polished_file))
 
     #Repeat analysis
-    edges_sequences = os.path.join(work_dir, "graph_edges.fasta")
+    edges_sequences = os.path.join(work_dir, "graph_final.fasta")
     jobs.append(JobRepeat(pre_polished_file, work_dir, log_file))
 
     #Full polishing

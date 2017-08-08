@@ -464,56 +464,111 @@ void GraphProcessor::dumpRepeats(const std::vector<GraphAlignment>& readAlignmen
 	}
 }
 
-void GraphProcessor::outputContigsFasta(const std::string& filename)
+std::vector<Contig> GraphProcessor::edgesPaths() const
+{
+	std::vector<Contig> paths;
+	for (auto& edge : _graph.iterEdges())
+	{
+		GraphPath path = {edge};
+		paths.emplace_back(path, edge->edgeId, false,
+						   edge->length(), edge->meanCoverage);
+	}
+	return paths;
+}
+
+void GraphProcessor::outputDot(bool contigs, const std::string& filename)
+{
+	if (contigs)
+	{
+		this->outputEdgesDot(_contigs, filename);
+	}
+	else
+	{
+		this->outputEdgesDot(this->edgesPaths(), filename);
+	}
+}
+
+void GraphProcessor::outputGfa(bool contigs, const std::string& filename)
+{
+	if (contigs)
+	{
+		this->outputEdgesGfa(_contigs, filename);
+	}
+	else
+	{
+		this->outputEdgesGfa(this->edgesPaths(), filename);
+	}
+}
+
+void GraphProcessor::outputFasta(bool contigs, const std::string& filename)
+{
+	if (contigs)
+	{
+		this->outputEdgesFasta(_contigs, filename);
+	}
+	else
+	{
+		this->outputEdgesFasta(this->edgesPaths(), filename);
+	}
+}
+
+std::string GraphProcessor::contigSequence(const Contig& contig) const
+{
+	std::unordered_map<FastaRecord::Id, int> seqIdFreq;
+	for (auto& edge : contig.path) 
+	{
+		std::unordered_set<FastaRecord::Id> edgeSeqIds;
+		for (auto& seg: edge->seqSegments) 
+		{
+			edgeSeqIds.insert(seg.seqId);
+		}
+		for (auto& seqId : edgeSeqIds)
+		{
+			seqIdFreq[seqId] += 1;
+		}
+	}
+
+	std::string contigSequence;
+	for (auto& edge : contig.path) 
+	{
+		if (edge->seqSegments.empty()) 
+		{
+			throw std::runtime_error("Edge without sequence");
+		}
+
+		//get the sequence with maximum frequency
+		SequenceSegment* bestSegment = nullptr;
+		for (auto& seg : edge->seqSegments)
+		{
+			if (!bestSegment || seqIdFreq[seg.seqId] > seqIdFreq[bestSegment->seqId])
+			{
+				bestSegment = &seg;
+			}
+		}
+
+		auto& sequence = (!bestSegment->readSequence) ? 
+						  _asmSeqs.getSeq(bestSegment->seqId) :
+						  _readSeqs.getSeq(bestSegment->seqId);
+		contigSequence += sequence.substr(bestSegment->start, 
+										  bestSegment->end - bestSegment->start).str();
+	}
+
+	return contigSequence;
+}
+
+void GraphProcessor::outputEdgesFasta(const std::vector<Contig>& paths,
+									  const std::string& filename)
 {
 	static const size_t FASTA_SLICE = 80;
 
 	std::ofstream fout(filename);
 	if (!fout.is_open()) throw std::runtime_error("Can't open " + filename);
 	
-	for (auto& contig : _contigs)
+	for (auto& contig : paths)
 	{
 		if (!contig.id.strand()) continue;
 
-		std::unordered_map<FastaRecord::Id, int> seqIdFreq;
-		for (auto& edge : contig.path) 
-		{
-			std::unordered_set<FastaRecord::Id> edgeSeqIds;
-			for (auto& seg: edge->seqSegments) 
-			{
-				edgeSeqIds.insert(seg.seqId);
-			}
-			for (auto& seqId : edgeSeqIds)
-			{
-				seqIdFreq[seqId] += 1;
-			}
-		}
-
-		std::string contigSequence;
-		for (auto& edge : contig.path) 
-		{
-			if (edge->seqSegments.empty()) 
-			{
-				throw std::runtime_error("Edge without sequence");
-			}
-
-			//get the sequence with maximum frequency
-			SequenceSegment* bestSegment = nullptr;
-			for (auto& seg : edge->seqSegments)
-			{
-				if (!bestSegment || seqIdFreq[seg.seqId] > seqIdFreq[bestSegment->seqId])
-				{
-					bestSegment = &seg;
-				}
-			}
-
-			auto& sequence = (!bestSegment->readSequence) ? 
-							  _asmSeqs.getSeq(bestSegment->seqId) :
-							  _readSeqs.getSeq(bestSegment->seqId);
-			contigSequence += sequence.substr(bestSegment->start, 
-											  bestSegment->end - bestSegment->start).str();
-		}
-
+		std::string contigSequence = this->contigSequence(contig);
 		std::string nameTag = contig.circular ? "circular" : "linear";
 		fout << ">" << nameTag << "_" << contig.id.signedId() << std::endl;
 		for (size_t c = 0; c < contigSequence.length(); c += FASTA_SLICE)
@@ -523,7 +578,44 @@ void GraphProcessor::outputContigsFasta(const std::string& filename)
 	}
 }
 
-void GraphProcessor::outputContigsGraph(const std::string& filename)
+void GraphProcessor::outputEdgesGfa(const std::vector<Contig>& paths,
+							    	const std::string& filename)
+{
+	std::ofstream fout(filename);
+	if (!fout.is_open()) throw std::runtime_error("Can't open " + filename);
+
+	fout << "H\tVN:Z:1.0\n";
+	for (auto& contig : paths)
+	{
+		if (!contig.id.strand()) continue;
+
+		std::string contigSequence = this->contigSequence(contig);
+		int kmerCount = contigSequence.size() * contig.meanCoverage;
+		fout << "S\t" << contig.name() << "\t"<< contigSequence << "\tKC:i:" <<
+			kmerCount << std::endl;
+	}
+
+	for (auto& contigLeft : paths)
+	{
+		for (auto& contigRight : paths)
+		{
+			if (contigLeft.path.back()->nodeRight != 
+				contigRight.path.front()->nodeLeft) continue;
+
+			std::string leftSign = contigLeft.id.strand() ? "+" :"-";
+			std::string leftName = contigLeft.nameUnsigned();
+
+			std::string rightSign = contigRight.id.strand() ? "+" :"-";
+			std::string rightName = contigRight.nameUnsigned();
+
+			fout << "L\t" << leftName << "\t" << leftSign << "\t" <<
+				rightName << "\t" << rightSign << "\t0M\n";
+		}
+	}
+}
+
+void GraphProcessor::outputEdgesDot(const std::vector<Contig>& paths,
+									const std::string& filename)
 {
 	std::ofstream fout(filename);
 	if (!fout.is_open()) throw std::runtime_error("Can't open " + filename);
@@ -561,7 +653,7 @@ void GraphProcessor::outputContigsGraph(const std::string& filename)
 	};
 	/////////////
 
-	for (auto& contig : _contigs)
+	for (auto& contig : paths)
 	{
 		std::stringstream lengthStr;
 		if (contig.length < 5000)
@@ -592,27 +684,6 @@ void GraphProcessor::outputContigsGraph(const std::string& filename)
 		}
 		else
 		{
-
-			/*int numSegments = std::log10(contigLength) * 2;
-			int extraNodes = std::min(std::max(numSegments, 1), 20) - 1;
-			int prevNodeId = nodeToId(contig.path.front()->nodeLeft);
-			for (int i = 0; i < extraNodes; ++i)
-			{
-				std::string label;
-				if (i == extraNodes / 2)
-				{
-					label = "label = \"id " + std::to_string(contig.id.signedId()) 
-										+ "\\l" + lengthStr.str() + "\"";
-				}
-				fout << "\"" << prevNodeId
-				 	<< "\" -> \"" << nextNodeId << "\" [arrowhead = none "
-					<< label << " ] ;\n";
-				fout << "\"" << nextNodeId << "\"[height = 0.1];\n";
-				prevNodeId = nextNodeId++;
-			}
-			fout << "\"" << prevNodeId << "\" -> \"" 
-				<< nodeToId(contig.path.back()->nodeRight) << "\";\n";*/
-
 			fout << "\"" << nodeToId(contig.path.front()->nodeLeft)
 				 << "\" -> \"" << nodeToId(contig.path.back()->nodeRight)
 				 << "\" [label = \"id " << contig.id.signedId()
