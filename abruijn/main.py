@@ -280,12 +280,15 @@ def _enable_logging(log_file, debug, overwrite):
 
 
 def main():
-    def check_int_range(value, min_val, max_val):
+    def check_int_range(value, min_val, max_val, require_odd=False):
         ival = int(value)
         if ival < min_val or ival > max_val:
              raise argparse.ArgumentTypeError("value should be in "
                             "range [{0}, {1}]".format(min_val, max_val))
+        if require_odd and ival % 2 == 0:
+            raise argparse.ArgumentTypeError("should be an odd number")
         return ival
+
 
     parser = argparse.ArgumentParser(description="ABruijn: assembly of long and"
                                      " error-prone reads")
@@ -316,7 +319,7 @@ def main():
                         choices=["pacbio", "nano", "pacbio_hi_err"],
                         help="sequencing platform (default: pacbio)")
     parser.add_argument("-k", "--kmer-size", dest="kmer_size",
-                        type=lambda v: check_int_range(v, 10, 32),
+                        type=lambda v: check_int_range(v, 11, 31, require_odd=True),
                         default=15, help="kmer size (default: 15)")
     parser.add_argument("-o", "--min-overlap", dest="min_overlap",
                         type=lambda v: check_int_range(v, 2000, 10000),

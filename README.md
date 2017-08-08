@@ -11,7 +11,7 @@ polisher module, which produces assembly of high nucleotide-level quality.
 
 Since the version 2.0, ABruijn performs additional repeat analysis
 step, which improves the structural accuracy of the resulting sequence. 
-The algorithm also produces the graph representation of the final assembly.
+The algorithm also produces a graph representation of the final assembly.
 
 ABruijn has moderate memory requirements and is designed to run on a single node.
 Typically, assembly of a bacteria with 50x coverage takes less than half an hour 
@@ -30,7 +30,7 @@ See the *docs/USAGE.md* file.
 
 Publications
 ------------
-Yu Lin, Jeffrey Yuan, Mikhail Kolmogorov, Max W Shen, Pavel Pevzner, 
+Yu Lin, Jeffrey Yuan, Mikhail Kolmogorov, Max W Shen, Mark Chaisson and Pavel Pevzner, 
 "Assembly of Long Error-Prone Reads Using de Bruijn Graphs", PNAS 2016
 
 
@@ -39,6 +39,7 @@ Third-party
 ABruijn package includes some third-party software:
 
 * libcuckoo [http://github.com/efficient/libcuckoo]
+* BLASR [https://github.com/PacificBiosciences/blasr]
 
 
 License
