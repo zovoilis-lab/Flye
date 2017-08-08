@@ -589,7 +589,7 @@ void GraphProcessor::outputEdgesGfa(const std::vector<Contig>& paths,
 		if (!contig.id.strand()) continue;
 
 		std::string contigSequence = this->contigSequence(contig);
-		int kmerCount = contigSequence.size() * contig.meanCoverage;
+		size_t kmerCount = contigSequence.size() * contig.meanCoverage;
 		fout << "S\t" << contig.name() << "\t"<< contigSequence << "\tKC:i:" <<
 			kmerCount << std::endl;
 	}
