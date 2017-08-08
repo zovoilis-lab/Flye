@@ -242,11 +242,11 @@ void GraphProcessor::condenceEdges()
 		for (auto& edge : newEdges)
 		{
 			GraphEdge addFwd = edge;
-			addFwd.edgeId = FastaRecord::Id(_graph._nextEdgeId);
+			addFwd.edgeId = _graph.newEdgeId();
 
 			GraphEdge addRev(_graph.complementNode(edge.nodeRight),
 							 _graph.complementNode(edge.nodeLeft),
-							 FastaRecord::Id(_graph._nextEdgeId + 1));
+							 addFwd.edgeId.rc());
 
 			//complementary segments
 			for (auto seqSeg : addFwd.seqSegments)
@@ -256,7 +256,6 @@ void GraphProcessor::condenceEdges()
 
 			_graph.addEdge(std::move(addFwd));
 			_graph.addEdge(std::move(addRev));
-			_graph._nextEdgeId += 2;
 		}
 
 		std::unordered_set<GraphEdge*> toRemove;

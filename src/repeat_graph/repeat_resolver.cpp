@@ -111,7 +111,8 @@ GraphAlignment
 }
 
 void RepeatResolver::separatePath(const GraphPath& graphPath, 
-								  SequenceSegment readSegment, size_t newId)
+								  SequenceSegment readSegment, 
+								  FastaRecord::Id newId)
 {
 	//first edge
 	GraphNode* leftNode = _graph.addNode();
@@ -135,7 +136,7 @@ void RepeatResolver::separatePath(const GraphPath& graphPath,
 	{
 		rightNode = _graph.addNode();
 		GraphEdge* newEdge = _graph.addEdge(GraphEdge(leftNode, rightNode,
-													  FastaRecord::Id(newId)));
+													  newId));
 		newEdge->seqSegments.push_back(readSegment);
 		newEdge->meanCoverage = meanCov;
 	}
@@ -262,9 +263,9 @@ void RepeatResolver::resolveConnections(const std::vector<Connection>& connectio
 		GraphPath complPath = _graph.complementPath(conn.path);
 		SequenceSegment complSegment = conn.readSequence.complement();
 
-		this->separatePath(conn.path, conn.readSequence, _graph._nextEdgeId);
-		this->separatePath(complPath, complSegment, _graph._nextEdgeId + 1);
-		_graph._nextEdgeId += 2;
+		FastaRecord::Id edgeId = _graph.newEdgeId();
+		this->separatePath(conn.path, conn.readSequence, edgeId);
+		this->separatePath(complPath, complSegment, edgeId.rc());
 	}
 
 	Logger::get().debug() << "Resolved: " << totalLinks / 2 << " links: "

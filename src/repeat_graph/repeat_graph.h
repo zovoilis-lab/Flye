@@ -233,10 +233,16 @@ public:
 		delete node;
 	}
 	//
-
-	size_t _nextEdgeId;	//TODO: temporary
+	FastaRecord::Id newEdgeId()
+	{
+		size_t curId = _nextEdgeId;
+		_nextEdgeId += 2;
+		return FastaRecord::Id(curId);
+	}
 
 private:
+	size_t _nextEdgeId;
+
 	struct GluePoint
 	{
 		GluePoint(size_t id = 0, FastaRecord::Id seqId = FastaRecord::ID_NONE,
@@ -273,4 +279,5 @@ private:
 
 	std::unordered_set<GraphNode*> _graphNodes;
 	std::unordered_set<GraphEdge*> _graphEdges;
+
 };

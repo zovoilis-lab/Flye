@@ -41,7 +41,7 @@ private:
 	std::vector<Connection> getConnections();
 	void resolveConnections(const std::vector<Connection>& conns);
 	void separatePath(const GraphPath& path, SequenceSegment segment,
-					  size_t startId);
+					  FastaRecord::Id startId);
 	GraphAlignment chainReadAlignments(const SequenceContainer& edgeSeqs,
 									   std::vector<EdgeAlignment> ovlps);
 	int updateAlignments();
