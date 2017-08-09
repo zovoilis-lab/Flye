@@ -189,11 +189,11 @@ For example, an assembly of 500 Mb genome with 50x coverage would require
 approximately 250 Gb of memory. Below are running times and memory footprints 
 for different datasets.
 
-	Genome         		Size     Coverage   Wall_clock   CPU_time   RAM
-	E. Coli        		4. 6Mb   50         25m          2h         0.5 Gb
-	X. Oryzae      		5.1 Mb   140        1h30m        10h        5 Gb
-	S. Cerevisiae  		12.2 Mb  120        1h50m        10h20m     7 Gb
-	B. Neritina meta    200 Mb   30         36h5m        600h       70 Gb
+    Genome              Size     Coverage   Wall_clock   CPU_time   RAM
+    E. Coli             4. 6Mb   50         25m          2h         0.5 Gb
+    X. Oryzae           5.1 Mb   225        1h30m        10h        5 Gb
+    S. Cerevisiae       12.2 Mb  120        1h50m        10h20m     7 Gb
+    B. Neritina meta    200 Mb   30         36h5m        600h       70 Gb
 
 
 Algorithm description
