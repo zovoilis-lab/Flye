@@ -11,6 +11,7 @@ from collections import defaultdict, namedtuple
 from bisect import bisect
 from itertools import izip
 import math
+import multiprocessing
 
 import abruijn.fasta_parser as fp
 import abruijn.config as config
@@ -37,7 +38,23 @@ class Bubble:
         self.consensus = ""
 
 
-def get_bubbles(alignment, contigs_info, err_mode):
+def thread_worker(arg_tuple):
+    """
+    Will run in parallel
+    """
+    (ctg_id, ctg_aln, contigs_info,
+        err_mode, results_queue) = arg_tuple
+
+    #logger.debug("Processing {0}".format(ctg_id))
+    profile = _compute_profile(ctg_aln, contigs_info[ctg_id].length)
+    partition = _get_partition(profile, err_mode)
+    ctg_bubbles = _get_bubble_seqs(ctg_aln, profile, partition,
+                                   contigs_info[ctg_id])
+    ctg_bubbles = _filter_outliers(ctg_bubbles)
+    results_queue.put(ctg_bubbles)
+
+
+def get_bubbles(alignment, contigs_info, err_mode, num_proc):
     """
     The main function: takes an alignment and returns bubbles
     """
@@ -46,15 +63,19 @@ def get_bubbles(alignment, contigs_info, err_mode):
     for aln in alignment:
         aln_by_ctg[aln.trg_id].append(aln)
 
-    bubbles = []
+    pool = multiprocessing.Pool(processes=num_proc)
+    manager = multiprocessing.Manager()
+    results_queue = manager.Queue()
+    arguments = []
     for ctg_id, ctg_aln in aln_by_ctg.iteritems():
-        logger.debug("Processing {0}".format(ctg_id))
-        profile = _compute_profile(ctg_aln, contigs_info[ctg_id].length)
-        partition = _get_partition(profile, err_mode)
-        bubbles.extend(_get_bubble_seqs(ctg_aln, profile, partition,
-                                        contigs_info[ctg_id]))
+        arguments.append((ctg_id, ctg_aln, contigs_info,
+                          err_mode, results_queue))
+    pool.map(thread_worker, arguments)
 
-    bubbles = _filter_outliers(bubbles)
+    bubbles = []
+    while not results_queue.empty():
+        bubbles.extend(results_queue.get())
+
     return bubbles
 
 

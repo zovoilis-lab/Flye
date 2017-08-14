@@ -166,7 +166,8 @@ class JobPolishing(Job):
                             = aln.parse_alignment(self.in_alignment)
 
         logger.info("Separating alignment into bubbles")
-        bubbles = bbl.get_bubbles(alignment, contigs_info, self.seq_platform)
+        bubbles = bbl.get_bubbles(alignment, contigs_info,
+                                  self.seq_platform, self.args.threads)
         logger.info("Correcting bubbles")
         polished_fasta = pol.polish(bubbles, self.args.threads,
                                     self.seq_platform, self.work_dir,
