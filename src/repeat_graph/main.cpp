@@ -120,35 +120,44 @@ int main(int argc, char** argv)
 
 		Logger::get().debug() << "Build date: " << __DATE__ << " " << __TIME__;
 
+		Logger::get().info() << "Reading FASTA";
 		SequenceContainer seqAssembly; 
 		seqAssembly.readFasta(inAssembly);
 		SequenceContainer seqReads;
 		seqReads.readFasta(readsFasta);
 
+		Logger::get().info() << "Building repeat graph";
 		RepeatGraph rg(seqAssembly);
 		rg.build();
-		rg.outputDot(outFolder + "/graph_before.dot");
 
+		Logger::get().info() << "Simplifying the graph";
 		GraphProcessor proc(rg, seqAssembly, seqReads);
+		//proc.outputDot(/*on contigs*/ false, outFolder + "/graph_raw.dot");
 		proc.condence();
 
 		RepeatResolver resolver(rg, seqAssembly, seqReads);
+		Logger::get().info() << "Aligning reads to the graph";
 		resolver.alignReads();
 		auto& readAlignments = resolver.getReadsAlignment();
 		
 		MultiplicityInferer multInf(rg);
 		multInf.fixEdgesMultiplicity(readAlignments);
 		resolver.findRepeats(multInf.getUniqueCovThreshold());
-		rg.outputDot(outFolder + "/graph_simplified.dot");
+		proc.outputDot(/*on contigs*/ false, outFolder + "/graph_before_rr.dot");
+		proc.outputGfa(/*on contigs*/ false, outFolder + "/graph_before_rr.gfa");
 
+		Logger::get().info() << "Resolving repeats";
 		resolver.resolveRepeats();
-		rg.outputDot(outFolder + "/graph_resolved.dot");
+		//proc.outputDot(/*on contigs*/ false, outFolder + "/graph_after_rr.dot");
 		//proc.condence();
 
+		Logger::get().info() << "Generating contigs";
 		proc.generateContigs();
+
 		proc.dumpRepeats(readAlignments, outFolder + "/repeats_dump.txt");
-		proc.outputContigsGraph(outFolder + "/graph_condensed.dot");
-		proc.outputContigsFasta(outFolder + "/graph_edges.fasta");
+		proc.outputDot(/*on contigs*/ true, outFolder + "/graph_final.dot");
+		proc.outputFasta(/*on contigs*/ true, outFolder + "/graph_final.fasta");
+		proc.outputGfa(/*on contigs*/ true, outFolder + "/graph_final.gfa");
 
 		return 0;
 

@@ -21,17 +21,18 @@ void VertexIndex::countKmers(size_t hardThreshold)
 		throw std::runtime_error("Wrong hard threshold value: " + 
 								 std::to_string(hardThreshold));
 	}
+	Logger::get().debug() << "Started kmer counting";
 
 	//TODO: precount size should correlate with kmer size
 	const size_t PRE_COUNT_SIZE = 1024 * 1024 * 1024;
 	std::vector<unsigned char> preCounters(PRE_COUNT_SIZE, 0);
 
 	//filling up bloom filter
-	Logger::get().info() << "Counting kmers (1/2):";
+	if (_outputProgress) Logger::get().info() << "Counting kmers (1/2):";
 	ProgressPercent bloomProg(_seqContainer.getIndex().size());
 	for (auto& seqPair : _seqContainer.getIndex())
 	{
-		bloomProg.advance();
+		if (_outputProgress) bloomProg.advance();
 		for (auto kmerPos : IterKmers(_seqContainer.getSeq(seqPair.first)))
 		{
 			if (preCounters[kmerPos.kmer.hash() % PRE_COUNT_SIZE] != 
@@ -41,7 +42,7 @@ void VertexIndex::countKmers(size_t hardThreshold)
 	}
 
 	//counting only kmers that have passed the filter
-	Logger::get().info() << "Counting kmers (2/2):";
+	if (_outputProgress) Logger::get().info() << "Counting kmers (2/2):";
 
 	std::function<void(const FastaRecord::Id&)> countUpdate = 
 	[&preCounters, hardThreshold, this] (const FastaRecord::Id& readId)
@@ -61,7 +62,7 @@ void VertexIndex::countKmers(size_t hardThreshold)
 		allReads.push_back(hashPair.first);
 	}
 	processInParallel(allReads, countUpdate, 
-					  Parameters::get().numThreads, true);
+					  Parameters::get().numThreads, _outputProgress);
 	
 	for (auto kmer : _kmerCounts.lock_table())
 	{
@@ -72,7 +73,7 @@ void VertexIndex::countKmers(size_t hardThreshold)
 
 void VertexIndex::buildIndex(int minCoverage, int maxCoverage, int filterRatio)
 {
-	Logger::get().info() << "Building kmer index";
+	if (_outputProgress) Logger::get().info() << "Filling index table";
 
 	size_t kmerEntries = 0;
 	for (auto kmer : _kmerCounts.lock_table())
@@ -130,7 +131,7 @@ void VertexIndex::buildIndex(int minCoverage, int maxCoverage, int filterRatio)
 		allReads.push_back(hashPair.first);
 	}
 	processInParallel(allReads, indexUpdate, 
-					  Parameters::get().numThreads, true);
+					  Parameters::get().numThreads, _outputProgress);
 
 	_kmerCounts.clear();
 	_kmerCounts.reserve(0);

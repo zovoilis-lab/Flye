@@ -25,7 +25,8 @@ public:
 		this->clear();
 	}
 	VertexIndex(const SequenceContainer& seqContainer):
-		_seqContainer(seqContainer) {}
+		_seqContainer(seqContainer), _outputProgress(false) 
+	{}
 
 	VertexIndex(const VertexIndex&) = delete;
 	void operator=(const VertexIndex&) = delete;
@@ -131,6 +132,11 @@ public:
 		return _kmerIndex.size() * 2;
 	}
 
+	void outputProgress(bool set) 
+	{
+		_outputProgress = set;
+	}
+
 	//bool isRepetitive(Kmer kmer) const
 	//{
 	//	return _repetitiveKmers.count(kmer);
@@ -150,4 +156,5 @@ private:
 	//std::unordered_set<Kmer>		_repetitiveKmers;
 	KmerDistribution 			 	_kmerDistribution;
 	cuckoohash_map<Kmer, size_t>  	_kmerCounts;
+	bool _outputProgress;
 };

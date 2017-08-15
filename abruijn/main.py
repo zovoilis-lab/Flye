@@ -95,8 +95,8 @@ class JobRepeat(Job):
         self.out_folder = out_folder
         self.name = "repeat"
 
-        edges_sequences = os.path.join(out_folder, "graph_edges.fasta")
-        repeat_graph = os.path.join(out_folder, "graph_condensed.dot")
+        edges_sequences = os.path.join(out_folder, "graph_final.fasta")
+        repeat_graph = os.path.join(out_folder, "graph_final.gfa")
         self.out_files = [edges_sequences, repeat_graph]
 
     def run(self):
@@ -116,8 +116,9 @@ class JobAlignment(Job):
         self.out_files = [out_alignment]
 
     def run(self):
-        logger.info("Polishing genome ({0}/{1})".format(self.stage_id,
-                                                        self.args.num_iters))
+        #logger.info("Polishing genome ({0}/{1})".format(self.stage_id,
+        #                                                self.args.num_iters))
+        logger.info("Running BLASR")
         contigs_fasta = fp.read_fasta_dict(self.in_reference)
         reference_file = os.path.join(self.work_dir, "blasr_ref_{0}.fasta"
                                                         .format(self.stage_id))
@@ -131,25 +132,31 @@ class JobAlignment(Job):
 
 
 class JobConsensus(Job):
-    def __init__(self, in_alignment, out_consensus):
+    def __init__(self, in_contigs, in_alignment, out_consensus):
         super(JobConsensus, self).__init__()
+
+        self.in_contigs = in_contigs
         self.in_alignment = in_alignment
         self.out_consensus = out_consensus
         self.name = "consensus"
         self.out_files = [out_consensus]
 
     def run(self):
-        alignment, contigs_info, mean_error = \
-                                aln.parse_alignment(self.in_alignment)
-        consensus_fasta = cons.get_consensus(alignment, contigs_info)
+        logger.info("Computing rough consensus")
+        contigs_info = aln.get_contigs_info(self.in_contigs)
+        consensus_fasta = cons.get_consensus(self.in_alignment, contigs_info,
+                                             self.args.threads)
         fp.write_fasta_dict(consensus_fasta, self.out_consensus)
 
         Job.run_description["stage_name"] = self.name
 
 
 class JobPolishing(Job):
-    def __init__(self, in_alignment, out_consensus, stage_id, seq_platform):
+    def __init__(self, in_contigs, in_alignment, out_consensus,
+                 stage_id, seq_platform):
         super(JobPolishing, self).__init__()
+
+        self.in_contigs = in_contigs
         self.in_alignment = in_alignment
         self.out_consensus = out_consensus
         self.name = "polishing"
@@ -158,10 +165,14 @@ class JobPolishing(Job):
         self.out_files = [out_consensus]
 
     def run(self):
-        alignment, contigs_info, mean_error \
-                            = aln.parse_alignment(self.in_alignment)
+        logger.info("Polishing genome ({0}/{1})".format(self.stage_id,
+                                                        self.args.num_iters))
+        contigs_info = aln.get_contigs_info(self.in_contigs)
 
-        bubbles = bbl.get_bubbles(alignment, contigs_info, self.seq_platform)
+        logger.info("Separating alignment into bubbles")
+        bubbles = bbl.get_bubbles(self.in_alignment, contigs_info,
+                                  self.seq_platform, self.args.threads)
+        logger.info("Correcting bubbles")
         polished_fasta = pol.polish(bubbles, self.args.threads,
                                     self.seq_platform, self.work_dir,
                                     self.stage_id)
@@ -185,10 +196,11 @@ def _create_job_list(args, work_dir, log_file):
     alignment_file = os.path.join(work_dir, "blasr_0.m5")
     pre_polished_file = os.path.join(work_dir, "polished_0.fasta")
     jobs.append(JobAlignment(draft_assembly, alignment_file, 0))
-    jobs.append(JobConsensus(alignment_file, pre_polished_file))
+    jobs.append(JobConsensus(draft_assembly, alignment_file,
+                             pre_polished_file))
 
     #Repeat analysis
-    edges_sequences = os.path.join(work_dir, "graph_edges.fasta")
+    edges_sequences = os.path.join(work_dir, "graph_final.fasta")
     jobs.append(JobRepeat(pre_polished_file, work_dir, log_file))
 
     #Full polishing
@@ -198,8 +210,8 @@ def _create_job_list(args, work_dir, log_file):
         polished_file = os.path.join(work_dir,
                                      "polished_{0}.fasta".format(i + 1))
         jobs.append(JobAlignment(prev_assembly, alignment_file, i + 1))
-        jobs.append(JobPolishing(alignment_file, polished_file, i + 1,
-                                 args.sequencing_platform))
+        jobs.append(JobPolishing(prev_assembly, alignment_file, polished_file,
+                                 i + 1, args.sequencing_platform))
         prev_assembly = polished_file
 
     for job in jobs:
@@ -274,12 +286,15 @@ def _enable_logging(log_file, debug, overwrite):
 
 
 def main():
-    def check_int_range(value, min_val, max_val):
+    def check_int_range(value, min_val, max_val, require_odd=False):
         ival = int(value)
         if ival < min_val or ival > max_val:
              raise argparse.ArgumentTypeError("value should be in "
                             "range [{0}, {1}]".format(min_val, max_val))
+        if require_odd and ival % 2 == 0:
+            raise argparse.ArgumentTypeError("should be an odd number")
         return ival
+
 
     parser = argparse.ArgumentParser(description="ABruijn: assembly of long and"
                                      " error-prone reads")
@@ -310,7 +325,7 @@ def main():
                         choices=["pacbio", "nano", "pacbio_hi_err"],
                         help="sequencing platform (default: pacbio)")
     parser.add_argument("-k", "--kmer-size", dest="kmer_size",
-                        type=lambda v: check_int_range(v, 10, 32),
+                        type=lambda v: check_int_range(v, 11, 31, require_odd=True),
                         default=15, help="kmer size (default: 15)")
     parser.add_argument("-o", "--min-overlap", dest="min_overlap",
                         type=lambda v: check_int_range(v, 2000, 10000),

@@ -9,8 +9,10 @@ Quick and dirty alignment consensus
 import logging
 from collections import defaultdict
 from itertools import izip
+import multiprocessing
+import signal
 
-from abruijn.alignment import shift_gaps
+from abruijn.alignment import shift_gaps, parse_alignment
 import abruijn.config as config
 
 logger = logging.getLogger()
@@ -23,19 +25,48 @@ class Profile:
         self.nucl = None
 
 
-def get_consensus(alignment, contigs_info):
-    logger.info("Computing consensus")
+def _thread_worker(args_tuple):
+    ctg_id, contigs_info, ctg_aln, results_queue = args_tuple
+    #ctg_aln = parse_alignment(aln_path, ctg_id)
 
-    out_fasta = {}
+    profile = _contig_profile(ctg_aln, contigs_info[ctg_id].length)
+    sequence = _flattern_profile(profile)
+    results_queue.put((ctg_id, sequence))
+
+
+def get_consensus(alignment_path, contigs_info, num_proc):
+    """
+    Main function
+    """
+    #making sure the main process catches SIGINT
+    orig_sigint = signal.signal(signal.SIGINT, signal.SIG_IGN)
+    pool = multiprocessing.Pool(processes=num_proc)
+    signal.signal(signal.SIGINT, orig_sigint)
+
     aln_by_ctg = defaultdict(list)
-    for aln in alignment:
+    for aln in parse_alignment(alignment_path):
         aln_by_ctg[aln.trg_id].append(aln)
 
-    for ctg_id, ctg_aln in aln_by_ctg.iteritems():
-        logger.debug("Processing {0}".format(ctg_id))
-        profile = _contig_profile(ctg_aln, contigs_info[ctg_id].length)
-        sequence = _flattern_profile(profile)
-        out_fasta[ctg_id] = sequence
+    manager = multiprocessing.Manager()
+    results_queue = manager.Queue()
+    arguments = []
+    for ctg_id in contigs_info:
+        arguments.append((ctg_id, contigs_info,
+                          aln_by_ctg[ctg_id], results_queue))
+
+    try:
+        res = pool.map_async(_thread_worker, arguments)
+        res.get(99999999999)
+    except KeyboardInterrupt:
+        pool.terminate()
+    else:
+        pool.close()
+    pool.join()
+
+    out_fasta = {}
+    while not results_queue.empty():
+        ctg_id, ctg_seq = results_queue.get()
+        out_fasta[ctg_id] = ctg_seq
 
     return out_fasta
 

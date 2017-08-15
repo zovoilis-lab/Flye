@@ -141,9 +141,10 @@ int main(int argc, char** argv)
 
 		SequenceContainer readsContainer;
 		Logger::get().debug() << "Build date: " << __DATE__ << " " << __TIME__;
-		Logger::get().debug() << "Reading FASTA";
+		Logger::get().info() << "Reading FASTA";
 		readsContainer.readFasta(readsFasta);
 		VertexIndex vertexIndex(readsContainer);
+		vertexIndex.outputProgress(true);
 
 		int64_t sumLength = 0;
 		for (auto& seqId : readsContainer.getIndex())
@@ -154,6 +155,7 @@ int main(int argc, char** argv)
 			<< sumLength / readsContainer.getIndex().size();
 	
 		//rough estimate
+		Logger::get().info() << "Generating solid k-mer index";
 		size_t hardThreshold = std::max(1, coverage / 
 										Constants::hardMinCoverageRate);
 		vertexIndex.countKmers(hardThreshold);

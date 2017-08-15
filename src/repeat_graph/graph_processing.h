@@ -13,6 +13,21 @@ struct Contig
 		   bool circular = false, int length = 0, int meanCoverage = 0):
 		   	path(path), id(id), circular(circular), length(length),
 			meanCoverage(meanCoverage) {}
+
+	std::string name() const
+	{
+		std::string nameTag = circular ? "circular" : "linear";
+		return nameTag + "_" + std::to_string(id.signedId());
+	}
+
+	std::string nameUnsigned() const
+	{
+		std::string nameTag = circular ? "circular" : "linear";
+		std::string idTag = id.strand() ? std::to_string(id.signedId()) : 
+										  std::to_string(id.rc().signedId());
+		return nameTag + "_" + idTag;
+	}
+
 	GraphPath path;
 	FastaRecord::Id id;
 	bool circular;
@@ -34,10 +49,20 @@ public:
 	void dumpRepeats(const std::vector<GraphAlignment>& readAlignments,
 					 const std::string& outFile);
 
-	void outputContigsGraph(const std::string& filename);
-	void outputContigsFasta(const std::string& filename);
+	void outputDot(bool contigs, const std::string& filename);
+	void outputGfa(bool contigs, const std::string& filename);
+	void outputFasta(bool contigs, const std::string& filename);
 
 private:
+	void outputEdgesDot(const std::vector<Contig>& paths,
+						const std::string& filename);
+	void outputEdgesGfa(const std::vector<Contig>& paths,
+						const std::string& filename);
+	void outputEdgesFasta(const std::vector<Contig>& paths,
+						  const std::string& filename);
+	std::vector<Contig> edgesPaths() const;
+	std::string contigSequence(const Contig& contig) const;
+
 	void unrollLoops();
 	void condenceEdges();
 	void updateEdgesMultiplicity();

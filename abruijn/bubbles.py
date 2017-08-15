@@ -11,10 +11,12 @@ from collections import defaultdict, namedtuple
 from bisect import bisect
 from itertools import izip
 import math
+import multiprocessing
+import signal
 
 import abruijn.fasta_parser as fp
 import abruijn.config as config
-from abruijn.alignment import shift_gaps
+from abruijn.alignment import shift_gaps, parse_alignment
 
 
 logger = logging.getLogger()
@@ -37,25 +39,55 @@ class Bubble:
         self.consensus = ""
 
 
-def get_bubbles(alignment, contigs_info, err_mode):
+def _thread_worker(args_tuple):
+    """
+    Will run in parallel
+    """
+    (ctg_id, ctg_aln, contigs_info,
+        err_mode, results_queue) = args_tuple
+
+    #logger.debug("Processing {0}".format(ctg_id))
+    profile = _compute_profile(ctg_aln, contigs_info[ctg_id].length)
+    partition = _get_partition(profile, err_mode)
+    ctg_bubbles = _get_bubble_seqs(ctg_aln, profile, partition,
+                                   contigs_info[ctg_id])
+    ctg_bubbles = _filter_outliers(ctg_bubbles)
+    results_queue.put(ctg_bubbles)
+
+
+def get_bubbles(alignment_path, contigs_info, err_mode, num_proc):
     """
     The main function: takes an alignment and returns bubbles
     """
-    logger.info("Separating draft genome into bubbles")
-    aln_by_ctg = defaultdict(list)
+    #making sure the main process catches SIGINT
+    orig_sigint = signal.signal(signal.SIGINT, signal.SIG_IGN)
+    pool = multiprocessing.Pool(processes=num_proc)
+    signal.signal(signal.SIGINT, orig_sigint)
 
-    for aln in alignment:
+    aln_by_ctg = defaultdict(list)
+    for aln in parse_alignment(alignment_path):
         aln_by_ctg[aln.trg_id].append(aln)
 
-    bubbles = []
-    for ctg_id, ctg_aln in aln_by_ctg.iteritems():
-        logger.debug("Processing {0}".format(ctg_id))
-        profile = _compute_profile(ctg_aln, contigs_info[ctg_id].length)
-        partition = _get_partition(profile, err_mode)
-        bubbles.extend(_get_bubble_seqs(ctg_aln, profile, partition,
-                                        contigs_info[ctg_id]))
+    manager = multiprocessing.Manager()
+    results_queue = manager.Queue()
+    arguments = []
+    for ctg_id in contigs_info:
+        arguments.append((ctg_id, aln_by_ctg[ctg_id],
+                          contigs_info, err_mode, results_queue))
 
-    bubbles = _filter_outliers(bubbles)
+    try:
+        res = pool.map_async(_thread_worker, arguments)
+        res.get(99999999999)
+    except KeyboardInterrupt:
+        pool.terminate()
+    else:
+        pool.close()
+    pool.join()
+
+    bubbles = []
+    while not results_queue.empty():
+        bubbles.extend(results_queue.get())
+
     return bubbles
 
 

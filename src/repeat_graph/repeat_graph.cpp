@@ -326,10 +326,6 @@ void RepeatGraph::initializeEdges(const OverlapContainer& asmOverlaps)
 			GluePoint complLeft = _gluePoints[complId][complPos];
 			GluePoint complRight = _gluePoints[complId][complPos + 1];
 
-			//bool selfComplement = (gpLeft.pointId == gpRight.pointId &&
-			//					   gpRight.pointId == complLeft.pointId &&
-			//					   complLeft.pointId == complRight.pointId);
-
 			GraphNode* leftNode = idToNode(gpLeft.pointId);
 			GraphNode* rightNode = idToNode(gpRight.pointId);
 			NodePair fwdPair = std::make_pair(leftNode, rightNode);
@@ -417,7 +413,6 @@ void RepeatGraph::initializeEdges(const OverlapContainer& asmOverlaps)
 			for (auto& seg : edgeClust.second)
 			{
 				newEdge->seqSegments.push_back(*seg);
-				//++newEdge->multiplicity;
 				usedSegments.push_back(seg->complement());
 			}
 
@@ -435,7 +430,6 @@ void RepeatGraph::initializeEdges(const OverlapContainer& asmOverlaps)
 				for (auto& seg : edgeClust.second)
 				{
 					complEdge->seqSegments.push_back(seg->complement());
-					//++complEdge->multiplicity;
 				}
 			}
 
@@ -476,7 +470,6 @@ void RepeatGraph::logEdges()
 			SequenceSegment* segment = seqEdgesPair.second[i].first;
 			GraphEdge* edge = seqEdgesPair.second[i].second;
 
-			//std::string unique = !edge->isRepetitive() ? "*" : " ";
 			std::string unique = edge->seqSegments.size() == 1 ? "*" : " ";
 			Logger::get().debug() << unique << "\t" 
 								  << edge->edgeId.signedId() << "\t" 
@@ -523,79 +516,4 @@ GraphNode* RepeatGraph::complementNode(GraphNode* node)
 									.front()->nodeLeft;
 	}
 	return nullptr;
-}
-
-void RepeatGraph::outputDot(const std::string& filename)
-{
-	std::ofstream fout(filename);
-	if (!fout.is_open()) throw std::runtime_error("Can't open " + filename);
-
-	fout << "digraph {\n";
-	fout << "node [shape = \"circle\", label = \"\"]\n";
-	
-	std::unordered_map<GraphNode*, int> nodeIds;
-	int nextNodeId = 0;
-	auto nodeToId = [&nodeIds, &nextNodeId](GraphNode* node)
-	{
-		if (!nodeIds.count(node))
-		{
-			nodeIds[node] = nextNodeId++;
-		}
-		return nodeIds[node];
-	};
-
-	const std::string COLORS[] = {"red", "darkgreen", "blue", "goldenrod", 
-								  "cadetblue", "darkorchid", "aquamarine1", 
-								  "darkgoldenrod1", "deepskyblue1", 
-								  "darkolivegreen3"};
-	std::unordered_map<FastaRecord::Id, size_t> colorIds;
-	size_t nextColorId = 0;
-	auto idToColor = [&colorIds, &nextColorId, &COLORS](FastaRecord::Id id)
-	{
-		if (!id.strand()) id = id.rc();
-		if (!colorIds.count(id))
-		{
-			colorIds[id] = nextColorId;
-			nextColorId = (nextColorId + 1) % 10;
-		}
-		return COLORS[colorIds[id]];
-	};
-	/////////////
-
-	for (auto edge : this->iterEdges())
-	{
-
-		std::stringstream length;
-		if (edge->length() < 5000)
-		{
-			length << std::fixed << std::setprecision(1) 
-				<< (float)edge->length() / 1000 << "k";
-		}
-		else
-		{
-			length << edge->length() / 1000 << "k";
-		}
-		length << " " << edge->meanCoverage << "x";
-
-		if (edge->isRepetitive())
-		{
-			FastaRecord::Id edgeId = edge->edgeId;
-			std::string color = idToColor(edgeId);
-
-			fout << "\"" << nodeToId(edge->nodeLeft) 
-				 << "\" -> \"" << nodeToId(edge->nodeRight)
-				 << "\" [label = \"id " << edgeId.signedId() 
-				 << "\\l" << length.str() << "\", color = \"" 
-				 << color << "\" " << " penwidth = 3] ;\n";
-		}
-		else
-		{
-			fout << "\"" << nodeToId(edge->nodeLeft) 
-				 << "\" -> \"" << nodeToId(edge->nodeRight)
-				 << "\" [label = \"id " << edge->edgeId.signedId() << "\\l"
-				 << length.str() << "\", color = \"black\"] ;\n";
-		}
-	}
-
-	fout << "}\n";
 }

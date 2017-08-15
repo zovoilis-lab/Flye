@@ -292,7 +292,7 @@ void Extender::assembleContigs()
 	}
 
 	_progress.setDone();
-	Logger::get().info() << "Assembled " << _contigPaths.size() << " contigs";
+	Logger::get().info() << "Assembled " << _contigPaths.size() << " draft contigs";
 }
 
 int Extender::countRightExtensions(FastaRecord::Id readId)

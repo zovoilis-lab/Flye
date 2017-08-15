@@ -42,4 +42,5 @@ Additonally, you may install the package for the better OS integration:
     python setup.py install
 
 Alternatively, you can perform local user installation by adding '--user' or '--prefix'
-options to the previous command.
+options to the previous command. The system installation does not include BLASR, which 
+should be installed separately.
