@@ -132,8 +132,10 @@ class JobAlignment(Job):
 
 
 class JobConsensus(Job):
-    def __init__(self, in_alignment, out_consensus):
+    def __init__(self, in_contigs, in_alignment, out_consensus):
         super(JobConsensus, self).__init__()
+
+        self.in_contigs = in_contigs
         self.in_alignment = in_alignment
         self.out_consensus = out_consensus
         self.name = "consensus"
@@ -141,17 +143,20 @@ class JobConsensus(Job):
 
     def run(self):
         logger.info("Computing rough consensus")
-        alignment, contigs_info, mean_error = \
-                                aln.parse_alignment(self.in_alignment)
-        consensus_fasta = cons.get_consensus(alignment, contigs_info)
+        contigs_info = aln.get_contigs_info(self.in_contigs)
+        consensus_fasta = cons.get_consensus(self.in_alignment, contigs_info,
+                                             self.args.threads)
         fp.write_fasta_dict(consensus_fasta, self.out_consensus)
 
         Job.run_description["stage_name"] = self.name
 
 
 class JobPolishing(Job):
-    def __init__(self, in_alignment, out_consensus, stage_id, seq_platform):
+    def __init__(self, in_contigs, in_alignment, out_consensus,
+                 stage_id, seq_platform):
         super(JobPolishing, self).__init__()
+
+        self.in_contigs = in_contigs
         self.in_alignment = in_alignment
         self.out_consensus = out_consensus
         self.name = "polishing"
@@ -162,11 +167,10 @@ class JobPolishing(Job):
     def run(self):
         logger.info("Polishing genome ({0}/{1})".format(self.stage_id,
                                                         self.args.num_iters))
-        alignment, contigs_info, mean_error \
-                            = aln.parse_alignment(self.in_alignment)
+        contigs_info = aln.get_contigs_info(self.in_contigs)
 
         logger.info("Separating alignment into bubbles")
-        bubbles = bbl.get_bubbles(alignment, contigs_info,
+        bubbles = bbl.get_bubbles(self.in_alignment, contigs_info,
                                   self.seq_platform, self.args.threads)
         logger.info("Correcting bubbles")
         polished_fasta = pol.polish(bubbles, self.args.threads,
@@ -192,7 +196,8 @@ def _create_job_list(args, work_dir, log_file):
     alignment_file = os.path.join(work_dir, "blasr_0.m5")
     pre_polished_file = os.path.join(work_dir, "polished_0.fasta")
     jobs.append(JobAlignment(draft_assembly, alignment_file, 0))
-    jobs.append(JobConsensus(alignment_file, pre_polished_file))
+    jobs.append(JobConsensus(draft_assembly, alignment_file,
+                             pre_polished_file))
 
     #Repeat analysis
     edges_sequences = os.path.join(work_dir, "graph_final.fasta")
@@ -205,8 +210,8 @@ def _create_job_list(args, work_dir, log_file):
         polished_file = os.path.join(work_dir,
                                      "polished_{0}.fasta".format(i + 1))
         jobs.append(JobAlignment(prev_assembly, alignment_file, i + 1))
-        jobs.append(JobPolishing(alignment_file, polished_file, i + 1,
-                                 args.sequencing_platform))
+        jobs.append(JobPolishing(prev_assembly, alignment_file, polished_file,
+                                 i + 1, args.sequencing_platform))
         prev_assembly = polished_file
 
     for job in jobs:

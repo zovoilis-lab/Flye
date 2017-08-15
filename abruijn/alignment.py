@@ -85,24 +85,26 @@ def make_alignment(reference_file, reads_file, num_proc,
     _run_blasr(reference_file, reads_file, num_proc, out_alignment)
 
 
-def parse_alignment(alignment_file):
+def get_contigs_info(contigs_file):
+    contigs_info = {}
+    contigs_fasta = fp.read_fasta_dict(contigs_file)
+    for ctg_id, ctg_seq in contigs_fasta.iteritems():
+        contig_type = ctg_id.split("_")[0]
+        contigs_info[ctg_id] = ContigInfo(ctg_id, len(ctg_seq),
+                                          contig_type)
+
+    return contigs_info
+
+
+def parse_alignment(alignment_file, ctg_id=None):
     """
     Parses BLASR alignment and choses error profile base on error rate
     """
     circular_window = config.vals["circular_window"]
-    alignment, mean_error = _parse_blasr(alignment_file, change_strand=True)
-    contigs_info = {}
+    alignment, _mean_error = _parse_blasr(alignment_file, change_strand=True,
+                                          ctg_id=ctg_id)
 
-    for aln in alignment:
-        if aln.trg_id not in contigs_info:
-            contig_type = aln.trg_id.split("_")[0]
-            contig_len = aln.trg_len
-            if contig_type == "circular" and contig_len > circular_window:
-                contig_len -= circular_window
-            contigs_info[aln.trg_id] = ContigInfo(aln.trg_id, contig_len,
-                                                  contig_type)
-
-    return alignment, contigs_info, mean_error
+    return alignment
 
 
 def choose_error_mode(err_rate):
@@ -145,7 +147,7 @@ def shift_gaps(seq_trg, seq_qry):
     return "".join(lst_qry[1 : -1])
 
 
-def _parse_blasr(filename, change_strand):
+def _parse_blasr(filename, change_strand, ctg_id):
     """
     Parse Blasr output
     """
@@ -154,6 +156,10 @@ def _parse_blasr(filename, change_strand):
     with open(filename, "r") as f:
         for line in f:
             tokens = line.strip().split()
+
+            if ctg_id is not None and tokens[5] != ctg_id:
+                continue
+
             err_rate = 1 - float(tokens[17].count("|")) / len(tokens[17])
             if tokens[9] == "+" and change_strand:
                 trg_seq, qry_seq = tokens[16], tokens[18]
