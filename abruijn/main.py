@@ -193,26 +193,26 @@ def _create_job_list(args, work_dir, log_file):
     jobs.append(JobAssembly(draft_assembly, log_file))
 
     #Pre-polishing
-    alignment_file = os.path.join(work_dir, "blasr_0.m5")
-    pre_polished_file = os.path.join(work_dir, "polished_0.fasta")
-    jobs.append(JobAlignment(draft_assembly, alignment_file, 0))
-    jobs.append(JobConsensus(draft_assembly, alignment_file,
-                             pre_polished_file))
+    #alignment_file = os.path.join(work_dir, "blasr_0.m5")
+    #pre_polished_file = os.path.join(work_dir, "polished_0.fasta")
+    #jobs.append(JobAlignment(draft_assembly, alignment_file, 0))
+    #jobs.append(JobConsensus(draft_assembly, alignment_file,
+    #                         pre_polished_file))
 
     #Repeat analysis
     edges_sequences = os.path.join(work_dir, "graph_final.fasta")
-    jobs.append(JobRepeat(pre_polished_file, work_dir, log_file))
+    jobs.append(JobRepeat(draft_assembly, work_dir, log_file))
 
     #Full polishing
-    prev_assembly = edges_sequences
-    for i in xrange(args.num_iters):
-        alignment_file = os.path.join(work_dir, "blasr_{0}.m5".format(i + 1))
-        polished_file = os.path.join(work_dir,
-                                     "polished_{0}.fasta".format(i + 1))
-        jobs.append(JobAlignment(prev_assembly, alignment_file, i + 1))
-        jobs.append(JobPolishing(prev_assembly, alignment_file, polished_file,
-                                 i + 1, args.sequencing_platform))
-        prev_assembly = polished_file
+    #prev_assembly = edges_sequences
+    #for i in xrange(args.num_iters):
+    #    alignment_file = os.path.join(work_dir, "blasr_{0}.m5".format(i + 1))
+    #    polished_file = os.path.join(work_dir,
+    #                                 "polished_{0}.fasta".format(i + 1))
+    #    jobs.append(JobAlignment(prev_assembly, alignment_file, i + 1))
+    #    jobs.append(JobPolishing(prev_assembly, alignment_file, polished_file,
+    #                             i + 1, args.sequencing_platform))
+    #    prev_assembly = polished_file
 
     for job in jobs:
         job.args = args
@@ -303,7 +303,7 @@ def main():
                         help="path to reads file (FASTA format)")
     parser.add_argument("out_dir", metavar="out_dir",
                         help="output directory")
-    parser.add_argument("coverage", metavar="coverage (integer)",
+    parser.add_argument("coverage", metavar="coverage",
                         type=lambda v: check_int_range(v, 1, 1000),
                         help="estimated assembly coverage")
     parser.add_argument("--debug", action="store_true",
