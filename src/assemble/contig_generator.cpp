@@ -131,7 +131,20 @@ void ContigGenerator::generateContigs()
 
 	for (const ContigPath& path : _extender.getContigPaths())
 	{
-		if (path.reads.size() < 2) continue;
+		if (path.reads.size() < 2) 
+		{
+			if (!path.reads.empty())
+			{
+				FastaRecord rec(_seqContainer.getSeq(path.reads.front()),
+								"read_" + std::to_string(_contigs.size()) + 
+									"_part_0_" + 
+									_seqContainer.seqName(path.reads.front()),
+								FastaRecord::Id(_contigs.size()));
+				_contigs.push_back({rec});
+			}
+			continue;
+		}
+		
 
 		std::vector<FastaRecord> contigParts;
 		if (path.circular)

@@ -8,19 +8,19 @@
 
 namespace Constants
 {
-	const int maximumJump = 500;
-	const int maximumOverhang = 500;
+	const int maximumJump = 100;
+	const int maximumOverhang = 100;
 
 	//kmer enumeration
 	const int hardMinCoverageRate = 10;
 	const int repeatCoverageRate = 10;
 
 	//overlap constants
-	const int closeJumpRate = 100;
+	const int closeJumpRate = 10;
 	const int farJumpRate = 2;
 	const int overlapDivergenceRate = 5;
-	const int gapJump = 500;
-	const int penaltyWindow = 100;
+	const int gapJump = 100;
+	const int penaltyWindow = 10;
 
 	//chimera detection
 	const int maxCoverageDropRate = 5;

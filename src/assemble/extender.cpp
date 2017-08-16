@@ -265,12 +265,12 @@ void Extender::assembleContigs()
 			{
 				coveredReads.insert(ovlp.extId);
 				coveredReads.insert(ovlp.extId.rc());
-				if (ovlp.leftShift > Constants::maximumJump)
+				if (ovlp.leftShift > -Constants::maximumJump)
 				{
 					leftExtended.insert(ovlp.extId);
 					rightExtended.insert(ovlp.extId.rc());
 				}
-				if (ovlp.rightShift < -Constants::maximumJump)	
+				if (ovlp.rightShift < Constants::maximumJump)	
 				{
 					rightExtended.insert(ovlp.extId);
 					leftExtended.insert(ovlp.extId.rc());
@@ -291,7 +291,23 @@ void Extender::assembleContigs()
 		}
 	}
 
+	int singletonsAdded = 0;
+	for (auto& indexPair : _readsContainer.getIndex())
+	{
+		if (!indexPair.first.strand()) continue;
+		
+		if (!_innerReads.count(indexPair.first) && 
+			_readsContainer.seqLen(indexPair.first) > Parameters::get().minimumOverlap)
+		{
+			ContigPath path;
+			path.reads.push_back(indexPair.first);
+			_contigPaths.push_back(path);
+			++singletonsAdded;
+		}
+	}
+
 	_progress.setDone();
+	Logger::get().info() << "Added " << singletonsAdded << " singleton reads";
 	Logger::get().info() << "Assembled " << _contigPaths.size() << " draft contigs";
 }
 
