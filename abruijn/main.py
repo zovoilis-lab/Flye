@@ -233,7 +233,7 @@ def _run(args):
     _enable_logging(log_file, args.debug, not args.resume)
 
     logger.info("Running ABruijn")
-    aln.check_binaries()
+    #aln.check_binaries()
     pol.check_binaries()
     asm.check_binaries()
 
