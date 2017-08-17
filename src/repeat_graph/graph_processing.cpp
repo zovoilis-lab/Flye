@@ -528,6 +528,8 @@ std::string GraphProcessor::contigSequence(const Contig& contig) const
 	}
 
 	std::string contigSequence;
+	Logger::get().debug() << "Contig: " << contig.id.signedId();
+	int contigStart = 0;
 	for (auto& edge : contig.path) 
 	{
 		if (edge->seqSegments.empty()) 
@@ -548,6 +550,14 @@ std::string GraphProcessor::contigSequence(const Contig& contig) const
 		auto& sequence = (!bestSegment->readSequence) ? 
 						  _asmSeqs.getSeq(bestSegment->seqId) :
 						  _readSeqs.getSeq(bestSegment->seqId);
+
+		auto name = (!bestSegment->readSequence) ? 
+						_asmSeqs.seqName(bestSegment->seqId) :
+						_readSeqs.seqName(bestSegment->seqId);
+		Logger::get().debug() << "\t" << name << "\t" 
+			<< contigStart << "\t" << bestSegment->start << "\t" << bestSegment->end;
+		contigStart += bestSegment->end - bestSegment->start;
+
 		contigSequence += sequence.substr(bestSegment->start, 
 										  bestSegment->end - bestSegment->start).str();
 	}

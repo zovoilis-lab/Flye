@@ -125,39 +125,41 @@ namespace
 }
 
 
-void ContigGenerator::generateContigs()
+void ContigGenerator::generateContigs(const std::vector<ContigPath>& contigs)
 {
 	Logger::get().info() << "Generating contig sequences";
 
-	for (const ContigPath& path : _extender.getContigPaths())
+	for (const ContigPath& path : contigs)
 	{
-		if (path.reads.size() < 2) continue;
+		if (path.sequences.size() < 2) 
+		{
+			if (!path.sequences.empty())
+			{
+				FastaRecord rec(path.sequences.front(), path.name, 
+								FastaRecord::ID_NONE);
+				_contigs.push_back({rec});
+			}
+			continue;
+		}
 
 		std::vector<FastaRecord> contigParts;
-		if (path.circular)
-		{
-			_contigs.push_back(this->generateCircular(path));
-		}
-		else
-		{
-			_contigs.push_back(this->generateLinear(path));
-		}
+		_contigs.push_back(this->generateLinear(path));
 	}
 }
 
-std::vector<FastaRecord> 
-ContigGenerator::generateLinear(const ContigPath& path)
+FastaRecord ContigGenerator::generateLinear(const ContigPath& path)
 {
 	auto alignments = this->generateAlignments(path);
 	std::vector<FastaRecord> contigParts;
 
 	auto prevSwitch = std::make_pair(0, 0);
-	int partNum = 1;
-	for (size_t i = 0; i < path.reads.size(); ++i)
+	std::string contigSequence;
+	for (size_t i = 0; i < path.sequences.size(); ++i)
 	{
+		auto& sequence = path.sequences[i];
 		int32_t leftCut = prevSwitch.second;
-		int32_t rightCut = _seqContainer.seqLen(path.reads[i]);
-		if (i != path.reads.size() - 1)
+		int32_t rightCut = sequence.length();
+		if (i != path.sequences.size() - 1)
 		{
 			auto curSwitch = this->getSwitchPositions(alignments[i], 
 													  prevSwitch.second);
@@ -165,114 +167,36 @@ ContigGenerator::generateLinear(const ContigPath& path)
 			prevSwitch = curSwitch;
 		}
 
-		auto partSeq = _seqContainer.getSeq(path.reads[i])
-								.substr(leftCut, rightCut - leftCut);
-		std::string partName = 
-			(path.circular ? "circular_" : "linear_") + 
-			std::to_string(_contigs.size()) +
-			"_part_" + std::to_string(partNum) + "_" +
-			_seqContainer.getIndex().at(path.reads[i]).description + 
-			"[" + std::to_string(leftCut) + ":" + 
-			std::to_string(rightCut) + "]";
-		contigParts.push_back(FastaRecord(partSeq, partName, 
-										  FastaRecord::Id(partNum)));
-		++partNum;
+		contigSequence += sequence.substr(leftCut, rightCut - leftCut).str();
 	}
-	return contigParts;
-}
-
-std::vector<FastaRecord> 
-ContigGenerator::generateCircular(const ContigPath& path)
-{
-	std::vector<FastaRecord> contigParts;
-	auto circPath = path;
-	circPath.reads.push_back(path.reads[0]);
-	circPath.reads.push_back(path.reads[1]);
-
-	auto alignments = this->generateAlignments(circPath);
-	int32_t initPivot = _seqContainer.seqLen(circPath.reads[0]) / 2;
-	auto firstSwitch = this->getSwitchPositions(alignments[0], 
-												initPivot);
-
-	auto prevSwitch = firstSwitch;
-	int partNum = 1;
-	for (size_t i = 1; i < circPath.reads.size() - 1; ++i)
-	{
-		auto curSwitch = this->getSwitchPositions(alignments[i], 
-												  prevSwitch.second);
-		int32_t leftCut = prevSwitch.second;
-		int32_t rightCut = curSwitch.first;
-		prevSwitch = curSwitch;
-
-		if (i == circPath.reads.size() - 2)	//finishing circle
-		{
-			rightCut = firstSwitch.first;
-			if (rightCut - leftCut <= 0) rightCut = leftCut;
-		}
-
-		auto partSeq = _seqContainer.getSeq(circPath.reads[i])
-							 	.substr(leftCut, rightCut - leftCut);
-		std::string partName = 
-			(path.circular ? "circular_" : "linear_") + 
-			std::to_string(_contigs.size()) +
-			"_part_" + std::to_string(partNum) + "_" +
-			_seqContainer.getIndex().at(circPath.reads[i]).description + 
-			"[" + std::to_string(leftCut) + ":" + 
-			std::to_string(rightCut) + "]";
-		contigParts.push_back(FastaRecord(partSeq, partName, 
-										  FastaRecord::Id(partNum)));
-		++partNum;
-	}
-	return contigParts;
+	return FastaRecord(DnaSequence(contigSequence), path.name, 
+					   FastaRecord::ID_NONE);
 }
 
 
 void ContigGenerator::outputContigs(const std::string& fileName)
 {
-	std::vector<FastaRecord> allSeqs;
-	for (auto& ctg : _contigs)
-	{
-		allSeqs.insert(allSeqs.end(), ctg.begin(), ctg.end());
-	}
-	SequenceContainer::writeFasta(allSeqs, fileName);
+	SequenceContainer::writeFasta(_contigs, fileName);
 }
 
 
 std::vector<ContigGenerator::AlignmentInfo> 
 ContigGenerator::generateAlignments(const ContigPath& path)
 {
-	typedef std::tuple<FastaRecord::Id, FastaRecord::Id, size_t> AlnTask;
+	typedef size_t AlnTask;
 
 	std::vector<AlignmentInfo> alnResults;
 	std::function<void(const AlnTask&)> alnFunc =
-	[this, &alnResults](const AlnTask& aln)
+	[this, &alnResults, &path](const AlnTask& i)
 	{
-		OverlapRange readsOvlp;
-		bool found = false;
-		FastaRecord::Id idLeft = std::get<0>(aln);
-		FastaRecord::Id idRight = std::get<1>(aln);
-		for (auto& ovlp : _overlapContainer.lazySeqOverlaps(idLeft))
-		{
-			if (ovlp.extId == idRight) 
-			{
-				readsOvlp = ovlp;
-				found = true;
-				break;
-			}
-		}
-		if (!found) 
-		{
-			Logger::get().debug() << _seqContainer.seqName(idLeft) << " " 
-				<< _seqContainer.seqName(idRight);
-			throw std::runtime_error("Ovlp not found!");
-		}
-
-		std::string leftSeq = _seqContainer.getIndex().at(idLeft)
-									.sequence.substr(readsOvlp.curBegin,
-													 readsOvlp.curRange()).str();
-		std::string rightSeq = _seqContainer.getIndex().at(idRight)
-									.sequence.substr(readsOvlp.extBegin, 
-													 readsOvlp.extRange()).str();
+		int32_t leftStart = std::max(0, (int32_t)path.sequences[i].length() - 
+										path.overlaps[i].first);
+		int32_t leftEnd = path.sequences[i].length();
+		std::string leftSeq = path.sequences[i].substr(leftStart, 
+													   leftEnd - leftStart).str();
+		int32_t rightEnd = std::min(path.overlaps[i].second, 
+									(int32_t)path.sequences[i + 1].length());
+		std::string rightSeq = path.sequences[i + 1].substr(0, rightEnd).str();
 
 		const int bandWidth = abs((int)leftSeq.length() - 
 								  (int)rightSeq.length()) + 
@@ -282,15 +206,14 @@ ContigGenerator::generateAlignments(const ContigPath& path)
 		pairwiseAlignment(leftSeq, rightSeq, alignedLeft, 
 						  alignedRight, bandWidth);
 
-		alnResults[std::get<2>(aln)] = {alignedLeft, alignedRight, 
-							  		    readsOvlp.curBegin, 
-										readsOvlp.extBegin};
+		alnResults[i] = {alignedLeft, alignedRight, 
+						 leftStart, 0};
 	};
 
 	std::vector<AlnTask> tasks;
-	for (size_t i = 0; i < path.reads.size() - 1; ++i)
+	for (size_t i = 0; i < path.sequences.size() - 1; ++i)
 	{
-		tasks.push_back(std::make_tuple(path.reads[i], path.reads[i + 1], i));
+		tasks.push_back(i);
 	}
 	alnResults.resize(tasks.size());
 	processInParallel(tasks, alnFunc, Parameters::get().numThreads, false);

@@ -8,16 +8,8 @@
 
 #include "../sequence/sequence_container.h"
 #include "../sequence/overlap.h"
+#include "../sequence/contig_generator.h"
 #include "chimera.h"
-
-struct ContigPath
-{
-	ContigPath(): 
-		circular(false) {}
-
-	std::vector<FastaRecord::Id> reads;
-	bool circular;
-};
 
 class Extender
 {
@@ -37,6 +29,8 @@ public:
 		{return _contigPaths;}
 
 private:
+	typedef std::vector<FastaRecord::Id> ReadsList;
+
 	const SequenceContainer& _readsContainer;
 	OverlapContainer& _ovlpContainer;
 	ChimeraDetector   _chimDetector;
@@ -45,13 +39,14 @@ private:
 	ProgressPercent   _progress;
 
 	FastaRecord::Id stepRight(FastaRecord::Id readId);
-	ContigPath extendContig(FastaRecord::Id startingRead);
+	ReadsList extendContig(FastaRecord::Id startingRead);
 
 	int   countRightExtensions(FastaRecord::Id readId);
 	bool  extendsRight(const OverlapRange& ovlp);
+	void  convertToContigs();
 
-
-	std::vector<ContigPath> 				 _contigPaths;
+	std::vector<ReadsList> 		_readLists;
+	std::vector<ContigPath> 	_contigPaths;
 	//std::unordered_set<FastaRecord::Id>		 _coveredReads;
 	std::unordered_set<FastaRecord::Id>		 _innerReads;
 	//std::unordered_set<FastaRecord::Id>		 _usedReads;

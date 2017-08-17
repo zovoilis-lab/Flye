@@ -11,28 +11,8 @@
 #include "../common/logger.h"
 #include "extender.h"
 
-/*
-namespace
-{
-	template<typename Out>
-	void split(const std::string &s, char delim, Out result) {
-		    std::stringstream ss;
-			    ss.str(s);
-				    std::string item;
-					    while (std::getline(ss, item, delim)) {
-							        *(result++) = item;
-									    }
-	}
 
-
-	std::vector<std::string> split(const std::string &s, char delim) {
-		    std::vector<std::string> elems;
-			    split(s, delim, std::back_inserter(elems));
-				    return elems;
-	}
-}*/
-
-ContigPath Extender::extendContig(FastaRecord::Id startRead)
+Extender::ReadsList Extender::extendContig(FastaRecord::Id startRead)
 {
 	Logger::get().debug() << "Start Read: " << 
 				_readsContainer.seqName(startRead);
@@ -44,8 +24,8 @@ ContigPath Extender::extendContig(FastaRecord::Id startRead)
 	_rightExtension = true;
 	FastaRecord::Id currentRead = startRead;
 	std::vector<int> numOverlaps;
-	ContigPath contigPath;
-	contigPath.reads.push_back(startRead);
+	ReadsList contigPath;
+	contigPath.push_back(startRead);
 
 	auto leftExtendsStart = [startRead, this](const FastaRecord::Id readId)
 	{
@@ -142,7 +122,7 @@ ContigPath Extender::extendContig(FastaRecord::Id startRead)
 				    	_readsContainer.seqName(currentRead) << " " << innerOverlaps
 						<< " " << extensions.size();
 
-			contigPath.reads.push_back(currentRead);
+			contigPath.push_back(currentRead);
 			_progress.setValue(_assembledSequence);
 
 			if (overlapsVisited)
@@ -157,15 +137,15 @@ ContigPath Extender::extendContig(FastaRecord::Id startRead)
 
 		if (!foundExtension || overlapsVisited)
 		{
-			if (_rightExtension && !contigPath.reads.empty())
+			if (_rightExtension && !contigPath.empty())
 			{
 				Logger::get().debug() << "Changing direction";
 				_rightExtension = false;
-				currentRead = contigPath.reads.front().rc();
-				std::reverse(contigPath.reads.begin(), contigPath.reads.end());
-				for (size_t i = 0; i < contigPath.reads.size(); ++i) 
+				currentRead = contigPath.front().rc();
+				std::reverse(contigPath.begin(), contigPath.end());
+				for (size_t i = 0; i < contigPath.size(); ++i) 
 				{
-					contigPath.reads[i] = contigPath.reads[i].rc();
+					contigPath[i] = contigPath[i].rc();
 				}
 			}
 			else
@@ -192,35 +172,6 @@ void Extender::assembleContigs()
 	_innerReads.clear();
 	std::unordered_set<FastaRecord::Id> coveredReads;
 	//_coveredReads.clear();
-
-	/*
-	int falsePositive = 0;
-	int falseNegative = 0;
-	int allReads = 0;
-	for (auto& indexPair : _readsContainer.getIndex())
-	{
-		bool chimeric = _chimDetector.isChimeric(indexPair.first);
-		auto tokens = split(indexPair.second.description, '_');
-		if (tokens.size() < 3) continue;
-
-		std::string chimStr = tokens[2];
-		bool truChim = chimStr.back() == '1';
-
-		++allReads;
-		if (truChim && !chimeric) ++falseNegative;
-		if (!truChim && chimeric) 
-		{
-			Logger::get().info() << indexPair.second.description;
-			++falsePositive;
-		}
-	}
-
-	Logger::get().info() << "FN: " << falseNegative << " " 
-		<< (float)falseNegative / allReads;
-	Logger::get().info() << "FP: " << falsePositive << " " 
-		<< (float)falsePositive / allReads;
-
-	exit(0);*/
 
 	int numChecked = 0;
 	int readsToCheck = Constants::startReadsPercent * 
@@ -254,11 +205,11 @@ void Extender::assembleContigs()
 		//Logger::get().debug() << "Used: " << usedIndex;
 		if (numOvlp > 0) continue;
 
-		ContigPath path = this->extendContig(indexPair.first);
+		ReadsList path = this->extendContig(indexPair.first);
 		
 		std::unordered_set<FastaRecord::Id> rightExtended;
 		std::unordered_set<FastaRecord::Id> leftExtended;
-		for (auto& readId : path.reads)
+		for (auto& readId : path)
 		{
 			//so each read is covered from the left and right
 			for (auto& ovlp : _ovlpContainer.lazySeqOverlaps(readId))
@@ -283,16 +234,51 @@ void Extender::assembleContigs()
 		}
 		///
 		
-		if (path.reads.size() >= Constants::minReadsInContig)
+		if (path.size() >= Constants::minReadsInContig)
 		{
 			Logger::get().debug() << "Assembled contig with " 
-				<< path.reads.size() << " reads";
-			_contigPaths.push_back(std::move(path));
+				<< path.size() << " reads";
+			_readLists.push_back(std::move(path));
 		}
 	}
 
+	this->convertToContigs();
 	_progress.setDone();
 	Logger::get().info() << "Assembled " << _contigPaths.size() << " draft contigs";
+}
+
+void Extender::convertToContigs()
+{
+	for (auto& readsList : _readLists)
+	{
+		ContigPath path;
+		path.name = "contig_" + std::to_string(_contigPaths.size() + 1);
+
+		for (size_t i = 0; i < readsList.size() - 1; ++i)
+		{
+			bool found = false;
+			OverlapRange readsOvlp;
+
+			for (auto& ovlp : _ovlpContainer.lazySeqOverlaps(readsList[i]))
+			{
+				if (ovlp.extId == readsList[i + 1]) 
+				{
+					readsOvlp = ovlp;
+					found = true;
+					break;
+				}
+			}
+			if (!found) throw std::runtime_error("Ovlp not found!");
+
+			path.sequences.push_back(_readsContainer.getSeq(readsList[i]));
+			int32_t leftFlank = _readsContainer.seqLen(readsList[i]) - 
+								readsOvlp.curBegin;
+			int32_t rightFlank = readsOvlp.extEnd;
+			path.overlaps.push_back(std::make_pair(leftFlank, rightFlank));
+		}
+		path.sequences.push_back(_readsContainer.getSeq(readsList.back()));
+		_contigPaths.push_back(std::move(path));
+	}
 }
 
 int Extender::countRightExtensions(FastaRecord::Id readId)

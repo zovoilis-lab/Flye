@@ -8,27 +8,25 @@
 
 #include "../sequence/sequence_container.h"
 #include "../sequence/overlap.h"
-#include "extender.h"
 
 #include "matrix.h"
+
 
 class ContigGenerator
 {
 public:
-	ContigGenerator(const Extender& extender, 
-					const SequenceContainer& seqContainer,
-	 				OverlapContainer& overlapContainer):
-		_extender(extender), 
-		_seqContainer(seqContainer),
-		_overlapContainer(overlapContainer) {}
+	typedef std::vector<FastaRecord::Id> SeqVec;
+
+	ContigGenerator(const SequenceContainer& seqContainer):
+		_seqContainer(seqContainer) {}
+		//_overlapContainer(overlapContainer) {}
 	
-	void generateContigs();
+	void generateContigs(const std::vector<ContigPath>& contigs);
 	void outputContigs(const std::string& fileName);
 	
 private:
-	const Extender& _extender;
 	const SequenceContainer& _seqContainer;
-	OverlapContainer& _overlapContainer;
+	//OverlapContainer& _overlapContainer;
 
 	struct AlignmentInfo
 	{
@@ -41,8 +39,7 @@ private:
 	std::vector<AlignmentInfo> generateAlignments(const ContigPath& path);
 	std::pair<int32_t, int32_t> getSwitchPositions(AlignmentInfo aln,
 												   int32_t prevSwitch);
-	std::vector<FastaRecord> generateCircular(const ContigPath& path);
-	std::vector<FastaRecord> generateLinear(const ContigPath& path);
+	FastaRecord generateLinear(const ContigPath& path);
 
-	std::vector<std::vector<FastaRecord>> _contigs;
+	std::vector<FastaRecord> _contigs;
 };

@@ -8,10 +8,10 @@
 #include "../sequence/vertex_index.h"
 #include "../sequence/sequence_container.h"
 #include "../sequence/overlap.h"
+#include "../sequence/contig_generator.h"
 #include "../common/config.h"
 #include "chimera.h"
 #include "extender.h"
-#include "contig_generator.h"
 #include "parameters_estimator.h"
 #include "../common/logger.h"
 
@@ -184,8 +184,8 @@ int main(int argc, char** argv)
 						  estimator.genomeSizeEstimate());
 		extender.assembleContigs();
 
-		ContigGenerator contGen(extender, readsContainer, readOverlaps);
-		contGen.generateContigs();
+		ContigGenerator contGen(readsContainer);
+		contGen.generateContigs(extender.getContigPaths());
 		contGen.outputContigs(outAssembly);
 	}
 	catch (std::runtime_error& e)

@@ -79,10 +79,10 @@ class JobAssembly(Job):
         self.out_files = [out_assembly]
 
     def run(self):
-        reads_order = os.path.join(self.work_dir, "reads_order.fasta")
-        asm.assemble(self.args, reads_order, self.log_file)
-        contigs_fasta = aln.concatenate_contigs(reads_order)
-        fp.write_fasta_dict(contigs_fasta, self.out_assembly)
+        #reads_order = os.path.join(self.work_dir, "reads_order.fasta")
+        asm.assemble(self.args, self.out_assembly, self.log_file)
+        #contigs_fasta = aln.concatenate_contigs(reads_order)
+        #fp.write_fasta_dict(contigs_fasta, self.out_assembly)
 
         Job.run_description["stage_name"] = self.name
 
