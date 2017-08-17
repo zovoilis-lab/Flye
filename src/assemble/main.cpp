@@ -184,7 +184,7 @@ int main(int argc, char** argv)
 						  estimator.genomeSizeEstimate());
 		extender.assembleContigs();
 
-		ContigGenerator contGen(readsContainer);
+		ContigGenerator contGen;
 		contGen.generateContigs(extender.getContigPaths());
 		contGen.outputContigs(outAssembly);
 	}

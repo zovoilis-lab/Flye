@@ -223,7 +223,7 @@ ContigGenerator::generateAlignments(const ContigPath& path)
 
 
 std::pair<int32_t, int32_t> 
-ContigGenerator::getSwitchPositions(AlignmentInfo aln,
+ContigGenerator::getSwitchPositions(const AlignmentInfo& aln,
 									int32_t prevSwitch)
 {
 	int leftPos = aln.startOne;
@@ -250,7 +250,5 @@ ContigGenerator::getSwitchPositions(AlignmentInfo aln,
 	}
 	
 	Logger::get().debug() << "No jump found!";
-	//			<< _seqContainer.seqName(leftRead) << " : "
-	//			<< _seqContainer.seqName(rightRead);
 	return {prevSwitch + 1, 0};
 }
