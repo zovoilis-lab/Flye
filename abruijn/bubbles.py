@@ -16,13 +16,16 @@ import signal
 
 import abruijn.fasta_parser as fp
 import abruijn.config as config
-from abruijn.alignment import shift_gaps, parse_alignment
+from abruijn.alignment import shift_gaps, SynchronizedReader
 
 
 logger = logging.getLogger()
 
 
 class ProfileInfo:
+    __slots__ = ("nucl", "num_inserts", "num_deletions",
+                 "num_missmatch", "coverage")
+
     def __init__(self):
         self.nucl = ""
         self.num_inserts = 0
@@ -32,6 +35,8 @@ class ProfileInfo:
 
 
 class Bubble:
+    __slots__ = ("contig_id", "position", "branches", "consensus")
+
     def __init__(self, contig_id, position):
         self.contig_id = contig_id
         self.position = position
@@ -39,20 +44,23 @@ class Bubble:
         self.consensus = ""
 
 
-def _thread_worker(args_tuple):
+def _thread_worker(blasr_reader, contigs_info, err_mode,
+                   results_queue):
     """
     Will run in parallel
     """
-    (ctg_id, ctg_aln, contigs_info,
-        err_mode, results_queue) = args_tuple
+    while not blasr_reader.is_eof():
+        ctg_id, ctg_aln = blasr_reader.get_chunk()
+        if ctg_id is None:
+            break
 
-    #logger.debug("Processing {0}".format(ctg_id))
-    profile = _compute_profile(ctg_aln, contigs_info[ctg_id].length)
-    partition = _get_partition(profile, err_mode)
-    ctg_bubbles = _get_bubble_seqs(ctg_aln, profile, partition,
-                                   contigs_info[ctg_id])
-    ctg_bubbles = _filter_outliers(ctg_bubbles)
-    results_queue.put(ctg_bubbles)
+        #logger.debug("Processing {0}".format(ctg_id))
+        profile = _compute_profile(ctg_aln, contigs_info[ctg_id].length)
+        partition = _get_partition(profile, err_mode)
+        ctg_bubbles = _get_bubble_seqs(ctg_aln, profile, partition,
+                                       contigs_info[ctg_id])
+        ctg_bubbles = _filter_outliers(ctg_bubbles)
+        results_queue.put(ctg_bubbles)
 
 
 def get_bubbles(alignment_path, contigs_info, err_mode, num_proc):
@@ -60,29 +68,27 @@ def get_bubbles(alignment_path, contigs_info, err_mode, num_proc):
     The main function: takes an alignment and returns bubbles
     """
     #making sure the main process catches SIGINT
-    orig_sigint = signal.signal(signal.SIGINT, signal.SIG_IGN)
-    pool = multiprocessing.Pool(processes=num_proc)
-    signal.signal(signal.SIGINT, orig_sigint)
-
-    aln_by_ctg = defaultdict(list)
-    for aln in parse_alignment(alignment_path):
-        aln_by_ctg[aln.trg_id].append(aln)
-
+    blasr_reader = SynchronizedReader(alignment_path)
     manager = multiprocessing.Manager()
     results_queue = manager.Queue()
-    arguments = []
-    for ctg_id in contigs_info:
-        arguments.append((ctg_id, aln_by_ctg[ctg_id],
-                          contigs_info, err_mode, results_queue))
 
+    #making sure the main process catches SIGINT
+    orig_sigint = signal.signal(signal.SIGINT, signal.SIG_IGN)
+    threads = []
+    for _ in xrange(num_proc):
+        threads.append(multiprocessing.Process(target=_thread_worker,
+                                               args=(blasr_reader, contigs_info,
+                                                     err_mode, results_queue)))
+    signal.signal(signal.SIGINT, orig_sigint)
+
+    for t in threads:
+        t.start()
     try:
-        res = pool.map_async(_thread_worker, arguments)
-        res.get(99999999999)
+        for t in threads:
+            t.join()
     except KeyboardInterrupt:
-        pool.terminate()
-    else:
-        pool.close()
-    pool.join()
+        for t in threads:
+            t.terminate()
 
     bubbles = []
     while not results_queue.empty():
@@ -195,7 +201,7 @@ def _compute_profile(alignment, genome_len):
     Computes alignment profile
     """
     MIN_ALIGNMENT = config.vals["min_alignment_length"]
-    logger.debug("Computing profile")
+    #logger.debug("Computing profile")
 
     profile = [ProfileInfo() for _ in xrange(genome_len)]
     for aln in alignment:
@@ -233,7 +239,7 @@ def _get_partition(profile, err_mode):
     """
     Partitions genome into sub-alignments at solid regions / simple kmers
     """
-    logger.debug("Partitioning genome")
+    #logger.debug("Partitioning genome")
     SOLID_LEN = config.vals["solid_kmer_length"]
     SIMPLE_LEN = config.vals["simple_kmer_length"]
     MAX_BUBBLE = config.vals["max_bubble_length"]
@@ -268,8 +274,8 @@ def _get_partition(profile, err_mode):
         else:
             prof_pos += 1
 
-    logger.debug("Partitioned into {0} segments".format(len(partition) + 1))
-    logger.debug("Long bubbles: {0}".format(long_bubbles))
+    #logger.debug("Partitioned into {0} segments".format(len(partition) + 1))
+    #logger.debug("Long bubbles: {0}".format(long_bubbles))
 
     return partition
 
