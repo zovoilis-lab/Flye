@@ -6,7 +6,9 @@
 #include <iomanip>
 
 #include "graph_processing.h"
+#include "../sequence/contig_generator.h"
 #include "../common/logger.h"
+#include "../common/config.h"
 
 void GraphProcessor::condence()
 {
@@ -336,7 +338,76 @@ void GraphProcessor::generateContigs()
 		_contigs.emplace_back(traversed, edgeId, circular, 
 							  contigLength, meanCoverage);
 	}
+	this->generateContigSequences();
 	Logger::get().info() << "Generated " << _contigs.size() / 2 << " contigs";
+}
+
+void GraphProcessor::generateContigSequences()
+{
+	ContigGenerator gen;
+	for (auto& contig : _contigs)
+	{
+		std::unordered_map<FastaRecord::Id, int> seqIdFreq;
+		for (auto& edge : contig.path) 
+		{
+			std::unordered_set<FastaRecord::Id> edgeSeqIds;
+			for (auto& seg: edge->seqSegments) 
+			{
+				edgeSeqIds.insert(seg.seqId);
+			}
+			for (auto& seqId : edgeSeqIds)
+			{
+				seqIdFreq[seqId] += 1;
+			}
+		}
+
+		ContigPath contigPath;
+		int32_t prevFlank = 0;
+		for (size_t i = 0; i < contig.path.size(); ++i) 
+		{
+			if (contig.path[i]->seqSegments.empty()) 
+			{
+				throw std::runtime_error("Edge without sequence");
+			}
+
+			//get the sequence with maximum frequency
+			SequenceSegment* bestSegment = nullptr;
+			for (auto& seg : contig.path[i]->seqSegments)
+			{
+				if (!bestSegment || seqIdFreq[seg.seqId] > seqIdFreq[bestSegment->seqId])
+				{
+					bestSegment = &seg;
+				}
+			}
+
+			auto& sequence = (!bestSegment->readSequence) ? 
+							  _asmSeqs.getSeq(bestSegment->seqId) :
+							  _readSeqs.getSeq(bestSegment->seqId);
+
+			int32_t leftFlank = std::min(Constants::maxSeparation,
+										 bestSegment->start);
+			if (i == 0) leftFlank = 0;
+			int32_t rightFlank = std::min(Constants::maxSeparation,
+											(int32_t)sequence.length() - 
+											bestSegment->end);
+			if (i == contig.path.size() - 1) rightFlank = 0;
+
+			contigPath.sequences
+				.push_back(sequence.substr(bestSegment->start - leftFlank,
+										   bestSegment->end - bestSegment->start
+										   	+ leftFlank + rightFlank));
+
+			if (i != 0)
+			{
+				int32_t overlapLen = prevFlank + leftFlank;
+				contigPath.overlaps.push_back(std::make_pair(overlapLen, 
+															 overlapLen));
+			}
+			prevFlank = rightFlank;
+		}
+		auto fastaRec = gen.generateLinear(contigPath);
+		contig.sequence = fastaRec.sequence.str();
+	}
 }
 
 void GraphProcessor::dumpRepeats(const std::vector<GraphAlignment>& readAlignments,
@@ -511,6 +582,7 @@ void GraphProcessor::outputFasta(bool contigs, const std::string& filename)
 	}
 }
 
+/*
 std::string GraphProcessor::contigSequence(const Contig& contig) const
 {
 	std::unordered_map<FastaRecord::Id, int> seqIdFreq;
@@ -528,6 +600,8 @@ std::string GraphProcessor::contigSequence(const Contig& contig) const
 	}
 
 	std::string contigSequence;
+	Logger::get().debug() << "Contig: " << contig.id.signedId();
+	//int contigStart = 0;
 	for (auto& edge : contig.path) 
 	{
 		if (edge->seqSegments.empty()) 
@@ -548,12 +622,19 @@ std::string GraphProcessor::contigSequence(const Contig& contig) const
 		auto& sequence = (!bestSegment->readSequence) ? 
 						  _asmSeqs.getSeq(bestSegment->seqId) :
 						  _readSeqs.getSeq(bestSegment->seqId);
+		auto name = (!bestSegment->readSequence) ? 
+						_asmSeqs.seqName(bestSegment->seqId) :
+						_readSeqs.seqName(bestSegment->seqId);
+		Logger::get().debug() << "\t" << name << "\t" 
+			<< contigStart << "\t" << bestSegment->start << "\t" << bestSegment->end;
+		contigStart += bestSegment->end - bestSegment->start;
+
 		contigSequence += sequence.substr(bestSegment->start, 
 										  bestSegment->end - bestSegment->start).str();
 	}
 
 	return contigSequence;
-}
+}*/
 
 void GraphProcessor::outputEdgesFasta(const std::vector<Contig>& paths,
 									  const std::string& filename)
@@ -567,12 +648,11 @@ void GraphProcessor::outputEdgesFasta(const std::vector<Contig>& paths,
 	{
 		if (!contig.id.strand()) continue;
 
-		std::string contigSequence = this->contigSequence(contig);
 		std::string nameTag = contig.circular ? "circular" : "linear";
 		fout << ">" << nameTag << "_" << contig.id.signedId() << std::endl;
-		for (size_t c = 0; c < contigSequence.length(); c += FASTA_SLICE)
+		for (size_t c = 0; c < contig.sequence.length(); c += FASTA_SLICE)
 		{
-			fout << contigSequence.substr(c, FASTA_SLICE) << std::endl;
+			fout << contig.sequence.substr(c, FASTA_SLICE) << std::endl;
 		}
 	}
 }
@@ -588,9 +668,8 @@ void GraphProcessor::outputEdgesGfa(const std::vector<Contig>& paths,
 	{
 		if (!contig.id.strand()) continue;
 
-		std::string contigSequence = this->contigSequence(contig);
-		size_t kmerCount = contigSequence.size() * contig.meanCoverage;
-		fout << "S\t" << contig.name() << "\t"<< contigSequence << "\tKC:i:" <<
+		size_t kmerCount = contig.sequence.size() * contig.meanCoverage;
+		fout << "S\t" << contig.name() << "\t"<< contig.sequence << "\tKC:i:" <<
 			kmerCount << std::endl;
 	}
 

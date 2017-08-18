@@ -30,6 +30,7 @@ struct Contig
 
 	GraphPath path;
 	FastaRecord::Id id;
+	std::string sequence;
 	bool circular;
 	int length;
 	int meanCoverage;
@@ -54,6 +55,7 @@ public:
 	void outputFasta(bool contigs, const std::string& filename);
 
 private:
+	void generateContigSequences();
 	void outputEdgesDot(const std::vector<Contig>& paths,
 						const std::string& filename);
 	void outputEdgesGfa(const std::vector<Contig>& paths,
@@ -61,7 +63,7 @@ private:
 	void outputEdgesFasta(const std::vector<Contig>& paths,
 						  const std::string& filename);
 	std::vector<Contig> edgesPaths() const;
-	std::string contigSequence(const Contig& contig) const;
+	//std::string contigSequence(const Contig& contig) const;
 
 	void unrollLoops();
 	void condenceEdges();
