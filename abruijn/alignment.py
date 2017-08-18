@@ -36,17 +36,23 @@ class AlignmentException(Exception):
 
 class SynchronizedReader(object):
     def __init__(self, blasr_alignment):
-        if not os.path.exists(blasr_alignment):
-            raise AlignmentException("Can't open {0}".format(blasr_alignment))
-
+        #will not be changed during exceution
         self.aln_path = blasr_alignment
-        self.aln_file = open(blasr_alignment, "r")
         self.change_strand = True
 
-        self.processed_contigs = set()
+        #will be shared between processes
         self.lock = multiprocessing.Lock()
         self.eof = multiprocessing.Value(ctypes.c_bool, False)
         self.position = multiprocessing.Value(ctypes.c_longlong, 0)
+
+    def init_reading(self):
+        """
+        Call from the reading process, initializing local variables
+        """
+        if not os.path.exists(self.aln_path):
+            raise AlignmentException("Can't open {0}".format(self.aln_path))
+        self.aln_file = open(self.aln_path, "r")
+        self.processed_contigs = set()
 
     def is_eof(self):
         return self.eof.value

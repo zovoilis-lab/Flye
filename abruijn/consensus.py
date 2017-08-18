@@ -30,15 +30,22 @@ class Profile:
         #self.nucl = ["-" for _ in xrange(length)]
 
 
-def _thread_worker(blasr_reader, contigs_info, results_queue):
-    while not blasr_reader.is_eof():
-        ctg_id, ctg_aln = blasr_reader.get_chunk()
-        if ctg_id is None:
-            break
+def _thread_worker(blasr_reader, contigs_info, results_queue,
+                   error_queue):
+    try:
+        blasr_reader.init_reading()
 
-        profile = _contig_profile(ctg_aln, contigs_info[ctg_id].length)
-        sequence = _flattern_profile(profile)
-        results_queue.put((ctg_id, sequence))
+        while not blasr_reader.is_eof():
+            ctg_id, ctg_aln = blasr_reader.get_chunk()
+            if ctg_id is None:
+                break
+
+            profile = _contig_profile(ctg_aln, contigs_info[ctg_id].length)
+            sequence = _flattern_profile(profile)
+            results_queue.put((ctg_id, sequence))
+
+    except Exception as e:
+        error_queue.put(e)
 
 
 def get_consensus(alignment_path, contigs_info, num_proc):
@@ -48,6 +55,7 @@ def get_consensus(alignment_path, contigs_info, num_proc):
     blasr_reader = SynchronizedReader(alignment_path)
     manager = multiprocessing.Manager()
     results_queue = manager.Queue()
+    error_queue = manager.Queue()
 
     #making sure the main process catches SIGINT
     orig_sigint = signal.signal(signal.SIGINT, signal.SIG_IGN)
@@ -55,7 +63,7 @@ def get_consensus(alignment_path, contigs_info, num_proc):
     for _ in xrange(num_proc):
         threads.append(multiprocessing.Process(target=_thread_worker,
                                                args=(blasr_reader, contigs_info,
-                                                     results_queue)))
+                                                     results_queue, error_queue)))
     signal.signal(signal.SIGINT, orig_sigint)
 
     for t in threads:
@@ -66,6 +74,9 @@ def get_consensus(alignment_path, contigs_info, num_proc):
     except KeyboardInterrupt:
         for t in threads:
             t.terminate()
+
+    if not error_queue.empty():
+        raise error_queue.get()
 
     out_fasta = {}
     while not results_queue.empty():

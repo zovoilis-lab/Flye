@@ -45,22 +45,27 @@ class Bubble:
 
 
 def _thread_worker(blasr_reader, contigs_info, err_mode,
-                   results_queue):
+                   results_queue, error_queue):
     """
     Will run in parallel
     """
-    while not blasr_reader.is_eof():
-        ctg_id, ctg_aln = blasr_reader.get_chunk()
-        if ctg_id is None:
-            break
+    try:
+        blasr_reader.init_reading()
+        while not blasr_reader.is_eof():
+            ctg_id, ctg_aln = blasr_reader.get_chunk()
+            if ctg_id is None:
+                break
 
-        #logger.debug("Processing {0}".format(ctg_id))
-        profile = _compute_profile(ctg_aln, contigs_info[ctg_id].length)
-        partition = _get_partition(profile, err_mode)
-        ctg_bubbles = _get_bubble_seqs(ctg_aln, profile, partition,
-                                       contigs_info[ctg_id])
-        ctg_bubbles = _filter_outliers(ctg_bubbles)
-        results_queue.put(ctg_bubbles)
+            #logger.debug("Processing {0}".format(ctg_id))
+            profile = _compute_profile(ctg_aln, contigs_info[ctg_id].length)
+            partition = _get_partition(profile, err_mode)
+            ctg_bubbles = _get_bubble_seqs(ctg_aln, profile, partition,
+                                           contigs_info[ctg_id])
+            ctg_bubbles = _filter_outliers(ctg_bubbles)
+            results_queue.put(ctg_bubbles)
+
+    except Exception as e:
+        error_queue.put(e)
 
 
 def get_bubbles(alignment_path, contigs_info, err_mode, num_proc):
@@ -71,6 +76,7 @@ def get_bubbles(alignment_path, contigs_info, err_mode, num_proc):
     blasr_reader = SynchronizedReader(alignment_path)
     manager = multiprocessing.Manager()
     results_queue = manager.Queue()
+    error_queue = manager.Queue()
 
     #making sure the main process catches SIGINT
     orig_sigint = signal.signal(signal.SIGINT, signal.SIG_IGN)
@@ -78,7 +84,8 @@ def get_bubbles(alignment_path, contigs_info, err_mode, num_proc):
     for _ in xrange(num_proc):
         threads.append(multiprocessing.Process(target=_thread_worker,
                                                args=(blasr_reader, contigs_info,
-                                                     err_mode, results_queue)))
+                                                     err_mode, results_queue,
+                                                     error_queue)))
     signal.signal(signal.SIGINT, orig_sigint)
 
     for t in threads:
@@ -89,6 +96,9 @@ def get_bubbles(alignment_path, contigs_info, err_mode, num_proc):
     except KeyboardInterrupt:
         for t in threads:
             t.terminate()
+
+    if not error_queue.empty():
+        raise error_queue.get()
 
     bubbles = []
     while not results_queue.empty():
