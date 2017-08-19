@@ -40,7 +40,7 @@ namespace Constants
 	const int assembleKmerSample = 1;
 	const int repeatGraphKmerSample = 5;
 	const int repeatGraphMaxKmer = 1000;
-	const int readAlignKmerSample = 1;
+	const int readAlignKmerSample = 5;
 	const int readAlignMaxKmer = 1000;
 }
 
