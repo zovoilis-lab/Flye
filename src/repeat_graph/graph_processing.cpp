@@ -363,6 +363,11 @@ void GraphProcessor::generateContigSequences()
 
 		ContigPath contigPath;
 		int32_t prevFlank = 0;
+		int32_t prevLength = 0;
+
+		//Logger::get().debug() << "Contig: " << contig.id.signedId();
+		//int32_t contigStart = 0;
+		//int32_t theoreticalLen = 0;
 		for (size_t i = 0; i < contig.path.size(); ++i) 
 		{
 			if (contig.path[i]->seqSegments.empty()) 
@@ -374,11 +379,27 @@ void GraphProcessor::generateContigSequences()
 			SequenceSegment* bestSegment = nullptr;
 			for (auto& seg : contig.path[i]->seqSegments)
 			{
-				if (!bestSegment || seqIdFreq[seg.seqId] > seqIdFreq[bestSegment->seqId])
+				if (!bestSegment || 
+					seqIdFreq[seg.seqId] > seqIdFreq[bestSegment->seqId])
 				{
 					bestSegment = &seg;
 				}
+
+				//auto name = (!seg.readSequence) ? 
+				//			_asmSeqs.seqName(seg.seqId) :
+				//			_readSeqs.seqName(seg.seqId);
+				//Logger::get().debug() << "\t\t" << name << "\t"
+				//	<< seg.start << "\t" << seg.end;
 			}
+
+			//auto name = (!bestSegment->readSequence) ? 
+			//				_asmSeqs.seqName(bestSegment->seqId) :
+			//				_readSeqs.seqName(bestSegment->seqId);
+			//Logger::get().debug() << "\tChosen: " << name << "\t" 
+			//	<< contigStart << "\t" << bestSegment->start << "\t" << bestSegment->end;
+			//contigStart += bestSegment->end - bestSegment->start;
+
+			//theoreticalLen += bestSegment->end - bestSegment->start;
 
 			auto& sequence = (!bestSegment->readSequence) ? 
 							  _asmSeqs.getSeq(bestSegment->seqId) :
@@ -392,6 +413,9 @@ void GraphProcessor::generateContigSequences()
 											bestSegment->end);
 			if (i == contig.path.size() - 1) rightFlank = 0;
 
+			//Logger::get().debug() << "\tLeft Flank " << leftFlank
+			//	<< " Right flank: " << rightFlank;
+
 			contigPath.sequences
 				.push_back(sequence.substr(bestSegment->start - leftFlank,
 										   bestSegment->end - bestSegment->start
@@ -400,12 +424,21 @@ void GraphProcessor::generateContigSequences()
 			if (i != 0)
 			{
 				int32_t overlapLen = prevFlank + leftFlank;
-				contigPath.overlaps.push_back(std::make_pair(overlapLen, 
-															 overlapLen));
+				OverlapRange ovlp;
+				ovlp.curBegin = prevLength - overlapLen;
+				ovlp.curEnd = prevLength;
+				ovlp.curLen = prevLength;
+				ovlp.extBegin = 0;
+				ovlp.extEnd = overlapLen;
+				ovlp.extLen = contigPath.sequences.back().length();
+				contigPath.overlaps.push_back(ovlp);
 			}
 			prevFlank = rightFlank;
+			prevLength = contigPath.sequences.back().length();
 		}
 		auto fastaRec = gen.generateLinear(contigPath);
+		//Logger::get().debug() << "Expected: " << theoreticalLen 
+		//	<< " generated " << fastaRec.sequence.length();
 		contig.sequence = fastaRec.sequence.str();
 	}
 }
@@ -582,59 +615,7 @@ void GraphProcessor::outputFasta(bool contigs, const std::string& filename)
 	}
 }
 
-/*
-std::string GraphProcessor::contigSequence(const Contig& contig) const
-{
-	std::unordered_map<FastaRecord::Id, int> seqIdFreq;
-	for (auto& edge : contig.path) 
-	{
-		std::unordered_set<FastaRecord::Id> edgeSeqIds;
-		for (auto& seg: edge->seqSegments) 
-		{
-			edgeSeqIds.insert(seg.seqId);
-		}
-		for (auto& seqId : edgeSeqIds)
-		{
-			seqIdFreq[seqId] += 1;
-		}
-	}
 
-	std::string contigSequence;
-	Logger::get().debug() << "Contig: " << contig.id.signedId();
-	//int contigStart = 0;
-	for (auto& edge : contig.path) 
-	{
-		if (edge->seqSegments.empty()) 
-		{
-			throw std::runtime_error("Edge without sequence");
-		}
-
-		//get the sequence with maximum frequency
-		SequenceSegment* bestSegment = nullptr;
-		for (auto& seg : edge->seqSegments)
-		{
-			if (!bestSegment || seqIdFreq[seg.seqId] > seqIdFreq[bestSegment->seqId])
-			{
-				bestSegment = &seg;
-			}
-		}
-
-		auto& sequence = (!bestSegment->readSequence) ? 
-						  _asmSeqs.getSeq(bestSegment->seqId) :
-						  _readSeqs.getSeq(bestSegment->seqId);
-		auto name = (!bestSegment->readSequence) ? 
-						_asmSeqs.seqName(bestSegment->seqId) :
-						_readSeqs.seqName(bestSegment->seqId);
-		Logger::get().debug() << "\t" << name << "\t" 
-			<< contigStart << "\t" << bestSegment->start << "\t" << bestSegment->end;
-		contigStart += bestSegment->end - bestSegment->start;
-
-		contigSequence += sequence.substr(bestSegment->start, 
-										  bestSegment->end - bestSegment->start).str();
-	}
-
-	return contigSequence;
-}*/
 
 void GraphProcessor::outputEdgesFasta(const std::vector<Contig>& paths,
 									  const std::string& filename)

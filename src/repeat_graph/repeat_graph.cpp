@@ -64,13 +64,11 @@ bool GraphEdge::isTip() const
 
 void RepeatGraph::build()
 {
-	const int MAX_KMER_COUNT = 1000;
-	const int KMERS_STRAND = 5;
-
 	//getting overlaps
 	VertexIndex asmIndex(_asmSeqs);
 	asmIndex.countKmers(1);
-	asmIndex.buildIndex(1, MAX_KMER_COUNT, KMERS_STRAND);
+	asmIndex.buildIndex(1, Constants::repeatGraphMaxKmer, 
+						Constants::repeatGraphKmerSample);
 
 	OverlapDetector asmOverlapper(_asmSeqs, asmIndex, 
 								  Constants::maximumJump, 

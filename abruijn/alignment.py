@@ -11,6 +11,8 @@ import sys
 from collections import namedtuple, defaultdict
 import subprocess
 import logging
+import multiprocessing
+import ctypes
 
 import abruijn.fasta_parser as fp
 from abruijn.utils import which
@@ -32,15 +34,99 @@ class AlignmentException(Exception):
     pass
 
 
+class SynchronizedReader(object):
+    def __init__(self, blasr_alignment):
+        #will not be changed during exceution
+        self.aln_path = blasr_alignment
+        self.change_strand = True
+
+        #will be shared between processes
+        self.lock = multiprocessing.Lock()
+        self.eof = multiprocessing.Value(ctypes.c_bool, False)
+        self.position = multiprocessing.Value(ctypes.c_longlong, 0)
+
+    def init_reading(self):
+        """
+        Call from the reading process, initializing local variables
+        """
+        if not os.path.exists(self.aln_path):
+            raise AlignmentException("Can't open {0}".format(self.aln_path))
+        self.aln_file = open(self.aln_path, "r")
+        self.processed_contigs = set()
+
+    def is_eof(self):
+        return self.eof.value
+
+    def get_chunk(self):
+        """
+        Alignment file is expected to be sorted!
+        """
+        #print os.getpid(), "Waiting for lock"
+        with self.lock:
+            #print os.getpid(), "Reading from ", self.position.value
+            self.aln_file.seek(self.position.value)
+            if self.eof.value:
+                return None, []
+
+            current_contig = None
+            buffer = []
+            while True:
+                self.position.value = self.aln_file.tell()
+                line = self.aln_file.readline()
+                if not line:
+                    break
+
+                tokens = line.strip().split()
+                if len(tokens) < 18:
+                    raise AlignmentException("Error reading BLASR file")
+
+                read_contig = tokens[5]
+                if read_contig in self.processed_contigs:
+                    raise AlignmentException("Alignment file is not sorted")
+
+                err_rate = 1 - float(tokens[17].count("|")) / len(tokens[17])
+                #self.errors.append(err_rate)
+
+                if tokens[9] == "+" and self.change_strand:
+                    trg_seq, qry_seq = tokens[16], tokens[18]
+                else:
+                    trg_seq = fp.reverse_complement(tokens[16])
+                    qry_seq = fp.reverse_complement(tokens[18])
+                aln = Alignment(tokens[0], tokens[5], int(tokens[2]),
+                                int(tokens[3]), tokens[4],
+                                int(tokens[1]), int(tokens[7]),
+                                int(tokens[8]), tokens[9],
+                                int(tokens[6]), trg_seq,
+                                qry_seq, err_rate)
+
+                if read_contig != current_contig:
+                    prev_contig = current_contig
+                    current_contig = read_contig
+
+                    if prev_contig is not None:
+                        self.processed_contigs.add(prev_contig)
+                        #print os.getpid(), "Read", prev_contig, len(buffer)
+                        return prev_contig, buffer
+                    else:
+                        buffer = [aln]
+                else:
+                    buffer.append(aln)
+
+            #mean_err = float(sum(self.errors)) / len(self.errors)
+            #logger.debug("Alignment error rate: {0}".format(mean_err))
+            self.eof.value = True
+            return current_contig, buffer
+
+
 def check_binaries():
     if not which(BLASR_BIN):
         raise AlignmentException("BLASR is not installed")
+    if not which("sort"):
+        raise AlignmentException("UNIX sort utility is not available")
 
 
+"""
 def concatenate_contigs(contigs_file):
-    """
-    Concatenates contig parts output by assembly module
-    """
     genome_framents = fp.read_fasta_dict(contigs_file)
     contig_types = {}
     by_contig = defaultdict(list)
@@ -60,6 +146,7 @@ def concatenate_contigs(contigs_file):
         contigs_fasta[contig_id] = contig_concat
 
     return contigs_fasta
+"""
 
 
 def make_blasr_reference(contigs_fasta, out_file):
@@ -80,9 +167,15 @@ def make_blasr_reference(contigs_fasta, out_file):
 def make_alignment(reference_file, reads_file, num_proc,
                    out_alignment):
     """
-    Runs BLASR
+    Runs BLASR and sort its output
     """
     _run_blasr(reference_file, reads_file, num_proc, out_alignment)
+    logger.debug("Sorting alignment file")
+    temp_file = out_alignment + "_sorted"
+    subprocess.check_call(["sort", "-k", "6", out_alignment],
+                          stdout=open(temp_file, "w"))
+    os.remove(out_alignment)
+    os.rename(temp_file, out_alignment)
 
 
 def get_contigs_info(contigs_file):
@@ -96,28 +189,14 @@ def get_contigs_info(contigs_file):
     return contigs_info
 
 
+"""
 def parse_alignment(alignment_file, ctg_id=None):
-    """
-    Parses BLASR alignment and choses error profile base on error rate
-    """
     circular_window = config.vals["circular_window"]
     alignment, _mean_error = _parse_blasr(alignment_file, change_strand=True,
                                           ctg_id=ctg_id)
 
     return alignment
-
-
-def choose_error_mode(err_rate):
-    """
-    Choses error mode base on error rate
-    """
-    if err_rate < config.vals["err_rate_threshold"]:
-        profile = "pacbio"
-    else:
-        profile = "nano"
-
-    logger.info("Chosen '{0}' error mode".format(profile))
-    return profile
+"""
 
 
 def shift_gaps(seq_trg, seq_qry):
@@ -147,10 +226,8 @@ def shift_gaps(seq_trg, seq_qry):
     return "".join(lst_qry[1 : -1])
 
 
+"""
 def _parse_blasr(filename, change_strand, ctg_id):
-    """
-    Parse Blasr output
-    """
     alignments = []
     errors = []
     with open(filename, "r") as f:
@@ -178,6 +255,7 @@ def _parse_blasr(filename, change_strand, ctg_id):
     mean_err = float(sum(errors)) / len(errors)
     logger.debug("Alignment error rate: {0}".format(mean_err))
     return alignments, mean_err
+"""
 
 
 def _guess_blasr_version():

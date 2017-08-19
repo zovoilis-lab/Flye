@@ -518,6 +518,7 @@ std::vector<RepeatResolver::Connection>
 				GraphPath complPath = _graph.complementPath(currentPath);
 
 				int32_t readEnd = aln.overlap.curBegin - aln.overlap.extBegin;
+				readEnd = std::max(readStart + 100, readEnd);
 				SequenceSegment segment(aln.overlap.curId, aln.overlap.curLen, 
 										readStart, readEnd);
 				segment.readSequence = true;
@@ -634,7 +635,6 @@ void RepeatResolver::clearResolvedRepeats()
 
 void RepeatResolver::alignReads()
 {
-	const int MAX_KMER_COUNT = 1000;
 	//std::ofstream alnDump("../alignment_dump.txt");
 
 	//create database
@@ -658,9 +658,8 @@ void RepeatResolver::alignReads()
 	//index it and align reads
 	VertexIndex pathsIndex(pathsContainer);
 	pathsIndex.countKmers(1);
-	pathsIndex.buildIndex(1, MAX_KMER_COUNT, 1);
-	//OverlapDetector readsOverlapper(pathsContainer, pathsIndex, _readJump,
-	//								_maxSeparation - 2 * _readOverhang, 0);
+	pathsIndex.buildIndex(1, Constants::readAlignMaxKmer, 
+						  Constants::readAlignKmerSample);
 	OverlapDetector readsOverlapper(pathsContainer, pathsIndex, _readJump,
 									_maxSeparation, 0);
 	OverlapContainer readsOverlaps(readsOverlapper, _readSeqs, false);

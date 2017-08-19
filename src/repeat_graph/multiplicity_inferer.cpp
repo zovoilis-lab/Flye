@@ -45,7 +45,7 @@ void MultiplicityInferer::
 	estimateByCoverage(const std::vector<GraphAlignment>& readAln)
 {
 	const int WINDOW = 100;
-	const int SHORT_EDGE = 10000;
+	const int SHORT_EDGE = Constants::trustedEdgeLength;
 
 	//alternative coverage
 	std::unordered_map<GraphEdge*, std::vector<int>> wndCoverage;
@@ -127,6 +127,7 @@ void MultiplicityInferer::
 	Logger::get().debug() << "Unique coverage threshold " << _uniqueCovThreshold;
 }
 
+/*
 void MultiplicityInferer::balanceGraph()
 {
 	auto trustedEdge = [](const GraphEdge* edge)
@@ -351,5 +352,5 @@ void MultiplicityInferer::balanceGraph()
 			<< nodesAffected << " nodes remained, extra source: " << sumSource
 			<< " extra sink: " << sumSink;
 	}
-}
+}*/
 

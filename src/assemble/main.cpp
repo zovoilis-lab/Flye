@@ -172,13 +172,14 @@ int main(int argc, char** argv)
 			minKmerCov = estimator.minKmerCount();
 		}
 
-		vertexIndex.buildIndex(minKmerCov, maxKmerCov, 1);
+		vertexIndex.buildIndex(minKmerCov, maxKmerCov, 
+							   Constants::assembleKmerSample);
 
 		OverlapDetector ovlp(readsContainer, vertexIndex,
 							 Constants::maximumJump, 
 							 Parameters::get().minimumOverlap,
 							 Constants::maximumOverhang);
-		OverlapContainer readOverlaps(ovlp, readsContainer, true);
+		OverlapContainer readOverlaps(ovlp, readsContainer, /*only max*/ true);
 
 		Extender extender(readsContainer, readOverlaps, coverage, 
 						  estimator.genomeSizeEstimate());

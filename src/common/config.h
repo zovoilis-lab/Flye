@@ -35,6 +35,13 @@ namespace Constants
 	const int maxSeparation = 500;
 	const int trustedEdgeLength = 10000;
 	const float minRepeatResSupport = 0.25f;
+
+	//index construction parameters
+	const int assembleKmerSample = 1;
+	const int repeatGraphKmerSample = 5;
+	const int repeatGraphMaxKmer = 1000;
+	const int readAlignKmerSample = 1;
+	const int readAlignMaxKmer = 1000;
 }
 
 struct Parameters

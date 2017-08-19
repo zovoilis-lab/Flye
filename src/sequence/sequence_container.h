@@ -161,11 +161,3 @@ private:
 	static size_t g_nextSeqId;
 };
 
-struct ContigPath
-{
-	ContigPath() {}
-
-	std::string name;
-	std::vector<DnaSequence> sequences;
-	std::vector<std::pair<int32_t, int32_t>> overlaps;
-};

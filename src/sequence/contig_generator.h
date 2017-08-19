@@ -10,6 +10,14 @@
 
 #include "matrix.h"
 
+struct ContigPath
+{
+	ContigPath() {}
+
+	std::string name;
+	std::vector<DnaSequence> sequences;
+	std::vector<OverlapRange> overlaps;
+};
 
 class ContigGenerator
 {
