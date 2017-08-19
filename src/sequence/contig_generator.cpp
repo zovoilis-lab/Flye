@@ -189,25 +189,32 @@ ContigGenerator::generateAlignments(const ContigPath& path)
 	std::function<void(const AlnTask&)> alnFunc =
 	[this, &alnResults, &path](const AlnTask& i)
 	{
-		int32_t leftStart = std::max(0, (int32_t)path.sequences[i].length() - 
-										path.overlaps[i].first);
-		int32_t leftEnd = path.sequences[i].length();
-		std::string leftSeq = path.sequences[i].substr(leftStart, 
-													   leftEnd - leftStart).str();
-		int32_t rightEnd = std::min(path.overlaps[i].second, 
-									(int32_t)path.sequences[i + 1].length());
-		std::string rightSeq = path.sequences[i + 1].substr(0, rightEnd).str();
+		int32_t leftStart = path.overlaps[i].curBegin;
+		int32_t leftLen = path.overlaps[i].curRange();
+		std::string leftSeq = path.sequences[i].substr(leftStart, leftLen).str();
 
+		int32_t rightStart = path.overlaps[i].extBegin;
+		int32_t rightLen = path.overlaps[i].extRange();
+		std::string rightSeq = path.sequences[i + 1].substr(rightStart, 
+															rightLen).str();
+		
 		const int bandWidth = abs((int)leftSeq.length() - 
 								  (int)rightSeq.length()) + 
 								  		Constants::maximumJump;
+		if (abs((int)leftSeq.length() - (int)rightSeq.length()) >
+			std::min(leftSeq.length(), rightSeq.length()))
+		{
+			Logger::get().warning() << "Aligning sequence that are too "
+				<< " different - something is terribly wrong!";
+		}
+
 		std::string alignedLeft;
 		std::string alignedRight;
 		pairwiseAlignment(leftSeq, rightSeq, alignedLeft, 
 						  alignedRight, bandWidth);
 
 		alnResults[i] = {alignedLeft, alignedRight, 
-						 leftStart, 0};
+						 leftStart, rightStart};
 	};
 
 	std::vector<AlnTask> tasks;
@@ -248,7 +255,8 @@ ContigGenerator::getSwitchPositions(const AlignmentInfo& aln,
 			return {leftPos, rightPos};
 		}
 	}
-	
+
 	Logger::get().debug() << "No jump found!";
-	return {prevSwitch + 1, 0};
+	prevSwitch = std::max(prevSwitch + 1, aln.startOne);
+	return {prevSwitch, aln.startTwo};
 }

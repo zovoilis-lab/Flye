@@ -271,10 +271,7 @@ void Extender::convertToContigs()
 			if (!found) throw std::runtime_error("Ovlp not found!");
 
 			path.sequences.push_back(_readsContainer.getSeq(readsList[i]));
-			int32_t leftFlank = _readsContainer.seqLen(readsList[i]) - 
-								readsOvlp.curBegin;
-			int32_t rightFlank = readsOvlp.extEnd;
-			path.overlaps.push_back(std::make_pair(leftFlank, rightFlank));
+			path.overlaps.push_back(readsOvlp);
 		}
 		path.sequences.push_back(_readsContainer.getSeq(readsList.back()));
 		_contigPaths.push_back(std::move(path));
