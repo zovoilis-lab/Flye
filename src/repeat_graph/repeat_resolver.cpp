@@ -283,7 +283,7 @@ void RepeatResolver::findRepeats(int uniqueCovThreshold)
 	{
 		if (!edge->edgeId.strand()) continue;
 
-		auto complEdge = _graph.complementPath({edge}).front();
+		GraphEdge* complEdge = _graph.complementEdge(edge);
 		edge->repetitive = false;
 		complEdge->repetitive = false;
 
@@ -298,7 +298,7 @@ void RepeatResolver::findRepeats(int uniqueCovThreshold)
 	//by structure
 	for (auto& edge : _graph.iterEdges())
 	{
-		auto complEdge = _graph.complementPath({edge}).front();
+		GraphEdge* complEdge = _graph.complementEdge(edge);
 		if ((edge->nodeLeft->outEdges.size() == 1 &&
 			edge->nodeLeft->inEdges.size() > 1) ||
 			(edge->nodeRight->inEdges.size() == 1 &&
@@ -375,7 +375,7 @@ void RepeatResolver::findRepeats(int uniqueCovThreshold)
 			if (outConn.second > rightCoverage / RATIO_THLD) ++rightMult;
 		}
 
-		auto complEdge = _graph.complementPath({edge.first}).front();
+		GraphEdge* complEdge = _graph.complementEdge(edge.first);
 		int leftCoverage = 0;
 		int leftMult = 0;
 		if (outConnections.count(complEdge))
@@ -410,7 +410,7 @@ void RepeatResolver::findRepeats(int uniqueCovThreshold)
 	//mark all unprocessed edges as repetitive
 	for (auto& edge : _graph.iterEdges())
 	{
-		auto complEdge = _graph.complementPath({edge}).front();
+		GraphEdge* complEdge = _graph.complementEdge(edge);
 		if (!outConnections.count(edge) && !outConnections.count(complEdge)
 			&& edge->length() < Parameters::get().minimumOverlap)
 		{
@@ -544,7 +544,7 @@ void RepeatResolver::clearResolvedRepeats()
 	std::unordered_set<GraphEdge*> edgesRemove;
 	for (auto& edge : _graph.iterEdges())
 	{
-		auto complEdge = _graph.complementPath({edge}).front();
+		GraphEdge* complEdge = _graph.complementEdge(edge);
 		if (edge->meanCoverage == 0)
 		{
 			edgesRemove.insert(edge);
@@ -639,19 +639,23 @@ void RepeatResolver::alignReads()
 
 	//create database
 	std::unordered_map<FastaRecord::Id, 
-					   std::pair<GraphEdge*, SequenceSegment*>> idToSegment;
+					   std::pair<GraphEdge*, SequenceSegment>> idToSegment;
 	SequenceContainer pathsContainer;
 
 	for (auto& edge : _graph.iterEdges())
 	{
+		if (!edge->edgeId.strand()) continue;
+
 		for (auto& segment : edge->seqSegments)
 		{
 			size_t len = segment.end - segment.start;
 			auto sequence = _asmSeqs.getSeq(segment.seqId)
 										.substr(segment.start, len);
 			auto& newRec = pathsContainer.addSequence(sequence, "");
-			idToSegment[newRec.id] = {edge, &segment};
-			//idToSegment[newRec.id.rc()] = {edge, &segment};
+
+			idToSegment[newRec.id] = {edge, segment};
+			idToSegment[newRec.id.rc()] = {_graph.complementEdge(edge), 
+										   segment.complement()};
 		}
 	}
 
@@ -675,11 +679,11 @@ void RepeatResolver::alignReads()
 
 		for (auto& ovlp : overlaps)
 		{
-			if (idToSegment.count(ovlp.extId))
-			{
-				alignments.push_back({ovlp, idToSegment[ovlp.extId].first,
-									  idToSegment[ovlp.extId].second});
-			}
+			//if (idToSegment.count(ovlp.extId))
+			//{
+			alignments.push_back({ovlp, idToSegment[ovlp.extId].first,
+								  idToSegment[ovlp.extId].second});
+			//}
 		}
 
 		auto readChain = this->chainReadAlignments(pathsContainer, alignments);

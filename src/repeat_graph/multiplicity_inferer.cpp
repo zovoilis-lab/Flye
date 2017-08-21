@@ -94,7 +94,7 @@ void MultiplicityInferer::
 	{
 		if (wndCoverage[edge].empty()) continue;
 
-		GraphEdge* complEdge = _graph.complementPath({edge}).front();
+		GraphEdge* complEdge = _graph.complementEdge(edge);
 		int medianCov = (median(wndCoverage[edge]) + 
 						 median(wndCoverage[complEdge])) / 2;
 

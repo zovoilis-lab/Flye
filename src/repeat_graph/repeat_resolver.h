@@ -10,7 +10,7 @@ struct EdgeAlignment
 {
 	OverlapRange overlap;
 	GraphEdge* edge;
-	SequenceSegment* segment;
+	SequenceSegment segment;
 };
 typedef std::vector<EdgeAlignment> GraphAlignment;
 
