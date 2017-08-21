@@ -8,107 +8,9 @@
 #include "repeat_resolver.h"
 #include "../common/config.h"
 #include "../common/utils.h"
+#include "../common/parallel.h"
 #include "bipartie_mincost.h"
 
-
-namespace
-{
-	struct Chain
-	{
-		Chain(): score(0) {}
-		std::vector<EdgeAlignment*> aln;
-		int32_t score;
-	};
-}
-
-GraphAlignment
-	RepeatResolver::chainReadAlignments(const SequenceContainer& edgeSeqs,
-								 	    std::vector<EdgeAlignment> ovlps)
-{
-	std::sort(ovlps.begin(), ovlps.end(),
-			  [](const EdgeAlignment& e1, const EdgeAlignment& e2)
-			  	{return e1.overlap.curBegin < e2.overlap.curBegin;});
-
-	std::list<Chain> activeChains;
-	for (auto& edgeAlignment : ovlps)
-	{
-		std::list<Chain> newChains;
-		int32_t maxScore = 0;
-		Chain* maxChain = nullptr;
-		for (auto& chain : activeChains)
-		{
-			OverlapRange& nextOvlp = edgeAlignment.overlap;
-			OverlapRange& prevOvlp = chain.aln.back()->overlap;
-
-			int32_t readDiff = nextOvlp.curBegin - prevOvlp.curEnd;
-			int32_t graphDiff = nextOvlp.extBegin +
-								prevOvlp.extLen - prevOvlp.extEnd;
-			int32_t maxDiscordance = std::max(_readJump / Constants::farJumpRate,
-											  _maxSeparation);
-
-			if (_readJump > readDiff && readDiff > -500 &&
-				_readJump > graphDiff && graphDiff > -500 &&
-				abs(readDiff - graphDiff) < maxDiscordance &&
-				chain.aln.back()->edge->nodeRight == edgeAlignment.edge->nodeLeft)
-			{
-				int32_t score = chain.score + nextOvlp.score;
-				if (score > maxScore)
-				{
-					maxScore = score;
-					maxChain = &chain;
-				}
-			}
-		}
-		
-		if (maxChain)
-		{
-			newChains.push_back(*maxChain);
-			maxChain->aln.push_back(&edgeAlignment);
-			maxChain->score = maxScore;
-		}
-
-		activeChains.splice(activeChains.end(), newChains);
-		activeChains.push_back(Chain());
-		activeChains.back().aln.push_back(&edgeAlignment);
-		activeChains.back().score = edgeAlignment.overlap.score;
-	}
-
-	int32_t maxScore = 0;
-	Chain* maxChain = nullptr;
-	for (auto& chain : activeChains)
-	{
-		if (chain.score > maxScore)
-		{
-			maxScore = chain.score;
-			maxChain = &chain;
-		}
-	}
-
-	GraphAlignment result;
-	if (maxChain)
-	{
-		//check length consistency
-		/*int32_t readSpan = maxChain->aln.back()->overlap.curEnd - 
-						   maxChain->aln.front()->overlap.curBegin;
-		int32_t graphSpan = maxChain->aln.front()->overlap.extRange();
-		for (size_t i = 1; i < maxChain->aln.size(); ++i)
-		{
-			graphSpan += maxChain->aln[i]->overlap.extEnd +
-						 maxChain->aln[i - 1]->overlap.extLen - 
-						 maxChain->aln[i - 1]->overlap.extEnd;	
-		}
-		float lengthDiff = abs(readSpan - graphSpan);
-		float meanLength = (readSpan + graphSpan) / 2.0f;
-		if (lengthDiff > meanLength / Constants::overlapDivergenceRate)
-		{
-			return {};
-		}*/
-
-		for (auto& aln : maxChain->aln) result.push_back(*aln);
-	}
-
-	return result;
-}
 
 void RepeatResolver::separatePath(const GraphPath& graphPath, 
 								  SequenceSegment readSegment, 
@@ -631,8 +533,6 @@ void RepeatResolver::clearResolvedRepeats()
 	for (auto node : toRemove) _graph.removeNode(node);
 }
 
-
-
 void RepeatResolver::alignReads()
 {
 	//std::ofstream alnDump("../alignment_dump.txt");
@@ -667,43 +567,136 @@ void RepeatResolver::alignReads()
 	OverlapDetector readsOverlapper(pathsContainer, pathsIndex, _readJump,
 									_maxSeparation, 0);
 	OverlapContainer readsOverlaps(readsOverlapper, _readSeqs, false);
-	readsOverlaps.findAllOverlaps();
 
-	Logger::get().debug() << "Threading reads through the graph";
-	//get connections
-	int numAligned = 0;
+	std::vector<FastaRecord::Id> allQueries;
 	for (auto& readId : _readSeqs.getIndex())
 	{
-		auto& overlaps = readsOverlaps.getOverlapIndex().at(readId.first);
+		allQueries.push_back(readId.first);
+	}
+	std::mutex indexMutex;
+	int numAligned = 0;
+	std::function<void(const FastaRecord::Id&)> alignRead = 
+	[this, &indexMutex, &numAligned, &readsOverlaps, 
+		 &idToSegment, &pathsContainer] (const FastaRecord::Id& seqId)
+	{
+		auto overlaps = readsOverlaps.seqOverlaps(seqId);
 		std::vector<EdgeAlignment> alignments;
-
 		for (auto& ovlp : overlaps)
 		{
-			//if (idToSegment.count(ovlp.extId))
-			//{
 			alignments.push_back({ovlp, idToSegment[ovlp.extId].first,
 								  idToSegment[ovlp.extId].second});
-			//}
 		}
-
+		std::sort(alignments.begin(), alignments.end(),
+		  [](const EdgeAlignment& e1, const EdgeAlignment& e2)
+			{return e1.overlap.curBegin < e2.overlap.curBegin;});
 		auto readChain = this->chainReadAlignments(pathsContainer, alignments);
-		if (!readChain.empty())
-		{
-			_readAlignments.push_back(readChain);
-			++numAligned;
-			/*alnDump << _readSeqs.seqName(readId.first)
-				<< "\t" << _readSeqs.seqLen(readId.first) << std::endl;
-			for (auto& aln : _readAlignments.back())
-			{
-				alnDump << "\t" << aln.edge->edgeId.signedId()
-					<< "\t" << aln.overlap.extBegin << "\t" << aln.overlap.extEnd
-					<< "\t" << aln.overlap.extRange() << "\t|\t"
-					<< aln.overlap.curBegin << "\t" << aln.overlap.curEnd
-					<< "\t" << aln.overlap.curRange() << std::endl;
-			}*/
-		}
-	}
+
+		if (readChain.empty()) return;
+		indexMutex.lock();
+		_readAlignments.push_back(readChain);
+		++numAligned;
+		indexMutex.unlock();
+	};
+
+	processInParallel(allQueries, alignRead, 
+					  Parameters::get().numThreads, true);
 
 	Logger::get().debug() << "Aligned " << numAligned << " / " 
 		<< _readSeqs.getIndex().size();
 }
+
+namespace
+{
+	struct Chain
+	{
+		Chain(): score(0) {}
+		std::vector<const EdgeAlignment*> aln;
+		int32_t score;
+	};
+}
+
+GraphAlignment
+	RepeatResolver::chainReadAlignments(const SequenceContainer& edgeSeqs,
+								 	    const std::vector<EdgeAlignment>& ovlps) const
+{
+	std::list<Chain> activeChains;
+	for (auto& edgeAlignment : ovlps)
+	{
+		std::list<Chain> newChains;
+		int32_t maxScore = 0;
+		Chain* maxChain = nullptr;
+		for (auto& chain : activeChains)
+		{
+			const OverlapRange& nextOvlp = edgeAlignment.overlap;
+			const OverlapRange& prevOvlp = chain.aln.back()->overlap;
+
+			int32_t readDiff = nextOvlp.curBegin - prevOvlp.curEnd;
+			int32_t graphDiff = nextOvlp.extBegin +
+								prevOvlp.extLen - prevOvlp.extEnd;
+			int32_t maxDiscordance = std::max(_readJump / Constants::farJumpRate,
+											  _maxSeparation);
+
+			if (_readJump > readDiff && readDiff > -500 &&
+				_readJump > graphDiff && graphDiff > -500 &&
+				abs(readDiff - graphDiff) < maxDiscordance &&
+				chain.aln.back()->edge->nodeRight == edgeAlignment.edge->nodeLeft)
+			{
+				int32_t score = chain.score + nextOvlp.score;
+				if (score > maxScore)
+				{
+					maxScore = score;
+					maxChain = &chain;
+				}
+			}
+		}
+		
+		if (maxChain)
+		{
+			newChains.push_back(*maxChain);
+			maxChain->aln.push_back(&edgeAlignment);
+			maxChain->score = maxScore;
+		}
+
+		activeChains.splice(activeChains.end(), newChains);
+		activeChains.push_back(Chain());
+		activeChains.back().aln.push_back(&edgeAlignment);
+		activeChains.back().score = edgeAlignment.overlap.score;
+	}
+
+	int32_t maxScore = 0;
+	Chain* maxChain = nullptr;
+	for (auto& chain : activeChains)
+	{
+		if (chain.score > maxScore)
+		{
+			maxScore = chain.score;
+			maxChain = &chain;
+		}
+	}
+
+	GraphAlignment result;
+	if (maxChain)
+	{
+		//check length consistency
+		/*int32_t readSpan = maxChain->aln.back()->overlap.curEnd - 
+						   maxChain->aln.front()->overlap.curBegin;
+		int32_t graphSpan = maxChain->aln.front()->overlap.extRange();
+		for (size_t i = 1; i < maxChain->aln.size(); ++i)
+		{
+			graphSpan += maxChain->aln[i]->overlap.extEnd +
+						 maxChain->aln[i - 1]->overlap.extLen - 
+						 maxChain->aln[i - 1]->overlap.extEnd;	
+		}
+		float lengthDiff = abs(readSpan - graphSpan);
+		float meanLength = (readSpan + graphSpan) / 2.0f;
+		if (lengthDiff > meanLength / Constants::overlapDivergenceRate)
+		{
+			return {};
+		}*/
+
+		for (auto& aln : maxChain->aln) result.push_back(*aln);
+	}
+
+	return result;
+}
+

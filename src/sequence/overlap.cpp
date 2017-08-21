@@ -291,14 +291,20 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 
 }
 
+std::vector<OverlapRange>
+OverlapContainer::seqOverlaps(FastaRecord::Id seqId) const
+{
+	const FastaRecord& record = _queryContainer.getIndex().at(seqId);
+	return _ovlpDetect.getSeqOverlaps(record, _onlyMax);
+}
+
 const std::vector<OverlapRange>&
 OverlapContainer::lazySeqOverlaps(FastaRecord::Id readId)
 {
 	if (!_cached.count(readId))
 	{
-		const FastaRecord& record = _queryContainer.getIndex().at(readId);
-		auto overlaps = _ovlpDetect.getSeqOverlaps(record, _onlyMax);
-		this->storeOverlaps(overlaps, readId);	
+		auto overlaps = this->seqOverlaps(readId);
+		this->storeOverlaps(overlaps, readId);
 	}
 	return _overlapIndex[readId];
 }
