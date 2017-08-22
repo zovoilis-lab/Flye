@@ -37,7 +37,7 @@ namespace Constants
 	const float minRepeatResSupport = 0.25f;
 
 	//index construction parameters
-	const int assembleKmerSample = 1;
+	const int assembleKmerSample = 5;
 	const int repeatGraphKmerSample = 5;
 	const int repeatGraphMaxKmer = 1000;
 	const int readAlignKmerSample = 5;
