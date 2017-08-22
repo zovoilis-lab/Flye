@@ -13,8 +13,9 @@
 
 struct SequenceSegment
 {
-	SequenceSegment(FastaRecord::Id seqId, int32_t seqLen, 
-					int32_t start, int32_t end):
+	SequenceSegment(FastaRecord::Id seqId = FastaRecord::ID_NONE, 
+					int32_t seqLen = 0, int32_t start = 0, 
+					int32_t end = 0):
 		seqId(seqId), seqLen(seqLen), start(start), 
 		end(end), readSequence(false) {}
 
@@ -154,7 +155,8 @@ public:
 	{}
 
 	void build();
-	GraphPath complementPath(const GraphPath& path);
+	GraphPath  complementPath(const GraphPath& path);
+	GraphEdge* complementEdge(GraphEdge* edge);
 	GraphNode* complementNode(GraphNode* node);
 
 	//nodes

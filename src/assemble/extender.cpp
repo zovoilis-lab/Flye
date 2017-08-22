@@ -194,6 +194,7 @@ void Extender::assembleContigs()
 		{
 			continue;
 		}
+		numChecked = 0;
 
 		auto& overlaps = _ovlpContainer.lazySeqOverlaps(indexPair.first);
 		int numOvlp = 0;

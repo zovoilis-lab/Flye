@@ -183,6 +183,7 @@ public:
 	void loadOverlaps(const std::string& filename);
 
 	void findAllOverlaps();
+	std::vector<OverlapRange> seqOverlaps(FastaRecord::Id readId) const;
 	const std::vector<OverlapRange>& lazySeqOverlaps(FastaRecord::Id readId);
 	const OverlapIndex& getOverlapIndex() const {return _overlapIndex;}
 

@@ -10,7 +10,7 @@ struct EdgeAlignment
 {
 	OverlapRange overlap;
 	GraphEdge* edge;
-	SequenceSegment* segment;
+	SequenceSegment segment;
 };
 typedef std::vector<EdgeAlignment> GraphAlignment;
 
@@ -43,7 +43,7 @@ private:
 	void separatePath(const GraphPath& path, SequenceSegment segment,
 					  FastaRecord::Id startId);
 	GraphAlignment chainReadAlignments(const SequenceContainer& edgeSeqs,
-									   std::vector<EdgeAlignment> ovlps);
+									   const std::vector<EdgeAlignment>& ovlps) const;
 	int updateAlignments();
 
 	std::vector<GraphAlignment> _readAlignments;

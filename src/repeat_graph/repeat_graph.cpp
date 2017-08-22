@@ -501,6 +501,11 @@ GraphPath RepeatGraph::complementPath(const GraphPath& path)
 	return complEdges;
 }
 
+GraphEdge* RepeatGraph::complementEdge(GraphEdge* edge)
+{
+	return this->complementPath({edge}).front();
+}
+
 GraphNode* RepeatGraph::complementNode(GraphNode* node)
 {
 	if (!node->outEdges.empty())
