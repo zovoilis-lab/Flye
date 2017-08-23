@@ -39,7 +39,7 @@ private:
 
 	void clearResolvedRepeats();
 	std::vector<Connection> getConnections();
-	void resolveConnections(const std::vector<Connection>& conns);
+	int  resolveConnections(const std::vector<Connection>& conns);
 	void separatePath(const GraphPath& path, SequenceSegment segment,
 					  FastaRecord::Id startId);
 	GraphAlignment chainReadAlignments(const SequenceContainer& edgeSeqs,
@@ -47,9 +47,6 @@ private:
 	int updateAlignments();
 
 	std::vector<GraphAlignment> _readAlignments;
-
-	const int _readJump = Constants::maximumJump;
-	const int _maxSeparation = Constants::maxSeparation;
 
 	RepeatGraph& _graph;
 	const SequenceContainer& _asmSeqs;
