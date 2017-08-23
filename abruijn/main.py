@@ -328,9 +328,9 @@ def main():
                         type=lambda v: check_int_range(v, 11, 31, require_odd=True),
                         default=15, help="kmer size (default: 15)")
     parser.add_argument("-o", "--min-overlap", dest="min_overlap",
-                        type=lambda v: check_int_range(v, 2000, 10000),
-                        default=5000, help="minimum overlap between reads "
-                        "(default: 5000)")
+                        type=lambda v: check_int_range(v, 1000, 10000),
+                        default=1000, help="minimum overlap between reads "
+                        "(default: 1000)")
     parser.add_argument("-m", "--min-coverage", dest="min_kmer_count",
                         type=lambda v: check_int_range(v, 1, 1000),
                         default=None, help="minimum kmer coverage "

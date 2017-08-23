@@ -35,6 +35,7 @@ namespace Constants
 	const int maxSeparation = 500;
 	const int trustedEdgeLength = 10000;
 	const float minRepeatResSupport = 0.25f;
+	const int outPathsRatio = 10;
 
 	//index construction parameters
 	const int assembleKmerSample = 5;

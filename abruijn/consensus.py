@@ -81,7 +81,8 @@ def get_consensus(alignment_path, contigs_info, num_proc):
     out_fasta = {}
     while not results_queue.empty():
         ctg_id, ctg_seq = results_queue.get()
-        out_fasta[ctg_id] = ctg_seq
+        if len(ctg_seq) > 0:
+            out_fasta[ctg_id] = ctg_seq
 
     return out_fasta
 

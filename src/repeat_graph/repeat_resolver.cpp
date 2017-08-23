@@ -49,9 +49,10 @@ void RepeatResolver::separatePath(const GraphPath& graphPath,
 	rightNode->outEdges.push_back(graphPath.back());
 }
 
-void RepeatResolver::resolveConnections(const std::vector<Connection>& connections)
+int RepeatResolver::resolveConnections(const std::vector<Connection>& connections)
 {
 	///////////
+	/*
 	std::unordered_map<GraphEdge*, std::unordered_map<GraphEdge*, int>> stats;
 	for (auto& conn : connections)
 	{
@@ -72,7 +73,7 @@ void RepeatResolver::resolveConnections(const std::vector<Connection>& connectio
 				<< rightEdge.second;
 		}
 		Logger::get().debug() << "";
-	}
+	}*/
 	///////////
 	std::unordered_map<GraphEdge*, int> leftCoverage;
 	std::unordered_map<GraphEdge*, int> rightCoverage;
@@ -172,6 +173,8 @@ void RepeatResolver::resolveConnections(const std::vector<Connection>& connectio
 
 	Logger::get().debug() << "Resolved: " << totalLinks / 2 << " links: "
 						  << connections.size() / 2;
+
+	return totalLinks / 2;
 }
 
 
@@ -198,6 +201,7 @@ void RepeatResolver::findRepeats(int uniqueCovThreshold)
 	}
 
 	//by structure
+	/*
 	for (auto& edge : _graph.iterEdges())
 	{
 		GraphEdge* complEdge = _graph.complementEdge(edge);
@@ -209,7 +213,7 @@ void RepeatResolver::findRepeats(int uniqueCovThreshold)
 			edge->repetitive = true;
 			complEdge->repetitive = true;
 		}
-	}
+	}*/
 
 	//then, by read alignments
 	for (auto& readPath : _readAlignments)
@@ -226,16 +230,7 @@ void RepeatResolver::findRepeats(int uniqueCovThreshold)
 			if (readPath[i].edge == readPath[i + 1].edge &&
 				readPath[i].edge->isLooped()) continue;
 
-			bool goodLeft = readPath[i].overlap.extRange() > 
-								_readJump ||
-							(0 < i && i < readPath.size());
-			bool goodRight = readPath[i + 1].overlap.extRange() > 
-								_readJump ||
-							(0 < i + 1 && i + 1 < readPath.size());
-			if (goodLeft && goodRight)
-			{
-				++outConnections[readPath[i].edge][readPath[i + 1].edge];
-			}
+			++outConnections[readPath[i].edge][readPath[i + 1].edge];
 		}
 		/*std::stringstream pathStr;
 		for (auto& aln : readPath)
@@ -249,7 +244,7 @@ void RepeatResolver::findRepeats(int uniqueCovThreshold)
 		Logger::get().debug() << "Path: " << pathStr.str();*/
 	}
 	
-	/*for (auto& edgeList : outConnections)
+	for (auto& edgeList : outConnections)
 	{
 		Logger::get().debug() << "Outputs: " << edgeList.first->edgeId.signedId()
 			<< " " << edgeList.first->multiplicity;
@@ -259,9 +254,8 @@ void RepeatResolver::findRepeats(int uniqueCovThreshold)
 				<< " " << outEdgeCount.second << " " << outEdgeCount.first->isLooped();
 		}
 		Logger::get().debug() << "";
-	}*/
+	}
 
-	const int RATIO_THLD = 10;
 	for (auto& edge : outConnections)
 	{
 		if (!edge.first->edgeId.strand()) continue;
@@ -274,7 +268,8 @@ void RepeatResolver::findRepeats(int uniqueCovThreshold)
 		}
 		for (auto& outConn : edge.second) 
 		{
-			if (outConn.second > rightCoverage / RATIO_THLD) ++rightMult;
+			if (outConn.second > 
+				rightCoverage / Constants::outPathsRatio) ++rightMult;
 		}
 
 		GraphEdge* complEdge = _graph.complementEdge(edge.first);
@@ -288,7 +283,8 @@ void RepeatResolver::findRepeats(int uniqueCovThreshold)
 			}
 			for (auto& outConn : outConnections.at(complEdge)) 
 			{
-				if (outConn.second > leftCoverage / RATIO_THLD) ++leftMult;
+				if (outConn.second > 
+					leftCoverage / Constants::outPathsRatio) ++leftMult;
 			}
 		}
 
@@ -326,15 +322,14 @@ void RepeatResolver::findRepeats(int uniqueCovThreshold)
 
 void RepeatResolver::resolveRepeats()
 {
-	auto connections = this->getConnections();
-	this->resolveConnections(connections);
-
-	//one more time
-	int potentialEdges = this->updateAlignments();
-	if (potentialEdges > 0)
+	while (true)
 	{
-		connections = this->getConnections();
-		this->resolveConnections(connections);
+		auto connections = this->getConnections();
+		int resolvedConnections = this->resolveConnections(connections);
+		if (!resolvedConnections) break;
+
+		int potentialEdges = this->updateAlignments();
+		if (!potentialEdges) break;
 	}
 
 	this->clearResolvedRepeats();
@@ -394,7 +389,7 @@ std::vector<RepeatResolver::Connection>
 	auto safeEdge = [this](GraphEdge* edge)
 	{
 		return !edge->isRepetitive() && 
-			   edge->length() > _readJump;
+			   edge->length() > Constants::maxSeparation;
 	};
 
 	std::vector<Connection> readConnections;
@@ -564,9 +559,11 @@ void RepeatResolver::alignReads()
 	pathsIndex.countKmers(1);
 	pathsIndex.buildIndex(1, Constants::readAlignMaxKmer, 
 						  Constants::readAlignKmerSample);
-	OverlapDetector readsOverlapper(pathsContainer, pathsIndex, _readJump,
-									_maxSeparation, 0);
-	OverlapContainer readsOverlaps(readsOverlapper, _readSeqs, false);
+	OverlapDetector readsOverlapper(pathsContainer, pathsIndex, 
+									Constants::maximumJump,
+									Constants::maxSeparation, /*overhang*/ 0);
+	OverlapContainer readsOverlaps(readsOverlapper, _readSeqs, 
+								   /*onlyMax*/ false);
 
 	std::vector<FastaRecord::Id> allQueries;
 	for (auto& readId : _readSeqs.getIndex())
@@ -633,11 +630,12 @@ GraphAlignment
 			int32_t readDiff = nextOvlp.curBegin - prevOvlp.curEnd;
 			int32_t graphDiff = nextOvlp.extBegin +
 								prevOvlp.extLen - prevOvlp.extEnd;
-			int32_t maxDiscordance = std::max(_readJump / Constants::farJumpRate,
-											  _maxSeparation);
+			int32_t maxDiscordance = std::max(Constants::maximumJump / 
+													Constants::farJumpRate,
+											  Constants::maxSeparation);
 
-			if (_readJump > readDiff && readDiff > -500 &&
-				_readJump > graphDiff && graphDiff > -500 &&
+			if (Constants::maximumJump > readDiff && readDiff > -Constants::gapJump &&
+				Constants::maximumJump > graphDiff && graphDiff > -Constants::gapJump &&
 				abs(readDiff - graphDiff) < maxDiscordance &&
 				chain.aln.back()->edge->nodeRight == edgeAlignment.edge->nodeLeft)
 			{
@@ -677,23 +675,6 @@ GraphAlignment
 	GraphAlignment result;
 	if (maxChain)
 	{
-		//check length consistency
-		/*int32_t readSpan = maxChain->aln.back()->overlap.curEnd - 
-						   maxChain->aln.front()->overlap.curBegin;
-		int32_t graphSpan = maxChain->aln.front()->overlap.extRange();
-		for (size_t i = 1; i < maxChain->aln.size(); ++i)
-		{
-			graphSpan += maxChain->aln[i]->overlap.extEnd +
-						 maxChain->aln[i - 1]->overlap.extLen - 
-						 maxChain->aln[i - 1]->overlap.extEnd;	
-		}
-		float lengthDiff = abs(readSpan - graphSpan);
-		float meanLength = (readSpan + graphSpan) / 2.0f;
-		if (lengthDiff > meanLength / Constants::overlapDivergenceRate)
-		{
-			return {};
-		}*/
-
 		for (auto& aln : maxChain->aln) result.push_back(*aln);
 	}
 
