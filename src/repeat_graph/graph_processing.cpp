@@ -18,6 +18,34 @@ void GraphProcessor::condence()
 	this->condenceEdges();
 	this->unrollLoops();
 	this->condenceEdges();
+
+	this->fixChimericJunctions();
+}
+
+void GraphProcessor::fixChimericJunctions()
+{
+	std::unordered_set<GraphNode*> toRemove;
+	for (auto& node : _graph.iterNodes())
+	{
+		if (!node->isBifurcation() &&
+			(node->inEdges.front()->edgeId ==
+			 node->outEdges.front()->edgeId.rc()))
+		{
+			toRemove.insert(node);
+		}
+	}
+
+	for (auto& node : toRemove)
+	{
+		GraphNode* newNode = _graph.addNode();
+		GraphEdge* cutEdge = node->outEdges.front();
+		newNode->outEdges.push_back(cutEdge);
+		cutEdge->nodeLeft = newNode;
+		node->outEdges.clear();
+	}
+
+	Logger::get().debug() << "Removed " << toRemove.size() 
+		<< " chimeric junctions";
 }
 
 void GraphProcessor::unrollLoops()
@@ -338,14 +366,14 @@ void GraphProcessor::generateContigs()
 		_contigs.emplace_back(traversed, edgeId, circular, 
 							  contigLength, meanCoverage);
 	}
-	this->generateContigSequences();
+	this->generateContigSequences(_contigs);
 	Logger::get().info() << "Generated " << _contigs.size() / 2 << " contigs";
 }
 
-void GraphProcessor::generateContigSequences()
+void GraphProcessor::generateContigSequences(std::vector<Contig>& contigs) const
 {
 	ContigGenerator gen;
-	for (auto& contig : _contigs)
+	for (auto& contig : contigs)
 	{
 		std::unordered_map<FastaRecord::Id, int> seqIdFreq;
 		for (auto& edge : contig.path) 
@@ -576,6 +604,7 @@ std::vector<Contig> GraphProcessor::edgesPaths() const
 		paths.emplace_back(path, edge->edgeId, false,
 						   edge->length(), edge->meanCoverage);
 	}
+	this->generateContigSequences(paths);
 	return paths;
 }
 

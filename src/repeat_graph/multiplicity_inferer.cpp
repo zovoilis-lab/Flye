@@ -85,9 +85,9 @@ void MultiplicityInferer::
 			++sumLength;
 		}
 	}
-	int meanCoverage = (sumLength != 0) ? sumCov / sumLength : 1;
+	_meanCoverage = (sumLength != 0) ? sumCov / sumLength : 1;
 
-	Logger::get().debug() << "Mean edge coverage: " << meanCoverage;
+	Logger::get().debug() << "Mean edge coverage: " << _meanCoverage;
 
 	std::vector<int> edgesCoverage;
 	for (auto edge : _graph.iterEdges())
@@ -100,7 +100,7 @@ void MultiplicityInferer::
 
 		float minMult = (!edge->isTip()) ? 1 : 0;
 		int estMult = std::max(minMult, 
-							   roundf((float)medianCov / meanCoverage));
+							   roundf((float)medianCov / _meanCoverage));
 		if (estMult == 1)
 		{
 			edgesCoverage.push_back(medianCov);
@@ -116,7 +116,7 @@ void MultiplicityInferer::
 				<< edge->length() << "\t"
 				<< edge->multiplicity << "\t" << estMult << "\t"
 				<< medianCov << "\t"
-				<< (float)medianCov / meanCoverage;
+				<< (float)medianCov / _meanCoverage;
 		//Logger::get().debug() << covStr;
 
 		edge->multiplicity = estMult;

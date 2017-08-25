@@ -200,21 +200,6 @@ void RepeatResolver::findRepeats(int uniqueCovThreshold)
 		}
 	}
 
-	//by structure
-	/*
-	for (auto& edge : _graph.iterEdges())
-	{
-		GraphEdge* complEdge = _graph.complementEdge(edge);
-		if ((edge->nodeLeft->outEdges.size() == 1 &&
-			edge->nodeLeft->inEdges.size() > 1) ||
-			(edge->nodeRight->inEdges.size() == 1 &&
-			edge->nodeRight->outEdges.size() > 1))
-		{
-			edge->repetitive = true;
-			complEdge->repetitive = true;
-		}
-	}*/
-
 	//then, by read alignments
 	for (auto& readPath : _readAlignments)
 	{
@@ -256,53 +241,53 @@ void RepeatResolver::findRepeats(int uniqueCovThreshold)
 		Logger::get().debug() << "";
 	}
 
-	for (auto& edge : outConnections)
+	auto edgeMultiplicity = [this, &outConnections] (GraphEdge* edge)
 	{
-		if (!edge.first->edgeId.strand()) continue;
-
-		int rightCoverage = 0;
-		int rightMult = 0;
-		for (auto& outConn : edge.second)
+		int maxSupport = 0;
+		int maxCoverage = 0;
+		for (auto& outConn : outConnections[edge])
 		{
-			rightCoverage = std::max(rightCoverage, outConn.second);
-		}
-		for (auto& outConn : edge.second) 
-		{
-			if (outConn.second > 
-				rightCoverage / Constants::outPathsRatio) ++rightMult;
-		}
-
-		GraphEdge* complEdge = _graph.complementEdge(edge.first);
-		int leftCoverage = 0;
-		int leftMult = 0;
-		if (outConnections.count(complEdge))
-		{
-			for (auto& outConn : outConnections.at(complEdge))
+			if (maxSupport < outConn.second)
 			{
-				leftCoverage = std::max(leftCoverage, outConn.second);
-			}
-			for (auto& outConn : outConnections.at(complEdge)) 
-			{
-				if (outConn.second > 
-					leftCoverage / Constants::outPathsRatio) ++leftMult;
+				maxSupport =  outConn.second;
+				maxCoverage = outConn.first->meanCoverage;
 			}
 		}
 
+		int multiplicity = 0;
+		int minSupport = maxSupport / Constants::outPathsRatio;
+		int minCoverage = maxCoverage / Constants::outPathsRatio;
+		for (auto& outConn : outConnections[edge]) 
+		{
+			if (outConn.second > minSupport && 
+				outConn.first->meanCoverage > minCoverage) ++multiplicity;
+		}
+		return multiplicity;
+	};
+
+	for (auto& edge : _graph.iterEdges())
+	{
+		if (!edge->edgeId.strand()) continue;
+
+		GraphEdge* complEdge = _graph.complementEdge(edge);
+		int rightMult = edgeMultiplicity(edge);
+		int leftMult = edgeMultiplicity(complEdge);
 		int mult = std::max(leftMult, rightMult);
 		if (mult > 1) 
 		{
-			edge.first->repetitive = true;
+			edge->repetitive = true;
 			complEdge->repetitive = true;
 		}
 
-		////////
-		std::string match = (edge.first->multiplicity != 1) != 
-							(edge.first->repetitive) ? "*" : " ";
+		///////
+		std::string match = (edge->multiplicity != 1) != 
+							(edge->repetitive) ? "*" : " ";
 
-		Logger::get().debug() << match << " " << edge.first->edgeId.signedId()
-			<< " " << edge.first->multiplicity << " -> " << mult << " ("
-			<< leftMult << "," << rightMult << ") " << edge.first->length() << "\t"
-			<< edge.first->meanCoverage;
+		Logger::get().debug() << match << " " << edge->edgeId.signedId()
+			<< " " << edge->multiplicity << " -> " << mult << " ("
+			<< leftMult << "," << rightMult << ") " << edge->length() << "\t"
+			<< edge->meanCoverage;
+		///////
 	}
 
 	//mark all unprocessed edges as repetitive
@@ -320,7 +305,7 @@ void RepeatResolver::findRepeats(int uniqueCovThreshold)
 }
 
 
-void RepeatResolver::resolveRepeats()
+void RepeatResolver::resolveRepeats(int meanCoverage)
 {
 	while (true)
 	{
@@ -332,6 +317,7 @@ void RepeatResolver::resolveRepeats()
 		if (!potentialEdges) break;
 	}
 
+	this->removeUnsupportedEdges(meanCoverage);
 	this->clearResolvedRepeats();
 }
 
@@ -436,20 +422,28 @@ std::vector<RepeatResolver::Connection>
 }
 
 
-void RepeatResolver::clearResolvedRepeats()
+void RepeatResolver::removeUnsupportedEdges(int meanCoverage)
 {
+	int coverageThreshold = meanCoverage / Constants::readCovRate;
+	Logger::get().debug() << "Read coverage cutoff: " << coverageThreshold;
+
 	std::unordered_set<GraphEdge*> edgesRemove;
 	for (auto& edge : _graph.iterEdges())
 	{
 		GraphEdge* complEdge = _graph.complementEdge(edge);
-		if (edge->meanCoverage == 0)
+		if (edge->meanCoverage <= coverageThreshold)
 		{
 			edgesRemove.insert(edge);
 			edgesRemove.insert(complEdge);
 		}
 	}
 	for (auto& edge : edgesRemove) _graph.removeEdge(edge);
+	Logger::get().debug() << "Removed " << edgesRemove.size() 
+		<< " unsupported edges";
+}
 
+void RepeatResolver::clearResolvedRepeats()
+{
 	const int MIN_LOOP = Parameters::get().minimumOverlap;
 	auto nextEdge = [](GraphNode* node)
 	{
