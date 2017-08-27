@@ -30,7 +30,7 @@ namespace Constants
 	//extension
 	const int minReadsInContig = 4;
 	const int minExtensions = 2;
-	const float startReadsPercent = 0.1;
+	const int maxInnerFraction = 10;
 
 	//repeat graph
 	const int maxSeparation = 1500;

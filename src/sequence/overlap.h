@@ -196,6 +196,7 @@ private:
 	const SequenceContainer& _queryContainer;
 	const bool _onlyMax;
 
+	std::mutex _indexMutex;
 	OverlapIndex _overlapIndex;
 	std::unordered_set<FastaRecord::Id> _cached;
 };

@@ -29,7 +29,25 @@ public:
 		{return _contigPaths;}
 
 private:
-	typedef std::vector<FastaRecord::Id> ReadsList;
+	struct ExtensionInfo
+	{
+		ExtensionInfo(): leftTip(false), rightTip(false),
+			numSuspicious(0), meanOverlaps(0), stepsToTurn(0),
+			assembledLength(0) {}
+
+		std::vector<FastaRecord::Id> reads;
+		bool leftTip;
+		bool rightTip;
+		int numSuspicious;
+		int meanOverlaps;
+		int stepsToTurn;
+		int assembledLength;
+	};
+
+	ExtensionInfo extendContig(FastaRecord::Id startingRead);
+	int   countRightExtensions(FastaRecord::Id readId) const;
+	bool  extendsRight(const OverlapRange& ovlp) const;
+	void  convertToContigs();
 
 	const SequenceContainer& _readsContainer;
 	OverlapContainer& _ovlpContainer;
@@ -38,18 +56,7 @@ private:
 	const int 		  _genomeSize;
 	ProgressPercent   _progress;
 
-	FastaRecord::Id stepRight(FastaRecord::Id readId);
-	ReadsList extendContig(FastaRecord::Id startingRead);
-
-	int   countRightExtensions(FastaRecord::Id readId);
-	bool  extendsRight(const OverlapRange& ovlp);
-	void  convertToContigs();
-
-	std::vector<ReadsList> 		_readLists;
+	std::vector<ExtensionInfo> 	_readLists;
 	std::vector<ContigPath> 	_contigPaths;
-	//std::unordered_set<FastaRecord::Id>		 _coveredReads;
-	std::unordered_set<FastaRecord::Id>		 _innerReads;
-	//std::unordered_set<FastaRecord::Id>		 _usedReads;
-	bool _rightExtension;
-	int  _assembledSequence;
+	cuckoohash_map<FastaRecord::Id, size_t>  	_innerReads;
 };

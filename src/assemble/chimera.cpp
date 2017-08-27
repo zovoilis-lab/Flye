@@ -15,7 +15,7 @@
 
 bool ChimeraDetector::isChimeric(FastaRecord::Id readId)
 {
-	if (!_chimeras.count(readId))
+	if (!_chimeras.contains(readId))
 	{
 		bool result = this->testReadByCoverage(readId);
 		_chimeras[readId] = result;
