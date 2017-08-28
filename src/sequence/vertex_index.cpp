@@ -111,21 +111,26 @@ void VertexIndex::buildIndex(int minCoverage, int maxCoverage, int filterRatio)
 			_kmerCounts.find(kmerPos.kmer, count);
 			count /= 2;	//fwd and rev
 
-			//if ((size_t)minCoverage <= count && count <= 10UL * (size_t)maxCoverage)
-			if ((size_t)minCoverage <= count && count <= (size_t)maxCoverage)
+			if ((int)count < minCoverage) continue;
+			if ((int)count > maxCoverage)
 			{
-				_kmerIndex.insert(kmerPos.kmer, nullptr);
-				_kmerIndex.update_fn(kmerPos.kmer, 
-					[readId, &kmerPos, count](ReadVector*& vec)
-					{
-						if (vec == nullptr)
-						{
-							vec = new ReadVector;
-							vec->reserve(count);
-						}
-						vec->emplace_back(readId, kmerPos.position);
-					});
+				//downsampling, so as to have approximately
+				//maxCoverage k-mer instances
+				if (rand() % (int)count > maxCoverage) continue;
 			}
+
+			//all good
+			_kmerIndex.insert(kmerPos.kmer, nullptr);
+			_kmerIndex.update_fn(kmerPos.kmer, 
+				[readId, &kmerPos, count](ReadVector*& vec)
+				{
+					if (vec == nullptr)
+					{
+						vec = new ReadVector;
+						vec->reserve(count);
+					}
+					vec->emplace_back(readId, kmerPos.position);
+				});
 		}
 	};
 	std::vector<FastaRecord::Id> allReads;
