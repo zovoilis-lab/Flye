@@ -23,8 +23,8 @@ void VertexIndex::countKmers(size_t hardThreshold)
 	}
 	Logger::get().debug() << "Started kmer counting";
 
-	//TODO: precount size should correlate with kmer size
-	const size_t PRE_COUNT_SIZE = 1024 * 1024 * 1024;
+	//const size_t PRE_COUNT_SIZE = 1024 * 1024 * 1024;
+	const size_t PRE_COUNT_SIZE = pow(4, Parameters::get().kmerSize);
 	std::vector<unsigned char> preCounters(PRE_COUNT_SIZE, 0);
 
 	//filling up bloom filter
@@ -46,7 +46,8 @@ void VertexIndex::countKmers(size_t hardThreshold)
 	if (_outputProgress) Logger::get().info() << "Counting kmers (2/2):";
 
 	std::function<void(const FastaRecord::Id&)> countUpdate = 
-	[&preCounters, hardThreshold, this] (const FastaRecord::Id& readId)
+	[&preCounters, hardThreshold, this, PRE_COUNT_SIZE] 
+		(const FastaRecord::Id& readId)
 	{
 		for (auto kmerPos : IterKmers(_seqContainer.getSeq(readId)))
 		{
