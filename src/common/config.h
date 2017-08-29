@@ -42,9 +42,9 @@ namespace Constants
 	//index construction parameters
 	const int assembleKmerSample = 1;
 	const int repeatGraphKmerSample = 5;
-	const int repeatGraphMaxKmer = 1000;
+	const int repeatGraphMaxKmer = 500;
 	const int readAlignKmerSample = 1;
-	const int readAlignMaxKmer = 1000;
+	const int readAlignMaxKmer = 500;
 }
 
 struct Parameters
