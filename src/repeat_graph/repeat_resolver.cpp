@@ -129,6 +129,7 @@ int RepeatResolver::resolveConnections(const std::vector<Connection>& connection
 	std::unordered_set<FastaRecord::Id> usedEdges;
 	std::vector<Connection> uniqueConnections;
 	int totalLinks = 0;
+	int unresolvedLinks = 0;
 	for (auto match : matchingPairs)
 	{
 		GraphEdge* leftEdge = leftIdToEdge[match.first];
@@ -146,7 +147,11 @@ int RepeatResolver::resolveConnections(const std::vector<Connection>& connection
 			<< "\t" << rightEdge->edgeId.signedId()
 			<< "\t" << support / 2 << "\t" << confidence;
 
-		if (confidence < Constants::minRepeatResSupport) continue;
+		if (confidence < Constants::minRepeatResSupport) 
+		{
+			++unresolvedLinks;
+			continue;
+		}
 		//if (support < 4) continue;
 
 		totalLinks += 2;
@@ -173,6 +178,7 @@ int RepeatResolver::resolveConnections(const std::vector<Connection>& connection
 
 	Logger::get().debug() << "Resolved: " << totalLinks / 2 << " links: "
 						  << connections.size() / 2;
+	Logger::get().debug() << "Unresolved: " << unresolvedLinks / 2;
 
 	return totalLinks / 2;
 }
@@ -377,6 +383,13 @@ std::vector<RepeatResolver::Connection>
 		return !edge->isRepetitive() && 
 			   edge->length() > Constants::maxSeparation;
 	};
+
+	int totalSafe = 0;
+	for (GraphEdge* edge : _graph.iterEdges())
+	{
+		if (edge->edgeId.strand() && safeEdge(edge)) ++totalSafe;
+	}
+	Logger::get().debug() << "Total unique edges: " << totalSafe;
 
 	std::vector<Connection> readConnections;
 	for (auto& readPath : _readAlignments)
