@@ -23,7 +23,7 @@ public:
 
 	void alignReads();
 	void findRepeats(int uniqueCovThreshold);
-	void resolveRepeats();
+	void resolveRepeats(int meanCoverage);
 
 	const std::vector<GraphAlignment>& getReadsAlignment() const
 	{
@@ -38,6 +38,7 @@ private:
 	};
 
 	void clearResolvedRepeats();
+	void removeUnsupportedEdges(int meanCoverage);
 	std::vector<Connection> getConnections();
 	int  resolveConnections(const std::vector<Connection>& conns);
 	void separatePath(const GraphPath& path, SequenceSegment segment,

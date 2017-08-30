@@ -145,9 +145,11 @@ int main(int argc, char** argv)
 		resolver.findRepeats(multInf.getUniqueCovThreshold());
 		proc.outputDot(/*on contigs*/ false, outFolder + "/graph_before_rr.dot");
 		proc.outputGfa(/*on contigs*/ false, outFolder + "/graph_before_rr.gfa");
+		proc.outputFasta(/*on contigs*/ false, outFolder + 
+						 "/graph_before_rr.fasta");
 
 		Logger::get().info() << "Resolving repeats";
-		resolver.resolveRepeats();
+		resolver.resolveRepeats(multInf.getMeanCoverage());
 		//proc.outputDot(/*on contigs*/ false, outFolder + "/graph_after_rr.dot");
 		//proc.condence();
 

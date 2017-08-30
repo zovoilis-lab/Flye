@@ -15,7 +15,7 @@ int ParametersEstimator::genomeSizeEstimate()
 		kmersNeeded += _seqContainer.seqLen(seqPair.first) / _coverage;
 	}
 	return kmersNeeded / 2;*/
-	return _takenKmers / 2;
+	return _takenKmers;
 }
 
 
@@ -26,9 +26,9 @@ void ParametersEstimator::estimateMinKmerCount(int upperCutoff)
 	int kmersNeeded = 0;
 	for (auto& seqPair : _seqContainer.getIndex()) 
 	{
-		kmersNeeded += _seqContainer.seqLen(seqPair.first) / _coverage;
+		kmersNeeded += _seqContainer.seqLen(seqPair.first) / 2 / _coverage;
 	}
-	Logger::get().debug() << "Genome size estimate: " << kmersNeeded / 2;
+	Logger::get().debug() << "Genome size estimate: " << kmersNeeded;
 	
 	int takenKmers = 0;
 	int cutoff = 0;

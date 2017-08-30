@@ -23,8 +23,8 @@ void VertexIndex::countKmers(size_t hardThreshold)
 	}
 	Logger::get().debug() << "Started kmer counting";
 
-	//TODO: precount size should correlate with kmer size
-	const size_t PRE_COUNT_SIZE = 1024 * 1024 * 1024;
+	//const size_t PRE_COUNT_SIZE = 1024 * 1024 * 1024;
+	const size_t PRE_COUNT_SIZE = pow(4, Parameters::get().kmerSize);
 	std::vector<unsigned char> preCounters(PRE_COUNT_SIZE, 0);
 
 	//filling up bloom filter
@@ -33,8 +33,12 @@ void VertexIndex::countKmers(size_t hardThreshold)
 	for (auto& seqPair : _seqContainer.getIndex())
 	{
 		if (_outputProgress) bloomProg.advance();
+
+		if (!seqPair.first.strand()) continue;
+
 		for (auto kmerPos : IterKmers(_seqContainer.getSeq(seqPair.first)))
 		{
+			kmerPos.kmer.standardForm();
 			if (preCounters[kmerPos.kmer.hash() % PRE_COUNT_SIZE] != 
 				std::numeric_limits<unsigned char>::max())
 				++preCounters[kmerPos.kmer.hash() % PRE_COUNT_SIZE];
@@ -45,10 +49,14 @@ void VertexIndex::countKmers(size_t hardThreshold)
 	if (_outputProgress) Logger::get().info() << "Counting kmers (2/2):";
 
 	std::function<void(const FastaRecord::Id&)> countUpdate = 
-	[&preCounters, hardThreshold, this] (const FastaRecord::Id& readId)
+	[&preCounters, hardThreshold, this, PRE_COUNT_SIZE] 
+		(const FastaRecord::Id& readId)
 	{
+		if (!readId.strand()) return;
+
 		for (auto kmerPos : IterKmers(_seqContainer.getSeq(readId)))
 		{
+			kmerPos.kmer.standardForm();
 			size_t count = preCounters[kmerPos.kmer.hash() % PRE_COUNT_SIZE];
 			if (count >= hardThreshold)
 			{
@@ -90,39 +98,46 @@ void VertexIndex::buildIndex(int minCoverage, int maxCoverage, int filterRatio)
 	[minCoverage, maxCoverage, filterRatio, this] 
 	(const FastaRecord::Id& readId)
 	{
+		if (!readId.strand()) return;
+
 		for (auto kmerPos : IterKmers(_seqContainer.getSeq(readId)))
 		{
-			int32_t samplePos = kmerPos.position;
-			if (!readId.strand())	//keeping strands synchonized
+			FastaRecord::Id targetRead = readId;
+			bool revCmp = kmerPos.kmer.standardForm();
+			if (revCmp)
 			{
-				samplePos = _seqContainer.seqLen(readId) - samplePos -
-							Parameters::get().kmerSize;
+				kmerPos.position = _seqContainer.seqLen(readId) - 
+										kmerPos.position -
+										Parameters::get().kmerSize;
+				targetRead = targetRead.rc();
 			}
-			if (samplePos % filterRatio) continue;
+
+			//subsampling
+			if (kmerPos.position % filterRatio != 0) continue;
 
 			size_t count = 0;
 			_kmerCounts.find(kmerPos.kmer, count);
 
-			//if ((size_t)minCoverage <= count && count <= 10UL * (size_t)maxCoverage)
-			bool revCmp = kmerPos.kmer.standardForm();
-			if (!revCmp && (size_t)minCoverage <= count && count <= (size_t)maxCoverage)
+			if ((int)count < minCoverage) continue;
+			if ((int)count > maxCoverage)
 			{
-				_kmerIndex.insert(kmerPos.kmer, nullptr);
-				_kmerIndex.update_fn(kmerPos.kmer, 
-					[readId, &kmerPos, count](ReadVector*& vec)
-					{
-						if (vec == nullptr)
-						{
-							vec = new ReadVector;
-							vec->reserve(count);
-						}
-						vec->emplace_back(readId, kmerPos.position);
-					});
+				//downsampling, so as to have approximately
+				//maxCoverage k-mer instances
+				if (rand() % (int)count > maxCoverage / 10) continue;
 			}
-			//if (count > (size_t)maxCoverage)
-			//{
-			//	_repetitiveKmers.insert(kmerPos.kmer);
-			//}
+
+			//all good
+			_kmerIndex.insert(kmerPos.kmer, nullptr);
+			_kmerIndex.update_fn(kmerPos.kmer, 
+				[targetRead, &kmerPos, count](ReadVector*& vec)
+				{
+					if (vec == nullptr)
+					{
+						vec = new ReadVector;
+						vec->reserve(count);
+					}
+					vec->emplace_back(targetRead, kmerPos.position);
+				});
 		}
 	};
 	std::vector<FastaRecord::Id> allReads;
@@ -149,7 +164,4 @@ void VertexIndex::clear()
 
 	_kmerCounts.clear();
 	_kmerCounts.reserve(0);
-
-	//_repetitiveKmers.clear();
-	//_repetitiveKmers.reserve(0);
 }

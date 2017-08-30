@@ -12,10 +12,11 @@ class MultiplicityInferer
 {
 public:
 	MultiplicityInferer(RepeatGraph& graph):
-		_graph(graph), _uniqueCovThreshold(0) {}
+		_graph(graph), _uniqueCovThreshold(0), _meanCoverage(0) {}
 
 	void fixEdgesMultiplicity(const std::vector<GraphAlignment>& readAln);
 	int  getUniqueCovThreshold() {return _uniqueCovThreshold;}
+	int  getMeanCoverage(){return _meanCoverage;}
 
 private:
 	void estimateByCoverage(const std::vector<GraphAlignment>& readAln);
@@ -23,4 +24,5 @@ private:
 
 	RepeatGraph& _graph;
 	int _uniqueCovThreshold; 
+	int _meanCoverage;
 };

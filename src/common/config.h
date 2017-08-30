@@ -28,21 +28,22 @@ namespace Constants
 
 	//extension
 	const int minReadsInContig = 2;
-	const int minExtensions = 2;
-	const float startReadsPercent = 0.5;
+	const int minExtensions = 1;
+	const int maxInnerFraction = 10;
 
 	//repeat graph
 	const int maxSeparation = 500;
 	const int trustedEdgeLength = 10000;
 	const float minRepeatResSupport = 0.25f;
 	const int outPathsRatio = 10;
+	const int readCovRate = 100;
 
 	//index construction parameters
 	const int assembleKmerSample = 5;
 	const int repeatGraphKmerSample = 5;
-	const int repeatGraphMaxKmer = 1000;
+	const int repeatGraphMaxKmer = 500;
 	const int readAlignKmerSample = 5;
-	const int readAlignMaxKmer = 1000;
+	const int readAlignMaxKmer = 500;
 }
 
 struct Parameters

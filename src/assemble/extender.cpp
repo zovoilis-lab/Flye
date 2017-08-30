@@ -9,23 +9,22 @@
 
 #include "../common/config.h"
 #include "../common/logger.h"
+#include "../common/parallel.h"
 #include "extender.h"
 
 
-Extender::ReadsList Extender::extendContig(FastaRecord::Id startRead)
+Extender::ExtensionInfo Extender::extendContig(FastaRecord::Id startRead)
 {
-	Logger::get().debug() << "Start Read: " << 
-				_readsContainer.seqName(startRead);
 
 	std::unordered_set<FastaRecord::Id> currentReads;
 	currentReads.insert(startRead);
 	currentReads.insert(startRead.rc());
 
-	_rightExtension = true;
+	bool rightExtension = true;
 	FastaRecord::Id currentRead = startRead;
 	std::vector<int> numOverlaps;
-	ReadsList contigPath;
-	contigPath.push_back(startRead);
+	ExtensionInfo exInfo;
+	exInfo.reads.push_back(startRead);
 
 	auto leftExtendsStart = [startRead, this](const FastaRecord::Id readId)
 	{
@@ -47,7 +46,7 @@ Extender::ReadsList Extender::extendContig(FastaRecord::Id startRead)
 		int innerOverlaps = 0;
 		for (auto& ovlp : overlaps)
 		{
-			if (_innerReads.count(ovlp.extId)) ++innerOverlaps;
+			if (_innerReads.contains(ovlp.extId)) ++innerOverlaps;
 			if (this->extendsRight(ovlp)) extensions.push_back(ovlp);
 		}
 		numOverlaps.push_back(overlaps.size());
@@ -68,8 +67,8 @@ Extender::ReadsList Extender::extendContig(FastaRecord::Id startRead)
 			innerOverlaps > (int)extensions.size() / Constants::maxCoverageDropRate;
 		for (auto& ovlp : extensions)
 		{
-			if (mayStop && (currentReads.count(ovlp.extId) ||
-				_innerReads.count(ovlp.extId))) 
+			if (mayStop && 
+				(currentReads.count(ovlp.extId) || _innerReads.contains(ovlp.extId))) 
 			{
 				overlapsVisited = true;
 				foundExtension = true;
@@ -81,7 +80,6 @@ Extender::ReadsList Extender::extendContig(FastaRecord::Id startRead)
 		//getting extension
 		int minExtensions = (int)extensions.size() / 
 							Constants::maxCoverageDropRate;
-		//Logger::get().debug() << extensions.size();
 		
 		FastaRecord::Id bestSuspicious = FastaRecord::ID_NONE;
 
@@ -89,7 +87,6 @@ Extender::ReadsList Extender::extendContig(FastaRecord::Id startRead)
 		{
 			for (auto& ovlp : extensions)
 			{
-				//Logger::get().debug() << "\t" << this->countRightExtensions(ovlp.extId);
 				if(leftExtendsStart(ovlp.extId)) continue;
 
 				if (!_chimDetector.isChimeric(ovlp.extId) &&
@@ -97,7 +94,6 @@ Extender::ReadsList Extender::extendContig(FastaRecord::Id startRead)
 				{
 					foundExtension = true;
 					currentRead = ovlp.extId;
-					_assembledSequence += ovlp.rightShift;
 					break;
 				}
 				else if(bestSuspicious == FastaRecord::ID_NONE)
@@ -108,44 +104,49 @@ Extender::ReadsList Extender::extendContig(FastaRecord::Id startRead)
 
 			if (!foundExtension && bestSuspicious != FastaRecord::ID_NONE)
 			{
-				Logger::get().debug() << "Suspicious!";
+				//Logger::get().debug() << "Suspicious!";
+				++exInfo.numSuspicious;
 				foundExtension = true;
 				currentRead = bestSuspicious;
 			}
 		}
 
-		overlapsVisited |= _innerReads.count(currentRead);
+		overlapsVisited |= _innerReads.contains(currentRead);
 		overlapsVisited |= currentReads.count(currentRead);
 		if (foundExtension) 
 		{
-			Logger::get().debug() << "Extension: " << 
-				    	_readsContainer.seqName(currentRead) << " " << innerOverlaps
-						<< " " << extensions.size();
+			//Logger::get().debug() << "Extension: " << 
+			//	    	_readsContainer.seqName(currentRead) << " " << innerOverlaps
+			//			<< " " << extensions.size();
 
-			contigPath.push_back(currentRead);
-			_progress.setValue(_assembledSequence);
+			exInfo.reads.push_back(currentRead);
 
-			if (overlapsVisited)
-			{
-				Logger::get().debug() << "Already visited"; 
-			}
+			//if (overlapsVisited)
+			//{
+				//Logger::get().debug() << "Already visited"; 
+			//}
 		}
 		else
 		{
-			Logger::get().debug() << "No extension found"; 
+			if (rightExtension)
+				exInfo.leftTip = true;
+			else
+				exInfo.rightTip = true;
+			//Logger::get().debug() << "No extension found"; 
 		}
 
 		if (!foundExtension || overlapsVisited)
 		{
-			if (_rightExtension && !contigPath.empty())
+			if (rightExtension && !exInfo.reads.empty())
 			{
-				Logger::get().debug() << "Changing direction";
-				_rightExtension = false;
-				currentRead = contigPath.front().rc();
-				std::reverse(contigPath.begin(), contigPath.end());
-				for (size_t i = 0; i < contigPath.size(); ++i) 
+				//Logger::get().debug() << "Changing direction";
+				exInfo.stepsToTurn = exInfo.reads.size();
+				rightExtension = false;
+				currentRead = exInfo.reads.front().rc();
+				std::reverse(exInfo.reads.begin(), exInfo.reads.end());
+				for (size_t i = 0; i < exInfo.reads.size(); ++i) 
 				{
-					contigPath[i] = contigPath[i].rc();
+					exInfo.reads[i] = exInfo.reads[i].rc();
 				}
 			}
 			else
@@ -160,8 +161,10 @@ Extender::ReadsList Extender::extendContig(FastaRecord::Id startRead)
 
 	int64_t meanOvlps = 0;
 	for (int num : numOverlaps) meanOvlps += num;
-	Logger::get().debug() << "Mean overlaps: " << meanOvlps / numOverlaps.size();
-	return contigPath;
+	exInfo.meanOverlaps = meanOvlps / numOverlaps.size();
+	//Logger::get().debug() << "Mean overlaps: " << meanOvlps / numOverlaps.size();
+
+	return exInfo;
 }
 
 
@@ -170,47 +173,61 @@ void Extender::assembleContigs()
 	Logger::get().info() << "Extending reads";
 	_chimDetector.estimateGlobalCoverage();
 	_innerReads.clear();
-	std::unordered_set<FastaRecord::Id> coveredReads;
-	//_coveredReads.clear();
-
-	int numChecked = 0;
-	int readsToCheck = Constants::startReadsPercent * 
-							_readsContainer.getIndex().size();
-	for (auto& indexPair : _readsContainer.getIndex())
+	cuckoohash_map<FastaRecord::Id, size_t> coveredReads;
+	
+	std::mutex indexMutex;
+	auto processRead = [this, &indexMutex, &coveredReads] 
+		(FastaRecord::Id startRead)
 	{
-		if (numChecked++ > readsToCheck) break;
-		/*Logger::get().debug() << _readsContainer.seqName(indexPair.first) << "\t"
-			<< _coveredReads.count(indexPair.first) << "\t"
-			<< _chimDetector.isChimeric(indexPair.first) << "\t"
-			<< this->countRightExtensions(indexPair.first) << "\t"
-			<< this->countRightExtensions(indexPair.first.rc());*/
+		if (coveredReads.contains(startRead)) return true;
 
-		if (coveredReads.count(indexPair.first) ||
-			_chimDetector.isChimeric(indexPair.first) ||
-			this->countRightExtensions(indexPair.first) < 
+		int numInnerOvlp = 0;
+		for (auto& ovlp : _ovlpContainer.lazySeqOverlaps(startRead))
+		{
+			if (_innerReads.contains(ovlp.extId)) ++numInnerOvlp;
+		}
+		if (numInnerOvlp > 0) return true;
+
+		if (_chimDetector.isChimeric(startRead) ||
+			this->countRightExtensions(startRead) < 
 				Constants::minExtensions ||
-			this->countRightExtensions(indexPair.first.rc()) < 
-				Constants::minExtensions)
-		{
-			continue;
-		}
-		numChecked = 0;
-
-		auto& overlaps = _ovlpContainer.lazySeqOverlaps(indexPair.first);
-		int numOvlp = 0;
-		for (auto& ovlp : overlaps)
-		{
-			if (_innerReads.count(ovlp.extId)) ++numOvlp;
-		}
-		//float usedIndex = (float)numOvlp / overlaps.size();
-		//Logger::get().debug() << "Used: " << usedIndex;
-		if (numOvlp > 0) continue;
-
-		ReadsList path = this->extendContig(indexPair.first);
+			this->countRightExtensions(startRead.rc()) < 
+				Constants::minExtensions) return true;
 		
+		//Good to go!
+		ExtensionInfo exInfo = this->extendContig(startRead);
+		if (exInfo.reads.size() < Constants::minReadsInContig) return true;
+
+		//Exclusive part - updating the overall assembly
+		std::lock_guard<std::mutex> guard(indexMutex);
+		
+		int innerCount = 0;
+		for (auto& readId : exInfo.reads)
+		{
+			if (_innerReads.contains(readId)) ++innerCount;
+		}
+		if (innerCount > Constants::maxInnerFraction)
+		{
+			Logger::get().debug() << "Discarded contig with "
+				<< exInfo.reads.size() << " reads and "
+				<< innerCount << " inner overlaps";
+			return false;
+		}
+
+		Logger::get().debug() << "Assembled contig" 
+			<< "\n\tWith " << exInfo.reads.size() << " reads"
+			<< "\n\tStart read: " << _readsContainer.seqName(startRead)
+			<< "\n\tAt position: " << exInfo.stepsToTurn
+			<< "\n\tleftTip: " << exInfo.leftTip 
+			<< " rightTip: " << exInfo.rightTip
+			<< "\n\tSuspicios: " << exInfo.numSuspicious
+			<< "\n\tMean overlaps: " << exInfo.meanOverlaps
+			<< "\n\tInner reads: " << innerCount;
+		
+		//update inner read index
 		std::unordered_set<FastaRecord::Id> rightExtended;
 		std::unordered_set<FastaRecord::Id> leftExtended;
-		for (auto& readId : path)
+		for (auto& readId : exInfo.reads)
 		{
 			//so each read is covered from the left and right
 			for (auto& ovlp : _ovlpContainer.lazySeqOverlaps(readId))
@@ -231,54 +248,70 @@ void Extender::assembleContigs()
 		}
 		for (auto& read : rightExtended)
 		{
-			if (leftExtended.count(read)) _innerReads.insert(read);
+			coveredReads.insert(read, true);
+			if (leftExtended.count(read)) _innerReads.insert(read, true);
 		}
-		///
-		
-		if (path.size() >= Constants::minReadsInContig)
+		for (auto& read : leftExtended)
 		{
-			Logger::get().debug() << "Assembled contig with " 
-				<< path.size() << " reads";
-			_readLists.push_back(std::move(path));
+			coveredReads.insert(read, true);
 		}
+
+		Logger::get().debug() << "Inner: " << 
+			_innerReads.size() << " covered: " << coveredReads.size()
+			<< " total: "<< _readsContainer.getIndex().size();
+		
+		_readLists.push_back(std::move(exInfo));
+		return true;
+	};
+
+	std::function<void(const FastaRecord::Id&)> threadWorker = 
+		[processRead] (const FastaRecord::Id& readId)
+	{
+		processRead(readId);
+	};
+	std::vector<FastaRecord::Id> allReads;
+	for (auto& hashPair : _readsContainer.getIndex())
+	{
+		allReads.push_back(hashPair.first);
 	}
+	processInParallel(allReads, threadWorker,
+					  Parameters::get().numThreads, true);
 
 	int singletonsAdded = 0;
 	for (auto& indexPair : _readsContainer.getIndex())
 	{
 		if (!indexPair.first.strand()) continue;
 		
-		if (!_innerReads.count(indexPair.first) && 
+		if (!_innerReads.contains(indexPair.first) && 
 			_readsContainer.seqLen(indexPair.first) > Parameters::get().minimumOverlap)
 		{
-			ReadsList path;
-			path.push_back(indexPair.first);
+			ExtensionInfo path;
+			path.reads.push_back(indexPair.first);
 			_readLists.push_back(path);
 			++singletonsAdded;
 		}
 	}
 
 	this->convertToContigs();
-	_progress.setDone();
 	Logger::get().info() << "Added " << singletonsAdded << " singleton reads";
 	Logger::get().info() << "Assembled " << _contigPaths.size() << " draft contigs";
 }
 
 void Extender::convertToContigs()
 {
-	for (auto& readsList : _readLists)
+	for (auto& exInfo : _readLists)
 	{
 		ContigPath path;
 		path.name = "contig_" + std::to_string(_contigPaths.size() + 1);
 
-		for (size_t i = 0; i < readsList.size() - 1; ++i)
+		for (size_t i = 0; i < exInfo.reads.size() - 1; ++i)
 		{
 			bool found = false;
 			OverlapRange readsOvlp;
 
-			for (auto& ovlp : _ovlpContainer.lazySeqOverlaps(readsList[i]))
+			for (auto& ovlp : _ovlpContainer.lazySeqOverlaps(exInfo.reads[i]))
 			{
-				if (ovlp.extId == readsList[i + 1]) 
+				if (ovlp.extId == exInfo.reads[i + 1]) 
 				{
 					readsOvlp = ovlp;
 					found = true;
@@ -287,15 +320,15 @@ void Extender::convertToContigs()
 			}
 			if (!found) throw std::runtime_error("Ovlp not found!");
 
-			path.sequences.push_back(_readsContainer.getSeq(readsList[i]));
+			path.sequences.push_back(_readsContainer.getSeq(exInfo.reads[i]));
 			path.overlaps.push_back(readsOvlp);
 		}
-		path.sequences.push_back(_readsContainer.getSeq(readsList.back()));
+		path.sequences.push_back(_readsContainer.getSeq(exInfo.reads.back()));
 		_contigPaths.push_back(std::move(path));
 	}
 }
 
-int Extender::countRightExtensions(FastaRecord::Id readId)
+int Extender::countRightExtensions(FastaRecord::Id readId) const
 {
 	int count = 0;
 	for (auto& ovlp : _ovlpContainer.lazySeqOverlaps(readId))
@@ -305,7 +338,7 @@ int Extender::countRightExtensions(FastaRecord::Id readId)
 	return count;
 }
 
-bool Extender::extendsRight(const OverlapRange& ovlp)
+bool Extender::extendsRight(const OverlapRange& ovlp) const
 {
 	return ovlp.rightShift > Constants::maximumJump;
 }

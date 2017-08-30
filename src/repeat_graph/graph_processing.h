@@ -45,7 +45,6 @@ public:
 		_tipThreshold(Parameters::get().minimumOverlap) {}
 
 	void condence();
-	void trimTips();
 	void generateContigs();
 	void dumpRepeats(const std::vector<GraphAlignment>& readAlignments,
 					 const std::string& outFile);
@@ -55,7 +54,7 @@ public:
 	void outputFasta(bool contigs, const std::string& filename);
 
 private:
-	void generateContigSequences();
+	void generateContigSequences(std::vector<Contig>& paths) const;
 	void outputEdgesDot(const std::vector<Contig>& paths,
 						const std::string& filename);
 	void outputEdgesGfa(const std::vector<Contig>& paths,
@@ -65,6 +64,8 @@ private:
 	std::vector<Contig> edgesPaths() const;
 	//std::string contigSequence(const Contig& contig) const;
 
+	void trimTips();
+	void fixChimericJunctions();
 	void unrollLoops();
 	void condenceEdges();
 	void updateEdgesMultiplicity();

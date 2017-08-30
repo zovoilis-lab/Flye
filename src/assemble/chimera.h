@@ -20,7 +20,7 @@ public:
 
 	void estimateGlobalCoverage();
 	bool isChimeric(FastaRecord::Id readId);
-	//int getCoverage() const {return _coverage;}
+	int  getCoverage() const {return _coverage;}
 
 private:
 	std::vector<int32_t> getReadCoverage(FastaRecord::Id readId);
@@ -29,6 +29,6 @@ private:
 	const SequenceContainer& _seqContainer;
 	OverlapContainer& _ovlpContainer;
 
-	std::unordered_map<FastaRecord::Id, bool> _chimeras;
+	cuckoohash_map<FastaRecord::Id, bool> _chimeras;
 	int _coverage;
 };

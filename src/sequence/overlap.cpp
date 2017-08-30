@@ -301,12 +301,16 @@ OverlapContainer::seqOverlaps(FastaRecord::Id seqId) const
 const std::vector<OverlapRange>&
 OverlapContainer::lazySeqOverlaps(FastaRecord::Id readId)
 {
+	_indexMutex.lock();
 	if (!_cached.count(readId))
 	{
+		_indexMutex.unlock();
 		auto overlaps = this->seqOverlaps(readId);
+		_indexMutex.lock();
 		this->storeOverlaps(overlaps, readId);
 	}
-	return _overlapIndex[readId];
+	_indexMutex.unlock();
+	return _overlapIndex.at(readId);
 }
 
 void OverlapContainer::storeOverlaps(const std::vector<OverlapRange>& overlaps,
