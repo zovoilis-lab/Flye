@@ -58,11 +58,13 @@ def _thread_worker(blasr_reader, contigs_info, err_mode,
 
             #logger.debug("Processing {0}".format(ctg_id))
             profile = _compute_profile(ctg_aln, contigs_info[ctg_id].length)
-            partition = _get_partition(profile, err_mode)
+            partition, num_long_bubbles = _get_partition(profile, err_mode)
             ctg_bubbles = _get_bubble_seqs(ctg_aln, profile, partition,
                                            contigs_info[ctg_id])
-            ctg_bubbles = _filter_outliers(ctg_bubbles)
-            results_queue.put(ctg_bubbles)
+            ctg_bubbles, num_empty, num_long_branch = \
+                                    _postprocess_bubbles(ctg_bubbles)
+            results_queue.put((ctg_bubbles, num_long_bubbles,
+                               num_empty, num_long_branch))
 
     except Exception as e:
         error_queue.put(e)
@@ -101,8 +103,21 @@ def get_bubbles(alignment_path, contigs_info, err_mode, num_proc):
         raise error_queue.get()
 
     bubbles = []
+    total_long_bubbles = 0
+    total_long_branches = 0
+    total_empty = 0
     while not results_queue.empty():
-        bubbles.extend(results_queue.get())
+        ctg_bubbles, num_long_bubbles, num_empty, num_long_branch = \
+                                                     results_queue.get()
+        total_long_bubbles += num_long_bubbles
+        total_long_branches += num_long_branch
+        total_empty += num_empty
+        bubbles.extend(ctg_bubbles)
+
+    logger.debug("Generated {0} bubbles".format(len(bubbles)))
+    logger.debug("Split {0} long solid regions".format(total_long_bubbles))
+    logger.debug("Skipped {0} empty bubbles".format(total_empty))
+    logger.debug("Skipped {0} bubbles with long branches".format(total_long_branches))
 
     return bubbles
 
@@ -122,11 +137,16 @@ def output_bubbles(bubbles, out_file):
                 f.write(branch + "\n")
 
 
-def _filter_outliers(bubbles):
+def _postprocess_bubbles(bubbles):
+    MAX_BUBBLE = config.vals["max_bubble_length"]
+
     new_bubbles = []
+    long_branches = 0
+    empty_bubbles = 0
     for bubble in bubbles:
         if len(bubble.branches) == 0:
-            logger.debug("Empty bubble {0}".format(bubble.position))
+            #logger.debug("Empty bubble {0}".format(bubble.position))
+            empty_bubbles += 1
             continue
 
         new_branches = []
@@ -135,20 +155,26 @@ def _filter_outliers(bubbles):
         if len(median_branch) == 0:
             continue
 
-        for branch in bubble.branches:
-            incons_rate = float(abs(len(branch) -
-                                len(median_branch))) / len(median_branch)
-            if incons_rate < 0.5:
-                if len(branch) == 0:
-                    branch = "A"
-                    logger.debug("Zero branch")
-                new_branches.append(branch)
+        #Bubble is TOO BIIG, will not correct it (maybe at the next iteration)
+        if len(median_branch) > MAX_BUBBLE * 1.5:
+            new_branches = [median_branch]
+            long_branches += 1
+
+        else:
+            for branch in bubble.branches:
+                incons_rate = float(abs(len(branch) -
+                                    len(median_branch))) / len(median_branch)
+                if incons_rate < 0.5:
+                    if len(branch) == 0:
+                        branch = "A"
+                        #logger.debug("Zero branch")
+                    new_branches.append(branch)
 
         new_bubbles.append(Bubble(bubble.contig_id, bubble.position))
         new_bubbles[-1].consensus = bubble.consensus
         new_bubbles[-1].branches = new_branches
 
-    return new_bubbles
+    return new_bubbles, empty_bubbles, long_branches
 
 
 def _is_solid_kmer(profile, position, err_mode):
@@ -287,14 +313,14 @@ def _get_partition(profile, err_mode):
     #logger.debug("Partitioned into {0} segments".format(len(partition) + 1))
     #logger.debug("Long bubbles: {0}".format(long_bubbles))
 
-    return partition
+    return partition, long_bubbles
 
 
 def _get_bubble_seqs(alignment, profile, partition, contig_info):
     """
     Given genome landmarks, forms bubble sequences
     """
-    logger.debug("Forming bubble sequences")
+    #logger.debug("Forming bubble sequences")
     MIN_ALIGNMENT = config.vals["min_alignment_length"]
 
     bubbles = []

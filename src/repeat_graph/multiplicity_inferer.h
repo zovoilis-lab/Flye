@@ -5,7 +5,6 @@
 #pragma once
 
 #include "repeat_graph.h"
-#include "repeat_resolver.h"
 
 
 class MultiplicityInferer
@@ -15,8 +14,8 @@ public:
 		_graph(graph), _uniqueCovThreshold(0), _meanCoverage(0) {}
 
 	void fixEdgesMultiplicity(const std::vector<GraphAlignment>& readAln);
-	int  getUniqueCovThreshold() {return _uniqueCovThreshold;}
-	int  getMeanCoverage(){return _meanCoverage;}
+	int  getUniqueCovThreshold() const {return _uniqueCovThreshold;}
+	int  getMeanCoverage() const {return _meanCoverage;}
 
 private:
 	void estimateByCoverage(const std::vector<GraphAlignment>& readAln);

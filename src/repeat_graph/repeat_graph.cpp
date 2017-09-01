@@ -380,9 +380,12 @@ void RepeatGraph::initializeEdges(const OverlapContainer& asmOverlaps)
 					float rateTwo = (float)intersectTwo / 
 						(segTwo->data->end - segTwo->data->start);
 
-					if (rateOne > 0.5 && rateTwo > 0.5)
+					if (rateOne > 0.5 && rateTwo > 0.5 &&
+						abs(intersectOne - intersectTwo) < 
+							std::min(intersectOne, intersectTwo) / 2)
 					{
 						unionSet(segOne, segTwo);
+						break;
 					}
 				}
 			}

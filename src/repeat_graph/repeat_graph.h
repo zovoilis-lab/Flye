@@ -147,6 +147,14 @@ struct GraphNode
 
 typedef std::vector<GraphEdge*> GraphPath;
 
+struct EdgeAlignment
+{
+	OverlapRange overlap;
+	GraphEdge* edge;
+	SequenceSegment segment;
+};
+typedef std::vector<EdgeAlignment> GraphAlignment;
+
 class RepeatGraph
 {
 public:

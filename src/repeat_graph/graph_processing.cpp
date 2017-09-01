@@ -356,8 +356,10 @@ void GraphProcessor::generateContigs()
 
 		int contigLength = 0;
 		int64_t sumCov = 0;
+		std::string contentsStr;
 		for (auto& edge : traversed) 
 		{
+			contentsStr += std::to_string(edge->edgeId.signedId()) + " -> ";
 			contigLength += edge->length();
 			sumCov += edge->meanCoverage * edge->length();
 		}
@@ -365,6 +367,12 @@ void GraphProcessor::generateContigs()
 
 		_contigs.emplace_back(traversed, edgeId, circular, 
 							  contigLength, meanCoverage);
+
+		if (edgeId.strand())
+		{
+			Logger::get().debug() << "Contig " << edgeId.signedId() 
+							<< ": " << contentsStr;
+		}
 	}
 	this->generateContigSequences(_contigs);
 	Logger::get().info() << "Generated " << _contigs.size() / 2 << " contigs";

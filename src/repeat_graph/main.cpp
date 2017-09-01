@@ -135,21 +135,21 @@ int main(int argc, char** argv)
 		//proc.outputDot(/*on contigs*/ false, outFolder + "/graph_raw.dot");
 		proc.condence();
 
-		RepeatResolver resolver(rg, seqAssembly, seqReads);
+		MultiplicityInferer multInf(rg);
+		RepeatResolver resolver(rg, seqAssembly, seqReads, multInf);
 		Logger::get().info() << "Aligning reads to the graph";
 		resolver.alignReads();
 		auto& readAlignments = resolver.getReadsAlignment();
 		
-		MultiplicityInferer multInf(rg);
 		multInf.fixEdgesMultiplicity(readAlignments);
-		resolver.findRepeats(multInf.getUniqueCovThreshold());
+		resolver.findRepeats();
 		proc.outputDot(/*on contigs*/ false, outFolder + "/graph_before_rr.dot");
 		proc.outputGfa(/*on contigs*/ false, outFolder + "/graph_before_rr.gfa");
 		proc.outputFasta(/*on contigs*/ false, outFolder + 
 						 "/graph_before_rr.fasta");
 
 		Logger::get().info() << "Resolving repeats";
-		resolver.resolveRepeats(multInf.getMeanCoverage());
+		resolver.resolveRepeats();
 		//proc.outputDot(/*on contigs*/ false, outFolder + "/graph_after_rr.dot");
 		//proc.condence();
 
