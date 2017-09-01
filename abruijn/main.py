@@ -21,6 +21,7 @@ import abruijn.assemble as asm
 import abruijn.repeat_graph as repeat
 import abruijn.consensus as cons
 from abruijn.__version__ import __version__
+import abruijn.config as config
 
 
 logger = logging.getLogger()
@@ -221,6 +222,20 @@ def _create_job_list(args, work_dir, log_file):
     return jobs
 
 
+def _get_kmer_size(args):
+    """
+    Select k-mer size based on the target genome size
+    """
+    reads_size = os.path.getsize(args.reads)
+    genome_size = reads_size / args.coverage
+    logger.debug("Estimated genome size: {0}".format(genome_size))
+    kmer_size = 15
+    if genome_size > config.vals["big_genome"]:
+        kmer_size = 17
+    logger.debug("Chosen k-mer size: {0}".format(kmer_size))
+    return kmer_size
+
+
 def _run(args):
     """
     Runs the pipeline
@@ -236,6 +251,12 @@ def _run(args):
     aln.check_binaries()
     pol.check_binaries()
     asm.check_binaries()
+
+    if not os.path.exists(args.reads):
+        raise ResumeException("Can't open " + args.reads)
+
+    if args.kmer_size is None:
+        args.kmer_size = _get_kmer_size(args)
 
     save_file = os.path.join(work_dir, "abruijn.save")
     jobs = _create_job_list(args, work_dir, log_file)
@@ -326,7 +347,7 @@ def main():
                         help="sequencing platform (default: pacbio)")
     parser.add_argument("-k", "--kmer-size", dest="kmer_size",
                         type=lambda v: check_int_range(v, 11, 31, require_odd=True),
-                        default=15, help="kmer size (default: 15)")
+                        default=None, help="kmer size (default: auto)")
     parser.add_argument("-o", "--min-overlap", dest="min_overlap",
                         type=lambda v: check_int_range(v, 2000, 10000),
                         default=5000, help="minimum overlap between reads "
@@ -345,7 +366,8 @@ def main():
     try:
         _run(args)
     except (aln.AlignmentException, pol.PolishException,
-            asm.AssembleException, ResumeException) as e:
+            asm.AssembleException, repeat.RepeatException,
+            ResumeException) as e:
         logger.error("Error: {0}".format(e))
         return 1
 
