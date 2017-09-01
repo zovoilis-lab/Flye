@@ -256,7 +256,7 @@ ContigGenerator::getSwitchPositions(const AlignmentInfo& aln,
 		}
 	}
 
-	Logger::get().debug() << "No jump found!";
+	//Logger::get().debug() << "No jump found!";
 	prevSwitch = std::max(prevSwitch + 1, aln.startOne);
 	return {prevSwitch, aln.startTwo};
 }

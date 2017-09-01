@@ -184,10 +184,16 @@ int RepeatResolver::resolveConnections(const std::vector<Connection>& connection
 }
 
 
-void RepeatResolver::findRepeats(int uniqueCovThreshold)
+void RepeatResolver::findRepeats()
 {
 	std::unordered_map<GraphEdge*, 
 					   std::unordered_map<GraphEdge*, int>> outConnections;
+
+	//all good at the beginning
+	for (auto& edge : _graph.iterEdges())
+	{
+		edge->repetitive = false;
+	}
 
 	//first, by coverage
 	for (auto& edge : _graph.iterEdges())
@@ -198,7 +204,7 @@ void RepeatResolver::findRepeats(int uniqueCovThreshold)
 		edge->repetitive = false;
 		complEdge->repetitive = false;
 
-		if (edge->meanCoverage > uniqueCovThreshold * 2 ||
+		if (edge->meanCoverage > _multInf.getUniqueCovThreshold() * 2 ||
 			(edge->isLooped() && edge->length() < Parameters::get().minimumOverlap))
 		{
 			edge->repetitive = true;
@@ -209,30 +215,30 @@ void RepeatResolver::findRepeats(int uniqueCovThreshold)
 	//then, by read alignments
 	for (auto& readPath : _readAlignments)
 	{
-		if (readPath.size() < 2) continue;
 
-		if (readPath.front().overlap.curBegin > 
-			Constants::maximumOverhang) continue;
-		if (readPath.back().overlap.curLen - readPath.back().overlap.curEnd > 
-			Constants::maximumOverhang) continue;
-
-		for (size_t i = 0; i < readPath.size() - 1; ++i)
+		//if (readPath.front().overlap.curBegin > 
+		//	Constants::maximumOverhang) continue;
+		//if (readPath.back().overlap.curLen - readPath.back().overlap.curEnd > 
+		//	Constants::maximumOverhang) continue;
+		GraphAlignment filteredPath;
+		for (auto& step : readPath)
 		{
-			if (readPath[i].edge == readPath[i + 1].edge &&
-				readPath[i].edge->isLooped()) continue;
+			if (step.edge->isLooped() && 
+				step.edge->length() < Parameters::get().minimumOverlap) continue;
+			filteredPath.push_back(step);
+		}
+		if (filteredPath.size() < 2) continue;
 
-			++outConnections[readPath[i].edge][readPath[i + 1].edge];
-		}
-		/*std::stringstream pathStr;
-		for (auto& aln : readPath)
+		for (size_t i = 0; i < filteredPath.size() - 1; ++i)
 		{
-			pathStr << "(" << aln.edge->edgeId.signedId() << " " <<
-				aln.overlap.extLen << " " << aln.overlap.extBegin 
-				<< " " << aln.overlap.extEnd << " " << aln.overlap.curBegin
-				<< " " << aln.overlap.curEnd << ") -> ";
+			if (filteredPath[i].edge == filteredPath[i + 1].edge &&
+				filteredPath[i].edge->isLooped()) continue;
+
+			GraphEdge* complLeft = _graph.complementEdge(filteredPath[i].edge);
+			GraphEdge* complRight = _graph.complementEdge(filteredPath[i + 1].edge);
+			++outConnections[filteredPath[i].edge][filteredPath[i + 1].edge];
+			++outConnections[complRight][complLeft];
 		}
-		Logger::get().debug() << _readSeqs.seqName(readPath.front().overlap.curId);
-		Logger::get().debug() << "Path: " << pathStr.str();*/
 	}
 	
 	for (auto& edgeList : outConnections)
@@ -286,13 +292,15 @@ void RepeatResolver::findRepeats(int uniqueCovThreshold)
 		}
 
 		///////
-		std::string match = (edge->multiplicity != 1) != 
-							(edge->repetitive) ? "*" : " ";
-
-		Logger::get().debug() << match << " " << edge->edgeId.signedId()
-			<< " " << edge->multiplicity << " -> " << mult << " ("
-			<< leftMult << "," << rightMult << ") " << edge->length() << "\t"
-			<< edge->meanCoverage;
+		bool match = (edge->multiplicity > 1) == (edge->repetitive);
+		if (!match && edge->multiplicity != 0)
+		{
+			std::string star = edge->repetitive ? "R" : " ";
+			Logger::get().debug() << star << " " << edge->edgeId.signedId()
+				<< " " << edge->multiplicity << " -> " << mult << " ("
+				<< leftMult << "," << rightMult << ") " << edge->length() << "\t"
+				<< edge->meanCoverage;
+		}
 		///////
 	}
 
@@ -311,7 +319,7 @@ void RepeatResolver::findRepeats(int uniqueCovThreshold)
 }
 
 
-void RepeatResolver::resolveRepeats(int meanCoverage)
+void RepeatResolver::resolveRepeats()
 {
 	while (true)
 	{
@@ -319,15 +327,15 @@ void RepeatResolver::resolveRepeats(int meanCoverage)
 		int resolvedConnections = this->resolveConnections(connections);
 		if (!resolvedConnections) break;
 
-		int potentialEdges = this->updateAlignments();
-		if (!potentialEdges) break;
+		this->updateAlignments();
+		this->findRepeats();
 	}
 
-	this->removeUnsupportedEdges(meanCoverage);
+	this->removeUnsupportedEdges();
 	this->clearResolvedRepeats();
 }
 
-int RepeatResolver::updateAlignments()
+void RepeatResolver::updateAlignments()
 {
 	//removes alignments that are no longer supported by the graph
 	std::vector<GraphAlignment> newAlignments;
@@ -355,6 +363,7 @@ int RepeatResolver::updateAlignments()
 	_readAlignments = newAlignments;
 
 	//mark resolved repeats
+	/*
 	int determinedRepeats = 0;
 	for (auto& edge : _graph.iterEdges())
 	{
@@ -371,7 +380,7 @@ int RepeatResolver::updateAlignments()
 	}
 
 	Logger::get().debug() << "Determined " << determinedRepeats << " repeats";
-	return determinedRepeats;
+	return determinedRepeats;*/
 }
 
 std::vector<RepeatResolver::Connection> 
@@ -435,9 +444,9 @@ std::vector<RepeatResolver::Connection>
 }
 
 
-void RepeatResolver::removeUnsupportedEdges(int meanCoverage)
+void RepeatResolver::removeUnsupportedEdges()
 {
-	int coverageThreshold = meanCoverage / Constants::readCovRate;
+	int coverageThreshold = _multInf.getMeanCoverage() / Constants::readCovRate;
 	Logger::get().debug() << "Read coverage cutoff: " << coverageThreshold;
 
 	std::unordered_set<GraphEdge*> edgesRemove;

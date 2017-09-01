@@ -5,25 +5,20 @@
 #pragma once
 
 #include "repeat_graph.h"
-
-struct EdgeAlignment
-{
-	OverlapRange overlap;
-	GraphEdge* edge;
-	SequenceSegment segment;
-};
-typedef std::vector<EdgeAlignment> GraphAlignment;
+#include "multiplicity_inferer.h"
 
 class RepeatResolver
 {
 public:
 	RepeatResolver(RepeatGraph& graph, const SequenceContainer& asmSeqs,
-				   const SequenceContainer& readSeqs): 
-		_graph(graph), _asmSeqs(asmSeqs), _readSeqs(readSeqs) {}
+				   const SequenceContainer& readSeqs, 
+				   const MultiplicityInferer& multInf): 
+		_graph(graph), _asmSeqs(asmSeqs), _readSeqs(readSeqs), 
+		_multInf(multInf) {}
 
 	void alignReads();
-	void findRepeats(int uniqueCovThreshold);
-	void resolveRepeats(int meanCoverage);
+	void findRepeats();
+	void resolveRepeats();
 
 	const std::vector<GraphAlignment>& getReadsAlignment() const
 	{
@@ -38,18 +33,19 @@ private:
 	};
 
 	void clearResolvedRepeats();
-	void removeUnsupportedEdges(int meanCoverage);
+	void removeUnsupportedEdges();
 	std::vector<Connection> getConnections();
 	int  resolveConnections(const std::vector<Connection>& conns);
 	void separatePath(const GraphPath& path, SequenceSegment segment,
 					  FastaRecord::Id startId);
 	GraphAlignment chainReadAlignments(const SequenceContainer& edgeSeqs,
 									   const std::vector<EdgeAlignment>& ovlps) const;
-	int updateAlignments();
+	void updateAlignments();
 
 	std::vector<GraphAlignment> _readAlignments;
 
 	RepeatGraph& _graph;
-	const SequenceContainer& _asmSeqs;
-	const SequenceContainer& _readSeqs;
+	const SequenceContainer&   _asmSeqs;
+	const SequenceContainer&   _readSeqs;
+	const MultiplicityInferer& _multInf;
 };
