@@ -35,7 +35,7 @@ namespace Constants
 	const int maxSeparation = 500;
 	const int trustedEdgeLength = 10000;
 	const float minRepeatResSupport = 0.25f;
-	const int outPathsRatio = 10;
+	const int outPathsRatio = 5;
 	const int readCovRate = 100;
 
 	//index construction parameters
