@@ -220,13 +220,7 @@ void RepeatResolver::findRepeats()
 		//	Constants::maximumOverhang) continue;
 		//if (readPath.back().overlap.curLen - readPath.back().overlap.curEnd > 
 		//	Constants::maximumOverhang) continue;
-		GraphAlignment filteredPath;
-		for (auto& step : readPath)
-		{
-			if (step.edge->isLooped() && 
-				step.edge->length() < Parameters::get().minimumOverlap) continue;
-			filteredPath.push_back(step);
-		}
+		GraphAlignment filteredPath = readPath;
 		if (filteredPath.size() < 2) continue;
 
 		for (size_t i = 0; i < filteredPath.size() - 1; ++i)
@@ -243,6 +237,9 @@ void RepeatResolver::findRepeats()
 	
 	for (auto& edgeList : outConnections)
 	{
+		if (edgeList.first-> multiplicity == 1 &&
+			edgeList.second.size() == 1) continue;
+
 		Logger::get().debug() << "Outputs: " << edgeList.first->edgeId.signedId()
 			<< " " << edgeList.first->multiplicity;
 		for (auto& outEdgeCount : edgeList.second)
@@ -296,7 +293,9 @@ void RepeatResolver::findRepeats()
 		if (!match && edge->multiplicity != 0)
 		{
 			std::string star = edge->repetitive ? "R" : " ";
-			Logger::get().debug() << star << " " << edge->edgeId.signedId()
+			std::string loop = edge->isLooped() ? "L" : " ";
+			Logger::get().debug() << star << " " << loop << " " 
+				<< edge->edgeId.signedId()
 				<< " " << edge->multiplicity << " -> " << mult << " ("
 				<< leftMult << "," << rightMult << ") " << edge->length() << "\t"
 				<< edge->meanCoverage;
