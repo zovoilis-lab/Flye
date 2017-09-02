@@ -13,6 +13,7 @@ vals = {
         "simple_kmer_length" : 4,
         "solid_kmer_length" : 10,
         "max_bubble_length" : 1000,
+        "big_genome" : 50 * 1024 * 1024,
 
         "err_modes" : {
             "pacbio" : {

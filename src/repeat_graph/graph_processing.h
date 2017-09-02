@@ -45,6 +45,7 @@ public:
 		_tipThreshold(Parameters::get().minimumOverlap) {}
 
 	void condence();
+	void unrollLoops();
 	void generateContigs();
 	void dumpRepeats(const std::vector<GraphAlignment>& readAlignments,
 					 const std::string& outFile);
@@ -66,7 +67,6 @@ private:
 
 	void trimTips();
 	void fixChimericJunctions();
-	void unrollLoops();
 	void condenceEdges();
 	void updateEdgesMultiplicity();
 
