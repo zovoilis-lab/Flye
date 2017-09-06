@@ -38,6 +38,7 @@ namespace Constants
 	const float minRepeatResSupport = 0.25f;
 	const int outPathsRatio = 5;
 	const int readCovRate = 100;
+	const int alnOverlap = -100;
 
 	//index construction parameters
 	const int assembleKmerSample = 1;

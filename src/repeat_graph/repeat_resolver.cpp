@@ -649,8 +649,10 @@ GraphAlignment
 													Constants::farJumpRate,
 											  Constants::maxSeparation);
 
-			if (Constants::maximumJump > readDiff && readDiff > -Constants::gapJump &&
-				Constants::maximumJump > graphDiff && graphDiff > -Constants::gapJump &&
+			if (Constants::maximumJump > readDiff && 
+					readDiff > Constants::alnOverlap &&
+				Constants::maximumJump > graphDiff && 
+					graphDiff > Constants::alnOverlap  &&
 				abs(readDiff - graphDiff) < maxDiscordance &&
 				chain.aln.back()->edge->nodeRight == edgeAlignment.edge->nodeLeft)
 			{
