@@ -123,7 +123,8 @@ void VertexIndex::buildIndex(int minCoverage, int maxCoverage, int filterRatio)
 			{
 				//downsampling, so as to have approximately
 				//maxCoverage k-mer instances
-				if (rand() % (int)count > maxCoverage / 10) continue;
+				//if (rand() % (int)count > maxCoverage / 10) continue;
+				continue;
 			}
 
 			//all good
