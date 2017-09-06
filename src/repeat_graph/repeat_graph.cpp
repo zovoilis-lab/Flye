@@ -381,8 +381,7 @@ void RepeatGraph::initializeEdges(const OverlapContainer& asmOverlaps)
 						(segTwo->data->end - segTwo->data->start);
 
 					if (rateOne > 0.5 && rateTwo > 0.5 &&
-						abs(intersectOne - intersectTwo) < 
-							std::min(intersectOne, intersectTwo) / 2)
+						abs(intersectOne - intersectTwo) < _maxSeparation)
 					{
 						unionSet(segOne, segTwo);
 						break;
@@ -409,19 +408,19 @@ void RepeatGraph::initializeEdges(const OverlapContainer& asmOverlaps)
 
 			GraphNode* leftNode = nodePairSeqs.first.first;
 			GraphNode* rightNode = nodePairSeqs.first.second;
-			GraphEdge* newEdge = this->addEdge(GraphEdge(leftNode, rightNode, 
-										   	   FastaRecord::Id(_nextEdgeId)));
+			GraphEdge newEdge(leftNode, rightNode, FastaRecord::Id(_nextEdgeId));
 			for (auto& seg : edgeClust.second)
 			{
-				newEdge->seqSegments.push_back(*seg);
+				newEdge.seqSegments.push_back(*seg);
 				usedSegments.push_back(seg->complement());
 			}
 
 			//check if it's self-complmenet
 			bool selfComplement = std::find(usedSegments.begin(), 
 						usedSegments.end(), anySegment) != usedSegments.end();
+			newEdge.selfComplement = selfComplement;
 
-			newEdge->selfComplement = selfComplement;
+			this->addEdge(std::move(newEdge));
 			if (!selfComplement)
 			{
 				leftNode = complEdges[nodePairSeqs.first].first;
@@ -485,20 +484,10 @@ void RepeatGraph::logEdges()
 
 GraphPath RepeatGraph::complementPath(const GraphPath& path)
 {
-	std::unordered_map<FastaRecord::Id, GraphEdge*> idToEdge;
-	for (auto& edge : this->iterEdges()) 
-	{
-		idToEdge[edge->edgeId] = edge;
-		if (edge->selfComplement)
-		{
-			idToEdge[edge->edgeId.rc()] = edge;
-		}
-	}
-
 	GraphPath complEdges;
 	for (auto itEdge = path.rbegin(); itEdge != path.rend(); ++itEdge)
 	{
-		complEdges.push_back(idToEdge.at((*itEdge)->edgeId.rc()));
+		complEdges.push_back(_idToEdge.at((*itEdge)->edgeId.rc()));
 	}
 
 	return complEdges;
@@ -506,20 +495,18 @@ GraphPath RepeatGraph::complementPath(const GraphPath& path)
 
 GraphEdge* RepeatGraph::complementEdge(GraphEdge* edge)
 {
-	return this->complementPath({edge}).front();
+	return _idToEdge.at(edge->edgeId.rc());
 }
 
 GraphNode* RepeatGraph::complementNode(GraphNode* node)
 {
 	if (!node->outEdges.empty())
 	{
-		return this->complementPath({node->outEdges.front()})
-									.front()->nodeRight;
+		return this->complementEdge(node->outEdges.front())->nodeRight;
 	}
 	else if(!node->inEdges.empty())
 	{
-		return this->complementPath({node->inEdges.front()})
-									.front()->nodeLeft;
+		return this->complementEdge(node->inEdges.front())->nodeLeft;
 	}
 	return nullptr;
 }

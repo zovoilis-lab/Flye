@@ -198,6 +198,12 @@ public:
 		_graphEdges.insert(newEdge);
 		newEdge->nodeLeft->outEdges.push_back(newEdge);
 		newEdge->nodeRight->inEdges.push_back(newEdge);
+		
+		_idToEdge[newEdge->edgeId] = newEdge;
+		if (newEdge->selfComplement)
+		{
+			_idToEdge[newEdge->edgeId.rc()] = newEdge;
+		}
 		return newEdge;
 	}
 	class IterEdges
@@ -219,6 +225,7 @@ public:
 		vecRemove(edge->nodeRight->inEdges, edge);
 		vecRemove(edge->nodeLeft->outEdges, edge);
 		_graphEdges.erase(edge);
+		_idToEdge.erase(edge->edgeId);
 		delete edge;
 	}
 	void removeNode(GraphNode* node)
@@ -289,5 +296,6 @@ private:
 
 	std::unordered_set<GraphNode*> _graphNodes;
 	std::unordered_set<GraphEdge*> _graphEdges;
+	std::unordered_map<FastaRecord::Id, GraphEdge*> _idToEdge;
 
 };
