@@ -21,6 +21,7 @@ void GraphProcessor::condence()
 	this->condenceEdges();
 
 	this->fixChimericJunctions();
+	this->trimTips();
 }
 
 void GraphProcessor::trimFakeLoops()
@@ -797,11 +798,8 @@ void GraphProcessor::outputEdgesDot(const std::vector<Contig>& paths,
 		}
 		lengthStr << " " << contig.meanCoverage << "x";
 
-		bool repetitive = true;
-		for (auto& edge : contig.path)
-		{
-			if (!edge->isRepetitive()) repetitive = false;
-		}
+		bool repetitive = contig.path.front()->isRepetitive() || 
+						  contig.path.back()->isRepetitive();
 		if (repetitive)
 		{
 			std::string color = idToColor(contig.id);
