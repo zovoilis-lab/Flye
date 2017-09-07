@@ -205,7 +205,7 @@ void RepeatResolver::findRepeats()
 		complEdge->repetitive = false;
 
 		if (edge->meanCoverage > _multInf.getUniqueCovThreshold() * 2 ||
-			(edge->isLooped() && edge->length() < Parameters::get().minimumOverlap))
+		   (edge->isLooped() && edge->length() < Parameters::get().minimumOverlap))
 		{
 			edge->repetitive = true;
 			complEdge->repetitive = true;
@@ -215,11 +215,6 @@ void RepeatResolver::findRepeats()
 	//then, by read alignments
 	for (auto& readPath : _readAlignments)
 	{
-
-		//if (readPath.front().overlap.curBegin > 
-		//	Constants::maximumOverhang) continue;
-		//if (readPath.back().overlap.curLen - readPath.back().overlap.curEnd > 
-		//	Constants::maximumOverhang) continue;
 		GraphAlignment filteredPath = readPath;
 		if (filteredPath.size() < 2) continue;
 
@@ -581,15 +576,22 @@ void RepeatResolver::alignReads()
 								   /*onlyMax*/ false);
 
 	std::vector<FastaRecord::Id> allQueries;
+	int64_t totalLength = 0;
 	for (auto& readId : _readSeqs.getIndex())
 	{
-		allQueries.push_back(readId.first);
+		if (_readSeqs.seqLen(readId.first) > Constants::maxSeparation)
+		{
+			totalLength += _readSeqs.seqLen(readId.first);
+			allQueries.push_back(readId.first);
+		}
 	}
 	std::mutex indexMutex;
 	int numAligned = 0;
+	int64_t alignedLength = 0;
 	std::function<void(const FastaRecord::Id&)> alignRead = 
 	[this, &indexMutex, &numAligned, &readsOverlaps, 
-		 &idToSegment, &pathsContainer] (const FastaRecord::Id& seqId)
+		&idToSegment, &pathsContainer, &alignedLength] 
+		(const FastaRecord::Id& seqId)
 	{
 		auto overlaps = readsOverlaps.seqOverlaps(seqId);
 		std::vector<EdgeAlignment> alignments;
@@ -607,6 +609,8 @@ void RepeatResolver::alignReads()
 		indexMutex.lock();
 		_readAlignments.push_back(readChain);
 		++numAligned;
+		alignedLength += readChain.back().overlap.curEnd - 
+						 readChain.front().overlap.curBegin;
 		indexMutex.unlock();
 	};
 
@@ -614,7 +618,9 @@ void RepeatResolver::alignReads()
 					  Parameters::get().numThreads, true);
 
 	Logger::get().debug() << "Aligned " << numAligned << " / " 
-		<< _readSeqs.getIndex().size();
+		<< allQueries.size();
+	Logger::get().debug() << "Aligned length " << alignedLength << " / " 
+		<< totalLength << " " << (float)alignedLength / totalLength;
 }
 
 namespace
