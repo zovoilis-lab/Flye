@@ -13,17 +13,17 @@ namespace Constants
 
 	//kmer enumeration
 	const int hardMinCoverageRate = 10;
-	const int repeatCoverageRate = 10;
+	const int repeatCoverageRate = 500;
 
 	//overlap constants
 	const int closeJumpRate = 10;
 	const int farJumpRate = 2;
 	const int overlapDivergenceRate = 5;
-	const int gapJump = 100;
+	const int gapJump = 50;
 	const int penaltyWindow = 10;
 
 	//chimera detection
-	const int maxCoverageDropRate = 5;
+	const int maxCoverageDropRate = 10;
 	const int chimeraWindow = 100;
 
 	//extension
@@ -37,7 +37,7 @@ namespace Constants
 	const float minRepeatResSupport = 0.25f;
 	const int outPathsRatio = 5;
 	const int readCovRate = 100;
-	const int alnOverlap = -100;
+	const int alnOverlap = -50;
 
 	//index construction parameters
 	const int assembleKmerSample = 5;
