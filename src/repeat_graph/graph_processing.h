@@ -66,6 +66,7 @@ private:
 	//std::string contigSequence(const Contig& contig) const;
 
 	void trimTips();
+	void trimFakeLoops();
 	void fixChimericJunctions();
 	void condenceEdges();
 	void updateEdgesMultiplicity();

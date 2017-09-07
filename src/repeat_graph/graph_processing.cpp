@@ -13,6 +13,7 @@
 void GraphProcessor::condence()
 {
 	this->trimTips();
+	this->trimFakeLoops();
 
 	this->unrollLoops();
 	this->condenceEdges();
@@ -20,6 +21,39 @@ void GraphProcessor::condence()
 	this->condenceEdges();
 
 	this->fixChimericJunctions();
+}
+
+void GraphProcessor::trimFakeLoops()
+{
+	std::unordered_set<GraphEdge*> toRemove;
+	for (auto& edge : _graph.iterEdges())
+	{
+		if (edge->isLooped() && 
+			edge->length() < Parameters::get().minimumOverlap)
+		{
+			std::unordered_set<FastaRecord::Id> seenSeqs;
+			bool isFake = true;
+			for (auto& seg : edge->seqSegments)
+			{
+				if (seenSeqs.count(seg.seqId))
+				{
+					isFake = false;
+					break;
+				}
+				seenSeqs.insert(seg.seqId);
+			}
+
+			if (isFake)
+			{
+				toRemove.insert(edge);
+				toRemove.insert(_graph.complementEdge(edge));
+			}
+		}
+	}
+
+	for (auto& edge : toRemove)	_graph.removeEdge(edge);
+	Logger::get().debug() << "Removed " << toRemove.size() / 2 
+		<< " fake loops";
 }
 
 void GraphProcessor::fixChimericJunctions()
