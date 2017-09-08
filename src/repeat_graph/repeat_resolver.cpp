@@ -282,6 +282,11 @@ void RepeatResolver::findRepeats()
 			edge->repetitive = true;
 			complEdge->repetitive = true;
 		}
+		if (edge->length() > 20000)
+		{
+			edge->repetitive = false;
+			complEdge->repetitive = false;
+		}
 
 		///////
 		bool match = (edge->multiplicity > 1) == (edge->repetitive);
