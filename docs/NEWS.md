@@ -1,3 +1,8 @@
+
+ABruijn 2.1b (11 Sep 2017)
+==========================
+* Various bug fixes and performance improvements
+
 ABruijn 2.0b (25 Jul 2017)
 ==========================
 
