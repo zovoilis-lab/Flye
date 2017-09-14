@@ -364,7 +364,17 @@ void OverlapContainer::findAllOverlaps()
 	processInParallel(allQueries, indexUpdate, 
 					  Parameters::get().numThreads, true);
 
+	int numOverlaps = 0;
+	for (auto& seqOvlps : _overlapIndex) numOverlaps += seqOvlps.second.size();
+	Logger::get().debug() << "Found " << numOverlaps << " overlaps";
+
 	this->filterOverlaps();
+
+
+	numOverlaps = 0;
+	for (auto& seqOvlps : _overlapIndex) numOverlaps += seqOvlps.second.size();
+	Logger::get().debug() << "Left " << numOverlaps 
+		<< " overlaps after filtering";
 }
 
 
@@ -388,18 +398,17 @@ void OverlapContainer::filterOverlaps()
 		}
 		for (size_t i = 0; i < overlapSets.size(); ++i)
 		{
-			for (size_t j = i + 1; j < overlapSets.size(); ++j)
+			for (size_t j = 0; j < overlapSets.size(); ++j)
 			{
 				OverlapRange& ovlpOne = *overlapSets[i]->data;
 				OverlapRange& ovlpTwo = *overlapSets[j]->data;
 
 				if (ovlpOne.extId != ovlpTwo.extId) continue;
-				float curRate = (float)ovlpOne.curIntersect(ovlpTwo) / 
-														ovlpOne.curRange();
-				float extRate = (float)ovlpOne.extIntersect(ovlpTwo) / 
-														ovlpOne.extRange();
+				int curDiff = ovlpOne.curRange() - ovlpOne.curIntersect(ovlpTwo);
+				int extDiff = ovlpOne.extRange() - ovlpOne.extIntersect(ovlpTwo);
 
-				if (std::min(curRate, extRate) > 0.9) 
+				if (curDiff < Constants::maximumJump / 10 && 
+					extDiff < Constants::maximumJump / 10) 
 				{
 					unionSet(overlapSets[i], overlapSets[j]);
 				}
@@ -430,29 +439,6 @@ void OverlapContainer::filterOverlaps()
 				  [](const OverlapRange& o1, const OverlapRange& o2)
 				  {return o1.curBegin < o2.curBegin;});
 
-		/*for (auto& ovlpRef : overlaps)
-		{
-			bool matched = false;
-			for (auto& ovlpSnd : overlaps)
-			{
-				if (ovlpRef.equals(ovlpSnd)) continue;
-
-				float curRate = (float)ovlpRef.curIntersect(ovlpSnd) / ovlpRef.curRange();
-				float extRate = (float)ovlpRef.extIntersect(ovlpSnd) / ovlpRef.extRange();
-				if (curRate > 0.9 && extRate > 0.9)
-				{
-					Logger::get().debug() << ovlpSnd.curBegin << "\t" 
-						<< ovlpSnd.curEnd << "\t" << ovlpSnd.extBegin << "\t"
-						<< ovlpSnd.extEnd << "\t" << ovlpSnd.score << "\t"
-						<< std::min(curRate, extRate);
-					matched = true;
-				}
-			}
-			if (matched) 
-			{
-				Logger::get().debug() << "";
-			}
-		}*/
 	};
 	processInParallel(seqIds, filterParallel, 
 					  Parameters::get().numThreads, false);
