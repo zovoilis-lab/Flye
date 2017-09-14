@@ -152,7 +152,6 @@ int main(int argc, char** argv)
 		resolver.resolveRepeats();
 		proc.unrollLoops();
 		//proc.outputDot(/*on contigs*/ false, outFolder + "/graph_after_rr.dot");
-		//proc.condence();
 
 		Logger::get().info() << "Generating contigs";
 		proc.generateContigs();

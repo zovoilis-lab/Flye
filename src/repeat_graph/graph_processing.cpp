@@ -389,6 +389,9 @@ void GraphProcessor::generateContigs()
 						traversed.back()->nodeRight) &&
 						traversed.front()->nodeLeft->outEdges.size() == 1;
 
+		bool repetitive = traversed.front()->isRepetitive() || 
+						  traversed.back()->isRepetitive();
+
 		int contigLength = 0;
 		int64_t sumCov = 0;
 		std::string contentsStr;
@@ -402,6 +405,7 @@ void GraphProcessor::generateContigs()
 
 		_contigs.emplace_back(traversed, edgeId, circular, 
 							  contigLength, meanCoverage);
+		_contigs.back().repetitive = repetitive;
 
 		if (edgeId.strand())
 		{
@@ -646,6 +650,7 @@ std::vector<Contig> GraphProcessor::edgesPaths() const
 		GraphPath path = {edge};
 		paths.emplace_back(path, edge->edgeId, false,
 						   edge->length(), edge->meanCoverage);
+		paths.back().repetitive = edge->repetitive;
 	}
 	this->generateContigSequences(paths);
 	return paths;
@@ -798,9 +803,7 @@ void GraphProcessor::outputEdgesDot(const std::vector<Contig>& paths,
 		}
 		lengthStr << " " << contig.meanCoverage << "x";
 
-		bool repetitive = contig.path.front()->isRepetitive() || 
-						  contig.path.back()->isRepetitive();
-		if (repetitive)
+		if (contig.repetitive)
 		{
 			std::string color = idToColor(contig.id);
 

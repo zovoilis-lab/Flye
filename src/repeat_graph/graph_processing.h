@@ -11,8 +11,8 @@ struct Contig
 {
 	Contig(const GraphPath& path, FastaRecord::Id id = FastaRecord::ID_NONE,
 		   bool circular = false, int length = 0, int meanCoverage = 0):
-		   	path(path), id(id), circular(circular), length(length),
-			meanCoverage(meanCoverage) {}
+		   	path(path), id(id), circular(circular), repetitive(false), 
+			length(length), meanCoverage(meanCoverage) {}
 
 	std::string name() const
 	{
@@ -32,6 +32,7 @@ struct Contig
 	FastaRecord::Id id;
 	std::string sequence;
 	bool circular;
+	bool repetitive;
 	int length;
 	int meanCoverage;
 };
