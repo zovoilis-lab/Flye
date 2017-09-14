@@ -157,6 +157,7 @@ int RepeatResolver::resolveConnections(const std::vector<Connection>& connection
 		totalLinks += 2;
 		for (auto& conn : connections)
 		{
+			//TODO: choose representetive read more carefully
 			if (conn.path.front() == leftEdge && 
 				conn.path.back() == rightEdge)
 			{
@@ -322,7 +323,7 @@ void RepeatResolver::resolveRepeats()
 		if (!resolvedConnections) break;
 
 		this->updateAlignments();
-		this->findRepeats();
+		//this->findRepeats();
 	}
 
 	this->removeUnsupportedEdges();
@@ -357,7 +358,6 @@ void RepeatResolver::updateAlignments()
 	_readAlignments = newAlignments;
 
 	//mark resolved repeats
-	/*
 	int determinedRepeats = 0;
 	for (auto& edge : _graph.iterEdges())
 	{
@@ -373,8 +373,8 @@ void RepeatResolver::updateAlignments()
 		}
 	}
 
-	Logger::get().debug() << "Determined " << determinedRepeats << " repeats";
-	return determinedRepeats;*/
+	Logger::get().debug() << "Determined " << determinedRepeats / 2 << " repeats";
+	//return determinedRepeats;
 }
 
 std::vector<RepeatResolver::Connection> 
