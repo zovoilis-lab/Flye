@@ -19,7 +19,6 @@ public:
 
 private:
 	void estimateByCoverage(const std::vector<GraphAlignment>& readAln);
-	void balanceGraph();
 
 	RepeatGraph& _graph;
 	int _uniqueCovThreshold; 
