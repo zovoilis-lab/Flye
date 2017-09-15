@@ -13,17 +13,18 @@
 void GraphProcessor::condence()
 {
 	this->trimTips();
-	this->trimFakeLoops();
+	//this->trimFakeLoops();
 
-	this->unrollLoops();
+	//this->unrollLoops();
 	this->condenceEdges();
-	this->unrollLoops();
-	this->condenceEdges();
+	//this->unrollLoops();
+	//this->condenceEdges();
 
 	this->fixChimericJunctions();
 	this->trimTips();
 }
 
+/*
 void GraphProcessor::trimFakeLoops()
 {
 	std::unordered_set<GraphEdge*> toRemove;
@@ -55,7 +56,7 @@ void GraphProcessor::trimFakeLoops()
 	for (auto& edge : toRemove)	_graph.removeEdge(edge);
 	Logger::get().debug() << "Removed " << toRemove.size() / 2 
 		<< " fake loops";
-}
+}*/
 
 void GraphProcessor::fixChimericJunctions()
 {
@@ -83,6 +84,7 @@ void GraphProcessor::fixChimericJunctions()
 		<< " chimeric junctions";
 }
 
+/*
 void GraphProcessor::unrollLoops()
 {
 	auto unrollEdge = [this](GraphEdge& loopEdge)
@@ -99,25 +101,6 @@ void GraphProcessor::unrollLoops()
 		}
 
 		auto growingSeqs = prevEdge->seqSegments;
-		/*
-		Logger::get().debug() << "Prev seqs " << prevEdge->edgeId.signedId();
-		for (auto& seq : growingSeqs)
-		{
-			Logger::get().debug() << "\t" << _asmSeqs.seqName(seq.seqId) 
-				<< " " << seq.start << " " << seq.end;
-		}
-		Logger::get().debug() << "Loop seqs " << loopEdge.edgeId.signedId();
-		for (auto& seq : loopEdge.seqSegments)
-		{
-			Logger::get().debug() << "\t" << _asmSeqs.seqName(seq.seqId)
-				<< " " << seq.start << " " << seq.end;
-		}
-		Logger::get().debug() << "Next seqs " << nextEdge->edgeId.signedId();
-		for (auto& seq : nextEdge->seqSegments)
-		{
-			Logger::get().debug() << "\t" << _asmSeqs.seqName(seq.seqId) 
-				<< " " << seq.start << " " << seq.end;
-		}*/
 
 		std::vector<SequenceSegment> updatedSeqs;
 		for (auto& seq : growingSeqs)
@@ -186,7 +169,7 @@ void GraphProcessor::unrollLoops()
 
 	Logger::get().debug() << "Unrolled " << unrollLoops 
 		<< ", removed " << toRemove.size();
-}
+}*/
 
 void GraphProcessor::trimTips()
 {

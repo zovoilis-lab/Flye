@@ -73,11 +73,12 @@ void RepeatGraph::build()
 	OverlapDetector asmOverlapper(_asmSeqs, asmIndex, 
 								  Constants::maximumJump, 
 								  Parameters::get().minimumOverlap,
-								  0);
+								  /*no overhang*/ 0, /*keep alignment*/ true);
 	OverlapContainer asmOverlaps(asmOverlapper, _asmSeqs, false);
 	asmOverlaps.findAllOverlaps();
 
 	this->getGluepoints(asmOverlaps);
+	this->collapseTandems();
 	this->initializeEdges(asmOverlaps);
 }
 
@@ -179,16 +180,10 @@ void RepeatGraph::getGluepoints(const OverlapContainer& asmOverlaps)
 
 		for (auto& ovlp = leftPos; ovlp != rightPos; ++ovlp)
 		{
-			if (clusterXpos - ovlp->curBegin >= _maxSeparation && 
-				ovlp->curEnd - clusterXpos >= _maxSeparation &&
-				abs(ovlp->curRange() - ovlp->extRange()) < _maxSeparation / 10)
+			if (clusterXpos - ovlp->curBegin >= 0 && 
+				ovlp->curEnd - clusterXpos >= 0)
 			{
-				float lengthRatio = (float)ovlp->extRange() / ovlp->curRange();
-				int32_t projectedPos = ovlp->extBegin + 
-								float(clusterXpos - ovlp->curBegin) * lengthRatio;
-				projectedPos = std::max(ovlp->extBegin, 
-										std::min(projectedPos, ovlp->extEnd));
-
+				int32_t projectedPos = ovlp->project(clusterXpos);
 				extCoords.emplace_back(Point2d(clustSeq, clusterXpos,
 									   		   ovlp->extId, projectedPos));
 			}
@@ -275,7 +270,7 @@ void RepeatGraph::getGluepoints(const OverlapContainer& asmOverlaps)
 		{
 			setToId[findSet(reprPoint)] = pointId++;
 		}
-		
+
 		std::vector<int32_t> positions;
 		for (auto& ep : group) 
 		{
@@ -283,9 +278,25 @@ void RepeatGraph::getGluepoints(const OverlapContainer& asmOverlaps)
 		}
 		int32_t clusterXpos = median(positions);
 
-		_gluePoints[reprPoint->data.seqId]
-			.emplace_back(setToId[findSet(reprPoint)],
-						  reprPoint->data.seqId, clusterXpos);
+		bool tandemRepeat = group.back()->data.pos - 
+							group.front()->data.pos > _maxSeparation;
+		
+		if (tandemRepeat)
+		{
+			_gluePoints[reprPoint->data.seqId]
+				.emplace_back(setToId[findSet(reprPoint)],
+							  reprPoint->data.seqId, group.front()->data.pos);
+
+			_gluePoints[reprPoint->data.seqId]
+				.emplace_back(setToId[findSet(reprPoint)],
+							  reprPoint->data.seqId, group.back()->data.pos);
+		}
+		else
+		{
+			_gluePoints[reprPoint->data.seqId]
+				.emplace_back(setToId[findSet(reprPoint)],
+							  reprPoint->data.seqId, clusterXpos);
+		}
 
 	};
 	int numGluepoints = 0;
@@ -334,6 +345,102 @@ void RepeatGraph::getGluepoints(const OverlapContainer& asmOverlaps)
 	for (auto& seqEndpoints : endpoints)
 	{
 		for (auto ep : seqEndpoints.second) delete ep;
+	}
+}
+
+//Cleaning up some messy tandem repeats that are actually
+//artifatcs of the alignment
+void RepeatGraph::collapseTandems()
+{
+	std::unordered_map<size_t, std::unordered_set<size_t>> tandemLefts;
+	std::unordered_map<size_t, std::unordered_set<size_t>> tandemRights;
+
+	for (auto& seqPoints : _gluePoints)
+	{
+		size_t leftId = 0;
+		size_t rightId = 0;
+		while (rightId < seqPoints.second.size())
+		{
+			while (rightId < seqPoints.second.size() && 
+				   seqPoints.second[leftId].pointId == 
+				   		seqPoints.second[rightId].pointId)
+			{
+				++rightId;
+			}
+			if (rightId - leftId > 1)
+			{
+				size_t tandemId = seqPoints.second[leftId].pointId;
+				if (rightId < seqPoints.second.size())
+				{
+					tandemRights[tandemId]
+						.insert(seqPoints.second[rightId].pointId);
+				}
+				if (leftId > 0)
+				{
+					tandemLefts[tandemId]
+						.insert(seqPoints.second[leftId - 1].pointId);
+				}
+			}
+			leftId = rightId;
+		}
+	}
+
+	/*for (auto& ptLefts : tandemLefts)
+	{
+		Logger::get().debug() << "Lefts of " << ptLefts.first;
+		for (auto& left : ptLefts.second)
+		{
+			Logger::get().debug() << "\t" << left;
+		}
+		Logger::get().debug() << "Rights of " << ptLefts.first;
+		for (auto& right : tandemRights[ptLefts.first])
+		{
+			Logger::get().debug() << "\t" << right;
+		}
+	}*/
+
+	for (auto& seqPoints : _gluePoints)
+	{
+		std::vector<GluePoint> newPoints;
+		size_t leftId = 0;
+		size_t rightId = 0;
+		while (rightId < seqPoints.second.size())
+		{
+			while (rightId < seqPoints.second.size() && 
+				   seqPoints.second[leftId].pointId == 
+				   		seqPoints.second[rightId].pointId)
+			{
+				++rightId;
+			}
+			if (rightId - leftId == 1)
+			{
+				newPoints.push_back(seqPoints.second[leftId]);
+			}
+			else	//see if we can collapse this tandem repeat
+			{
+				size_t tandemId = seqPoints.second[leftId].pointId;
+				bool leftDetemined = tandemLefts[tandemId].size() == 1;
+				bool rightDetemined = tandemRights[tandemId].size() == 1;
+				if (!leftDetemined && !rightDetemined)
+				{
+					for (size_t i = leftId; i < rightId; ++i)
+					{
+						newPoints.push_back(seqPoints.second[i]);
+					}
+				}
+				else if(leftDetemined && !rightDetemined)
+				{
+					newPoints.push_back(seqPoints.second[rightId - 1]);
+				}
+				else if (!leftDetemined && rightDetemined)
+				{
+					newPoints.push_back(seqPoints.second[leftId]);
+				}
+				//if both determined, just don't add this guy
+			}
+			leftId = rightId;
+		}
+		seqPoints.second = newPoints;
 	}
 }
 
@@ -416,7 +523,7 @@ void RepeatGraph::initializeEdges(const OverlapContainer& asmOverlaps)
 		{
 			for (auto& segTwo : segmentsClusters)
 			{
-				//TODO: very inefficient, reimplement
+				//TODO: add binary search here
 				auto& overlaps = asmOverlaps.getOverlapIndex()
 												.at(segOne->data->seqId);
 				for (auto& ovlp : overlaps)
@@ -432,7 +539,9 @@ void RepeatGraph::initializeEdges(const OverlapContainer& asmOverlaps)
 						(segTwo->data->end - segTwo->data->start);
 
 					if (rateOne > 0.5 && rateTwo > 0.5 &&
-						abs(intersectOne - intersectTwo) < _maxSeparation)
+						//abs(intersectOne - intersectTwo) < _maxSeparation)
+						abs(intersectOne - intersectTwo) < 
+							std::max(intersectOne, intersectTwo) / 2)
 					{
 						unionSet(segOne, segTwo);
 						break;

@@ -204,6 +204,11 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 				extPaths[maxCloseId].ovlp.extEnd = extPos;
 				extPaths[maxCloseId].ovlp.score = maxCloseScore;
 				extPaths[maxCloseId].shifts.push_back(curPos - extPos);
+				if (_keepAlignment)
+				{
+					extPaths[maxCloseId].ovlp.kmerMatches
+										.emplace_back(curPos, extPos);
+				}
 			}
 			//update the best far extension, keep the old path as a copy
 			if (extendsFar)
@@ -213,6 +218,11 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 				extPaths.back().ovlp.extEnd = extPos;
 				extPaths.back().ovlp.score = maxFarScore;
 				extPaths.back().shifts.push_back(curPos - extPos);
+				if (_keepAlignment)
+				{
+					extPaths.back().ovlp.kmerMatches
+										.emplace_back(curPos, extPos);
+				}
 			}
 			//if no extensions possible (or there are no active paths), start a new path
 			if (!extendsClose && !extendsFar &&

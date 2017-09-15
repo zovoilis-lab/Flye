@@ -216,17 +216,18 @@ void RepeatResolver::findRepeats()
 	//then, by read alignments
 	for (auto& readPath : _readAlignments)
 	{
-		GraphAlignment filteredPath = readPath;
-		if (filteredPath.size() < 2) continue;
+		if (readPath.size() < 2) continue;
 
-		for (size_t i = 0; i < filteredPath.size() - 1; ++i)
+		for (size_t i = 0; i < readPath.size() - 1; ++i)
 		{
-			if (filteredPath[i].edge == filteredPath[i + 1].edge &&
-				filteredPath[i].edge->isLooped()) continue;
+			if (readPath[i].edge == readPath[i + 1].edge &&
+				readPath[i].edge->isLooped()) continue;
+			if (readPath[i].edge->edgeId == 
+				readPath[i + 1].edge->edgeId.rc()) continue;
 
-			GraphEdge* complLeft = _graph.complementEdge(filteredPath[i].edge);
-			GraphEdge* complRight = _graph.complementEdge(filteredPath[i + 1].edge);
-			++outConnections[filteredPath[i].edge][filteredPath[i + 1].edge];
+			GraphEdge* complLeft = _graph.complementEdge(readPath[i].edge);
+			GraphEdge* complRight = _graph.complementEdge(readPath[i + 1].edge);
+			++outConnections[readPath[i].edge][readPath[i + 1].edge];
 			++outConnections[complRight][complLeft];
 		}
 	}
@@ -249,19 +250,17 @@ void RepeatResolver::findRepeats()
 	auto edgeMultiplicity = [this, &outConnections] (GraphEdge* edge)
 	{
 		int maxSupport = 0;
-		int maxCoverage = 0;
 		for (auto& outConn : outConnections[edge])
 		{
 			if (maxSupport < outConn.second)
 			{
 				maxSupport =  outConn.second;
-				maxCoverage = outConn.first->meanCoverage;
 			}
 		}
 
 		int multiplicity = 0;
 		int minSupport = maxSupport / Constants::outPathsRatio;
-		int minCoverage = maxCoverage / Constants::outPathsRatio;
+		int minCoverage = _multInf.getMeanCoverage() / Constants::outPathsRatio;
 		for (auto& outConn : outConnections[edge]) 
 		{
 			if (outConn.second > minSupport && 
@@ -571,7 +570,8 @@ void RepeatResolver::alignReads()
 						  Constants::readAlignKmerSample);
 	OverlapDetector readsOverlapper(pathsContainer, pathsIndex, 
 									Constants::maximumJump,
-									Constants::maxSeparation, /*overhang*/ 0);
+									Constants::maxSeparation, /*no overhang*/0,
+									/*keep alignment*/ false);
 	OverlapContainer readsOverlaps(readsOverlapper, _readSeqs, 
 								   /*onlyMax*/ false);
 

@@ -150,7 +150,7 @@ int main(int argc, char** argv)
 
 		Logger::get().info() << "Resolving repeats";
 		resolver.resolveRepeats();
-		proc.unrollLoops();
+		//proc.unrollLoops();
 		//proc.outputDot(/*on contigs*/ false, outFolder + "/graph_after_rr.dot");
 
 		Logger::get().info() << "Generating contigs";
