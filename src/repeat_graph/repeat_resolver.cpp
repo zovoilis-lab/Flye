@@ -23,15 +23,10 @@ void RepeatResolver::separatePath(const GraphPath& graphPath,
 	leftNode->inEdges.push_back(graphPath.front());
 
 	//repetitive edges in the middle
-	int64_t covSum = 0;
 	for (size_t i = 1; i < graphPath.size() - 1; ++i)
 	{
-		//--graphPath[i]->multiplicity;
 		graphPath[i]->resolved = true;
-		covSum += graphPath[i]->meanCoverage;
 	}
-	int32_t numEdges = graphPath.size() - 2;
-	int32_t meanCov = numEdges ? covSum / numEdges : 0;
 
 	GraphNode* rightNode = leftNode;
 	if (graphPath.size() > 2)
@@ -40,7 +35,7 @@ void RepeatResolver::separatePath(const GraphPath& graphPath,
 		GraphEdge* newEdge = _graph.addEdge(GraphEdge(leftNode, rightNode,
 													  newId));
 		newEdge->seqSegments.push_back(readSegment);
-		newEdge->meanCoverage = meanCov;
+		newEdge->meanCoverage = _multInf.getMeanCoverage();
 	}
 
 	//last edge
