@@ -60,18 +60,18 @@ void GraphProcessor::trimFakeLoops()
 
 void GraphProcessor::fixChimericJunctions()
 {
-	std::unordered_set<GraphNode*> toRemove;
+	//a very specific case: 1 in - 1 out
+	std::unordered_set<GraphNode*> simpleCases;
 	for (auto& node : _graph.iterNodes())
 	{
 		if (!node->isBifurcation() &&
 			(node->inEdges.front()->edgeId ==
 			 node->outEdges.front()->edgeId.rc()))
 		{
-			toRemove.insert(node);
+			simpleCases.insert(node);
 		}
 	}
-
-	for (auto& node : toRemove)
+	for (auto& node : simpleCases)
 	{
 		GraphNode* newNode = _graph.addNode();
 		GraphEdge* cutEdge = node->outEdges.front();
@@ -80,7 +80,40 @@ void GraphProcessor::fixChimericJunctions()
 		node->outEdges.clear();
 	}
 
-	Logger::get().debug() << "Removed " << toRemove.size() 
+	//more common case: 2 in - 2 out
+	std::unordered_set<GraphNode*> complexCases;
+	for (auto& node : _graph.iterNodes())
+	{
+		if (node->inEdges.size() != 2 ||
+			node->outEdges.size() != 2) continue;
+		auto& inEdges = node->inEdges;
+		auto& outEdges = node->outEdges;
+		if (inEdges[0]->edgeId.rc() != outEdges[0]->edgeId)
+		{
+			//match INs with OUTs
+			std::swap(inEdges[0], inEdges[1]);
+		}
+
+		if (inEdges[0]->edgeId.rc() == outEdges[0]->edgeId &&
+			inEdges[1]->edgeId.rc() == outEdges[1]->edgeId)
+		{
+			complexCases.insert(node);
+		}
+	}
+	for(auto& node : complexCases)
+	{
+		GraphNode* newNode = _graph.addNode();
+		node->inEdges[1]->nodeRight = newNode;
+		node->outEdges[0]->nodeLeft = newNode;
+		newNode->inEdges.push_back(node->inEdges[1]);
+		newNode->outEdges.push_back(node->outEdges[0]);
+
+		node->inEdges.pop_back();
+		node->outEdges.erase(node->outEdges.begin());
+	}
+
+	Logger::get().debug() << "Removed " 
+		<< simpleCases.size() + complexCases.size()
 		<< " chimeric junctions";
 }
 
