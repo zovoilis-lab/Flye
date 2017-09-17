@@ -412,9 +412,16 @@ void RepeatGraph::collapseTandems()
 			{
 				++rightId;
 			}
+
+			//int32_t span = seqPoints.second[rightId - 1].position - 
+			//			   seqPoints.second[leftId].position;
+			//if (rightId - leftId == 1 || span > Parameters::get().minimumOverlap)
 			if (rightId - leftId == 1)
 			{
-				newPoints.push_back(seqPoints.second[leftId]);
+				for (size_t i = leftId; i < rightId; ++i)
+				{
+					newPoints.push_back(seqPoints.second[i]);
+				}
 			}
 			else	//see if we can collapse this tandem repeat
 			{
@@ -523,7 +530,8 @@ void RepeatGraph::initializeEdges(const OverlapContainer& asmOverlaps)
 		{
 			for (auto& segTwo : segmentsClusters)
 			{
-				//TODO: add binary search here
+				if (findSet(segOne) == findSet(segTwo)) continue;
+
 				auto& overlaps = asmOverlaps.getOverlapIndex()
 												.at(segOne->data->seqId);
 				for (auto& ovlp : overlaps)
@@ -538,10 +546,10 @@ void RepeatGraph::initializeEdges(const OverlapContainer& asmOverlaps)
 					float rateTwo = (float)intersectTwo / 
 						(segTwo->data->end - segTwo->data->start);
 
-					if (rateOne > 0.5 && rateTwo > 0.5 &&
+					if (rateOne > 0.5 && rateTwo > 0.5)
 						//abs(intersectOne - intersectTwo) < _maxSeparation)
-						abs(intersectOne - intersectTwo) < 
-							std::max(intersectOne, intersectTwo) / 2)
+						//abs(intersectOne - intersectTwo) < 
+						//	std::max(intersectOne, intersectTwo) / 2)
 					{
 						unionSet(segOne, segTwo);
 						break;
