@@ -263,11 +263,10 @@ def _run(args):
             if jobs[i].name == job_to_resume:
                 jobs[i].load(save_file)
                 current_job = i
+                if not jobs[i - 1].completed(save_file):
+                    raise ResumeException("Can't resume: stage {0} incomplete"
+                                          .format(jobs[i].name))
                 break
-
-            if not jobs[i].completed(save_file):
-                raise ResumeException("Can't resume: stage {0} incomplete"
-                                      .format(jobs[i].name))
 
     for i in xrange(current_job, len(jobs)):
         jobs[i].save(save_file)
