@@ -34,13 +34,12 @@ class Job(object):
     Describes an abstract list of jobs with persistent
     status that can be resumed
     """
-    run_description = {"stage_name" : "",
-                       "stage_id" : 0}
+    run_description = {"stage_name" : ""}
 
     def __init__(self):
         self.name = None
         self.args = None
-        self.stage_id = 0
+        #self.stage_id = 0
         self.work_dir = None
         self.out_files = []
 
@@ -48,6 +47,8 @@ class Job(object):
         pass
 
     def save(self, save_file):
+        Job.run_description["stage_name"] = self.name
+
         with open(save_file, "w") as fp:
             json.dump(Job.run_description, fp)
 
@@ -56,13 +57,9 @@ class Job(object):
             data = json.load(fp)
             Job.run_description = data
 
-    def can_resume(self, save_file):
+    def completed(self, save_file):
         with open(save_file, "r") as fp:
             data = json.load(fp)
-
-            if (data["stage_name"] != self.name or
-                data["stage_id"] != self.stage_id):
-                return False
 
             for file in self.out_files:
                 if not os.path.exists(file):
@@ -85,8 +82,6 @@ class JobAssembly(Job):
         #contigs_fasta = aln.concatenate_contigs(reads_order)
         #fp.write_fasta_dict(contigs_fasta, self.out_assembly)
 
-        Job.run_description["stage_name"] = self.name
-
 
 class JobRepeat(Job):
     def __init__(self, in_assembly, out_folder, log_file):
@@ -104,7 +99,6 @@ class JobRepeat(Job):
         logger.info("Performing repeat analysis")
         repeat.analyse_repeats(self.args, self.in_assembly, self.out_folder,
                                self.log_file)
-        Job.run_description["stage_name"] = self.name
 
 
 class JobAlignment(Job):
@@ -112,7 +106,7 @@ class JobAlignment(Job):
         super(JobAlignment, self).__init__()
         self.in_reference = in_reference
         self.out_alignment = out_alignment
-        self.name = "alignment"
+        self.name = "alignment_" + str(stage_id)
         self.stage_id = stage_id
         self.out_files = [out_alignment]
 
@@ -127,9 +121,6 @@ class JobAlignment(Job):
         aln.make_alignment(reference_file, self.args.reads, self.args.threads,
                            self.out_alignment)
         os.remove(reference_file)
-
-        Job.run_description["stage_name"] = self.name
-        Job.run_description["stage_id"] = self.stage_id
 
 
 class JobConsensus(Job):
@@ -149,8 +140,6 @@ class JobConsensus(Job):
                                              self.args.threads)
         fp.write_fasta_dict(consensus_fasta, self.out_consensus)
 
-        Job.run_description["stage_name"] = self.name
-
 
 class JobPolishing(Job):
     def __init__(self, in_contigs, in_alignment, out_consensus,
@@ -160,7 +149,7 @@ class JobPolishing(Job):
         self.in_contigs = in_contigs
         self.in_alignment = in_alignment
         self.out_consensus = out_consensus
-        self.name = "polishing"
+        self.name = "polishing_" + str(stage_id)
         self.stage_id = stage_id
         self.seq_platform = seq_platform
         self.out_files = [out_consensus]
@@ -178,9 +167,6 @@ class JobPolishing(Job):
                                     self.seq_platform, self.work_dir,
                                     self.stage_id)
         fp.write_fasta_dict(polished_fasta, self.out_consensus)
-
-        Job.run_description["stage_name"] = self.name
-        Job.run_description["stage_id"] = self.stage_id
 
 
 def _create_job_list(args, work_dir, log_file):
@@ -245,7 +231,8 @@ def _run(args):
     work_dir = os.path.abspath(args.out_dir)
 
     log_file = os.path.join(work_dir, "abruijn.log")
-    _enable_logging(log_file, args.debug, not args.resume)
+    _enable_logging(log_file, args.debug,
+                    overwrite=not args.resume and not args.resume_from)
 
     logger.info("Running ABruijn")
     aln.check_binaries()
@@ -262,23 +249,29 @@ def _run(args):
     jobs = _create_job_list(args, work_dir, log_file)
 
     current_job = 0
-    can_resume = False
-    if args.resume:
-        for i in xrange(len(jobs)):
-            if jobs[i].can_resume(save_file):
-                jobs[i].load(save_file)
-                can_resume = True
-                current_job = i + 1
+    if args.resume or args.resume_from:
+        if not os.path.exists(save_file):
+            raise ResumeException("Can't find save file")
 
-    if args.resume:
-        if can_resume:
-            logger.info("Resuming previous run")
+        logger.info("Resuming previous run")
+        if args.resume_from:
+            job_to_resume = args.resume_from
         else:
-            raise ResumeException("Can't resume previous run")
+            job_to_resume = json.load(open(save_file, "r"))["stage_name"]
+
+        for i in xrange(len(jobs)):
+            if jobs[i].name == job_to_resume:
+                jobs[i].load(save_file)
+                current_job = i
+                break
+
+            if not jobs[i].completed(save_file):
+                raise ResumeException("Can't resume: stage {0} incomplete"
+                                      .format(jobs[i].name))
 
     for i in xrange(current_job, len(jobs)):
-        jobs[i].run()
         jobs[i].save(save_file)
+        jobs[i].run()
 
     logger.info("Done! Your assembly is in file: " + jobs[-1].out_files[0])
 
@@ -332,9 +325,11 @@ def main():
                         help="enable debug output")
     parser.add_argument("--resume", action="store_true",
                         dest="resume", default=False,
-                        help="try to resume previous assembly")
+                        help="resume from the last completed stage")
+    parser.add_argument("--resume-from", dest="resume_from",
+                        default=None, help="resume from a custom stage")
     parser.add_argument("-t", "--threads", dest="threads",
-                        type=lambda v: check_int_range(v, 0, 9999),
+                        type=lambda v: check_int_range(v, 1, 128),
                         default=1, help="number of parallel threads "
                         "(default: 1)")
     parser.add_argument("-i", "--iterations", dest="num_iters",
