@@ -197,8 +197,8 @@ void RepeatResolver::findRepeats()
 		if (!edge->edgeId.strand()) continue;
 
 		GraphEdge* complEdge = _graph.complementEdge(edge);
-		if (edge->meanCoverage > _multInf.getUniqueCovThreshold() * 2 ||
-		   (edge->isLooped() && edge->length() < Parameters::get().minimumOverlap))
+		if (edge->meanCoverage > _multInf.getUniqueCovThreshold() * 2)
+		   //(edge->isLooped() && edge->length() < Parameters::get().minimumOverlap))
 		{
 			edge->repetitive = true;
 			complEdge->repetitive = true;

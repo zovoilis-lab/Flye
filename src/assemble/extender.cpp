@@ -120,11 +120,6 @@ Extender::ExtensionInfo Extender::extendContig(FastaRecord::Id startRead)
 			//			<< " " << extensions.size();
 
 			exInfo.reads.push_back(currentRead);
-
-			//if (overlapsVisited)
-			//{
-				//Logger::get().debug() << "Already visited"; 
-			//}
 		}
 		else
 		{
@@ -132,7 +127,6 @@ Extender::ExtensionInfo Extender::extendContig(FastaRecord::Id startRead)
 				exInfo.leftTip = true;
 			else
 				exInfo.rightTip = true;
-			//Logger::get().debug() << "No extension found"; 
 		}
 
 		if (!foundExtension || overlapsVisited)
@@ -162,7 +156,6 @@ Extender::ExtensionInfo Extender::extendContig(FastaRecord::Id startRead)
 	int64_t meanOvlps = 0;
 	for (int num : numOverlaps) meanOvlps += num;
 	exInfo.meanOverlaps = meanOvlps / numOverlaps.size();
-	//Logger::get().debug() << "Mean overlaps: " << meanOvlps / numOverlaps.size();
 
 	return exInfo;
 }

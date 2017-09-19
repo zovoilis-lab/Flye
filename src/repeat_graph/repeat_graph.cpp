@@ -501,7 +501,8 @@ void RepeatGraph::initializeEdges(const OverlapContainer& asmOverlaps)
 
 	auto segIntersect = [] (const SequenceSegment& s, const OverlapRange& o)
 	{
-		return std::min(o.curEnd, s.end) - std::max(o.curBegin, s.start);
+		return std::max(std::min(o.curEnd, s.end) - 
+						std::max(o.curBegin, s.start), 0);
 	};
 
 	std::unordered_set<NodePair, pairhash> usedPairs;
@@ -509,7 +510,6 @@ void RepeatGraph::initializeEdges(const OverlapContainer& asmOverlaps)
 	{
 		if (usedPairs.count(nodePairSeqs.first)) continue;
 		usedPairs.insert(complEdges[nodePairSeqs.first]);
-		bool isLoop = nodePairSeqs.first.first == nodePairSeqs.first.second;
 
 		//cluster segments based on their overlaps
 		std::vector<SetNode<SequenceSegment*>*> segmentsClusters;
@@ -522,13 +522,6 @@ void RepeatGraph::initializeEdges(const OverlapContainer& asmOverlaps)
 			for (auto& segTwo : segmentsClusters)
 			{
 				if (findSet(segOne) == findSet(segTwo)) continue;
-				if (isLoop && 
-					segOne->data->length() < Parameters::get().minimumOverlap &&
-					segOne->data->length() < Parameters::get().minimumOverlap)
-				{
-					unionSet(segOne, segTwo);
-					continue;
-				}
 
 				auto& overlaps = asmOverlaps.getOverlapIndex()
 												.at(segOne->data->seqId);
@@ -542,10 +535,14 @@ void RepeatGraph::initializeEdges(const OverlapContainer& asmOverlaps)
 					float rateOne = (float)intersectOne / segOne->data->length();
 					float rateTwo = (float)intersectTwo / segTwo->data->length();
 
+					bool isTandem =
+						nodePairSeqs.first.first == nodePairSeqs.first.second &&
+						std::max(segOne->data->length(), segTwo->data->length()) < 
+							Parameters::get().minimumOverlap;
+					bool consistentLength = abs(intersectOne - intersectTwo) < 
+										std::max(intersectOne, intersectTwo) / 2;
 					if (rateOne > 0.5 && rateTwo > 0.5 &&
-						//abs(intersectOne - intersectTwo) < _maxSeparation)
-						abs(intersectOne - intersectTwo) < 
-							std::max(intersectOne, intersectTwo) / 2)
+						(consistentLength || isTandem))
 					{
 						unionSet(segOne, segTwo);
 						break;
