@@ -37,7 +37,7 @@ namespace Constants
 	const int trustedEdgeLength = 10000;
 	const float minRepeatResSupport = 0.25f;
 	const int outPathsRatio = 5;
-	const int readCovRate = 100;
+	const int readCovRate = 10;
 	const int alnOverlap = -100;
 
 	//index construction parameters

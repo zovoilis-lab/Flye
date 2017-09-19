@@ -354,6 +354,7 @@ void RepeatGraph::collapseTandems()
 {
 	std::unordered_map<size_t, std::unordered_set<size_t>> tandemLefts;
 	std::unordered_map<size_t, std::unordered_set<size_t>> tandemRights;
+	std::unordered_set<size_t> bigTandems;
 
 	for (auto& seqPoints : _gluePoints)
 	{
@@ -380,24 +381,16 @@ void RepeatGraph::collapseTandems()
 					tandemLefts[tandemId]
 						.insert(seqPoints.second[leftId - 1].pointId);
 				}
+				if (seqPoints.second[rightId - 1].position - 
+						seqPoints.second[leftId].position > 
+						Parameters::get().minimumOverlap)
+				{
+					bigTandems.insert(tandemId);
+				}
 			}
 			leftId = rightId;
 		}
 	}
-
-	/*for (auto& ptLefts : tandemLefts)
-	{
-		Logger::get().debug() << "Lefts of " << ptLefts.first;
-		for (auto& left : ptLefts.second)
-		{
-			Logger::get().debug() << "\t" << left;
-		}
-		Logger::get().debug() << "Rights of " << ptLefts.first;
-		for (auto& right : tandemRights[ptLefts.first])
-		{
-			Logger::get().debug() << "\t" << right;
-		}
-	}*/
 
 	for (auto& seqPoints : _gluePoints)
 	{
@@ -413,10 +406,8 @@ void RepeatGraph::collapseTandems()
 				++rightId;
 			}
 
-			//int32_t span = seqPoints.second[rightId - 1].position - 
-			//			   seqPoints.second[leftId].position;
-			//if (rightId - leftId == 1 || span > Parameters::get().minimumOverlap)
-			if (rightId - leftId == 1)
+			size_t tandemId = seqPoints.second[leftId].pointId;
+			if (rightId - leftId == 1 || bigTandems.count(tandemId))
 			{
 				for (size_t i = leftId; i < rightId; ++i)
 				{
@@ -425,7 +416,6 @@ void RepeatGraph::collapseTandems()
 			}
 			else	//see if we can collapse this tandem repeat
 			{
-				size_t tandemId = seqPoints.second[leftId].pointId;
 				bool leftDetemined = tandemLefts[tandemId].size() == 1;
 				bool rightDetemined = tandemRights[tandemId].size() == 1;
 				if (!leftDetemined && !rightDetemined)
@@ -519,6 +509,7 @@ void RepeatGraph::initializeEdges(const OverlapContainer& asmOverlaps)
 	{
 		if (usedPairs.count(nodePairSeqs.first)) continue;
 		usedPairs.insert(complEdges[nodePairSeqs.first]);
+		bool isLoop = nodePairSeqs.first.first == nodePairSeqs.first.second;
 
 		//cluster segments based on their overlaps
 		std::vector<SetNode<SequenceSegment*>*> segmentsClusters;
@@ -531,6 +522,13 @@ void RepeatGraph::initializeEdges(const OverlapContainer& asmOverlaps)
 			for (auto& segTwo : segmentsClusters)
 			{
 				if (findSet(segOne) == findSet(segTwo)) continue;
+				if (isLoop && 
+					segOne->data->length() < Parameters::get().minimumOverlap &&
+					segOne->data->length() < Parameters::get().minimumOverlap)
+				{
+					unionSet(segOne, segTwo);
+					continue;
+				}
 
 				auto& overlaps = asmOverlaps.getOverlapIndex()
 												.at(segOne->data->seqId);
@@ -541,15 +539,13 @@ void RepeatGraph::initializeEdges(const OverlapContainer& asmOverlaps)
 					int32_t intersectOne = segIntersect(*segOne->data, ovlp);
 					int32_t intersectTwo = segIntersect(*segTwo->data, 
 														ovlp.reverse());
-					float rateOne = (float)intersectOne / 
-						(segOne->data->end - segOne->data->start);
-					float rateTwo = (float)intersectTwo / 
-						(segTwo->data->end - segTwo->data->start);
+					float rateOne = (float)intersectOne / segOne->data->length();
+					float rateTwo = (float)intersectTwo / segTwo->data->length();
 
-					if (rateOne > 0.5 && rateTwo > 0.5)
+					if (rateOne > 0.5 && rateTwo > 0.5 &&
 						//abs(intersectOne - intersectTwo) < _maxSeparation)
-						//abs(intersectOne - intersectTwo) < 
-						//	std::max(intersectOne, intersectTwo) / 2)
+						abs(intersectOne - intersectTwo) < 
+							std::max(intersectOne, intersectTwo) / 2)
 					{
 						unionSet(segOne, segTwo);
 						break;

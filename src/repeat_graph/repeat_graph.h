@@ -28,6 +28,8 @@ struct SequenceSegment
 		return other;
 	}
 
+	int32_t length() const {return end - start;}
+
 	bool operator==(const SequenceSegment& other)
 	{
 		return seqId == other.seqId && start == other.start && end == other.end;

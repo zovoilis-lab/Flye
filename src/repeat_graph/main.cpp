@@ -157,7 +157,7 @@ int main(int argc, char** argv)
 		proc.generateContigs();
 
 		proc.dumpRepeats(readAlignments, outFolder + "/repeats_dump.txt");
-		proc.outputDot(/*on contigs*/ false, outFolder + "/graph_resolved.dot");
+		//proc.outputDot(/*on contigs*/ false, outFolder + "/graph_resolved.dot");
 		proc.outputDot(/*on contigs*/ true, outFolder + "/graph_final.dot");
 		proc.outputFasta(/*on contigs*/ true, outFolder + "/graph_final.fasta");
 		proc.outputGfa(/*on contigs*/ true, outFolder + "/graph_final.gfa");

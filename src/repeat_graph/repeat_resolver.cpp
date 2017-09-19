@@ -197,9 +197,6 @@ void RepeatResolver::findRepeats()
 		if (!edge->edgeId.strand()) continue;
 
 		GraphEdge* complEdge = _graph.complementEdge(edge);
-		edge->repetitive = false;
-		complEdge->repetitive = false;
-
 		if (edge->meanCoverage > _multInf.getUniqueCovThreshold() * 2 ||
 		   (edge->isLooped() && edge->length() < Parameters::get().minimumOverlap))
 		{
@@ -255,7 +252,7 @@ void RepeatResolver::findRepeats()
 
 		int multiplicity = 0;
 		int minSupport = maxSupport / Constants::outPathsRatio;
-		int minCoverage = _multInf.getMeanCoverage() / Constants::outPathsRatio;
+		int minCoverage = _multInf.getMeanCoverage() / Constants::readCovRate;
 		for (auto& outConn : outConnections[edge]) 
 		{
 			if (outConn.second > minSupport && 
@@ -377,8 +374,9 @@ std::vector<RepeatResolver::Connection>
 	
 	auto safeEdge = [this](GraphEdge* edge)
 	{
-		return !edge->isRepetitive() && 
-			   edge->length() > Constants::maxSeparation;
+		return !edge->isRepetitive() &&
+			edge->meanCoverage > _multInf.getMeanCoverage() / 
+									Constants::readCovRate;
 	};
 
 	int totalSafe = 0;
