@@ -33,9 +33,9 @@ namespace Constants
 	const int maxInnerFraction = 10;
 
 	//repeat graph
-	const int maxSeparation = 1500;
+	const int maxSeparation = 500;
 	const int trustedEdgeLength = 10000;
-	const float minRepeatResSupport = 0.25f;
+	const float minRepeatResSupport = 0.5f;
 	const int outPathsRatio = 5;
 	const int readCovRate = 10;
 	const int alnOverlap = -100;
