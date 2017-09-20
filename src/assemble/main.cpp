@@ -4,6 +4,11 @@
 
 #include <iostream>
 #include <getopt.h>
+#include <signal.h>
+#include <stdlib.h>
+#include <unistd.h>
+
+#include <execinfo.h>
 
 #include "../sequence/vertex_index.h"
 #include "../sequence/sequence_container.h"
@@ -110,8 +115,23 @@ bool fileExists(const std::string& path)
 	return fin.good();
 }
 
+void segfaultHandler(int signal)
+{
+	void *stackArray[20];
+	size_t size = backtrace(stackArray, 10);
+	Logger::get().error() << "Segmentation fault! Backtrace:";
+	char** backtrace = backtrace_symbols(stackArray, size);
+	for (size_t i = 0; i < size; ++i)
+	{
+		Logger::get().error() << "\t" << backtrace[i];
+	}
+	exit(1);
+}
+
 int main(int argc, char** argv)
 {
+	signal(SIGSEGV, segfaultHandler);
+
 	int kmerSize = 0;
 	int minKmerCov = 0;
 	int maxKmerCov = 0;
@@ -193,6 +213,11 @@ int main(int argc, char** argv)
 	catch (std::runtime_error& e)
 	{
 		Logger::get().error() << e.what();
+		return 1;
+	}
+	catch (std::bad_alloc& e)
+	{
+		Logger::get().error() << "Bad alloc caught - not enough memory!";
 		return 1;
 	}
 

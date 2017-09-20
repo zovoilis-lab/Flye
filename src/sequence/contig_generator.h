@@ -8,8 +8,6 @@
 
 #include "../sequence/overlap.h"
 
-#include "matrix.h"
-
 struct ContigPath
 {
 	ContigPath() {}

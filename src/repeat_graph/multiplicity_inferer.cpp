@@ -5,9 +5,6 @@
 #include "multiplicity_inferer.h"
 #include "../common/disjoint_set.h"
 
-#include <simplex.h>
-#include <variable.h>
-
 void MultiplicityInferer::
 	fixEdgesMultiplicity(const std::vector<GraphAlignment>& readAln)
 {
