@@ -27,9 +27,10 @@ def check_binaries():
     try:
         devnull = open(os.devnull, "w")
         subprocess.check_call([ASSEMBLE_BIN, "-h"], stderr=devnull)
-    except subprocess.CalledProcessError as e:
-        raise AssembleException("Some error inside native {0} module: {1}"
-                                .format(ASSEMBLE_BIN, e))
+    except (subprocess.CalledProcessError, OSError) as e:
+        if e.returncode == -9:
+            logger.error("Looks like the system ran out of memory")
+        raise AssembleException(str(e))
 
 
 def assemble(args, out_file, log_file):
@@ -48,4 +49,6 @@ def assemble(args, out_file, log_file):
     try:
         subprocess.check_call(cmdline)
     except (subprocess.CalledProcessError, OSError) as e:
-        raise AssembleException("Error in assemble binary: " + str(e))
+        if e.returncode == -9:
+            logger.error("Looks like the system ran out of memory")
+        raise AssembleException(str(e))

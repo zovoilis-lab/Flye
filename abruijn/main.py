@@ -362,7 +362,7 @@ def main():
     except (aln.AlignmentException, pol.PolishException,
             asm.AssembleException, repeat.RepeatException,
             ResumeException) as e:
-        logger.error("Error: {0}".format(e))
+        logger.error(e)
         return 1
 
     return 0
