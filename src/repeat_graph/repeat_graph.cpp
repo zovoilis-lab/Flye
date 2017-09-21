@@ -329,15 +329,25 @@ void RepeatGraph::getGluepoints(const OverlapContainer& asmOverlaps)
 			addConsensusPoint(currentGroup);
 		}
 	}
-	//add flanking points
+
+	//add flanking points, if needed
+	const int MAX_TIP = Parameters::get().minimumOverlap;
 	for (auto& seqRec : _asmSeqs.getIndex())
 	{
 		auto& seqPoints = _gluePoints[seqRec.first];
-		seqPoints.emplace(seqPoints.begin(), pointId++, 
-						  seqRec.first, 0);
-		seqPoints.emplace_back(pointId++, seqRec.first, 
-							   _asmSeqs.seqLen(seqRec.first) - 1);
-		numGluepoints += 2;
+		if (seqPoints.empty() || seqPoints.front().position > MAX_TIP)
+		{
+			seqPoints.emplace(seqPoints.begin(), pointId++, 
+							  seqRec.first, 0);
+			++numGluepoints;
+		}
+		if (seqPoints.size() == 1 || 
+			_asmSeqs.seqLen(seqRec.first) - seqPoints.back().position > MAX_TIP)
+		{
+			seqPoints.emplace_back(pointId++, seqRec.first, 
+								   _asmSeqs.seqLen(seqRec.first) - 1);
+			++numGluepoints;
+		}
 	}
 	Logger::get().debug() << "Created " << numGluepoints << " gluepoints";
 
@@ -354,6 +364,7 @@ void RepeatGraph::collapseTandems()
 {
 	std::unordered_map<size_t, std::unordered_set<size_t>> tandemLefts;
 	std::unordered_map<size_t, std::unordered_set<size_t>> tandemRights;
+	std::unordered_set<size_t> tandems;
 	std::unordered_set<size_t> bigTandems;
 
 	for (auto& seqPoints : _gluePoints)
@@ -368,19 +379,21 @@ void RepeatGraph::collapseTandems()
 			{
 				++rightId;
 			}
+			size_t tandemId = seqPoints.second[leftId].pointId;
+			if (rightId < seqPoints.second.size())
+			{
+				tandemRights[tandemId]
+					.insert(seqPoints.second[rightId].pointId);
+			}
+			if (leftId > 0)
+			{
+				tandemLefts[tandemId]
+					.insert(seqPoints.second[leftId - 1].pointId);
+			}
+			
 			if (rightId - leftId > 1)
 			{
-				size_t tandemId = seqPoints.second[leftId].pointId;
-				if (rightId < seqPoints.second.size())
-				{
-					tandemRights[tandemId]
-						.insert(seqPoints.second[rightId].pointId);
-				}
-				if (leftId > 0)
-				{
-					tandemLefts[tandemId]
-						.insert(seqPoints.second[leftId - 1].pointId);
-				}
+				tandems.insert(tandemId);
 				if (seqPoints.second[rightId - 1].position - 
 						seqPoints.second[leftId].position > 
 						Parameters::get().minimumOverlap)
@@ -407,7 +420,7 @@ void RepeatGraph::collapseTandems()
 			}
 
 			size_t tandemId = seqPoints.second[leftId].pointId;
-			if (rightId - leftId == 1 || bigTandems.count(tandemId))
+			if (!tandems.count(tandemId) || bigTandems.count(tandemId))
 			{
 				for (size_t i = leftId; i < rightId; ++i)
 				{
@@ -463,6 +476,8 @@ void RepeatGraph::initializeEdges(const OverlapContainer& asmOverlaps)
 	for (auto& seqEdgesPair : _gluePoints)
 	{
 		if (!seqEdgesPair.first.strand()) continue;
+		if (seqEdgesPair.second.size() < 2) continue;
+
 		FastaRecord::Id complId = seqEdgesPair.first.rc();
 
 		if (seqEdgesPair.second.size() != _gluePoints[complId].size())

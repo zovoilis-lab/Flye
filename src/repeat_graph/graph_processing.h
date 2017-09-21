@@ -66,7 +66,6 @@ private:
 	std::vector<Contig> edgesPaths() const;
 
 	void trimTips();
-	//void trimFakeLoops();
 	void fixChimericJunctions();
 	void condenceEdges();
 	void updateEdgesMultiplicity();

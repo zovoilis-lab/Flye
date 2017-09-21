@@ -12,51 +12,12 @@
 
 void GraphProcessor::condence()
 {
-	this->trimTips();
-	//this->trimFakeLoops();
-
+	//this->trimTips();
 	//this->unrollLoops();
 	this->condenceEdges();
-	//this->unrollLoops();
-	//this->condenceEdges();
-
 	this->fixChimericJunctions();
 	this->trimTips();
 }
-
-/*
-void GraphProcessor::trimFakeLoops()
-{
-	std::unordered_set<GraphEdge*> toRemove;
-	for (auto& edge : _graph.iterEdges())
-	{
-		if (edge->isLooped() && 
-			edge->length() < Parameters::get().minimumOverlap)
-		{
-			std::unordered_set<FastaRecord::Id> seenSeqs;
-			bool isFake = true;
-			for (auto& seg : edge->seqSegments)
-			{
-				if (seenSeqs.count(seg.seqId))
-				{
-					isFake = false;
-					break;
-				}
-				seenSeqs.insert(seg.seqId);
-			}
-
-			if (isFake)
-			{
-				toRemove.insert(edge);
-				toRemove.insert(_graph.complementEdge(edge));
-			}
-		}
-	}
-
-	for (auto& edge : toRemove)	_graph.removeEdge(edge);
-	Logger::get().debug() << "Removed " << toRemove.size() / 2 
-		<< " fake loops";
-}*/
 
 void GraphProcessor::fixChimericJunctions()
 {
@@ -318,10 +279,19 @@ void GraphProcessor::condenceEdges()
 
 	for (auto& unbranchingPath : toCollapse)
 	{
+		std::string collapsedStr;
+		for (auto& edge : unbranchingPath)
+		{
+			collapsedStr += std::to_string(edge->edgeId.signedId()) + " -> ";
+		}
 		GraphPath complPath = _graph.complementPath(unbranchingPath);
 		auto newEdges = collapseEdges(unbranchingPath);
+		if (newEdges.size() == unbranchingPath.size()) continue;
+
+		std::string addedStr;
 		for (auto& edge : newEdges)
 		{
+
 			GraphEdge addFwd = edge;
 			addFwd.edgeId = _graph.newEdgeId();
 
@@ -335,8 +305,10 @@ void GraphProcessor::condenceEdges()
 				addRev.seqSegments.push_back(seqSeg.complement());
 			}
 
-			_graph.addEdge(std::move(addFwd));
+			GraphEdge* addedEdge = _graph.addEdge(std::move(addFwd));
 			_graph.addEdge(std::move(addRev));
+
+			addedStr += std::to_string(addedEdge->edgeId.signedId()) + " -> ";
 		}
 
 		std::unordered_set<GraphEdge*> toRemove;
@@ -346,6 +318,11 @@ void GraphProcessor::condenceEdges()
 
 		edgesRemoved += unbranchingPath.size();
 		edgesAdded += newEdges.size();
+
+		collapsedStr.erase(collapsedStr.size() - 4);
+		addedStr.erase(addedStr.size() - 4);
+		Logger::get().debug() << "Collapsed: " << collapsedStr 
+			<< " to " << addedStr;
 	}
 
 	Logger::get().debug() << "Removed " << edgesRemoved << " edges";
@@ -425,6 +402,7 @@ void GraphProcessor::generateContigs()
 
 		if (edgeId.strand())
 		{
+			contentsStr.erase(contentsStr.size() - 4);
 			Logger::get().debug() << "Contig " << edgeId.signedId() 
 							<< ": " << contentsStr;
 		}
@@ -482,6 +460,7 @@ void GraphProcessor::generateContigSequences(std::vector<Contig>& contigs) const
 				//Logger::get().debug() << "\t\t" << name << "\t"
 				//	<< seg.start << "\t" << seg.end;
 			}
+			if (bestSegment->length() == 0) continue;
 
 			//auto name = (!bestSegment->readSequence) ? 
 			//				_asmSeqs.seqName(bestSegment->seqId) :
@@ -507,10 +486,11 @@ void GraphProcessor::generateContigSequences(std::vector<Contig>& contigs) const
 			//Logger::get().debug() << "\tLeft Flank " << leftFlank
 			//	<< " Right flank: " << rightFlank;
 
+			int32_t substrLen = bestSegment->end - bestSegment->start
+										   	+ leftFlank + rightFlank;
 			contigPath.sequences
 				.push_back(sequence.substr(bestSegment->start - leftFlank,
-										   bestSegment->end - bestSegment->start
-										   	+ leftFlank + rightFlank));
+										   substrLen));
 
 			if (i != 0)
 			{
@@ -668,7 +648,7 @@ std::vector<Contig> GraphProcessor::edgesPaths() const
 						   edge->length(), edge->meanCoverage);
 		paths.back().repetitive = edge->repetitive;
 	}
-	this->generateContigSequences(paths);
+	//this->generateContigSequences(paths);
 	return paths;
 }
 
@@ -692,7 +672,9 @@ void GraphProcessor::outputGfa(bool contigs, const std::string& filename)
 	}
 	else
 	{
-		this->outputEdgesGfa(this->edgesPaths(), filename);
+		auto paths = this->edgesPaths();
+		this->generateContigSequences(paths);
+		this->outputEdgesGfa(paths, filename);
 	}
 }
 
