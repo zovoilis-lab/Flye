@@ -686,7 +686,9 @@ void GraphProcessor::outputFasta(bool contigs, const std::string& filename)
 	}
 	else
 	{
-		this->outputEdgesFasta(this->edgesPaths(), filename);
+		auto paths = this->edgesPaths();
+		this->generateContigSequences(paths);
+		this->outputEdgesFasta(paths, filename);
 	}
 }
 

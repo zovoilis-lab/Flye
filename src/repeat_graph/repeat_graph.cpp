@@ -385,10 +385,18 @@ void RepeatGraph::collapseTandems()
 				tandemRights[tandemId]
 					.insert(seqPoints.second[rightId].pointId);
 			}
+			else
+			{
+				tandemRights[tandemId].insert(-1);
+			}
 			if (leftId > 0)
 			{
 				tandemLefts[tandemId]
 					.insert(seqPoints.second[leftId - 1].pointId);
+			}
+			else
+			{
+				tandemLefts[tandemId].insert(-1);
 			}
 			
 			if (rightId - leftId > 1)
@@ -547,7 +555,7 @@ void RepeatGraph::initializeEdges(const OverlapContainer& asmOverlaps)
 					int32_t intersectOne = segIntersect(*segOne->data, ovlp);
 					int32_t intersectTwo = segIntersect(*segTwo->data, 
 														ovlp.reverse());
-					float rateOne = (float)intersectOne / segOne->data->length();
+					/*float rateOne = (float)intersectOne / segOne->data->length();
 					float rateTwo = (float)intersectTwo / segTwo->data->length();
 
 					bool isTandem =
@@ -557,7 +565,9 @@ void RepeatGraph::initializeEdges(const OverlapContainer& asmOverlaps)
 					bool consistentLength = abs(intersectOne - intersectTwo) < 
 										std::max(intersectOne, intersectTwo) / 2;
 					if (rateOne > 0.5 && rateTwo > 0.5 &&
-						(consistentLength || isTandem))
+						(consistentLength || isTandem))*/
+					if (intersectOne > _maxSeparation && 
+						intersectTwo > _maxSeparation)
 					{
 						unionSet(segOne, segTwo);
 						break;
