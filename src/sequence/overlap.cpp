@@ -174,6 +174,10 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 				switch (jumpResult)
 				{
 					case J_END:
+						if (!this->overlapTest(extPaths[pathId].ovlp))
+						{
+							eraseMarks.insert(pathId);
+						}
 						break;
 					case J_INCONS:
 						break;
