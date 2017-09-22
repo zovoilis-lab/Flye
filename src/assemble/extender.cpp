@@ -52,13 +52,15 @@ Extender::ExtensionInfo Extender::extendContig(FastaRecord::Id startRead)
 		numOverlaps.push_back(overlaps.size());
 
 		//getting mean shift, sorting extensions according to it
-		int64_t sum = 0;
-		for (auto& ovlp : extensions) sum += ovlp.rightShift;
-		int32_t meanShift = !extensions.empty() ? sum / extensions.size() : 0;
+		//int64_t sum = 0;
+		//for (auto& ovlp : extensions) sum += ovlp.rightShift;
+		//int32_t meanShift = !extensions.empty() ? sum / extensions.size() : 0;
 		std::sort(extensions.begin(), extensions.end(), 
-				  [meanShift](const OverlapRange& a, const OverlapRange& b)
-					 {return abs(a.rightShift - meanShift) < 
-							 abs(b.rightShift - meanShift);});
+				  [](const OverlapRange& a, const OverlapRange& b)
+					 {return a.curRange() > b.curRange();});
+				  //[meanShift](const OverlapRange& a, const OverlapRange& b)
+					 //{return abs(a.rightShift - meanShift) < 
+					//		 abs(b.rightShift - meanShift);});
 
 		//checking if read overlaps with one of the used reads
 		bool foundExtension = false;
