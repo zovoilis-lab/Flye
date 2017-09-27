@@ -291,6 +291,10 @@ void GraphProcessor::condenceEdges()
 		std::string addedStr;
 		for (auto& edge : newEdges)
 		{
+			//do not add collapsed short loops
+			//TODO: kinda hacky..
+			if (edge.length() < Parameters::get().minimumOverlap &&
+				edge.isLooped()) continue;	
 
 			GraphEdge addFwd = edge;
 			addFwd.edgeId = _graph.newEdgeId();
@@ -319,8 +323,8 @@ void GraphProcessor::condenceEdges()
 		edgesRemoved += unbranchingPath.size();
 		edgesAdded += newEdges.size();
 
-		collapsedStr.erase(collapsedStr.size() - 4);
-		addedStr.erase(addedStr.size() - 4);
+		if (collapsedStr.size() > 4) collapsedStr.erase(collapsedStr.size() - 4);
+		if (addedStr.size() > 4) addedStr.erase(addedStr.size() - 4);
 		Logger::get().debug() << "Collapsed: " << collapsedStr 
 			<< " to " << addedStr;
 	}
