@@ -364,7 +364,8 @@ void RepeatGraph::collapseTandems()
 {
 	std::unordered_map<size_t, std::unordered_set<size_t>> tandemLefts;
 	std::unordered_map<size_t, std::unordered_set<size_t>> tandemRights;
-	std::unordered_set<size_t> tandems;
+	//std::unordered_map<size_t, int> gluepointMult;
+	//std::unordered_set<size_t> tandems;
 	std::unordered_set<size_t> bigTandems;
 
 	for (auto& seqPoints : _gluePoints)
@@ -379,40 +380,45 @@ void RepeatGraph::collapseTandems()
 			{
 				++rightId;
 			}
-			size_t tandemId = seqPoints.second[leftId].pointId;
-			if (rightId < seqPoints.second.size())
-			{
-				tandemRights[tandemId]
-					.insert(seqPoints.second[rightId].pointId);
-			}
-			else
-			{
-				tandemRights[tandemId].insert(-1);
-			}
-			if (leftId > 0)
-			{
-				tandemLefts[tandemId]
-					.insert(seqPoints.second[leftId - 1].pointId);
-			}
-			else
-			{
-				tandemLefts[tandemId].insert(-1);
-			}
-			
+
 			if (rightId - leftId > 1)
 			{
-				tandems.insert(tandemId);
+				size_t tandemId = seqPoints.second[leftId].pointId;
+				//++gluepointMult[tandemId];
+				//tandems.insert(tandemId);
 				if (seqPoints.second[rightId - 1].position - 
 						seqPoints.second[leftId].position > 
 						Parameters::get().minimumOverlap)
 				{
 					bigTandems.insert(tandemId);
 				}
+
+				if (rightId < seqPoints.second.size())
+				{
+					tandemRights[tandemId]
+						.insert(seqPoints.second[rightId].pointId);
+				}
+				else
+				{
+					tandemRights[tandemId].insert(-1);
+				}
+				if (leftId > 0)
+				{
+					tandemLefts[tandemId]
+						.insert(seqPoints.second[leftId - 1].pointId);
+				}
+				else
+				{
+					tandemLefts[tandemId].insert(-1);
+				}
 			}
 			leftId = rightId;
 		}
 	}
 
+	int collapsedLeft = 0;
+	int collapsedRight = 0;
+	int collapsedBoth = 0;
 	for (auto& seqPoints : _gluePoints)
 	{
 		std::vector<GluePoint> newPoints;
@@ -428,7 +434,7 @@ void RepeatGraph::collapseTandems()
 			}
 
 			size_t tandemId = seqPoints.second[leftId].pointId;
-			if (!tandems.count(tandemId) || bigTandems.count(tandemId))
+			if (rightId - leftId == 1 || bigTandems.count(tandemId))
 			{
 				for (size_t i = leftId; i < rightId; ++i)
 				{
@@ -449,17 +455,29 @@ void RepeatGraph::collapseTandems()
 				else if(leftDetemined && !rightDetemined)
 				{
 					newPoints.push_back(seqPoints.second[rightId - 1]);
+					++collapsedLeft;
 				}
 				else if (!leftDetemined && rightDetemined)
 				{
 					newPoints.push_back(seqPoints.second[leftId]);
+					++collapsedRight;
 				}
-				//if both determined, just don't add this guy
+				else
+				{
+					int32_t newPos = (seqPoints.second[rightId - 1].position +
+									  seqPoints.second[leftId].position) / 2;
+					newPoints.push_back(seqPoints.second[leftId]);
+					newPoints.back().position = newPos;
+					++collapsedBoth;
+				}
 			}
 			leftId = rightId;
 		}
 		seqPoints.second = newPoints;
 	}
+
+	Logger::get().debug() << "Tandems removed: " << collapsedLeft << " left, " 
+		<< collapsedRight << " right, " << collapsedBoth << " both";
 }
 
 void RepeatGraph::initializeEdges(const OverlapContainer& asmOverlaps)
