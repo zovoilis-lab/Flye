@@ -126,6 +126,8 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 {
 	std::unordered_map<FastaRecord::Id, 
 					   std::vector<DPRecord>> activePaths;
+	std::unordered_map<FastaRecord::Id, 
+					   std::vector<DPRecord>> completedPaths;
 	std::set<size_t> eraseMarks;
 	size_t curLen = fastaRec.sequence.length();
 
@@ -174,9 +176,11 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 				switch (jumpResult)
 				{
 					case J_END:
-						if (!this->overlapTest(extPaths[pathId].ovlp))
+						eraseMarks.insert(pathId);
+						if (this->overlapTest(extPaths[pathId].ovlp))
 						{
-							eraseMarks.insert(pathId);
+							completedPaths[extReadPos.readId]
+									.push_back(extPaths[pathId]);
 						}
 						break;
 					case J_INCONS:
@@ -247,8 +251,19 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 		} //end loop over kmer occurences in other reads
 	} //end loop over kmers in the current read
 
-	//leave only one overlap for each starting position
+	//copy to coplete paths
 	for (auto& ap : activePaths)
+	{
+		for (auto& dpRec : ap.second)
+		{
+			if (this->overlapTest(dpRec.ovlp))
+			{
+				completedPaths[ap.first].push_back(dpRec);
+			}
+		}
+	}
+	//leave only one overlap for each starting position
+	for (auto& ap : completedPaths)
 	{
 		std::unordered_map<std::pair<int32_t, int32_t>, 
 						   DPRecord, pairhash> maxByStart;
@@ -266,29 +281,26 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 	}
 	
 	std::vector<OverlapRange> detectedOverlaps;
-	for (auto& ap : activePaths)
+	for (auto& ap : completedPaths)
 	{
 		size_t extLen = _seqContainer.seqLen(ap.first);
 		DPRecord* maxRecord = nullptr;
 		bool passedTest = false;
 		for (auto& dpRec : ap.second)
 		{
-			if (this->overlapTest(dpRec.ovlp))
+			if (!uniqueExtensions)
 			{
-				if (!uniqueExtensions)
+				dpRec.ovlp.leftShift = median(dpRec.shifts);
+				dpRec.ovlp.rightShift = extLen - curLen + 
+										dpRec.ovlp.leftShift;
+				detectedOverlaps.push_back(dpRec.ovlp);
+			}
+			else
+			{
+				passedTest = true;
+				if (!maxRecord || dpRec.ovlp.score > maxRecord->ovlp.score)
 				{
-					dpRec.ovlp.leftShift = median(dpRec.shifts);
-					dpRec.ovlp.rightShift = extLen - curLen + 
-											dpRec.ovlp.leftShift;
-					detectedOverlaps.push_back(dpRec.ovlp);
-				}
-				else
-				{
-					passedTest = true;
-					if (!maxRecord || dpRec.ovlp.score > maxRecord->ovlp.score)
-					{
-						maxRecord = &dpRec;
-					}
+					maxRecord = &dpRec;
 				}
 			}
 		}
