@@ -59,23 +59,6 @@ Extender::ExtensionInfo Extender::extendContig(FastaRecord::Id startRead)
 		//checking if read overlaps with one of the used reads
 		bool foundExtension = false;
 		bool overlapsVisited = false;
-		/*
-		int  maxInner = (int)extensions.size() / Constants::maxCoverageDropRate;
-		if (_innerReads.empty() || innerOverlaps > maxInner)
-		{
-			for (auto& ovlp : extensions)
-			{
-				if ((currentReads.count(ovlp.extId) || _innerReads.contains(ovlp.extId)) &&
-					!this->isRightRepeat(ovlp.extId) &&
-					!this->isRightRepeat(ovlp.extId.rc())) 
-				{
-					overlapsVisited = true;
-					foundExtension = true;
-					currentRead = ovlp.extId;
-					break;
-				}
-			}
-		}*/
 
 		//getting extension
 		int minExtensions = (int)extensions.size() / 

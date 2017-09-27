@@ -38,7 +38,7 @@ void ChimeraDetector::estimateGlobalCoverage()
 		int64_t sum = 0;
 		for (auto c : coverage)
 		{
-			if (c < _inputCoverage * 5)
+			if (c < _inputCoverage * Constants::maxCoverageDropRate)
 			{
 				isZero |= (c == 0);
 				sum += c;
