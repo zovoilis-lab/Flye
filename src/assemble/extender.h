@@ -19,7 +19,7 @@ public:
 			 int coverage, int genomeSize):
 		_readsContainer(readsContainer), 
 		_ovlpContainer(ovlpContainer),
-		_chimDetector(readsContainer, ovlpContainer),
+		_chimDetector(readsContainer, ovlpContainer, coverage),
 		_coverage(coverage), _genomeSize(genomeSize),
 		_progress(genomeSize)
 	{}
@@ -47,6 +47,7 @@ private:
 	ExtensionInfo extendContig(FastaRecord::Id startingRead);
 	int   countRightExtensions(FastaRecord::Id readId) const;
 	bool  extendsRight(const OverlapRange& ovlp) const;
+	bool  isRightRepeat(FastaRecord::Id readId) const;
 	void  convertToContigs();
 
 	const SequenceContainer& _readsContainer;

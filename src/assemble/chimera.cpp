@@ -26,7 +26,7 @@ bool ChimeraDetector::isChimeric(FastaRecord::Id readId)
 
 void ChimeraDetector::estimateGlobalCoverage()
 {
-	const int NUM_SAMPLES = 100;
+	const int NUM_SAMPLES = 1000;
 	int sampleNum = 0;
 	std::vector<int32_t> readMeans;
 
@@ -38,8 +38,11 @@ void ChimeraDetector::estimateGlobalCoverage()
 		int64_t sum = 0;
 		for (auto c : coverage)
 		{
-			isZero |= (c == 0);
-			sum += c;
+			if (c < _inputCoverage * 5)
+			{
+				isZero |= (c == 0);
+				sum += c;
+			}
 		}
 		
 		if (!isZero)
@@ -64,8 +67,8 @@ void ChimeraDetector::estimateGlobalCoverage()
 
 	if (!readMeans.empty())
 	{
-		_coverage = sum / readMeans.size();
-		Logger::get().debug() << "Mean read coverage: " << _coverage;
+		_overlapCoverage = sum / readMeans.size();
+		Logger::get().debug() << "Mean read coverage: " << _overlapCoverage;
 	}
 }
 
@@ -115,7 +118,7 @@ bool ChimeraDetector::testReadByCoverage(FastaRecord::Id readId)
 	{
 		if (cov == 0) return true;
 
-		if ((float)_coverage / cov > (float)Constants::maxCoverageDropRate) 
+		if ((float)_overlapCoverage / cov > (float)Constants::maxCoverageDropRate) 
 		{
 			//Logger::get().debug() << "Chimeric: " 
 			//	<< _seqContainer.seqName(readId) << covStr;
