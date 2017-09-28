@@ -152,7 +152,7 @@ int main(int argc, char** argv)
 
 		Logger::get().info() << "Simplifying the graph";
 		GraphProcessor proc(rg, seqAssembly, seqReads);
-		//proc.outputDot(/*on contigs*/ false, outFolder + "/graph_raw.dot");
+		proc.outputDot(/*on contigs*/ false, outFolder + "/graph_raw.dot");
 		proc.condence();
 
 		MultiplicityInferer multInf(rg);

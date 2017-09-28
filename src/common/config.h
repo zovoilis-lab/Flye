@@ -29,7 +29,6 @@ namespace Constants
 
 	//extension
 	const int minReadsInContig = 4;
-	const int minExtensions = 2;
 	const int maxInnerFraction = 10;
 
 	//repeat graph

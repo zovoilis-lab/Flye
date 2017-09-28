@@ -105,10 +105,7 @@ Extender::ExtensionInfo Extender::extendContig(FastaRecord::Id startRead)
 		}
 		else
 		{
-			if (rightExtension)
-				exInfo.leftTip = true;
-			else
-				exInfo.rightTip = true;
+			rightExtension ? exInfo.leftTip = true : exInfo.rightTip = true;
 		}
 
 		if (!foundExtension || overlapsVisited)
@@ -165,10 +162,8 @@ void Extender::assembleContigs()
 		if (numInnerOvlp > 0) return true;
 
 		if (_chimDetector.isChimeric(startRead) ||
-			this->countRightExtensions(startRead) < 
-				Constants::minExtensions ||
-			this->countRightExtensions(startRead.rc()) < 
-				Constants::minExtensions) return true;
+			this->isRightRepeat(startRead) ||
+			this->isRightRepeat(startRead.rc())) return true;
 		
 		//Good to go!
 		ExtensionInfo exInfo = this->extendContig(startRead);
@@ -205,15 +200,16 @@ void Extender::assembleContigs()
 		std::unordered_set<FastaRecord::Id> leftExtended;
 		for (auto& readId : exInfo.reads)
 		{
+			//repetitive read - will bring to much "off-target" reads
+			if (this->isRightRepeat(readId) ||
+				this->isRightRepeat(readId.rc())) continue;
+
 			//so each read is covered from the left and right
 			for (auto& ovlp : _ovlpContainer.lazySeqOverlaps(readId))
 			{
 				coveredReads.insert(ovlp.extId, true);
 
-				//highly repetitive end
-				if (this->isRightRepeat(readId) ||
-					this->isRightRepeat(readId.rc())) continue;
-				//contained read
+				//contained inside the other read - probably repetitive
 				if (ovlp.leftShift > Constants::maximumJump &&
 					ovlp.rightShift < -Constants::maximumJump) continue;
 
