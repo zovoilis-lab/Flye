@@ -26,6 +26,12 @@ void RepeatResolver::separatePath(const GraphPath& graphPath,
 	for (size_t i = 1; i < graphPath.size() - 1; ++i)
 	{
 		graphPath[i]->resolved = true;
+		if (!graphPath[i]->isLooped())
+		{
+			graphPath[i]->meanCoverage = 
+				std::max(graphPath[i]->meanCoverage - 
+						 _multInf.getMeanCoverage(), 0);
+		}
 	}
 
 	GraphNode* rightNode = leftNode;
@@ -209,6 +215,10 @@ void RepeatResolver::findRepeats()
 	for (auto& readPath : _readAlignments)
 	{
 		if (readPath.size() < 2) continue;
+		int overhang = std::max(readPath.front().overlap.curBegin,
+								readPath.back().overlap.curLen - 
+									readPath.back().overlap.curEnd);
+		if (overhang > Constants::maximumOverhang) continue;
 
 		for (size_t i = 0; i < readPath.size() - 1; ++i)
 		{
@@ -277,7 +287,7 @@ void RepeatResolver::findRepeats()
 
 		///////
 		bool match = (edge->multiplicity > 1) == (edge->repetitive);
-		if (!match && edge->multiplicity != 0)
+		if (!match && edge->multiplicity != 0 && !edge->resolved)
 		{
 			std::string star = edge->repetitive ? "R" : " ";
 			std::string loop = edge->isLooped() ? "L" : " ";
@@ -314,7 +324,7 @@ void RepeatResolver::resolveRepeats()
 		if (!resolvedConnections) break;
 
 		this->updateAlignments();
-		//this->findRepeats();
+		this->findRepeats();
 	}
 
 	this->removeUnsupportedEdges();
@@ -349,7 +359,7 @@ void RepeatResolver::updateAlignments()
 	_readAlignments = newAlignments;
 
 	//mark resolved repeats
-	int determinedRepeats = 0;
+	/*int determinedRepeats = 0;
 	for (auto& edge : _graph.iterEdges())
 	{
 		if (!edge->isRepetitive()) continue;
@@ -364,7 +374,7 @@ void RepeatResolver::updateAlignments()
 		}
 	}
 
-	Logger::get().debug() << "Determined " << determinedRepeats / 2 << " repeats";
+	Logger::get().debug() << "Determined " << determinedRepeats / 2 << " repeats";*/
 	//return determinedRepeats;
 }
 
@@ -464,7 +474,8 @@ void RepeatResolver::clearResolvedRepeats()
 
 	auto shouldRemove = [](GraphEdge* edge)
 	{
-		return edge->isRepetitive() && edge->resolved;
+		//return edge->isRepetitive() && edge->resolved;
+		return edge->resolved;
 	};
 
 	std::unordered_set<GraphNode*> toRemove;
@@ -610,6 +621,33 @@ void RepeatResolver::alignReads()
 	processInParallel(allQueries, alignRead, 
 					  Parameters::get().numThreads, true);
 
+	/*for (auto& aln : _readAlignments)
+	{
+		if (aln.size() > 1)
+		{
+			std::string alnStr;
+			int switches = 0;
+			for (size_t i = 0; i < aln.size() - 1; ++i)
+			{
+				if (aln[i].segment.end != aln[i + 1].segment.start) ++switches;
+			}
+
+			for (auto& edge : aln)
+			{
+				alnStr += std::to_string(edge.edge->edgeId.signedId()) + " ("
+					+ std::to_string(edge.overlap.curRange()) + " " 
+					+ std::to_string(edge.overlap.score) + " " 
+					+ std::to_string((float)edge.overlap.score / 
+						edge.overlap.curRange()) + ") -> ";
+			}
+			alnStr.erase(alnStr.size() - 4);
+			alnStr += " s: " + std::to_string(switches);
+			FastaRecord::Id readId = aln.front().overlap.curId;
+			Logger::get().debug() << "Aln " << _readSeqs.seqName(readId);
+			Logger::get().debug() << "\t" << alnStr;
+		}
+	}*/
+
 	Logger::get().debug() << "Aligned " << numAligned << " / " 
 		<< allQueries.size();
 	Logger::get().debug() << "Aligned length " << alignedLength << " / " 
@@ -648,14 +686,18 @@ GraphAlignment
 													Constants::farJumpRate,
 											  Constants::maxSeparation);
 
-			if (Constants::maximumJump > readDiff && 
-					readDiff > Constants::alnOverlap &&
-				Constants::maximumJump > graphDiff && 
-					graphDiff > Constants::alnOverlap  &&
-				abs(readDiff - graphDiff) < maxDiscordance &&
-				chain.aln.back()->edge->nodeRight == edgeAlignment.edge->nodeLeft)
+			if (chain.aln.back()->edge->nodeRight == edgeAlignment.edge->nodeLeft &&
+				Constants::maximumJump > readDiff && readDiff > 0 &&
+				Constants::maximumJump > graphDiff && graphDiff > 0  &&
+				abs(readDiff - graphDiff) < maxDiscordance)
 			{
-				int32_t score = chain.score + nextOvlp.score;
+				int32_t gapScore = (readDiff - Constants::gapJump) / 
+									Constants::penaltyWindow;
+				if (readDiff < Constants::gapJump) gapScore = 1;
+				//if (chain.aln.back()->segment.end != 
+				//	edgeAlignment.segment.start) gapScore -= 10;
+				//int32_t ovlpScore = !edgeAlignment.edge->isLooped() ? nextOvlp.score : 10;
+				int32_t score = chain.score + nextOvlp.score + gapScore;
 				if (score > maxScore)
 				{
 					maxScore = score;
@@ -681,7 +723,19 @@ GraphAlignment
 	Chain* maxChain = nullptr;
 	for (auto& chain : activeChains)
 	{
-		if (chain.score > maxScore)
+
+		int32_t alnLen = chain.aln.back()->overlap.curEnd - 
+					 	 chain.aln.front()->overlap.curBegin;
+		/*int switches = 0;
+		for (size_t i = 0; i < chain.aln.size() - 1; ++i)
+		{
+			if (chain.aln[i]->segment.end != 
+				chain.aln[i + 1]->segment.start) ++switches;
+		}*/
+
+		if (alnLen > Parameters::get().minimumOverlap && 
+			//switches <= chain.aln.size() / 2 &&
+			chain.score > maxScore)
 		{
 			maxScore = chain.score;
 			maxChain = &chain;
