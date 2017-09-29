@@ -236,7 +236,7 @@ void RepeatResolver::findRepeats()
 	
 	for (auto& edgeList : outConnections)
 	{
-		if (edgeList.first-> multiplicity == 1 &&
+		if (edgeList.first->multiplicity == 1 &&
 			edgeList.second.size() == 1) continue;
 
 		Logger::get().debug() << "Outputs: " << edgeList.first->edgeId.signedId()
@@ -543,8 +543,6 @@ void RepeatResolver::clearResolvedRepeats()
 
 void RepeatResolver::alignReads()
 {
-	//std::ofstream alnDump("../alignment_dump.txt");
-
 	//create database
 	std::unordered_map<FastaRecord::Id, 
 					   std::pair<GraphEdge*, SequenceSegment>> idToSegment;
@@ -726,15 +724,8 @@ GraphAlignment
 
 		int32_t alnLen = chain.aln.back()->overlap.curEnd - 
 					 	 chain.aln.front()->overlap.curBegin;
-		/*int switches = 0;
-		for (size_t i = 0; i < chain.aln.size() - 1; ++i)
-		{
-			if (chain.aln[i]->segment.end != 
-				chain.aln[i + 1]->segment.start) ++switches;
-		}*/
 
 		if (alnLen > Parameters::get().minimumOverlap && 
-			//switches <= chain.aln.size() / 2 &&
 			chain.score > maxScore)
 		{
 			maxScore = chain.score;

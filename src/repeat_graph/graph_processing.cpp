@@ -13,7 +13,6 @@
 void GraphProcessor::condence()
 {
 	//this->trimTips();
-	//this->unrollLoops();
 	this->condenceEdges();
 	this->fixChimericJunctions();
 	this->trimTips();
@@ -77,93 +76,6 @@ void GraphProcessor::fixChimericJunctions()
 		<< simpleCases.size() + complexCases.size()
 		<< " chimeric junctions";
 }
-
-/*
-void GraphProcessor::unrollLoops()
-{
-	auto unrollEdge = [this](GraphEdge& loopEdge)
-	{
-		GraphEdge* prevEdge = nullptr;
-		for (auto& inEdge : loopEdge.nodeLeft->inEdges)
-		{
-			if (inEdge != &loopEdge) prevEdge = inEdge;
-		}
-		GraphEdge* nextEdge = nullptr;
-		for (auto& outEdge : loopEdge.nodeLeft->outEdges)
-		{
-			if (outEdge != &loopEdge) nextEdge = outEdge;
-		}
-
-		auto growingSeqs = prevEdge->seqSegments;
-
-		std::vector<SequenceSegment> updatedSeqs;
-		for (auto& seq : growingSeqs)
-		{
-			while (true)
-			{
-				bool updated = false;
-				for (auto& otherSeq : loopEdge.seqSegments)
-				{
-					if (seq.seqId != otherSeq.seqId ||
-						seq.end != otherSeq.start) continue;
-
-					updated = true;
-					seq.end = otherSeq.end;
-					break;
-				}
-
-				bool complete = false;
-				for (auto& otherSeq : nextEdge->seqSegments)
-				{
-					if (seq.seqId != otherSeq.seqId ||
-						seq.end != otherSeq.start) continue;
-
-					complete = true;
-					break;
-				}
-
-				if (complete)
-				{
-					updatedSeqs.push_back(seq);
-					break;
-				}
-				if (!updated) break;
-			}
-		}
-		if (updatedSeqs.size() == prevEdge->seqSegments.size())
-		{
-			prevEdge->seqSegments = updatedSeqs;
-			//Logger::get().debug() << "Unroll " << loopEdge.edgeId.signedId();
-			return true;
-
-		}
-		//Logger::get().debug() << "Can't unroll " << loopEdge.edgeId.signedId();
-		return false;
-	};
-
-	int unrollLoops = 0;
-
-	std::unordered_set<GraphEdge*> toRemove;
-	for (GraphEdge* edge : _graph.iterEdges())
-	{
-		if (!edge->isLooped()) continue;
-		if (edge->nodeLeft->inEdges.size() == 2 &&
-			edge->nodeLeft->outEdges.size() == 2 &&
-			edge->nodeLeft->neighbors().size() == 2)
-		{
-			if (unrollEdge(*edge))
-			{
-				++unrollLoops;
-				//Logger::get().debug() << "Unroll " << edge->edgeId.signedId();
-			}
-			toRemove.insert(edge);
-		}
-	}
-	for (auto& edge : toRemove)	_graph.removeEdge(edge);
-
-	Logger::get().debug() << "Unrolled " << unrollLoops 
-		<< ", removed " << toRemove.size();
-}*/
 
 void GraphProcessor::trimTips()
 {
@@ -439,8 +351,6 @@ void GraphProcessor::generateContigSequences(std::vector<Contig>& contigs) const
 		int32_t prevLength = 0;
 
 		//Logger::get().debug() << "Contig: " << contig.id.signedId();
-		//int32_t contigStart = 0;
-		//int32_t theoreticalLen = 0;
 		for (size_t i = 0; i < contig.path.size(); ++i) 
 		{
 			if (contig.path[i]->seqSegments.empty()) 
@@ -473,8 +383,6 @@ void GraphProcessor::generateContigSequences(std::vector<Contig>& contigs) const
 			//	<< contigStart << "\t" << bestSegment->start << "\t" << bestSegment->end;
 			//contigStart += bestSegment->end - bestSegment->start;
 
-			//theoreticalLen += bestSegment->end - bestSegment->start;
-
 			auto& sequence = (!bestSegment->readSequence) ? 
 							  _asmSeqs.getSeq(bestSegment->seqId) :
 							  _readSeqs.getSeq(bestSegment->seqId);
@@ -486,9 +394,6 @@ void GraphProcessor::generateContigSequences(std::vector<Contig>& contigs) const
 											(int32_t)sequence.length() - 
 											bestSegment->end);
 			if (i == contig.path.size() - 1) rightFlank = 0;
-
-			//Logger::get().debug() << "\tLeft Flank " << leftFlank
-			//	<< " Right flank: " << rightFlank;
 
 			int32_t substrLen = bestSegment->end - bestSegment->start
 										   	+ leftFlank + rightFlank;
@@ -512,8 +417,6 @@ void GraphProcessor::generateContigSequences(std::vector<Contig>& contigs) const
 			prevLength = contigPath.sequences.back().length();
 		}
 		auto fastaRec = gen.generateLinear(contigPath);
-		//Logger::get().debug() << "Expected: " << theoreticalLen 
-		//	<< " generated " << fastaRec.sequence.length();
 		contig.sequence = fastaRec.sequence.str();
 	}
 }
@@ -695,8 +598,6 @@ void GraphProcessor::outputFasta(bool contigs, const std::string& filename)
 		this->outputEdgesFasta(paths, filename);
 	}
 }
-
-
 
 void GraphProcessor::outputEdgesFasta(const std::vector<Contig>& paths,
 									  const std::string& filename)
