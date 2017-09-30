@@ -4,38 +4,13 @@
 
 #include "multiplicity_inferer.h"
 #include "../common/disjoint_set.h"
+#include "../common/utils.h"
 
 void MultiplicityInferer::
 	fixEdgesMultiplicity(const std::vector<GraphAlignment>& readAln)
 {
 	this->estimateByCoverage(readAln);
 }
-
-namespace
-{
-	template<typename T>
-	T median(std::vector<T>& vec)
-	{
-		std::sort(vec.begin(), vec.end());
-		//NOTE: there's a bug in libstdc++ nth_element, 
-		//that sometimes leads to a segfault
-		//std::nth_element(vec.begin(), vec.begin() + vec.size() / 2, 
-		//				 vec.end());
-		return vec[vec.size() / 2];
-	}
-
-	template<typename T>
-	T q75(std::vector<T>& vec)
-	{
-		std::sort(vec.begin(), vec.end());
-		//NOTE: there's a bug in libstdc++ nth_element, 
-		//that sometimes leads to a segfault
-		//std::nth_element(vec.begin(), vec.begin() + vec.size() / 2, 
-		//				 vec.end());
-		return vec[vec.size() * 3 / 4];
-	}
-}
-
 
 void MultiplicityInferer::
 	estimateByCoverage(const std::vector<GraphAlignment>& readAln)

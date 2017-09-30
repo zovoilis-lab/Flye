@@ -9,12 +9,15 @@
 #include "../sequence/contig_generator.h"
 #include "../common/logger.h"
 #include "../common/config.h"
+#include "../common/utils.h"
 
 void GraphProcessor::condence()
 {
 	//this->trimTips();
 	this->condenceEdges();
 	this->fixChimericJunctions();
+	this->collapseBulges();
+	this->condenceEdges();
 	this->trimTips();
 }
 
@@ -75,6 +78,45 @@ void GraphProcessor::fixChimericJunctions()
 	Logger::get().debug() << "Removed " 
 		<< simpleCases.size() + complexCases.size()
 		<< " chimeric junctions";
+}
+
+void GraphProcessor::collapseBulges()
+{
+	const int MAX_BUBBLE = Parameters::get().minimumOverlap;
+	std::unordered_set<std::pair<GraphNode*, GraphNode*>,
+					   pairhash> toFix;
+	for (auto& edge : _graph.iterEdges())
+	{
+		//fixing simple bubbles like this: -<=>-
+		if (edge->nodeLeft->outEdges.size()  != 2 ||
+			edge->nodeLeft->inEdges.size()   != 1 ||
+			edge->nodeRight->inEdges.size()  != 2 ||
+			edge->nodeRight->outEdges.size() != 1) continue;
+
+		GraphEdge* otherEdge = edge->nodeLeft->outEdges[0];
+		if (otherEdge == edge) otherEdge = edge->nodeLeft->outEdges[1];
+		if (otherEdge->nodeRight != edge->nodeRight) continue;
+		if (edge->edgeId == otherEdge->edgeId.rc()) continue;
+
+		if (edge->length() > MAX_BUBBLE || 
+			otherEdge->length() > MAX_BUBBLE) continue;
+		if (edge->nodeLeft->inEdges.front()->length() < MAX_BUBBLE ||
+			edge->nodeRight->outEdges.front()->length() < MAX_BUBBLE) continue;
+
+		toFix.emplace(edge->nodeLeft, edge->nodeRight);
+	}
+
+	for (auto& nodes : toFix)
+	{
+		GraphEdge* edgeOne = nodes.first->outEdges[0];
+		GraphEdge* edgeTwo = nodes.first->outEdges[1];
+		for (auto& seg : edgeTwo->seqSegments)
+		{
+			edgeOne->seqSegments.push_back(seg);
+		}
+		_graph.removeEdge(edgeTwo);
+	}
+	Logger::get().debug() << "Collapsed " << toFix.size() / 2 << " bulges";
 }
 
 void GraphProcessor::trimTips()

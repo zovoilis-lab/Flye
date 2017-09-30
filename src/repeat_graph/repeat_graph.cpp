@@ -14,16 +14,6 @@
 
 namespace
 {
-	struct pairhash 
-	{
-	public:
-		template <typename T, typename U>
-		std::size_t operator()(const std::pair<T, U> &x) const
-		{
-			return std::hash<T>()(x.first) ^ std::hash<U>()(x.second);
-		}
-	};
-
 	struct Point2d
 	{
 		Point2d(FastaRecord::Id curId = FastaRecord::ID_NONE, int32_t curPos = 0, 
@@ -44,17 +34,6 @@ namespace
 		FastaRecord::Id seqId;
 		int32_t pos;
 	};
-	
-	template<typename T>
-	T median(std::vector<T>& vec)
-	{
-		std::sort(vec.begin(), vec.end());
-		//NOTE: there's a bug in libstdc++ nth_element, 
-		//that sometimes leads to a segfault
-		//std::nth_element(vec.begin(), vec.begin() + vec.size() / 2, 
-		//				 vec.end());
-		return vec[vec.size() / 2];
-	}
 }
 
 bool GraphEdge::isTip() const
