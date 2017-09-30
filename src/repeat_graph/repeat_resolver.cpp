@@ -197,7 +197,7 @@ void RepeatResolver::findRepeats()
 		edge->repetitive = false;
 	}
 
-	//first, by coverage
+	//mark edges with high coverage as repetitive
 	for (auto& edge : _graph.iterEdges())
 	{
 		if (!edge->edgeId.strand()) continue;
@@ -211,7 +211,7 @@ void RepeatResolver::findRepeats()
 		}
 	}
 
-	//then, by read alignments
+	//extract read alignments
 	for (auto& readPath : _readAlignments)
 	{
 		if (readPath.size() < 2) continue;
@@ -234,21 +234,7 @@ void RepeatResolver::findRepeats()
 		}
 	}
 	
-	for (auto& edgeList : outConnections)
-	{
-		if (edgeList.first->multiplicity == 1 &&
-			edgeList.second.size() == 1) continue;
-
-		Logger::get().debug() << "Outputs: " << edgeList.first->edgeId.signedId()
-			<< " " << edgeList.first->multiplicity;
-		for (auto& outEdgeCount : edgeList.second)
-		{
-			Logger::get().debug() << "\t" << outEdgeCount.first->edgeId.signedId()
-				<< " " << outEdgeCount.second << " " << outEdgeCount.first->isLooped();
-		}
-		Logger::get().debug() << "";
-	}
-
+	//summarizes multiplicity
 	auto edgeMultiplicity = [this, &outConnections] (GraphEdge* edge)
 	{
 		int maxSupport = 0;
@@ -270,6 +256,46 @@ void RepeatResolver::findRepeats()
 		}
 		return multiplicity;
 	};
+	
+	//propagate within unbranching paths, jumping over loops
+	auto propagateRepetiveness = [] (GraphEdge* edge)
+	{
+		std::unordered_set<GraphEdge*> visited;
+		GraphEdge* curEdge = edge;
+		while(true)
+		{
+			int outCount = 0;
+			for (auto& outEdge : curEdge->nodeRight->outEdges)
+			{
+				if (!outEdge->isLooped())
+				{
+					curEdge = outEdge;
+					++outCount;
+				}
+			}
+			if (outCount > 1) break;
+			if (visited.count(curEdge)) break;
+			visited.insert(curEdge);
+			curEdge->repetitive = true;
+		}
+		curEdge = edge;
+		while(true)
+		{
+			int outCount = 0;
+			for (auto& inEdge : curEdge->nodeLeft->inEdges)
+			{
+				if (!inEdge->isLooped())
+				{
+					curEdge = inEdge;
+					++outCount;
+				}
+			}
+			if (outCount > 1) break;
+			if (visited.count(curEdge)) break;
+			visited.insert(curEdge);
+			curEdge->repetitive = true;
+		}
+	};
 
 	for (auto& edge : _graph.iterEdges())
 	{
@@ -282,10 +308,12 @@ void RepeatResolver::findRepeats()
 		if (mult > 1) 
 		{
 			edge->repetitive = true;
+			propagateRepetiveness(edge);
 			complEdge->repetitive = true;
+			propagateRepetiveness(complEdge);
 		}
 
-		///////
+		///////some logging
 		bool match = (edge->multiplicity > 1) == (edge->repetitive);
 		if (!match && edge->multiplicity != 0 && !edge->resolved)
 		{
@@ -298,6 +326,25 @@ void RepeatResolver::findRepeats()
 				<< edge->meanCoverage;
 		}
 		///////
+	}
+
+	//more logging
+	for (auto& edgeList : outConnections)
+	{
+		bool match = (edgeList.first->multiplicity > 1) == 
+					  (edgeList.first->repetitive);
+		if (!match && edgeList.first->multiplicity != 0 && 
+			!edgeList.first->resolved)
+		{
+			Logger::get().debug() << "Outputs: " << edgeList.first->edgeId.signedId()
+				<< " " << edgeList.first->multiplicity;
+			for (auto& outEdgeCount : edgeList.second)
+			{
+				Logger::get().debug() << "\t" << outEdgeCount.first->edgeId.signedId()
+					<< " " << outEdgeCount.second << " " << outEdgeCount.first->isLooped();
+			}
+			Logger::get().debug() << "";
+		}
 	}
 
 	//mark all unprocessed edges as repetitive
