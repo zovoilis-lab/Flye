@@ -100,8 +100,8 @@ void GraphProcessor::collapseBulges()
 
 		if (edge->length() > MAX_BUBBLE || 
 			otherEdge->length() > MAX_BUBBLE) continue;
-		if (edge->nodeLeft->inEdges.front()->length() < MAX_BUBBLE ||
-			edge->nodeRight->outEdges.front()->length() < MAX_BUBBLE) continue;
+		//if (edge->nodeLeft->inEdges.front()->length() < MAX_BUBBLE ||
+		//	edge->nodeRight->outEdges.front()->length() < MAX_BUBBLE) continue;
 
 		toFix.emplace(edge->nodeLeft, edge->nodeRight);
 	}
@@ -110,6 +110,10 @@ void GraphProcessor::collapseBulges()
 	{
 		GraphEdge* edgeOne = nodes.first->outEdges[0];
 		GraphEdge* edgeTwo = nodes.first->outEdges[1];
+		if (abs(edgeOne->edgeId.signedId()) > abs(edgeTwo->edgeId.signedId()))
+		{
+			std::swap(edgeOne, edgeTwo);
+		}
 		for (auto& seg : edgeTwo->seqSegments)
 		{
 			edgeOne->seqSegments.push_back(seg);
