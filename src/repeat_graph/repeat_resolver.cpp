@@ -246,54 +246,51 @@ void RepeatResolver::findRepeats()
 			}
 		}
 
-		int multiplicity = 0;
+		int repeatMult = 0;
+		int uniqueMult = 0;
 		int minSupport = maxSupport / Constants::outPathsRatio;
 		int minCoverage = _multInf.getMeanCoverage() / Constants::readCovRate;
 		for (auto& outConn : outConnections[edge]) 
 		{
 			if (outConn.second > minSupport && 
-				outConn.first->meanCoverage > minCoverage) ++multiplicity;
+				outConn.first->meanCoverage > minCoverage)
+			{
+				outConn.first->repetitive ? ++repeatMult : ++uniqueMult;
+			}
 		}
-		return multiplicity;
+		return std::min(repeatMult, 1) + uniqueMult;
 	};
 	
 	//propagate within unbranching paths, jumping over loops
-	auto propagateRepetiveness = [] (GraphEdge* edge)
+	auto propagateRepetiveness = [this] (GraphEdge* edge)
 	{
 		std::unordered_set<GraphEdge*> visited;
 		GraphEdge* curEdge = edge;
 		while(true)
 		{
 			int outCount = 0;
+			int inCount = 0;
+			GraphEdge* nextEdge = nullptr;
 			for (auto& outEdge : curEdge->nodeRight->outEdges)
 			{
 				if (!outEdge->isLooped())
 				{
-					curEdge = outEdge;
+					nextEdge = outEdge;
 					++outCount;
 				}
 			}
-			if (outCount > 1) break;
-			if (visited.count(curEdge)) break;
-			visited.insert(curEdge);
-			curEdge->repetitive = true;
-		}
-		curEdge = edge;
-		while(true)
-		{
-			int outCount = 0;
-			for (auto& inEdge : curEdge->nodeLeft->inEdges)
+			for (auto& inEdge : curEdge->nodeRight->inEdges)
 			{
-				if (!inEdge->isLooped())
-				{
-					curEdge = inEdge;
-					++outCount;
-				}
+				if (!inEdge->isLooped()) ++inCount;
 			}
-			if (outCount > 1) break;
-			if (visited.count(curEdge)) break;
+			if (outCount > 1 || inCount > 1 ||
+				visited.count(nextEdge) || 
+				nextEdge == nullptr) break;
+
 			visited.insert(curEdge);
+			curEdge = nextEdge;
 			curEdge->repetitive = true;
+			_graph.complementEdge(curEdge)->repetitive = true;
 		}
 	};
 
@@ -308,12 +305,37 @@ void RepeatResolver::findRepeats()
 		if (mult > 1) 
 		{
 			edge->repetitive = true;
-			propagateRepetiveness(edge);
 			complEdge->repetitive = true;
-			propagateRepetiveness(complEdge);
+			if (!edge->isLooped()) 
+			{
+				propagateRepetiveness(edge);
+				propagateRepetiveness(complEdge);
+			}
 		}
+	}
+	
+	//mark all unprocessed edges as repetitive
+	for (auto& edge : _graph.iterEdges())
+	{
+		GraphEdge* complEdge = _graph.complementEdge(edge);
+		if (!outConnections.count(edge) && !outConnections.count(complEdge)
+			&& edge->length() < Parameters::get().minimumOverlap)
+		{
+			Logger::get().debug() << "Not updated: " << edge->edgeId.signedId();
+			edge->repetitive = true;
+			complEdge->repetitive = true;
+		}
+	}
 
-		///////some logging
+	//////////////////
+	///////some logging
+	for (auto& edge : _graph.iterEdges())
+	{
+		if (!edge->edgeId.strand()) continue;
+		GraphEdge* complEdge = _graph.complementEdge(edge);
+		int rightMult = edgeMultiplicity(edge);
+		int leftMult = edgeMultiplicity(complEdge);
+		int mult = std::max(leftMult, rightMult);
 		bool match = (edge->multiplicity > 1) == (edge->repetitive);
 		if (!match && edge->multiplicity != 0 && !edge->resolved)
 		{
@@ -321,14 +343,11 @@ void RepeatResolver::findRepeats()
 			std::string loop = edge->isLooped() ? "L" : " ";
 			Logger::get().debug() << star << " " << loop << " " 
 				<< edge->edgeId.signedId()
-				<< " " << edge->multiplicity << " -> " << mult << " ("
+				<< "\t" << edge->multiplicity << " -> " << mult << " ("
 				<< leftMult << "," << rightMult << ") " << edge->length() << "\t"
 				<< edge->meanCoverage;
 		}
-		///////
 	}
-
-	//more logging
 	for (auto& edgeList : outConnections)
 	{
 		bool match = (edgeList.first->multiplicity > 1) == 
@@ -340,23 +359,12 @@ void RepeatResolver::findRepeats()
 				<< " " << edgeList.first->multiplicity;
 			for (auto& outEdgeCount : edgeList.second)
 			{
-				Logger::get().debug() << "\t" << outEdgeCount.first->edgeId.signedId()
-					<< " " << outEdgeCount.second << " " << outEdgeCount.first->isLooped();
+				std::string star = outEdgeCount.first->repetitive ? "R" : " ";
+				std::string loop = outEdgeCount.first->isLooped() ? "L" : " ";
+				Logger::get().debug() << star << " " << loop << " " 
+					<< outEdgeCount.first->edgeId.signedId() << "\t" << outEdgeCount.second;
 			}
 			Logger::get().debug() << "";
-		}
-	}
-
-	//mark all unprocessed edges as repetitive
-	for (auto& edge : _graph.iterEdges())
-	{
-		GraphEdge* complEdge = _graph.complementEdge(edge);
-		if (!outConnections.count(edge) && !outConnections.count(complEdge)
-			&& edge->length() < Parameters::get().minimumOverlap)
-		{
-			Logger::get().debug() << "Not updated: " << edge->edgeId.signedId();
-			edge->repetitive = true;
-			complEdge->repetitive = true;
 		}
 	}
 }
