@@ -212,7 +212,14 @@ def _get_kmer_size(args):
     """
     Select k-mer size based on the target genome size
     """
-    reads_size = os.path.getsize(args.reads)
+    suffix = args.reads.rsplit(".", 1)[-1]
+    if suffix in ["fasta", "fa"]:
+        reads_size = os.path.getsize(args.reads)
+    elif suffix in ["fastq", "fq"]:
+        reads_size = os.path.getsize(args.reads) / 2
+    else:
+        raise ResumeException("Uknown input reads format: " + suffix)
+
     genome_size = reads_size / args.coverage
     logger.debug("Estimated genome size: {0}".format(genome_size))
     kmer_size = 15
@@ -308,12 +315,11 @@ def main():
             raise argparse.ArgumentTypeError("should be an odd number")
         return ival
 
-
     parser = argparse.ArgumentParser(description="ABruijn: assembly of long and"
                                      " error-prone reads")
 
     parser.add_argument("reads", metavar="reads",
-                        help="path to reads file (FASTA format)")
+                        help="path to reads file (FASTA/Q format)")
     parser.add_argument("out_dir", metavar="out_dir",
                         help="output directory")
     parser.add_argument("coverage", metavar="coverage (integer)",

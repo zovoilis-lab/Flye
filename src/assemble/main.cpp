@@ -187,8 +187,16 @@ int main(int argc, char** argv)
 
 	SequenceContainer readsContainer;
 	Logger::get().debug() << "Build date: " << __DATE__ << " " << __TIME__;
-	Logger::get().info() << "Reading FASTA";
-	readsContainer.readFasta(readsFasta);
+	Logger::get().info() << "Reading sequences";
+	try
+	{
+		readsContainer.loadFromFile(readsFasta);
+	}
+	catch (SequenceContainer::ParseException& e)
+	{
+		Logger::get().error() << e.what();
+		return 1;
+	}
 	VertexIndex vertexIndex(readsContainer);
 	vertexIndex.outputProgress(true);
 

@@ -114,28 +114,36 @@ namespace std
 	};
 }
 
-
 class SequenceContainer
 {
 public:
+	class ParseException : public std::runtime_error 
+	{
+	public:
+		ParseException(const std::string & what):
+			std::runtime_error(what)
+		{}
+	};
+
 	typedef std::unordered_map<FastaRecord::Id, 
 							   FastaRecord> SequenceIndex;
 
 	SequenceContainer() {}
 
+	void loadFromFile(const std::string& filename);
 	static void writeFasta(const std::vector<FastaRecord>& records,
 						   const std::string& fileName);
+	const FastaRecord&  addSequence(const DnaSequence& sequence, 
+									const std::string& description);
 
 	const SequenceIndex& getIndex() const
 	{
 		return _seqIndex;
 	}
-
 	const DnaSequence& getSeq(FastaRecord::Id readId) const
 	{
 		return _seqIndex.at(readId).sequence;
 	}
-
 	int32_t seqLen(FastaRecord::Id readId) const
 	{
 		return _seqIndex.at(readId).sequence.length();
@@ -144,16 +152,18 @@ public:
 	{
 		return _seqIndex.at(readId).description;
 	}
-	void readFasta(const std::string& filename);
-	const FastaRecord&  addSequence(const DnaSequence& sequence, 
-									const std::string& description);
 
 private:
+	size_t readFasta(std::vector<FastaRecord>& record, 
+				     const std::string& fileName);
+	size_t readFastq(std::vector<FastaRecord>& record, 
+				     const std::string& fileName);
+	bool isFasta(const std::string& fileName);
 
-	size_t 	getSequences(std::vector<FastaRecord>& record, 
+	/*size_t 	getSequences(std::vector<FastaRecord>& record, 
 						 const std::string& fileName);
 	size_t 	getSequencesWithComplements(std::vector<FastaRecord>& record, 
-										const std::string& fileName);
+										const std::string& fileName);*/
 	void 	validateSequence(std::string& sequence);
 	void 	validateHeader(std::string& header);
 

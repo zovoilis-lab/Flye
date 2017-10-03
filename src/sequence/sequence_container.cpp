@@ -13,32 +13,63 @@
 
 size_t SequenceContainer::g_nextSeqId = 0;
 
-namespace
-{
-	class ParseException : public std::runtime_error 
-	{
-	public:
-		ParseException(const std::string & what):
-			std::runtime_error(what)
-		{}
-	};
-}
-
 const FastaRecord::Id FastaRecord::ID_NONE = 
 			Id(std::numeric_limits<uint32_t>::max());
 
 
-void SequenceContainer::readFasta(const std::string& fileName)
+bool SequenceContainer::isFasta(const std::string& fileName)
+{
+	size_t dotPos = fileName.rfind(".");
+	if (dotPos == std::string::npos)
+	{
+		throw ParseException("Incorrect file suffix");
+	}
+	std::string suffix = fileName.substr(dotPos + 1);
+	if (suffix == "fasta" || suffix == "fa")
+	{
+		return true;
+	}
+	else if (suffix == "fastq" || suffix == "fq")
+	{
+		return false;
+	}
+	throw ParseException("Incorrect file suffix");
+}
+
+void SequenceContainer::loadFromFile(const std::string& fileName)
 {
 	std::vector<FastaRecord> records;
-	this->getSequencesWithComplements(records, fileName);
-	_seqIndex.reserve(records.size());
 
+	if (this->isFasta(fileName))
+	{
+		this->readFasta(records, fileName);
+	}
+	else
+	{
+		this->readFastq(records, fileName);
+	}
+
+	records.reserve(records.size() * 2);
+	std::vector<FastaRecord> complements;
+	for (auto &record : records)
+	{
+		std::string header = "-" + record.description;
+		record.description = "+" + record.description;
+		DnaSequence revComplement = record.sequence.complement();
+		complements.emplace_back(revComplement, header, record.id.rc());
+	}
+	for (auto& rec : complements)
+	{
+		records.push_back(std::move(rec));
+	}
+	
 	//shuffling input reads
 	std::vector<size_t> indicesPerm(records.size());
 	for (size_t i = 0; i < indicesPerm.size(); ++i) indicesPerm[i] = i;
 	std::random_shuffle(indicesPerm.begin(), indicesPerm.end());
+	//
 
+	_seqIndex.reserve(records.size());
 	for (size_t i : indicesPerm)
 	{
 		_seqIndex[records[i].id] = std::move(records[i]);
@@ -62,8 +93,8 @@ const FastaRecord&
 	return _seqIndex[newId];
 }
 
-size_t SequenceContainer::getSequences(std::vector<FastaRecord>& record, 
-									   const std::string& fileName)
+size_t SequenceContainer::readFasta(std::vector<FastaRecord>& record, 
+									const std::string& fileName)
 {
 	std::string buffer;
 	std::string header; 
@@ -71,12 +102,11 @@ size_t SequenceContainer::getSequences(std::vector<FastaRecord>& record,
 	std::ifstream inputStream(fileName);
 	if (!inputStream.is_open())
 	{
-		throw std::runtime_error("Can't open reads file");
+		throw ParseException("Can't open reads file");
 	}
 
 	int line = 1;
 	record.clear();
-
 	try
 	{
 		while(!inputStream.eof())
@@ -112,44 +142,78 @@ size_t SequenceContainer::getSequences(std::vector<FastaRecord>& record,
 		}
 		
 		if (sequence.empty()) throw ParseException("empty sequence");
+		if (header.empty())
+		{
+			throw ParseException("Fasta fromat error");
+		}
 		record.emplace_back(DnaSequence(sequence), header, 
 							FastaRecord::Id(g_nextSeqId));
 		g_nextSeqId += 2;
 
 	}
-	catch (ParseException & e)
+	catch (ParseException& e)
 	{
 		std::stringstream ss;
 		ss << "parse error in " << fileName << " on line " << line << ": " << e.what();
-		throw std::runtime_error(ss.str());
+		throw ParseException(ss.str());
 	}
 
 	return record.size();
 }
 
-size_t SequenceContainer::getSequencesWithComplements(std::vector<FastaRecord>& records,
-													  const std::string& fileName)
+size_t SequenceContainer::readFastq(std::vector<FastaRecord>& record, 
+									const std::string& fileName)
 {
-	this->getSequences(records, fileName);
-
-	records.reserve(records.size() * 2);
-	std::vector<FastaRecord> complements;
-	for (auto &record : records)
+	std::string buffer;
+	std::string header; 
+	std::ifstream inputStream(fileName);
+	if (!inputStream.is_open())
 	{
-		std::string header = "-" + record.description;
-		record.description = "+" + record.description;
-
-		DnaSequence revComplement = record.sequence.complement();
-		complements.emplace_back(revComplement, header, record.id.rc());
+		throw ParseException("Can't open reads file");
 	}
 
-	for (auto& rec : complements)
+	int line = 1;
+	int stateCounter = 0;
+	record.clear();
+	try
 	{
-		records.push_back(std::move(rec));
+		while(!inputStream.eof())
+		{
+			std::getline(inputStream, buffer, '\n');
+			if (buffer.empty()) continue;
+			if (*buffer.rbegin() == '\r') buffer.erase(buffer.size() - 1);
+
+			if (stateCounter == 0)
+			{
+				if (buffer[0] != '@') throw ParseException("Fastq format error");
+				header = buffer.substr(1);
+				this->validateHeader(header);
+			}
+			else if (stateCounter == 1)
+			{
+				this->validateSequence(buffer);
+				record.emplace_back(DnaSequence(buffer), header, 
+									FastaRecord::Id(g_nextSeqId));
+				g_nextSeqId += 2;
+			}
+			else if (stateCounter == 2)
+			{
+				if (buffer[0] != '+') throw ParseException("Fastq fromat error");
+			}
+			stateCounter = (stateCounter + 1) % 4;
+			++line;
+		}
+	}
+	catch (ParseException& e)
+	{
+		std::stringstream ss;
+		ss << "parse error in " << fileName << " on line " << line << ": " << e.what();
+		throw ParseException(ss.str());
 	}
 
-	return records.size();
+	return record.size();
 }
+
 
 void SequenceContainer::validateHeader(std::string& header)
 {

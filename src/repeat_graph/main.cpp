@@ -166,11 +166,19 @@ int main(int argc, char** argv)
 
 	Logger::get().debug() << "Build date: " << __DATE__ << " " << __TIME__;
 
-	Logger::get().info() << "Reading FASTA";
+	Logger::get().info() << "Reading sequences";
 	SequenceContainer seqAssembly; 
-	seqAssembly.readFasta(inAssembly);
 	SequenceContainer seqReads;
-	seqReads.readFasta(readsFasta);
+	try
+	{
+		seqAssembly.loadFromFile(inAssembly);
+		seqReads.loadFromFile(readsFasta);
+	}
+	catch (SequenceContainer::ParseException& e)
+	{
+		Logger::get().error() << e.what();
+		return 1;
+	}
 
 	Logger::get().info() << "Building repeat graph";
 	RepeatGraph rg(seqAssembly);
@@ -196,7 +204,6 @@ int main(int argc, char** argv)
 
 	Logger::get().info() << "Resolving repeats";
 	resolver.resolveRepeats();
-	//proc.unrollLoops();
 	//proc.outputDot(/*on contigs*/ false, outFolder + "/graph_after_rr.dot");
 
 	Logger::get().info() << "Generating contigs";
