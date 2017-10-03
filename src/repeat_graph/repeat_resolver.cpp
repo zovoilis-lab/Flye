@@ -376,7 +376,7 @@ void RepeatResolver::resolveRepeats()
 		if (!resolvedConnections) break;
 
 		this->updateAlignments();
-		//this->findRepeats();
+		this->findRepeats();
 	}
 
 	this->removeUnsupportedEdges();
