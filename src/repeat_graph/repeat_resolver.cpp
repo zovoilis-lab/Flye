@@ -204,13 +204,13 @@ void RepeatResolver::findRepeats()
 
 		GraphEdge* complEdge = _graph.complementEdge(edge);
 		if (edge->meanCoverage > _multInf.getUniqueCovThreshold() * 2)
-		   //(edge->isLooped() && edge->length() < Parameters::get().minimumOverlap))
 		{
 			edge->repetitive = true;
 			complEdge->repetitive = true;
 		}
 	}
 
+	//Now, using read alignments
 	//extract read alignments
 	for (auto& readPath : _readAlignments)
 	{
@@ -233,7 +233,6 @@ void RepeatResolver::findRepeats()
 			++outConnections[complRight][complLeft];
 		}
 	}
-	
 	//summarizes multiplicity
 	auto edgeMultiplicity = [this, &outConnections] (GraphEdge* edge)
 	{
@@ -260,10 +259,41 @@ void RepeatResolver::findRepeats()
 		}
 		return std::min(repeatMult, 1) + uniqueMult;
 	};
-	
-	//propagate within unbranching paths, jumping over loops
-	auto propagateRepetiveness = [this] (GraphEdge* edge)
+	for (auto& edge : _graph.iterEdges())
 	{
+		if (!edge->edgeId.strand()) continue;
+		if (edge->isRepetitive()) continue;
+
+		GraphEdge* complEdge = _graph.complementEdge(edge);
+		int rightMult = edgeMultiplicity(edge);
+		int leftMult = edgeMultiplicity(complEdge);
+		int mult = std::max(leftMult, rightMult);
+		if (mult > 1) 
+		{
+			edge->repetitive = true;
+			complEdge->repetitive = true;
+		}
+	}
+	
+	//mark all unprocessed edges as repetitive
+	//probably don't need this anymore
+	/*for (auto& edge : _graph.iterEdges())
+	{
+		GraphEdge* complEdge = _graph.complementEdge(edge);
+		if (!outConnections.count(edge) && !outConnections.count(complEdge)
+			&& edge->length() < Parameters::get().minimumOverlap)
+		{
+			Logger::get().debug() << "Not updated: " << edge->edgeId.signedId();
+			edge->repetitive = true;
+			complEdge->repetitive = true;
+		}
+	}*/
+
+	//propagate within unbranching paths, jumping over loops
+	for (GraphEdge* edge : _graph.iterEdges())
+	{
+		if (!edge->isRepetitive() || edge->isLooped()) continue;
+
 		std::unordered_set<GraphEdge*> visited;
 		GraphEdge* curEdge = edge;
 		while(true)
@@ -291,39 +321,6 @@ void RepeatResolver::findRepeats()
 			curEdge = nextEdge;
 			curEdge->repetitive = true;
 			_graph.complementEdge(curEdge)->repetitive = true;
-		}
-	};
-
-	for (auto& edge : _graph.iterEdges())
-	{
-		if (!edge->edgeId.strand()) continue;
-
-		GraphEdge* complEdge = _graph.complementEdge(edge);
-		int rightMult = edgeMultiplicity(edge);
-		int leftMult = edgeMultiplicity(complEdge);
-		int mult = std::max(leftMult, rightMult);
-		if (mult > 1) 
-		{
-			edge->repetitive = true;
-			complEdge->repetitive = true;
-			if (!edge->isLooped()) 
-			{
-				propagateRepetiveness(edge);
-				propagateRepetiveness(complEdge);
-			}
-		}
-	}
-	
-	//mark all unprocessed edges as repetitive
-	for (auto& edge : _graph.iterEdges())
-	{
-		GraphEdge* complEdge = _graph.complementEdge(edge);
-		if (!outConnections.count(edge) && !outConnections.count(complEdge)
-			&& edge->length() < Parameters::get().minimumOverlap)
-		{
-			Logger::get().debug() << "Not updated: " << edge->edgeId.signedId();
-			edge->repetitive = true;
-			complEdge->repetitive = true;
 		}
 	}
 
@@ -379,7 +376,7 @@ void RepeatResolver::resolveRepeats()
 		if (!resolvedConnections) break;
 
 		this->updateAlignments();
-		this->findRepeats();
+		//this->findRepeats();
 	}
 
 	this->removeUnsupportedEdges();
@@ -504,7 +501,8 @@ void RepeatResolver::removeUnsupportedEdges()
 	for (auto& edge : _graph.iterEdges())
 	{
 		GraphEdge* complEdge = _graph.complementEdge(edge);
-		if (edge->meanCoverage <= coverageThreshold)
+		if (edge->meanCoverage <= coverageThreshold &&
+			!edge->resolved)
 		{
 			edgesRemove.insert(edge);
 			edgesRemove.insert(complEdge);
