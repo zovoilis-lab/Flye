@@ -41,7 +41,7 @@ Extender::ExtensionInfo Extender::extendContig(FastaRecord::Id startRead)
 
 	while(true)
 	{
-		auto& overlaps = _ovlpContainer.lazySeqOverlaps(currentRead);
+		auto overlaps = _ovlpContainer.lazySeqOverlaps(currentRead);
 		std::vector<OverlapRange> extensions;
 		int innerOverlaps = 0;
 		for (auto& ovlp : overlaps)

@@ -230,7 +230,7 @@ public:
 
 	void findAllOverlaps();
 	std::vector<OverlapRange> seqOverlaps(FastaRecord::Id readId) const;
-	const std::vector<OverlapRange>& lazySeqOverlaps(FastaRecord::Id readId);
+	std::vector<OverlapRange> lazySeqOverlaps(FastaRecord::Id readId);
 	const OverlapIndex& getOverlapIndex() const {return _overlapIndex;}
 
 private:
