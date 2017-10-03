@@ -111,9 +111,37 @@ void segfaultHandler(int signal)
 	exit(1);
 }
 
+void exceptionHandler()
+{
+	static bool triedThrow = false;
+	try
+	{
+        if (!triedThrow)
+		{
+			triedThrow = true;
+			throw;
+		}
+    }
+    catch (const std::exception &e) 
+	{
+        Logger::get().error() << "Caught unhandled exception: " << e.what();
+    }
+	catch (...) {}
+
+	void *stackArray[20];
+	size_t size = backtrace(stackArray, 10);
+	char** backtrace = backtrace_symbols(stackArray, size);
+	for (size_t i = 0; i < size; ++i)
+	{
+		Logger::get().error() << "\t" << backtrace[i];
+	}
+	exit(1);
+}
+
 int main(int argc, char** argv)
 {
 	signal(SIGSEGV, segfaultHandler);
+	std::set_terminate(exceptionHandler);
 
 	bool debugging = false;
 	size_t numThreads;
@@ -133,68 +161,52 @@ int main(int argc, char** argv)
 	Parameters::get().kmerSize = kmerSize;
 	Parameters::get().numThreads = numThreads;
 
-	try
-	{
-		Logger::get().setDebugging(debugging);
-		if (!logFile.empty()) Logger::get().setOutputFile(logFile);
+	Logger::get().setDebugging(debugging);
+	if (!logFile.empty()) Logger::get().setOutputFile(logFile);
 
-		Logger::get().debug() << "Build date: " << __DATE__ << " " << __TIME__;
+	Logger::get().debug() << "Build date: " << __DATE__ << " " << __TIME__;
 
-		Logger::get().info() << "Reading FASTA";
-		SequenceContainer seqAssembly; 
-		seqAssembly.readFasta(inAssembly);
-		SequenceContainer seqReads;
-		seqReads.readFasta(readsFasta);
+	Logger::get().info() << "Reading FASTA";
+	SequenceContainer seqAssembly; 
+	seqAssembly.readFasta(inAssembly);
+	SequenceContainer seqReads;
+	seqReads.readFasta(readsFasta);
 
-		Logger::get().info() << "Building repeat graph";
-		RepeatGraph rg(seqAssembly);
-		rg.build();
+	Logger::get().info() << "Building repeat graph";
+	RepeatGraph rg(seqAssembly);
+	rg.build();
 
-		Logger::get().info() << "Simplifying the graph";
-		GraphProcessor proc(rg, seqAssembly, seqReads);
-		proc.outputDot(/*on contigs*/ false, outFolder + "/graph_raw.dot");
-		proc.condence();
+	Logger::get().info() << "Simplifying the graph";
+	GraphProcessor proc(rg, seqAssembly, seqReads);
+	proc.outputDot(/*on contigs*/ false, outFolder + "/graph_raw.dot");
+	proc.condence();
 
-		MultiplicityInferer multInf(rg);
-		RepeatResolver resolver(rg, seqAssembly, seqReads, multInf);
-		Logger::get().info() << "Aligning reads to the graph";
-		resolver.alignReads();
-		auto& readAlignments = resolver.getReadsAlignment();
-		
-		multInf.fixEdgesMultiplicity(readAlignments);
-		resolver.findRepeats();
-		proc.outputDot(/*on contigs*/ false, outFolder + "/graph_before_rr.dot");
-		proc.outputGfa(/*on contigs*/ false, outFolder + "/graph_before_rr.gfa");
-		proc.outputFasta(/*on contigs*/ false, outFolder + 
-						 "/graph_before_rr.fasta");
+	MultiplicityInferer multInf(rg);
+	RepeatResolver resolver(rg, seqAssembly, seqReads, multInf);
+	Logger::get().info() << "Aligning reads to the graph";
+	resolver.alignReads();
+	auto& readAlignments = resolver.getReadsAlignment();
+	
+	multInf.fixEdgesMultiplicity(readAlignments);
+	resolver.findRepeats();
+	proc.outputDot(/*on contigs*/ false, outFolder + "/graph_before_rr.dot");
+	proc.outputGfa(/*on contigs*/ false, outFolder + "/graph_before_rr.gfa");
+	proc.outputFasta(/*on contigs*/ false, outFolder + 
+					 "/graph_before_rr.fasta");
 
-		Logger::get().info() << "Resolving repeats";
-		resolver.resolveRepeats();
-		//proc.unrollLoops();
-		//proc.outputDot(/*on contigs*/ false, outFolder + "/graph_after_rr.dot");
+	Logger::get().info() << "Resolving repeats";
+	resolver.resolveRepeats();
+	//proc.unrollLoops();
+	//proc.outputDot(/*on contigs*/ false, outFolder + "/graph_after_rr.dot");
 
-		Logger::get().info() << "Generating contigs";
-		proc.generateContigs();
+	Logger::get().info() << "Generating contigs";
+	proc.generateContigs();
 
-		proc.dumpRepeats(readAlignments, outFolder + "/repeats_dump.txt");
-		//proc.outputDot(/*on contigs*/ false, outFolder + "/graph_resolved.dot");
-		proc.outputDot(/*on contigs*/ true, outFolder + "/graph_final.dot");
-		proc.outputFasta(/*on contigs*/ true, outFolder + "/graph_final.fasta");
-		proc.outputGfa(/*on contigs*/ true, outFolder + "/graph_final.gfa");
-
-		return 0;
-
-	}
-	catch (std::runtime_error& e)
-	{
-		Logger::get().error() << e.what();
-		return 1;
-	}
-	catch (std::bad_alloc& e)
-	{
-		Logger::get().error() << "Bad alloc caught - not enough memory!";
-		return 1;
-	}
-
+	proc.dumpRepeats(readAlignments, outFolder + "/repeats_dump.txt");
+	//proc.outputDot(/*on contigs*/ false, outFolder + "/graph_resolved.dot");
+	proc.outputDot(/*on contigs*/ true, outFolder + "/graph_final.dot");
+	proc.outputFasta(/*on contigs*/ true, outFolder + "/graph_final.fasta");
+	proc.outputGfa(/*on contigs*/ true, outFolder + "/graph_final.gfa");
+	
 	return 0;
 }
