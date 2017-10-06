@@ -221,6 +221,8 @@ int main(int argc, char** argv)
 	outGen.outputDot(/*on contigs*/ true, outFolder + "/graph_final.dot");
 	outGen.outputFasta(/*on contigs*/ true, outFolder + "/graph_final.fasta");
 	outGen.outputGfa(/*on contigs*/ true, outFolder + "/graph_final.gfa");
+
+	outGen.extendContigs(readAlignments, outFolder + "/graph_paths.fasta");
 	
 	return 0;
 }
