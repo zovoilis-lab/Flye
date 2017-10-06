@@ -291,3 +291,76 @@ void GraphProcessor::condenceEdges()
 	Logger::get().debug() << "Removed " << edgesRemoved << " edges";
 	Logger::get().debug() << "Added " << edgesAdded << " edges";
 }
+
+std::vector<UnbranchingPath> GraphProcessor::getUnbranchingPaths()
+{
+	std::unordered_map<FastaRecord::Id, size_t> edgeIds;
+	size_t nextEdgeId = 0;
+	auto pathToId = [&edgeIds, &nextEdgeId](GraphPath path)
+	{
+		if (!edgeIds.count(path.front()->edgeId))
+		{
+			for (auto edge : path)
+			{
+				edgeIds[edge->edgeId] = nextEdgeId;
+				edgeIds[edge->edgeId.rc()] = nextEdgeId + 1;
+			}
+			nextEdgeId += 2;
+		}
+		return FastaRecord::Id(edgeIds[path.front()->edgeId]);
+	};
+	
+	std::vector<UnbranchingPath> unbranchingPaths;
+	std::unordered_set<GraphEdge*> visitedEdges;
+	for (auto edge : _graph.iterEdges())
+	{
+		if (visitedEdges.count(edge)) continue;
+		visitedEdges.insert(edge);
+
+		GraphPath traversed;
+		GraphNode* curNode = edge->nodeLeft;
+		while (!curNode->isBifurcation() &&
+			   !curNode->inEdges.empty() &&
+			   !visitedEdges.count(curNode->inEdges.front()))
+		{
+			traversed.push_back(curNode->inEdges.front());
+			visitedEdges.insert(traversed.back());
+			curNode = curNode->inEdges.front()->nodeLeft;
+		}
+
+		std::reverse(traversed.begin(), traversed.end());
+		traversed.push_back(edge);
+
+		curNode = edge->nodeRight;
+		while (!curNode->isBifurcation() &&
+			   !curNode->outEdges.empty() &&
+			   !visitedEdges.count(curNode->outEdges.front()))
+		{
+			traversed.push_back(curNode->outEdges.front());
+			visitedEdges.insert(traversed.back());
+			curNode = curNode->outEdges.front()->nodeRight;
+		}
+
+		FastaRecord::Id edgeId = pathToId(traversed);
+		bool circular = (traversed.front()->nodeLeft == 
+						traversed.back()->nodeRight) &&
+						traversed.front()->nodeLeft->outEdges.size() == 1;
+
+		bool repetitive = traversed.front()->isRepetitive() || 
+						  traversed.back()->isRepetitive();
+
+		int contigLength = 0;
+		int64_t sumCov = 0;
+		for (auto& edge : traversed) 
+		{
+			contigLength += edge->length();
+			sumCov += edge->meanCoverage * edge->length();
+		}
+		int meanCoverage = contigLength ? sumCov / contigLength : 0;
+
+		unbranchingPaths.emplace_back(traversed, edgeId, circular, 
+							  contigLength, meanCoverage);
+		unbranchingPaths.back().repetitive = repetitive;
+	}
+	return unbranchingPaths;
+}

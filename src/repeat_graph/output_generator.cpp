@@ -8,87 +8,29 @@
 
 void OutputGenerator::generateContigs()
 {
-	std::unordered_map<FastaRecord::Id, size_t> edgeIds;
-	size_t nextEdgeId = 0;
-	auto pathToId = [&edgeIds, &nextEdgeId](GraphPath path)
+	GraphProcessor proc(_graph, _asmSeqs, _readSeqs);
+	_contigs = proc.getUnbranchingPaths();
+	this->generateContigSequences(_contigs);
+
+	for (auto& ctg : _contigs)
 	{
-		if (!edgeIds.count(path.front()->edgeId))
-		{
-			for (auto edge : path)
-			{
-				edgeIds[edge->edgeId] = nextEdgeId;
-				edgeIds[edge->edgeId.rc()] = nextEdgeId + 1;
-			}
-			nextEdgeId += 2;
-		}
-		return FastaRecord::Id(edgeIds[path.front()->edgeId]);
-	};
-	
-	std::unordered_set<GraphEdge*> visitedEdges;
-	for (auto edge : _graph.iterEdges())
-	{
-		if (visitedEdges.count(edge)) continue;
-		visitedEdges.insert(edge);
-
-		GraphPath traversed;
-		GraphNode* curNode = edge->nodeLeft;
-		while (!curNode->isBifurcation() &&
-			   !curNode->inEdges.empty() &&
-			   !visitedEdges.count(curNode->inEdges.front()))
-		{
-			traversed.push_back(curNode->inEdges.front());
-			visitedEdges.insert(traversed.back());
-			curNode = curNode->inEdges.front()->nodeLeft;
-		}
-
-		std::reverse(traversed.begin(), traversed.end());
-		traversed.push_back(edge);
-
-		curNode = edge->nodeRight;
-		while (!curNode->isBifurcation() &&
-			   !curNode->outEdges.empty() &&
-			   !visitedEdges.count(curNode->outEdges.front()))
-		{
-			traversed.push_back(curNode->outEdges.front());
-			visitedEdges.insert(traversed.back());
-			curNode = curNode->outEdges.front()->nodeRight;
-		}
-
-		FastaRecord::Id edgeId = pathToId(traversed);
-		bool circular = (traversed.front()->nodeLeft == 
-						traversed.back()->nodeRight) &&
-						traversed.front()->nodeLeft->outEdges.size() == 1;
-
-		bool repetitive = traversed.front()->isRepetitive() || 
-						  traversed.back()->isRepetitive();
-
-		int contigLength = 0;
-		int64_t sumCov = 0;
+		if (!ctg.id.strand()) continue;
 		std::string contentsStr;
-		for (auto& edge : traversed) 
+		for (auto& edge : ctg.path)
 		{
 			contentsStr += std::to_string(edge->edgeId.signedId()) + " -> ";
-			contigLength += edge->length();
-			sumCov += edge->meanCoverage * edge->length();
 		}
-		int meanCoverage = contigLength ? sumCov / contigLength : 0;
 
-		_contigs.emplace_back(traversed, edgeId, circular, 
-							  contigLength, meanCoverage);
-		_contigs.back().repetitive = repetitive;
-
-		if (edgeId.strand())
-		{
-			contentsStr.erase(contentsStr.size() - 4);
-			Logger::get().debug() << "Contig " << edgeId.signedId() 
-							<< ": " << contentsStr;
-		}
+		contentsStr.erase(contentsStr.size() - 4);
+		Logger::get().debug() << "Contig " << ctg.id.signedId() 
+						<< ": " << contentsStr;
 	}
-	this->generateContigSequences(_contigs);
+
 	Logger::get().info() << "Generated " << _contigs.size() / 2 << " contigs";
 }
 
-void OutputGenerator::generateContigSequences(std::vector<Contig>& contigs) const
+void OutputGenerator::
+	generateContigSequences(std::vector<UnbranchingPath>& contigs) const
 {
 	ContigGenerator gen;
 	for (auto& contig : contigs)
@@ -306,9 +248,9 @@ void OutputGenerator::dumpRepeats(const std::vector<GraphAlignment>& readAlignme
 	}
 }
 
-std::vector<Contig> OutputGenerator::edgesPaths() const
+std::vector<UnbranchingPath> OutputGenerator::edgesPaths() const
 {
-	std::vector<Contig> paths;
+	std::vector<UnbranchingPath> paths;
 	for (auto& edge : _graph.iterEdges())
 	{
 		GraphPath path = {edge};
@@ -360,8 +302,8 @@ void OutputGenerator::outputFasta(bool contigs, const std::string& filename)
 	}
 }
 
-void OutputGenerator::outputEdgesFasta(const std::vector<Contig>& paths,
-									  const std::string& filename)
+void OutputGenerator::outputEdgesFasta(const std::vector<UnbranchingPath>& paths,
+									   const std::string& filename)
 {
 	static const size_t FASTA_SLICE = 80;
 
@@ -381,8 +323,8 @@ void OutputGenerator::outputEdgesFasta(const std::vector<Contig>& paths,
 	}
 }
 
-void OutputGenerator::outputEdgesGfa(const std::vector<Contig>& paths,
-							    	const std::string& filename)
+void OutputGenerator::outputEdgesGfa(const std::vector<UnbranchingPath>& paths,
+							    	 const std::string& filename)
 {
 	std::ofstream fout(filename);
 	if (!fout.is_open()) throw std::runtime_error("Can't open " + filename);
@@ -416,8 +358,8 @@ void OutputGenerator::outputEdgesGfa(const std::vector<Contig>& paths,
 	}
 }
 
-void OutputGenerator::outputEdgesDot(const std::vector<Contig>& paths,
-									const std::string& filename)
+void OutputGenerator::outputEdgesDot(const std::vector<UnbranchingPath>& paths,
+									 const std::string& filename)
 {
 	std::ofstream fout(filename);
 	if (!fout.is_open()) throw std::runtime_error("Can't open " + filename);

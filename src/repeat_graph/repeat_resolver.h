@@ -5,6 +5,7 @@
 #pragma once
 
 #include "repeat_graph.h"
+#include "read_aligner.h"
 #include "multiplicity_inferer.h"
 
 class RepeatResolver
@@ -12,18 +13,14 @@ class RepeatResolver
 public:
 	RepeatResolver(RepeatGraph& graph, const SequenceContainer& asmSeqs,
 				   const SequenceContainer& readSeqs, 
+				   ReadAligner& aligner,
 				   const MultiplicityInferer& multInf): 
 		_graph(graph), _asmSeqs(asmSeqs), _readSeqs(readSeqs), 
-		_multInf(multInf) {}
+		_aligner(aligner), _multInf(multInf) {}
 
-	void alignReads();
 	void findRepeats();
 	void resolveRepeats();
 
-	const std::vector<GraphAlignment>& getReadsAlignment() const
-	{
-		return _readAlignments;
-	}
 
 private:
 	struct Connection
@@ -38,15 +35,10 @@ private:
 	int  resolveConnections(const std::vector<Connection>& conns);
 	void separatePath(const GraphPath& path, SequenceSegment segment,
 					  FastaRecord::Id startId);
-	std::vector<GraphAlignment> 
-		chainReadAlignments(const SequenceContainer& edgeSeqs,
-							const std::vector<EdgeAlignment>& ovlps) const;
-	void updateAlignments();
-
-	std::vector<GraphAlignment> _readAlignments;
 
 	RepeatGraph& _graph;
 	const SequenceContainer&   _asmSeqs;
 	const SequenceContainer&   _readSeqs;
+	ReadAligner& _aligner;
 	const MultiplicityInferer& _multInf;
 };

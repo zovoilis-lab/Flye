@@ -191,13 +191,14 @@ int main(int argc, char** argv)
 	outGen.outputDot(/*on contigs*/ false, outFolder + "/graph_raw.dot");
 	proc.condence();
 
-	MultiplicityInferer multInf(rg);
-	RepeatResolver resolver(rg, seqAssembly, seqReads, multInf);
 	Logger::get().info() << "Aligning reads to the graph";
-	resolver.alignReads();
-	auto& readAlignments = resolver.getReadsAlignment();
+	ReadAligner aligner(rg, seqAssembly, seqReads);
+	aligner.alignReads();
+
+	MultiplicityInferer multInf(rg);
+	RepeatResolver resolver(rg, seqAssembly, seqReads, aligner, multInf);
 	
-	multInf.fixEdgesMultiplicity(readAlignments);
+	multInf.fixEdgesMultiplicity(aligner.getAlignments());
 	resolver.findRepeats();
 	outGen.outputDot(/*on contigs*/ false, outFolder + "/graph_before_rr.dot");
 	outGen.outputGfa(/*on contigs*/ false, outFolder + "/graph_before_rr.gfa");
@@ -211,7 +212,7 @@ int main(int argc, char** argv)
 	Logger::get().info() << "Generating contigs";
 	outGen.generateContigs();
 
-	outGen.dumpRepeats(readAlignments, outFolder + "/repeats_dump.txt");
+	outGen.dumpRepeats(aligner.getAlignments(), outFolder + "/repeats_dump.txt");
 	//proc.outputDot(/*on contigs*/ false, outFolder + "/graph_resolved.dot");
 	outGen.outputDot(/*on contigs*/ true, outFolder + "/graph_final.dot");
 	outGen.outputFasta(/*on contigs*/ true, outFolder + "/graph_final.fasta");
