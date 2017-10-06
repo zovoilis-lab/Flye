@@ -31,7 +31,14 @@ T median(std::vector<T>& vec)
 	//that sometimes leads to a segfault
 	//std::nth_element(vec.begin(), vec.begin() + vec.size() / 2, 
 	//				 vec.end());
-	return vec[vec.size() / 2];
+	if (vec.size() % 2 == 1)
+	{
+		return vec[vec.size() / 2];
+	}
+	else
+	{
+		return (vec[vec.size() / 2 - 1] + vec[vec.size() / 2]) / 2;
+	}
 }
 
 template<typename T>

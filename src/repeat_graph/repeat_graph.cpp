@@ -278,7 +278,6 @@ void RepeatGraph::getGluepoints(const OverlapContainer& asmOverlaps)
 		}
 
 	};
-	int numGluepoints = 0;
 	for (auto& seqGluepoints : tempGluepoints)
 	{
 		std::vector<SetPoint1d*> sortedSets;
@@ -286,7 +285,6 @@ void RepeatGraph::getGluepoints(const OverlapContainer& asmOverlaps)
 		std::sort(sortedSets.begin(), sortedSets.end(),
 				  [](const SetPoint1d* pt1, const SetPoint1d* pt2)
 				  {return pt1->data.pos < pt2->data.pos;});
-		numGluepoints += sortedSets.size();
 
 		std::vector<SetPoint1d*> currentGroup;
 		for (auto& gp : sortedSets)
@@ -313,21 +311,27 @@ void RepeatGraph::getGluepoints(const OverlapContainer& asmOverlaps)
 	const int MAX_TIP = Parameters::get().minimumOverlap;
 	for (auto& seqRec : _asmSeqs.getIndex())
 	{
+		if (!seqRec.first.strand()) continue;
 		auto& seqPoints = _gluePoints[seqRec.first];
+		auto& complPoints = _gluePoints[seqRec.first.rc()];
 		if (seqPoints.empty() || seqPoints.front().position > MAX_TIP)
 		{
 			seqPoints.emplace(seqPoints.begin(), pointId++, 
 							  seqRec.first, 0);
-			++numGluepoints;
+			complPoints.emplace_back(pointId++, seqRec.first.rc(),
+							  		 _asmSeqs.seqLen(seqRec.first) - 1);
 		}
 		if (seqPoints.size() == 1 || 
 			_asmSeqs.seqLen(seqRec.first) - seqPoints.back().position > MAX_TIP)
 		{
 			seqPoints.emplace_back(pointId++, seqRec.first, 
 								   _asmSeqs.seqLen(seqRec.first) - 1);
-			++numGluepoints;
+			complPoints.emplace(complPoints.begin(), pointId++, 
+							  	seqRec.first.rc(), 0);
 		}
 	}
+	int numGluepoints = 0;
+	for (auto& seqRec : _gluePoints) numGluepoints += seqRec.second.size();
 	Logger::get().debug() << "Created " << numGluepoints << " gluepoints";
 
 	//free memory
