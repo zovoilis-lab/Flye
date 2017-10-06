@@ -46,6 +46,8 @@ public:
 	void generateContigs();
 	void dumpRepeats(const std::vector<GraphAlignment>& readAlignments,
 					 const std::string& outFile);
+	void extendContigs(const std::vector<GraphAlignment>& readAln, 
+					   const std::string& outFile);
 
 	void outputDot(bool contigs, const std::string& filename);
 	void outputGfa(bool contigs, const std::string& filename);

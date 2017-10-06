@@ -85,7 +85,89 @@ void OutputGenerator::generateContigs()
 		}
 	}
 	this->generateContigSequences(_contigs);
-	Logger::get().info() << "Generated " << _contigs.size() / 2 << " contigs";
+	Logger::get().debug() << "Generated " << _contigs.size() / 2 << " contigs";
+}
+
+void OutputGenerator::extendContigs(const std::vector<GraphAlignment>& readAln,
+									const std::string& outFile)
+{
+	std::unordered_set<GraphEdge*> coveredRepeats;
+	std::vector<Contig> extendedContigs;
+	for (auto& ctg : _contigs)
+	{
+		if (ctg.repetitive) continue;
+		if (!ctg.id.strand()) continue;
+
+		extendedContigs.push_back(ctg);
+		bool extendFwd = !ctg.path.back()->nodeRight->outEdges.empty();
+		if (extendFwd)
+		{
+			int32_t maxExtension = 0;
+			SequenceSegment bestSegment;
+			for (auto& path : readAln)
+			{
+				for (size_t i = 0; i < path.size(); ++i)
+				{
+					if (path[i].edge == ctg.path.back())
+					{
+						size_t j = i + 1;
+						while (j < path.size() && path[j].edge->repetitive) ++j;
+
+						for (size_t k = i + 1; k < j; ++k)
+						{
+							coveredRepeats.insert(path[k].edge);
+							coveredRepeats
+								.insert(_graph.complementEdge(path[k].edge));
+						}
+
+						int32_t overhang = path[i].overlap.extLen - 
+										   path[i].overlap.extEnd;
+						int32_t extension = 
+							path[j - 1].overlap.curEnd - path[i].overlap.curEnd -
+							overhang;
+						if (i != j - 1 && extension > maxExtension)
+						{
+							maxExtension = extension;
+							bestSegment.seqId = path[i].overlap.curId;
+							bestSegment.start = path[i].overlap.curEnd + overhang;
+							bestSegment.end = path[j - 1].overlap.curEnd;
+						}
+					}
+				}
+			}
+
+			if (maxExtension > 0)
+			{
+				Logger::get().debug() << "Ctg " << ctg.name() 
+					<< " fwd extension " << maxExtension;
+
+				std::string extSeq = _readSeqs.getSeq(bestSegment.seqId)
+							.substr(bestSegment.start, 
+									bestSegment.end - bestSegment.start).str();
+				extendedContigs.back().sequence += extSeq;
+			}
+		}
+	}
+
+	for (auto& ctg : _contigs)
+	{
+		if (ctg.repetitive && ctg.id.strand())
+		{
+			bool covered = true;
+			for (auto& edge : ctg.path)
+			{
+				if (!coveredRepeats.count(edge)) covered = false;
+			}
+			if (!covered)
+			{
+				extendedContigs.push_back(ctg);
+			}
+		}
+	}
+
+	Logger::get().info() << "Generated " << extendedContigs.size() 
+		<< " graph paths";
+	this->outputEdgesFasta(extendedContigs, outFile);
 }
 
 void OutputGenerator::generateContigSequences(std::vector<Contig>& contigs) const
