@@ -21,17 +21,15 @@ void RepeatResolver::separatePath(const GraphPath& graphPath,
 	vecRemove(graphPath.front()->nodeRight->inEdges, graphPath.front());
 	graphPath.front()->nodeRight = leftNode;
 	leftNode->inEdges.push_back(graphPath.front());
+	int32_t pathCoverage = (graphPath.front()->meanCoverage +
+						    graphPath.back()->meanCoverage) / 2;
 
 	//repetitive edges in the middle
 	for (size_t i = 1; i < graphPath.size() - 1; ++i)
 	{
 		graphPath[i]->resolved = true;
-		if (!graphPath[i]->isLooped())
-		{
-			graphPath[i]->meanCoverage = 
-				std::max(graphPath[i]->meanCoverage - 
-						 _multInf.getMeanCoverage(), 0);
-		}
+		graphPath[i]->meanCoverage = 
+			std::max(graphPath[i]->meanCoverage - pathCoverage, 0);
 	}
 
 	GraphNode* rightNode = leftNode;
@@ -202,11 +200,24 @@ void RepeatResolver::findRepeats()
 	{
 		if (!edge->edgeId.strand()) continue;
 
-		GraphEdge* complEdge = _graph.complementEdge(edge);
 		if (edge->meanCoverage > _multInf.getUniqueCovThreshold() * 2)
 		{
 			edge->repetitive = true;
-			complEdge->repetitive = true;
+			_graph.complementEdge(edge)->repetitive = true;
+		}
+		//plus tanem repeat
+		if (edge->isLooped())
+		{
+			std::unordered_set<FastaRecord::Id> seen;
+			for (auto& seg : edge->seqSegments)
+			{
+				if (seen.count(seg.seqId))
+				{
+					edge->repetitive = true;
+					_graph.complementEdge(edge)->repetitive = true;
+				}
+				seen.insert(seg.seqId);
+			}
 		}
 	}
 
@@ -259,10 +270,16 @@ void RepeatResolver::findRepeats()
 		}
 		return std::min(repeatMult, 1) + uniqueMult;
 	};
-	for (auto& edge : _graph.iterEdges())
+
+	//order might be important, process short edges first
+	std::vector<GraphEdge*> sortedEdges;
+	for (auto& edge : _graph.iterEdges()) sortedEdges.push_back(edge);
+	std::sort(sortedEdges.begin(), sortedEdges.end(),
+			  [](const GraphEdge* e1, const GraphEdge* e2) 
+			  {return e1->length() < e2->length();});
+	for (auto& edge : sortedEdges)
 	{
 		if (!edge->edgeId.strand()) continue;
-		if (edge->isRepetitive()) continue;
 
 		GraphEdge* complEdge = _graph.complementEdge(edge);
 		int rightMult = edgeMultiplicity(edge);
@@ -275,48 +292,22 @@ void RepeatResolver::findRepeats()
 		}
 	}
 	
-	//mark all unprocessed edges as repetitive
-	//probably don't need this anymore
-	/*for (auto& edge : _graph.iterEdges())
-	{
-		GraphEdge* complEdge = _graph.complementEdge(edge);
-		if (!outConnections.count(edge) && !outConnections.count(complEdge)
-			&& edge->length() < Parameters::get().minimumOverlap)
-		{
-			Logger::get().debug() << "Not updated: " << edge->edgeId.signedId();
-			edge->repetitive = true;
-			complEdge->repetitive = true;
-		}
-	}*/
-
 	//propagate within unbranching paths, jumping over loops
+	std::unordered_set<GraphEdge*> visited;
 	for (GraphEdge* edge : _graph.iterEdges())
 	{
-		if (!edge->isRepetitive() || edge->isLooped()) continue;
+		if (!edge->isRepetitive() || edge->isLooped() ||
+			visited.count(edge)) continue;
 
-		std::unordered_set<GraphEdge*> visited;
 		GraphEdge* curEdge = edge;
+		visited.insert(edge);
 		while(true)
 		{
-			int outCount = 0;
-			int inCount = 0;
-			GraphEdge* nextEdge = nullptr;
-			for (auto& outEdge : curEdge->nodeRight->outEdges)
-			{
-				if (!outEdge->isLooped())
-				{
-					nextEdge = outEdge;
-					++outCount;
-				}
-			}
-			for (auto& inEdge : curEdge->nodeRight->inEdges)
-			{
-				if (!inEdge->isLooped()) ++inCount;
-			}
-			if (outCount > 1 || inCount > 1 ||
-				visited.count(nextEdge) || 
-				nextEdge == nullptr) break;
+			if (curEdge->nodeRight->inEdges.size() != 1 ||
+				curEdge->nodeRight->outEdges.size() != 1) break;
 
+			GraphEdge* nextEdge = curEdge->nodeRight->outEdges.front();
+			if (visited.count(nextEdge)) break;
 			visited.insert(curEdge);
 			curEdge = nextEdge;
 			curEdge->repetitive = true;
@@ -634,7 +625,8 @@ void RepeatResolver::alignReads()
 	int64_t totalLength = 0;
 	for (auto& readId : _readSeqs.getIndex())
 	{
-		if (_readSeqs.seqLen(readId.first) > Constants::maxSeparation)
+		//if (_readSeqs.seqLen(readId.first) > Constants::maxSeparation)
+		if (_readSeqs.seqLen(readId.first) > Parameters::get().minimumOverlap)
 		{
 			totalLength += _readSeqs.seqLen(readId.first);
 			allQueries.push_back(readId.first);
@@ -658,14 +650,17 @@ void RepeatResolver::alignReads()
 		std::sort(alignments.begin(), alignments.end(),
 		  [](const EdgeAlignment& e1, const EdgeAlignment& e2)
 			{return e1.overlap.curBegin < e2.overlap.curBegin;});
-		auto readChain = this->chainReadAlignments(pathsContainer, alignments);
+		auto readChains = this->chainReadAlignments(pathsContainer, alignments);
 
-		if (readChain.empty()) return;
+		if (readChains.empty()) return;
 		indexMutex.lock();
-		_readAlignments.push_back(readChain);
 		++numAligned;
-		alignedLength += readChain.back().overlap.curEnd - 
-						 readChain.front().overlap.curBegin;
+		for (auto& chain : readChains) 
+		{
+			_readAlignments.push_back(chain);
+			alignedLength += chain.back().overlap.curEnd - 
+							 chain.front().overlap.curBegin;
+		}
 		indexMutex.unlock();
 	};
 
@@ -715,7 +710,7 @@ namespace
 	};
 }
 
-GraphAlignment
+std::vector<GraphAlignment>
 	RepeatResolver::chainReadAlignments(const SequenceContainer& edgeSeqs,
 								 	    const std::vector<EdgeAlignment>& ovlps) const
 {
@@ -770,28 +765,38 @@ GraphAlignment
 		activeChains.back().score = edgeAlignment.overlap.score;
 	}
 
-	int32_t maxScore = 0;
-	Chain* maxChain = nullptr;
-	for (auto& chain : activeChains)
+	//choosing optimal(ish) set of alignments
+	std::vector<GraphAlignment> acceptedAlignments;
+	std::vector<Chain> sortedChains(activeChains.begin(), activeChains.end());
+	std::sort(sortedChains.begin(), sortedChains.end(),
+			  [](const Chain& c1, const Chain& c2)
+			  {return c1.score > c2.score;});
+	for (auto& chain : sortedChains)
 	{
-
 		int32_t alnLen = chain.aln.back()->overlap.curEnd - 
 					 	 chain.aln.front()->overlap.curBegin;
+		if (alnLen < Parameters::get().minimumOverlap) continue;
 
-		if (alnLen > Parameters::get().minimumOverlap && 
-			chain.score > maxScore)
+		//check if it overlaps with other accepted chains
+		bool overlaps = false;
+		for (auto& existAln : acceptedAlignments)
 		{
-			maxScore = chain.score;
-			maxChain = &chain;
+			int32_t existStart = existAln.front().overlap.curBegin;
+			int32_t existEnd = existAln.back().overlap.curEnd;
+			int32_t curStart = chain.aln.front()->overlap.curBegin;
+			int32_t curEnd = chain.aln.back()->overlap.curEnd;
+
+			int32_t overlapRate = std::min(curEnd, existEnd) - 
+									std::max(curStart, existStart);
+			if (overlapRate > Constants::maxSeparation) overlaps = true;
+		}
+		if (!overlaps) 
+		{
+			acceptedAlignments.emplace_back();
+			for (auto& aln : chain.aln) acceptedAlignments.back().push_back(*aln);
 		}
 	}
 
-	GraphAlignment result;
-	if (maxChain)
-	{
-		for (auto& aln : maxChain->aln) result.push_back(*aln);
-	}
-
-	return result;
+	return acceptedAlignments;
 }
 

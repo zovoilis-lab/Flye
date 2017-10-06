@@ -38,8 +38,9 @@ private:
 	int  resolveConnections(const std::vector<Connection>& conns);
 	void separatePath(const GraphPath& path, SequenceSegment segment,
 					  FastaRecord::Id startId);
-	GraphAlignment chainReadAlignments(const SequenceContainer& edgeSeqs,
-									   const std::vector<EdgeAlignment>& ovlps) const;
+	std::vector<GraphAlignment> 
+		chainReadAlignments(const SequenceContainer& edgeSeqs,
+							const std::vector<EdgeAlignment>& ovlps) const;
 	void updateAlignments();
 
 	std::vector<GraphAlignment> _readAlignments;
