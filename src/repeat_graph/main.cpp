@@ -19,6 +19,7 @@
 #include "multiplicity_inferer.h"
 #include "graph_processing.h"
 #include "repeat_resolver.h"
+#include "output_generator.h"
 
 bool parseArgs(int argc, char** argv, std::string& readsFasta, 
 			   std::string& outFolder, std::string& logFile, 
@@ -186,7 +187,8 @@ int main(int argc, char** argv)
 
 	Logger::get().info() << "Simplifying the graph";
 	GraphProcessor proc(rg, seqAssembly, seqReads);
-	proc.outputDot(/*on contigs*/ false, outFolder + "/graph_raw.dot");
+	OutputGenerator outGen(rg, seqAssembly, seqReads);
+	outGen.outputDot(/*on contigs*/ false, outFolder + "/graph_raw.dot");
 	proc.condence();
 
 	MultiplicityInferer multInf(rg);
@@ -197,9 +199,9 @@ int main(int argc, char** argv)
 	
 	multInf.fixEdgesMultiplicity(readAlignments);
 	resolver.findRepeats();
-	proc.outputDot(/*on contigs*/ false, outFolder + "/graph_before_rr.dot");
-	proc.outputGfa(/*on contigs*/ false, outFolder + "/graph_before_rr.gfa");
-	proc.outputFasta(/*on contigs*/ false, outFolder + 
+	outGen.outputDot(/*on contigs*/ false, outFolder + "/graph_before_rr.dot");
+	outGen.outputGfa(/*on contigs*/ false, outFolder + "/graph_before_rr.gfa");
+	outGen.outputFasta(/*on contigs*/ false, outFolder + 
 					 "/graph_before_rr.fasta");
 
 	Logger::get().info() << "Resolving repeats";
@@ -207,13 +209,13 @@ int main(int argc, char** argv)
 	//proc.outputDot(/*on contigs*/ false, outFolder + "/graph_after_rr.dot");
 
 	Logger::get().info() << "Generating contigs";
-	proc.generateContigs();
+	outGen.generateContigs();
 
-	proc.dumpRepeats(readAlignments, outFolder + "/repeats_dump.txt");
+	outGen.dumpRepeats(readAlignments, outFolder + "/repeats_dump.txt");
 	//proc.outputDot(/*on contigs*/ false, outFolder + "/graph_resolved.dot");
-	proc.outputDot(/*on contigs*/ true, outFolder + "/graph_final.dot");
-	proc.outputFasta(/*on contigs*/ true, outFolder + "/graph_final.fasta");
-	proc.outputGfa(/*on contigs*/ true, outFolder + "/graph_final.gfa");
+	outGen.outputDot(/*on contigs*/ true, outFolder + "/graph_final.dot");
+	outGen.outputFasta(/*on contigs*/ true, outFolder + "/graph_final.fasta");
+	outGen.outputGfa(/*on contigs*/ true, outFolder + "/graph_final.gfa");
 	
 	return 0;
 }
