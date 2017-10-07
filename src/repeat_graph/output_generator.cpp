@@ -14,16 +14,11 @@ void OutputGenerator::generateContigs()
 
 	for (auto& ctg : _contigs)
 	{
-		if (!ctg.id.strand()) continue;
-		std::string contentsStr;
-		for (auto& edge : ctg.path)
+		if (ctg.id.strand())
 		{
-			contentsStr += std::to_string(edge->edgeId.signedId()) + " -> ";
+			Logger::get().debug() << "Contig " << ctg.id.signedId() 
+							<< ": " << ctg.edgesStr();
 		}
-
-		contentsStr.erase(contentsStr.size() - 4);
-		Logger::get().debug() << "Contig " << ctg.id.signedId() 
-						<< ": " << contentsStr;
 	}
 
 	Logger::get().info() << "Generated " << _contigs.size() / 2 << " contigs";

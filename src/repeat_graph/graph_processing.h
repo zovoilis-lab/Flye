@@ -29,6 +29,20 @@ struct UnbranchingPath
 		return nameTag + "_" + idTag;
 	}
 
+	std::string edgesStr() const
+	{
+		if (path.empty()) return "";
+
+		std::string contentsStr;
+		for (auto& edge : path)
+		{
+			contentsStr += std::to_string(edge->edgeId.signedId()) + " -> ";
+		}
+
+		contentsStr.erase(contentsStr.size() - 4);
+		return contentsStr;
+	}
+
 	GraphPath path;
 	FastaRecord::Id id;
 	std::string sequence;
