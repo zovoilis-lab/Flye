@@ -487,3 +487,24 @@ void OverlapContainer::loadOverlaps(const std::string& filename)
 		_overlapIndex[ovlp.curId].push_back(ovlp);
 	}
 }
+
+void OverlapContainer::buildIntervalTree()
+{
+	Logger::get().debug() << "Building interval tree";
+	for (auto& seqOvlps : _overlapIndex)
+	{
+		std::vector<Interval<OverlapRange*>> intervals;
+		for (auto& ovlp : seqOvlps.second)
+		{
+			intervals.emplace_back(ovlp.curBegin, ovlp.curEnd, &ovlp);
+		}
+		_ovlpTree[seqOvlps.first] = IntervalTree<OverlapRange*>(intervals);
+	}
+}
+
+std::vector<Interval<OverlapRange*>> 
+	OverlapContainer::getOverlaps(FastaRecord::Id seqId, 
+								  int32_t start, int32_t end) const
+{
+	return _ovlpTree.at(seqId).findOverlapping(start, end);
+}

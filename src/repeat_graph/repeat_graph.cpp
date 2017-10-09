@@ -53,8 +53,9 @@ void RepeatGraph::build()
 								  Constants::maximumJump, 
 								  Parameters::get().minimumOverlap,
 								  /*no overhang*/ 0, /*keep alignment*/ true);
-	OverlapContainer asmOverlaps(asmOverlapper, _asmSeqs, false);
+	OverlapContainer asmOverlaps(asmOverlapper, _asmSeqs, /*only max*/ false);
 	asmOverlaps.findAllOverlaps();
+	asmOverlaps.buildIntervalTree();
 
 	this->getGluepoints(asmOverlaps);
 	this->collapseTandems();
@@ -149,23 +150,29 @@ void RepeatGraph::getGluepoints(const OverlapContainer& asmOverlaps)
 		//for gluepoints that lie within other existing overlaps
 		//(handles situations with 'repeat hierarchy', when some
 		//repeats are parts of the other bigger repeats)
-		auto startCmp = [] (const OverlapRange& ovlp, int32_t pos)
+		/*auto startCmp = [] (const OverlapRange& ovlp, int32_t pos)
 						{return ovlp.curBegin < pos;};
 		auto& allOvlp = asmOverlaps.getOverlapIndex().at(clustSeq);
 		auto leftPos = std::lower_bound(allOvlp.begin(), allOvlp.end(), 
 										clusterXpos - 50000, startCmp);
 		auto rightPos = std::lower_bound(allOvlp.begin(), allOvlp.end(), 
-										 clusterXpos, startCmp);
+										 clusterXpos, startCmp);*/
 
-		for (auto& ovlp = leftPos; ovlp != rightPos; ++ovlp)
+		//for (auto& ovlp = leftPos; ovlp != rightPos; ++ovlp)
+		for (auto& interval : asmOverlaps.getOverlaps(clustSeq, 
+													  clusterXpos - 1, 
+													  clusterXpos + 1))
 		{
-			if (clusterXpos - ovlp->curBegin >= 0 && 
-				ovlp->curEnd - clusterXpos >= 0)
+			/*if (clusterXpos - interval.value->curBegin < 0 && 
+				interval.value->curEnd - clusterXpos < 0)
 			{
-				int32_t projectedPos = ovlp->project(clusterXpos);
-				extCoords.emplace_back(Point2d(clustSeq, clusterXpos,
-									   		   ovlp->extId, projectedPos));
-			}
+				throw std::runtime_error("AA");
+			}*/
+			
+			int32_t projectedPos = interval.value->project(clusterXpos);
+			extCoords.emplace_back(Point2d(clustSeq, clusterXpos,
+										   interval.value->extId, 
+										   projectedPos));
 		}
 
 		//Finally, cluster the projected points based on Y coordinates
@@ -547,15 +554,19 @@ void RepeatGraph::initializeEdges(const OverlapContainer& asmOverlaps)
 			{
 				if (findSet(segOne) == findSet(segTwo)) continue;
 
-				auto& overlaps = asmOverlaps.getOverlapIndex()
-												.at(segOne->data->seqId);
-				for (auto& ovlp : overlaps)
+				//auto& overlaps = asmOverlaps.getOverlapIndex()
+				//								.at(segOne->data->seqId);
+				//for (auto& ovlp : overlaps)
+				for (auto& interval : asmOverlaps.getOverlaps(segOne->data->seqId,
+															  segOne->data->start,
+															  segOne->data->end))
 				{
-					if (ovlp.extId != segTwo->data->seqId) continue;
+					if (interval.value->extId != segTwo->data->seqId) continue;
 
-					int32_t intersectOne = segIntersect(*segOne->data, ovlp);
+					int32_t intersectOne = segIntersect(*segOne->data, 
+														*interval.value);
 					int32_t intersectTwo = segIntersect(*segTwo->data, 
-														ovlp.reverse());
+														interval.value->reverse());
 					/*float rateOne = (float)intersectOne / segOne->data->length();
 					float rateTwo = (float)intersectTwo / segTwo->data->length();
 

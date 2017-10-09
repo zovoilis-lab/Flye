@@ -9,6 +9,7 @@
 #include <sstream>
 
 #include <cuckoohash_map.hh>
+#include "IntervalTree.h"
 
 #include "vertex_index.h"
 #include "sequence_container.h"
@@ -233,6 +234,10 @@ public:
 	std::vector<OverlapRange> lazySeqOverlaps(FastaRecord::Id readId);
 	const OverlapIndex& getOverlapIndex() const {return _overlapIndex;}
 
+	void buildIntervalTree();
+	std::vector<Interval<OverlapRange*>> 
+		getOverlaps(FastaRecord::Id seqId, int32_t start, int32_t end) const;
+
 private:
 	void storeOverlaps(const std::vector<OverlapRange>& overlaps, 
 					   FastaRecord::Id seqId);
@@ -245,4 +250,7 @@ private:
 	std::mutex _indexMutex;
 	OverlapIndex _overlapIndex;
 	std::unordered_set<FastaRecord::Id> _cached;
+
+	std::unordered_map<FastaRecord::Id, 
+					   IntervalTree<OverlapRange*>> _ovlpTree;
 };
