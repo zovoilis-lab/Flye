@@ -201,13 +201,13 @@ int main(int argc, char** argv)
 	multInf.fixEdgesMultiplicity(aligner.getAlignments());
 	resolver.findRepeats();
 	outGen.outputDot(/*on contigs*/ false, outFolder + "/graph_before_rr.dot");
-	outGen.outputGfa(/*on contigs*/ false, outFolder + "/graph_before_rr.gfa");
+	//outGen.outputGfa(/*on contigs*/ false, outFolder + "/graph_before_rr.gfa");
 	outGen.outputFasta(/*on contigs*/ false, outFolder + 
 					 "/graph_before_rr.fasta");
 
 	Logger::get().info() << "Resolving repeats";
 	resolver.resolveRepeats();
-	outGen.outputDot(/*on contigs*/ false, outFolder + "/graph_after_rr.dot");
+	//outGen.outputDot(/*on contigs*/ false, outFolder + "/graph_after_rr.dot");
 
 	Logger::get().info() << "Generating contigs";
 	outGen.generateContigs();

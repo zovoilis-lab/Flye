@@ -289,6 +289,7 @@ private:
 	void getGluepoints(const OverlapContainer& ovlps);
 	void initializeEdges(const OverlapContainer& asmOverlaps);
 	void collapseTandems();
+	//void collapseRedundant();
 	void logEdges();
 	
 	const SequenceContainer& _asmSeqs;
