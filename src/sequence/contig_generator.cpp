@@ -183,6 +183,8 @@ void ContigGenerator::outputContigs(const std::string& fileName)
 std::vector<ContigGenerator::AlignmentInfo> 
 ContigGenerator::generateAlignments(const ContigPath& path)
 {
+	if (path.sequences.size() < 2) return {};
+
 	typedef size_t AlnTask;
 
 	std::vector<AlignmentInfo> alnResults;

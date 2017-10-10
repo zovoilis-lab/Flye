@@ -16,6 +16,8 @@ void processInParallel(const std::vector<T>& scheduledTasks,
 					   std::function<void(const T&)> updateFun,
 					   size_t maxThreads, bool progressBar)
 {
+	if (scheduledTasks.empty()) return;
+
 	std::atomic<size_t> jobId(0);
 	ProgressPercent progress(scheduledTasks.size());
 
@@ -42,7 +44,8 @@ void processInParallel(const std::vector<T>& scheduledTasks,
 		}
 	};
 
-	std::vector<std::thread> threads(maxThreads);
+	std::vector<std::thread> threads(std::min(maxThreads, 
+											  scheduledTasks.size()));
 	for (size_t i = 0; i < threads.size(); ++i)
 	{
 		threads[i] = std::thread(threadWorker);
