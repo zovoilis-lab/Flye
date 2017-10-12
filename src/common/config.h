@@ -19,7 +19,6 @@ namespace Constants
 	const int closeJumpRate = 10;
 	const int farJumpRate = 2;
 	const int overlapDivergenceRate = 5;
-	const int gapJump = 50;
 	const int penaltyWindow = 10;
 
 	//chimera detection
@@ -28,22 +27,23 @@ namespace Constants
 
 	//extension
 	const int minReadsInContig = 2;
-	const int minExtensions = 1;
 	const int maxInnerFraction = 10;
 
 	//repeat graph
 	const int maxSeparation = 500;
 	const int trustedEdgeLength = 10000;
-	const float minRepeatResSupport = 0.25f;
+	const float minRepeatResSupport = 0.5f;
 	const int outPathsRatio = 5;
 	const int readCovRate = 100;
-	const int alnOverlap = -50;
 
 	//index construction parameters
 	const int assembleKmerSample = 5;
+	const int assembleGap = 50;
 	const int repeatGraphKmerSample = 5;
+	const int repeatGraphGap = 50;
 	const int repeatGraphMaxKmer = 500;
 	const int readAlignKmerSample = 5;
+	const int readAlignGap = 50;
 	const int readAlignMaxKmer = 500;
 }
 

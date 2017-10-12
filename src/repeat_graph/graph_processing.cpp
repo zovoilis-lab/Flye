@@ -3,74 +3,37 @@
 //Released under the BSD license (see LICENSE file)
 
 #include <deque>
-#include <iomanip>
 
 #include "graph_processing.h"
 #include "../sequence/contig_generator.h"
 #include "../common/logger.h"
 #include "../common/config.h"
+#include "../common/utils.h"
 
 void GraphProcessor::condence()
 {
-	this->trimTips();
-	this->trimFakeLoops();
-
-	this->unrollLoops();
+	//this->trimTips();
 	this->condenceEdges();
-	this->unrollLoops();
-	this->condenceEdges();
-
 	this->fixChimericJunctions();
+	this->collapseBulges();
+	this->condenceEdges();
 	this->trimTips();
-}
-
-void GraphProcessor::trimFakeLoops()
-{
-	std::unordered_set<GraphEdge*> toRemove;
-	for (auto& edge : _graph.iterEdges())
-	{
-		if (edge->isLooped() && 
-			edge->length() < Parameters::get().minimumOverlap)
-		{
-			std::unordered_set<FastaRecord::Id> seenSeqs;
-			bool isFake = true;
-			for (auto& seg : edge->seqSegments)
-			{
-				if (seenSeqs.count(seg.seqId))
-				{
-					isFake = false;
-					break;
-				}
-				seenSeqs.insert(seg.seqId);
-			}
-
-			if (isFake)
-			{
-				toRemove.insert(edge);
-				toRemove.insert(_graph.complementEdge(edge));
-			}
-		}
-	}
-
-	for (auto& edge : toRemove)	_graph.removeEdge(edge);
-	Logger::get().debug() << "Removed " << toRemove.size() / 2 
-		<< " fake loops";
 }
 
 void GraphProcessor::fixChimericJunctions()
 {
-	std::unordered_set<GraphNode*> toRemove;
+	//a very specific case: 1 in - 1 out
+	std::unordered_set<GraphNode*> simpleCases;
 	for (auto& node : _graph.iterNodes())
 	{
 		if (!node->isBifurcation() &&
 			(node->inEdges.front()->edgeId ==
 			 node->outEdges.front()->edgeId.rc()))
 		{
-			toRemove.insert(node);
+			simpleCases.insert(node);
 		}
 	}
-
-	for (auto& node : toRemove)
+	for (auto& node : simpleCases)
 	{
 		GraphNode* newNode = _graph.addNode();
 		GraphEdge* cutEdge = node->outEdges.front();
@@ -79,113 +42,84 @@ void GraphProcessor::fixChimericJunctions()
 		node->outEdges.clear();
 	}
 
-	Logger::get().debug() << "Removed " << toRemove.size() 
+	//more common case: 2 in - 2 out
+	std::unordered_set<GraphNode*> complexCases;
+	for (auto& node : _graph.iterNodes())
+	{
+		if (node->inEdges.size() != 2 ||
+			node->outEdges.size() != 2) continue;
+		auto& inEdges = node->inEdges;
+		auto& outEdges = node->outEdges;
+		if (inEdges[0]->edgeId.rc() != outEdges[0]->edgeId)
+		{
+			//match INs with OUTs
+			std::swap(inEdges[0], inEdges[1]);
+		}
+
+		if (inEdges[0]->edgeId.rc() == outEdges[0]->edgeId &&
+			inEdges[1]->edgeId.rc() == outEdges[1]->edgeId)
+		{
+			complexCases.insert(node);
+		}
+	}
+	for(auto& node : complexCases)
+	{
+		GraphNode* newNode = _graph.addNode();
+		node->inEdges[1]->nodeRight = newNode;
+		node->outEdges[0]->nodeLeft = newNode;
+		newNode->inEdges.push_back(node->inEdges[1]);
+		newNode->outEdges.push_back(node->outEdges[0]);
+
+		node->inEdges.pop_back();
+		node->outEdges.erase(node->outEdges.begin());
+	}
+
+	Logger::get().debug() << "Removed " 
+		<< simpleCases.size() + complexCases.size()
 		<< " chimeric junctions";
 }
 
-void GraphProcessor::unrollLoops()
+void GraphProcessor::collapseBulges()
 {
-	auto unrollEdge = [this](GraphEdge& loopEdge)
+	const int MAX_BUBBLE = Parameters::get().minimumOverlap;
+	std::unordered_set<std::pair<GraphNode*, GraphNode*>,
+					   pairhash> toFix;
+	for (auto& edge : _graph.iterEdges())
 	{
-		GraphEdge* prevEdge = nullptr;
-		for (auto& inEdge : loopEdge.nodeLeft->inEdges)
-		{
-			if (inEdge != &loopEdge) prevEdge = inEdge;
-		}
-		GraphEdge* nextEdge = nullptr;
-		for (auto& outEdge : loopEdge.nodeLeft->outEdges)
-		{
-			if (outEdge != &loopEdge) nextEdge = outEdge;
-		}
+		//fixing simple bubbles like this: -<=>-
+		if (edge->nodeLeft->outEdges.size()  != 2 ||
+			edge->nodeLeft->inEdges.size()   != 1 ||
+			edge->nodeRight->inEdges.size()  != 2 ||
+			edge->nodeRight->outEdges.size() != 1) continue;
 
-		auto growingSeqs = prevEdge->seqSegments;
-		/*
-		Logger::get().debug() << "Prev seqs " << prevEdge->edgeId.signedId();
-		for (auto& seq : growingSeqs)
-		{
-			Logger::get().debug() << "\t" << _asmSeqs.seqName(seq.seqId) 
-				<< " " << seq.start << " " << seq.end;
-		}
-		Logger::get().debug() << "Loop seqs " << loopEdge.edgeId.signedId();
-		for (auto& seq : loopEdge.seqSegments)
-		{
-			Logger::get().debug() << "\t" << _asmSeqs.seqName(seq.seqId)
-				<< " " << seq.start << " " << seq.end;
-		}
-		Logger::get().debug() << "Next seqs " << nextEdge->edgeId.signedId();
-		for (auto& seq : nextEdge->seqSegments)
-		{
-			Logger::get().debug() << "\t" << _asmSeqs.seqName(seq.seqId) 
-				<< " " << seq.start << " " << seq.end;
-		}*/
+		GraphEdge* otherEdge = edge->nodeLeft->outEdges[0];
+		if (otherEdge == edge) otherEdge = edge->nodeLeft->outEdges[1];
+		if (otherEdge->nodeRight != edge->nodeRight) continue;
+		if (edge->edgeId == otherEdge->edgeId.rc()) continue;
 
-		std::vector<SequenceSegment> updatedSeqs;
-		for (auto& seq : growingSeqs)
-		{
-			while (true)
-			{
-				bool updated = false;
-				for (auto& otherSeq : loopEdge.seqSegments)
-				{
-					if (seq.seqId != otherSeq.seqId ||
-						seq.end != otherSeq.start) continue;
+		if (edge->length() > MAX_BUBBLE || 
+			otherEdge->length() > MAX_BUBBLE) continue;
+		//if (edge->nodeLeft->inEdges.front()->length() < MAX_BUBBLE ||
+		//	edge->nodeRight->outEdges.front()->length() < MAX_BUBBLE) continue;
 
-					updated = true;
-					seq.end = otherSeq.end;
-					break;
-				}
-
-				bool complete = false;
-				for (auto& otherSeq : nextEdge->seqSegments)
-				{
-					if (seq.seqId != otherSeq.seqId ||
-						seq.end != otherSeq.start) continue;
-
-					complete = true;
-					break;
-				}
-
-				if (complete)
-				{
-					updatedSeqs.push_back(seq);
-					break;
-				}
-				if (!updated) break;
-			}
-		}
-		if (updatedSeqs.size() == prevEdge->seqSegments.size())
-		{
-			prevEdge->seqSegments = updatedSeqs;
-			//Logger::get().debug() << "Unroll " << loopEdge.edgeId.signedId();
-			return true;
-
-		}
-		//Logger::get().debug() << "Can't unroll " << loopEdge.edgeId.signedId();
-		return false;
-	};
-
-	int unrollLoops = 0;
-
-	std::unordered_set<GraphEdge*> toRemove;
-	for (GraphEdge* edge : _graph.iterEdges())
-	{
-		if (!edge->isLooped()) continue;
-		if (edge->nodeLeft->inEdges.size() == 2 &&
-			edge->nodeLeft->outEdges.size() == 2 &&
-			edge->nodeLeft->neighbors().size() == 2)
-		{
-			if (unrollEdge(*edge))
-			{
-				++unrollLoops;
-				//Logger::get().debug() << "Unroll " << edge->edgeId.signedId();
-			}
-			toRemove.insert(edge);
-		}
+		toFix.emplace(edge->nodeLeft, edge->nodeRight);
 	}
-	for (auto& edge : toRemove)	_graph.removeEdge(edge);
 
-	Logger::get().debug() << "Unrolled " << unrollLoops 
-		<< ", removed " << toRemove.size();
+	for (auto& nodes : toFix)
+	{
+		GraphEdge* edgeOne = nodes.first->outEdges[0];
+		GraphEdge* edgeTwo = nodes.first->outEdges[1];
+		if (abs(edgeOne->edgeId.signedId()) > abs(edgeTwo->edgeId.signedId()))
+		{
+			std::swap(edgeOne, edgeTwo);
+		}
+		for (auto& seg : edgeTwo->seqSegments)
+		{
+			edgeOne->seqSegments.push_back(seg);
+		}
+		_graph.removeEdge(edgeTwo);
+	}
+	Logger::get().debug() << "Collapsed " << toFix.size() / 2 << " bulges";
 }
 
 void GraphProcessor::trimTips()
@@ -302,10 +236,23 @@ void GraphProcessor::condenceEdges()
 
 	for (auto& unbranchingPath : toCollapse)
 	{
+		std::string collapsedStr;
+		for (auto& edge : unbranchingPath)
+		{
+			collapsedStr += std::to_string(edge->edgeId.signedId()) + " -> ";
+		}
 		GraphPath complPath = _graph.complementPath(unbranchingPath);
 		auto newEdges = collapseEdges(unbranchingPath);
+		if (newEdges.size() == unbranchingPath.size()) continue;
+
+		std::string addedStr;
 		for (auto& edge : newEdges)
 		{
+			//do not add collapsed short loops
+			//TODO: kinda hacky..
+			//if (edge.length() < Parameters::get().minimumOverlap &&
+			//	edge.isLooped()) continue;	
+
 			GraphEdge addFwd = edge;
 			addFwd.edgeId = _graph.newEdgeId();
 
@@ -319,8 +266,10 @@ void GraphProcessor::condenceEdges()
 				addRev.seqSegments.push_back(seqSeg.complement());
 			}
 
-			_graph.addEdge(std::move(addFwd));
+			GraphEdge* addedEdge = _graph.addEdge(std::move(addFwd));
 			_graph.addEdge(std::move(addRev));
+
+			addedStr += std::to_string(addedEdge->edgeId.signedId()) + " -> ";
 		}
 
 		std::unordered_set<GraphEdge*> toRemove;
@@ -330,13 +279,20 @@ void GraphProcessor::condenceEdges()
 
 		edgesRemoved += unbranchingPath.size();
 		edgesAdded += newEdges.size();
+
+		//if (collapsedStr.size() > 4) collapsedStr.erase(collapsedStr.size() - 4);
+		//if (addedStr.size() > 4) addedStr.erase(addedStr.size() - 4);
+		collapsedStr.erase(collapsedStr.size() - 4);
+		addedStr.erase(addedStr.size() - 4);
+		Logger::get().debug() << "Collapsed: " << collapsedStr 
+			<< " to " << addedStr;
 	}
 
 	Logger::get().debug() << "Removed " << edgesRemoved << " edges";
 	Logger::get().debug() << "Added " << edgesAdded << " edges";
 }
 
-void GraphProcessor::generateContigs()
+std::vector<UnbranchingPath> GraphProcessor::getUnbranchingPaths()
 {
 	std::unordered_map<FastaRecord::Id, size_t> edgeIds;
 	size_t nextEdgeId = 0;
@@ -354,6 +310,7 @@ void GraphProcessor::generateContigs()
 		return FastaRecord::Id(edgeIds[path.front()->edgeId]);
 	};
 	
+	std::vector<UnbranchingPath> unbranchingPaths;
 	std::unordered_set<GraphEdge*> visitedEdges;
 	for (auto edge : _graph.iterEdges())
 	{
@@ -389,436 +346,21 @@ void GraphProcessor::generateContigs()
 						traversed.back()->nodeRight) &&
 						traversed.front()->nodeLeft->outEdges.size() == 1;
 
+		bool repetitive = traversed.front()->isRepetitive() || 
+						  traversed.back()->isRepetitive();
+
 		int contigLength = 0;
 		int64_t sumCov = 0;
-		std::string contentsStr;
 		for (auto& edge : traversed) 
 		{
-			contentsStr += std::to_string(edge->edgeId.signedId()) + " -> ";
 			contigLength += edge->length();
 			sumCov += edge->meanCoverage * edge->length();
 		}
 		int meanCoverage = contigLength ? sumCov / contigLength : 0;
 
-		_contigs.emplace_back(traversed, edgeId, circular, 
+		unbranchingPaths.emplace_back(traversed, edgeId, circular, 
 							  contigLength, meanCoverage);
-
-		if (edgeId.strand())
-		{
-			Logger::get().debug() << "Contig " << edgeId.signedId() 
-							<< ": " << contentsStr;
-		}
+		unbranchingPaths.back().repetitive = repetitive;
 	}
-	this->generateContigSequences(_contigs);
-	Logger::get().info() << "Generated " << _contigs.size() / 2 << " contigs";
-}
-
-void GraphProcessor::generateContigSequences(std::vector<Contig>& contigs) const
-{
-	ContigGenerator gen;
-	for (auto& contig : contigs)
-	{
-		std::unordered_map<FastaRecord::Id, int> seqIdFreq;
-		for (auto& edge : contig.path) 
-		{
-			std::unordered_set<FastaRecord::Id> edgeSeqIds;
-			for (auto& seg: edge->seqSegments) 
-			{
-				edgeSeqIds.insert(seg.seqId);
-			}
-			for (auto& seqId : edgeSeqIds)
-			{
-				seqIdFreq[seqId] += 1;
-			}
-		}
-
-		ContigPath contigPath;
-		int32_t prevFlank = 0;
-		int32_t prevLength = 0;
-
-		//Logger::get().debug() << "Contig: " << contig.id.signedId();
-		//int32_t contigStart = 0;
-		//int32_t theoreticalLen = 0;
-		for (size_t i = 0; i < contig.path.size(); ++i) 
-		{
-			if (contig.path[i]->seqSegments.empty()) 
-			{
-				throw std::runtime_error("Edge without sequence");
-			}
-
-			//get the sequence with maximum frequency
-			SequenceSegment* bestSegment = nullptr;
-			for (auto& seg : contig.path[i]->seqSegments)
-			{
-				if (!bestSegment || 
-					seqIdFreq[seg.seqId] > seqIdFreq[bestSegment->seqId])
-				{
-					bestSegment = &seg;
-				}
-
-				//auto name = (!seg.readSequence) ? 
-				//			_asmSeqs.seqName(seg.seqId) :
-				//			_readSeqs.seqName(seg.seqId);
-				//Logger::get().debug() << "\t\t" << name << "\t"
-				//	<< seg.start << "\t" << seg.end;
-			}
-
-			//auto name = (!bestSegment->readSequence) ? 
-			//				_asmSeqs.seqName(bestSegment->seqId) :
-			//				_readSeqs.seqName(bestSegment->seqId);
-			//Logger::get().debug() << "\tChosen: " << name << "\t" 
-			//	<< contigStart << "\t" << bestSegment->start << "\t" << bestSegment->end;
-			//contigStart += bestSegment->end - bestSegment->start;
-
-			//theoreticalLen += bestSegment->end - bestSegment->start;
-
-			auto& sequence = (!bestSegment->readSequence) ? 
-							  _asmSeqs.getSeq(bestSegment->seqId) :
-							  _readSeqs.getSeq(bestSegment->seqId);
-
-			int32_t leftFlank = std::min(Constants::maxSeparation,
-										 bestSegment->start);
-			if (i == 0) leftFlank = 0;
-			int32_t rightFlank = std::min(Constants::maxSeparation,
-											(int32_t)sequence.length() - 
-											bestSegment->end);
-			if (i == contig.path.size() - 1) rightFlank = 0;
-
-			//Logger::get().debug() << "\tLeft Flank " << leftFlank
-			//	<< " Right flank: " << rightFlank;
-
-			contigPath.sequences
-				.push_back(sequence.substr(bestSegment->start - leftFlank,
-										   bestSegment->end - bestSegment->start
-										   	+ leftFlank + rightFlank));
-
-			if (i != 0)
-			{
-				int32_t overlapLen = prevFlank + leftFlank;
-				OverlapRange ovlp;
-				ovlp.curBegin = prevLength - overlapLen;
-				ovlp.curEnd = prevLength;
-				ovlp.curLen = prevLength;
-				ovlp.extBegin = 0;
-				ovlp.extEnd = overlapLen;
-				ovlp.extLen = contigPath.sequences.back().length();
-				contigPath.overlaps.push_back(ovlp);
-			}
-			prevFlank = rightFlank;
-			prevLength = contigPath.sequences.back().length();
-		}
-		auto fastaRec = gen.generateLinear(contigPath);
-		//Logger::get().debug() << "Expected: " << theoreticalLen 
-		//	<< " generated " << fastaRec.sequence.length();
-		contig.sequence = fastaRec.sequence.str();
-	}
-}
-
-void GraphProcessor::dumpRepeats(const std::vector<GraphAlignment>& readAlignments,
-								 const std::string& outFile)
-{
-	std::ofstream fout(outFile);
-	if (!fout.is_open()) throw std::runtime_error("Can't open " + outFile);
-
-	for (auto& contig : _contigs)
-	{
-		if (!contig.path.front()->isRepetitive()) continue;
-
-		bool isSimple = true;
-		std::unordered_set<GraphEdge*> inputs;
-		for (auto& edge : contig.path.front()->nodeLeft->inEdges)
-		{
-			inputs.insert(edge);
-			if (edge->isRepetitive()) isSimple = false;
-		}
-		std::unordered_set<GraphEdge*> outputs;
-		for (auto& edge : contig.path.back()->nodeRight->outEdges)
-		{
-			outputs.insert(edge);
-			if (edge->isRepetitive()) isSimple = false;
-		}
-		if (!isSimple || inputs.size() != outputs.size()) continue;
-
-		std::unordered_set<GraphEdge*> innerEdges(contig.path.begin(), 
-												  contig.path.end());
-
-		std::unordered_set<FastaRecord::Id> allReads;
-		std::unordered_map<GraphEdge*, 
-						   std::unordered_set<FastaRecord::Id>> inputEdges;
-		std::unordered_map<GraphEdge*, 
-						   std::unordered_set<FastaRecord::Id>> outputEdges;
-
-
-		fout << "#Repeat " << contig.id.signedId() << "\t"
-			<< inputs.size() << std::endl;
-
-		//classifying reads into inner, input, output
-		for (auto& readAln : readAlignments)
-		{
-			bool repeatRead = false;
-			for (auto& alnEdge : readAln)
-			{
-				if (innerEdges.count(alnEdge.edge)) repeatRead = true;
-			}
-
-			if (!repeatRead) continue;
-
-			allReads.insert(readAln.front().overlap.curId);
-			for (auto& alnEdge : readAln)
-			{
-				for (auto& inputEdge : inputs)
-				{
-					if (alnEdge.edge == inputEdge) 
-					{
-						inputEdges[inputEdge]
-							.insert(readAln.front().overlap.curId);
-					}
-				}
-				for (auto& outputEdge : outputs)
-				{
-					if (alnEdge.edge == outputEdge) 
-					{
-						outputEdges[outputEdge]
-							.insert(readAln.front().overlap.curId);
-					}
-				}
-			}
-		}
-
-		//dump as text
-		fout << "\n#All reads\t" << allReads.size() << std::endl;
-		for (auto& readId : allReads)
-		{
-			fout << _readSeqs.seqName(readId) << std::endl;
-		}
-		fout << std::endl;
-
-		for (auto& inputEdge : inputs)
-		{
-			//TODO: more accurate version!
-			int ctgId = 0;
-			for (auto& ctg : _contigs)
-			{
-				for (auto& edge : ctg.path) 
-				{
-					if (edge == inputEdge) ctgId = ctg.id.signedId();
-				}
-			}
-
-			fout << "#Input " << ctgId << "\t" 
-				<< inputEdges[inputEdge].size() << std::endl;
-
-			for (auto& readId : inputEdges[inputEdge])
-			{
-				fout << _readSeqs.seqName(readId) << std::endl;
-			}
-			fout << std::endl;
-		}
-
-		for (auto& outputEdge : outputs)
-		{
-			int ctgId = 0;
-			for (auto& ctg : _contigs)
-			{
-				for (auto& edge : ctg.path) 
-				{
-					if (edge == outputEdge) ctgId = ctg.id.signedId();
-				}
-			}
-
-			fout << "#Output " << ctgId << "\t" 
-				<< outputEdges[outputEdge].size() << std::endl;
-
-			for (auto& readId : outputEdges[outputEdge])
-			{
-				fout << _readSeqs.seqName(readId) << std::endl;
-			}
-			fout << std::endl;
-		}
-	}
-}
-
-std::vector<Contig> GraphProcessor::edgesPaths() const
-{
-	std::vector<Contig> paths;
-	for (auto& edge : _graph.iterEdges())
-	{
-		GraphPath path = {edge};
-		paths.emplace_back(path, edge->edgeId, false,
-						   edge->length(), edge->meanCoverage);
-	}
-	this->generateContigSequences(paths);
-	return paths;
-}
-
-void GraphProcessor::outputDot(bool contigs, const std::string& filename)
-{
-	if (contigs)
-	{
-		this->outputEdgesDot(_contigs, filename);
-	}
-	else
-	{
-		this->outputEdgesDot(this->edgesPaths(), filename);
-	}
-}
-
-void GraphProcessor::outputGfa(bool contigs, const std::string& filename)
-{
-	if (contigs)
-	{
-		this->outputEdgesGfa(_contigs, filename);
-	}
-	else
-	{
-		this->outputEdgesGfa(this->edgesPaths(), filename);
-	}
-}
-
-void GraphProcessor::outputFasta(bool contigs, const std::string& filename)
-{
-	if (contigs)
-	{
-		this->outputEdgesFasta(_contigs, filename);
-	}
-	else
-	{
-		this->outputEdgesFasta(this->edgesPaths(), filename);
-	}
-}
-
-
-
-void GraphProcessor::outputEdgesFasta(const std::vector<Contig>& paths,
-									  const std::string& filename)
-{
-	static const size_t FASTA_SLICE = 80;
-
-	std::ofstream fout(filename);
-	if (!fout.is_open()) throw std::runtime_error("Can't open " + filename);
-	
-	for (auto& contig : paths)
-	{
-		if (!contig.id.strand()) continue;
-
-		std::string nameTag = contig.circular ? "circular" : "linear";
-		fout << ">" << nameTag << "_" << contig.id.signedId() << std::endl;
-		for (size_t c = 0; c < contig.sequence.length(); c += FASTA_SLICE)
-		{
-			fout << contig.sequence.substr(c, FASTA_SLICE) << std::endl;
-		}
-	}
-}
-
-void GraphProcessor::outputEdgesGfa(const std::vector<Contig>& paths,
-							    	const std::string& filename)
-{
-	std::ofstream fout(filename);
-	if (!fout.is_open()) throw std::runtime_error("Can't open " + filename);
-
-	fout << "H\tVN:Z:1.0\n";
-	for (auto& contig : paths)
-	{
-		if (!contig.id.strand()) continue;
-
-		size_t kmerCount = contig.sequence.size() * contig.meanCoverage;
-		fout << "S\t" << contig.name() << "\t"<< contig.sequence << "\tKC:i:" <<
-			kmerCount << std::endl;
-	}
-
-	for (auto& contigLeft : paths)
-	{
-		for (auto& contigRight : paths)
-		{
-			if (contigLeft.path.back()->nodeRight != 
-				contigRight.path.front()->nodeLeft) continue;
-
-			std::string leftSign = contigLeft.id.strand() ? "+" :"-";
-			std::string leftName = contigLeft.nameUnsigned();
-
-			std::string rightSign = contigRight.id.strand() ? "+" :"-";
-			std::string rightName = contigRight.nameUnsigned();
-
-			fout << "L\t" << leftName << "\t" << leftSign << "\t" <<
-				rightName << "\t" << rightSign << "\t0M\n";
-		}
-	}
-}
-
-void GraphProcessor::outputEdgesDot(const std::vector<Contig>& paths,
-									const std::string& filename)
-{
-	std::ofstream fout(filename);
-	if (!fout.is_open()) throw std::runtime_error("Can't open " + filename);
-
-	fout << "digraph {\n";
-	fout << "node [shape = circle, label = \"\"]\n";
-	
-	///re-enumerating helper functions
-	std::unordered_map<GraphNode*, int> nodeIds;
-	int nextNodeId = 0;
-	auto nodeToId = [&nodeIds, &nextNodeId](GraphNode* node)
-	{
-		if (!nodeIds.count(node))
-		{
-			nodeIds[node] = nextNodeId++;
-		}
-		return nodeIds[node];
-	};
-
-	const std::string COLORS[] = {"red", "darkgreen", "blue", "goldenrod", 
-								  "cadetblue", "darkorchid", "aquamarine1", 
-								  "darkgoldenrod1", "deepskyblue1", 
-								  "darkolivegreen3"};
-	std::unordered_map<FastaRecord::Id, size_t> colorIds;
-	size_t nextColorId = 0;
-	auto idToColor = [&colorIds, &nextColorId, &COLORS](FastaRecord::Id id)
-	{
-		if (!id.strand()) id = id.rc();
-		if (!colorIds.count(id))
-		{
-			colorIds[id] = nextColorId;
-			nextColorId = (nextColorId + 1) % 10;
-		}
-		return COLORS[colorIds[id]];
-	};
-	/////////////
-
-	for (auto& contig : paths)
-	{
-		std::stringstream lengthStr;
-		if (contig.length < 5000)
-		{
-			lengthStr << std::fixed << std::setprecision(1) 
-				<< (float)contig.length / 1000 << "k";
-		}
-		else
-		{
-			lengthStr << contig.length / 1000 << "k";
-		}
-		lengthStr << " " << contig.meanCoverage << "x";
-
-		bool repetitive = contig.path.front()->isRepetitive() || 
-						  contig.path.back()->isRepetitive();
-		if (repetitive)
-		{
-			std::string color = idToColor(contig.id);
-
-			fout << "\"" << nodeToId(contig.path.front()->nodeLeft) 
-				 << "\" -> \"" << nodeToId(contig.path.back()->nodeRight)
-				 << "\" [label = \"id " << contig.id.signedId() << 
-				 "\\l" << lengthStr.str() << "\", color = \"" 
-				 << color << "\" " << " penwidth = 3] ;\n";
-		}
-		else
-		{
-			fout << "\"" << nodeToId(contig.path.front()->nodeLeft)
-				 << "\" -> \"" << nodeToId(contig.path.back()->nodeRight)
-				 << "\" [label = \"id " << contig.id.signedId()
-				 << "\\l" << lengthStr.str() << "\", color = \"black\"] ;\n";
-		}
-	}
-
-	fout << "}\n";
-
+	return unbranchingPaths;
 }

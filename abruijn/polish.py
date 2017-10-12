@@ -38,9 +38,10 @@ def check_binaries():
     try:
         devnull = open(os.devnull, "w")
         subprocess.check_call([POLISH_BIN, "-h"], stderr=devnull)
-    except subprocess.CalledProcessError as e:
-        raise PolishException("Some error inside native {0} module: {1}"
-                              .format(POLISH_BIN, e))
+    except (subprocess.CalledProcessError, OSError) as e:
+        if e.returncode == -9:
+            logger.error("Looks like the system ran out of memory")
+        raise PolishException(str(e))
 
 
 def polish(bubbles, num_proc, err_mode, work_dir, iter_id):
@@ -71,7 +72,9 @@ def _run_polish_bin(bubbles_in, subs_matrix, hopo_matrix,
     try:
         subprocess.check_call(cmdline)
     except (subprocess.CalledProcessError, OSError) as e:
-        raise PolishException("Error while running polish binary: " + str(e))
+        if e.returncode == -9:
+            logger.error("Looks like the system ran out of memory")
+        raise PolishException(str(e))
 
 
 def _compose_sequence(consensus_files):

@@ -4,6 +4,11 @@
 
 #include <iostream>
 #include <getopt.h>
+#include <signal.h>
+#include <stdlib.h>
+#include <unistd.h>
+
+#include <execinfo.h>
 
 #include "../sequence/vertex_index.h"
 #include "../sequence/sequence_container.h"
@@ -110,8 +115,51 @@ bool fileExists(const std::string& path)
 	return fin.good();
 }
 
+void segfaultHandler(int signal)
+{
+	void *stackArray[20];
+	size_t size = backtrace(stackArray, 10);
+	Logger::get().error() << "Segmentation fault! Backtrace:";
+	char** backtrace = backtrace_symbols(stackArray, size);
+	for (size_t i = 0; i < size; ++i)
+	{
+		Logger::get().error() << "\t" << backtrace[i];
+	}
+	exit(1);
+}
+
+void exceptionHandler()
+{
+	static bool triedThrow = false;
+	try
+	{
+        if (!triedThrow)
+		{
+			triedThrow = true;
+			throw;
+		}
+    }
+    catch (const std::exception &e) 
+	{
+        Logger::get().error() << "Caught unhandled exception: " << e.what();
+    }
+	catch (...) {}
+
+	void *stackArray[20];
+	size_t size = backtrace(stackArray, 10);
+	char** backtrace = backtrace_symbols(stackArray, size);
+	for (size_t i = 0; i < size; ++i)
+	{
+		Logger::get().error() << "\t" << backtrace[i];
+	}
+	exit(1);
+}
+
 int main(int argc, char** argv)
 {
+	signal(SIGSEGV, segfaultHandler);
+	std::set_terminate(exceptionHandler);
+
 	int kmerSize = 0;
 	int minKmerCov = 0;
 	int maxKmerCov = 0;
@@ -134,66 +182,69 @@ int main(int argc, char** argv)
 	Parameters::get().kmerSize = kmerSize;
 	Parameters::get().numThreads = numThreads;
 
+	Logger::get().setDebugging(debugging);
+	if (!logFile.empty()) Logger::get().setOutputFile(logFile);
+
+	SequenceContainer readsContainer;
+	Logger::get().debug() << "Build date: " << __DATE__ << " " << __TIME__;
+	Logger::get().info() << "Reading sequences";
 	try
 	{
-		Logger::get().setDebugging(debugging);
-		if (!logFile.empty()) Logger::get().setOutputFile(logFile);
-
-		SequenceContainer readsContainer;
-		Logger::get().debug() << "Build date: " << __DATE__ << " " << __TIME__;
-		Logger::get().info() << "Reading FASTA";
-		readsContainer.readFasta(readsFasta);
-		VertexIndex vertexIndex(readsContainer);
-		vertexIndex.outputProgress(true);
-
-		int64_t sumLength = 0;
-		for (auto& seqId : readsContainer.getIndex())
-		{
-			sumLength += seqId.second.sequence.length();
-		}
-		Logger::get().debug() << "Mean read length: " 
-			<< sumLength / readsContainer.getIndex().size();
-	
-		//rough estimate
-		Logger::get().info() << "Generating solid k-mer index";
-		size_t hardThreshold = std::max(1, coverage / 
-										Constants::hardMinCoverageRate);
-		vertexIndex.countKmers(hardThreshold);
-
-		if (maxKmerCov == -1)
-		{
-			maxKmerCov = Constants::repeatCoverageRate * coverage;
-		}
-
-		ParametersEstimator estimator(readsContainer, vertexIndex, coverage);
-		estimator.estimateMinKmerCount(maxKmerCov);
-		if (minKmerCov == -1)
-		{
-			minKmerCov = estimator.minKmerCount();
-		}
-
-		vertexIndex.buildIndex(minKmerCov, maxKmerCov, 
-							   Constants::assembleKmerSample);
-
-		OverlapDetector ovlp(readsContainer, vertexIndex,
-							 Constants::maximumJump, 
-							 Parameters::get().minimumOverlap,
-							 Constants::maximumOverhang);
-		OverlapContainer readOverlaps(ovlp, readsContainer, /*only max*/ true);
-
-		Extender extender(readsContainer, readOverlaps, coverage, 
-						  estimator.genomeSizeEstimate());
-		extender.assembleContigs();
-
-		ContigGenerator contGen;
-		contGen.generateContigs(extender.getContigPaths());
-		contGen.outputContigs(outAssembly);
+		readsContainer.loadFromFile(readsFasta);
 	}
-	catch (std::runtime_error& e)
+	catch (SequenceContainer::ParseException& e)
 	{
 		Logger::get().error() << e.what();
 		return 1;
 	}
+	VertexIndex vertexIndex(readsContainer);
+	vertexIndex.outputProgress(true);
+
+	int64_t sumLength = 0;
+	for (auto& seqId : readsContainer.getIndex())
+	{
+		sumLength += seqId.second.sequence.length();
+	}
+	Logger::get().debug() << "Mean read length: " 
+		<< sumLength / readsContainer.getIndex().size();
+
+	//rough estimate
+	Logger::get().info() << "Generating solid k-mer index";
+	size_t hardThreshold = std::max(1, coverage / 
+									Constants::hardMinCoverageRate);
+	vertexIndex.countKmers(hardThreshold);
+
+	if (maxKmerCov == -1)
+	{
+		maxKmerCov = Constants::repeatCoverageRate * coverage;
+	}
+
+	ParametersEstimator estimator(readsContainer, vertexIndex, coverage);
+	estimator.estimateMinKmerCount(maxKmerCov);
+	if (minKmerCov == -1)
+	{
+		minKmerCov = estimator.minKmerCount();
+	}
+
+
+	vertexIndex.buildIndex(minKmerCov, maxKmerCov, 
+						   Constants::assembleKmerSample);
+
+	OverlapDetector ovlp(readsContainer, vertexIndex,
+						 Constants::maximumJump, 
+						 Parameters::get().minimumOverlap,
+						 Constants::maximumOverhang, 
+						 Constants::assembleGap,
+						 /*store alignment*/ false);
+	OverlapContainer readOverlaps(ovlp, readsContainer, /*only max*/ true);
+
+	Extender extender(readsContainer, readOverlaps, coverage, 
+					  estimator.genomeSizeEstimate());
+	extender.assembleContigs();
+
+	ContigGenerator contGen;
+	contGen.generateContigs(extender.getContigPaths());
+	contGen.outputContigs(outAssembly);
 
 	return 0;
 }

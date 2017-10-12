@@ -13,7 +13,7 @@ Quick usage
     ABruijn: assembly of long and error-prone reads
     
     positional arguments:
-      reads                 path to reads file (FASTA format)
+      reads                 path to reads file (FASTA/Q format)
       out_dir               output directory
       coverage              estimated assembly coverage (integer)
     
@@ -69,8 +69,8 @@ Supported Input Data
 
 ABruijn was designed for assembly of long reads from both PacBio and 
 Oxford Nanopore Technologies (ONT). For simplicity, input reads should 
-be in FASTA format - you will need to convert raw PacBio / ONT data to
-FASTA format using the corresponding official tools.
+be in FASTA or FASTQ format - you will need to convert raw PacBio / ONT data to
+FASTA/Q format using the corresponding official tools.
 
 ### PacBio data
 

@@ -301,5 +301,6 @@ def _run_blasr(reference_file, reads_file, num_proc, out_file):
         devnull = open(os.devnull, "w")
         subprocess.check_call(cmdline, stderr=devnull)
     except (subprocess.CalledProcessError, OSError) as e:
-        logger.error("While running blasr: " + str(e))
-        raise AlignmentException("Error in alignment module, exiting")
+        if e.returncode == -9:
+            logger.error("Looks like the system ran out of memory")
+        raise AlignmentException(str(e))

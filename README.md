@@ -1,7 +1,7 @@
 ABruijn assembler
 ==================
 
-Version: 2.0b
+Version: 2.2b
 
 ABruijn is a de novo assembler for long and noisy reads, such as
 those produced by PacBio and Oxford Nanopore Technologies.
@@ -39,6 +39,7 @@ Third-party
 ABruijn package includes some third-party software:
 
 * libcuckoo [http://github.com/efficient/libcuckoo]
+* intervaltree [https://github.com/ekg/intervaltree]
 * BLASR [https://github.com/PacificBiosciences/blasr]
 
 

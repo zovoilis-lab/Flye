@@ -19,7 +19,7 @@ def read_fasta_dict(filename):
     """
     Reads fasta file into dictionary. Also preforms some validation
     """
-    logger.debug("Reading contigs file")
+    #logger.debug("Reading contigs file")
 
     header = None
     seq = []

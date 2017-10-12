@@ -7,12 +7,13 @@
 #include "repeat_graph.h"
 #include "repeat_resolver.h"
 
-struct Contig
+struct UnbranchingPath
 {
-	Contig(const GraphPath& path, FastaRecord::Id id = FastaRecord::ID_NONE,
-		   bool circular = false, int length = 0, int meanCoverage = 0):
-		   	path(path), id(id), circular(circular), length(length),
-			meanCoverage(meanCoverage) {}
+	UnbranchingPath(const GraphPath& path, 
+					FastaRecord::Id id = FastaRecord::ID_NONE,
+		   			bool circular = false, int length = 0, int meanCoverage = 0):
+		   	path(path), id(id), circular(circular), repetitive(false), 
+			length(length), meanCoverage(meanCoverage) {}
 
 	std::string name() const
 	{
@@ -28,13 +29,29 @@ struct Contig
 		return nameTag + "_" + idTag;
 	}
 
+	std::string edgesStr() const
+	{
+		if (path.empty()) return "";
+
+		std::string contentsStr;
+		for (auto& edge : path)
+		{
+			contentsStr += std::to_string(edge->edgeId.signedId()) + " -> ";
+		}
+
+		contentsStr.erase(contentsStr.size() - 4);
+		return contentsStr;
+	}
+
 	GraphPath path;
 	FastaRecord::Id id;
 	std::string sequence;
 	bool circular;
+	bool repetitive;
 	int length;
 	int meanCoverage;
 };
+
 
 class GraphProcessor
 {
@@ -45,36 +62,18 @@ public:
 		_tipThreshold(Parameters::get().minimumOverlap) {}
 
 	void condence();
-	void unrollLoops();
-	void generateContigs();
-	void dumpRepeats(const std::vector<GraphAlignment>& readAlignments,
-					 const std::string& outFile);
-
-	void outputDot(bool contigs, const std::string& filename);
-	void outputGfa(bool contigs, const std::string& filename);
-	void outputFasta(bool contigs, const std::string& filename);
+	std::vector<UnbranchingPath> getUnbranchingPaths();
 
 private:
-	void generateContigSequences(std::vector<Contig>& paths) const;
-	void outputEdgesDot(const std::vector<Contig>& paths,
-						const std::string& filename);
-	void outputEdgesGfa(const std::vector<Contig>& paths,
-						const std::string& filename);
-	void outputEdgesFasta(const std::vector<Contig>& paths,
-						  const std::string& filename);
-	std::vector<Contig> edgesPaths() const;
-	//std::string contigSequence(const Contig& contig) const;
 
 	void trimTips();
-	void trimFakeLoops();
 	void fixChimericJunctions();
 	void condenceEdges();
 	void updateEdgesMultiplicity();
+	void collapseBulges();
 
 	RepeatGraph& _graph;
 	const SequenceContainer& _asmSeqs;
 	const SequenceContainer& _readSeqs;
 	const int _tipThreshold;
-
-	std::vector<Contig> _contigs;
 };
