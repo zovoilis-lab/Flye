@@ -234,6 +234,7 @@ int main(int argc, char** argv)
 						 Constants::maximumJump, 
 						 Parameters::get().minimumOverlap,
 						 Constants::maximumOverhang, 
+						 Constants::assembleGap,
 						 /*store alignment*/ false);
 	OverlapContainer readOverlaps(ovlp, readsContainer, /*only max*/ true);
 

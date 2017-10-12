@@ -33,16 +33,18 @@ OverlapDetector::JumpRes
 OverlapDetector::jumpTest(int32_t curPrev, int32_t curNext,
 						  int32_t extPrev, int32_t extNext) const
 {
-	if (curNext - curPrev > Constants::maximumJump) return J_END;
+	if (curNext - curPrev > _maxJump) return J_END;
 
 	if (0 < curNext - curPrev && curNext - curPrev < _maxJump &&
 		0 < extNext - extPrev && extNext - extPrev < _maxJump)
 	{
 		if (abs((curNext - curPrev) - (extNext - extPrev)) 
-			< _maxJump / Constants::closeJumpRate)
+				< _maxJump / Constants::closeJumpRate &&
+			curNext - curPrev < _gapSize)
 		{
 			return J_CLOSE;
 		}
+
 		if (abs((curNext - curPrev) - (extNext - extPrev)) 
 			< _maxJump / Constants::farJumpRate)
 		{
@@ -147,9 +149,9 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 								   extPaths[pathId].ovlp.extEnd, extPos);
 
 				int32_t jumpLength = curPos - extPaths[pathId].ovlp.curEnd;
-				int32_t gapScore = (jumpLength - Constants::gapJump) / 
-													   Constants::penaltyWindow;
-				if (jumpLength < Constants::gapJump) gapScore = 1;
+				int32_t gapScore = -(jumpLength - _gapSize) / 
+										Constants::penaltyWindow;
+				if (jumpLength < _gapSize) gapScore = 1;
 
 				int32_t jumpScore = extPaths[pathId].ovlp.score + gapScore;
 
@@ -414,8 +416,7 @@ void OverlapContainer::filterOverlaps()
 				int curDiff = ovlpOne.curRange() - ovlpOne.curIntersect(ovlpTwo);
 				int extDiff = ovlpOne.extRange() - ovlpOne.extIntersect(ovlpTwo);
 
-				if (curDiff < Constants::maximumJump / 10 && 
-					extDiff < Constants::maximumJump / 10) 
+				if (curDiff < 100 && extDiff < 100) 
 				{
 					unionSet(overlapSets[i], overlapSets[j]);
 				}

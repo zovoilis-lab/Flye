@@ -42,9 +42,9 @@ std::vector<GraphAlignment>
 				Constants::maximumJump > graphDiff && graphDiff > 0  &&
 				abs(readDiff - graphDiff) < maxDiscordance)
 			{
-				int32_t gapScore = (readDiff - Constants::gapJump) / 
-									Constants::penaltyWindow;
-				if (readDiff < Constants::gapJump) gapScore = 1;
+				int32_t gapScore = -(readDiff - Constants::readAlignGap) / 
+										Constants::penaltyWindow;
+				if (readDiff < Constants::readAlignGap) gapScore = 1;
 				//if (chain.aln.back()->segment.end != 
 				//	edgeAlignment.segment.start) gapScore -= 10;
 				//int32_t ovlpScore = !edgeAlignment.edge->isLooped() ? nextOvlp.score : 10;
@@ -136,7 +136,9 @@ void ReadAligner::alignReads()
 						  Constants::readAlignKmerSample);
 	OverlapDetector readsOverlapper(pathsContainer, pathsIndex, 
 									Constants::maximumJump,
-									Constants::maxSeparation, /*no overhang*/0,
+									Constants::maxSeparation,
+									/*no overhang*/0,
+									Constants::readAlignGap,
 									/*keep alignment*/ false);
 	OverlapContainer readsOverlaps(readsOverlapper, _readSeqs, 
 								   /*onlyMax*/ false);

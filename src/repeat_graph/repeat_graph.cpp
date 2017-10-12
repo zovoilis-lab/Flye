@@ -52,7 +52,9 @@ void RepeatGraph::build()
 	OverlapDetector asmOverlapper(_asmSeqs, asmIndex, 
 								  Constants::maximumJump, 
 								  Parameters::get().minimumOverlap,
-								  /*no overhang*/ 0, /*keep alignment*/ true);
+								  /*no overhang*/ 0, 
+								  Constants::repeatGraphGap,
+								  /*keep alignment*/ true);
 	OverlapContainer asmOverlaps(asmOverlapper, _asmSeqs, /*only max*/ false);
 	asmOverlaps.findAllOverlaps();
 	asmOverlaps.buildIntervalTree();
