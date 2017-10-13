@@ -152,7 +152,6 @@ int RepeatResolver::resolveConnections(const std::vector<Connection>& connection
 			++unresolvedLinks;
 			continue;
 		}
-		//if (support < 4) continue;
 
 		totalLinks += 2;
 		for (auto& conn : connections)
@@ -285,11 +284,9 @@ void RepeatResolver::findRepeats()
 		int repeatMult = 0;
 		int uniqueMult = 0;
 		int minSupport = maxSupport / Constants::outPathsRatio;
-		int minCoverage = _multInf.getMeanCoverage() / Constants::readCovRate;
 		for (auto& outConn : outConnections[edge]) 
 		{
-			if (outConn.second > minSupport && 
-				outConn.first->meanCoverage > minCoverage)
+			if (outConn.second > minSupport)
 			{
 				outConn.first->repetitive ? ++repeatMult : ++uniqueMult;
 			}
@@ -341,18 +338,18 @@ void RepeatResolver::findRepeats()
 
 void RepeatResolver::resolveRepeats()
 {
+	this->removeUnsupportedEdges();
+	_aligner.updateAlignments();
+
 	while (true)
 	{
 		auto connections = this->getConnections();
 		int resolvedConnections = this->resolveConnections(connections);
-		if (!resolvedConnections) break;
-
+		this->clearResolvedRepeats();
 		_aligner.updateAlignments();
+		if (!resolvedConnections) break;
 		this->findRepeats();
 	}
-
-	this->removeUnsupportedEdges();
-	this->clearResolvedRepeats();
 }
 
 
@@ -362,9 +359,7 @@ std::vector<RepeatResolver::Connection>
 	
 	auto safeEdge = [this](GraphEdge* edge)
 	{
-		return !edge->isRepetitive() &&
-			edge->meanCoverage > _multInf.getMeanCoverage() / 
-									Constants::readCovRate;
+		return !edge->isRepetitive();
 	};
 
 	int totalSafe = 0;
@@ -426,8 +421,7 @@ void RepeatResolver::removeUnsupportedEdges()
 	for (auto& edge : _graph.iterEdges())
 	{
 		GraphEdge* complEdge = _graph.complementEdge(edge);
-		if (edge->meanCoverage <= coverageThreshold &&
-			!edge->resolved)
+		if (edge->meanCoverage <= coverageThreshold)
 		{
 			edgesRemove.insert(edge);
 			edgesRemove.insert(complEdge);

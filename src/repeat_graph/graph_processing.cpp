@@ -86,19 +86,27 @@ void GraphProcessor::collapseBulges()
 					   pairhash> toFix;
 	for (auto& edge : _graph.iterEdges())
 	{
-		//fixing simple bubbles like this: -<=>-
-		if (edge->nodeLeft->outEdges.size()  != 2 ||
-			edge->nodeLeft->inEdges.size()   != 1 ||
-			edge->nodeRight->inEdges.size()  != 2 ||
-			edge->nodeRight->outEdges.size() != 1) continue;
+		//if (edge->nodeLeft->outEdges.size()  != 2 ||
+			//edge->nodeLeft->inEdges.size()   != 1 ||
+			//edge->nodeRight->outEdges.size() != 1)
+		//	edge->nodeRight->inEdges.size()  != 2) continue;
 
-		GraphEdge* otherEdge = edge->nodeLeft->outEdges[0];
-		if (otherEdge == edge) otherEdge = edge->nodeLeft->outEdges[1];
-		if (otherEdge->nodeRight != edge->nodeRight) continue;
-		if (edge->edgeId == otherEdge->edgeId.rc()) continue;
-
-		if (edge->length() > MAX_BUBBLE || 
-			otherEdge->length() > MAX_BUBBLE) continue;
+		//GraphEdge* otherEdge = edge->nodeLeft->outEdges[0];
+		//if (otherEdge == edge) otherEdge = edge->nodeLeft->outEdges[1];
+		//if (otherEdge->nodeRight != edge->nodeRight) continue;
+		if (edge->isLooped()) continue;
+		std::vector<GraphEdge*> parallelEdges;
+		for (auto& parEdge : edge->nodeLeft->outEdges)
+		{
+			if (parEdge->nodeRight == edge->nodeRight) 
+			{
+				parallelEdges.push_back(parEdge);
+			}
+		}
+		if (parallelEdges.size() != 2) continue;
+		if (parallelEdges[0]->edgeId == parallelEdges[1]->edgeId.rc()) continue;
+		if (parallelEdges[0]->length() > MAX_BUBBLE || 
+			parallelEdges[1]->length() > MAX_BUBBLE) continue;
 		//if (edge->nodeLeft->inEdges.front()->length() < MAX_BUBBLE ||
 		//	edge->nodeRight->outEdges.front()->length() < MAX_BUBBLE) continue;
 
@@ -107,8 +115,16 @@ void GraphProcessor::collapseBulges()
 
 	for (auto& nodes : toFix)
 	{
-		GraphEdge* edgeOne = nodes.first->outEdges[0];
-		GraphEdge* edgeTwo = nodes.first->outEdges[1];
+		std::vector<GraphEdge*> parallelEdges;
+		for (auto& parEdge : nodes.first->outEdges)
+		{
+			if (parEdge->nodeRight == nodes.second) 
+			{
+				parallelEdges.push_back(parEdge);
+			}
+		}
+		GraphEdge* edgeOne = parallelEdges[0];
+		GraphEdge* edgeTwo = parallelEdges[1];
 		if (abs(edgeOne->edgeId.signedId()) > abs(edgeTwo->edgeId.signedId()))
 		{
 			std::swap(edgeOne, edgeTwo);
