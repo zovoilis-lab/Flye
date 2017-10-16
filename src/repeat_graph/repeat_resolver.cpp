@@ -366,8 +366,8 @@ void RepeatResolver::findRepeats()
 
 void RepeatResolver::resolveRepeats()
 {
-	this->removeUnsupportedEdges();
-	_aligner.updateAlignments();
+	//this->removeUnsupportedEdges();
+	//_aligner.updateAlignments();
 
 	while (true)
 	{

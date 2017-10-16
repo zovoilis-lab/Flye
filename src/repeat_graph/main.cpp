@@ -201,6 +201,8 @@ int main(int argc, char** argv)
 	RepeatResolver resolver(rg, seqAssembly, seqReads, aligner, multInf);
 	
 	multInf.fixEdgesMultiplicity(aligner.getAlignments());
+	resolver.removeUnsupportedEdges();
+	aligner.updateAlignments();
 	resolver.findRepeats();
 	outGen.outputDot(/*on contigs*/ false, outFolder + "/graph_before_rr.dot");
 	//outGen.outputGfa(/*on contigs*/ false, outFolder + "/graph_before_rr.gfa");
