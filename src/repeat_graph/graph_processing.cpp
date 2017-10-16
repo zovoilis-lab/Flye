@@ -86,14 +86,6 @@ void GraphProcessor::collapseBulges()
 					   pairhash> toFix;
 	for (auto& edge : _graph.iterEdges())
 	{
-		//if (edge->nodeLeft->outEdges.size()  != 2 ||
-			//edge->nodeLeft->inEdges.size()   != 1 ||
-			//edge->nodeRight->outEdges.size() != 1)
-		//	edge->nodeRight->inEdges.size()  != 2) continue;
-
-		//GraphEdge* otherEdge = edge->nodeLeft->outEdges[0];
-		//if (otherEdge == edge) otherEdge = edge->nodeLeft->outEdges[1];
-		//if (otherEdge->nodeRight != edge->nodeRight) continue;
 		if (edge->isLooped()) continue;
 		std::vector<GraphEdge*> parallelEdges;
 		for (auto& parEdge : edge->nodeLeft->outEdges)
@@ -107,8 +99,6 @@ void GraphProcessor::collapseBulges()
 		if (parallelEdges[0]->edgeId == parallelEdges[1]->edgeId.rc()) continue;
 		if (parallelEdges[0]->length() > MAX_BUBBLE || 
 			parallelEdges[1]->length() > MAX_BUBBLE) continue;
-		//if (edge->nodeLeft->inEdges.front()->length() < MAX_BUBBLE ||
-		//	edge->nodeRight->outEdges.front()->length() < MAX_BUBBLE) continue;
 
 		toFix.emplace(edge->nodeLeft, edge->nodeRight);
 	}

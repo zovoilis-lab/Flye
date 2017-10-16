@@ -244,6 +244,34 @@ void RepeatResolver::findRepeats()
 		}
 	}
 
+	//bubbles with alternative alleles
+	int diploidBubbles = 0;
+	for (auto& edge : _graph.iterEdges())
+	{
+		if (edge->isLooped()) continue;
+		std::vector<GraphEdge*> parallelEdges;
+		for (auto& parEdge : edge->nodeLeft->outEdges)
+		{
+			if (parEdge->nodeRight == edge->nodeRight) 
+			{
+				parallelEdges.push_back(parEdge);
+			}
+		}
+		if (parallelEdges.size() != 2) continue;
+		if (parallelEdges[0]->edgeId == parallelEdges[1]->edgeId.rc()) continue;
+		if (parallelEdges[0]->length() > Constants::trustedEdgeLength || 
+			parallelEdges[1]->length() > Constants::trustedEdgeLength) continue;
+
+		float covSum = parallelEdges[0]->meanCoverage + 
+					   parallelEdges[1]->meanCoverage;
+		if (covSum / _multInf.getMeanCoverage() > 1.5) continue;
+
+		parallelEdges[0]->repetitive = true;
+		parallelEdges[1]->repetitive = true;
+		++diploidBubbles;
+	}
+	Logger::get().debug() << "Masked " << diploidBubbles / 4 << " diploid bubbles";
+
 	//Now, using read alignments
 	//extract read alignments
 	std::unordered_map<GraphEdge*, 
