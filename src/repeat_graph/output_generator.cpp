@@ -29,76 +29,114 @@ void OutputGenerator::extendContigs(const std::vector<GraphAlignment>& readAln,
 									const std::string& outFile)
 {
 	std::unordered_set<GraphEdge*> coveredRepeats;
-	std::vector<Contig> extendedContigs;
-	for (auto& ctg : _contigs)
+	std::unordered_map<GraphEdge*, bool> repeatDirections;
+
+	auto extendPath = [&readAln, this, &coveredRepeats, &repeatDirections]
+		(UnbranchingPath& upath, bool direction)
 	{
-		if (ctg.repetitive) continue;
-		if (!ctg.id.strand()) continue;
+		bool extendFwd = !upath.path.back()->nodeRight->outEdges.empty();
+		if (!extendFwd) return std::string();
 
-		extendedContigs.push_back(ctg);
-		bool extendFwd = !ctg.path.back()->nodeRight->outEdges.empty();
-		if (extendFwd)
+		//first, choose the longest aligned read from this edge
+		int32_t maxExtension = 0;
+		GraphAlignment bestAlignment;
+		for (auto& path : readAln)
 		{
-			int32_t maxExtension = 0;
-			SequenceSegment bestSegment;
-			for (auto& path : readAln)
+			for (size_t i = 0; i < path.size(); ++i)
 			{
-				for (size_t i = 0; i < path.size(); ++i)
+				if (path[i].edge == upath.path.back() &&
+					i < path.size() - 1)
 				{
-					if (path[i].edge == ctg.path.back())
+					size_t j = i + 1;
+					while (j < path.size() && 
+						   path[j].edge->repetitive) ++j;
+					if (i == j) continue;
+
+					int32_t alnLen = path[j - 1].overlap.curEnd - 
+									 path[i + 1].overlap.curBegin;
+					if (alnLen > maxExtension)
 					{
-						size_t j = i + 1;
-						while (j < path.size() && path[j].edge->repetitive) ++j;
-
-						for (size_t k = i + 1; k < j; ++k)
-						{
-							coveredRepeats.insert(path[k].edge);
-							coveredRepeats
-								.insert(_graph.complementEdge(path[k].edge));
-						}
-
-						int32_t overhang = path[i].overlap.extLen - 
-										   path[i].overlap.extEnd;
-						int32_t extension = 
-							path[j - 1].overlap.curEnd - path[i].overlap.curEnd -
-							overhang;
-						if (i != j - 1 && extension > maxExtension)
-						{
-							maxExtension = extension;
-							bestSegment.seqId = path[i].overlap.curId;
-							bestSegment.start = path[i].overlap.curEnd + overhang;
-							bestSegment.end = path[j - 1].overlap.curEnd;
-						}
+						maxExtension = alnLen;
+						bestAlignment.clear();
+						std::copy(path.begin() + i + 1, path.begin() + j, 
+								  std::back_inserter(bestAlignment));
 					}
+					break;
 				}
 			}
+		}
+		if (maxExtension == 0) return std::string();
 
-			if (maxExtension > 0)
+		Logger::get().debug() << "Ctg " << upath.name() 
+			<< " extension " << maxExtension;
+
+		//check if we can traverse through these repeats
+		bool canExtend = true;
+		for (auto& aln : bestAlignment)
+		{
+			if (repeatDirections.count(aln.edge))
 			{
-				Logger::get().debug() << "Ctg " << ctg.name() 
-					<< " fwd extension " << maxExtension;
-
-				std::string extSeq = _readSeqs.getSeq(bestSegment.seqId)
-							.substr(bestSegment.start, 
-									bestSegment.end - bestSegment.start).str();
-				extendedContigs.back().sequence += extSeq;
+				if (!aln.edge->isLooped() &&
+					repeatDirections.at(aln.edge) != direction)
+				{
+					canExtend = false;
+					break;
+				}
 			}
 		}
+		if (!canExtend) return std::string();
+
+
+		for (auto& aln : bestAlignment)
+		{
+			Logger::get().debug() << "\t" << aln.edge->edgeId.signedId();
+
+			repeatDirections[aln.edge] = direction;
+			repeatDirections[_graph.complementEdge(aln.edge)] = !direction;
+
+			coveredRepeats.insert(aln.edge);
+			coveredRepeats
+				.insert(_graph.complementEdge(aln.edge));
+		}
+
+		FastaRecord::Id seqId = bestAlignment.front().overlap.curId;
+		int32_t start = bestAlignment.front().overlap.curBegin;
+		int32_t end = bestAlignment.back().overlap.curEnd;
+
+		auto extSeq = _readSeqs.getSeq(seqId).substr(start, end - start);
+		return direction ? extSeq.str() : extSeq.complement().str();
+	};
+
+	std::vector<UnbranchingPath> extendedContigs;
+	std::unordered_map<FastaRecord::Id, UnbranchingPath*> idToPath;
+	for (auto& ctg : _contigs)
+	{
+		idToPath[ctg.id] = &ctg;
+	}
+	for (auto& ctg : _contigs)
+	{
+		if (ctg.repetitive || !ctg.id.strand()) continue;
+		if (!idToPath.count(ctg.id.rc())) continue;	//self-complement
+
+		std::string rightExt = extendPath(ctg, true);
+		std::string leftExt = extendPath(*idToPath[ctg.id.rc()], false);
+		extendedContigs.push_back(ctg);
+		extendedContigs.back().sequence = leftExt + 
+							extendedContigs.back().sequence + rightExt;
 	}
 
 	for (auto& ctg : _contigs)
 	{
-		if (ctg.repetitive && ctg.id.strand())
+		if (!ctg.repetitive || !ctg.id.strand()) continue;
+
+		bool covered = true;
+		for (auto& edge : ctg.path)
 		{
-			bool covered = true;
-			for (auto& edge : ctg.path)
-			{
-				if (!coveredRepeats.count(edge)) covered = false;
-			}
-			if (!covered)
-			{
-				extendedContigs.push_back(ctg);
-			}
+			if (!coveredRepeats.count(edge)) covered = false;
+		}
+		if (!covered)
+		{
+			extendedContigs.push_back(ctg);
 		}
 	}
 

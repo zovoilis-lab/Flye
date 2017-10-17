@@ -222,7 +222,7 @@ int main(int argc, char** argv)
 	outGen.outputFasta(/*on contigs*/ true, outFolder + "/graph_final.fasta");
 	outGen.outputGfa(/*on contigs*/ true, outFolder + "/graph_final.gfa");
 
-	outGen.extendContigs(readAlignments, outFolder + "/graph_paths.fasta");
+	outGen.extendContigs(aligner.getAlignments(), outFolder + "/graph_paths.fasta");
 	
 	return 0;
 }
