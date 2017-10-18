@@ -300,38 +300,36 @@ void OutputGenerator::outputFasta(bool contigs, const std::string& filename)
 void OutputGenerator::outputEdgesFasta(const std::vector<UnbranchingPath>& paths,
 									   const std::string& filename)
 {
-	static const size_t FASTA_SLICE = 80;
-
-	std::ofstream fout(filename);
-	if (!fout.is_open()) throw std::runtime_error("Can't open " + filename);
-	
+	std::vector<FastaRecord> records;
 	for (auto& contig : paths)
 	{
 		if (!contig.id.strand()) continue;
 
 		std::string nameTag = contig.circular ? "circular" : "linear";
-		fout << ">" << nameTag << "_" << contig.id.signedId() << std::endl;
-		for (size_t c = 0; c < contig.sequence.length(); c += FASTA_SLICE)
-		{
-			fout << contig.sequence.substr(c, FASTA_SLICE) << std::endl;
-		}
+		nameTag += "_" + std::to_string(contig.id.signedId());
+		records.emplace_back(DnaSequence(contig.sequence), nameTag, 
+							 FastaRecord::ID_NONE);
 	}
+	SequenceContainer::writeFasta(records, filename);
 }
 
 void OutputGenerator::outputEdgesGfa(const std::vector<UnbranchingPath>& paths,
 							    	 const std::string& filename)
 {
-	std::ofstream fout(filename);
-	if (!fout.is_open()) throw std::runtime_error("Can't open " + filename);
+	Logger::get().debug() << "Writing Gfa";
+	FILE* fout = fopen(filename.c_str(), "w");
+	if (!fout) throw std::runtime_error("Can't open " + filename);
 
-	fout << "H\tVN:Z:1.0\n";
+	fprintf(fout, "H\tVN:Z:1.0\n");
 	for (auto& contig : paths)
 	{
 		if (!contig.id.strand()) continue;
 
 		size_t kmerCount = contig.sequence.size() * contig.meanCoverage;
-		fout << "S\t" << contig.name() << "\t"<< contig.sequence << "\tKC:i:" <<
-			kmerCount << std::endl;
+		fprintf(fout, "S\t%s\t%s\tKC:i:%d\n", contig.name().c_str(), 
+				contig.sequence.c_str(), (int)kmerCount);
+		//fout << "S\t" << contig.name() << "\t"<< contig.sequence << "\tKC:i:" <<
+		//	kmerCount << "\n";
 	}
 
 	for (auto& contigLeft : paths)
@@ -347,8 +345,10 @@ void OutputGenerator::outputEdgesGfa(const std::vector<UnbranchingPath>& paths,
 			std::string rightSign = contigRight.id.strand() ? "+" :"-";
 			std::string rightName = contigRight.nameUnsigned();
 
-			fout << "L\t" << leftName << "\t" << leftSign << "\t" <<
-				rightName << "\t" << rightSign << "\t0M\n";
+			//fout << "L\t" << leftName << "\t" << leftSign << "\t" <<
+			//	rightName << "\t" << rightSign << "\t0M\n";
+			fprintf(fout, "L\t%s\t%s\t%s\t%s\t0M\n", leftName.c_str(), 
+					leftSign.c_str(), rightName.c_str(), rightSign.c_str());
 		}
 	}
 }
@@ -356,6 +356,8 @@ void OutputGenerator::outputEdgesGfa(const std::vector<UnbranchingPath>& paths,
 void OutputGenerator::outputEdgesDot(const std::vector<UnbranchingPath>& paths,
 									 const std::string& filename)
 {
+	Logger::get().debug() << "Writing Dot";
+
 	std::ofstream fout(filename);
 	if (!fout.is_open()) throw std::runtime_error("Can't open " + filename);
 
