@@ -223,8 +223,11 @@ void RepeatResolver::findRepeats()
 				<< path.edgesStr() << "\t" << path.length << "\t" 
 				<< path.meanCoverage;
 		}
+	}
 
-		//plus tanem repeats
+	//plus tanem repeats
+	for (auto& path : unbranchingPaths)
+	{
 		if (path.path.size() == 1 && path.path.front()->isLooped())
 		{
 			std::unordered_set<FastaRecord::Id> seen;
@@ -258,7 +261,7 @@ void RepeatResolver::findRepeats()
 			}
 		}
 		if (parallelEdges.size() != 2) continue;
-		if (parallelEdges[0]->edgeId == parallelEdges[1]->edgeId.rc()) continue;
+		//if (parallelEdges[0]->edgeId == parallelEdges[1]->edgeId.rc()) continue;
 		if (parallelEdges[0]->length() > Constants::trustedEdgeLength || 
 			parallelEdges[1]->length() > Constants::trustedEdgeLength) continue;
 
