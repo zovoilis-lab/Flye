@@ -349,8 +349,9 @@ std::vector<UnbranchingPath> GraphProcessor::getUnbranchingPaths()
 
 		FastaRecord::Id edgeId = pathToId(traversed);
 		bool circular = (traversed.front()->nodeLeft == 
-						traversed.back()->nodeRight) &&
-						traversed.front()->nodeLeft->outEdges.size() == 1;
+							traversed.back()->nodeRight) &&
+						traversed.front()->nodeLeft->outEdges.size() == 1 &&
+						traversed.front()->nodeLeft->inEdges.size() == 1;
 
 		bool repetitive = traversed.front()->isRepetitive() || 
 						  traversed.back()->isRepetitive();

@@ -22,7 +22,8 @@ void OutputGenerator::generateContigs()
 	}
 
 	this->generateContigSequences(_contigs);
-	Logger::get().debug() << "Generated " << _contigs.size() / 2 << " contigs";
+	Logger::get().debug() << "Final graph contiain " << _contigs.size() / 2 
+		<< " egdes";
 }
 
 void OutputGenerator::extendContigs(const std::vector<GraphAlignment>& readAln,
@@ -30,8 +31,10 @@ void OutputGenerator::extendContigs(const std::vector<GraphAlignment>& readAln,
 {
 	std::unordered_set<GraphEdge*> coveredRepeats;
 	std::unordered_map<GraphEdge*, bool> repeatDirections;
+	std::unordered_set<GraphEdge*> tandems;
 
-	auto extendPath = [&readAln, this, &coveredRepeats, &repeatDirections]
+	auto extendPath = [&readAln, this, &coveredRepeats, 
+					   &repeatDirections, &tandems]
 		(UnbranchingPath& upath, bool direction)
 	{
 		bool extendFwd = !upath.path.back()->nodeRight->outEdges.empty();
@@ -67,16 +70,33 @@ void OutputGenerator::extendContigs(const std::vector<GraphAlignment>& readAln,
 		}
 		if (maxExtension == 0) return std::string();
 
-		Logger::get().debug() << "Ctg " << upath.name() 
-			<< " extension " << maxExtension;
+		//check if some repeats are traversed multiple by a single read
+		std::unordered_map<GraphEdge*, int> multiplicity;
+		for (auto& aln : bestAlignment)
+		{
+			++multiplicity[aln.edge];
+		}
+		for (auto& edgeMult : multiplicity)
+		{
+			if (edgeMult.second > 1) 
+			{
+				tandems.insert(edgeMult.first);
+				tandems.insert(_graph.complementEdge(edgeMult.first));
+			}
+		}
 
-		//check if we can traverse through these repeats
+		//Logger::get().debug() << "Ctg " << upath.name() 
+		//	<< " extension " << maxExtension;
+
+		//check if we are not traverse non-tandem repeats in prohibited 
+		//directions
 		bool canExtend = true;
 		for (auto& aln : bestAlignment)
 		{
+			++multiplicity[aln.edge];
 			if (repeatDirections.count(aln.edge))
 			{
-				if (!aln.edge->isLooped() &&
+				if (!tandems.count(aln.edge) &&
 					repeatDirections.at(aln.edge) != direction)
 				{
 					canExtend = false;
@@ -86,17 +106,19 @@ void OutputGenerator::extendContigs(const std::vector<GraphAlignment>& readAln,
 		}
 		if (!canExtend) return std::string();
 
-
+		//if we traverse some repeats for the first time, record the direction
 		for (auto& aln : bestAlignment)
 		{
-			Logger::get().debug() << "\t" << aln.edge->edgeId.signedId();
+			//Logger::get().debug() << "\t" << aln.edge->edgeId.signedId();
+			if (aln.overlap.extLen - aln.overlap.extEnd < 
+					Constants::maxSeparation)
+			{
+				repeatDirections[aln.edge] = direction;
+				repeatDirections[_graph.complementEdge(aln.edge)] = !direction;
 
-			repeatDirections[aln.edge] = direction;
-			repeatDirections[_graph.complementEdge(aln.edge)] = !direction;
-
-			coveredRepeats.insert(aln.edge);
-			coveredRepeats
-				.insert(_graph.complementEdge(aln.edge));
+				coveredRepeats.insert(aln.edge);
+				coveredRepeats.insert(_graph.complementEdge(aln.edge));
+			}
 		}
 
 		FastaRecord::Id seqId = bestAlignment.front().overlap.curId;
@@ -125,6 +147,7 @@ void OutputGenerator::extendContigs(const std::vector<GraphAlignment>& readAln,
 							extendedContigs.back().sequence + rightExt;
 	}
 
+	int numCovered = 0;
 	for (auto& ctg : _contigs)
 	{
 		if (!ctg.repetitive || !ctg.id.strand()) continue;
@@ -138,10 +161,16 @@ void OutputGenerator::extendContigs(const std::vector<GraphAlignment>& readAln,
 		{
 			extendedContigs.push_back(ctg);
 		}
+		else
+		{
+			++numCovered;
+			Logger::get().debug() << "Covered: " << ctg.name();
+		}
 	}
+	Logger::get().debug() << "Covered " << numCovered << " repetitive contigs";
 
 	Logger::get().info() << "Generated " << extendedContigs.size() 
-		<< " graph paths";
+		<< " extended contigs";
 	this->outputEdgesFasta(extendedContigs, outFile);
 }
 
@@ -169,7 +198,6 @@ void OutputGenerator::
 		int32_t prevFlank = 0;
 		int32_t prevLength = 0;
 
-		//Logger::get().debug() << "Contig: " << contig.id.signedId();
 		for (size_t i = 0; i < contig.path.size(); ++i) 
 		{
 			if (contig.path[i]->seqSegments.empty()) 
@@ -186,21 +214,8 @@ void OutputGenerator::
 				{
 					bestSegment = &seg;
 				}
-
-				//auto name = (!seg.readSequence) ? 
-				//			_asmSeqs.seqName(seg.seqId) :
-				//			_readSeqs.seqName(seg.seqId);
-				//Logger::get().debug() << "\t\t" << name << "\t"
-				//	<< seg.start << "\t" << seg.end;
 			}
 			if (bestSegment->length() == 0) continue;
-
-			//auto name = (!bestSegment->readSequence) ? 
-			//				_asmSeqs.seqName(bestSegment->seqId) :
-			//				_readSeqs.seqName(bestSegment->seqId);
-			//Logger::get().debug() << "\tChosen: " << name << "\t" 
-			//	<< contigStart << "\t" << bestSegment->start << "\t" << bestSegment->end;
-			//contigStart += bestSegment->end - bestSegment->start;
 
 			auto& sequence = (!bestSegment->readSequence) ? 
 							  _asmSeqs.getSeq(bestSegment->seqId) :
@@ -449,8 +464,6 @@ void OutputGenerator::outputEdgesGfa(const std::vector<UnbranchingPath>& paths,
 		size_t kmerCount = contig.sequence.size() * contig.meanCoverage;
 		fprintf(fout, "S\t%s\t%s\tKC:i:%d\n", contig.name().c_str(), 
 				contig.sequence.c_str(), (int)kmerCount);
-		//fout << "S\t" << contig.name() << "\t"<< contig.sequence << "\tKC:i:" <<
-		//	kmerCount << "\n";
 	}
 
 	for (auto& contigLeft : paths)
@@ -466,8 +479,6 @@ void OutputGenerator::outputEdgesGfa(const std::vector<UnbranchingPath>& paths,
 			std::string rightSign = contigRight.id.strand() ? "+" :"-";
 			std::string rightName = contigRight.nameUnsigned();
 
-			//fout << "L\t" << leftName << "\t" << leftSign << "\t" <<
-			//	rightName << "\t" << rightSign << "\t0M\n";
 			fprintf(fout, "L\t%s\t%s\t%s\t%s\t0M\n", leftName.c_str(), 
 					leftSign.c_str(), rightName.c_str(), rightSign.c_str());
 		}
@@ -549,5 +560,4 @@ void OutputGenerator::outputEdgesDot(const std::vector<UnbranchingPath>& paths,
 	}
 
 	fout << "}\n";
-
 }
