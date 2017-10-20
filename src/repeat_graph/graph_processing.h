@@ -62,12 +62,11 @@ public:
 		_tipThreshold(Parameters::get().minimumOverlap) {}
 
 	void condence();
+	void fixChimericJunctions();
 	std::vector<UnbranchingPath> getUnbranchingPaths();
 
 private:
-
 	void trimTips();
-	void fixChimericJunctions();
 	void condenceEdges();
 	void updateEdgesMultiplicity();
 	void collapseBulges();

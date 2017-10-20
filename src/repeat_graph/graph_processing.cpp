@@ -312,6 +312,7 @@ std::vector<UnbranchingPath> GraphProcessor::getUnbranchingPaths()
 				edgeIds[edge->edgeId.rc()] = nextEdgeId + 1;
 			}
 			nextEdgeId += 2;
+			return FastaRecord::Id(nextEdgeId - 2);
 		}
 		return FastaRecord::Id(edgeIds[path.front()->edgeId]);
 	};
