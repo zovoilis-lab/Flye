@@ -381,6 +381,9 @@ void RepeatResolver::resolveRepeats()
 		if (!resolvedConnections) break;
 		this->findRepeats();
 	}
+
+	GraphProcessor proc(_graph, _asmSeqs, _readSeqs);
+	proc.fixChimericJunctions();
 }
 
 
