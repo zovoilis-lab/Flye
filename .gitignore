@@ -3,10 +3,11 @@
 *.swp
 *.so
 *.DS_Store
-libbf/libbf.a
 bin/abruijn-assemble
 bin/abruijn-polish
 bin/abruijn-repeat
 bin/blasr
 build
+lib/lemon-1.3.1/build
+lib/lemon-1.3.1/install
 lib/blasr_install/*
