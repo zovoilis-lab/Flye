@@ -10,8 +10,10 @@
 #include "../common/config.h"
 #include "../common/utils.h"
 #include "../common/parallel.h"
-#include "bipartie_mincost.h"
+//#include "bipartie_mincost.h"
 
+#include <lemon/list_graph.h>
+#include <lemon/matching.h>
 
 void RepeatResolver::separatePath(const GraphPath& graphPath, 
 								  SequenceSegment readSegment, 
@@ -75,77 +77,85 @@ int RepeatResolver::resolveConnections(const std::vector<Connection>& connection
 		Logger::get().debug() << "";
 	}*/
 	///////////
-	std::unordered_map<GraphEdge*, int> leftCoverage;
-	std::unordered_map<GraphEdge*, int> rightCoverage;
-	
-	//create bipartie graph matrix
-	std::unordered_map<GraphEdge*, size_t> leftEdgesId;
-	std::unordered_map<size_t, GraphEdge*> leftIdToEdge;
-	size_t nextLeftId = 0;
-	std::unordered_map<GraphEdge*, size_t> rightEdgesId;
-	std::unordered_map<size_t, GraphEdge*> rightIdToEdge;
-	size_t nextRightId = 0;
+	std::unordered_map<FastaRecord::Id, int> leftCoverage;
+	std::unordered_map<FastaRecord::Id, int> rightCoverage;
+
+	std::unordered_map<FastaRecord::Id, int> asmToLemon;
+	std::unordered_map<int, FastaRecord::Id> lemonToAsm;
+	lemon::ListGraph graph;
+	lemon::ListGraph::EdgeMap<int> edgeWeights(graph);
+
+	auto getEdge = [&graph](lemon::ListGraph::Node n1, lemon::ListGraph::Node n2)
+	{
+		for (lemon::ListGraph::IncEdgeIt edgeIt(graph, n1); 
+			 edgeIt != lemon::INVALID; ++edgeIt) 
+		{
+			if (graph.oppositeNode(n1, edgeIt) == n2) return edgeIt;
+		}
+		return lemon::ListGraph::IncEdgeIt(lemon::INVALID);
+	};
 
 	for (auto& conn : connections)
 	{
 		GraphEdge* leftEdge = conn.path.front();
 		GraphEdge* rightEdge = conn.path.back();
-		++leftCoverage[leftEdge];
-		++rightCoverage[rightEdge];
 
-		if (!leftEdgesId.count(leftEdge))
-		{
-			leftEdgesId[leftEdge] = nextLeftId;
-			leftIdToEdge[nextLeftId++] = leftEdge;
-		}
-		if (!rightEdgesId.count(rightEdge))
-		{
-			rightEdgesId[rightEdge] = nextRightId;
-			rightIdToEdge[nextRightId++] = rightEdge;
-		}
-	}
-
-	size_t numNodes = std::max(leftEdgesId.size(), rightEdgesId.size());
-	BipartieTable table;
-	table.assign(numNodes, std::vector<double>(numNodes, 0));
-	for (auto& conn : connections)
-	{
-		GraphEdge* leftEdge = conn.path.front();
-		GraphEdge* rightEdge = conn.path.back();
 		if (leftEdge->edgeId == rightEdge->edgeId ||
 			leftEdge->edgeId == rightEdge->edgeId.rc()) continue;
 
-		//solving min cost mathcing
-		--table[leftEdgesId[leftEdge]][rightEdgesId[rightEdge]];
+		++leftCoverage[leftEdge->edgeId];
+		++rightCoverage[rightEdge->edgeId.rc()];
+
+		if (!asmToLemon.count(leftEdge->edgeId))
+		{
+			auto newNode = graph.addNode();
+			asmToLemon[leftEdge->edgeId] = graph.id(newNode);
+			lemonToAsm[graph.id(newNode)] = leftEdge->edgeId;
+		}
+		if (!asmToLemon.count(rightEdge->edgeId.rc()))
+		{
+			auto newNode = graph.addNode();
+			asmToLemon[rightEdge->edgeId.rc()] = graph.id(newNode);
+			lemonToAsm[graph.id(newNode)] = rightEdge->edgeId.rc();
+		}
+
+		auto leftLemonNode = graph.nodeFromId(asmToLemon[leftEdge->edgeId]);
+		auto rightLemonNode = graph.nodeFromId(asmToLemon[rightEdge->edgeId.rc()]);
+		if (!graph.valid(getEdge(leftLemonNode, rightLemonNode)))
+		{
+			auto edge = graph.addEdge(leftLemonNode, rightLemonNode);
+			edgeWeights[edge] = 0;
+		}
+		auto edge = getEdge(leftLemonNode, rightLemonNode);
+		++edgeWeights[edge];
 	}
-	auto edges = bipartieMincost(table);
-	typedef std::pair<size_t, size_t> MatchPair;
-	std::vector<MatchPair> matchingPairs;
-	for (size_t i = 0; i < edges.size(); ++i)
-	{
-		matchingPairs.emplace_back(i, edges[i]);
-	}
+
+	lemon::MaxWeightedMatching<lemon::ListGraph> matcher(graph, edgeWeights);
+	matcher.run();
 
 	std::unordered_set<FastaRecord::Id> usedEdges;
 	std::vector<Connection> uniqueConnections;
 	int totalLinks = 0;
 	int unresolvedLinks = 0;
-	for (auto match : matchingPairs)
+	for (auto lemonAsm : lemonToAsm)
 	{
-		GraphEdge* leftEdge = leftIdToEdge[match.first];
-		GraphEdge* rightEdge = rightIdToEdge[match.second];
+		auto mateNode = matcher.mate(graph.nodeFromId(lemonAsm.first));
+		if (mateNode == lemon::INVALID) continue;
 
-		int support = -table[match.first][match.second];
-		float confidence = 2.0f * support / (leftCoverage[leftEdge] + 
-											 rightCoverage[rightEdge]);
-		if (!support) continue;
-		if (usedEdges.count(leftEdge->edgeId)) continue;
-		usedEdges.insert(rightEdge->edgeId.rc());
+		FastaRecord::Id leftId = lemonAsm.second;
+		FastaRecord::Id rightId = lemonToAsm[graph.id(mateNode)];
+		int support = edgeWeights[getEdge(graph.nodeFromId(lemonAsm.first), 
+										  mateNode)];
+
+		if (usedEdges.count(leftId)) continue;
+		usedEdges.insert(rightId);
+
+		float confidence = (float)support / (leftCoverage[leftId] + 
+									  		 rightCoverage[rightId]);
 
 		Logger::get().debug() << "\tConnection " 
-			<< leftEdge->edgeId.signedId()
-			<< "\t" << rightEdge->edgeId.signedId()
-			<< "\t" << support / 2 << "\t" << confidence;
+			<< leftId.signedId() << "\t" << rightId.rc().signedId()
+			<< "\t" << support / 4 << "\t" << confidence;
 
 		if (confidence < Constants::minRepeatResSupport) 
 		{
@@ -154,11 +164,11 @@ int RepeatResolver::resolveConnections(const std::vector<Connection>& connection
 		}
 
 		totalLinks += 2;
+		//TODO: choose representetive read more carefully
 		for (auto& conn : connections)
 		{
-			//TODO: choose representetive read more carefully
-			if (conn.path.front() == leftEdge && 
-				conn.path.back() == rightEdge)
+			if (conn.path.front()->edgeId == leftId && 
+				conn.path.back()->edgeId == rightId.rc())
 			{
 				uniqueConnections.push_back(conn);
 				break;

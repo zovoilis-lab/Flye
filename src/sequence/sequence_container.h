@@ -16,7 +16,8 @@ struct FastaRecord
 	class Id
 	{
 	public:
-		explicit Id(uint32_t id): _id(id) {}
+		Id(): _id(std::numeric_limits<uint32_t>::max()) {}
+		Id(uint32_t id): _id(id) {}
 
 		bool operator==(const Id& other) const
 			{return _id == other._id;}
