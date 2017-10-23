@@ -40,6 +40,7 @@ ABruijn package includes some third-party software:
 
 * libcuckoo [http://github.com/efficient/libcuckoo]
 * intervaltree [https://github.com/ekg/intervaltree]
+* lemon [http://lemon.cs.elte.hu/trac/lemon]
 * BLASR [https://github.com/PacificBiosciences/blasr]
 
 
