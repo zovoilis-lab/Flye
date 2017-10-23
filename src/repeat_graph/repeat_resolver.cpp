@@ -135,7 +135,6 @@ int RepeatResolver::resolveConnections(const std::vector<Connection>& connection
 
 	std::unordered_set<FastaRecord::Id> usedEdges;
 	std::vector<Connection> uniqueConnections;
-	int totalLinks = 0;
 	int unresolvedLinks = 0;
 	for (auto lemonAsm : lemonToAsm)
 	{
@@ -163,12 +162,13 @@ int RepeatResolver::resolveConnections(const std::vector<Connection>& connection
 			continue;
 		}
 
-		totalLinks += 2;
 		//TODO: choose representetive read more carefully
 		for (auto& conn : connections)
 		{
-			if (conn.path.front()->edgeId == leftId && 
-				conn.path.back()->edgeId == rightId.rc())
+			if ((conn.path.front()->edgeId == leftId && 
+				 	conn.path.back()->edgeId == rightId.rc()) ||
+				(conn.path.front()->edgeId == rightId && 
+				 	conn.path.back()->edgeId == leftId.rc()))
 			{
 				uniqueConnections.push_back(conn);
 				break;
@@ -186,11 +186,11 @@ int RepeatResolver::resolveConnections(const std::vector<Connection>& connection
 		this->separatePath(complPath, complSegment, edgeId.rc());
 	}
 
-	Logger::get().debug() << "Resolved: " << totalLinks / 2 << " links: "
+	Logger::get().debug() << "Resolved: " << uniqueConnections.size() << " links: "
 						  << connections.size() / 2;
-	Logger::get().debug() << "Unresolved: " << unresolvedLinks / 2;
+	Logger::get().debug() << "Unresolved: " << unresolvedLinks;
 
-	return totalLinks / 2;
+	return uniqueConnections.size();
 }
 
 void RepeatResolver::findRepeats()
