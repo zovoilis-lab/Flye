@@ -31,6 +31,7 @@ void RepeatResolver::separatePath(const GraphPath& graphPath,
 	for (size_t i = 1; i < graphPath.size() - 1; ++i)
 	{
 		graphPath[i]->resolved = true;
+		--graphPath[i]->multiplicity;
 		//graphPath[i]->meanCoverage = 
 		//	std::max(graphPath[i]->meanCoverage - pathCoverage, 0);
 	}

@@ -19,6 +19,7 @@
 #include "multiplicity_inferer.h"
 #include "graph_processing.h"
 #include "repeat_resolver.h"
+#include "structure_resolver.h"
 #include "output_generator.h"
 
 bool parseArgs(int argc, char** argv, std::string& readsFasta, 
@@ -212,6 +213,9 @@ int main(int argc, char** argv)
 	Logger::get().info() << "Resolving repeats";
 	resolver.resolveRepeats();
 	//outGen.outputDot(/*on contigs*/ false, outFolder + "/graph_after_rr.dot");
+	
+	StructureResolver structRes(rg, seqAssembly, seqReads);
+	structRes.unrollLoops();
 
 	Logger::get().info() << "Generating contigs";
 	outGen.generateContigs();
