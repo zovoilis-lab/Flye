@@ -149,7 +149,7 @@ def _flattern_profile(profile):
 
         if max_match != "-":
             growing_seq.append(max_match)
-        if max_insert and ins_group[max_insert] > coverage / 2:
+        if max_insert and max_insert != "-" and ins_group[max_insert] > coverage / 2:
             growing_seq.append(max_insert)
 
     return "".join(growing_seq)

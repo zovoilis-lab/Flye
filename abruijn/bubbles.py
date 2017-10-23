@@ -115,7 +115,7 @@ def get_bubbles(alignment_path, contigs_info, err_mode, num_proc):
         bubbles.extend(ctg_bubbles)
 
     logger.debug("Generated {0} bubbles".format(len(bubbles)))
-    logger.debug("Split {0} long solid regions".format(total_long_bubbles))
+    logger.debug("Split {0} long bubbles".format(total_long_bubbles))
     logger.debug("Skipped {0} empty bubbles".format(total_empty))
     logger.debug("Skipped {0} bubbles with long branches".format(total_long_branches))
 
