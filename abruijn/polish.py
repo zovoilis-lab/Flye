@@ -52,9 +52,6 @@ def polish(bubbles, num_proc, err_mode, work_dir, iter_id):
     hopo_matrix = os.path.join(_ROOT, 'resource',
                                config.vals["err_modes"][err_mode]["hopo_matrix"])
 
-    #sort bubbles by decreasing length
-    bubbles.sort(key=lambda b: len(b.consensus), reverse=True)
-
     bubbles_file = os.path.join(work_dir, "bubbles_{0}.fasta".format(iter_id))
     bbl.output_bubbles(bubbles, bubbles_file)
     consensus_out = os.path.join(work_dir, "consensus_{0}.fasta"
