@@ -170,6 +170,10 @@ def _postprocess_bubbles(bubbles):
                         #logger.debug("Zero branch")
                     new_branches.append(branch)
 
+        if (abs(len(median_branch) - len(bubble.consensus)) >
+                len(median_branch) / 2):
+            bubble.consensus = median_branch
+
         new_bubbles.append(Bubble(bubble.contig_id, bubble.position))
         new_bubbles[-1].consensus = bubble.consensus
         new_bubbles[-1].branches = new_branches
