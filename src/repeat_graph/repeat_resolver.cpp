@@ -221,11 +221,11 @@ void RepeatResolver::findRepeats()
 		for (auto& edge : path->path) edge->repetitive = true;
 	};
 
-	//mark edges with high coverage as repetitive
 	for (auto& path : unbranchingPaths)
 	{
 		if (!path.id.strand()) continue;
 
+		//mark edges with high coverage as repetitive
 		if (path.meanCoverage > _multInf.getUniqueCovThreshold() * 2)
 		{
 			markRepetitive(&path);
@@ -234,11 +234,14 @@ void RepeatResolver::findRepeats()
 				<< path.edgesStr() << "\t" << path.length << "\t" 
 				<< path.meanCoverage;
 		}
-	}
 
-	//plus tanem repeats
-	for (auto& path : unbranchingPaths)
-	{
+		//self-complements
+		if (&path == complPath(&path))
+		{
+			markRepetitive(&path);
+		}
+
+		//tanem repeats
 		if (path.path.size() == 1 && path.path.front()->isLooped())
 		{
 			std::unordered_set<FastaRecord::Id> seen;
@@ -272,7 +275,6 @@ void RepeatResolver::findRepeats()
 			}
 		}
 		if (parallelEdges.size() != 2) continue;
-		//if (parallelEdges[0]->edgeId == parallelEdges[1]->edgeId.rc()) continue;
 		if (parallelEdges[0]->length() > Constants::trustedEdgeLength || 
 			parallelEdges[1]->length() > Constants::trustedEdgeLength) continue;
 
@@ -380,6 +382,7 @@ void RepeatResolver::findRepeats()
 
 void RepeatResolver::resolveRepeats()
 {
+	//this is initially done in main.cpp
 	//this->removeUnsupportedEdges();
 	//_aligner.updateAlignments();
 

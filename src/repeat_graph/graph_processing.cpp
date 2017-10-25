@@ -328,7 +328,8 @@ std::vector<UnbranchingPath> GraphProcessor::getUnbranchingPaths()
 		GraphNode* curNode = edge->nodeLeft;
 		while (!curNode->isBifurcation() &&
 			   !curNode->inEdges.empty() &&
-			   !visitedEdges.count(curNode->inEdges.front()))
+			   !visitedEdges.count(curNode->inEdges.front()) &&
+			   !curNode->inEdges.front()->selfComplement)
 		{
 			traversed.push_back(curNode->inEdges.front());
 			visitedEdges.insert(traversed.back());
@@ -341,7 +342,8 @@ std::vector<UnbranchingPath> GraphProcessor::getUnbranchingPaths()
 		curNode = edge->nodeRight;
 		while (!curNode->isBifurcation() &&
 			   !curNode->outEdges.empty() &&
-			   !visitedEdges.count(curNode->outEdges.front()))
+			   !visitedEdges.count(curNode->outEdges.front()) &&
+			   !curNode->outEdges.front()->selfComplement)
 		{
 			traversed.push_back(curNode->outEdges.front());
 			visitedEdges.insert(traversed.back());

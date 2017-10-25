@@ -26,9 +26,6 @@ void StructureResolver::unrollLoops()
 						 SequenceSegment segment,
 						 std::vector<FastaRecord::Id> ids)
 	{
-		Logger::get().debug() << "Unrolling " << loop->edgeId.signedId()
-			<< " of multiplicity " << loop->multiplicity;
-
 		int mult = loop->multiplicity;
 		_graph.removeEdge(loop);
 		if (mult == 0) return;
@@ -46,12 +43,15 @@ void StructureResolver::unrollLoops()
 		rightEdge->nodeLeft = lastNode;
 		lastNode->outEdges.push_back(rightEdge);
 	};
+
 	for (auto& edge : toUnroll)
 	{
 		GraphEdge* leftEdge = !edge->nodeLeft->inEdges[0]->isLooped() ? 
 					edge->nodeLeft->inEdges[0] : edge->nodeLeft->inEdges[1];
 		GraphEdge* rightEdge = !edge->nodeLeft->outEdges[0]->isLooped() ? 
 					edge->nodeLeft->outEdges[0] : edge->nodeLeft->outEdges[1];
+		if (leftEdge->edgeId == rightEdge->edgeId.rc() ||
+			_graph.complementEdge(leftEdge) == rightEdge) continue;
 		//if (leftEdge->repetitive || rightEdge->repetitive) continue;
 		
 		std::sort(edge->seqSegments.begin(), edge->seqSegments.end(),
@@ -66,6 +66,10 @@ void StructureResolver::unrollLoops()
 			revIds.emplace_back(fwdIds.back().rc());
 		}
 		std::reverse(revIds.begin(), revIds.end());
+
+		Logger::get().debug() << "Unrolling " << edge->edgeId.signedId()
+			<< " of multiplicity " << edge->multiplicity;
+
 		GraphEdge* complLoop = _graph.complementEdge(edge);
 		unroll(leftEdge, edge, rightEdge, segment, fwdIds);
 		unroll(_graph.complementEdge(rightEdge), complLoop,
