@@ -163,7 +163,8 @@ int RepeatResolver::resolveConnections(const std::vector<Connection>& connection
 			continue;
 		}
 
-		//TODO: choose representetive read more carefully
+		int32_t maxFlank = 0;
+		const Connection* maxConnection = nullptr;
 		for (auto& conn : connections)
 		{
 			if ((conn.path.front()->edgeId == leftId && 
@@ -171,10 +172,14 @@ int RepeatResolver::resolveConnections(const std::vector<Connection>& connection
 				(conn.path.front()->edgeId == rightId && 
 				 	conn.path.back()->edgeId == leftId.rc()))
 			{
-				uniqueConnections.push_back(conn);
-				break;
+				if (conn.flankLength > maxFlank)
+				{
+					maxFlank = conn.flankLength;
+					maxConnection = &conn;
+				}
 			}
 		}
+		uniqueConnections.push_back(*maxConnection);
 	}
 
 	for (auto& conn : uniqueConnections)
@@ -420,34 +425,38 @@ std::vector<RepeatResolver::Connection>
 	std::vector<Connection> readConnections;
 	for (auto& readPath : _aligner.getAlignments())
 	{
-		GraphPath currentPath;
+		GraphAlignment currentAln;
 		int32_t readStart = 0;
 		for (auto& aln : readPath)
 		{
-			if (currentPath.empty()) 
+			if (currentAln.empty()) 
 			{
 				if (!safeEdge(aln.edge)) continue;
 				readStart = aln.overlap.curEnd + aln.overlap.extLen - 
 							aln.overlap.extEnd;
 			}
 
-			currentPath.push_back(aln.edge);
-			if (safeEdge(aln.edge) && currentPath.size() > 1)
+			currentAln.push_back(aln);
+			if (safeEdge(aln.edge) && currentAln.size() > 1)
 			{
-				if (!currentPath.back()->nodeLeft->isBifurcation() &&
-					!currentPath.front()->nodeRight->isBifurcation()) continue;
+				if (!currentAln.back().edge->nodeLeft->isBifurcation() &&
+					!currentAln.front().edge->nodeRight->isBifurcation()) continue;
 
+				int32_t flankScore = std::min(currentAln.front().overlap.curRange(),
+											  currentAln.back().overlap.curRange());
+				GraphPath currentPath;
+				for (auto& aln : currentAln) currentPath.push_back(aln.edge);
 				GraphPath complPath = _graph.complementPath(currentPath);
 
 				int32_t readEnd = aln.overlap.curBegin - aln.overlap.extBegin;
-				readEnd = std::max(readStart + 100, readEnd);
+				readEnd = std::max(readStart + 100, readEnd);	//TODO: less ad-hoc fix
 				SequenceSegment segment(aln.overlap.curId, aln.overlap.curLen, 
 										readStart, readEnd);
 				segment.readSequence = true;
 				SequenceSegment complSegment = segment.complement();
 
-				readConnections.push_back({currentPath, segment});
-				readConnections.push_back({complPath, complSegment});
+				readConnections.push_back({currentPath, segment, flankScore});
+				readConnections.push_back({complPath, complSegment, flankScore});
 
 				currentPath.clear();
 				currentPath.push_back(aln.edge);

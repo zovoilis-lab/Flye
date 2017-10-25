@@ -27,6 +27,7 @@ private:
 	{
 		GraphPath path;
 		SequenceSegment readSequence;
+		int32_t flankLength;
 	};
 
 	void clearResolvedRepeats();
