@@ -157,14 +157,14 @@ int RepeatResolver::resolveConnections(const std::vector<Connection>& connection
 			<< leftId.signedId() << "\t" << rightId.rc().signedId()
 			<< "\t" << support / 4 << "\t" << confidence;
 
-		if (confidence < Constants::minRepeatResSupport) 
+		if (confidence < Constants::minRepeatResSupport ||
+			support < 4)	//in case of support < 4, an unreliable case 
 		{
 			++unresolvedLinks;
 			continue;
 		}
 
-		int32_t maxFlank = 0;
-		const Connection* maxConnection = nullptr;
+		std::vector<Connection> spanningConnections;
 		for (auto& conn : connections)
 		{
 			if ((conn.path.front()->edgeId == leftId && 
@@ -172,14 +172,14 @@ int RepeatResolver::resolveConnections(const std::vector<Connection>& connection
 				(conn.path.front()->edgeId == rightId && 
 				 	conn.path.back()->edgeId == leftId.rc()))
 			{
-				if (conn.flankLength > maxFlank)
-				{
-					maxFlank = conn.flankLength;
-					maxConnection = &conn;
-				}
+				spanningConnections.push_back(conn);
 			}
 		}
-		uniqueConnections.push_back(*maxConnection);
+		std::sort(spanningConnections.begin(), spanningConnections.end(),
+				  [](const Connection c1, const Connection c2)
+				{return c1.readSequence.length() < c2.readSequence.length();});
+		uniqueConnections
+			.push_back(spanningConnections[spanningConnections.size() / 2]);
 	}
 
 	for (auto& conn : uniqueConnections)
