@@ -278,7 +278,8 @@ void OutputGenerator::dumpRepeats(const std::vector<GraphAlignment>& readAlignme
 			outputs.insert(edge);
 			if (edge->isRepetitive()) isSimple = false;
 		}
-		if (!isSimple || inputs.size() != outputs.size()) continue;
+		if (!isSimple || inputs.size() != outputs.size() ||
+			inputs.empty()) continue;
 
 		std::unordered_set<GraphEdge*> innerEdges(contig.path.begin(), 
 												  contig.path.end());
