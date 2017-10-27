@@ -325,29 +325,30 @@ std::vector<UnbranchingPath> GraphProcessor::getUnbranchingPaths()
 		visitedEdges.insert(edge);
 
 		GraphPath traversed;
-		GraphNode* curNode = edge->nodeLeft;
-		while (!curNode->isBifurcation() &&
-			   !curNode->inEdges.empty() &&
-			   !visitedEdges.count(curNode->inEdges.front()) &&
-			   !curNode->inEdges.front()->selfComplement)
-		{
-			traversed.push_back(curNode->inEdges.front());
-			visitedEdges.insert(traversed.back());
-			curNode = curNode->inEdges.front()->nodeLeft;
-		}
-
-		std::reverse(traversed.begin(), traversed.end());
 		traversed.push_back(edge);
-
-		curNode = edge->nodeRight;
-		while (!curNode->isBifurcation() &&
-			   !curNode->outEdges.empty() &&
-			   !visitedEdges.count(curNode->outEdges.front()) &&
-			   !curNode->outEdges.front()->selfComplement)
+		if (!edge->selfComplement)
 		{
-			traversed.push_back(curNode->outEdges.front());
-			visitedEdges.insert(traversed.back());
-			curNode = curNode->outEdges.front()->nodeRight;
+			GraphNode* curNode = edge->nodeLeft;
+			while (!curNode->isBifurcation() &&
+				   !curNode->inEdges.empty() &&
+				   !visitedEdges.count(curNode->inEdges.front()) &&
+				   !curNode->inEdges.front()->selfComplement)
+			{
+				traversed.push_back(curNode->inEdges.front());
+				visitedEdges.insert(traversed.back());
+				curNode = curNode->inEdges.front()->nodeLeft;
+			}
+			std::reverse(traversed.begin(), traversed.end());
+			curNode = edge->nodeRight;
+			while (!curNode->isBifurcation() &&
+				   !curNode->outEdges.empty() &&
+				   !visitedEdges.count(curNode->outEdges.front()) &&
+				   !curNode->outEdges.front()->selfComplement)
+			{
+				traversed.push_back(curNode->outEdges.front());
+				visitedEdges.insert(traversed.back());
+				curNode = curNode->outEdges.front()->nodeRight;
+			}
 		}
 
 		FastaRecord::Id edgeId = pathToId(traversed);
