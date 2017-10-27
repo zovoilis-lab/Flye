@@ -6,6 +6,9 @@
 #include "../sequence/contig_generator.h"
 #include <iomanip>
 
+#undef NDEBUG
+#include <cassert>
+
 void OutputGenerator::generateContigs()
 {
 	GraphProcessor proc(_graph, _asmSeqs, _readSeqs);
@@ -196,7 +199,7 @@ void OutputGenerator::
 
 		ContigPath contigPath;
 		int32_t prevFlank = 0;
-		int32_t prevLength = 0;
+		int32_t prevSubLength = 0;
 
 		for (size_t i = 0; i < contig.path.size(); ++i) 
 		{
@@ -221,34 +224,48 @@ void OutputGenerator::
 							  _asmSeqs.getSeq(bestSegment->seqId) :
 							  _readSeqs.getSeq(bestSegment->seqId);
 
-			int32_t leftFlank = std::min(Constants::maxSeparation,
+			int32_t leftFlank = std::min(5000,
 										 bestSegment->start);
-			if (i == 0) leftFlank = 0;
-			int32_t rightFlank = std::min(Constants::maxSeparation,
-											(int32_t)sequence.length() - 
-											bestSegment->end);
-			if (i == contig.path.size() - 1) rightFlank = 0;
+			if (i == 0) 
+			{
+				leftFlank = 0;
+			}
+			int32_t rightFlank = std::min(5000,
+										  (int32_t)sequence.length() - 
+										  		bestSegment->end);
+			if (i == contig.path.size() - 1) 
+			{
+				rightFlank = 0;
+			}
 
-			int32_t substrLen = bestSegment->end - bestSegment->start
-										   	+ leftFlank + rightFlank;
+			int32_t curSubLength = bestSegment->length() + leftFlank + rightFlank;
 			contigPath.sequences
 				.push_back(sequence.substr(bestSegment->start - leftFlank,
-										   substrLen));
+										   curSubLength));
+
+			assert(leftFlank >= 0);
+			assert(rightFlank >= 0);
 
 			if (i != 0)
 			{
-				int32_t overlapLen = prevFlank + leftFlank;
+				int32_t adjustedNextFlank = 
+					std::min(leftFlank, prevSubLength - prevFlank);
+				int32_t adjustedPrevFlank = 
+					std::min(prevFlank, curSubLength - leftFlank);
+				int32_t overlapLen = adjustedPrevFlank + adjustedNextFlank;
 				OverlapRange ovlp;
-				ovlp.curBegin = prevLength - overlapLen;
-				ovlp.curEnd = prevLength;
-				ovlp.curLen = prevLength;
+				ovlp.curBegin = prevSubLength - overlapLen;
+				ovlp.curEnd = prevSubLength;
+				ovlp.curLen = prevSubLength;
 				ovlp.extBegin = 0;
 				ovlp.extEnd = overlapLen;
-				ovlp.extLen = contigPath.sequences.back().length();
+				ovlp.extLen = curSubLength;
 				contigPath.overlaps.push_back(ovlp);
+
+				assert(ovlp.curBegin >= 0);
 			}
 			prevFlank = rightFlank;
-			prevLength = contigPath.sequences.back().length();
+			prevSubLength = curSubLength;
 		}
 		auto fastaRec = gen.generateLinear(contigPath);
 		contig.sequence = fastaRec.sequence.str();
