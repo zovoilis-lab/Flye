@@ -157,8 +157,7 @@ int RepeatResolver::resolveConnections(const std::vector<Connection>& connection
 			<< leftId.signedId() << "\t" << rightId.rc().signedId()
 			<< "\t" << support / 4 << "\t" << confidence;
 
-		if (confidence < Constants::minRepeatResSupport ||
-			support < 4)	//in case of support < 4, an unreliable case 
+		if (confidence < Constants::minRepeatResSupport)
 		{
 			++unresolvedLinks;
 			continue;

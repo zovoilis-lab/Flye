@@ -224,13 +224,13 @@ void OutputGenerator::
 							  _asmSeqs.getSeq(bestSegment->seqId) :
 							  _readSeqs.getSeq(bestSegment->seqId);
 
-			int32_t leftFlank = std::min(5000,
+			int32_t leftFlank = std::min(Constants::maxSeparation,
 										 bestSegment->start);
 			if (i == 0) 
 			{
 				leftFlank = 0;
 			}
-			int32_t rightFlank = std::min(5000,
+			int32_t rightFlank = std::min(Constants::maxSeparation,
 										  (int32_t)sequence.length() - 
 										  		bestSegment->end);
 			if (i == contig.path.size() - 1) 

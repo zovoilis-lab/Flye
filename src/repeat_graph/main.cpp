@@ -216,6 +216,7 @@ int main(int argc, char** argv)
 	
 	StructureResolver structRes(rg, seqAssembly, seqReads);
 	structRes.unrollLoops();
+	aligner.updateAlignments();
 
 	Logger::get().info() << "Generating contigs";
 	outGen.generateContigs();
