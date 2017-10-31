@@ -25,6 +25,7 @@ Extender::ExtensionInfo Extender::extendContig(FastaRecord::Id startRead)
 	std::vector<int> numOverlaps;
 	ExtensionInfo exInfo;
 	exInfo.reads.push_back(startRead);
+	exInfo.assembledLength = _readsContainer.seqLen(startRead);
 
 	auto leftExtendsStart = [startRead, this](const FastaRecord::Id readId)
 	{
@@ -98,9 +99,14 @@ Extender::ExtensionInfo Extender::extendContig(FastaRecord::Id startRead)
 		overlapsVisited |= currentReads.count(currentRead);
 		if (foundExtension) 
 		{
-			//Logger::get().debug() << "Extension: " << 
-			//	    	_readsContainer.seqName(currentRead) << " " << innerOverlaps
-			//			<< " " << extensions.size();
+			for (auto& ovlp : extensions)
+			{
+				if (ovlp.extId == currentRead)
+				{
+					exInfo.assembledLength += ovlp.rightShift;
+					break;
+				}
+			}
 			exInfo.reads.push_back(currentRead);
 		}
 		else
@@ -158,6 +164,8 @@ void Extender::assembleContigs()
 		for (auto& ovlp : _ovlpContainer.lazySeqOverlaps(startRead))
 		{
 			if (_innerReads.contains(ovlp.extId)) ++numInnerOvlp;
+			if (ovlp.extId == startRead || 
+				ovlp.extId.rc() == startRead) return true;
 		}
 		if (numInnerOvlp > 0) return true;
 
@@ -177,7 +185,9 @@ void Extender::assembleContigs()
 		{
 			if (_innerReads.contains(readId)) ++innerCount;
 		}
-		if (innerCount > Constants::maxInnerFraction)
+		int innerThreshold = std::min(Constants::maxInnerReads,
+						int(Constants::maxInnerFraction * exInfo.reads.size()));
+		if (innerCount > innerThreshold)
 		{
 			Logger::get().debug() << "Discarded contig with "
 				<< exInfo.reads.size() << " reads and "
@@ -185,7 +195,8 @@ void Extender::assembleContigs()
 			return false;
 		}
 
-		Logger::get().debug() << "Assembled contig" 
+		Logger::get().debug() << "Assembled contig " 
+			<< std::to_string(_readLists.size() + 1)
 			<< "\n\tWith " << exInfo.reads.size() << " reads"
 			<< "\n\tStart read: " << _readsContainer.seqName(startRead)
 			<< "\n\tAt position: " << exInfo.stepsToTurn
@@ -193,7 +204,8 @@ void Extender::assembleContigs()
 			<< " rightTip: " << exInfo.rightTip
 			<< "\n\tSuspicios: " << exInfo.numSuspicious
 			<< "\n\tMean extensions: " << exInfo.meanOverlaps
-			<< "\n\tInner reads: " << innerCount;
+			<< "\n\tInner reads: " << innerCount
+			<< "\n\tLength: " << exInfo.assembledLength;
 		
 		//update inner read index
 		std::unordered_set<FastaRecord::Id> rightExtended;

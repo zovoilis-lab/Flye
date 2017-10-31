@@ -28,7 +28,8 @@ namespace Constants
 
 	//extension
 	const int minReadsInContig = 4;
-	const int maxInnerFraction = 10;
+	const int maxInnerReads = 10;
+	const float maxInnerFraction = 0.25;
 
 	//repeat graph
 	const int maxSeparation = 500;
