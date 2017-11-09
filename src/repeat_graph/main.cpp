@@ -19,6 +19,7 @@
 #include "multiplicity_inferer.h"
 #include "graph_processing.h"
 #include "repeat_resolver.h"
+#include "structure_resolver.h"
 #include "output_generator.h"
 
 bool parseArgs(int argc, char** argv, std::string& readsFasta, 
@@ -141,8 +142,10 @@ void exceptionHandler()
 
 int main(int argc, char** argv)
 {
+	#ifndef _DEBUG
 	signal(SIGSEGV, segfaultHandler);
 	std::set_terminate(exceptionHandler);
+	#endif
 
 	bool debugging = false;
 	size_t numThreads;
@@ -199,6 +202,8 @@ int main(int argc, char** argv)
 	RepeatResolver resolver(rg, seqAssembly, seqReads, aligner, multInf);
 	
 	multInf.fixEdgesMultiplicity(aligner.getAlignments());
+	resolver.removeUnsupportedEdges();
+	aligner.updateAlignments();
 	resolver.findRepeats();
 	outGen.outputDot(/*on contigs*/ false, outFolder + "/graph_before_rr.dot");
 	//outGen.outputGfa(/*on contigs*/ false, outFolder + "/graph_before_rr.gfa");
@@ -208,6 +213,10 @@ int main(int argc, char** argv)
 	Logger::get().info() << "Resolving repeats";
 	resolver.resolveRepeats();
 	//outGen.outputDot(/*on contigs*/ false, outFolder + "/graph_after_rr.dot");
+	
+	StructureResolver structRes(rg, seqAssembly, seqReads);
+	structRes.unrollLoops();
+	aligner.updateAlignments();
 
 	Logger::get().info() << "Generating contigs";
 	outGen.generateContigs();
@@ -217,6 +226,8 @@ int main(int argc, char** argv)
 	outGen.outputDot(/*on contigs*/ true, outFolder + "/graph_final.dot");
 	outGen.outputFasta(/*on contigs*/ true, outFolder + "/graph_final.fasta");
 	outGen.outputGfa(/*on contigs*/ true, outFolder + "/graph_final.gfa");
+
+	outGen.extendContigs(aligner.getAlignments(), outFolder + "/graph_paths.fasta");
 	
 	return 0;
 }

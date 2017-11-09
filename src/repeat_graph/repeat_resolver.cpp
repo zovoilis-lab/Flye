@@ -10,8 +10,10 @@
 #include "../common/config.h"
 #include "../common/utils.h"
 #include "../common/parallel.h"
-#include "bipartie_mincost.h"
+//#include "bipartie_mincost.h"
 
+#include <lemon/list_graph.h>
+#include <lemon/matching.h>
 
 void RepeatResolver::separatePath(const GraphPath& graphPath, 
 								  SequenceSegment readSegment, 
@@ -29,6 +31,7 @@ void RepeatResolver::separatePath(const GraphPath& graphPath,
 	for (size_t i = 1; i < graphPath.size() - 1; ++i)
 	{
 		graphPath[i]->resolved = true;
+		--graphPath[i]->multiplicity;
 		//graphPath[i]->meanCoverage = 
 		//	std::max(graphPath[i]->meanCoverage - pathCoverage, 0);
 	}
@@ -75,96 +78,107 @@ int RepeatResolver::resolveConnections(const std::vector<Connection>& connection
 		Logger::get().debug() << "";
 	}*/
 	///////////
-	std::unordered_map<GraphEdge*, int> leftCoverage;
-	std::unordered_map<GraphEdge*, int> rightCoverage;
-	
-	//create bipartie graph matrix
-	std::unordered_map<GraphEdge*, size_t> leftEdgesId;
-	std::unordered_map<size_t, GraphEdge*> leftIdToEdge;
-	size_t nextLeftId = 0;
-	std::unordered_map<GraphEdge*, size_t> rightEdgesId;
-	std::unordered_map<size_t, GraphEdge*> rightIdToEdge;
-	size_t nextRightId = 0;
+	std::unordered_map<FastaRecord::Id, int> leftCoverage;
+	std::unordered_map<FastaRecord::Id, int> rightCoverage;
+
+	std::unordered_map<FastaRecord::Id, int> asmToLemon;
+	std::unordered_map<int, FastaRecord::Id> lemonToAsm;
+	lemon::ListGraph graph;
+	lemon::ListGraph::EdgeMap<int> edgeWeights(graph);
+
+	auto getEdge = [&graph](lemon::ListGraph::Node n1, lemon::ListGraph::Node n2)
+	{
+		for (lemon::ListGraph::IncEdgeIt edgeIt(graph, n1); 
+			 edgeIt != lemon::INVALID; ++edgeIt) 
+		{
+			if (graph.oppositeNode(n1, edgeIt) == n2) return edgeIt;
+		}
+		return lemon::ListGraph::IncEdgeIt(lemon::INVALID);
+	};
 
 	for (auto& conn : connections)
 	{
 		GraphEdge* leftEdge = conn.path.front();
 		GraphEdge* rightEdge = conn.path.back();
-		++leftCoverage[leftEdge];
-		++rightCoverage[rightEdge];
 
-		if (!leftEdgesId.count(leftEdge))
-		{
-			leftEdgesId[leftEdge] = nextLeftId;
-			leftIdToEdge[nextLeftId++] = leftEdge;
-		}
-		if (!rightEdgesId.count(rightEdge))
-		{
-			rightEdgesId[rightEdge] = nextRightId;
-			rightIdToEdge[nextRightId++] = rightEdge;
-		}
-	}
-
-	size_t numNodes = std::max(leftEdgesId.size(), rightEdgesId.size());
-	BipartieTable table;
-	table.assign(numNodes, std::vector<double>(numNodes, 0));
-	for (auto& conn : connections)
-	{
-		GraphEdge* leftEdge = conn.path.front();
-		GraphEdge* rightEdge = conn.path.back();
 		if (leftEdge->edgeId == rightEdge->edgeId ||
 			leftEdge->edgeId == rightEdge->edgeId.rc()) continue;
 
-		//solving min cost mathcing
-		--table[leftEdgesId[leftEdge]][rightEdgesId[rightEdge]];
+		++leftCoverage[leftEdge->edgeId];
+		++rightCoverage[rightEdge->edgeId.rc()];
+
+		if (!asmToLemon.count(leftEdge->edgeId))
+		{
+			auto newNode = graph.addNode();
+			asmToLemon[leftEdge->edgeId] = graph.id(newNode);
+			lemonToAsm[graph.id(newNode)] = leftEdge->edgeId;
+		}
+		if (!asmToLemon.count(rightEdge->edgeId.rc()))
+		{
+			auto newNode = graph.addNode();
+			asmToLemon[rightEdge->edgeId.rc()] = graph.id(newNode);
+			lemonToAsm[graph.id(newNode)] = rightEdge->edgeId.rc();
+		}
+
+		auto leftLemonNode = graph.nodeFromId(asmToLemon[leftEdge->edgeId]);
+		auto rightLemonNode = graph.nodeFromId(asmToLemon[rightEdge->edgeId.rc()]);
+		if (!graph.valid(getEdge(leftLemonNode, rightLemonNode)))
+		{
+			auto edge = graph.addEdge(leftLemonNode, rightLemonNode);
+			edgeWeights[edge] = 0;
+		}
+		auto edge = getEdge(leftLemonNode, rightLemonNode);
+		++edgeWeights[edge];
 	}
-	auto edges = bipartieMincost(table);
-	typedef std::pair<size_t, size_t> MatchPair;
-	std::vector<MatchPair> matchingPairs;
-	for (size_t i = 0; i < edges.size(); ++i)
-	{
-		matchingPairs.emplace_back(i, edges[i]);
-	}
+
+	lemon::MaxWeightedMatching<lemon::ListGraph> matcher(graph, edgeWeights);
+	matcher.run();
 
 	std::unordered_set<FastaRecord::Id> usedEdges;
 	std::vector<Connection> uniqueConnections;
-	int totalLinks = 0;
 	int unresolvedLinks = 0;
-	for (auto match : matchingPairs)
+	for (auto lemonAsm : lemonToAsm)
 	{
-		GraphEdge* leftEdge = leftIdToEdge[match.first];
-		GraphEdge* rightEdge = rightIdToEdge[match.second];
+		auto mateNode = matcher.mate(graph.nodeFromId(lemonAsm.first));
+		if (mateNode == lemon::INVALID) continue;
 
-		int support = -table[match.first][match.second];
-		float confidence = 2.0f * support / (leftCoverage[leftEdge] + 
-											 rightCoverage[rightEdge]);
-		if (!support) continue;
-		if (usedEdges.count(leftEdge->edgeId)) continue;
-		usedEdges.insert(rightEdge->edgeId.rc());
+		FastaRecord::Id leftId = lemonAsm.second;
+		FastaRecord::Id rightId = lemonToAsm[graph.id(mateNode)];
+		int support = edgeWeights[getEdge(graph.nodeFromId(lemonAsm.first), 
+										  mateNode)];
+
+		if (usedEdges.count(leftId)) continue;
+		usedEdges.insert(rightId);
+
+		float confidence = (float)support / (leftCoverage[leftId] + 
+									  		 rightCoverage[rightId]);
 
 		Logger::get().debug() << "\tConnection " 
-			<< leftEdge->edgeId.signedId()
-			<< "\t" << rightEdge->edgeId.signedId()
-			<< "\t" << support / 2 << "\t" << confidence;
+			<< leftId.signedId() << "\t" << rightId.rc().signedId()
+			<< "\t" << support / 4 << "\t" << confidence;
 
-		if (confidence < Constants::minRepeatResSupport) 
+		if (confidence < Constants::minRepeatResSupport)
 		{
 			++unresolvedLinks;
 			continue;
 		}
-		//if (support < 4) continue;
 
-		totalLinks += 2;
+		std::vector<Connection> spanningConnections;
 		for (auto& conn : connections)
 		{
-			//TODO: choose representetive read more carefully
-			if (conn.path.front() == leftEdge && 
-				conn.path.back() == rightEdge)
+			if ((conn.path.front()->edgeId == leftId && 
+				 	conn.path.back()->edgeId == rightId.rc()) ||
+				(conn.path.front()->edgeId == rightId && 
+				 	conn.path.back()->edgeId == leftId.rc()))
 			{
-				uniqueConnections.push_back(conn);
-				break;
+				spanningConnections.push_back(conn);
 			}
 		}
+		std::sort(spanningConnections.begin(), spanningConnections.end(),
+				  [](const Connection c1, const Connection c2)
+				{return c1.readSequence.length() < c2.readSequence.length();});
+		uniqueConnections
+			.push_back(spanningConnections[spanningConnections.size() / 2]);
 	}
 
 	for (auto& conn : uniqueConnections)
@@ -177,11 +191,11 @@ int RepeatResolver::resolveConnections(const std::vector<Connection>& connection
 		this->separatePath(complPath, complSegment, edgeId.rc());
 	}
 
-	Logger::get().debug() << "Resolved: " << totalLinks / 2 << " links: "
+	Logger::get().debug() << "Resolved: " << uniqueConnections.size() << " links: "
 						  << connections.size() / 2;
-	Logger::get().debug() << "Unresolved: " << unresolvedLinks / 2;
+	Logger::get().debug() << "Unresolved: " << unresolvedLinks;
 
-	return totalLinks / 2;
+	return uniqueConnections.size();
 }
 
 void RepeatResolver::findRepeats()
@@ -211,11 +225,11 @@ void RepeatResolver::findRepeats()
 		for (auto& edge : path->path) edge->repetitive = true;
 	};
 
-	//mark edges with high coverage as repetitive
 	for (auto& path : unbranchingPaths)
 	{
 		if (!path.id.strand()) continue;
 
+		//mark edges with high coverage as repetitive
 		if (path.meanCoverage > _multInf.getUniqueCovThreshold() * 2)
 		{
 			markRepetitive(&path);
@@ -225,7 +239,13 @@ void RepeatResolver::findRepeats()
 				<< path.meanCoverage;
 		}
 
-		//plus tanem repeats
+		//self-complements
+		if (&path == complPath(&path))
+		{
+			markRepetitive(&path);
+		}
+
+		//tanem repeats
 		if (path.path.size() == 1 && path.path.front()->isLooped())
 		{
 			std::unordered_set<FastaRecord::Id> seen;
@@ -244,6 +264,33 @@ void RepeatResolver::findRepeats()
 			}
 		}
 	}
+
+	//bubbles with alternative alleles
+	int diploidBubbles = 0;
+	for (auto& edge : _graph.iterEdges())
+	{
+		if (edge->isLooped()) continue;
+		std::vector<GraphEdge*> parallelEdges;
+		for (auto& parEdge : edge->nodeLeft->outEdges)
+		{
+			if (parEdge->nodeRight == edge->nodeRight) 
+			{
+				parallelEdges.push_back(parEdge);
+			}
+		}
+		if (parallelEdges.size() != 2) continue;
+		if (parallelEdges[0]->length() > Constants::trustedEdgeLength || 
+			parallelEdges[1]->length() > Constants::trustedEdgeLength) continue;
+
+		float covSum = parallelEdges[0]->meanCoverage + 
+					   parallelEdges[1]->meanCoverage;
+		if (covSum / _multInf.getMeanCoverage() > 1.5) continue;
+
+		parallelEdges[0]->repetitive = true;
+		parallelEdges[1]->repetitive = true;
+		++diploidBubbles;
+	}
+	Logger::get().debug() << "Masked " << diploidBubbles / 4 << " diploid bubbles";
 
 	//Now, using read alignments
 	//extract read alignments
@@ -285,11 +332,9 @@ void RepeatResolver::findRepeats()
 		int repeatMult = 0;
 		int uniqueMult = 0;
 		int minSupport = maxSupport / Constants::outPathsRatio;
-		int minCoverage = _multInf.getMeanCoverage() / Constants::readCovRate;
 		for (auto& outConn : outConnections[edge]) 
 		{
-			if (outConn.second > minSupport && 
-				outConn.first->meanCoverage > minCoverage)
+			if (outConn.second > minSupport)
 			{
 				outConn.first->repetitive ? ++repeatMult : ++uniqueMult;
 			}
@@ -341,18 +386,22 @@ void RepeatResolver::findRepeats()
 
 void RepeatResolver::resolveRepeats()
 {
+	//this is initially done in main.cpp
+	//this->removeUnsupportedEdges();
+	//_aligner.updateAlignments();
+
 	while (true)
 	{
 		auto connections = this->getConnections();
 		int resolvedConnections = this->resolveConnections(connections);
-		if (!resolvedConnections) break;
-
+		this->clearResolvedRepeats();
 		_aligner.updateAlignments();
+		if (!resolvedConnections) break;
 		this->findRepeats();
 	}
 
-	this->removeUnsupportedEdges();
-	this->clearResolvedRepeats();
+	GraphProcessor proc(_graph, _asmSeqs, _readSeqs);
+	proc.fixChimericJunctions();
 }
 
 
@@ -362,9 +411,7 @@ std::vector<RepeatResolver::Connection>
 	
 	auto safeEdge = [this](GraphEdge* edge)
 	{
-		return !edge->isRepetitive() &&
-			edge->meanCoverage > _multInf.getMeanCoverage() / 
-									Constants::readCovRate;
+		return !edge->isRepetitive();
 	};
 
 	int totalSafe = 0;
@@ -377,34 +424,38 @@ std::vector<RepeatResolver::Connection>
 	std::vector<Connection> readConnections;
 	for (auto& readPath : _aligner.getAlignments())
 	{
-		GraphPath currentPath;
+		GraphAlignment currentAln;
 		int32_t readStart = 0;
 		for (auto& aln : readPath)
 		{
-			if (currentPath.empty()) 
+			if (currentAln.empty()) 
 			{
 				if (!safeEdge(aln.edge)) continue;
 				readStart = aln.overlap.curEnd + aln.overlap.extLen - 
 							aln.overlap.extEnd;
 			}
 
-			currentPath.push_back(aln.edge);
-			if (safeEdge(aln.edge) && currentPath.size() > 1)
+			currentAln.push_back(aln);
+			if (safeEdge(aln.edge) && currentAln.size() > 1)
 			{
-				if (!currentPath.back()->nodeLeft->isBifurcation() &&
-					!currentPath.front()->nodeRight->isBifurcation()) continue;
+				if (!currentAln.back().edge->nodeLeft->isBifurcation() &&
+					!currentAln.front().edge->nodeRight->isBifurcation()) continue;
 
+				int32_t flankScore = std::min(currentAln.front().overlap.curRange(),
+											  currentAln.back().overlap.curRange());
+				GraphPath currentPath;
+				for (auto& aln : currentAln) currentPath.push_back(aln.edge);
 				GraphPath complPath = _graph.complementPath(currentPath);
 
 				int32_t readEnd = aln.overlap.curBegin - aln.overlap.extBegin;
-				readEnd = std::max(readStart + 100, readEnd);
+				readEnd = std::max(readStart + 100, readEnd);	//TODO: less ad-hoc fix
 				SequenceSegment segment(aln.overlap.curId, aln.overlap.curLen, 
 										readStart, readEnd);
 				segment.readSequence = true;
 				SequenceSegment complSegment = segment.complement();
 
-				readConnections.push_back({currentPath, segment});
-				readConnections.push_back({complPath, complSegment});
+				readConnections.push_back({currentPath, segment, flankScore});
+				readConnections.push_back({complPath, complSegment, flankScore});
 
 				currentPath.clear();
 				currentPath.push_back(aln.edge);
@@ -426,8 +477,7 @@ void RepeatResolver::removeUnsupportedEdges()
 	for (auto& edge : _graph.iterEdges())
 	{
 		GraphEdge* complEdge = _graph.complementEdge(edge);
-		if (edge->meanCoverage <= coverageThreshold &&
-			!edge->resolved)
+		if (edge->meanCoverage <= coverageThreshold)
 		{
 			edgesRemove.insert(edge);
 			edgesRemove.insert(complEdge);

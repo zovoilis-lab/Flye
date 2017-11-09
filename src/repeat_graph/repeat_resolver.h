@@ -20,17 +20,17 @@ public:
 
 	void findRepeats();
 	void resolveRepeats();
-
+	void removeUnsupportedEdges();
 
 private:
 	struct Connection
 	{
 		GraphPath path;
 		SequenceSegment readSequence;
+		int32_t flankLength;
 	};
 
 	void clearResolvedRepeats();
-	void removeUnsupportedEdges();
 	std::vector<Connection> getConnections();
 	int  resolveConnections(const std::vector<Connection>& conns);
 	void separatePath(const GraphPath& path, SequenceSegment segment,

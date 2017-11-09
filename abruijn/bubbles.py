@@ -115,7 +115,7 @@ def get_bubbles(alignment_path, contigs_info, err_mode, num_proc):
         bubbles.extend(ctg_bubbles)
 
     logger.debug("Generated {0} bubbles".format(len(bubbles)))
-    logger.debug("Split {0} long solid regions".format(total_long_bubbles))
+    logger.debug("Split {0} long bubbles".format(total_long_bubbles))
     logger.debug("Skipped {0} empty bubbles".format(total_empty))
     logger.debug("Skipped {0} bubbles with long branches".format(total_long_branches))
 
@@ -169,6 +169,10 @@ def _postprocess_bubbles(bubbles):
                         branch = "A"
                         #logger.debug("Zero branch")
                     new_branches.append(branch)
+
+        if (abs(len(median_branch) - len(bubble.consensus)) >
+                len(median_branch) / 2):
+            bubble.consensus = median_branch
 
         new_bubbles.append(Bubble(bubble.contig_id, bubble.position))
         new_bubbles[-1].consensus = bubble.consensus

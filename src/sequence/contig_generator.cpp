@@ -204,7 +204,7 @@ ContigGenerator::generateAlignments(const ContigPath& path)
 								  (int)rightSeq.length()) + 
 								  		Constants::maximumJump;
 		if (abs((int)leftSeq.length() - (int)rightSeq.length()) >
-			std::min(leftSeq.length(), rightSeq.length()))
+			std::min((int)leftSeq.length(), (int)rightSeq.length()))
 		{
 			Logger::get().warning() << "Aligning sequence that are too "
 				<< " different - something is terribly wrong!";

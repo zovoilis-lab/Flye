@@ -157,8 +157,10 @@ void exceptionHandler()
 
 int main(int argc, char** argv)
 {
+	#ifndef _DEBUG
 	signal(SIGSEGV, segfaultHandler);
 	std::set_terminate(exceptionHandler);
+	#endif
 
 	int kmerSize = 0;
 	int minKmerCov = 0;

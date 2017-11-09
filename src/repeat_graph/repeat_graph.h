@@ -208,6 +208,10 @@ public:
 		}
 		return newEdge;
 	}
+	bool hasEdge(GraphEdge* edge)
+	{
+		return _graphEdges.count(edge);
+	}
 	class IterEdges
 	{
 	public:

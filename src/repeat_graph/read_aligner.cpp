@@ -222,30 +222,29 @@ void ReadAligner::alignReads()
 		<< totalLength << " " << (float)alignedLength / totalLength;
 }
 
+//updates alignments with respect to the new graph
 void ReadAligner::updateAlignments()
 {
-	//removes alignments that are no longer supported by the graph
 	std::vector<GraphAlignment> newAlignments;
-	int split = 0;
 	for (auto& aln : _readAlignments)
 	{
 		GraphAlignment curAlignment;
 		for (size_t i = 0; i < aln.size() - 1; ++i)
 		{
-			curAlignment.push_back(aln[i]);
+			if (!_graph.hasEdge(aln[i].edge)) continue;
 
-			if (aln[i].edge->nodeRight != aln[i + 1].edge->nodeLeft)
+			curAlignment.push_back(aln[i]);
+			if (!_graph.hasEdge(aln[i + 1].edge) ||
+				aln[i].edge->nodeRight != aln[i + 1].edge->nodeLeft)
 			{
-				++split;
 				newAlignments.push_back(curAlignment);
 				curAlignment.clear();
 			}
 		}
 
-		curAlignment.push_back(aln.back());
-		newAlignments.push_back(curAlignment);
+		if (_graph.hasEdge(aln.back().edge)) curAlignment.push_back(aln.back());
+		if (!curAlignment.empty()) newAlignments.push_back(curAlignment);
 	}
-	Logger::get().debug() << "Split " << split << " alignments";
 
 	_readAlignments = newAlignments;
 }

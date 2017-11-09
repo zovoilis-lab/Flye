@@ -86,29 +86,35 @@ void GraphProcessor::collapseBulges()
 					   pairhash> toFix;
 	for (auto& edge : _graph.iterEdges())
 	{
-		//fixing simple bubbles like this: -<=>-
-		if (edge->nodeLeft->outEdges.size()  != 2 ||
-			edge->nodeLeft->inEdges.size()   != 1 ||
-			edge->nodeRight->inEdges.size()  != 2 ||
-			edge->nodeRight->outEdges.size() != 1) continue;
-
-		GraphEdge* otherEdge = edge->nodeLeft->outEdges[0];
-		if (otherEdge == edge) otherEdge = edge->nodeLeft->outEdges[1];
-		if (otherEdge->nodeRight != edge->nodeRight) continue;
-		if (edge->edgeId == otherEdge->edgeId.rc()) continue;
-
-		if (edge->length() > MAX_BUBBLE || 
-			otherEdge->length() > MAX_BUBBLE) continue;
-		//if (edge->nodeLeft->inEdges.front()->length() < MAX_BUBBLE ||
-		//	edge->nodeRight->outEdges.front()->length() < MAX_BUBBLE) continue;
+		if (edge->isLooped()) continue;
+		std::vector<GraphEdge*> parallelEdges;
+		for (auto& parEdge : edge->nodeLeft->outEdges)
+		{
+			if (parEdge->nodeRight == edge->nodeRight) 
+			{
+				parallelEdges.push_back(parEdge);
+			}
+		}
+		if (parallelEdges.size() != 2) continue;
+		if (parallelEdges[0]->edgeId == parallelEdges[1]->edgeId.rc()) continue;
+		if (parallelEdges[0]->length() > MAX_BUBBLE || 
+			parallelEdges[1]->length() > MAX_BUBBLE) continue;
 
 		toFix.emplace(edge->nodeLeft, edge->nodeRight);
 	}
 
 	for (auto& nodes : toFix)
 	{
-		GraphEdge* edgeOne = nodes.first->outEdges[0];
-		GraphEdge* edgeTwo = nodes.first->outEdges[1];
+		std::vector<GraphEdge*> parallelEdges;
+		for (auto& parEdge : nodes.first->outEdges)
+		{
+			if (parEdge->nodeRight == nodes.second) 
+			{
+				parallelEdges.push_back(parEdge);
+			}
+		}
+		GraphEdge* edgeOne = parallelEdges[0];
+		GraphEdge* edgeTwo = parallelEdges[1];
 		if (abs(edgeOne->edgeId.signedId()) > abs(edgeTwo->edgeId.signedId()))
 		{
 			std::swap(edgeOne, edgeTwo);
@@ -306,6 +312,7 @@ std::vector<UnbranchingPath> GraphProcessor::getUnbranchingPaths()
 				edgeIds[edge->edgeId.rc()] = nextEdgeId + 1;
 			}
 			nextEdgeId += 2;
+			return FastaRecord::Id(nextEdgeId - 2);
 		}
 		return FastaRecord::Id(edgeIds[path.front()->edgeId]);
 	};
@@ -318,33 +325,37 @@ std::vector<UnbranchingPath> GraphProcessor::getUnbranchingPaths()
 		visitedEdges.insert(edge);
 
 		GraphPath traversed;
-		GraphNode* curNode = edge->nodeLeft;
-		while (!curNode->isBifurcation() &&
-			   !curNode->inEdges.empty() &&
-			   !visitedEdges.count(curNode->inEdges.front()))
-		{
-			traversed.push_back(curNode->inEdges.front());
-			visitedEdges.insert(traversed.back());
-			curNode = curNode->inEdges.front()->nodeLeft;
-		}
-
-		std::reverse(traversed.begin(), traversed.end());
 		traversed.push_back(edge);
-
-		curNode = edge->nodeRight;
-		while (!curNode->isBifurcation() &&
-			   !curNode->outEdges.empty() &&
-			   !visitedEdges.count(curNode->outEdges.front()))
+		if (!edge->selfComplement)
 		{
-			traversed.push_back(curNode->outEdges.front());
-			visitedEdges.insert(traversed.back());
-			curNode = curNode->outEdges.front()->nodeRight;
+			GraphNode* curNode = edge->nodeLeft;
+			while (!curNode->isBifurcation() &&
+				   !curNode->inEdges.empty() &&
+				   !visitedEdges.count(curNode->inEdges.front()) &&
+				   !curNode->inEdges.front()->selfComplement)
+			{
+				traversed.push_back(curNode->inEdges.front());
+				visitedEdges.insert(traversed.back());
+				curNode = curNode->inEdges.front()->nodeLeft;
+			}
+			std::reverse(traversed.begin(), traversed.end());
+			curNode = edge->nodeRight;
+			while (!curNode->isBifurcation() &&
+				   !curNode->outEdges.empty() &&
+				   !visitedEdges.count(curNode->outEdges.front()) &&
+				   !curNode->outEdges.front()->selfComplement)
+			{
+				traversed.push_back(curNode->outEdges.front());
+				visitedEdges.insert(traversed.back());
+				curNode = curNode->outEdges.front()->nodeRight;
+			}
 		}
 
 		FastaRecord::Id edgeId = pathToId(traversed);
 		bool circular = (traversed.front()->nodeLeft == 
-						traversed.back()->nodeRight) &&
-						traversed.front()->nodeLeft->outEdges.size() == 1;
+							traversed.back()->nodeRight) &&
+						traversed.front()->nodeLeft->outEdges.size() == 1 &&
+						traversed.front()->nodeLeft->inEdges.size() == 1;
 
 		bool repetitive = traversed.front()->isRepetitive() || 
 						  traversed.back()->isRepetitive();
