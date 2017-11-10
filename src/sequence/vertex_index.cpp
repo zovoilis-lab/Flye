@@ -23,9 +23,12 @@ void VertexIndex::countKmers(size_t hardThreshold)
 	}
 	Logger::get().debug() << "Started kmer counting";
 
-	//const size_t PRE_COUNT_SIZE = 1024 * 1024 * 1024;
-	const size_t PRE_COUNT_SIZE = pow(4, Parameters::get().kmerSize);
-	std::vector<unsigned char> preCounters(PRE_COUNT_SIZE, 0);
+	size_t preCountSize = 1024 * 1024 * 1024;	//1G by default
+	if (Parameters::get().kmerSize > 15)
+	{
+		preCountSize *= 4;	//4G in case of larger k-mers
+	}
+	std::vector<unsigned char> preCounters(preCountSize, 0);
 
 	//filling up bloom filter
 	if (_outputProgress) Logger::get().info() << "Counting kmers (1/2):";
@@ -39,9 +42,9 @@ void VertexIndex::countKmers(size_t hardThreshold)
 		for (auto kmerPos : IterKmers(_seqContainer.getSeq(seqPair.first)))
 		{
 			kmerPos.kmer.standardForm();
-			if (preCounters[kmerPos.kmer.hash() % PRE_COUNT_SIZE] != 
+			if (preCounters[kmerPos.kmer.hash() % preCountSize] != 
 				std::numeric_limits<unsigned char>::max())
-				++preCounters[kmerPos.kmer.hash() % PRE_COUNT_SIZE];
+				++preCounters[kmerPos.kmer.hash() % preCountSize];
 		}
 	}
 
@@ -49,7 +52,7 @@ void VertexIndex::countKmers(size_t hardThreshold)
 	if (_outputProgress) Logger::get().info() << "Counting kmers (2/2):";
 
 	std::function<void(const FastaRecord::Id&)> countUpdate = 
-	[&preCounters, hardThreshold, this, PRE_COUNT_SIZE] 
+	[&preCounters, hardThreshold, this, preCountSize] 
 		(const FastaRecord::Id& readId)
 	{
 		if (!readId.strand()) return;
@@ -57,7 +60,7 @@ void VertexIndex::countKmers(size_t hardThreshold)
 		for (auto kmerPos : IterKmers(_seqContainer.getSeq(readId)))
 		{
 			kmerPos.kmer.standardForm();
-			size_t count = preCounters[kmerPos.kmer.hash() % PRE_COUNT_SIZE];
+			size_t count = preCounters[kmerPos.kmer.hash() % preCountSize];
 			if (count >= hardThreshold)
 			{
 				_kmerCounts.upsert(kmerPos.kmer, [](size_t& num){++num;}, 1);
