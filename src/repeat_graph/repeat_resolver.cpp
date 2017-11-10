@@ -242,6 +242,7 @@ void RepeatResolver::findRepeats()
 		//self-complements
 		if (&path == complPath(&path))
 		{
+			Logger::get().debug() << "Self-compl: " << path.edgesStr();
 			markRepetitive(&path);
 		}
 
@@ -436,29 +437,31 @@ std::vector<RepeatResolver::Connection>
 			}
 
 			currentAln.push_back(aln);
-			if (safeEdge(aln.edge) && currentAln.size() > 1)
+			if (safeEdge(aln.edge))
 			{
-				if (!currentAln.back().edge->nodeLeft->isBifurcation() &&
-					!currentAln.front().edge->nodeRight->isBifurcation()) continue;
+				if (currentAln.back().edge->nodeLeft->isBifurcation() ||
+					currentAln.front().edge->nodeRight->isBifurcation()) 
+				{
 
-				int32_t flankScore = std::min(currentAln.front().overlap.curRange(),
-											  currentAln.back().overlap.curRange());
-				GraphPath currentPath;
-				for (auto& aln : currentAln) currentPath.push_back(aln.edge);
-				GraphPath complPath = _graph.complementPath(currentPath);
+					int32_t flankScore = std::min(currentAln.front().overlap.curRange(),
+												  currentAln.back().overlap.curRange());
+					GraphPath currentPath;
+					for (auto& aln : currentAln) currentPath.push_back(aln.edge);
+					GraphPath complPath = _graph.complementPath(currentPath);
 
-				int32_t readEnd = aln.overlap.curBegin - aln.overlap.extBegin;
-				readEnd = std::max(readStart + 100, readEnd);	//TODO: less ad-hoc fix
-				SequenceSegment segment(aln.overlap.curId, aln.overlap.curLen, 
-										readStart, readEnd);
-				segment.readSequence = true;
-				SequenceSegment complSegment = segment.complement();
+					int32_t readEnd = aln.overlap.curBegin - aln.overlap.extBegin;
+					readEnd = std::max(readStart + 100, readEnd);	//TODO: less ad-hoc fix
+					SequenceSegment segment(aln.overlap.curId, aln.overlap.curLen, 
+											readStart, readEnd);
+					segment.readSequence = true;
+					SequenceSegment complSegment = segment.complement();
 
-				readConnections.push_back({currentPath, segment, flankScore});
-				readConnections.push_back({complPath, complSegment, flankScore});
+					readConnections.push_back({currentPath, segment, flankScore});
+					readConnections.push_back({complPath, complSegment, flankScore});
+				}
 
-				currentPath.clear();
-				currentPath.push_back(aln.edge);
+				currentAln.clear();
+				currentAln.push_back(aln);
 				readStart = aln.overlap.curEnd + aln.overlap.extLen - 
 							aln.overlap.extEnd;
 			}
