@@ -61,7 +61,6 @@ void RepeatGraph::build()
 
 	this->getGluepoints(asmOverlaps);
 	this->collapseTandems();
-	//this->collapseRedundant();
 	this->initializeEdges(asmOverlaps);
 }
 
@@ -153,29 +152,18 @@ void RepeatGraph::getGluepoints(const OverlapContainer& asmOverlaps)
 		//for gluepoints that lie within other existing overlaps
 		//(handles situations with 'repeat hierarchy', when some
 		//repeats are parts of the other bigger repeats)
-		/*auto startCmp = [] (const OverlapRange& ovlp, int32_t pos)
-						{return ovlp.curBegin < pos;};
-		auto& allOvlp = asmOverlaps.getOverlapIndex().at(clustSeq);
-		auto leftPos = std::lower_bound(allOvlp.begin(), allOvlp.end(), 
-										clusterXpos - 50000, startCmp);
-		auto rightPos = std::lower_bound(allOvlp.begin(), allOvlp.end(), 
-										 clusterXpos, startCmp);*/
-
-		//for (auto& ovlp = leftPos; ovlp != rightPos; ++ovlp)
 		for (auto& interval : asmOverlaps.getOverlaps(clustSeq, 
 													  clusterXpos - 1, 
 													  clusterXpos + 1))
 		{
-			/*if (clusterXpos - interval.value->curBegin < 0 && 
-				interval.value->curEnd - clusterXpos < 0)
+			if (interval.value->curEnd - clusterXpos > Constants::maxSeparation &&
+				clusterXpos - interval.value->curBegin > Constants::maxSeparation)
 			{
-				throw std::runtime_error("AA");
-			}*/
-			
-			int32_t projectedPos = interval.value->project(clusterXpos);
-			extCoords.emplace_back(Point2d(clustSeq, clusterXpos,
-										   interval.value->extId, 
-										   projectedPos));
+				int32_t projectedPos = interval.value->project(clusterXpos);
+				extCoords.emplace_back(Point2d(clustSeq, clusterXpos,
+											   interval.value->extId, 
+											   projectedPos));
+			}
 		}
 
 		//Finally, cluster the projected points based on Y coordinates
@@ -472,67 +460,6 @@ void RepeatGraph::collapseTandems()
 	Logger::get().debug() << "Tandems removed: " << collapsedLeft << " left, " 
 		<< collapsedRight << " right, " << collapsedBoth << " both";
 }
-
-/*void RepeatGraph::collapseRedundant()
-{
-	std::unordered_map<size_t, std::unordered_set<size_t>> ptLefts;
-	std::unordered_map<size_t, std::unordered_set<size_t>> ptRights;
-
-	for (auto& seqPoints : _gluePoints)
-	{
-		for (size_t i = 0; i < seqPoints.second.size(); ++i)
-		{
-			size_t pointId = seqPoints.second[i].pointId;
-			if (i < seqPoints.second.size() - 1)
-			{
-				ptRights[pointId]
-					.insert(seqPoints.second[i + 1].pointId);
-			}
-			if (i > 0)
-			{
-				ptLefts[pointId]
-					.insert(seqPoints.second[i - 1].pointId);
-			}
-		}
-	}
-	std::unordered_set<size_t> toRemove;
-	for (auto& seqPoints : _gluePoints)
-	{
-		for (size_t i = 0; i < seqPoints.second.size(); ++i)
-		{
-			size_t pointId = seqPoints.second[i].pointId;
-			FastaRecord::Id seqId = seqPoints.second[i].seqId;
-			size_t compPos = seqPoints.second.size() - i - 1;
-			size_t compId = _gluePoints[seqId.rc()][compPos].pointId;
-
-			bool leftDetemined = ptLefts[pointId].size() == 1;
-			bool rightDetemined = ptRights[pointId].size() == 1;
-			if (leftDetemined && rightDetemined &&
-				!toRemove.count(*ptLefts[pointId].begin()) &&
-				!toRemove.count(*ptRights[pointId].begin()) &&
-				!toRemove.count(*ptLefts[compId].begin()) &&
-				!toRemove.count(*ptRights[compId].begin()))
-			{
-				toRemove.insert(pointId);
-				toRemove.insert(compId);
-			}
-		}
-	}
-
-	for (auto& seqPoints : _gluePoints)
-	{
-		std::vector<GluePoint> newPoints;
-		for (size_t i = 0; i < seqPoints.second.size(); ++i)
-		{
-			if (!toRemove.count(seqPoints.second[i].pointId))
-			{
-				newPoints.push_back(seqPoints.second[i]);
-			}
-		}
-		seqPoints.second = newPoints;
-	}
-	Logger::get().debug() << "Redundant points removed: " << toRemove.size();
-}*/
 
 void RepeatGraph::initializeEdges(const OverlapContainer& asmOverlaps)
 {

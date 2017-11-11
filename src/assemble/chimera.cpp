@@ -127,15 +127,15 @@ bool ChimeraDetector::testReadByCoverage(FastaRecord::Id readId)
 	}
 
 	//self overlaps
-	/*for (auto& ovlp : _ovlpContainer.lazySeqOverlaps(readId))
+	for (auto& ovlp : _ovlpContainer.lazySeqOverlaps(readId))
 	{
 		if (ovlp.curId == ovlp.extId.rc()) 
 		{
-			Logger::get().debug() << "Self-ovlp: " 
-				<< _seqContainer.seqName(readId) << covStr;
+			//Logger::get().debug() << "Self-ovlp: " 
+			//	<< _seqContainer.seqName(readId) << covStr;
 			return true;
 		}
-	}*/
+	}
 
 	return false;
 }

@@ -67,7 +67,7 @@ void SequenceContainer::loadFromFile(const std::string& fileName)
 	//shuffling input reads
 	std::vector<size_t> indicesPerm(records.size());
 	for (size_t i = 0; i < indicesPerm.size(); ++i) indicesPerm[i] = i;
-	std::random_shuffle(indicesPerm.begin(), indicesPerm.end());
+	//std::random_shuffle(indicesPerm.begin(), indicesPerm.end());
 	//
 
 	_seqIndex.reserve(records.size());
