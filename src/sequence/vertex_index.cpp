@@ -24,31 +24,53 @@ void VertexIndex::countKmers(size_t hardThreshold)
 	Logger::get().debug() << "Started kmer counting";
 
 	size_t preCountSize = 1024 * 1024 * 1024;	//1G by default
-	if (Parameters::get().kmerSize > 15)
+	if (Parameters::get().kmerSize > 15)		//4 ^ 15 = 1G
 	{
-		preCountSize *= 4;	//4G in case of larger k-mers
+		preCountSize *= 4;						//4G in case of larger k-mers
 	}
-	std::vector<unsigned char> preCounters(preCountSize, 0);
+	//std::vector<std::atomic<unsigned char>> preCounters(preCountSize, 0);
+	auto preCounters = new std::atomic<unsigned char>[preCountSize];
+	for (size_t i = 0; i < preCountSize; ++i) preCounters[i] = 0;
 
-	//filling up bloom filter
-	if (_outputProgress) Logger::get().info() << "Counting kmers (1/2):";
-	ProgressPercent bloomProg(_seqContainer.getIndex().size());
-	for (auto& seqPair : _seqContainer.getIndex())
+	std::vector<FastaRecord::Id> allReads;
+	for (auto& hashPair : _seqContainer.getIndex())
 	{
-		if (_outputProgress) bloomProg.advance();
+		allReads.push_back(hashPair.first);
+	}
 
-		if (!seqPair.first.strand()) continue;
-
-		for (auto kmerPos : IterKmers(_seqContainer.getSeq(seqPair.first)))
+	//first pass: filling up naive hash counting filter
+	if (_outputProgress) Logger::get().info() << "Counting kmers (1/2):";
+	std::function<void(const FastaRecord::Id&)> preCountUpdate = 
+	[&preCounters, hardThreshold, this, preCountSize] 
+		(const FastaRecord::Id& readId)
+	{
+		if (!readId.strand()) return;
+		
+		for (auto kmerPos : IterKmers(_seqContainer.getSeq(readId)))
 		{
 			kmerPos.kmer.standardForm();
-			if (preCounters[kmerPos.kmer.hash() % preCountSize] != 
-				std::numeric_limits<unsigned char>::max())
-				++preCounters[kmerPos.kmer.hash() % preCountSize];
-		}
-	}
+			size_t kmerBucket = kmerPos.kmer.hash() % preCountSize;
 
-	//counting only kmers that have passed the filter
+			unsigned char expected = 0;
+			while (true)
+			{
+				expected = preCounters[kmerBucket]; 
+				if (expected == std::numeric_limits<unsigned char>::max()) 
+				{
+					break;
+				}
+				if (preCounters[kmerBucket]
+						.compare_exchange_weak(expected, expected + 1))
+				{
+					break;
+				}
+			}
+		}
+	};
+	processInParallel(allReads, preCountUpdate, 
+					  Parameters::get().numThreads, _outputProgress);
+
+	//second pass: counting kmers that have passed the filter
 	if (_outputProgress) Logger::get().info() << "Counting kmers (2/2):";
 
 	std::function<void(const FastaRecord::Id&)> countUpdate = 
@@ -67,11 +89,6 @@ void VertexIndex::countKmers(size_t hardThreshold)
 			}
 		}
 	};
-	std::vector<FastaRecord::Id> allReads;
-	for (auto& hashPair : _seqContainer.getIndex())
-	{
-		allReads.push_back(hashPair.first);
-	}
 	processInParallel(allReads, countUpdate, 
 					  Parameters::get().numThreads, _outputProgress);
 	
@@ -79,6 +96,7 @@ void VertexIndex::countKmers(size_t hardThreshold)
 	{
 		_kmerDistribution[kmer.second] += 1;
 	}
+	delete[] preCounters;
 }
 
 

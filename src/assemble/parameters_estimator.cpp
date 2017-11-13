@@ -6,7 +6,7 @@
 #include "../common/logger.h"
 
 
-int ParametersEstimator::genomeSizeEstimate()
+size_t ParametersEstimator::genomeSizeEstimate()
 {
 	/*
 	int kmersNeeded = 0;
@@ -23,17 +23,17 @@ void ParametersEstimator::estimateMinKmerCount(int upperCutoff)
 {
 	const int MIN_CUTOFF = 2;
 
-	int kmersNeeded = 0;
+	size_t kmersNeeded = 0;
 	for (auto& seqPair : _seqContainer.getIndex()) 
 	{
 		kmersNeeded += _seqContainer.seqLen(seqPair.first) / 2 / _coverage;
 	}
 	Logger::get().debug() << "Genome size estimate: " << kmersNeeded;
 	
-	int takenKmers = 0;
-	int cutoff = 0;
-	int repetitiveKmers = 0;
-	int prevDiff = 0;
+	size_t takenKmers = 0;
+	size_t cutoff = 0;
+	size_t repetitiveKmers = 0;
+	size_t prevDiff = 0;
 	for (auto mapPair = _vertexIndex.getKmerHist().rbegin();
 		 mapPair != _vertexIndex.getKmerHist().rend(); ++mapPair)
 	{
@@ -42,7 +42,8 @@ void ParametersEstimator::estimateMinKmerCount(int upperCutoff)
 			takenKmers += mapPair->second;
 			if (takenKmers >= kmersNeeded)
 			{
-				if (abs(takenKmers - kmersNeeded) < prevDiff)
+				if (std::max(takenKmers, kmersNeeded) - 
+					std::min(takenKmers, kmersNeeded) < prevDiff)
 				{
 					cutoff = mapPair->first;
 				}
@@ -53,7 +54,8 @@ void ParametersEstimator::estimateMinKmerCount(int upperCutoff)
 				}
 				break;
 			}
-			prevDiff = abs(takenKmers - kmersNeeded);
+			prevDiff = std::max(takenKmers, kmersNeeded) - 
+					   std::min(takenKmers, kmersNeeded);
 		}
 		else
 		{

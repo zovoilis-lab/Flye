@@ -15,14 +15,14 @@ public:
 		_coverage(coverage)
 	{}
 
-	void estimateMinKmerCount(int upperCutoff);
-	int genomeSizeEstimate();
-	int minKmerCount() {return _minKmerCount;}
+	void    estimateMinKmerCount(int upperCutoff);
+	size_t  genomeSizeEstimate();
+	size_t 	minKmerCount() {return _minKmerCount;}
 private:
 
 	const VertexIndex& _vertexIndex;
 	const SequenceContainer& _seqContainer;
 	const int _coverage;
-	int _takenKmers;
-	int _minKmerCount;
+	size_t _takenKmers;
+	size_t _minKmerCount;
 };
