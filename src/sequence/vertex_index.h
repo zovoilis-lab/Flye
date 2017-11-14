@@ -41,6 +41,11 @@ public:
 
 	typedef std::vector<ReadPosition> ReadVector;
 	typedef std::map<size_t, size_t> KmerDistribution;
+	union CountOrReadVector
+	{
+		size_t count;
+		ReadVector* rv;
+	};
 
 	class KmerPosIterator
 	{
@@ -117,7 +122,7 @@ public:
 	IterHelper iterKmerPos(Kmer kmer) const
 	{
 		bool revComp = kmer.standardForm();
-		return IterHelper(*_kmerIndex[kmer], revComp,
+		return IterHelper(*_kmerIndex[kmer].rv, revComp,
 						  _seqContainer);
 	}
 
@@ -127,20 +132,10 @@ public:
 		return _kmerIndex.contains(kmer);
 	}
 
-	/*size_t numSolid() const 
-	{
-		return _kmerIndex.size() * 2;
-	}*/
-
 	void outputProgress(bool set) 
 	{
 		_outputProgress = set;
 	}
-
-	//bool isRepetitive(Kmer kmer) const
-	//{
-	//	return _repetitiveKmers.count(kmer);
-	//}
 
 	const KmerDistribution& getKmerHist() const
 	{
@@ -152,8 +147,7 @@ private:
 
 	void addFastaSequence(const FastaRecord& fastaRecord);
 
-	cuckoohash_map<Kmer, ReadVector*> _kmerIndex;
-	//std::unordered_set<Kmer>		_repetitiveKmers;
+	cuckoohash_map<Kmer, CountOrReadVector> _kmerIndex;
 	KmerDistribution 			 	_kmerDistribution;
 	cuckoohash_map<Kmer, size_t>  	_kmerCounts;
 	bool _outputProgress;

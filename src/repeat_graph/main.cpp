@@ -167,6 +167,7 @@ int main(int argc, char** argv)
 
 	Logger::get().setDebugging(debugging);
 	if (!logFile.empty()) Logger::get().setOutputFile(logFile);
+	std::ios::sync_with_stdio(false);
 
 	Logger::get().debug() << "Build date: " << __DATE__ << " " << __TIME__;
 

@@ -26,9 +26,8 @@ void VertexIndex::countKmers(size_t hardThreshold)
 	size_t preCountSize = 1024 * 1024 * 1024;	//1G by default
 	if (Parameters::get().kmerSize > 15)		//4 ^ 15 = 1G
 	{
-		preCountSize *= 4;						//4G in case of larger k-mers
+		preCountSize *= 4 * 4;					//16G in case of larger k-mers
 	}
-	//std::vector<std::atomic<unsigned char>> preCounters(preCountSize, 0);
 	auto preCounters = new std::atomic<unsigned char>[preCountSize];
 	for (size_t i = 0; i < preCountSize; ++i) preCounters[i] = 0;
 
@@ -103,17 +102,46 @@ void VertexIndex::countKmers(size_t hardThreshold)
 void VertexIndex::buildIndex(int minCoverage, int maxCoverage, int filterRatio)
 {
 	if (_outputProgress) Logger::get().info() << "Filling index table";
-
+	
+	//"Replacing" k-mer couns with k-mer index. We need multiple passes
+	//to avoid peaks in memory usage during the has table extensions +
+	//prevent memory fragmentation
+	
 	size_t kmerEntries = 0;
-	for (auto kmer : _kmerCounts.lock_table())
+	size_t solidKmers = 0;
+	for (auto& kmer : _kmerCounts.lock_table())
 	{
 		if ((size_t)minCoverage <= kmer.second && 
 			kmer.second <= (size_t)maxCoverage)
 		{
 			kmerEntries += kmer.second;
+			++solidKmers;
 		}
 	}
+	Logger::get().debug() << "Solid kmers: " << solidKmers;
 	Logger::get().debug() << "Kmer index size: " << kmerEntries;
+
+	_kmerIndex.reserve(solidKmers);
+	for (auto& kmer : _kmerCounts.lock_table())
+	{
+		if ((size_t)minCoverage <= kmer.second && 
+			kmer.second <= (size_t)maxCoverage)
+		{
+			CountOrReadVector corv;
+			corv.count = kmer.second;
+			_kmerIndex.insert(kmer.first, corv);
+		}
+	}
+	_kmerCounts.clear();
+	_kmerCounts.reserve(0);
+	
+	//replacing counts with vectors
+	for (auto& kmer : _kmerIndex.lock_table())
+	{
+		size_t count = kmer.second.count;
+		kmer.second.rv = new ReadVector;
+		kmer.second.rv->reserve(count);
+	}
 
 	std::function<void(const FastaRecord::Id&)> indexUpdate = 
 	[minCoverage, maxCoverage, filterRatio, this] 
@@ -136,29 +164,10 @@ void VertexIndex::buildIndex(int minCoverage, int maxCoverage, int filterRatio)
 			//subsampling
 			if (kmerPos.position % filterRatio != 0) continue;
 
-			size_t count = 0;
-			_kmerCounts.find(kmerPos.kmer, count);
-
-			if ((int)count < minCoverage) continue;
-			if ((int)count > maxCoverage)
-			{
-				//downsampling, so as to have approximately
-				//maxCoverage k-mer instances
-				//if (rand() % (int)count > maxCoverage / 10) continue;
-				continue;
-			}
-
-			//all good
-			_kmerIndex.insert(kmerPos.kmer, nullptr);
 			_kmerIndex.update_fn(kmerPos.kmer, 
-				[targetRead, &kmerPos, count](ReadVector*& vec)
+				[targetRead, &kmerPos](CountOrReadVector& corv)
 				{
-					if (vec == nullptr)
-					{
-						vec = new ReadVector;
-						vec->reserve(count);
-					}
-					vec->emplace_back(targetRead, kmerPos.position);
+					corv.rv->emplace_back(targetRead, kmerPos.position);
 				});
 		}
 	};
@@ -169,9 +178,6 @@ void VertexIndex::buildIndex(int minCoverage, int maxCoverage, int filterRatio)
 	}
 	processInParallel(allReads, indexUpdate, 
 					  Parameters::get().numThreads, _outputProgress);
-
-	_kmerCounts.clear();
-	_kmerCounts.reserve(0);
 }
 
 
@@ -179,7 +185,7 @@ void VertexIndex::clear()
 {
 	for (auto kmerHash : _kmerIndex.lock_table())
 	{
-		delete kmerHash.second;
+		delete kmerHash.second.rv;
 	}
 	_kmerIndex.clear();
 	_kmerIndex.reserve(0);
