@@ -2,11 +2,16 @@
 //This file is a part of ABruijn program.
 //Released under the BSD license (see LICENSE file)
 
+//This module provides a few repeat graph processing functions
+//that do no require reads alignment (e.g. only graph sctructure is used)
+
 #pragma once
 
 #include "repeat_graph.h"
 #include "repeat_resolver.h"
 
+//Represents an unbranching path in the graph.
+//Used to represent contigs and more
 struct UnbranchingPath
 {
 	UnbranchingPath(const GraphPath& path, 
@@ -52,7 +57,8 @@ struct UnbranchingPath
 	int meanCoverage;
 };
 
-
+//A class for basic repeat graph processing
+//Condencing edges, collapsing bulges, trimming tips etc.
 class GraphProcessor
 {
 public:
@@ -61,14 +67,13 @@ public:
 		_graph(graph), _asmSeqs(asmSeqs), _readSeqs(readSeqs),
 		_tipThreshold(Parameters::get().minimumOverlap) {}
 
-	void condence();
+	void simplify();
 	void fixChimericJunctions();
 	std::vector<UnbranchingPath> getUnbranchingPaths();
 
 private:
 	void trimTips();
 	void condenceEdges();
-	void updateEdgesMultiplicity();
 	void collapseBulges();
 
 	RepeatGraph& _graph;

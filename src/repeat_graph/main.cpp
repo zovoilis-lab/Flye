@@ -192,7 +192,7 @@ int main(int argc, char** argv)
 	GraphProcessor proc(rg, seqAssembly, seqReads);
 	OutputGenerator outGen(rg, seqAssembly, seqReads);
 	outGen.outputDot(/*on contigs*/ false, outFolder + "/graph_raw.dot");
-	proc.condence();
+	proc.simplify();
 
 	Logger::get().info() << "Aligning reads to the graph";
 	ReadAligner aligner(rg, seqAssembly, seqReads);
@@ -201,7 +201,7 @@ int main(int argc, char** argv)
 	MultiplicityInferer multInf(rg);
 	RepeatResolver resolver(rg, seqAssembly, seqReads, aligner, multInf);
 	
-	multInf.fixEdgesMultiplicity(aligner.getAlignments());
+	multInf.estimateCoverage(aligner.getAlignments());
 	resolver.removeUnsupportedEdges();
 	aligner.updateAlignments();
 	resolver.findRepeats();

@@ -37,7 +37,7 @@ void ParametersEstimator::estimateMinKmerCount(int upperCutoff)
 	for (auto mapPair = _vertexIndex.getKmerHist().rbegin();
 		 mapPair != _vertexIndex.getKmerHist().rend(); ++mapPair)
 	{
-		if (mapPair->first <= upperCutoff)
+		if (mapPair->first <= (size_t)upperCutoff)
 		{
 			takenKmers += mapPair->second;
 			if (takenKmers >= kmersNeeded)

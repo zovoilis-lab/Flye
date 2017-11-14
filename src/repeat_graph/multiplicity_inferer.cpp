@@ -6,16 +6,12 @@
 #include "../common/disjoint_set.h"
 #include "../common/utils.h"
 
-void MultiplicityInferer::
-	fixEdgesMultiplicity(const std::vector<GraphAlignment>& readAln)
-{
-	this->estimateByCoverage(readAln);
-}
 
+//Estimates the mean coverage and assingns edges multiplicity accordingly
 void MultiplicityInferer::
-	estimateByCoverage(const std::vector<GraphAlignment>& readAln)
+	estimateCoverage(const std::vector<GraphAlignment>& readAln)
 {
-	const int WINDOW = 100;
+	const int WINDOW = Constants::coverageEstimateWindow;
 	const int SHORT_EDGE = Constants::trustedEdgeLength;
 
 	//alternative coverage

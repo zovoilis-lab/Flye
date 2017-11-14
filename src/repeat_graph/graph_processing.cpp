@@ -10,7 +10,9 @@
 #include "../common/config.h"
 #include "../common/utils.h"
 
-void GraphProcessor::condence()
+//a helper function that calls
+//all other simplification procedures
+void GraphProcessor::simplify()
 {
 	//this->trimTips();
 	this->condenceEdges();
@@ -20,6 +22,9 @@ void GraphProcessor::condence()
 	this->trimTips();
 }
 
+//finds and removes graph structures that
+//originate from the typical chimeric read pattern 
+//(when a read contain two consecivtive reversed copies of the real sequence)
 void GraphProcessor::fixChimericJunctions()
 {
 	//a very specific case: 1 in - 1 out
@@ -79,11 +84,13 @@ void GraphProcessor::fixChimericJunctions()
 		<< " chimeric junctions";
 }
 
+//Collapses simple small bulges
 void GraphProcessor::collapseBulges()
 {
 	const int MAX_BUBBLE = Parameters::get().minimumOverlap;
 	std::unordered_set<std::pair<GraphNode*, GraphNode*>,
 					   pairhash> toFix;
+	//finding the bubbles
 	for (auto& edge : _graph.iterEdges())
 	{
 		if (edge->isLooped()) continue;
@@ -103,6 +110,9 @@ void GraphProcessor::collapseBulges()
 		toFix.emplace(edge->nodeLeft, edge->nodeRight);
 	}
 
+	//collapsing them by leaving only one branch and
+	//adding the other's sequences as alternative to the
+	//remaining branch
 	for (auto& nodes : toFix)
 	{
 		std::vector<GraphEdge*> parallelEdges;
@@ -128,6 +138,7 @@ void GraphProcessor::collapseBulges()
 	Logger::get().debug() << "Collapsed " << toFix.size() / 2 << " bulges";
 }
 
+//Removing tips
 void GraphProcessor::trimTips()
 {
 	std::unordered_set<GraphNode*> toRemove;
@@ -145,11 +156,19 @@ void GraphProcessor::trimTips()
 	for (auto& edge : toRemove)	_graph.removeNode(edge);
 }
 
+//This function collapses non-branching edges paths in the graph.
+//The tricky part is the sequence representation of the new edges.
+//Two (or more) consecutive egdes will only be collapsed into one
+//if there exist at least one consigous sub-sequence from the input assembly
+//that can represent this edge
 void GraphProcessor::condenceEdges()
 {
 	int edgesRemoved = 0;
 	int edgesAdded = 0;
 
+	//helper function that checks if the simplification is
+	//possible and returns the new edges that should replace
+	//the original ones
 	auto collapseEdges = [] (const GraphPath& edges)
 	{
 		std::vector<GraphEdge> newEdges;
@@ -205,57 +224,21 @@ void GraphProcessor::condenceEdges()
 		return newEdges;
 	};
 
-	std::vector<GraphPath> toCollapse;
-	std::unordered_set<FastaRecord::Id> usedDirections;
-	for (auto& node : _graph.iterNodes())
-	{
-		if (!node->isBifurcation()) continue;
-
-		for (auto& direction : node->outEdges)
-		{
-			if (usedDirections.count(direction->edgeId)) continue;
-			usedDirections.insert(direction->edgeId);
-
-			GraphNode* curNode = direction->nodeRight;
-			GraphPath traversed;
-			traversed.push_back(direction);
-
-			std::unordered_set<FastaRecord::Id> complementEdges;
-			complementEdges.insert(direction->edgeId.rc());
-
-			while (!curNode->isBifurcation() &&
-				   !curNode->outEdges.empty() &&
-				   !complementEdges.count(curNode->outEdges.front()->edgeId))
-			{
-				traversed.push_back(curNode->outEdges.front());
-				complementEdges.insert(traversed.back()->edgeId.rc());
-				curNode = curNode->outEdges.front()->nodeRight;
-			}
-			usedDirections.insert(traversed.back()->edgeId.rc());
-			
-			if (traversed.size() > 1)
-			{
-				toCollapse.emplace_back(std::move(traversed));
-			}
-		}
-	}
-
+	//Try to collapse each unbranching path. 
+	//If it is possible - replace with new edges
+	auto toCollapse = this->getUnbranchingPaths();
 	for (auto& unbranchingPath : toCollapse)
 	{
-		std::string collapsedStr;
-		for (auto& edge : unbranchingPath)
-		{
-			collapsedStr += std::to_string(edge->edgeId.signedId()) + " -> ";
-		}
-		GraphPath complPath = _graph.complementPath(unbranchingPath);
-		auto newEdges = collapseEdges(unbranchingPath);
-		if (newEdges.size() == unbranchingPath.size()) continue;
+		if (!unbranchingPath.id.strand()) continue;
+
+		GraphPath complPath = _graph.complementPath(unbranchingPath.path);
+		auto newEdges = collapseEdges(unbranchingPath.path);
+		if (newEdges.size() == unbranchingPath.path.size()) continue;
 
 		std::string addedStr;
 		for (auto& edge : newEdges)
 		{
 			//do not add collapsed short loops
-			//TODO: kinda hacky..
 			//if (edge.length() < Parameters::get().minimumOverlap &&
 			//	edge.isLooped()) continue;	
 
@@ -279,18 +262,15 @@ void GraphProcessor::condenceEdges()
 		}
 
 		std::unordered_set<GraphEdge*> toRemove;
-		for (auto& edge : unbranchingPath) toRemove.insert(edge);
+		for (auto& edge : unbranchingPath.path) toRemove.insert(edge);
 		for (auto& edge : complPath) toRemove.insert(edge);
 		for (auto& edge : toRemove) _graph.removeEdge(edge);
 
-		edgesRemoved += unbranchingPath.size();
+		edgesRemoved += unbranchingPath.path.size();
 		edgesAdded += newEdges.size();
 
-		//if (collapsedStr.size() > 4) collapsedStr.erase(collapsedStr.size() - 4);
-		//if (addedStr.size() > 4) addedStr.erase(addedStr.size() - 4);
-		collapsedStr.erase(collapsedStr.size() - 4);
-		addedStr.erase(addedStr.size() - 4);
-		Logger::get().debug() << "Collapsed: " << collapsedStr 
+		if (addedStr.size() > 4) addedStr.erase(addedStr.size() - 4);
+		Logger::get().debug() << "Collapsed: " << unbranchingPath.edgesStr() 
 			<< " to " << addedStr;
 	}
 
@@ -298,6 +278,7 @@ void GraphProcessor::condenceEdges()
 	Logger::get().debug() << "Added " << edgesAdded << " edges";
 }
 
+//Finds unbranching paths
 std::vector<UnbranchingPath> GraphProcessor::getUnbranchingPaths()
 {
 	std::unordered_map<FastaRecord::Id, size_t> edgeIds;

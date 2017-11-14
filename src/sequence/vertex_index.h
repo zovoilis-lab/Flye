@@ -40,7 +40,7 @@ public:
 	};
 
 	typedef std::vector<ReadPosition> ReadVector;
-	typedef std::map<int, int> KmerDistribution;
+	typedef std::map<size_t, size_t> KmerDistribution;
 
 	class KmerPosIterator
 	{
@@ -127,10 +127,10 @@ public:
 		return _kmerIndex.contains(kmer);
 	}
 
-	int numSolid() const 
+	/*size_t numSolid() const 
 	{
 		return _kmerIndex.size() * 2;
-	}
+	}*/
 
 	void outputProgress(bool set) 
 	{
