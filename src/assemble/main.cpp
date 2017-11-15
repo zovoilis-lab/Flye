@@ -244,6 +244,7 @@ int main(int argc, char** argv)
 	Extender extender(readsContainer, readOverlaps, coverage, 
 					  estimator.genomeSizeEstimate());
 	extender.assembleContigs();
+	vertexIndex.clear();
 
 	ContigGenerator contGen;
 	contGen.generateContigs(extender.getContigPaths());
