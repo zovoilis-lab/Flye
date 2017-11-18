@@ -127,21 +127,29 @@ void VertexIndex::buildIndex(int minCoverage, int maxCoverage, int filterRatio)
 		if ((size_t)minCoverage <= kmer.second && 
 			kmer.second <= (size_t)maxCoverage)
 		{
-			CountOrReadVector corv;
-			corv.count = kmer.second;
-			_kmerIndex.insert(kmer.first, corv);
+			ReadVector rv{(uint32_t)kmer.second, 0, nullptr};
+			_kmerIndex.insert(kmer.first, rv);
 		}
 	}
 	_kmerCounts.clear();
 	_kmerCounts.reserve(0);
-	
-	//replacing counts with vectors
+
+	_memoryChunks.push_back(new ReadPosition[INDEX_CHUNK]);
+	size_t chunkOffset = 0;
+	size_t wasted = 0;
 	for (auto& kmer : _kmerIndex.lock_table())
 	{
-		size_t count = kmer.second.count;
-		kmer.second.rv = new ReadVector;
-		kmer.second.rv->reserve(count);
+		if (INDEX_CHUNK - chunkOffset < kmer.second.capacity)
+		{
+			wasted += INDEX_CHUNK - chunkOffset;
+			_memoryChunks.push_back(new ReadPosition[INDEX_CHUNK]);
+			chunkOffset = 0;
+		}
+		kmer.second.data = _memoryChunks.back() + chunkOffset;
+		chunkOffset += kmer.second.capacity;
 	}
+	Logger::get().debug() << "Total chunks " << _memoryChunks.size()
+		<< " wasted space: " << wasted;
 
 	std::function<void(const FastaRecord::Id&)> indexUpdate = 
 	[minCoverage, maxCoverage, filterRatio, this] 
@@ -165,9 +173,12 @@ void VertexIndex::buildIndex(int minCoverage, int maxCoverage, int filterRatio)
 			if (kmerPos.position % filterRatio != 0) continue;
 
 			_kmerIndex.update_fn(kmerPos.kmer, 
-				[targetRead, &kmerPos](CountOrReadVector& corv)
+				[targetRead, &kmerPos](ReadVector& rv)
 				{
-					corv.rv->emplace_back(targetRead, kmerPos.position);
+
+					rv.data[rv.size] = ReadPosition(targetRead, 
+													kmerPos.position);
+					++rv.size;
 				});
 		}
 	};
@@ -183,10 +194,9 @@ void VertexIndex::buildIndex(int minCoverage, int maxCoverage, int filterRatio)
 
 void VertexIndex::clear()
 {
-	for (auto kmerHash : _kmerIndex.lock_table())
-	{
-		delete kmerHash.second.rv;
-	}
+	for (auto& chunk : _memoryChunks) delete[] chunk;
+	_memoryChunks.clear();
+
 	_kmerIndex.clear();
 	_kmerIndex.reserve(0);
 
