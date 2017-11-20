@@ -3,11 +3,8 @@
 //Released under the BSD license (see LICENSE file)
 
 #include "output_generator.h"
-#include "../sequence/contig_generator.h"
+#include "../sequence/consensus_generator.h"
 #include <iomanip>
-
-#undef NDEBUG
-#include <cassert>
 
 void OutputGenerator::generateContigs()
 {
@@ -180,7 +177,8 @@ void OutputGenerator::extendContigs(const std::vector<GraphAlignment>& readAln,
 void OutputGenerator::
 	generateContigSequences(std::vector<UnbranchingPath>& contigs) const
 {
-	ContigGenerator gen;
+	std::vector<ContigPath> contigParts;
+
 	for (auto& contig : contigs)
 	{
 		std::unordered_map<FastaRecord::Id, int> seqIdFreq;
@@ -267,8 +265,14 @@ void OutputGenerator::
 			prevFlank = rightFlank;
 			prevSubLength = curSubLength;
 		}
-		auto fastaRec = gen.generateLinear(contigPath);
-		contig.sequence = fastaRec.sequence.str();
+		contigParts.push_back(contigPath);
+	}
+
+	ConsensusGenerator gen;
+	auto contigsFasta = gen.generateConsensuses(contigParts);
+	for (size_t i = 0; i < contigs.size(); ++i)
+	{
+		contigs[i].sequence = contigsFasta[i].sequence.str();
 	}
 }
 

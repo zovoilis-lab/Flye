@@ -13,7 +13,7 @@
 #include "../sequence/vertex_index.h"
 #include "../sequence/sequence_container.h"
 #include "../sequence/overlap.h"
-#include "../sequence/contig_generator.h"
+#include "../sequence/consensus_generator.h"
 #include "../common/config.h"
 #include "chimera.h"
 #include "extender.h"
@@ -246,9 +246,9 @@ int main(int argc, char** argv)
 	extender.assembleContigs();
 	vertexIndex.clear();
 
-	ContigGenerator contGen;
-	contGen.generateContigs(extender.getContigPaths());
-	contGen.outputContigs(outAssembly);
+	ConsensusGenerator consGen;
+	auto contigsFasta = consGen.generateConsensuses(extender.getContigPaths());
+	SequenceContainer::writeFasta(contigsFasta, outAssembly);
 
 	return 0;
 }

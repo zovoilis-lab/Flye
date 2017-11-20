@@ -5,7 +5,6 @@
 #include <deque>
 
 #include "graph_processing.h"
-#include "../sequence/contig_generator.h"
 #include "../common/logger.h"
 #include "../common/config.h"
 #include "../common/utils.h"
