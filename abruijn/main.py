@@ -120,7 +120,7 @@ class JobAlignment(Job):
                                                         .format(self.stage_id))
         aln.make_blasr_reference(contigs_fasta, reference_file)
         aln.make_alignment(reference_file, self.args.reads, self.args.threads,
-                           self.out_alignment)
+                           self.work_dir, self.out_alignment)
         os.remove(reference_file)
 
 

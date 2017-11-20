@@ -125,30 +125,6 @@ def check_binaries():
         raise AlignmentException("UNIX sort utility is not available")
 
 
-"""
-def concatenate_contigs(contigs_file):
-    genome_framents = fp.read_fasta_dict(contigs_file)
-    contig_types = {}
-    by_contig = defaultdict(list)
-    for h, s in genome_framents.iteritems():
-        tokens = h.split("_")
-        cont_type = tokens[0]
-        contig_id = tokens[0] + "_" + tokens[1]
-        part_id = int(tokens[3])
-        contig_types[contig_id] = cont_type
-        by_contig[contig_id].append((part_id, s))
-
-    contigs_fasta = {}
-    for contig_id, contig_seqs in by_contig.iteritems():
-        seqs_sorted = sorted(contig_seqs, key=lambda p: p[0])
-        contig_concat = "".join(map(lambda p: p[1], seqs_sorted))
-        contig_len = len(contig_concat)
-        contigs_fasta[contig_id] = contig_concat
-
-    return contigs_fasta
-"""
-
-
 def make_blasr_reference(contigs_fasta, out_file):
     """
     Outputs 'reference' for BLASR run, appends a suffix to circular contigs
@@ -165,14 +141,14 @@ def make_blasr_reference(contigs_fasta, out_file):
 
 
 def make_alignment(reference_file, reads_file, num_proc,
-                   out_alignment):
+                   work_dir, out_alignment):
     """
     Runs BLASR and sort its output
     """
     _run_blasr(reference_file, reads_file, num_proc, out_alignment)
     logger.debug("Sorting alignment file")
     temp_file = out_alignment + "_sorted"
-    subprocess.check_call(["sort", "-k", "6", out_alignment],
+    subprocess.check_call(["sort", "-k", "6", "-T", work_dir, out_alignment],
                           stdout=open(temp_file, "w"))
     os.remove(out_alignment)
     os.rename(temp_file, out_alignment)
