@@ -93,3 +93,24 @@ void MultiplicityInferer::
 	_uniqueCovThreshold = q75(edgesCoverage);
 	Logger::get().debug() << "Unique coverage threshold " << _uniqueCovThreshold;
 }
+
+//removes edges with low coverage support from the graph
+void MultiplicityInferer::removeUnsupportedEdges()
+{
+	int coverageThreshold = this->getMeanCoverage() / Constants::readCovRate;
+	Logger::get().debug() << "Read coverage cutoff: " << coverageThreshold;
+
+	std::unordered_set<GraphEdge*> edgesRemove;
+	for (auto& edge : _graph.iterEdges())
+	{
+		GraphEdge* complEdge = _graph.complementEdge(edge);
+		if (edge->meanCoverage <= coverageThreshold)
+		{
+			edgesRemove.insert(edge);
+			edgesRemove.insert(complEdge);
+		}
+	}
+	for (auto& edge : edgesRemove) _graph.removeEdge(edge);
+	Logger::get().debug() << "Removed " << edgesRemove.size() 
+		<< " unsupported edges";
+}

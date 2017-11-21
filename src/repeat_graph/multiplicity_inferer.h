@@ -16,6 +16,7 @@ public:
 
 	void estimateCoverage(const std::vector<GraphAlignment>& readAln);
 	int  getMeanCoverage() const {return _meanCoverage;}
+	void removeUnsupportedEdges();
 
 	//coverage threshold for an edge to be considered "unique"
 	int  getUniqueCovThreshold() const 	{return _uniqueCovThreshold;}

@@ -377,10 +377,6 @@ void RepeatResolver::findRepeats()
 //no new repeats are resolved
 void RepeatResolver::resolveRepeats()
 {
-	//this is initially done in main.cpp
-	//this->removeUnsupportedEdges();
-	//_aligner.updateAlignments();
-
 	while (true)
 	{
 		auto connections = this->getConnections();
@@ -461,27 +457,6 @@ std::vector<RepeatResolver::Connection>
 	}
 
 	return readConnections;
-}
-
-//removes edges with low coverage support from the graph
-void RepeatResolver::removeUnsupportedEdges()
-{
-	int coverageThreshold = _multInf.getMeanCoverage() / Constants::readCovRate;
-	Logger::get().debug() << "Read coverage cutoff: " << coverageThreshold;
-
-	std::unordered_set<GraphEdge*> edgesRemove;
-	for (auto& edge : _graph.iterEdges())
-	{
-		GraphEdge* complEdge = _graph.complementEdge(edge);
-		if (edge->meanCoverage <= coverageThreshold)
-		{
-			edgesRemove.insert(edge);
-			edgesRemove.insert(complEdge);
-		}
-	}
-	for (auto& edge : edgesRemove) _graph.removeEdge(edge);
-	Logger::get().debug() << "Removed " << edgesRemove.size() 
-		<< " unsupported edges";
 }
 
 //cleans up the graph after repeat resolution

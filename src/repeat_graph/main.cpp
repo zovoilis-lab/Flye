@@ -200,19 +200,18 @@ int main(int argc, char** argv)
 	aligner.alignReads();
 
 	MultiplicityInferer multInf(rg);
-	RepeatResolver resolver(rg, seqAssembly, seqReads, aligner, multInf);
 	multInf.estimateCoverage(aligner.getAlignments());
-
-	resolver.removeUnsupportedEdges();
+	multInf.removeUnsupportedEdges();
 	aligner.updateAlignments();
-	resolver.findRepeats();
 
+	Logger::get().info() << "Resolving repeats";
+	RepeatResolver resolver(rg, seqAssembly, seqReads, aligner, multInf);
+	resolver.findRepeats();
 	outGen.outputDot(/*on contigs*/ false, outFolder + "/graph_before_rr.dot");
 	//outGen.outputGfa(/*on contigs*/ false, outFolder + "/graph_before_rr.gfa");
 	outGen.outputFasta(/*on contigs*/ false, outFolder + 
 					 "/graph_before_rr.fasta");
 
-	Logger::get().info() << "Resolving repeats";
 	resolver.resolveRepeats();
 	//outGen.outputDot(/*on contigs*/ false, outFolder + "/graph_after_rr.dot");
 	
