@@ -6,6 +6,7 @@
 #include "../sequence/consensus_generator.h"
 #include <iomanip>
 
+//in fact, simpy stores the unbranching paths as contigs
 void OutputGenerator::generateContigs()
 {
 	GraphProcessor proc(_graph, _asmSeqs, _readSeqs);
@@ -26,6 +27,7 @@ void OutputGenerator::generateContigs()
 		<< " egdes";
 }
 
+//TODO: move this function to a separate module
 void OutputGenerator::extendContigs(const std::vector<GraphAlignment>& readAln,
 									const std::string& outFile)
 {
@@ -174,6 +176,7 @@ void OutputGenerator::extendContigs(const std::vector<GraphAlignment>& readAln,
 	this->outputEdgesFasta(extendedContigs, outFile);
 }
 
+//Generates FASTA from the given contigs (graph paths)
 void OutputGenerator::
 	generateContigSequences(std::vector<UnbranchingPath>& contigs) const
 {
@@ -181,6 +184,10 @@ void OutputGenerator::
 
 	for (auto& contig : contigs)
 	{
+		//As each edge might correspond to multiple sequences,
+		//we need to select them so as to minimize the
+		//number of original contigs (that were used to build the graph)
+		
 		std::unordered_map<FastaRecord::Id, int> seqIdFreq;
 		for (auto& edge : contig.path) 
 		{
@@ -222,6 +229,9 @@ void OutputGenerator::
 							  _asmSeqs.getSeq(bestSegment->seqId) :
 							  _readSeqs.getSeq(bestSegment->seqId);
 
+			//make the consecutive sequences overlapping if possible,
+			//so the consensus module can correct possibly imprecise
+			//ends of the edges sequences
 			int32_t leftFlank = std::min(Constants::maxSeparation,
 										 bestSegment->start);
 			if (i == 0) 
@@ -268,6 +278,7 @@ void OutputGenerator::
 		contigParts.push_back(contigPath);
 	}
 
+	//finally, generate a consensus
 	ConsensusGenerator gen;
 	auto contigsFasta = gen.generateConsensuses(contigParts);
 	for (size_t i = 0; i < contigs.size(); ++i)
@@ -401,6 +412,7 @@ void OutputGenerator::dumpRepeats(const std::vector<GraphAlignment>& readAlignme
 	}
 }
 
+//converts edges to graph paths
 std::vector<UnbranchingPath> OutputGenerator::edgesPaths() const
 {
 	std::vector<UnbranchingPath> paths;

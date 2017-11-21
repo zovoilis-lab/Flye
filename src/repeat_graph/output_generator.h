@@ -2,6 +2,12 @@
 //This file is a part of ABruijn program.
 //Released under the BSD license (see LICENSE file)
 
+//This module generates multiple types of output given the graph:
+//it output edges sequences in FASTA format, the graph structure
+//as dot or gfa. Also, output information about the unresolved
+//repeats for the subsequent alasysis
+
+
 #pragma once
 
 #include "repeat_graph.h"
@@ -20,6 +26,8 @@ public:
 	void extendContigs(const std::vector<GraphAlignment>& readAln, 
 					   const std::string& outFile);
 
+	//if contigs parameter is false, unbranching paths are
+	//output as separate edges (useful for debugging)
 	void outputDot(bool contigs, const std::string& filename);
 	void outputGfa(bool contigs, const std::string& filename);
 	void outputFasta(bool contigs, const std::string& filename);

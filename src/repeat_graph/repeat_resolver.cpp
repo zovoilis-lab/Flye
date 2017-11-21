@@ -10,11 +10,14 @@
 #include "../common/config.h"
 #include "../common/utils.h"
 #include "../common/parallel.h"
-//#include "bipartie_mincost.h"
 
 #include <lemon/list_graph.h>
 #include <lemon/matching.h>
 
+//Given the path in the graph with a resolved repeat inside,
+//separates in into a single unbranching path. The first
+//and the last edges of the graphPath parameter
+//should correspond to the flanking unique edges
 void RepeatResolver::separatePath(const GraphPath& graphPath, 
 								  SequenceSegment readSegment, 
 								  FastaRecord::Id newId)
@@ -52,32 +55,11 @@ void RepeatResolver::separatePath(const GraphPath& graphPath,
 	rightNode->outEdges.push_back(graphPath.back());
 }
 
+//Resolves all repeats simulateously through the graph mathcing optimization,
+//Given the reads connecting unique edges (or pairs of edges in the transitions graph)
 int RepeatResolver::resolveConnections(const std::vector<Connection>& connections)
 {
-	///////////
-	/*
-	std::unordered_map<GraphEdge*, std::unordered_map<GraphEdge*, int>> stats;
-	for (auto& conn : connections)
-	{
-		++stats[conn.path.front()][conn.path.back()];
-	}
-	
-	for (auto& leftEdge : stats)
-	{
-		Logger::get().debug() << "For " << leftEdge.first->edgeId.signedId() << " "
-			<< leftEdge.first->seqSegments.front().seqId << " "
-			<< leftEdge.first->seqSegments.front().end;
-		
-		for (auto& rightEdge : leftEdge.second)
-		{
-			Logger::get().debug() << "\t" << rightEdge.first->edgeId.signedId() << " "
-				<< rightEdge.first->seqSegments.front().seqId << " "
-				<< rightEdge.first->seqSegments.front().start << " " 
-				<< rightEdge.second;
-		}
-		Logger::get().debug() << "";
-	}*/
-	///////////
+	//Constructs transitions graph using the lemon library
 	std::unordered_map<FastaRecord::Id, int> leftCoverage;
 	std::unordered_map<FastaRecord::Id, int> rightCoverage;
 
@@ -131,9 +113,11 @@ int RepeatResolver::resolveConnections(const std::vector<Connection>& connection
 		++edgeWeights[edge];
 	}
 
+	//copmutes maximum weight matching on this graph
 	lemon::MaxWeightedMatching<lemon::ListGraph> matcher(graph, edgeWeights);
 	matcher.run();
 
+	//converting matching to the resolved paths on the graph
 	std::unordered_set<FastaRecord::Id> usedEdges;
 	std::vector<Connection> uniqueConnections;
 	int unresolvedLinks = 0;
@@ -181,6 +165,7 @@ int RepeatResolver::resolveConnections(const std::vector<Connection>& connection
 			.push_back(spanningConnections[spanningConnections.size() / 2]);
 	}
 
+	//separates the resolved paths in the graph
 	for (auto& conn : uniqueConnections)
 	{
 		GraphPath complPath = _graph.complementPath(conn.path);
@@ -198,16 +183,19 @@ int RepeatResolver::resolveConnections(const std::vector<Connection>& connection
 	return uniqueConnections.size();
 }
 
+//Classifies all edges into unique and repetitive based on the coverage + 
+//alignment information - one of the key steps here.
 void RepeatResolver::findRepeats()
 {
 	Logger::get().debug() << "Finding repeats";
 
-	//all edges are good at the beginning
+	//all edges are unique at the beginning
 	for (auto& edge : _graph.iterEdges())
 	{
 		edge->repetitive = false;
 	}
 
+	//Will operate on unbranching paths rather than single edges
 	GraphProcessor proc(_graph, _asmSeqs, _readSeqs);
 	auto unbranchingPaths = proc.getUnbranchingPaths();
 	std::unordered_map<FastaRecord::Id, UnbranchingPath*> idToPath;
@@ -229,7 +217,7 @@ void RepeatResolver::findRepeats()
 	{
 		if (!path.id.strand()) continue;
 
-		//mark edges with high coverage as repetitive
+		//mark paths with high coverage as repetitive
 		if (path.meanCoverage > _multInf.getUniqueCovThreshold() * 2)
 		{
 			markRepetitive(&path);
@@ -239,14 +227,14 @@ void RepeatResolver::findRepeats()
 				<< path.meanCoverage;
 		}
 
-		//self-complements
+		//self-complements are repetitive
 		if (&path == complPath(&path))
 		{
 			Logger::get().debug() << "Self-compl: " << path.edgesStr();
 			markRepetitive(&path);
 		}
 
-		//tanem repeats
+		//tandem repeats
 		if (path.path.size() == 1 && path.path.front()->isLooped())
 		{
 			std::unordered_set<FastaRecord::Id> seen;
@@ -266,7 +254,7 @@ void RepeatResolver::findRepeats()
 		}
 	}
 
-	//bubbles with alternative alleles
+	//Masking small bubbles that correspond to two alternative alleles
 	int diploidBubbles = 0;
 	for (auto& edge : _graph.iterEdges())
 	{
@@ -293,8 +281,7 @@ void RepeatResolver::findRepeats()
 	}
 	Logger::get().debug() << "Masked " << diploidBubbles / 4 << " diploid bubbles";
 
-	//Now, using read alignments
-	//extract read alignments
+	//Finally, using the read alignments
 	std::unordered_map<GraphEdge*, 
 					   std::unordered_map<GraphEdge*, int>> outConnections;
 	for (auto& readPath : _aligner.getAlignments())
@@ -318,7 +305,7 @@ void RepeatResolver::findRepeats()
 			++outConnections[complRight][complLeft];
 		}
 	}
-	//computes right multiplicity
+	//computes the number of successors of the given edge in read alignments
 	auto rightMultiplicity = [this, &outConnections] (GraphEdge* edge)
 	{
 		int maxSupport = 0;
@@ -337,6 +324,7 @@ void RepeatResolver::findRepeats()
 		{
 			if (outConn.second > minSupport)
 			{
+				//all repeatitive successors are count as one
 				outConn.first->repetitive ? ++repeatMult : ++uniqueMult;
 			}
 		}
@@ -385,6 +373,8 @@ void RepeatResolver::findRepeats()
 	}
 }
 
+//Iterates repeat detection and resolution until
+//no new repeats are resolved
 void RepeatResolver::resolveRepeats()
 {
 	//this is initially done in main.cpp
@@ -406,6 +396,8 @@ void RepeatResolver::resolveRepeats()
 }
 
 
+//extracts conenctions between pairs of unique edges from
+//read alignments
 std::vector<RepeatResolver::Connection> 
 	RepeatResolver::getConnections()
 {
@@ -471,6 +463,7 @@ std::vector<RepeatResolver::Connection>
 	return readConnections;
 }
 
+//removes edges with low coverage support from the graph
 void RepeatResolver::removeUnsupportedEdges()
 {
 	int coverageThreshold = _multInf.getMeanCoverage() / Constants::readCovRate;
@@ -491,6 +484,7 @@ void RepeatResolver::removeUnsupportedEdges()
 		<< " unsupported edges";
 }
 
+//cleans up the graph after repeat resolution
 void RepeatResolver::clearResolvedRepeats()
 {
 	const int MIN_LOOP = Parameters::get().minimumOverlap;
