@@ -25,7 +25,8 @@ class ConsensusGenerator
 {
 public:
 	std::vector<FastaRecord> 
-		generateConsensuses(const std::vector<ContigPath>& contigs);
+		generateConsensuses(const std::vector<ContigPath>& contigs, 
+							bool verbose = true);
 	
 private:
 	struct AlignmentInfo
@@ -41,7 +42,8 @@ private:
 
 	FastaRecord generateLinear(const ContigPath& path, 
 							   const AlignmentsMap& alnMap);
-	AlignmentsMap generateAlignments(const std::vector<ContigPath>& contigs);
+	AlignmentsMap generateAlignments(const std::vector<ContigPath>& contigs, 
+									 bool verbose);
 	std::pair<int32_t, int32_t> getSwitchPositions(const AlignmentInfo& aln,
 												   int32_t prevSwitch);
 };

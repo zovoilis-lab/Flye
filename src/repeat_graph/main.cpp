@@ -21,6 +21,7 @@
 #include "repeat_resolver.h"
 #include "structure_resolver.h"
 #include "output_generator.h"
+#include "contig_extender.h"
 
 bool parseArgs(int argc, char** argv, std::string& readsFasta, 
 			   std::string& outFolder, std::string& logFile, 
@@ -185,18 +186,18 @@ int main(int argc, char** argv)
 		return 1;
 	}
 
-	Logger::get().info() << "Building repeat graph";
 	RepeatGraph rg(seqAssembly);
-	rg.build();
-
-	Logger::get().info() << "Simplifying the graph";
 	GraphProcessor proc(rg, seqAssembly, seqReads);
-	OutputGenerator outGen(rg, seqAssembly, seqReads);
-	outGen.outputDot(/*on contigs*/ false, outFolder + "/graph_raw.dot");
+	ReadAligner aligner(rg, seqAssembly, seqReads);
+	OutputGenerator outGen(rg, aligner, seqAssembly, seqReads);
+	ContigExtender extender(rg, aligner, seqAssembly, seqReads);
+
+	Logger::get().info() << "Building repeat graph";
+	rg.build();
 	proc.simplify();
+	outGen.outputDot(proc.getEdgesPaths(), outFolder + "/graph_raw.dot");
 
 	Logger::get().info() << "Aligning reads to the graph";
-	ReadAligner aligner(rg, seqAssembly, seqReads);
 	aligner.alignReads();
 
 	MultiplicityInferer multInf(rg);
@@ -207,28 +208,31 @@ int main(int argc, char** argv)
 	Logger::get().info() << "Resolving repeats";
 	RepeatResolver resolver(rg, seqAssembly, seqReads, aligner, multInf);
 	resolver.findRepeats();
-	outGen.outputDot(/*on contigs*/ false, outFolder + "/graph_before_rr.dot");
-	//outGen.outputGfa(/*on contigs*/ false, outFolder + "/graph_before_rr.gfa");
-	outGen.outputFasta(/*on contigs*/ false, outFolder + 
-					 "/graph_before_rr.fasta");
+
+	outGen.outputDot(proc.getEdgesPaths(), outFolder + "/graph_before_rr.dot");
+	outGen.outputGfa(proc.getEdgesPaths(), outFolder + "/graph_before_rr.gfa");
+	outGen.outputFasta(proc.getEdgesPaths(), outFolder + "/graph_before_rr.fasta");
 
 	resolver.resolveRepeats();
-	//outGen.outputDot(/*on contigs*/ false, outFolder + "/graph_after_rr.dot");
-	
 	StructureResolver structRes(rg, seqAssembly, seqReads);
 	structRes.unrollLoops();
 	aligner.updateAlignments();
 
 	Logger::get().info() << "Generating contigs";
-	outGen.generateContigs();
 
-	outGen.dumpRepeats(aligner.getAlignments(), outFolder + "/repeats_dump.txt");
-	//proc.outputDot(/*on contigs*/ false, outFolder + "/graph_resolved.dot");
-	outGen.outputDot(/*on contigs*/ true, outFolder + "/graph_final.dot");
-	outGen.outputFasta(/*on contigs*/ true, outFolder + "/graph_final.fasta");
-	outGen.outputGfa(/*on contigs*/ true, outFolder + "/graph_final.gfa");
+	extender.generateUnbranchingPaths();
 
-	outGen.extendContigs(aligner.getAlignments(), outFolder + "/graph_paths.fasta");
+	//outGen.outputDot(proc.getEdgesPath(), outFolder + "/graph_after_rr.dot");
+	outGen.dumpRepeats(extender.getUnbranchingPaths(), 
+					   outFolder + "/repeats_dump.txt");
+	outGen.outputDot(extender.getUnbranchingPaths(), 
+					 outFolder + "/graph_final.dot");
+	outGen.outputFasta(extender.getUnbranchingPaths(), 
+					   outFolder + "/graph_final.fasta");
+	outGen.outputGfa(extender.getUnbranchingPaths(), 
+					 outFolder + "/graph_final.gfa");
+
+	//extender.extendContigs(aligner.getAlignments(), outFolder + "/graph_paths.fasta");
 	
 	return 0;
 }

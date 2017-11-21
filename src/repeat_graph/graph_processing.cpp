@@ -277,8 +277,22 @@ void GraphProcessor::condenceEdges()
 	Logger::get().debug() << "Added " << edgesAdded << " edges";
 }
 
+//converts edges to unbranching paths
+std::vector<UnbranchingPath> GraphProcessor::getEdgesPaths() const
+{
+	std::vector<UnbranchingPath> paths;
+	for (auto& edge : _graph.iterEdges())
+	{
+		GraphPath path = {edge};
+		paths.emplace_back(path, edge->edgeId, false,
+						   edge->length(), edge->meanCoverage);
+		paths.back().repetitive = edge->repetitive;
+	}
+	return paths;
+}
+
 //Finds unbranching paths
-std::vector<UnbranchingPath> GraphProcessor::getUnbranchingPaths()
+std::vector<UnbranchingPath> GraphProcessor::getUnbranchingPaths() const
 {
 	std::unordered_map<FastaRecord::Id, size_t> edgeIds;
 	size_t nextEdgeId = 0;

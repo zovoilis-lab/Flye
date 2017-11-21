@@ -6,188 +6,19 @@
 #include "../sequence/consensus_generator.h"
 #include <iomanip>
 
-//in fact, simpy stores the unbranching paths as contigs
-void OutputGenerator::generateContigs()
-{
-	GraphProcessor proc(_graph, _asmSeqs, _readSeqs);
-	_contigs = proc.getUnbranchingPaths();
-	this->generateContigSequences(_contigs);
 
-	for (auto& ctg : _contigs)
-	{
-		if (ctg.id.strand())
-		{
-			Logger::get().debug() << "Contig " << ctg.id.signedId() 
-							<< ": " << ctg.edgesStr();
-		}
-	}
-
-	this->generateContigSequences(_contigs);
-	Logger::get().debug() << "Final graph contiain " << _contigs.size() / 2 
-		<< " egdes";
-}
-
-//TODO: move this function to a separate module
-void OutputGenerator::extendContigs(const std::vector<GraphAlignment>& readAln,
-									const std::string& outFile)
-{
-	std::unordered_set<GraphEdge*> coveredRepeats;
-	std::unordered_map<GraphEdge*, bool> repeatDirections;
-	std::unordered_set<GraphEdge*> tandems;
-
-	auto extendPath = [&readAln, this, &coveredRepeats, 
-					   &repeatDirections, &tandems]
-		(UnbranchingPath& upath, bool direction)
-	{
-		bool extendFwd = !upath.path.back()->nodeRight->outEdges.empty();
-		if (!extendFwd) return std::string();
-
-		//first, choose the longest aligned read from this edge
-		int32_t maxExtension = 0;
-		GraphAlignment bestAlignment;
-		for (auto& path : readAln)
-		{
-			for (size_t i = 0; i < path.size(); ++i)
-			{
-				if (path[i].edge == upath.path.back() &&
-					i < path.size() - 1)
-				{
-					size_t j = i + 1;
-					while (j < path.size() && 
-						   path[j].edge->repetitive) ++j;
-					if (i == j) continue;
-
-					int32_t alnLen = path[j - 1].overlap.curEnd - 
-									 path[i + 1].overlap.curBegin;
-					if (alnLen > maxExtension)
-					{
-						maxExtension = alnLen;
-						bestAlignment.clear();
-						std::copy(path.begin() + i + 1, path.begin() + j, 
-								  std::back_inserter(bestAlignment));
-					}
-					break;
-				}
-			}
-		}
-		if (maxExtension == 0) return std::string();
-
-		//check if some repeats are traversed multiple by a single read
-		std::unordered_map<GraphEdge*, int> multiplicity;
-		for (auto& aln : bestAlignment)
-		{
-			++multiplicity[aln.edge];
-		}
-		for (auto& edgeMult : multiplicity)
-		{
-			if (edgeMult.second > 1) 
-			{
-				tandems.insert(edgeMult.first);
-				tandems.insert(_graph.complementEdge(edgeMult.first));
-			}
-		}
-
-		//Logger::get().debug() << "Ctg " << upath.name() 
-		//	<< " extension " << maxExtension;
-
-		//check if we are not traverse non-tandem repeats in prohibited 
-		//directions
-		bool canExtend = true;
-		for (auto& aln : bestAlignment)
-		{
-			++multiplicity[aln.edge];
-			if (repeatDirections.count(aln.edge))
-			{
-				if (!tandems.count(aln.edge) &&
-					repeatDirections.at(aln.edge) != direction)
-				{
-					canExtend = false;
-					break;
-				}
-			}
-		}
-		if (!canExtend) return std::string();
-
-		//if we traverse some repeats for the first time, record the direction
-		for (auto& aln : bestAlignment)
-		{
-			//Logger::get().debug() << "\t" << aln.edge->edgeId.signedId();
-			if (aln.overlap.extLen - aln.overlap.extEnd < 
-					Constants::maxSeparation)
-			{
-				repeatDirections[aln.edge] = direction;
-				repeatDirections[_graph.complementEdge(aln.edge)] = !direction;
-
-				coveredRepeats.insert(aln.edge);
-				coveredRepeats.insert(_graph.complementEdge(aln.edge));
-			}
-		}
-
-		FastaRecord::Id seqId = bestAlignment.front().overlap.curId;
-		int32_t start = bestAlignment.front().overlap.curBegin;
-		int32_t end = bestAlignment.back().overlap.curEnd;
-
-		auto extSeq = _readSeqs.getSeq(seqId).substr(start, end - start);
-		return direction ? extSeq.str() : extSeq.complement().str();
-	};
-
-	std::vector<UnbranchingPath> extendedContigs;
-	std::unordered_map<FastaRecord::Id, UnbranchingPath*> idToPath;
-	for (auto& ctg : _contigs)
-	{
-		idToPath[ctg.id] = &ctg;
-	}
-	for (auto& ctg : _contigs)
-	{
-		if (ctg.repetitive || !ctg.id.strand()) continue;
-		if (!idToPath.count(ctg.id.rc())) continue;	//self-complement
-
-		std::string rightExt = extendPath(ctg, true);
-		std::string leftExt = extendPath(*idToPath[ctg.id.rc()], false);
-		extendedContigs.push_back(ctg);
-		extendedContigs.back().sequence = leftExt + 
-							extendedContigs.back().sequence + rightExt;
-	}
-
-	int numCovered = 0;
-	for (auto& ctg : _contigs)
-	{
-		if (!ctg.repetitive || !ctg.id.strand()) continue;
-
-		bool covered = true;
-		for (auto& edge : ctg.path)
-		{
-			if (!coveredRepeats.count(edge)) covered = false;
-		}
-		if (!covered)
-		{
-			extendedContigs.push_back(ctg);
-		}
-		else
-		{
-			++numCovered;
-			Logger::get().debug() << "Covered: " << ctg.name();
-		}
-	}
-	Logger::get().debug() << "Covered " << numCovered << " repetitive contigs";
-
-	Logger::get().info() << "Generated " << extendedContigs.size() 
-		<< " extended contigs";
-	this->outputEdgesFasta(extendedContigs, outFile);
-}
 
 //Generates FASTA from the given contigs (graph paths)
-void OutputGenerator::
-	generateContigSequences(std::vector<UnbranchingPath>& contigs) const
+std::vector<FastaRecord> OutputGenerator::
+	generatePathSequences(const std::vector<UnbranchingPath>& paths) const
 {
 	std::vector<ContigPath> contigParts;
 
-	for (auto& contig : contigs)
+	for (auto& contig : paths)
 	{
 		//As each edge might correspond to multiple sequences,
 		//we need to select them so as to minimize the
 		//number of original contigs (that were used to build the graph)
-		
 		std::unordered_map<FastaRecord::Id, int> seqIdFreq;
 		for (auto& edge : contig.path) 
 		{
@@ -203,6 +34,7 @@ void OutputGenerator::
 		}
 
 		ContigPath contigPath;
+		contigPath.name = contig.name();
 		int32_t prevFlank = 0;
 		int32_t prevSubLength = 0;
 
@@ -280,20 +112,16 @@ void OutputGenerator::
 
 	//finally, generate a consensus
 	ConsensusGenerator gen;
-	auto contigsFasta = gen.generateConsensuses(contigParts);
-	for (size_t i = 0; i < contigs.size(); ++i)
-	{
-		contigs[i].sequence = contigsFasta[i].sequence.str();
-	}
+	return gen.generateConsensuses(contigParts, /*verbose*/false);
 }
 
-void OutputGenerator::dumpRepeats(const std::vector<GraphAlignment>& readAlignments,
-								 const std::string& outFile)
+void OutputGenerator::dumpRepeats(const std::vector<UnbranchingPath>& paths,
+								  const std::string& outFile)
 {
 	std::ofstream fout(outFile);
 	if (!fout.is_open()) throw std::runtime_error("Can't open " + outFile);
 
-	for (auto& contig : _contigs)
+	for (auto& contig : paths)
 	{
 		if (!contig.path.front()->isRepetitive()) continue;
 
@@ -327,7 +155,7 @@ void OutputGenerator::dumpRepeats(const std::vector<GraphAlignment>& readAlignme
 			<< inputs.size() << std::endl;
 
 		//classifying reads into inner, input, output
-		for (auto& readAln : readAlignments)
+		for (auto& readAln : _aligner.getAlignments())
 		{
 			bool repeatRead = false;
 			for (auto& alnEdge : readAln)
@@ -371,7 +199,7 @@ void OutputGenerator::dumpRepeats(const std::vector<GraphAlignment>& readAlignme
 		{
 			//TODO: more accurate version!
 			int ctgId = 0;
-			for (auto& ctg : _contigs)
+			for (auto& ctg : paths)
 			{
 				for (auto& edge : ctg.path) 
 				{
@@ -392,7 +220,7 @@ void OutputGenerator::dumpRepeats(const std::vector<GraphAlignment>& readAlignme
 		for (auto& outputEdge : outputs)
 		{
 			int ctgId = 0;
-			for (auto& ctg : _contigs)
+			for (auto& ctg : paths)
 			{
 				for (auto& edge : ctg.path) 
 				{
@@ -412,92 +240,36 @@ void OutputGenerator::dumpRepeats(const std::vector<GraphAlignment>& readAlignme
 	}
 }
 
-//converts edges to graph paths
-std::vector<UnbranchingPath> OutputGenerator::edgesPaths() const
+void OutputGenerator::outputFasta(const std::vector<UnbranchingPath>& paths,
+								  const std::string& filename)
 {
-	std::vector<UnbranchingPath> paths;
-	for (auto& edge : _graph.iterEdges())
+	std::vector<UnbranchingPath> posStrandPaths;
+	for (auto& path : paths)
 	{
-		GraphPath path = {edge};
-		paths.emplace_back(path, edge->edgeId, false,
-						   edge->length(), edge->meanCoverage);
-		paths.back().repetitive = edge->repetitive;
+		if (path.id.strand()) posStrandPaths.push_back(path);
 	}
-	//this->generateContigSequences(paths);
-	return paths;
+	SequenceContainer::writeFasta(this->generatePathSequences(posStrandPaths), 
+								  filename);
 }
 
-void OutputGenerator::outputDot(bool contigs, const std::string& filename)
+void OutputGenerator::outputGfa(const std::vector<UnbranchingPath>& paths,
+							    const std::string& filename)
 {
-	if (contigs)
-	{
-		this->outputEdgesDot(_contigs, filename);
-	}
-	else
-	{
-		this->outputEdgesDot(this->edgesPaths(), filename);
-	}
-}
+	auto sequences = this->generatePathSequences(paths);
 
-void OutputGenerator::outputGfa(bool contigs, const std::string& filename)
-{
-	if (contigs)
-	{
-		this->outputEdgesGfa(_contigs, filename);
-	}
-	else
-	{
-		auto paths = this->edgesPaths();
-		this->generateContigSequences(paths);
-		this->outputEdgesGfa(paths, filename);
-	}
-}
-
-void OutputGenerator::outputFasta(bool contigs, const std::string& filename)
-{
-	if (contigs)
-	{
-		this->outputEdgesFasta(_contigs, filename);
-	}
-	else
-	{
-		auto paths = this->edgesPaths();
-		this->generateContigSequences(paths);
-		this->outputEdgesFasta(paths, filename);
-	}
-}
-
-void OutputGenerator::outputEdgesFasta(const std::vector<UnbranchingPath>& paths,
-									   const std::string& filename)
-{
-	std::vector<FastaRecord> records;
-	for (auto& contig : paths)
-	{
-		if (!contig.id.strand()) continue;
-
-		std::string nameTag = contig.circular ? "circular" : "linear";
-		nameTag += "_" + std::to_string(contig.id.signedId());
-		records.emplace_back(DnaSequence(contig.sequence), nameTag, 
-							 FastaRecord::ID_NONE);
-	}
-	SequenceContainer::writeFasta(records, filename);
-}
-
-void OutputGenerator::outputEdgesGfa(const std::vector<UnbranchingPath>& paths,
-							    	 const std::string& filename)
-{
 	Logger::get().debug() << "Writing Gfa";
 	FILE* fout = fopen(filename.c_str(), "w");
 	if (!fout) throw std::runtime_error("Can't open " + filename);
 
 	fprintf(fout, "H\tVN:Z:1.0\n");
-	for (auto& contig : paths)
+	//for (auto& contig : paths)
+	for (size_t i = 0; i < paths.size(); ++i)
 	{
-		if (!contig.id.strand()) continue;
+		if (!paths[i].id.strand()) continue;
 
-		size_t kmerCount = contig.sequence.size() * contig.meanCoverage;
-		fprintf(fout, "S\t%s\t%s\tKC:i:%d\n", contig.name().c_str(), 
-				contig.sequence.c_str(), (int)kmerCount);
+		size_t kmerCount = sequences[i].sequence.length() * paths[i].meanCoverage;
+		fprintf(fout, "S\t%s\t%s\tKC:i:%d\n", paths[i].name().c_str(), 
+				sequences[i].sequence.str().c_str(), (int)kmerCount);
 	}
 
 	for (auto& contigLeft : paths)
@@ -519,8 +291,8 @@ void OutputGenerator::outputEdgesGfa(const std::vector<UnbranchingPath>& paths,
 	}
 }
 
-void OutputGenerator::outputEdgesDot(const std::vector<UnbranchingPath>& paths,
-									 const std::string& filename)
+void OutputGenerator::outputDot(const std::vector<UnbranchingPath>& paths,
+								const std::string& filename)
 {
 	Logger::get().debug() << "Writing Dot";
 

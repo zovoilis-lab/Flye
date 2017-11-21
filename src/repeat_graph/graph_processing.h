@@ -50,11 +50,11 @@ struct UnbranchingPath
 
 	GraphPath path;
 	FastaRecord::Id id;
-	std::string sequence;
+	//std::string sequence;
 	bool circular;
 	bool repetitive;
-	int length;
-	int meanCoverage;
+	int  length;
+	int  meanCoverage;
 };
 
 //A class for basic repeat graph processing
@@ -69,7 +69,8 @@ public:
 
 	void simplify();
 	void fixChimericJunctions();
-	std::vector<UnbranchingPath> getUnbranchingPaths();
+	std::vector<UnbranchingPath> getUnbranchingPaths() const;
+	std::vector<UnbranchingPath> getEdgesPaths() const;
 
 private:
 	void trimTips();

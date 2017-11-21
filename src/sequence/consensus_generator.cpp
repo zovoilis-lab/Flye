@@ -126,13 +126,14 @@ namespace
 
 
 std::vector<FastaRecord> 
-	ConsensusGenerator::generateConsensuses(const std::vector<ContigPath>& contigs)
+	ConsensusGenerator::generateConsensuses(const std::vector<ContigPath>& contigs, 
+											bool verbose)
 {
-	Logger::get().info() << "Generating contig sequences";
+	if (verbose) Logger::get().info() << "Generating contig sequences";
 	std::vector<std::vector<AlignmentInfo>> allAlignments;
 	std::vector<FastaRecord> consensuses;
 
-	auto alnMap = this->generateAlignments(contigs);
+	auto alnMap = this->generateAlignments(contigs, verbose);
 	//then, generate contig sequences
 	for (size_t i = 0; i < contigs.size(); ++i)
 	{
@@ -180,7 +181,8 @@ FastaRecord ConsensusGenerator::generateLinear(const ContigPath& path,
 
 
 ConsensusGenerator::AlignmentsMap 
-	ConsensusGenerator::generateAlignments(const std::vector<ContigPath>& contigs)
+	ConsensusGenerator::generateAlignments(const std::vector<ContigPath>& contigs,
+										   bool verbose)
 {
 	typedef std::pair<const ContigPath*, size_t> AlnTask;
 
@@ -231,7 +233,7 @@ ConsensusGenerator::AlignmentsMap
 			tasks.emplace_back(&path, i);
 		}
 	}
-	processInParallel(tasks, alnFunc, Parameters::get().numThreads, true);
+	processInParallel(tasks, alnFunc, Parameters::get().numThreads, verbose);
 
 	return alnMap;
 }

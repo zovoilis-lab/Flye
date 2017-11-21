@@ -165,9 +165,9 @@ public:
 	{}
 
 	void build();
-	GraphPath  complementPath(const GraphPath& path);
-	GraphEdge* complementEdge(GraphEdge* edge);
-	GraphNode* complementNode(GraphNode* node);
+	GraphPath  complementPath(const GraphPath& path) const;
+	GraphEdge* complementEdge(GraphEdge* edge) const;
+	GraphNode* complementNode(GraphNode* node) const;
 
 	//nodes
 	GraphNode* addNode()

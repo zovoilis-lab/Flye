@@ -668,7 +668,7 @@ void RepeatGraph::logEdges()
 }
 
 
-GraphPath RepeatGraph::complementPath(const GraphPath& path)
+GraphPath RepeatGraph::complementPath(const GraphPath& path) const
 {
 	GraphPath complEdges;
 	for (auto itEdge = path.rbegin(); itEdge != path.rend(); ++itEdge)
@@ -679,12 +679,12 @@ GraphPath RepeatGraph::complementPath(const GraphPath& path)
 	return complEdges;
 }
 
-GraphEdge* RepeatGraph::complementEdge(GraphEdge* edge)
+GraphEdge* RepeatGraph::complementEdge(GraphEdge* edge) const
 {
 	return _idToEdge.at(edge->edgeId.rc());
 }
 
-GraphNode* RepeatGraph::complementNode(GraphNode* node)
+GraphNode* RepeatGraph::complementNode(GraphNode* node) const
 {
 	if (!node->outEdges.empty())
 	{
