@@ -35,13 +35,6 @@ private:
 	std::vector<FastaRecord> 
 		generatePathSequences(const std::vector<UnbranchingPath>& paths) const;
 
-	/*void outputEdgesDot(const std::vector<UnbranchingPath>& paths,
-						const std::string& filename);
-	void outputEdgesGfa(const std::vector<UnbranchingPath>& paths,
-						const std::string& filename);
-	void outputEdgesFasta(const std::vector<UnbranchingPath>& paths,
-						  const std::string& filename);*/
-
 	RepeatGraph& _graph;
 	const ReadAligner& _aligner;
 	const SequenceContainer& _asmSeqs;

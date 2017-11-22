@@ -221,6 +221,7 @@ int main(int argc, char** argv)
 	Logger::get().info() << "Generating contigs";
 
 	extender.generateUnbranchingPaths();
+	extender.generateContigs();
 
 	//outGen.outputDot(proc.getEdgesPath(), outFolder + "/graph_after_rr.dot");
 	outGen.dumpRepeats(extender.getUnbranchingPaths(), 

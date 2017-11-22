@@ -8,36 +8,41 @@ void ContigExtender::generateUnbranchingPaths()
 {
 	GraphProcessor proc(_graph, _asmSeqs, _readSeqs);
 	_unbranchingPaths = proc.getUnbranchingPaths();
-	//this->generateContigSequences(_contigs);
 
-	for (auto& ctg : _unbranchingPaths)
+	_edgeToPath.clear();
+	for (auto& path : _unbranchingPaths)
 	{
-		if (ctg.id.strand())
+		if (path.id.strand())
 		{
-			Logger::get().debug() << "UPath " << ctg.id.signedId() 
-							<< ": " << ctg.edgesStr();
+			Logger::get().debug() << "UPath " << path.id.signedId() 
+							<< ": " << path.edgesStr();
+		}
+
+		for (auto& edge : path.path)
+		{
+			_edgeToPath[edge] = &path;
 		}
 	}
 
-	//this->generateContigSequences(_contigs);
 	Logger::get().debug() << "Final graph contiain " 
 		<< _unbranchingPaths.size() / 2 << " egdes";
 }
 
-/*
-void ContigExtender::extendContigs(std::vector<UnbranchingPath>& contigs)
+
+void ContigExtender::generateContigs()
 {
 	std::unordered_set<GraphEdge*> coveredRepeats;
 	std::unordered_map<GraphEdge*, bool> repeatDirections;
 	std::unordered_set<GraphEdge*> tandems;
-	auto readAln = _aligner.getAlignments();
 
-	auto extendPath = [&readAln, this, &coveredRepeats, 
-					   &repeatDirections, &tandems]
+	auto extendPathRight =
+		[this, &coveredRepeats, &repeatDirections, &tandems]
 		(UnbranchingPath& upath, bool direction)
 	{
+		auto& readAln = _aligner.getAlignments();
+
 		bool extendFwd = !upath.path.back()->nodeRight->outEdges.empty();
-		if (!extendFwd) return std::string();
+		if (!extendFwd) return GraphPath();
 
 		//first, choose the longest aligned read from this edge
 		int32_t maxExtension = 0;
@@ -60,21 +65,18 @@ void ContigExtender::extendContigs(std::vector<UnbranchingPath>& contigs)
 					{
 						maxExtension = alnLen;
 						bestAlignment.clear();
-						std::copy(path.begin() + i + 1, path.begin() + j, 
+						std::copy(path.begin() + i + 1, path.begin() + j,
 								  std::back_inserter(bestAlignment));
 					}
 					break;
 				}
 			}
 		}
-		if (maxExtension == 0) return std::string();
+		if (maxExtension == 0) return GraphPath();
 
-		//check if some repeats are traversed multiple by a single read
+		//check if some repeats are traversed multiple times by a single read
 		std::unordered_map<GraphEdge*, int> multiplicity;
-		for (auto& aln : bestAlignment)
-		{
-			++multiplicity[aln.edge];
-		}
+		for (auto& aln : bestAlignment) ++multiplicity[aln.edge];
 		for (auto& edgeMult : multiplicity)
 		{
 			if (edgeMult.second > 1) 
@@ -84,18 +86,14 @@ void ContigExtender::extendContigs(std::vector<UnbranchingPath>& contigs)
 			}
 		}
 
-		//Logger::get().debug() << "Ctg " << upath.name() 
-		//	<< " extension " << maxExtension;
-
-		//check if we are not traverse non-tandem repeats in prohibited 
-		//directions
+		//check if we are not traverse non-tandem repeats in prohibited directions
 		bool canExtend = true;
 		for (auto& aln : bestAlignment)
 		{
-			++multiplicity[aln.edge];
 			if (repeatDirections.count(aln.edge))
 			{
-				if (!tandems.count(aln.edge) &&
+				//if (!tandems.count(aln.edge) &&
+				if (!aln.edge->selfComplement &&
 					repeatDirections.at(aln.edge) != direction)
 				{
 					canExtend = false;
@@ -103,73 +101,127 @@ void ContigExtender::extendContigs(std::vector<UnbranchingPath>& contigs)
 				}
 			}
 		}
-		if (!canExtend) return std::string();
+		if (!canExtend) return GraphPath();
 
 		//if we traverse some repeats for the first time, record the direction
 		for (auto& aln : bestAlignment)
 		{
-			//Logger::get().debug() << "\t" << aln.edge->edgeId.signedId();
-			if (aln.overlap.extLen - aln.overlap.extEnd < 
-					Constants::maxSeparation)
-			{
-				repeatDirections[aln.edge] = direction;
-				repeatDirections[_graph.complementEdge(aln.edge)] = !direction;
+			//if (aln.overlap.extLen - aln.overlap.extEnd < 
+			//	Constants::maxSeparation)
+			//{
+			repeatDirections[aln.edge] = direction;
+			repeatDirections[_graph.complementEdge(aln.edge)] = !direction;
 
-				coveredRepeats.insert(aln.edge);
-				coveredRepeats.insert(_graph.complementEdge(aln.edge));
-			}
+			coveredRepeats.insert(aln.edge);
+			coveredRepeats.insert(_graph.complementEdge(aln.edge));
+			//}
 		}
 
-		FastaRecord::Id seqId = bestAlignment.front().overlap.curId;
-		int32_t start = bestAlignment.front().overlap.curBegin;
-		int32_t end = bestAlignment.back().overlap.curEnd;
-
-		auto extSeq = _readSeqs.getSeq(seqId).substr(start, end - start);
-		return direction ? extSeq.str() : extSeq.complement().str();
+		GraphPath extendedPath;
+		for (auto& aln : bestAlignment) extendedPath.push_back(aln.edge);
+		
+		return extendedPath;
 	};
 
-	std::vector<UnbranchingPath> extendedContigs;
 	std::unordered_map<FastaRecord::Id, UnbranchingPath*> idToPath;
-	for (auto& ctg : _contigs)
+	for (auto& ctg : _unbranchingPaths)
 	{
 		idToPath[ctg.id] = &ctg;
 	}
-	for (auto& ctg : _contigs)
+	for (auto& upath : _unbranchingPaths)
 	{
-		if (ctg.repetitive || !ctg.id.strand()) continue;
-		if (!idToPath.count(ctg.id.rc())) continue;	//self-complement
+		if (upath.repetitive || !upath.id.strand()) continue;
+		if (!idToPath.count(upath.id.rc())) continue;	//self-complement
 
-		std::string rightExt = extendPath(ctg, true);
-		std::string leftExt = extendPath(*idToPath[ctg.id.rc()], false);
-		extendedContigs.push_back(ctg);
-		extendedContigs.back().sequence = leftExt + 
-							extendedContigs.back().sequence + rightExt;
+		auto rightExt = extendPathRight(upath, true);
+		auto leftExt = extendPathRight(*idToPath[upath.id.rc()], true);
+		leftExt = _graph.complementPath(leftExt);
+		/*Logger::get().debug() << "Extending left: " << upath.id.signedId();
+		for (auto& path : leftPaths)
+		{
+			Logger::get().debug() << "\t" << path->id.signedId();
+		}
+
+		Logger::get().debug() << "Extending right: " << upath.id.signedId();
+		for (auto& path : rightPaths)
+		{
+			Logger::get().debug() << "\t" << path->id.signedId();
+		}
+		Logger::get().debug() << "-----";*/
+
+		Contig contig(upath);
+		auto leftPaths = this->asUPaths(leftExt);
+		auto rightPaths = this->asUPaths(rightExt);
+		for (auto& path : leftPaths)
+		{
+			for (auto& edge : path->path)
+			{
+				contig.graphEdges.path.insert(contig.graphEdges.path.end() - 1, 
+											  edge);
+			}
+			contig.graphPaths.insert(contig.graphPaths.end() - 1, path);
+		}
+		for (auto& path : rightPaths)
+		{
+			for (auto& edge : path->path)
+			{
+				contig.graphEdges.path.push_back(edge);
+			}
+			contig.graphPaths.push_back(path);
+		}
+		_contigs.push_back(std::move(contig));
 	}
 
 	int numCovered = 0;
-	for (auto& ctg : _contigs)
+	for (auto& upath : _unbranchingPaths)
 	{
-		if (!ctg.repetitive || !ctg.id.strand()) continue;
+		if (!upath.repetitive || !upath.id.strand()) continue;
 
-		bool covered = true;
-		for (auto& edge : ctg.path)
+		bool covered = false;
+		for (auto& edge : upath.path)
 		{
-			if (!coveredRepeats.count(edge)) covered = false;
+			if (coveredRepeats.count(edge)) covered = true;
 		}
 		if (!covered)
 		{
-			extendedContigs.push_back(ctg);
+			_contigs.emplace_back(upath);
 		}
 		else
 		{
 			++numCovered;
-			Logger::get().debug() << "Covered: " << ctg.name();
+			Logger::get().debug() << "Covered: " << upath.id.signedId();
 		}
 	}
+
 	Logger::get().debug() << "Covered " << numCovered << " repetitive contigs";
+	Logger::get().info() << "Generated " << _contigs.size() << " contigs";
 
-	Logger::get().info() << "Generated " << extendedContigs.size() 
-		<< " extended contigs";
-	this->outputEdgesFasta(extendedContigs, outFile);
-}*/
+	for (auto& ctg : _contigs)
+	{
+		std::string pathStr;
+		for (auto& upath : ctg.graphPaths)
+		{
+			pathStr += std::to_string(upath->id.signedId()) + " -> ";
+		}
+		pathStr.erase(pathStr.size() - 4);
 
+		Logger::get().debug() << "Contig: " << ctg.graphEdges.id.signedId()
+			<< ": " << pathStr;
+	}
+}
+
+std::vector<UnbranchingPath*> ContigExtender::asUPaths(const GraphPath& path)
+{
+	std::vector<UnbranchingPath*> upathRepr;
+	for (size_t i = 0; i < path.size(); ++i)
+	{
+		UnbranchingPath* upath = _edgeToPath.at(path[i]);
+		if (upathRepr.empty() || upathRepr.back() != upath ||
+			path[i - 1] == path[i])
+		{
+			upathRepr.push_back(upath);
+		}
+	}
+
+	return upathRepr;
+}

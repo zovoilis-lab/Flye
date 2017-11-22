@@ -10,6 +10,12 @@
 
 struct Contig
 {
+	Contig(const UnbranchingPath& corePath):
+		graphEdges(corePath), graphPaths({&corePath})
+	{}
+
+	UnbranchingPath graphEdges;
+	std::vector<const UnbranchingPath*> graphPaths;
 };
 
 class ContigExtender
@@ -22,14 +28,16 @@ public:
 		_asmSeqs(asmSeqs), _readSeqs(readSeqs) {}
 
 	void generateUnbranchingPaths();
-	//void generatePathSequence();
+	void generateContigs();
 
 	const std::vector<UnbranchingPath>& getUnbranchingPaths() 
 		{return _unbranchingPaths;}
 private:
-
+	std::vector<UnbranchingPath*> asUPaths(const GraphPath& path);
 
 	std::vector<UnbranchingPath> _unbranchingPaths;
+	std::unordered_map<GraphEdge*, UnbranchingPath*> _edgeToPath;
+	std::vector<Contig> _contigs;
 	
 	RepeatGraph& _graph;
 	const ReadAligner& _aligner;

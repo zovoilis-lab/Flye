@@ -7,8 +7,7 @@
 #include <iomanip>
 
 
-
-//Generates FASTA from the given contigs (graph paths)
+//Generates FASTA from the given graph paths
 std::vector<FastaRecord> OutputGenerator::
 	generatePathSequences(const std::vector<UnbranchingPath>& paths) const
 {
@@ -115,6 +114,7 @@ std::vector<FastaRecord> OutputGenerator::
 	return gen.generateConsensuses(contigParts, /*verbose*/false);
 }
 
+//dumps repeat information for the consecutive analysis
 void OutputGenerator::dumpRepeats(const std::vector<UnbranchingPath>& paths,
 								  const std::string& outFile)
 {
@@ -152,7 +152,7 @@ void OutputGenerator::dumpRepeats(const std::vector<UnbranchingPath>& paths,
 
 
 		fout << "#Repeat " << contig.id.signedId() << "\t"
-			<< inputs.size() << std::endl;
+			<< inputs.size() << "\n";
 
 		//classifying reads into inner, input, output
 		for (auto& readAln : _aligner.getAlignments())
@@ -188,12 +188,12 @@ void OutputGenerator::dumpRepeats(const std::vector<UnbranchingPath>& paths,
 		}
 
 		//dump as text
-		fout << "\n#All reads\t" << allReads.size() << std::endl;
+		fout << "\n#All reads\t" << allReads.size() << "\n";
 		for (auto& readId : allReads)
 		{
-			fout << _readSeqs.seqName(readId) << std::endl;
+			fout << _readSeqs.seqName(readId) << "\n";
 		}
-		fout << std::endl;
+		fout << "\n";
 
 		for (auto& inputEdge : inputs)
 		{
@@ -208,13 +208,13 @@ void OutputGenerator::dumpRepeats(const std::vector<UnbranchingPath>& paths,
 			}
 
 			fout << "#Input " << ctgId << "\t" 
-				<< inputEdges[inputEdge].size() << std::endl;
+				<< inputEdges[inputEdge].size() << "\n";
 
 			for (auto& readId : inputEdges[inputEdge])
 			{
-				fout << _readSeqs.seqName(readId) << std::endl;
+				fout << _readSeqs.seqName(readId) << "\n";
 			}
-			fout << std::endl;
+			fout << "\n";
 		}
 
 		for (auto& outputEdge : outputs)
@@ -229,13 +229,13 @@ void OutputGenerator::dumpRepeats(const std::vector<UnbranchingPath>& paths,
 			}
 
 			fout << "#Output " << ctgId << "\t" 
-				<< outputEdges[outputEdge].size() << std::endl;
+				<< outputEdges[outputEdge].size() << "\n";
 
 			for (auto& readId : outputEdges[outputEdge])
 			{
-				fout << _readSeqs.seqName(readId) << std::endl;
+				fout << _readSeqs.seqName(readId) << "\n";
 			}
-			fout << std::endl;
+			fout << "\n";
 		}
 	}
 }
@@ -262,7 +262,6 @@ void OutputGenerator::outputGfa(const std::vector<UnbranchingPath>& paths,
 	if (!fout) throw std::runtime_error("Can't open " + filename);
 
 	fprintf(fout, "H\tVN:Z:1.0\n");
-	//for (auto& contig : paths)
 	for (size_t i = 0; i < paths.size(); ++i)
 	{
 		if (!paths[i].id.strand()) continue;
