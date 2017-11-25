@@ -33,11 +33,10 @@ void ContigExtender::generateContigs()
 {
 	std::unordered_set<GraphEdge*> coveredRepeats;
 	std::unordered_map<GraphEdge*, bool> repeatDirections;
-	std::unordered_set<GraphEdge*> tandems;
+	//std::unordered_set<GraphEdge*> tandems;
 
 	auto extendPathRight =
-		[this, &coveredRepeats, &repeatDirections, &tandems]
-		(UnbranchingPath& upath, bool direction)
+		[this, &coveredRepeats, &repeatDirections] (UnbranchingPath& upath)
 	{
 		auto& readAln = _aligner.getAlignments();
 
@@ -75,7 +74,7 @@ void ContigExtender::generateContigs()
 		if (maxExtension == 0) return GraphPath();
 
 		//check if some repeats are traversed multiple times by a single read
-		std::unordered_map<GraphEdge*, int> multiplicity;
+		/*std::unordered_map<GraphEdge*, int> multiplicity;
 		for (auto& aln : bestAlignment) ++multiplicity[aln.edge];
 		for (auto& edgeMult : multiplicity)
 		{
@@ -84,7 +83,7 @@ void ContigExtender::generateContigs()
 				tandems.insert(edgeMult.first);
 				tandems.insert(_graph.complementEdge(edgeMult.first));
 			}
-		}
+		}*/
 
 		//check if we are not traverse non-tandem repeats in prohibited directions
 		bool canExtend = true;
@@ -93,8 +92,7 @@ void ContigExtender::generateContigs()
 			if (repeatDirections.count(aln.edge))
 			{
 				//if (!tandems.count(aln.edge) &&
-				if (!aln.edge->selfComplement &&
-					repeatDirections.at(aln.edge) != direction)
+				if (!aln.edge->selfComplement && !repeatDirections.at(aln.edge))
 				{
 					canExtend = false;
 					break;
@@ -106,15 +104,11 @@ void ContigExtender::generateContigs()
 		//if we traverse some repeats for the first time, record the direction
 		for (auto& aln : bestAlignment)
 		{
-			//if (aln.overlap.extLen - aln.overlap.extEnd < 
-			//	Constants::maxSeparation)
-			//{
-			repeatDirections[aln.edge] = direction;
-			repeatDirections[_graph.complementEdge(aln.edge)] = !direction;
+			repeatDirections[aln.edge] = true;
+			repeatDirections[_graph.complementEdge(aln.edge)] = false;
 
 			coveredRepeats.insert(aln.edge);
 			coveredRepeats.insert(_graph.complementEdge(aln.edge));
-			//}
 		}
 
 		GraphPath extendedPath;
@@ -133,21 +127,9 @@ void ContigExtender::generateContigs()
 		if (upath.repetitive || !upath.id.strand()) continue;
 		if (!idToPath.count(upath.id.rc())) continue;	//self-complement
 
-		auto rightExt = extendPathRight(upath, true);
-		auto leftExt = extendPathRight(*idToPath[upath.id.rc()], true);
+		auto rightExt = extendPathRight(upath);
+		auto leftExt = extendPathRight(*idToPath[upath.id.rc()]);
 		leftExt = _graph.complementPath(leftExt);
-		/*Logger::get().debug() << "Extending left: " << upath.id.signedId();
-		for (auto& path : leftPaths)
-		{
-			Logger::get().debug() << "\t" << path->id.signedId();
-		}
-
-		Logger::get().debug() << "Extending right: " << upath.id.signedId();
-		for (auto& path : rightPaths)
-		{
-			Logger::get().debug() << "\t" << path->id.signedId();
-		}
-		Logger::get().debug() << "-----";*/
 
 		Contig contig(upath);
 		auto leftPaths = this->asUPaths(leftExt);
@@ -224,4 +206,12 @@ std::vector<UnbranchingPath*> ContigExtender::asUPaths(const GraphPath& path)
 	}
 
 	return upathRepr;
+}
+
+
+std::vector<UnbranchingPath> ContigExtender::getContigPaths()
+{
+	std::vector<UnbranchingPath> upaths;
+	for (auto& ctg : _contigs) upaths.push_back(ctg.graphEdges);
+	return upaths;
 }

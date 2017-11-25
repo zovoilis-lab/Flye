@@ -232,8 +232,7 @@ int main(int argc, char** argv)
 					   outFolder + "/graph_final.fasta");
 	outGen.outputGfa(extender.getUnbranchingPaths(), 
 					 outFolder + "/graph_final.gfa");
-
-	//extender.extendContigs(aligner.getAlignments(), outFolder + "/graph_paths.fasta");
-	
+	outGen.outputFasta(extender.getContigPaths(), 
+					   outFolder + "/graph_paths.fasta");
 	return 0;
 }

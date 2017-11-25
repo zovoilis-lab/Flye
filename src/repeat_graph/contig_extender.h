@@ -29,6 +29,7 @@ public:
 
 	void generateUnbranchingPaths();
 	void generateContigs();
+	std::vector<UnbranchingPath> getContigPaths();
 
 	const std::vector<UnbranchingPath>& getUnbranchingPaths() 
 		{return _unbranchingPaths;}
