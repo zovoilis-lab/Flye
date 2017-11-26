@@ -39,7 +39,6 @@ class Job(object):
     def __init__(self):
         self.name = None
         self.args = None
-        #self.stage_id = 0
         self.work_dir = None
         self.out_files = []
 
@@ -77,10 +76,7 @@ class JobAssembly(Job):
         self.out_files = [out_assembly]
 
     def run(self):
-        #reads_order = os.path.join(self.work_dir, "reads_order.fasta")
         asm.assemble(self.args, self.out_assembly, self.log_file)
-        #contigs_fasta = aln.concatenate_contigs(reads_order)
-        #fp.write_fasta_dict(contigs_fasta, self.out_assembly)
 
 
 class JobRepeat(Job):
@@ -114,14 +110,9 @@ class JobAlignment(Job):
     def run(self):
         #logger.info("Polishing genome ({0}/{1})".format(self.stage_id,
         #                                                self.args.num_iters))
-        logger.info("Running BLASR")
-        contigs_fasta = fp.read_fasta_dict(self.in_reference)
-        reference_file = os.path.join(self.work_dir, "blasr_ref_{0}.fasta"
-                                                        .format(self.stage_id))
-        aln.make_blasr_reference(contigs_fasta, reference_file)
-        aln.make_alignment(reference_file, self.args.reads, self.args.threads,
-                           self.work_dir, self.out_alignment)
-        os.remove(reference_file)
+        logger.info("Running Minimap2")
+        aln.make_alignment(self.in_reference, self.args.reads, self.args.threads,
+                           self.work_dir, self.args.platform, self.out_alignment)
 
 
 class JobConsensus(Job):
@@ -137,8 +128,8 @@ class JobConsensus(Job):
     def run(self):
         logger.info("Computing rough consensus")
         contigs_info = aln.get_contigs_info(self.in_contigs)
-        consensus_fasta = cons.get_consensus(self.in_alignment, contigs_info,
-                                             self.args.threads)
+        consensus_fasta = cons.get_consensus(self.in_alignment, self.in_contigs,
+                                             contigs_info, self.args.threads)
         fp.write_fasta_dict(consensus_fasta, self.out_consensus)
 
 
@@ -161,7 +152,7 @@ class JobPolishing(Job):
         contigs_info = aln.get_contigs_info(self.in_contigs)
 
         logger.info("Separating alignment into bubbles")
-        bubbles = bbl.get_bubbles(self.in_alignment, contigs_info,
+        bubbles = bbl.get_bubbles(self.in_alignment, contigs_info, self.in_contigs,
                                   self.seq_platform, self.args.threads)
         logger.info("Correcting bubbles")
         polished_fasta = pol.polish(bubbles, self.args.threads,
@@ -181,7 +172,7 @@ def _create_job_list(args, work_dir, log_file):
     jobs.append(JobAssembly(draft_assembly, log_file))
 
     #Pre-polishing
-    alignment_file = os.path.join(work_dir, "blasr_0.m5")
+    alignment_file = os.path.join(work_dir, "minimap_0.sam")
     pre_polished_file = os.path.join(work_dir, "polished_0.fasta")
     jobs.append(JobAlignment(draft_assembly, alignment_file, 0))
     jobs.append(JobConsensus(draft_assembly, alignment_file,
@@ -195,12 +186,12 @@ def _create_job_list(args, work_dir, log_file):
     #Full polishing
     prev_assembly = edges_sequences
     for i in xrange(args.num_iters):
-        alignment_file = os.path.join(work_dir, "blasr_{0}.m5".format(i + 1))
+        alignment_file = os.path.join(work_dir, "minimap_{0}.sam".format(i + 1))
         polished_file = os.path.join(work_dir,
                                      "polished_{0}.fasta".format(i + 1))
         jobs.append(JobAlignment(prev_assembly, alignment_file, i + 1))
         jobs.append(JobPolishing(prev_assembly, alignment_file, polished_file,
-                                 i + 1, args.sequencing_platform))
+                                 i + 1, args.platform))
         prev_assembly = polished_file
 
     for job in jobs:
@@ -343,7 +334,7 @@ def main():
                         type=lambda v: check_int_range(v, 0, 10),
                         default=1, help="number of polishing iterations "
                         "(default: 1)")
-    parser.add_argument("-p", "--platform", dest="sequencing_platform",
+    parser.add_argument("-p", "--platform", dest="platform",
                         default="pacbio",
                         choices=["pacbio", "nano", "pacbio_hi_err"],
                         help="sequencing platform (default: pacbio)")

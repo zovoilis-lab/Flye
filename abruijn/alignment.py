@@ -3,10 +3,11 @@
 #Released under the BSD license (see LICENSE file)
 
 """
-Runs Blasr aligner and parses its output
+Runs Minimap2 and parses its output
 """
 
 import os
+import re
 import sys
 from collections import namedtuple, defaultdict
 import subprocess
@@ -20,7 +21,8 @@ import abruijn.config as config
 
 
 logger = logging.getLogger()
-BLASR_BIN = "blasr"
+#BLASR_BIN = "blasr"
+MINIMAP_BIN = "minimap2"
 
 Alignment = namedtuple("Alignment", ["qry_id", "trg_id", "qry_start", "qry_end",
                                      "qry_sign", "qry_len", "trg_start",
@@ -34,10 +36,14 @@ class AlignmentException(Exception):
     pass
 
 
-class SynchronizedReader(object):
-    def __init__(self, blasr_alignment):
+class SynchronizedSamReader(object):
+    """
+    Parsing SAM file in multiple threads
+    """
+    def __init__(self, sam_alignment, reference_fasta):
         #will not be changed during exceution
-        self.aln_path = blasr_alignment
+        self.aln_path = sam_alignment
+        self.ref_fasta = reference_fasta
         self.change_strand = True
 
         #will be shared between processes
@@ -53,14 +59,159 @@ class SynchronizedReader(object):
             raise AlignmentException("Can't open {0}".format(self.aln_path))
         self.aln_file = open(self.aln_path, "r")
         self.processed_contigs = set()
+        self.cigar_parser = re.compile("[0-9]+[MIDNSHP=X]")
 
     def is_eof(self):
         return self.eof.value
+
+    def parse_cigar(self, cigar_str, read_str, ctg_name, ctg_pos):
+        ctg_str = self.ref_fasta[ctg_name]
+        trg_seq = []
+        qry_seq = []
+        trg_start = ctg_pos - 1
+        trg_pos = ctg_pos - 1
+        qry_start = 0
+        qry_pos = 0
+
+        first = True
+        hard_clipped_left = 0
+        hard_clipped_right = 0
+        for token in self.cigar_parser.findall(cigar_str):
+            size, op = int(token[:-1]), token[-1]
+            if op == "H":
+                if first:
+                    qry_start += size
+                    hard_clipped_left += size
+                else:
+                    hard_clipped_right += size
+            elif op == "S":
+                qry_pos += size
+                if first:
+                    qry_start += size
+            elif op == "M":
+                qry_seq.append(read_str[qry_pos : qry_pos + size])
+                trg_seq.append(ctg_str[trg_pos : trg_pos + size])
+                qry_pos += size
+                trg_pos += size
+            elif op == "I":
+                qry_seq.append(read_str[qry_pos : qry_pos + size])
+                trg_seq.append("-" * size)
+                qry_pos += size
+            elif op == "D":
+                qry_seq.append("-" * size)
+                trg_seq.append(ctg_str[trg_pos : trg_pos + size])
+                trg_pos += size
+            else:
+                raise AlignmentException("Unsupported CIGAR operation: " + op)
+            first = False
+
+        trg_seq = "".join(trg_seq)
+        qry_seq = "".join(qry_seq)
+        matches = 0
+        for i in xrange(len(trg_seq)):
+            if trg_seq[i] == qry_seq[i]:
+                matches += 1
+        err_rate = 1 - float(matches) / len(trg_seq)
+
+        trg_end = trg_pos
+        qry_end = qry_pos + hard_clipped_left
+        qry_len = qry_end + hard_clipped_right
+
+        #print trg_seq[-100:] + "\n"
+        #print qry_seq[-100:]
+        #print len(trg_seq), trg_end - trg_start
+        #print len(qry_seq), qry_end - qry_start
+        #print err_rate
+
+        return (trg_start, trg_end, len(ctg_str), trg_seq,
+                qry_start, qry_end, qry_len, qry_seq, err_rate)
+
 
     def get_chunk(self):
         """
         Alignment file is expected to be sorted!
         """
+        with self.lock:
+            self.aln_file.seek(self.position.value)
+            if self.eof.value:
+                return None, []
+
+            current_contig = None
+            buffer = []
+            while True:
+                self.position.value = self.aln_file.tell()
+                line = self.aln_file.readline()
+                if not line: break
+                if line.startswith("@"): continue   #ignore headers
+
+                tokens = line.strip().split()
+                if len(tokens) < 11:
+                    raise AlignmentException("Error reading SAM file")
+
+                read_contig = tokens[2]
+                ctg_pos = int(tokens[3])
+                flags = int(tokens[1])
+                is_unmapped = flags & 0x4
+                is_reversed = flags & 0x16
+                is_supplementary = flags & 0x800
+                is_secondary = flags & 0x100
+
+                if is_unmapped or is_secondary: continue
+                if read_contig in self.processed_contigs:
+                    raise AlignmentException("Alignment file is not sorted")
+
+
+                (trg_start, trg_end, trg_len, trg_seq,
+                qry_start, qry_end, qry_len, qry_seq, err_rate) = \
+                        self.parse_cigar(tokens[5], tokens[9], read_contig, ctg_pos)
+
+                #self.errors.append(err_rate)
+                aln = Alignment(tokens[0], read_contig, qry_start,
+                                qry_end, "-" if is_reversed else "+",
+                                qry_len, trg_start, trg_end, "+", trg_len,
+                                qry_seq, trg_seq, err_rate)
+
+                if read_contig != current_contig:
+                    prev_contig = current_contig
+                    current_contig = read_contig
+
+                    if prev_contig is not None:
+                        self.processed_contigs.add(prev_contig)
+                        return prev_contig, buffer
+                    else:
+                        buffer = [aln]
+                else:
+                    buffer.append(aln)
+
+            #mean_err = float(sum(self.errors)) / len(self.errors)
+            #logger.debug("Alignment error rate: {0}".format(mean_err))
+            self.eof.value = True
+            return current_contig, buffer
+
+
+
+"""
+class SynchronizedBlasrReader(object):
+    def __init__(self, blasr_alignment):
+        #will not be changed during exceution
+        self.aln_path = blasr_alignment
+        self.change_strand = True
+
+        #will be shared between processes
+        self.lock = multiprocessing.Lock()
+        self.eof = multiprocessing.Value(ctypes.c_bool, False)
+        self.position = multiprocessing.Value(ctypes.c_longlong, 0)
+
+    def init_reading(self):
+        if not os.path.exists(self.aln_path):
+            raise AlignmentException("Can't open {0}".format(self.aln_path))
+        self.aln_file = open(self.aln_path, "r")
+        self.processed_contigs = set()
+
+    def is_eof(self):
+        return self.eof.value
+
+    def get_chunk(self):
         #print os.getpid(), "Waiting for lock"
         with self.lock:
             #print os.getpid(), "Reading from ", self.position.value
@@ -116,19 +267,18 @@ class SynchronizedReader(object):
             #logger.debug("Alignment error rate: {0}".format(mean_err))
             self.eof.value = True
             return current_contig, buffer
+"""
 
 
 def check_binaries():
-    if not which(BLASR_BIN):
-        raise AlignmentException("BLASR is not installed")
+    if not which(MINIMAP_BIN):
+        raise AlignmentException("Minimap2 is not installed")
     if not which("sort"):
         raise AlignmentException("UNIX sort utility is not available")
 
 
-def make_blasr_reference(contigs_fasta, out_file):
-    """
-    Outputs 'reference' for BLASR run, appends a suffix to circular contigs
-    """
+"""
+def make_circular_reference(contigs_fasta, out_file):
     circular_window = config.vals["circular_window"]
     for contig_id in contigs_fasta:
         contig_type = contig_id.split("_")[0]
@@ -138,17 +288,18 @@ def make_blasr_reference(contigs_fasta, out_file):
                     contigs_fasta[contig_id][:circular_window]
 
     fp.write_fasta_dict(contigs_fasta, out_file)
+"""
 
 
 def make_alignment(reference_file, reads_file, num_proc,
-                   work_dir, out_alignment):
+                   work_dir, platform, out_alignment):
     """
-    Runs BLASR and sort its output
+    Runs minimap2 and sort its output
     """
-    _run_blasr(reference_file, reads_file, num_proc, out_alignment)
+    _run_minimap(reference_file, reads_file, num_proc, platform, out_alignment)
     logger.debug("Sorting alignment file")
     temp_file = out_alignment + "_sorted"
-    subprocess.check_call(["sort", "-k", "6", "-T", work_dir, out_alignment],
+    subprocess.check_call(["sort", "-k", "3", "-T", work_dir, out_alignment],
                           stdout=open(temp_file, "w"))
     os.remove(out_alignment)
     os.rename(temp_file, out_alignment)
@@ -234,10 +385,8 @@ def _parse_blasr(filename, change_strand, ctg_id):
 """
 
 
+"""
 def _guess_blasr_version():
-    """
-    Tries to guess whether we need one or two dashed in command line
-    """
     try:
         devnull = open(os.devnull, "w")
         stdout = subprocess.check_output([BLASR_BIN, "-version"])
@@ -256,8 +405,29 @@ def _guess_blasr_version():
         return "pacbio_old"
 
     return "pacbio_new"
+"""
 
 
+def _run_minimap(reference_file, reads_file, num_proc, platform, out_file):
+    cmdline = [MINIMAP_BIN, reference_file, reads_file, "-a",
+               "-w5", "-m100", "-g10000", "--max-chain-skip", "25",
+               "-t", str(num_proc)]
+    if platform == "nano":
+        cmdline.append("-k15")
+    else:
+        cmdline.append("-Hk19")
+
+    try:
+        devnull = open(os.devnull, "w")
+        subprocess.check_call(cmdline, stderr=devnull,
+                              stdout=open(out_file, "w"))
+    except (subprocess.CalledProcessError, OSError) as e:
+        if e.returncode == -9:
+            logger.error("Looks like the system ran out of memory")
+        raise AlignmentException(str(e))
+
+
+"""
 def _run_blasr(reference_file, reads_file, num_proc, out_file):
     cmdline = [BLASR_BIN, reads_file, reference_file,
                "-bestn", "1", "-minMatch", "15",
@@ -280,3 +450,4 @@ def _run_blasr(reference_file, reads_file, num_proc, out_file):
         if e.returncode == -9:
             logger.error("Looks like the system ran out of memory")
         raise AlignmentException(str(e))
+"""

@@ -16,7 +16,7 @@ import signal
 
 import abruijn.fasta_parser as fp
 import abruijn.config as config
-from abruijn.alignment import shift_gaps, SynchronizedReader
+from abruijn.alignment import shift_gaps, SynchronizedSamReader
 
 
 logger = logging.getLogger()
@@ -44,15 +44,15 @@ class Bubble:
         self.consensus = ""
 
 
-def _thread_worker(blasr_reader, contigs_info, err_mode,
+def _thread_worker(aln_reader, contigs_info, err_mode,
                    results_queue, error_queue):
     """
     Will run in parallel
     """
     try:
-        blasr_reader.init_reading()
-        while not blasr_reader.is_eof():
-            ctg_id, ctg_aln = blasr_reader.get_chunk()
+        aln_reader.init_reading()
+        while not aln_reader.is_eof():
+            ctg_id, ctg_aln = aln_reader.get_chunk()
             if ctg_id is None:
                 break
 
@@ -70,12 +70,13 @@ def _thread_worker(blasr_reader, contigs_info, err_mode,
         error_queue.put(e)
 
 
-def get_bubbles(alignment_path, contigs_info, err_mode, num_proc):
+def get_bubbles(alignment_path, contigs_info, contigs_path,
+                err_mode, num_proc):
     """
     The main function: takes an alignment and returns bubbles
     """
-    #making sure the main process catches SIGINT
-    blasr_reader = SynchronizedReader(alignment_path)
+    aln_reader = SynchronizedSamReader(alignment_path,
+                                       fp.read_fasta_dict(contigs_path))
     manager = multiprocessing.Manager()
     results_queue = manager.Queue()
     error_queue = manager.Queue()
@@ -85,7 +86,7 @@ def get_bubbles(alignment_path, contigs_info, err_mode, num_proc):
     threads = []
     for _ in xrange(num_proc):
         threads.append(multiprocessing.Process(target=_thread_worker,
-                                               args=(blasr_reader, contigs_info,
+                                               args=(aln_reader, contigs_info,
                                                      err_mode, results_queue,
                                                      error_queue)))
     signal.signal(signal.SIGINT, orig_sigint)

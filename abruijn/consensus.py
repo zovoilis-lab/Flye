@@ -12,8 +12,9 @@ from itertools import izip
 import multiprocessing
 import signal
 
-from abruijn.alignment import shift_gaps, SynchronizedReader
+from abruijn.alignment import shift_gaps, SynchronizedSamReader
 import abruijn.config as config
+import abruijn.fasta_parser as fp
 
 logger = logging.getLogger()
 
@@ -24,35 +25,31 @@ class Profile:
         self.insertions = defaultdict(str)
         self.matches = defaultdict(int)
         self.nucl = "-"
-        #self.length = length
-        #self.insertions = [defaultdict(str) for _ in xrange(length)]
-        #self.matches = [defaultdict(int) for _ in xrange(length)]
-        #self.nucl = ["-" for _ in xrange(length)]
 
-
-def _thread_worker(blasr_reader, contigs_info, results_queue,
+def _thread_worker(aln_reader, contigs_info, results_queue,
                    error_queue):
     try:
-        blasr_reader.init_reading()
+        aln_reader.init_reading()
 
-        while not blasr_reader.is_eof():
-            ctg_id, ctg_aln = blasr_reader.get_chunk()
+        while not aln_reader.is_eof():
+            ctg_id, ctg_aln = aln_reader.get_chunk()
             if ctg_id is None:
                 break
 
             profile = _contig_profile(ctg_aln, contigs_info[ctg_id].length)
-            sequence = _flattern_profile(profile)
+            sequence = _flatten_profile(profile)
             results_queue.put((ctg_id, sequence))
 
     except Exception as e:
         error_queue.put(e)
 
 
-def get_consensus(alignment_path, contigs_info, num_proc):
+def get_consensus(alignment_path, contigs_path, contigs_info, num_proc):
     """
     Main function
     """
-    blasr_reader = SynchronizedReader(alignment_path)
+    aln_reader = SynchronizedSamReader(alignment_path,
+                                       fp.read_fasta_dict(contigs_path))
     manager = multiprocessing.Manager()
     results_queue = manager.Queue()
     error_queue = manager.Queue()
@@ -62,7 +59,7 @@ def get_consensus(alignment_path, contigs_info, num_proc):
     threads = []
     for _ in xrange(num_proc):
         threads.append(multiprocessing.Process(target=_thread_worker,
-                                               args=(blasr_reader, contigs_info,
+                                               args=(aln_reader, contigs_info,
                                                      results_queue, error_queue)))
     signal.signal(signal.SIGINT, orig_sigint)
 
@@ -111,12 +108,9 @@ def _contig_profile(alignment, genome_len):
 
             prof_elem = profile[trg_pos]
             if trg_nuc == "-":
-                #profile.insertions[trg_pos][aln.qry_id] += qry_nuc
                 prof_elem.insertions[aln.qry_id] += qry_nuc
             else:
-                #profile.nucl[trg_pos] = trg_nuc
                 prof_elem.nucl = trg_nuc
-                #profile.matches[trg_pos][qry_nuc] += 1
                 prof_elem.matches[qry_nuc] += 1
 
             trg_pos += 1
@@ -124,11 +118,10 @@ def _contig_profile(alignment, genome_len):
     return profile
 
 
-def _flattern_profile(profile):
+def _flatten_profile(profile):
     growing_seq = []
     ins_group = defaultdict(int)
 
-    #for i in xrange(profile.length):
     for elem in profile:
         pos_matches = elem.matches
         pos_insertions = elem.insertions
