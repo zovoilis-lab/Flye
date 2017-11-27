@@ -299,8 +299,10 @@ def make_alignment(reference_file, reads_file, num_proc,
     _run_minimap(reference_file, reads_file, num_proc, platform, out_alignment)
     logger.debug("Sorting alignment file")
     temp_file = out_alignment + "_sorted"
-    subprocess.check_call(["sort", "-k", "3", "-T", work_dir, out_alignment],
-                          stdout=open(temp_file, "w"))
+    env = os.environ.copy()
+    env["LC_ALL"] = "C"
+    subprocess.check_call(["sort", "-k", "3,3", "-T", work_dir, out_alignment],
+                          stdout=open(temp_file, "w"), env=env)
     os.remove(out_alignment)
     os.rename(temp_file, out_alignment)
 
@@ -409,7 +411,7 @@ def _guess_blasr_version():
 
 
 def _run_minimap(reference_file, reads_file, num_proc, platform, out_file):
-    cmdline = [MINIMAP_BIN, reference_file, reads_file, "-a",
+    cmdline = [MINIMAP_BIN, reference_file, reads_file, "-a", "-Q",
                "-w5", "-m100", "-g10000", "--max-chain-skip", "25",
                "-t", str(num_proc)]
     if platform == "nano":
