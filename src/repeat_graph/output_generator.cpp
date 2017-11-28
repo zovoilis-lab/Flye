@@ -111,7 +111,7 @@ std::vector<FastaRecord> OutputGenerator::
 
 	//finally, generate a consensus
 	ConsensusGenerator gen;
-	return gen.generateConsensuses(contigParts, /*verbose*/false);
+	return gen.generateConsensuses(contigParts, /*verbose*/ false);
 }
 
 //dumps repeat information for the consecutive analysis

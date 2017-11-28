@@ -8,15 +8,7 @@
 #include "read_aligner.h"
 #include "graph_processing.h"
 
-struct Contig
-{
-	Contig(const UnbranchingPath& corePath):
-		graphEdges(corePath), graphPaths({&corePath})
-	{}
 
-	UnbranchingPath graphEdges;
-	std::vector<const UnbranchingPath*> graphPaths;
-};
 
 class ContigExtender
 {
@@ -29,11 +21,23 @@ public:
 
 	void generateUnbranchingPaths();
 	void generateContigs();
-	std::vector<UnbranchingPath> getContigPaths();
+	void outputContigs(const std::string& filename);
+	//std::vector<UnbranchingPath> getContigPaths();
 
 	const std::vector<UnbranchingPath>& getUnbranchingPaths() 
 		{return _unbranchingPaths;}
 private:
+	struct Contig
+	{
+		Contig(const UnbranchingPath& corePath):
+			graphEdges(corePath), graphPaths({&corePath})
+		{}
+
+		UnbranchingPath graphEdges;
+		std::vector<const UnbranchingPath*> graphPaths;
+		DnaSequence sequence;
+	};
+
 	std::vector<UnbranchingPath*> asUPaths(const GraphPath& path);
 
 	std::vector<UnbranchingPath> _unbranchingPaths;

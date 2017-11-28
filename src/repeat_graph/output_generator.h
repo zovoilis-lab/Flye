@@ -30,10 +30,9 @@ public:
 					 const std::string& filename);
 	void dumpRepeats(const std::vector<UnbranchingPath>& paths,
 					 const std::string& outFile);
-
-private:
 	std::vector<FastaRecord> 
 		generatePathSequences(const std::vector<UnbranchingPath>& paths) const;
+private:
 
 	RepeatGraph& _graph;
 	const ReadAligner& _aligner;

@@ -194,8 +194,8 @@ int main(int argc, char** argv)
 
 	Logger::get().info() << "Building repeat graph";
 	rg.build();
-	proc.simplify();
 	outGen.outputDot(proc.getEdgesPaths(), outFolder + "/graph_raw.dot");
+	proc.simplify();
 
 	Logger::get().info() << "Aligning reads to the graph";
 	aligner.alignReads();
@@ -222,6 +222,7 @@ int main(int argc, char** argv)
 
 	extender.generateUnbranchingPaths();
 	extender.generateContigs();
+	extender.outputContigs(outFolder + "/graph_paths.fasta");
 
 	//outGen.outputDot(proc.getEdgesPath(), outFolder + "/graph_after_rr.dot");
 	outGen.dumpRepeats(extender.getUnbranchingPaths(), 
@@ -232,7 +233,5 @@ int main(int argc, char** argv)
 					   outFolder + "/graph_final.fasta");
 	outGen.outputGfa(extender.getUnbranchingPaths(), 
 					 outFolder + "/graph_final.gfa");
-	outGen.outputFasta(extender.getContigPaths(), 
-					   outFolder + "/graph_paths.fasta");
 	return 0;
 }

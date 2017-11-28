@@ -48,6 +48,11 @@ struct UnbranchingPath
 		return contentsStr;
 	}
 
+	bool isLoop() const
+	{
+		return path.front()->nodeLeft == path.back()->nodeRight;
+	}
+
 	GraphPath path;
 	FastaRecord::Id id;
 	bool circular;
