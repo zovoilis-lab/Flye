@@ -129,7 +129,9 @@ class JobConsensus(Job):
         logger.info("Computing rough consensus")
         contigs_info = aln.get_contigs_info(self.in_contigs)
         consensus_fasta = cons.get_consensus(self.in_alignment, self.in_contigs,
-                                             contigs_info, self.args.threads)
+                                             contigs_info, self.args.threads,
+                                             self.args.platform,
+                                             self.args.min_overlap)
         fp.write_fasta_dict(consensus_fasta, self.out_consensus)
 
 
@@ -153,7 +155,8 @@ class JobPolishing(Job):
 
         logger.info("Separating alignment into bubbles")
         bubbles = bbl.get_bubbles(self.in_alignment, contigs_info, self.in_contigs,
-                                  self.seq_platform, self.args.threads)
+                                  self.seq_platform, self.args.threads,
+                                  self.args.min_overlap)
         logger.info("Correcting bubbles")
         polished_fasta = pol.polish(bubbles, self.args.threads,
                                     self.seq_platform, self.work_dir,

@@ -40,11 +40,12 @@ class SynchronizedSamReader(object):
     """
     Parsing SAM file in multiple threads
     """
-    def __init__(self, sam_alignment, reference_fasta):
+    def __init__(self, sam_alignment, reference_fasta, min_aln_length):
         #will not be changed during exceution
         self.aln_path = sam_alignment
         self.ref_fasta = reference_fasta
         self.change_strand = True
+        self.min_aln_length = min_aln_length
 
         #will be shared between processes
         self.lock = multiprocessing.Lock()
@@ -117,12 +118,6 @@ class SynchronizedSamReader(object):
         qry_end = qry_pos + hard_clipped_left
         qry_len = qry_end + hard_clipped_right
 
-        #print trg_seq[-100:] + "\n"
-        #print qry_seq[-100:]
-        #print len(trg_seq), trg_end - trg_start
-        #print len(qry_seq), qry_end - qry_start
-        #print err_rate
-
         return (trg_start, trg_end, len(ctg_str), trg_seq,
                 qry_start, qry_end, qry_len, qry_seq, err_rate)
 
@@ -165,7 +160,8 @@ class SynchronizedSamReader(object):
                 qry_start, qry_end, qry_len, qry_seq, err_rate) = \
                         self.parse_cigar(tokens[5], tokens[9], read_contig, ctg_pos)
 
-                #self.errors.append(err_rate)
+                if qry_end - qry_start < self.min_aln_length: continue
+
                 aln = Alignment(tokens[0], read_contig, qry_start,
                                 qry_end, "-" if is_reversed else "+",
                                 qry_len, trg_start, trg_end, "+", trg_len,
@@ -183,11 +179,8 @@ class SynchronizedSamReader(object):
                 else:
                     buffer.append(aln)
 
-            #mean_err = float(sum(self.errors)) / len(self.errors)
-            #logger.debug("Alignment error rate: {0}".format(mean_err))
             self.eof.value = True
             return current_contig, buffer
-
 
 
 """
