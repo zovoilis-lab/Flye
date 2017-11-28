@@ -281,7 +281,7 @@ def _compute_profile(alignment, platform, genome_len):
 
             trg_pos += 1
 
-    logger.debug("Filtered: {0} out of {1}".format(filtered, len(alignment)))
+    #logger.debug("Filtered: {0} out of {1}".format(filtered, len(alignment)))
     return profile, aln_errors
 
 
@@ -334,6 +334,9 @@ def _get_bubble_seqs(alignment, platform, profile, partition, contig_info):
     """
     Given genome landmarks, forms bubble sequences
     """
+    if not partition:
+        return []
+
     max_aln_err = config.vals["err_modes"][platform]["max_aln_error"]
     bubbles = []
     ext_partition = [0] + partition + [contig_info.length]
