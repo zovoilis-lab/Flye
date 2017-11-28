@@ -87,7 +87,7 @@ def get_consensus(alignment_path, contigs_path, contigs_info, min_aln_length,
         if len(ctg_seq) > 0:
             out_fasta[ctg_id] = ctg_seq
 
-    mean_aln_error = float(sum(total_aln_errors)) / len(total_aln_errors)
+    mean_aln_error = float(sum(total_aln_errors)) / (len(total_aln_errors) + 1)
     logger.debug("Alignment error rate: {0}".format(mean_aln_error))
 
     return out_fasta

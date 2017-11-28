@@ -121,18 +121,19 @@ class SynchronizedSamReader(object):
         return (trg_start, trg_end, len(ctg_str), trg_seq,
                 qry_start, qry_end, qry_len, qry_seq, err_rate)
 
-
     def get_chunk(self):
         """
         Alignment file is expected to be sorted!
         """
+        buffer = []
+        parsed_contig = None
+
         with self.lock:
             self.aln_file.seek(self.position.value)
             if self.eof.value:
                 return None, []
 
             current_contig = None
-            buffer = []
             while True:
                 self.position.value = self.aln_file.tell()
                 line = self.aln_file.readline()
@@ -144,28 +145,14 @@ class SynchronizedSamReader(object):
                     raise AlignmentException("Error reading SAM file")
 
                 read_contig = tokens[2]
-                ctg_pos = int(tokens[3])
                 flags = int(tokens[1])
                 is_unmapped = flags & 0x4
-                is_reversed = flags & 0x16
-                is_supplementary = flags & 0x800
                 is_secondary = flags & 0x100
+                #is_supplementary = flags & 0x800
 
                 if is_unmapped or is_secondary: continue
                 if read_contig in self.processed_contigs:
                     raise AlignmentException("Alignment file is not sorted")
-
-
-                (trg_start, trg_end, trg_len, trg_seq,
-                qry_start, qry_end, qry_len, qry_seq, err_rate) = \
-                        self.parse_cigar(tokens[5], tokens[9], read_contig, ctg_pos)
-
-                if qry_end - qry_start < self.min_aln_length: continue
-
-                aln = Alignment(tokens[0], read_contig, qry_start,
-                                qry_end, "-" if is_reversed else "+",
-                                qry_len, trg_start, trg_end, "+", trg_len,
-                                qry_seq, trg_seq, err_rate)
 
                 if read_contig != current_contig:
                     prev_contig = current_contig
@@ -173,14 +160,42 @@ class SynchronizedSamReader(object):
 
                     if prev_contig is not None:
                         self.processed_contigs.add(prev_contig)
-                        return prev_contig, buffer
+                        parsed_contig = prev_contig
+                        break
                     else:
-                        buffer = [aln]
+                        buffer = [tokens]
                 else:
-                    buffer.append(aln)
+                    buffer.append(tokens)
 
-            self.eof.value = True
-            return current_contig, buffer
+            if not parsed_contig:
+                self.eof.value = True
+                parsed_contig = current_contig
+        #end with
+
+        alignments = []
+        for tokens in buffer:
+            read_id = tokens[0]
+            read_contig = tokens[2]
+            cigar_str = tokens[5]
+            read_str = tokens[9]
+            ctg_pos = int(tokens[3])
+            flags = int(tokens[1])
+            is_reversed = flags & 0x16
+
+            (trg_start, trg_end, trg_len, trg_seq,
+            qry_start, qry_end, qry_len, qry_seq, err_rate) = \
+                    self.parse_cigar(cigar_str, read_str, read_contig, ctg_pos)
+
+            if qry_end - qry_start < self.min_aln_length: continue
+
+            aln = Alignment(read_id, read_contig, qry_start,
+                            qry_end, "-" if is_reversed else "+",
+                            qry_len, trg_start, trg_end, "+", trg_len,
+                            qry_seq, trg_seq, err_rate)
+
+            alignments.append(aln)
+
+        return parsed_contig, alignments
 
 
 """
