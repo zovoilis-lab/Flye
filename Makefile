@@ -30,3 +30,4 @@ debug: minimap2
 clean:
 	make clean -C src
 	make clean -C ${MINIMAP2_DIR}
+	rm ${BIN_DIR}/abruijn-minimap2
