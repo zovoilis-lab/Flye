@@ -14,14 +14,7 @@ Requirements
 * GNU make
 * Python 2.7
 * Git
-* BLASR aligner [https://github.com/PacificBiosciences/blasr]
-
-
-BLASR installation
-------------------
-
-You can use 'install\_blasr.py' script for a local BLASR installation. You may skip
-this step if BLASR is already installed in your system.
+* Basic OS development headers (zlib, etc.)
 
 
 ABruijn Installation
@@ -42,5 +35,4 @@ Additonally, you may install the package for the better OS integration:
     python setup.py install
 
 Alternatively, you can perform local user installation by adding '--user' or '--prefix'
-options to the previous command. The system installation does not include BLASR, which 
-should be installed separately.
+options to the previous command.
