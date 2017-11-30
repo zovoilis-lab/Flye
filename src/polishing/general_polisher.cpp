@@ -52,7 +52,7 @@ StepInfo GeneralPolisher::makeStep(const std::string& candidate,
 	StepInfo stepResult;
 	
 	//Alignment
-	double score = 0;
+	AlnScoreType score = 0;
 	for (size_t i = 0; i < branches.size(); ++i) 
 	{
 		score += align.globalAlignment(candidate, branches[i], i);
@@ -64,7 +64,7 @@ StepInfo GeneralPolisher::makeStep(const std::string& candidate,
 	bool improvement = false;
 	for (size_t pos = 0; pos < candidate.size(); ++pos) 
 	{
-		double score = 0;
+		AlnScoreType score = 0;
 		for (size_t i = 0; i < branches.size(); i++) 
 		{
 			score += align.addDeletion(i, pos + 1);
@@ -85,7 +85,7 @@ StepInfo GeneralPolisher::makeStep(const std::string& candidate,
 	{
 		for (char letter : alphabet)
 		{
-			double score = 0;
+			AlnScoreType score = 0;
 			for (size_t i = 0; i < branches.size(); i++) 
 			{
 				score += align.addInsertion(i, pos + 1, letter, 
@@ -110,7 +110,7 @@ StepInfo GeneralPolisher::makeStep(const std::string& candidate,
 		{
 			if (letter == candidate[pos]) continue;
 
-			double score = 0;
+			AlnScoreType score = 0;
 			for (size_t i = 0; i < branches.size(); i++) 
 			{
 				score += align.addSubstitution(i, pos + 1, letter, 

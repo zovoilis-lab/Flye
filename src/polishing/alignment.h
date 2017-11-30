@@ -20,27 +20,28 @@ class Alignment
 public:
 	Alignment(size_t size, const SubstitutionMatrix& sm);
 
-	double globalAlignment(const std::string& v, const std::string& w, 
+	typedef Matrix<AlnScoreType> ScoreMatrix;
+
+	AlnScoreType globalAlignment(const std::string& v, const std::string& w, 
 						   int index);
-	double addDeletion(unsigned int index, unsigned int letterIndex);
-	double addSubstitution(unsigned int wordIndex, 
+	AlnScoreType addDeletion(unsigned int index, unsigned int letterIndex);
+	AlnScoreType addSubstitution(unsigned int wordIndex, 
 						   unsigned int letterIndex,
 						   char base, const std::string& read);
 
-	double addInsertion(unsigned int wordIndex,
-						unsigned int positionIndex,
-						char base, const std::string& read);
+	AlnScoreType addInsertion(unsigned int wordIndex,
+						   unsigned int positionIndex,
+						   char base, const std::string& read);
 
-	typedef Matrix<double> FloatMatrix;
 private:
-	std::vector<FloatMatrix> _forwardScores;
-	std::vector<FloatMatrix> _reverseScores;
+	std::vector<ScoreMatrix> _forwardScores;
+	std::vector<ScoreMatrix> _reverseScores;
 	const SubstitutionMatrix& _subsMatrix;
 
-	double getBacktrackMatrix(const std::string& v, const std::string& w,
-							  FloatMatrix& scoreMat);
+	AlnScoreType getBacktrackMatrix(const std::string& v, const std::string& w,
+							     ScoreMatrix& scoreMat);
 
-	void traceback(FloatMatrix& backtrack, const std::string& v, 
+	void traceback(ScoreMatrix& backtrack, const std::string& v, 
 				   const std::string& w, std::string& o_v, 
 				   std::string& o_w);
 };

@@ -10,17 +10,21 @@
 #include <iomanip>
 #include <vector>
 
+typedef int32_t AlnScoreType;
+
 class SubstitutionMatrix 
 {
 public:
+
 	SubstitutionMatrix(const std::string& path);
-	double getScore(char v, char w) const;
+	AlnScoreType getScore(char v, char w) const;
+
 private:
 	void loadMatrix(const std::string& path);
 
 	const int X_SIZE = 5;
 	const int Y_SIZE = 5;
-	std::vector<std::vector<double>> _matrix;
+	std::vector<std::vector<AlnScoreType>> _matrix;
 };
 
 class HopoMatrix
