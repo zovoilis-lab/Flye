@@ -40,15 +40,26 @@ void ContigExtender::generateContigs()
 		upathsSeqs[&_unbranchingPaths[i]] = &coreSeqs[i];
 	}
 
-	std::unordered_set<GraphEdge*> coveredRepeats;
-	std::unordered_map<GraphEdge*, bool> repeatDirections;
-	typedef std::pair<GraphPath, std::string> PathAndSeq;
-
-	auto extendPathRight =
-		[this, &coveredRepeats, &repeatDirections, &upathsSeqs] 
-		(UnbranchingPath& upath)
+	std::vector<const GraphAlignment*> interestingAlignments;
+	for (auto& aln : _aligner.getAlignments())
 	{
-		auto& readAln = _aligner.getAlignments();
+		if (aln.size() > 1) interestingAlignments.push_back(&aln);
+	}
+
+	std::unordered_set<GraphEdge*> coveredRepeats;
+	std::unordered_map<const GraphEdge*, bool> repeatDirections;
+	auto canTraverse = [&repeatDirections] (const GraphEdge* edge)
+	{
+		return edge->selfComplement || 
+			   !repeatDirections.count(edge) || 
+			   repeatDirections.at(edge);
+	};
+
+	typedef std::pair<GraphPath, std::string> PathAndSeq;
+	auto extendPathRight =
+		[this, &coveredRepeats, &repeatDirections, &upathsSeqs, 
+		 &canTraverse, &interestingAlignments] (UnbranchingPath& upath)
+	{
 
 		bool extendFwd = !upath.path.back()->nodeRight->outEdges.empty();
 		if (!extendFwd) return PathAndSeq();
@@ -56,17 +67,18 @@ void ContigExtender::generateContigs()
 		//first, choose the longest aligned read from this edge
 		int32_t maxExtension = 0;
 		GraphAlignment bestAlignment;
-		for (auto& path : readAln)
+		for (auto pathPtr : interestingAlignments)
 		{
+			const GraphAlignment& path = *pathPtr;
 			for (size_t i = 0; i < path.size(); ++i)
 			{
 				if (path[i].edge == upath.path.back() &&
 					i < path.size() - 1)
 				{
 					size_t j = i + 1;
-					while (j < path.size() && 
-						   path[j].edge->repetitive) ++j;
-					if (i == j) continue;
+					while (j < path.size() && path[j].edge->repetitive &&
+						   canTraverse(path[j].edge)) ++j;
+					if (j == i + 1) break;
 
 					int32_t alnLen = path[j - 1].overlap.curEnd - 
 									 path[i + 1].overlap.curBegin;
@@ -83,22 +95,7 @@ void ContigExtender::generateContigs()
 		}
 		if (maxExtension == 0) return PathAndSeq();
 
-		//check if we are not traversing non-tandem repeats in prohibited directions
-		bool canExtend = true;
-		for (auto& aln : bestAlignment)
-		{
-			if (repeatDirections.count(aln.edge))
-			{
-				if (!aln.edge->selfComplement && !repeatDirections.at(aln.edge))
-				{
-					canExtend = false;
-					break;
-				}
-			}
-		}
-		if (!canExtend) return PathAndSeq();
-
-		//if we traverse some repeats for the first time, record the direction
+		//record repeat directions
 		for (auto& aln : bestAlignment)
 		{
 			repeatDirections[aln.edge] = true;

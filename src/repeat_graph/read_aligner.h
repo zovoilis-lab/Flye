@@ -19,7 +19,7 @@ public:
 
 	void alignReads();
 	void updateAlignments();
-	const std::vector<GraphAlignment> getAlignments() const
+	const std::vector<GraphAlignment>& getAlignments() const
 		{return _readAlignments;}
 
 private:
