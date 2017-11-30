@@ -79,6 +79,8 @@ struct GraphEdge
 		return sumLen / seqSegments.size();
 	}
 
+	std::unordered_set<GraphEdge*> adjacentEdges();
+
 	GraphNode* nodeLeft;
 	GraphNode* nodeRight;
 

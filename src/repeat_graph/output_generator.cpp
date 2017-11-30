@@ -299,7 +299,7 @@ void OutputGenerator::outputDot(const std::vector<UnbranchingPath>& paths,
 	if (!fout.is_open()) throw std::runtime_error("Can't open " + filename);
 
 	fout << "digraph {\n";
-	fout << "node [shape = circle, label = \"\"]\n";
+	fout << "node [shape = circle, label = \"\", height = 0.3];\n";
 	
 	///re-enumerating helper functions
 	std::unordered_map<GraphNode*, int> nodeIds;
@@ -313,23 +313,57 @@ void OutputGenerator::outputDot(const std::vector<UnbranchingPath>& paths,
 		return nodeIds[node];
 	};
 
+	for (auto& node : _graph.iterNodes())
+	{
+		int numIn = 0;
+		int numOut = 0;
+		for (auto& edge: node->inEdges)
+		{
+			if (!edge->isLooped()) ++numIn;
+		}
+		for (auto& edge: node->outEdges)
+		{
+			if (!edge->isLooped()) ++numOut;
+		}
+		if ((bool)numIn != (bool)numOut)
+		{
+			fout << "\"" << nodeToId(node) 
+				<< "\" [style = \"filled\", fillcolor = \"grey\"];\n";
+		}
+	}
+
+	//coloring repeat clusters
 	const std::string COLORS[] = {"red", "darkgreen", "blue", "goldenrod", 
-								  "cadetblue", "darkorchid", "aquamarine1", 
+								  "cadetblue1", "darkorchid", "aquamarine1", 
 								  "darkgoldenrod1", "deepskyblue1", 
 								  "darkolivegreen3"};
-	std::unordered_map<FastaRecord::Id, size_t> colorIds;
-	size_t nextColorId = 0;
-	auto idToColor = [&colorIds, &nextColorId, &COLORS](FastaRecord::Id id)
+	std::vector<GraphEdge*> dfsStack;
+	std::unordered_set<GraphEdge*> visited;
+	std::unordered_map<GraphEdge*, std::string> edgeColors;
+	size_t colorId = 0;
+	for (auto& edge: _graph.iterEdges())
 	{
-		if (!id.strand()) id = id.rc();
-		if (!colorIds.count(id))
+		if (!edge->isRepetitive() || visited.count(edge)) continue;
+		dfsStack.push_back(edge);
+		while(!dfsStack.empty())
 		{
-			colorIds[id] = nextColorId;
-			nextColorId = (nextColorId + 1) % 10;
+			auto curEdge = dfsStack.back(); 
+			dfsStack.pop_back();
+			if (visited.count(curEdge)) continue;
+			edgeColors[curEdge] = COLORS[colorId];
+			edgeColors[_graph.complementEdge(curEdge)] = COLORS[colorId];
+			visited.insert(curEdge);
+			visited.insert(_graph.complementEdge(curEdge));
+			for (auto adjEdge: curEdge->adjacentEdges())
+			{
+				if (adjEdge->isRepetitive() && !visited.count(adjEdge))
+				{
+					dfsStack.push_back(adjEdge);
+				}
+			}
 		}
-		return COLORS[colorIds[id]];
-	};
-	/////////////
+		colorId = (colorId + 1) % (sizeof(COLORS) / sizeof(COLORS[0]));
+	}
 
 	for (auto& contig : paths)
 	{
@@ -347,8 +381,7 @@ void OutputGenerator::outputDot(const std::vector<UnbranchingPath>& paths,
 
 		if (contig.repetitive)
 		{
-			std::string color = idToColor(contig.id);
-
+			std::string color = edgeColors[contig.path.front()];
 			fout << "\"" << nodeToId(contig.path.front()->nodeLeft) 
 				 << "\" -> \"" << nodeToId(contig.path.back()->nodeRight)
 				 << "\" [label = \"id " << contig.id.signedId() << 

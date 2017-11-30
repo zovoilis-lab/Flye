@@ -41,6 +41,17 @@ bool GraphEdge::isTip() const
 	return nodeLeft->inEdges.empty() || nodeRight->outEdges.empty();
 }
 
+std::unordered_set<GraphEdge*> GraphEdge::adjacentEdges()
+{
+	std::unordered_set<GraphEdge*> edges;
+	for (auto& e: nodeLeft->inEdges) edges.insert(e);
+	for (auto& e: nodeLeft->outEdges) edges.insert(e);
+	for (auto& e: nodeRight->inEdges) edges.insert(e);
+	for (auto& e: nodeRight->outEdges) edges.insert(e);
+	edges.erase(this);
+	return edges;
+}
+
 void RepeatGraph::build()
 {
 	//getting overlaps
