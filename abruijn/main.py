@@ -208,11 +208,16 @@ def _get_kmer_size(args):
     """
     Select k-mer size based on the target genome size
     """
-    suffix = args.reads.rsplit(".", 1)[-1]
+    multiplier = 1
+    suffix = args.reads.rsplit(".")[-1]
+    if suffix == "gz":
+        suffix = args.reads.rsplit(".")[-2]
+        multiplier = 2
+
     if suffix in ["fasta", "fa"]:
-        reads_size = os.path.getsize(args.reads)
+        reads_size = os.path.getsize(args.reads) * multiplier
     elif suffix in ["fastq", "fq"]:
-        reads_size = os.path.getsize(args.reads) / 2
+        reads_size = os.path.getsize(args.reads) * multiplier / 2
     else:
         raise ResumeException("Uknown input reads format: " + suffix)
 

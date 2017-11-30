@@ -8,7 +8,7 @@ export BIN_DIR = ${ROOT_DIR}/bin
 export MINIMAP2_DIR = ${ROOT_DIR}/lib/minimap2
 
 export CXXFLAGS = ${LIBCUCKOO} ${INTERVAL_TREE} ${LEMON} ${COMMON} 
-#export LDFLAGS = 
+export LDFLAGS = -lz
 
 .PHONY: clean all profile debug minimap2
 
