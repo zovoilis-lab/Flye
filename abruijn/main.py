@@ -12,6 +12,7 @@ import os
 import logging
 import argparse
 import json
+import shutil
 
 import abruijn.alignment as aln
 import abruijn.bubbles as bbl
@@ -40,7 +41,8 @@ class Job(object):
         self.name = None
         self.args = None
         self.work_dir = None
-        self.out_files = []
+        self.out_files = {}
+        self.log_file = None
 
     def run(self):
         pass
@@ -60,7 +62,7 @@ class Job(object):
         with open(save_file, "r") as fp:
             data = json.load(fp)
 
-            for file in self.out_files:
+            for file in self.out_files.values():
                 if not os.path.exists(file):
                     return False
 
@@ -68,36 +70,74 @@ class Job(object):
 
 
 class JobAssembly(Job):
-    def __init__(self, out_assembly, log_file):
+    def __init__(self, args, work_dir, log_file):
         super(JobAssembly, self).__init__()
-        self.out_assembly = out_assembly
+        #self.out_assembly = out_assembly
+        self.args = args
+        self.work_dir = work_dir
         self.log_file = log_file
+
         self.name = "assembly"
-        self.out_files = [out_assembly]
+        self.assembly_dir = os.path.join(self.work_dir, "0-assembly")
+        self.assembly_filename = os.path.join(self.assembly_dir,
+                                              "draft_assembly.fasta")
+        self.out_files["assembly"] = self.assembly_filename
 
     def run(self):
-        asm.assemble(self.args, self.out_assembly, self.log_file)
+        if not os.path.isdir(self.assembly_dir):
+            os.mkdir(self.assembly_dir)
+        asm.assemble(self.args, self.assembly_filename, self.log_file)
 
 
 class JobRepeat(Job):
-    def __init__(self, in_assembly, out_folder, log_file):
+    def __init__(self, args, work_dir, log_file, in_assembly):
         super(JobRepeat, self).__init__()
+
+        self.args = args
         self.in_assembly = in_assembly
         self.log_file = log_file
-        self.out_folder = out_folder
         self.name = "repeat"
 
-        #edges_sequences = os.path.join(out_folder, "graph_final.fasta")
-        edges_sequences = os.path.join(out_folder, "graph_paths.fasta")
-        repeat_graph = os.path.join(out_folder, "graph_final.gfa")
-        self.out_files = [edges_sequences, repeat_graph]
+        self.repeat_dir = os.path.join(work_dir, "2-repeat")
+        contig_sequences = os.path.join(self.repeat_dir, "graph_paths.fasta")
+        assembly_graph = os.path.join(self.repeat_dir, "graph_final.dot")
+        self.out_files["contigs"] = contig_sequences
+        self.out_files["assembly_graph"] = assembly_graph
 
     def run(self):
+        if not os.path.isdir(self.repeat_dir):
+            os.mkdir(self.repeat_dir)
         logger.info("Performing repeat analysis")
-        repeat.analyse_repeats(self.args, self.in_assembly, self.out_folder,
+        repeat.analyse_repeats(self.args, self.in_assembly, self.repeat_dir,
                                self.log_file)
 
 
+class JobFinalize(Job):
+    def __init__(self, args, work_dir, log_file,
+                 contigs_file, graph_file, stats_file):
+        super(JobFinalize, self).__init__()
+
+        self.args = args
+        self.log_file = log_file
+        self.name = "finalize"
+        self.contigs_file = contigs_file
+        self.graph_file = graph_file
+        self.stats_file = stats_file
+
+        self.out_files["out_contigs"] = os.path.join(work_dir, "contigs.fasta")
+        #self.out_files["out_info"] = os.path.join(work_dir, "contigs_info.txt")
+        self.out_files["out_graph"] = os.path.join(work_dir, "assembly_graph.dot")
+
+    def run(self):
+        shutil.copy2(self.contigs_file, self.out_files["out_contigs"])
+        shutil.copy2(self.graph_file, self.out_files["out_graph"])
+        #shutil.copy2(self.stats_file, self.out_files["out_info"])
+
+        logger.info("Done! your assembly is in {0} file"
+                    .format(self.out_files["out_contigs"]))
+
+
+"""
 class JobAlignment(Job):
     def __init__(self, in_reference, out_alignment, stage_id):
         super(JobAlignment, self).__init__()
@@ -113,22 +153,32 @@ class JobAlignment(Job):
         logger.info("Running Minimap2")
         aln.make_alignment(self.in_reference, self.args.reads, self.args.threads,
                            self.work_dir, self.args.platform, self.out_alignment)
+"""
 
 
 class JobConsensus(Job):
-    def __init__(self, in_contigs, in_alignment, out_consensus):
+    def __init__(self, args, work_dir, in_contigs):
         super(JobConsensus, self).__init__()
 
+        self.args = args
         self.in_contigs = in_contigs
-        self.in_alignment = in_alignment
-        self.out_consensus = out_consensus
+        self.consensus_dir = os.path.join(work_dir, "1-consensus")
+        self.out_consensus = os.path.join(self.consensus_dir, "consensus.fasta")
         self.name = "consensus"
-        self.out_files = [out_consensus]
+        self.out_files["consensus"] = self.out_consensus
 
     def run(self):
-        logger.info("Computing rough consensus")
+        if not os.path.isdir(self.consensus_dir):
+            os.mkdir(self.consensus_dir)
+
+        logger.info("Running Minimap2")
+        out_alignment = os.path.join(self.consensus_dir, "minimap.sam")
+        aln.make_alignment(self.in_contigs, self.args.reads, self.args.threads,
+                           self.consensus_dir, self.args.platform, out_alignment)
+
         contigs_info = aln.get_contigs_info(self.in_contigs)
-        consensus_fasta = cons.get_consensus(self.in_alignment, self.in_contigs,
+        logger.info("Computing consensus")
+        consensus_fasta = cons.get_consensus(out_alignment, self.in_contigs,
                                              contigs_info, self.args.threads,
                                              self.args.platform,
                                              self.args.min_overlap)
@@ -136,32 +186,51 @@ class JobConsensus(Job):
 
 
 class JobPolishing(Job):
-    def __init__(self, in_contigs, in_alignment, out_consensus,
-                 stage_id, seq_platform):
+    def __init__(self, args, work_dir, log_file, in_contigs):
         super(JobPolishing, self).__init__()
 
+        self.args = args
+        self.log_file = log_file
         self.in_contigs = in_contigs
-        self.in_alignment = in_alignment
-        self.out_consensus = out_consensus
-        self.name = "polishing_" + str(stage_id)
-        self.stage_id = stage_id
-        self.seq_platform = seq_platform
-        self.out_files = [out_consensus]
+        self.polishing_dir = os.path.join(work_dir, "3-polishing")
+
+        self.name = "polishing"
+        final_conitgs = os.path.join(self.polishing_dir,
+                                     "polished_{0}.fasta".format(args.num_iters))
+        self.out_files["contigs"] = final_conitgs
 
     def run(self):
-        logger.info("Polishing genome ({0}/{1})".format(self.stage_id,
-                                                        self.args.num_iters))
-        contigs_info = aln.get_contigs_info(self.in_contigs)
+        if not os.path.isdir(self.polishing_dir):
+            os.mkdir(self.polishing_dir)
 
-        logger.info("Separating alignment into bubbles")
-        bubbles = bbl.get_bubbles(self.in_alignment, contigs_info, self.in_contigs,
-                                  self.seq_platform, self.args.threads,
-                                  self.args.min_overlap)
-        logger.info("Correcting bubbles")
-        polished_fasta = pol.polish(bubbles, self.args.threads,
-                                    self.seq_platform, self.work_dir,
-                                    self.stage_id)
-        fp.write_fasta_dict(polished_fasta, self.out_consensus)
+        prev_assembly = self.in_contigs
+        for i in xrange(self.args.num_iters):
+            logger.info("Polishing genome ({0}/{1})".format(i + 1,
+                                                self.args.num_iters))
+
+            alignment_file = os.path.join(self.polishing_dir,
+                                          "minimap_{0}.sam".format(i + 1))
+            logger.info("Running Minimap2")
+            aln.make_alignment(prev_assembly, self.args.reads, self.args.threads,
+                               self.polishing_dir, self.args.platform,
+                               alignment_file)
+
+            logger.info("Separating alignment into bubbles")
+            contigs_info = aln.get_contigs_info(prev_assembly)
+            bubbles = bbl.get_bubbles(alignment_file, contigs_info, prev_assembly,
+                                      self.args.platform, self.args.threads,
+                                      self.args.min_overlap)
+
+            logger.info("Correcting bubbles")
+            polished_file = os.path.join(self.polishing_dir,
+                                         "polished_{0}.fasta".format(i + 1))
+            polished_fasta = pol.polish(bubbles, self.args.threads,
+                                        self.args.platform, self.polishing_dir,
+                                        i + 1)
+            fp.write_fasta_dict(polished_fasta, polished_file)
+            prev_assembly = polished_file
+
+        logger.info("Done! Your assembly is in file: " + prev_assembly)
 
 
 def _create_job_list(args, work_dir, log_file):
@@ -171,35 +240,27 @@ def _create_job_list(args, work_dir, log_file):
     jobs = []
 
     #Assembly job
-    draft_assembly = os.path.join(work_dir, "draft_assembly.fasta")
-    jobs.append(JobAssembly(draft_assembly, log_file))
+    jobs.append(JobAssembly(args, work_dir, log_file))
+    draft_assembly = jobs[-1].out_files["assembly"]
 
-    #Pre-polishing
-    alignment_file = os.path.join(work_dir, "minimap_0.sam")
-    pre_polished_file = os.path.join(work_dir, "polished_0.fasta")
-    jobs.append(JobAlignment(draft_assembly, alignment_file, 0))
-    jobs.append(JobConsensus(draft_assembly, alignment_file,
-                             pre_polished_file))
+    #Consensus
+    jobs.append(JobConsensus(args, work_dir, draft_assembly))
+    consensus_paths = jobs[-1].out_files["consensus"]
 
     #Repeat analysis
-    #edges_sequences = os.path.join(work_dir, "graph_final.fasta")
-    edges_sequences = os.path.join(work_dir, "graph_paths.fasta")
-    jobs.append(JobRepeat(pre_polished_file, work_dir, log_file))
+    jobs.append(JobRepeat(args, work_dir, log_file, consensus_paths))
+    raw_contigs = jobs[-1].out_files["contigs"]
+    graph_file = jobs[-1].out_files["assembly_graph"]
 
-    #Full polishing
-    prev_assembly = edges_sequences
-    for i in xrange(args.num_iters):
-        alignment_file = os.path.join(work_dir, "minimap_{0}.sam".format(i + 1))
-        polished_file = os.path.join(work_dir,
-                                     "polished_{0}.fasta".format(i + 1))
-        jobs.append(JobAlignment(prev_assembly, alignment_file, i + 1))
-        jobs.append(JobPolishing(prev_assembly, alignment_file, polished_file,
-                                 i + 1, args.platform))
-        prev_assembly = polished_file
+    #Polishing
+    contigs_file = raw_contigs
+    if args.num_iters > 0:
+        jobs.append(JobPolishing(args, work_dir, log_file, raw_contigs))
+        contigs_file = jobs[-1].out_files["contigs"]
 
-    for job in jobs:
-        job.args = args
-        job.work_dir = work_dir
+    #Report results
+    jobs.append(JobFinalize(args, work_dir, log_file, contigs_file,
+                            graph_file, None))
 
     return jobs
 
@@ -267,6 +328,7 @@ def _run(args):
         else:
             job_to_resume = json.load(open(save_file, "r"))["stage_name"]
 
+        can_resume = False
         for i in xrange(len(jobs)):
             if jobs[i].name == job_to_resume:
                 jobs[i].load(save_file)
@@ -274,13 +336,16 @@ def _run(args):
                 if not jobs[i - 1].completed(save_file):
                     raise ResumeException("Can't resume: stage {0} incomplete"
                                           .format(jobs[i].name))
+                can_resume = True
                 break
+
+        if not can_resume:
+            raise ResumeException("Can't resume: stage {0} does not exist"
+                                  .format(job_to_resume))
 
     for i in xrange(current_job, len(jobs)):
         jobs[i].save(save_file)
         jobs[i].run()
-
-    logger.info("Done! Your assembly is in file: " + jobs[-1].out_files[0])
 
 
 def _enable_logging(log_file, debug, overwrite):
