@@ -198,12 +198,15 @@ class JobPolishing(Job):
         final_conitgs = os.path.join(self.polishing_dir,
                                      "polished_{0}.fasta".format(args.num_iters))
         self.out_files["contigs"] = final_conitgs
+        self.out_files["stats"] = os.path.join(self.polishing_dir,
+                                               "contig_stats.txt")
 
     def run(self):
         if not os.path.isdir(self.polishing_dir):
             os.mkdir(self.polishing_dir)
 
         prev_assembly = self.in_contigs
+        contig_stats = None
         for i in xrange(self.args.num_iters):
             logger.info("Polishing genome ({0}/{1})".format(i + 1,
                                                 self.args.num_iters))
@@ -224,11 +227,16 @@ class JobPolishing(Job):
             logger.info("Correcting bubbles")
             polished_file = os.path.join(self.polishing_dir,
                                          "polished_{0}.fasta".format(i + 1))
-            polished_fasta = pol.polish(bubbles, self.args.threads,
-                                        self.args.platform, self.polishing_dir,
-                                        i + 1)
-            fp.write_fasta_dict(polished_fasta, polished_file)
+            contig_stats = pol.polish(bubbles, self.args.threads,
+                                      self.args.platform, self.polishing_dir,
+                                      i + 1, polished_file)
             prev_assembly = polished_file
+
+        if contig_stats is not None:
+            with open(self.out_files["stats"], "w") as f:
+                f.write("contig_id\tlength\tcoverage\n")
+                for ctg_id, (length, coverage) in contig_stats.iteritems():
+                    f.write("{0}\t{1}\t{2}\n".format(ctg_id, length, coverage))
 
 
 def _create_job_list(args, work_dir, log_file):

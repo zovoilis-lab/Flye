@@ -224,20 +224,54 @@ std::vector<UnbranchingPath*> ContigExtender::asUPaths(const GraphPath& path)
 	return upathRepr;
 }
 
-void ContigExtender::outputContigs(const std::string& filename)
+void ContigExtender::outputStatsTable(const std::string& filename)
 {
-	std::vector<FastaRecord> contigsFasta;
+	std::ofstream fout(filename);
+	if (!fout) throw std::runtime_error("Can't write " + filename);
+
+	fout << "contig_id\tlength\tcoverage\tcircular\trepeat"
+		<< "\tmult\ttelomere\tgraph_path\n";
+
+	char YES_NO[] = {'N', 'Y'};
+
 	for (auto& ctg : _contigs)
 	{
 		std::string pathStr;
 		for (auto& upath : ctg.graphPaths)
 		{
-			pathStr += std::to_string(upath->id.signedId()) + " -> ";
+			pathStr += std::to_string(upath->id.signedId()) + ",";
 		}
-		pathStr.erase(pathStr.size() - 4);
+		pathStr.pop_back();
+
+		int minMult = std::numeric_limits<int>::max();
+		for (auto& edge : ctg.graphEdges.path) 
+		{
+			if (edge->multiplicity > 0) 
+			{
+				minMult = std::min(minMult, edge->multiplicity);
+			}
+		}
+
+		fout << ctg.graphEdges.name() << "\t" << ctg.sequence.length() << "\t" 
+			<< ctg.graphEdges.meanCoverage << "\t"
+			<< YES_NO[ctg.graphEdges.circular]
+			<< "\t" << YES_NO[ctg.graphEdges.repetitive] << "\t"
+			<< minMult << "\t" << "L:" 
+			<< YES_NO[ctg.graphEdges.path.front()->nodeLeft->isTelomere()]
+			<< ",R:" 
+			<< YES_NO[ctg.graphEdges.path.back()->nodeRight->isTelomere()]
+			<< "\t" << pathStr << "\n";
+
 		Logger::get().debug() << "Contig: " << ctg.graphEdges.id.signedId()
 			<< ": " << pathStr;
-		
+	}
+}
+
+void ContigExtender::outputContigs(const std::string& filename)
+{
+	std::vector<FastaRecord> contigsFasta;
+	for (auto& ctg : _contigs)
+	{
 		contigsFasta.emplace_back(ctg.sequence, ctg.graphEdges.name(), 
 					   			  FastaRecord::ID_NONE);
 	}

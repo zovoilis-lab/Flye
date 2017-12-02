@@ -22,6 +22,7 @@ public:
 	void generateUnbranchingPaths();
 	void generateContigs();
 	void outputContigs(const std::string& filename);
+	void outputStatsTable(const std::string& filename);
 	//std::vector<UnbranchingPath> getContigPaths();
 
 	const std::vector<UnbranchingPath>& getUnbranchingPaths() 

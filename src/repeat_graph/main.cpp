@@ -217,14 +217,16 @@ int main(int argc, char** argv)
 	StructureResolver structRes(rg, seqAssembly, seqReads);
 	structRes.unrollLoops();
 	aligner.updateAlignments();
+	resolver.findRepeats();
+	outGen.outputDot(proc.getEdgesPaths(), outFolder + "/graph_after_rr.dot");
 
 	Logger::get().info() << "Generating contigs";
 
 	extender.generateUnbranchingPaths();
 	extender.generateContigs();
 	extender.outputContigs(outFolder + "/graph_paths.fasta");
+	extender.outputStatsTable(outFolder + "/contig_stats.txt");
 
-	//outGen.outputDot(proc.getEdgesPath(), outFolder + "/graph_after_rr.dot");
 	outGen.dumpRepeats(extender.getUnbranchingPaths(), 
 					   outFolder + "/repeats_dump.txt");
 	outGen.outputDot(extender.getUnbranchingPaths(), 

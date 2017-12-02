@@ -299,6 +299,7 @@ void OutputGenerator::outputDot(const std::vector<UnbranchingPath>& paths,
 	if (!fout.is_open()) throw std::runtime_error("Can't open " + filename);
 
 	fout << "digraph {\n";
+	fout << "nodesep = 0.5;\n";
 	fout << "node [shape = circle, label = \"\", height = 0.3];\n";
 	
 	///re-enumerating helper functions
@@ -315,17 +316,7 @@ void OutputGenerator::outputDot(const std::vector<UnbranchingPath>& paths,
 
 	for (auto& node : _graph.iterNodes())
 	{
-		int numIn = 0;
-		int numOut = 0;
-		for (auto& edge: node->inEdges)
-		{
-			if (!edge->isLooped()) ++numIn;
-		}
-		for (auto& edge: node->outEdges)
-		{
-			if (!edge->isLooped()) ++numOut;
-		}
-		if ((bool)numIn != (bool)numOut)
+		if (node->isTelomere())
 		{
 			fout << "\"" << nodeToId(node) 
 				<< "\" [style = \"filled\", fillcolor = \"grey\"];\n";

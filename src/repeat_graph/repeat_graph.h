@@ -130,6 +130,26 @@ struct GraphNode
 			   (inDegree == 0 && outDegree == 1);
 	}
 
+	bool isTelomere() const
+	{
+		int numIn = 0;
+		int numOut = 0;
+		for (auto& edge: inEdges)
+		{
+			if (!edge->isLooped()) ++numIn;
+		}
+		for (auto& edge: outEdges)
+		{
+			if (!edge->isLooped()) ++numOut;
+		}
+		if ((bool)numIn != (bool)numOut)
+		{
+			return true;
+		}
+		return false;
+	}
+
+
 	bool isResolved() const
 	{
 		int inDegree = 0;
