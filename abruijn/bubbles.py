@@ -146,6 +146,7 @@ def output_bubbles(bubbles, out_file):
 
 def _postprocess_bubbles(bubbles):
     MAX_BUBBLE = config.vals["max_bubble_length"]
+    MAX_BRANCHES = config.vals["max_bubble_branches"]
 
     new_bubbles = []
     long_branches = 0
@@ -180,6 +181,9 @@ def _postprocess_bubbles(bubbles):
         if (abs(len(median_branch) - len(bubble.consensus)) >
                 len(median_branch) / 2):
             bubble.consensus = median_branch
+
+        if len(new_branches) > MAX_BRANCHES:
+            new_branches = new_branches[:MAX_BRANCHES]
 
         new_bubbles.append(Bubble(bubble.contig_id, bubble.position))
         new_bubbles[-1].consensus = bubble.consensus

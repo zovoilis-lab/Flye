@@ -230,8 +230,6 @@ class JobPolishing(Job):
             fp.write_fasta_dict(polished_fasta, polished_file)
             prev_assembly = polished_file
 
-        logger.info("Done! Your assembly is in file: " + prev_assembly)
-
 
 def _create_job_list(args, work_dir, log_file):
     """

@@ -225,7 +225,7 @@ void HomoPolisher::polishBubble(Bubble& bubble) const
 	}
 }
 
-//likelihood of a goven state
+//likelihood of a given state
 AlnScoreType HomoPolisher::likelihood(HopoMatrix::State state, 
 								const HopoMatrix::ObsVector& observations) const
 {

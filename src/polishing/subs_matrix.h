@@ -62,9 +62,9 @@ public:
 	typedef std::vector<Observation> ObsVector;
 
 	HopoMatrix(const std::string& fileName);
-	double getObsProb(State state, Observation observ) const
+	AlnScoreType getObsProb(State state, Observation observ) const
 		{return _observationProbs[state.id][observ.id];}
-	double getGenomeProb(State state) const
+	AlnScoreType getGenomeProb(State state) const
 		{return _genomeProbs[state.id];}
 	ObsVector knownObservations(State state) const;
 	static Observation strToObs(char mainNucl, const std::string& dnaStr, 
@@ -75,6 +75,6 @@ public:
 private:
 	void loadMatrix(const std::string& filaName);
 
-	std::vector<std::vector<double>> _observationProbs;
-	std::vector<double> 			 _genomeProbs;
+	std::vector<std::vector<AlnScoreType>> _observationProbs;
+	std::vector<AlnScoreType> 			   _genomeProbs;
 };
