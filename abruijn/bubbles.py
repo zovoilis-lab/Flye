@@ -62,17 +62,20 @@ def _thread_worker(aln_reader, contigs_info, err_mode,
             partition, num_long_bubbles = _get_partition(profile, err_mode)
             ctg_bubbles = _get_bubble_seqs(ctg_aln, err_mode, profile, partition,
                                            contigs_info[ctg_id])
+            mean_cov = sum(map(lambda b: len(b.branches),
+                               ctg_bubbles)) / (len(ctg_bubbles) + 1)
             ctg_bubbles, num_empty, num_long_branch = \
                                     _postprocess_bubbles(ctg_bubbles)
-            results_queue.put((ctg_bubbles, num_long_bubbles,
-                               num_empty, num_long_branch, aln_errors))
+            results_queue.put((ctg_id, ctg_bubbles, num_long_bubbles,
+                               num_empty, num_long_branch, aln_errors,
+                               mean_cov))
 
     except Exception as e:
         error_queue.put(e)
 
 
-def get_bubbles(alignment_path, contigs_info, contigs_path,
-                err_mode, num_proc, min_alignment):
+def make_bubbles(alignment_path, contigs_info, contigs_path,
+                 err_mode, num_proc, min_alignment, bubbles_out):
     """
     The main function: takes an alignment and returns bubbles
     """
@@ -105,43 +108,49 @@ def get_bubbles(alignment_path, contigs_info, contigs_path,
     if not error_queue.empty():
         raise error_queue.get()
 
-    bubbles = []
+    #bubbles = []
+    total_bubbles = 0
     total_long_bubbles = 0
     total_long_branches = 0
     total_empty = 0
     total_aln_errors = []
-    while not results_queue.empty():
-        (ctg_bubbles, num_long_bubbles,
-            num_empty, num_long_branch, aln_errors) = results_queue.get()
-        total_long_bubbles += num_long_bubbles
-        total_long_branches += num_long_branch
-        total_empty += num_empty
-        total_aln_errors.extend(aln_errors)
-        bubbles.extend(ctg_bubbles)
+    coverage_stats = {}
+
+    with open(bubbles_out, "w") as f:
+        while not results_queue.empty():
+            (ctg_id, ctg_bubbles, num_long_bubbles,
+                num_empty, num_long_branch,
+                aln_errors, mean_coverage) = results_queue.get()
+            total_long_bubbles += num_long_bubbles
+            total_long_branches += num_long_branch
+            total_empty += num_empty
+            total_aln_errors.extend(aln_errors)
+            total_bubbles += len(ctg_bubbles)
+            coverage_stats[ctg_id] = mean_coverage
+            _output_bubbles(ctg_bubbles, f)
 
     mean_aln_error = float(sum(total_aln_errors)) / (len(total_aln_errors) + 1)
     logger.debug("Alignment error rate: {0}".format(mean_aln_error))
-    logger.debug("Generated {0} bubbles".format(len(bubbles)))
+    logger.debug("Generated {0} bubbles".format(total_bubbles))
     logger.debug("Split {0} long bubbles".format(total_long_bubbles))
     logger.debug("Skipped {0} empty bubbles".format(total_empty))
     logger.debug("Skipped {0} bubbles with long branches".format(total_long_branches))
 
-    return bubbles
+    return coverage_stats
 
 
-def output_bubbles(bubbles, out_file):
+def _output_bubbles(bubbles, out_stream):
     """
     Outputs list of bubbles into file
     """
-    with open(out_file, "w") as f:
-        for bubble in bubbles:
-            f.write(">{0} {1} {2}\n".format(bubble.contig_id,
-                                            bubble.position,
-                                            len(bubble.branches)))
-            f.write(bubble.consensus + "\n")
-            for branch_id, branch in enumerate(bubble.branches):
-                f.write(">{0}\n".format(branch_id))
-                f.write(branch + "\n")
+    for bubble in bubbles:
+        out_stream.write(">{0} {1} {2}\n".format(bubble.contig_id,
+                                        bubble.position,
+                                        len(bubble.branches)))
+        out_stream.write(bubble.consensus + "\n")
+        for branch_id, branch in enumerate(bubble.branches):
+            out_stream.write(">{0}\n".format(branch_id))
+            out_stream.write(branch + "\n")
 
 
 def _postprocess_bubbles(bubbles):

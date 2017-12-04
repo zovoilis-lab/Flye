@@ -251,6 +251,7 @@ void ContigExtender::outputStatsTable(const std::string& filename)
 				minMult = std::min(minMult, edge->multiplicity);
 			}
 		}
+		if (!ctg.graphEdges.repetitive) minMult = 1;
 
 		fout << ctg.graphEdges.name() << "\t" << ctg.sequence.length() << "\t" 
 			<< ctg.graphEdges.meanCoverage << "\t"

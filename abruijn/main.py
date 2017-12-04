@@ -206,7 +206,7 @@ class JobPolishing(Job):
             os.mkdir(self.polishing_dir)
 
         prev_assembly = self.in_contigs
-        contig_stats = None
+        contig_lengths = None
         for i in xrange(self.args.num_iters):
             logger.info("Polishing genome ({0}/{1})".format(i + 1,
                                                 self.args.num_iters))
@@ -220,23 +220,27 @@ class JobPolishing(Job):
 
             logger.info("Separating alignment into bubbles")
             contigs_info = aln.get_contigs_info(prev_assembly)
-            bubbles = bbl.get_bubbles(alignment_file, contigs_info, prev_assembly,
-                                      self.args.platform, self.args.threads,
-                                      self.args.min_overlap)
+            bubbles_file = os.path.join(self.polishing_dir,
+                                        "bubbles_{0}.fasta".format(i + 1))
+            coverage_stats = \
+                bbl.make_bubbles(alignment_file, contigs_info, prev_assembly,
+                                 self.args.platform, self.args.threads,
+                                 self.args.min_overlap, bubbles_file)
 
             logger.info("Correcting bubbles")
             polished_file = os.path.join(self.polishing_dir,
                                          "polished_{0}.fasta".format(i + 1))
-            contig_stats = pol.polish(bubbles, self.args.threads,
-                                      self.args.platform, self.polishing_dir,
-                                      i + 1, polished_file)
+            contig_lengths = pol.polish(bubbles_file, self.args.threads,
+                                        self.args.platform, self.polishing_dir,
+                                        i + 1, polished_file)
             prev_assembly = polished_file
 
-        if contig_stats is not None:
+        if contig_lengths is not None:
             with open(self.out_files["stats"], "w") as f:
                 f.write("contig_id\tlength\tcoverage\n")
-                for ctg_id, (length, coverage) in contig_stats.iteritems():
-                    f.write("{0}\t{1}\t{2}\n".format(ctg_id, length, coverage))
+                for ctg_id in contig_lengths:
+                    f.write("{0}\t{1}\t{2}\n".format(ctg_id,
+                            contig_lengths[ctg_id], coverage_stats[ctg_id]))
 
 
 def _create_job_list(args, work_dir, log_file):
