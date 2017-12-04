@@ -22,14 +22,14 @@ struct UnbranchingPath
 
 	std::string name() const
 	{
-		return "contig" + std::to_string(id.signedId());
+		return "contig_" + std::to_string(id.signedId());
 	}
 
 	std::string nameUnsigned() const
 	{
 		std::string idTag = id.strand() ? std::to_string(id.signedId()) : 
 										  std::to_string(id.rc().signedId());
-		return "contig" + idTag;
+		return "contig_" + idTag;
 	}
 
 	std::string edgesStr() const

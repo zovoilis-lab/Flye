@@ -225,7 +225,7 @@ int main(int argc, char** argv)
 	extender.generateUnbranchingPaths();
 	extender.generateContigs();
 	extender.outputContigs(outFolder + "/graph_paths.fasta");
-	extender.outputStatsTable(outFolder + "/contig_stats.txt");
+	extender.outputStatsTable(outFolder + "/contigs_stats.txt");
 
 	outGen.dumpRepeats(extender.getUnbranchingPaths(), 
 					   outFolder + "/repeats_dump.txt");

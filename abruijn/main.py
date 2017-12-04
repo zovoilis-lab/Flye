@@ -101,8 +101,10 @@ class JobRepeat(Job):
         self.repeat_dir = os.path.join(work_dir, "2-repeat")
         contig_sequences = os.path.join(self.repeat_dir, "graph_paths.fasta")
         assembly_graph = os.path.join(self.repeat_dir, "graph_final.dot")
+        contigs_stats = os.path.join(self.repeat_dir, "contigs_stats.txt")
         self.out_files["contigs"] = contig_sequences
         self.out_files["assembly_graph"] = assembly_graph
+        self.out_files["stats"] = contigs_stats
 
     def run(self):
         if not os.path.isdir(self.repeat_dir):
@@ -114,7 +116,8 @@ class JobRepeat(Job):
 
 class JobFinalize(Job):
     def __init__(self, args, work_dir, log_file,
-                 contigs_file, graph_file, stats_file):
+                 contigs_file, graph_file, repeat_stats,
+                 polished_stats):
         super(JobFinalize, self).__init__()
 
         self.args = args
@@ -122,38 +125,49 @@ class JobFinalize(Job):
         self.name = "finalize"
         self.contigs_file = contigs_file
         self.graph_file = graph_file
-        self.stats_file = stats_file
+        self.repeat_stats = repeat_stats
+        self.polished_stats = polished_stats
 
-        self.out_files["out_contigs"] = os.path.join(work_dir, "contigs.fasta")
-        #self.out_files["out_info"] = os.path.join(work_dir, "contigs_info.txt")
-        self.out_files["out_graph"] = os.path.join(work_dir, "assembly_graph.dot")
+        self.out_files["contigs"] = os.path.join(work_dir, "contigs.fasta")
+        self.out_files["stats"] = os.path.join(work_dir, "contigs_info.txt")
+        self.out_files["graph"] = os.path.join(work_dir, "assembly_graph.dot")
 
     def run(self):
-        shutil.copy2(self.contigs_file, self.out_files["out_contigs"])
-        shutil.copy2(self.graph_file, self.out_files["out_graph"])
-        #shutil.copy2(self.stats_file, self.out_files["out_info"])
+        shutil.copy2(self.contigs_file, self.out_files["contigs"])
+        shutil.copy2(self.graph_file, self.out_files["graph"])
+
+        repeat_stats = {}
+        table_lines = open(self.repeat_stats, "r").readlines()
+        header_line = table_lines[0]
+        for line in table_lines[1:]:
+            tokens = line.strip().split("\t")
+            repeat_stats[tokens[0]] = tokens[1:]
+
+        if self.polished_stats is not None:
+            polished_stats = {}
+            for line in open(self.polished_stats, "r").readlines()[1:]:
+                tokens = line.strip().split("\t")
+                polished_stats[tokens[0]] = tokens[1:]
+
+        if self.polished_stats:
+            all_contigs = sorted(polished_stats.keys(),
+                                 key=lambda c: int(c.split("_")[1]))
+        else:
+            all_contigs = sorted(repeat_stats.keys(),
+                                 key=lambda c: int(c.split("_")[1]))
+
+        with open(self.out_files["stats"], "w") as f:
+            f.write(header_line)
+            for ctg_id in all_contigs:
+                fields = repeat_stats[ctg_id]
+                if self.polished_stats:
+                    fields[0] = polished_stats[ctg_id][0]   #length
+                    fields[1] = polished_stats[ctg_id][1]   #coverage
+
+                f.write("{0}\t{1}\n".format(ctg_id, "\t".join(fields)))
 
         logger.info("Done! your assembly is in {0} file"
-                    .format(self.out_files["out_contigs"]))
-
-
-"""
-class JobAlignment(Job):
-    def __init__(self, in_reference, out_alignment, stage_id):
-        super(JobAlignment, self).__init__()
-        self.in_reference = in_reference
-        self.out_alignment = out_alignment
-        self.name = "alignment_" + str(stage_id)
-        self.stage_id = stage_id
-        self.out_files = [out_alignment]
-
-    def run(self):
-        #logger.info("Polishing genome ({0}/{1})".format(self.stage_id,
-        #                                                self.args.num_iters))
-        logger.info("Running Minimap2")
-        aln.make_alignment(self.in_reference, self.args.reads, self.args.threads,
-                           self.work_dir, self.args.platform, self.out_alignment)
-"""
+                    .format(self.out_files["contigs"]))
 
 
 class JobConsensus(Job):
@@ -199,7 +213,7 @@ class JobPolishing(Job):
                                      "polished_{0}.fasta".format(args.num_iters))
         self.out_files["contigs"] = final_conitgs
         self.out_files["stats"] = os.path.join(self.polishing_dir,
-                                               "contig_stats.txt")
+                                               "contigs_stats.txt")
 
     def run(self):
         if not os.path.isdir(self.polishing_dir):
@@ -235,12 +249,11 @@ class JobPolishing(Job):
                                         i + 1, polished_file)
             prev_assembly = polished_file
 
-        if contig_lengths is not None:
-            with open(self.out_files["stats"], "w") as f:
-                f.write("contig_id\tlength\tcoverage\n")
-                for ctg_id in contig_lengths:
-                    f.write("{0}\t{1}\t{2}\n".format(ctg_id,
-                            contig_lengths[ctg_id], coverage_stats[ctg_id]))
+        with open(self.out_files["stats"], "w") as f:
+            f.write("contig_id\tlength\tcoverage\n")
+            for ctg_id in contig_lengths:
+                f.write("{0}\t{1}\t{2}\n".format(ctg_id,
+                        contig_lengths[ctg_id], coverage_stats[ctg_id]))
 
 
 def _create_job_list(args, work_dir, log_file):
@@ -261,16 +274,19 @@ def _create_job_list(args, work_dir, log_file):
     jobs.append(JobRepeat(args, work_dir, log_file, consensus_paths))
     raw_contigs = jobs[-1].out_files["contigs"]
     graph_file = jobs[-1].out_files["assembly_graph"]
+    repeat_stats = jobs[-1].out_files["stats"]
 
     #Polishing
     contigs_file = raw_contigs
+    polished_stats = None
     if args.num_iters > 0:
         jobs.append(JobPolishing(args, work_dir, log_file, raw_contigs))
         contigs_file = jobs[-1].out_files["contigs"]
+        polished_stats = jobs[-1].out_files["stats"]
 
     #Report results
     jobs.append(JobFinalize(args, work_dir, log_file, contigs_file,
-                            graph_file, None))
+                            graph_file, repeat_stats, polished_stats))
 
     return jobs
 
