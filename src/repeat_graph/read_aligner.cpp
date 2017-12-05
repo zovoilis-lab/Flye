@@ -15,6 +15,9 @@ namespace
 	};
 }
 
+//Give alignments to separate edges for a single read, merges them
+//into non-overlapping chains (could be more than one chain per read
+//in case of chimera) with maximum score
 std::vector<GraphAlignment>
 	ReadAligner::chainReadAlignments(const SequenceContainer& edgeSeqs,
 								 	 const std::vector<EdgeAlignment>& ovlps) const
@@ -116,6 +119,7 @@ void ReadAligner::alignReads()
 	{
 		if (!edge->edgeId.strand()) continue;
 
+		//add each edge sequence variant to the database
 		for (auto& segment : edge->seqSegments)
 		{
 			size_t len = segment.end - segment.start;

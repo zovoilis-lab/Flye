@@ -2,6 +2,10 @@
 //This file is a part of ABruijn program.
 //Released under the BSD license (see LICENSE file)
 
+
+//Aligns reads to the graph, also updates alignments
+//if the graph changes
+
 #pragma once
 
 #include "repeat_graph.h"
@@ -15,7 +19,7 @@ public:
 
 	void alignReads();
 	void updateAlignments();
-	const std::vector<GraphAlignment> getAlignments() const
+	const std::vector<GraphAlignment>& getAlignments() const
 		{return _readAlignments;}
 
 private:

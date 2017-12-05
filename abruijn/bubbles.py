@@ -16,7 +16,7 @@ import signal
 
 import abruijn.fasta_parser as fp
 import abruijn.config as config
-from abruijn.alignment import shift_gaps, SynchronizedReader
+from abruijn.alignment import shift_gaps, SynchronizedSamReader
 
 
 logger = logging.getLogger()
@@ -44,38 +44,44 @@ class Bubble:
         self.consensus = ""
 
 
-def _thread_worker(blasr_reader, contigs_info, err_mode,
+def _thread_worker(aln_reader, contigs_info, err_mode,
                    results_queue, error_queue):
     """
     Will run in parallel
     """
     try:
-        blasr_reader.init_reading()
-        while not blasr_reader.is_eof():
-            ctg_id, ctg_aln = blasr_reader.get_chunk()
+        aln_reader.init_reading()
+        while not aln_reader.is_eof():
+            ctg_id, ctg_aln = aln_reader.get_chunk()
             if ctg_id is None:
                 break
 
             #logger.debug("Processing {0}".format(ctg_id))
-            profile = _compute_profile(ctg_aln, contigs_info[ctg_id].length)
+            profile, aln_errors = _compute_profile(ctg_aln, err_mode,
+                                                   contigs_info[ctg_id].length)
             partition, num_long_bubbles = _get_partition(profile, err_mode)
-            ctg_bubbles = _get_bubble_seqs(ctg_aln, profile, partition,
+            ctg_bubbles = _get_bubble_seqs(ctg_aln, err_mode, profile, partition,
                                            contigs_info[ctg_id])
+            mean_cov = sum(map(lambda b: len(b.branches),
+                               ctg_bubbles)) / (len(ctg_bubbles) + 1)
             ctg_bubbles, num_empty, num_long_branch = \
                                     _postprocess_bubbles(ctg_bubbles)
-            results_queue.put((ctg_bubbles, num_long_bubbles,
-                               num_empty, num_long_branch))
+            results_queue.put((ctg_id, ctg_bubbles, num_long_bubbles,
+                               num_empty, num_long_branch, aln_errors,
+                               mean_cov))
 
     except Exception as e:
         error_queue.put(e)
 
 
-def get_bubbles(alignment_path, contigs_info, err_mode, num_proc):
+def make_bubbles(alignment_path, contigs_info, contigs_path,
+                 err_mode, num_proc, min_alignment, bubbles_out):
     """
     The main function: takes an alignment and returns bubbles
     """
-    #making sure the main process catches SIGINT
-    blasr_reader = SynchronizedReader(alignment_path)
+    aln_reader = SynchronizedSamReader(alignment_path,
+                                       fp.read_fasta_dict(contigs_path),
+                                       min_alignment)
     manager = multiprocessing.Manager()
     results_queue = manager.Queue()
     error_queue = manager.Queue()
@@ -85,7 +91,7 @@ def get_bubbles(alignment_path, contigs_info, err_mode, num_proc):
     threads = []
     for _ in xrange(num_proc):
         threads.append(multiprocessing.Process(target=_thread_worker,
-                                               args=(blasr_reader, contigs_info,
+                                               args=(aln_reader, contigs_info,
                                                      err_mode, results_queue,
                                                      error_queue)))
     signal.signal(signal.SIGINT, orig_sigint)
@@ -102,43 +108,54 @@ def get_bubbles(alignment_path, contigs_info, err_mode, num_proc):
     if not error_queue.empty():
         raise error_queue.get()
 
-    bubbles = []
+    #bubbles = []
+    total_bubbles = 0
     total_long_bubbles = 0
     total_long_branches = 0
     total_empty = 0
-    while not results_queue.empty():
-        ctg_bubbles, num_long_bubbles, num_empty, num_long_branch = \
-                                                     results_queue.get()
-        total_long_bubbles += num_long_bubbles
-        total_long_branches += num_long_branch
-        total_empty += num_empty
-        bubbles.extend(ctg_bubbles)
+    total_aln_errors = []
+    coverage_stats = {}
 
-    logger.debug("Generated {0} bubbles".format(len(bubbles)))
+    with open(bubbles_out, "w") as f:
+        while not results_queue.empty():
+            (ctg_id, ctg_bubbles, num_long_bubbles,
+                num_empty, num_long_branch,
+                aln_errors, mean_coverage) = results_queue.get()
+            total_long_bubbles += num_long_bubbles
+            total_long_branches += num_long_branch
+            total_empty += num_empty
+            total_aln_errors.extend(aln_errors)
+            total_bubbles += len(ctg_bubbles)
+            coverage_stats[ctg_id] = mean_coverage
+            _output_bubbles(ctg_bubbles, f)
+
+    mean_aln_error = float(sum(total_aln_errors)) / (len(total_aln_errors) + 1)
+    logger.debug("Alignment error rate: {0}".format(mean_aln_error))
+    logger.debug("Generated {0} bubbles".format(total_bubbles))
     logger.debug("Split {0} long bubbles".format(total_long_bubbles))
     logger.debug("Skipped {0} empty bubbles".format(total_empty))
     logger.debug("Skipped {0} bubbles with long branches".format(total_long_branches))
 
-    return bubbles
+    return coverage_stats
 
 
-def output_bubbles(bubbles, out_file):
+def _output_bubbles(bubbles, out_stream):
     """
     Outputs list of bubbles into file
     """
-    with open(out_file, "w") as f:
-        for bubble in bubbles:
-            f.write(">{0} {1} {2}\n".format(bubble.contig_id,
-                                            bubble.position,
-                                            len(bubble.branches)))
-            f.write(bubble.consensus + "\n")
-            for branch_id, branch in enumerate(bubble.branches):
-                f.write(">{0}\n".format(branch_id))
-                f.write(branch + "\n")
+    for bubble in bubbles:
+        out_stream.write(">{0} {1} {2}\n".format(bubble.contig_id,
+                                        bubble.position,
+                                        len(bubble.branches)))
+        out_stream.write(bubble.consensus + "\n")
+        for branch_id, branch in enumerate(bubble.branches):
+            out_stream.write(">{0}\n".format(branch_id))
+            out_stream.write(branch + "\n")
 
 
 def _postprocess_bubbles(bubbles):
     MAX_BUBBLE = config.vals["max_bubble_length"]
+    MAX_BRANCHES = config.vals["max_bubble_branches"]
 
     new_bubbles = []
     long_branches = 0
@@ -173,6 +190,9 @@ def _postprocess_bubbles(bubbles):
         if (abs(len(median_branch) - len(bubble.consensus)) >
                 len(median_branch) / 2):
             bubble.consensus = median_branch
+
+        if len(new_branches) > MAX_BRANCHES:
+            new_branches = new_branches[:MAX_BRANCHES]
 
         new_bubbles.append(Bubble(bubble.contig_id, bubble.position))
         new_bubbles[-1].consensus = bubble.consensus
@@ -236,17 +256,19 @@ def _is_simple_kmer(profile, position):
     return True
 
 
-def _compute_profile(alignment, genome_len):
+def _compute_profile(alignment, platform, genome_len):
     """
     Computes alignment profile
     """
-    MIN_ALIGNMENT = config.vals["min_alignment_length"]
-    #logger.debug("Computing profile")
-
+    max_aln_err = config.vals["err_modes"][platform]["max_aln_error"]
+    aln_errors = []
+    filtered = 0
     profile = [ProfileInfo() for _ in xrange(genome_len)]
     for aln in alignment:
-        if aln.err_rate > 0.5 or aln.trg_end - aln.trg_start < MIN_ALIGNMENT:
+        if aln.err_rate > max_aln_err:
+            filtered += 1
             continue
+        aln_errors.append(aln.err_rate)
 
         qry_seq = shift_gaps(aln.trg_seq, aln.qry_seq)
         trg_seq = shift_gaps(qry_seq, aln.trg_seq)
@@ -272,7 +294,8 @@ def _compute_profile(alignment, genome_len):
 
             trg_pos += 1
 
-    return profile
+    #logger.debug("Filtered: {0} out of {1}".format(filtered, len(alignment)))
+    return profile, aln_errors
 
 
 def _get_partition(profile, err_mode):
@@ -320,13 +343,14 @@ def _get_partition(profile, err_mode):
     return partition, long_bubbles
 
 
-def _get_bubble_seqs(alignment, profile, partition, contig_info):
+def _get_bubble_seqs(alignment, platform, profile, partition, contig_info):
     """
     Given genome landmarks, forms bubble sequences
     """
-    #logger.debug("Forming bubble sequences")
-    MIN_ALIGNMENT = config.vals["min_alignment_length"]
+    if not partition:
+        return []
 
+    max_aln_err = config.vals["err_modes"][platform]["max_aln_error"]
     bubbles = []
     ext_partition = [0] + partition + [contig_info.length]
     for p_left, p_right in zip(ext_partition[:-1], ext_partition[1:]):
@@ -335,8 +359,7 @@ def _get_bubble_seqs(alignment, profile, partition, contig_info):
         bubbles[-1].consensus = "".join(consensus)
 
     for aln in alignment:
-        if aln.err_rate > 0.5 or aln.trg_end - aln.trg_start < MIN_ALIGNMENT:
-            continue
+        if aln.err_rate > max_aln_err: continue
 
         bubble_id = bisect(partition, aln.trg_start % contig_info.length)
         next_bubble_start = ext_partition[bubble_id + 1]

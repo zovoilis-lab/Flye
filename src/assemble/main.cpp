@@ -13,7 +13,7 @@
 #include "../sequence/vertex_index.h"
 #include "../sequence/sequence_container.h"
 #include "../sequence/overlap.h"
-#include "../sequence/contig_generator.h"
+#include "../sequence/consensus_generator.h"
 #include "../common/config.h"
 #include "chimera.h"
 #include "extender.h"
@@ -21,20 +21,20 @@
 #include "../common/logger.h"
 
 bool parseArgs(int argc, char** argv, std::string& readsFasta, 
-			   std::string& outAssembly, std::string& logFile, int& coverage,
+			   std::string& outAssembly, std::string& logFile, size_t& genomeSize,
 			   int& kmerSize, int& minKmer, int& maxKmer, bool& debug,
 			   size_t& numThreads, std::string& overlapsFile, int& minOverlap)
 {
 	auto printUsage = [argv]()
 	{
 		std::cerr << "Usage: " << argv[0]
-				  << "\treads_file out_assembly coverage \n\t\t\t\t"
+				  << "\treads_file out_assembly genome_size \n\t\t\t\t"
 				  << "[-k kmer_size] [-m min_kmer_cov] \n\t\t\t\t"
 				  << "[-x max_kmer_cov] [-l log_file] [-t num_threads] [-d]\n\n"
 				  << "positional arguments:\n"
 				  << "\treads file\tpath to fasta with reads\n"
 				  << "\tout_assembly\tpath to output file\n"
-				  << "\tcoverage\testimated assembly coverage\n"
+				  << "\tgenome_size\tgenome size in bytes\n"
 				  << "\noptional arguments:\n"
 				  << "\t-k kmer_size\tk-mer size [default = 15] \n"
 				  << "\t-m min_kmer_cov\tminimum k-mer coverage "
@@ -104,7 +104,7 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 	}
 	readsFasta = *(argv + optind);
 	outAssembly = *(argv + optind + 1);
-	coverage = atoi(*(argv + optind + 2));
+	genomeSize = atoll(*(argv + optind + 2));
 
 	return true;
 }
@@ -165,7 +165,7 @@ int main(int argc, char** argv)
 	int kmerSize = 0;
 	int minKmerCov = 0;
 	int maxKmerCov = 0;
-	int coverage = 0;
+	size_t genomeSize = 0;
 	int minOverlap = 0;
 	bool debugging = false;
 	size_t numThreads;
@@ -174,7 +174,7 @@ int main(int argc, char** argv)
 	std::string logFile;
 	std::string overlapsFile;
 
-	if (!parseArgs(argc, argv, readsFasta, outAssembly, logFile, coverage,
+	if (!parseArgs(argc, argv, readsFasta, outAssembly, logFile, genomeSize,
 				   kmerSize, minKmerCov, maxKmerCov, debugging, numThreads,
 				   overlapsFile, minOverlap)) 
 	{
@@ -186,6 +186,7 @@ int main(int argc, char** argv)
 
 	Logger::get().setDebugging(debugging);
 	if (!logFile.empty()) Logger::get().setOutputFile(logFile);
+	std::ios::sync_with_stdio(false);
 
 	SequenceContainer readsContainer;
 	Logger::get().debug() << "Build date: " << __DATE__ << " " << __TIME__;
@@ -209,25 +210,24 @@ int main(int argc, char** argv)
 	}
 	Logger::get().debug() << "Mean read length: " 
 		<< sumLength / readsContainer.getIndex().size();
-
-	//rough estimate
-	Logger::get().info() << "Generating solid k-mer index";
-	size_t hardThreshold = std::max(1, coverage / 
-									Constants::hardMinCoverageRate);
-	vertexIndex.countKmers(hardThreshold);
-
+	int coverage = sumLength / 2 / genomeSize;
+	Logger::get().debug() << "Estimated coverage: " << coverage;
 	if (maxKmerCov == -1)
 	{
 		maxKmerCov = Constants::repeatCoverageRate * coverage;
 	}
 
-	ParametersEstimator estimator(readsContainer, vertexIndex, coverage);
+	Logger::get().info() << "Generating solid k-mer index";
+	size_t hardThreshold = std::max(1.0f, std::round((float)coverage / 
+									Constants::hardMinCoverageRate));
+	vertexIndex.countKmers(hardThreshold);
+
+	ParametersEstimator estimator(readsContainer, vertexIndex, genomeSize);
 	estimator.estimateMinKmerCount(maxKmerCov);
 	if (minKmerCov == -1)
 	{
 		minKmerCov = estimator.minKmerCount();
 	}
-
 
 	vertexIndex.buildIndex(minKmerCov, maxKmerCov, 
 						   Constants::assembleKmerSample);
@@ -243,10 +243,11 @@ int main(int argc, char** argv)
 	Extender extender(readsContainer, readOverlaps, coverage, 
 					  estimator.genomeSizeEstimate());
 	extender.assembleContigs();
+	vertexIndex.clear();
 
-	ContigGenerator contGen;
-	contGen.generateContigs(extender.getContigPaths());
-	contGen.outputContigs(outAssembly);
+	ConsensusGenerator consGen;
+	auto contigsFasta = consGen.generateConsensuses(extender.getContigPaths());
+	SequenceContainer::writeFasta(contigsFasta, outAssembly);
 
 	return 0;
 }

@@ -16,6 +16,7 @@
 #include "kmer.h"
 #include "sequence_container.h"
 #include "../common/config.h"
+#include "../common/logger.h"
 
 class VertexIndex
 {
@@ -31,21 +32,30 @@ public:
 	VertexIndex(const VertexIndex&) = delete;
 	void operator=(const VertexIndex&) = delete;
 
+private:
 	struct ReadPosition
 	{
-		ReadPosition(FastaRecord::Id readId, int32_t position):
+		ReadPosition(FastaRecord::Id readId = FastaRecord::ID_NONE, 
+					 int32_t position = 0):
 			readId(readId), position(position) {}
 		FastaRecord::Id readId;
 		int32_t position;
 	};
 
-	typedef std::vector<ReadPosition> ReadVector;
-	typedef std::map<int, int> KmerDistribution;
+	struct ReadVector
+	{
+		uint32_t capacity;
+		uint32_t size;
+		ReadPosition* data;
+	};
+
+public:
+	typedef std::map<size_t, size_t> KmerDistribution;
 
 	class KmerPosIterator
 	{
 	public:
-		KmerPosIterator(const ReadVector* rv, size_t index, bool revComp, 
+		KmerPosIterator(ReadVector rv, size_t index, bool revComp, 
 						const SequenceContainer& seqContainer):
 			rv(rv), index(index), revComp(revComp), 
 			seqContainer(seqContainer) 
@@ -53,7 +63,7 @@ public:
 
 		bool operator==(const KmerPosIterator& other) const
 		{
-			return rv == other.rv && index == other.index;
+			return rv.data == other.rv.data && index == other.index;
 		}
 		bool operator!=(const KmerPosIterator& other) const
 		{
@@ -62,7 +72,7 @@ public:
 
 		ReadPosition operator*() const
 		{
-			ReadPosition pos = (*rv)[index];
+			ReadPosition pos = rv.data[index];
 			if (revComp)
 			{
 				pos.readId = pos.readId.rc();
@@ -80,7 +90,7 @@ public:
 		}
 	
 	private:
-		const ReadVector* rv;
+		ReadVector rv;
 		size_t index;
 		bool revComp;
 		const SequenceContainer& seqContainer;
@@ -89,18 +99,18 @@ public:
 	class IterHelper
 	{
 	public:
-		IterHelper(const ReadVector& rv, bool revComp, 
+		IterHelper(ReadVector rv, bool revComp, 
 				   const SequenceContainer& seqContainer): 
 			rv(rv), revComp(revComp), seqContainer(seqContainer) {}
 
 		KmerPosIterator begin()
 		{
-			return KmerPosIterator(&rv, 0, revComp, seqContainer);
+			return KmerPosIterator(rv, 0, revComp, seqContainer);
 		}
 
 		KmerPosIterator end()
 		{
-			return KmerPosIterator(&rv, rv.size(), revComp, seqContainer);
+			return KmerPosIterator(rv, rv.size, revComp, seqContainer);
 		}
 
 	private:
@@ -117,7 +127,7 @@ public:
 	IterHelper iterKmerPos(Kmer kmer) const
 	{
 		bool revComp = kmer.standardForm();
-		return IterHelper(*_kmerIndex[kmer], revComp,
+		return IterHelper(_kmerIndex[kmer], revComp,
 						  _seqContainer);
 	}
 
@@ -127,20 +137,10 @@ public:
 		return _kmerIndex.contains(kmer);
 	}
 
-	int numSolid() const 
-	{
-		return _kmerIndex.size() * 2;
-	}
-
 	void outputProgress(bool set) 
 	{
 		_outputProgress = set;
 	}
-
-	//bool isRepetitive(Kmer kmer) const
-	//{
-	//	return _repetitiveKmers.count(kmer);
-	//}
 
 	const KmerDistribution& getKmerHist() const
 	{
@@ -148,13 +148,14 @@ public:
 	}
 
 private:
-	const SequenceContainer& _seqContainer;
-
 	void addFastaSequence(const FastaRecord& fastaRecord);
 
-	cuckoohash_map<Kmer, ReadVector*> _kmerIndex;
-	//std::unordered_set<Kmer>		_repetitiveKmers;
-	KmerDistribution 			 	_kmerDistribution;
-	cuckoohash_map<Kmer, size_t>  	_kmerCounts;
+	const SequenceContainer& _seqContainer;
+	KmerDistribution _kmerDistribution;
 	bool _outputProgress;
+
+	const size_t INDEX_CHUNK = 32 * 1024 * 1024 / sizeof(ReadPosition);
+	std::vector<ReadPosition*> _memoryChunks;
+	cuckoohash_map<Kmer, ReadVector> _kmerIndex;
+	cuckoohash_map<Kmer, size_t> _kmerCounts;
 };

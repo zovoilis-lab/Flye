@@ -221,7 +221,7 @@ as follows:
 Finally, ABruijn performs polishing of the resulting assembly
 to correct the remaining errors:
 
-* Alignment of all reads to the current assembly using BLASR
+* Alignment of all reads to the current assembly using minimap2
 * Selection of solid regions
 * Partition the total alignment of all reads into mini-alignments (bubbles)
 * Error correction of each bubble using a maximum likelihood approach

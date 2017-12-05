@@ -6,16 +6,12 @@
 #include "../common/disjoint_set.h"
 #include "../common/utils.h"
 
-void MultiplicityInferer::
-	fixEdgesMultiplicity(const std::vector<GraphAlignment>& readAln)
-{
-	this->estimateByCoverage(readAln);
-}
 
+//Estimates the mean coverage and assingns edges multiplicity accordingly
 void MultiplicityInferer::
-	estimateByCoverage(const std::vector<GraphAlignment>& readAln)
+	estimateCoverage(const std::vector<GraphAlignment>& readAln)
 {
-	const int WINDOW = 100;
+	const int WINDOW = Constants::coverageEstimateWindow;
 	const int SHORT_EDGE = Constants::trustedEdgeLength;
 
 	//alternative coverage
@@ -96,4 +92,25 @@ void MultiplicityInferer::
 
 	_uniqueCovThreshold = q75(edgesCoverage);
 	Logger::get().debug() << "Unique coverage threshold " << _uniqueCovThreshold;
+}
+
+//removes edges with low coverage support from the graph
+void MultiplicityInferer::removeUnsupportedEdges()
+{
+	int coverageThreshold = this->getMeanCoverage() / Constants::readCovRate;
+	Logger::get().debug() << "Read coverage cutoff: " << coverageThreshold;
+
+	std::unordered_set<GraphEdge*> edgesRemove;
+	for (auto& edge : _graph.iterEdges())
+	{
+		GraphEdge* complEdge = _graph.complementEdge(edge);
+		if (edge->meanCoverage <= coverageThreshold)
+		{
+			edgesRemove.insert(edge);
+			edgesRemove.insert(complEdge);
+		}
+	}
+	for (auto& edge : edgesRemove) _graph.removeEdge(edge);
+	Logger::get().debug() << "Removed " << edgesRemove.size() 
+		<< " unsupported edges";
 }

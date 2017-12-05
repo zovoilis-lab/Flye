@@ -79,6 +79,8 @@ struct GraphEdge
 		return sumLen / seqSegments.size();
 	}
 
+	std::unordered_set<GraphEdge*> adjacentEdges();
+
 	GraphNode* nodeLeft;
 	GraphNode* nodeRight;
 
@@ -128,6 +130,26 @@ struct GraphNode
 			   (inDegree == 0 && outDegree == 1);
 	}
 
+	bool isTelomere() const
+	{
+		int numIn = 0;
+		int numOut = 0;
+		for (auto& edge: inEdges)
+		{
+			if (!edge->isLooped()) ++numIn;
+		}
+		for (auto& edge: outEdges)
+		{
+			if (!edge->isLooped()) ++numOut;
+		}
+		if ((bool)numIn != (bool)numOut)
+		{
+			return true;
+		}
+		return false;
+	}
+
+
 	bool isResolved() const
 	{
 		int inDegree = 0;
@@ -165,9 +187,9 @@ public:
 	{}
 
 	void build();
-	GraphPath  complementPath(const GraphPath& path);
-	GraphEdge* complementEdge(GraphEdge* edge);
-	GraphNode* complementNode(GraphNode* node);
+	GraphPath  complementPath(const GraphPath& path) const;
+	GraphEdge* complementEdge(GraphEdge* edge) const;
+	GraphNode* complementNode(GraphNode* node) const;
 
 	//nodes
 	GraphNode* addNode()
@@ -293,7 +315,6 @@ private:
 	void getGluepoints(const OverlapContainer& ovlps);
 	void initializeEdges(const OverlapContainer& asmOverlaps);
 	void collapseTandems();
-	//void collapseRedundant();
 	void logEdges();
 	
 	const SequenceContainer& _asmSeqs;

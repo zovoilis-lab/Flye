@@ -16,7 +16,7 @@ class MakeBuild(DistutilsBuild):
         DistutilsBuild.run(self)
 
 setup(name='abruijn',
-      version='0.4b',
+      version='2.2b',
       description='Long read assembly via A-Bruijn graph',
       url='https://github.com/fenderglass/ABruijn',
       author='Mikhail Kolmogorov',
@@ -25,6 +25,6 @@ setup(name='abruijn',
       packages=['abruijn'],
       package_data={'abruijn': ['resource/*.mat']},
       scripts = ['bin/abruijn-assemble', 'bin/abruijn-polish',
-                 'bin/abruijn-repeat', 'bin/abruijn'],
+                 'bin/abruijn-repeat', 'bin/abruijn', 'bin/abruijn-minimap2'],
       cmdclass={'build': MakeBuild}
       )

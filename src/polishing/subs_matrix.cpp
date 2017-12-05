@@ -41,19 +41,27 @@ namespace
 	};
 	TableFiller filler;
 
-	static const size_t NUM_STATES = 128;
-	static const size_t NUM_OBS = 65536;
-	static const double MIN_PROB = 0.001f;
-	static const double ZERO_PROB = 0.0000000001f;
+
 	static const size_t MIN_HOPO = 1;
 	static const size_t MAX_HOPO = 20;
+	static const size_t NUM_HOPO_STATES = 128;
+	static const size_t NUM_HOPO_OBS = 65536;
+	static const double MIN_HOPO_PROB = 0.001f;
+	static const double ZERO_HOPO_PROB = 0.0000000001f;
+
+	static const int32_t SCORE_MULT = 2 << 16;
+	AlnScoreType probToScore(double prob)
+	{
+		//std::cout << prob << " " << (int32_t)std::round(std::log(prob) * (double)SCORE_MULT) << "\n";
+		return std::round(std::log(prob) * (double)SCORE_MULT);
+	}
 }
 
 SubstitutionMatrix::SubstitutionMatrix(const std::string& path)
 {	
 	for (int i = 0; i < X_SIZE; i++) 
 	{
-		_matrix.push_back(std::vector<double>(Y_SIZE, 0));
+		_matrix.push_back(std::vector<AlnScoreType>(Y_SIZE, 0));
 	}
 	this->loadMatrix(path);
 }
@@ -78,33 +86,33 @@ void SubstitutionMatrix::loadMatrix(const std::string& path)
 		{
 			int index = dnaToId(items[1][0]); 
 			double probability = std::stod(items[2]);
-			_matrix[index][index] = std::log(probability);
+			_matrix[index][index] = probToScore(probability);
 		}
 		else if (items[0] == "mis") 
 		{
 			int x = dnaToId(items[1][0]);
 			int y = dnaToId(items[1][items[1].size() - 1]);
 			double probability = std::stod(items[2]);
-			_matrix[x][y] = std::log(probability);
+			_matrix[x][y] = probToScore(probability);
 		}
 		else if (items[0] == "del") 
 		{
 			int x = dnaToId(items[1][0]);
 			int y = Y_SIZE - 1;
 			double probability = std::stod(items[2]);
-			_matrix[x][y] = std::log(probability);
+			_matrix[x][y] = probToScore(probability);
 		}
 		else if (items[0] == "ins") 
 		{
 			int y = dnaToId(items[1][0]);
 			int x = X_SIZE - 1;
 			double probability = std::stod(items[2]);
-			_matrix[x][y] = std::log(probability);
+			_matrix[x][y] = probToScore(probability);
 		}	
 	}
 }
 
-double SubstitutionMatrix::getScore(char v, char w) const 
+AlnScoreType SubstitutionMatrix::getScore(char v, char w) const 
 {
 	return _matrix[dnaToId(v)][dnaToId(w)];
 }
@@ -212,11 +220,11 @@ std::string HopoMatrix::obsToStr(HopoMatrix::Observation obs)
 
 HopoMatrix::HopoMatrix(const std::string& fileName)
 {
-	for (size_t i = 0; i < NUM_STATES; ++i)
+	for (size_t i = 0; i < NUM_HOPO_STATES; ++i)
 	{
-		_observationProbs.emplace_back(NUM_OBS, std::log(MIN_PROB));
+		_observationProbs.emplace_back(NUM_HOPO_OBS, probToScore(MIN_HOPO_PROB));
 	}
-	_genomeProbs.assign(NUM_STATES, std::log(MIN_PROB));
+	_genomeProbs.assign(NUM_HOPO_STATES, probToScore(MIN_HOPO_PROB));
 	this->loadMatrix(fileName);
 }
 
@@ -225,9 +233,9 @@ HopoMatrix::HopoMatrix(const std::string& fileName)
 HopoMatrix::ObsVector HopoMatrix::knownObservations(State state) const
 {
 	ObsVector obsVector;
-	for (uint32_t obsId = 0; obsId < NUM_OBS; ++obsId)
+	for (uint32_t obsId = 0; obsId < NUM_HOPO_OBS; ++obsId)
 	{
-		if (_observationProbs[state.id][obsId] > std::log(MIN_PROB))
+		if (_observationProbs[state.id][obsId] > probToScore(MIN_HOPO_PROB))
 		{
 			obsVector.emplace_back(obsId);
 		}
@@ -247,9 +255,9 @@ void HopoMatrix::loadMatrix(const std::string& fileName)
 
 	std::vector<size_t> nucleotideFreq(5, 0);
 	std::vector<std::vector<int>> observationsFreq;
-	for (size_t i = 0; i < NUM_STATES; ++i)
+	for (size_t i = 0; i < NUM_HOPO_STATES; ++i)
 	{
-		observationsFreq.push_back(std::vector<int>(NUM_OBS, 0));
+		observationsFreq.push_back(std::vector<int>(NUM_HOPO_OBS, 0));
 	}
 
 	while (std::getline(fin, buffer))
@@ -276,22 +284,22 @@ void HopoMatrix::loadMatrix(const std::string& fileName)
 		{
 			State state(nucl, runLen);
 			int sumFreq = 0;
-			for (size_t j = 0; j < NUM_OBS; ++j)
+			for (size_t j = 0; j < NUM_HOPO_OBS; ++j)
 			{
 				sumFreq += observationsFreq[state.id][j];
 			}
 			double prob = (double)sumFreq / nucleotideFreq[dnaToId(state.nucl)];
-			_genomeProbs[state.id] = std::log(std::max(prob, ZERO_PROB));
+			_genomeProbs[state.id] = probToScore(std::max(prob, ZERO_HOPO_PROB));
 			//std::cerr << state.length << state.nucl << "\t" << _genomeProbs[state.id] 
 			//		  << "\t" << sumFreq << "\t" << nucleotideFreq[dnaToId(state.nucl)]
 			//		  << std::endl;
 
 			if (sumFreq == 0) continue;
-			for (size_t j = 0; j < NUM_OBS; ++j)
+			for (size_t j = 0; j < NUM_HOPO_OBS; ++j)
 			{
 				double prob = (double)observationsFreq[state.id][j] / sumFreq;
 				_observationProbs[state.id][j] = 
-									std::log(std::max(prob, MIN_PROB));
+									probToScore(std::max(prob, MIN_HOPO_PROB));
 			}
 		}
 	}

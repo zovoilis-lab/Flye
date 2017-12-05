@@ -8,7 +8,7 @@
 
 #include "../sequence/sequence_container.h"
 #include "../sequence/overlap.h"
-#include "../sequence/contig_generator.h"
+#include "../sequence/consensus_generator.h"
 #include "chimera.h"
 
 class Extender

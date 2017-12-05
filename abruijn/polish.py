@@ -44,7 +44,7 @@ def check_binaries():
         raise PolishException(str(e))
 
 
-def polish(bubbles, num_proc, err_mode, work_dir, iter_id):
+def polish(bubbles_file, num_proc, err_mode, work_dir, iter_id, out_polished):
     _ROOT = get_root()
 
     subs_matrix = os.path.join(_ROOT, 'resource',
@@ -52,14 +52,14 @@ def polish(bubbles, num_proc, err_mode, work_dir, iter_id):
     hopo_matrix = os.path.join(_ROOT, 'resource',
                                config.vals["err_modes"][err_mode]["hopo_matrix"])
 
-    bubbles_file = os.path.join(work_dir, "bubbles_{0}.fasta".format(iter_id))
-    bbl.output_bubbles(bubbles, bubbles_file)
     consensus_out = os.path.join(work_dir, "consensus_{0}.fasta"
-                                                             .format(iter_id))
-
+                                                .format(iter_id))
     _run_polish_bin(bubbles_file, subs_matrix, hopo_matrix,
                     consensus_out, num_proc)
-    return _compose_sequence([consensus_out])
+    polished_fasta, polished_lengths = _compose_sequence([consensus_out])
+    fp.write_fasta_dict(polished_fasta, out_polished)
+
+    return polished_lengths
 
 
 def _run_polish_bin(bubbles_in, subs_matrix, hopo_matrix,
@@ -97,12 +97,12 @@ def _compose_sequence(consensus_files):
                 header = not header
 
     polished_fasta = {}
+    polished_stats = {}
     for ctg_id, seqs in consensuses.iteritems():
         sorted_seqs = map(lambda p: p[1], sorted(seqs, key=lambda p: p[0]))
         concat_seq = "".join(sorted_seqs)
         mean_coverage = sum(coverage[ctg_id]) / len(coverage[ctg_id])
-        extended_id = "{0}_len:{1}_cov:{2}".format(ctg_id, len(concat_seq),
-                                                   mean_coverage)
-        polished_fasta[extended_id] = concat_seq
+        polished_fasta[ctg_id] = concat_seq
+        polished_stats[ctg_id] = len(concat_seq)
 
-    return polished_fasta
+    return polished_fasta, polished_stats

@@ -2,6 +2,10 @@
 //This file is a part of ABruijn program.
 //Released under the BSD license (see LICENSE file)
 
+//Does the "conventional" resolution of bridged repeats.
+//Also, classifies edges into unique and repetitive based
+//on read alignment
+
 #pragma once
 
 #include "repeat_graph.h"
@@ -20,7 +24,6 @@ public:
 
 	void findRepeats();
 	void resolveRepeats();
-	void removeUnsupportedEdges();
 
 private:
 	struct Connection

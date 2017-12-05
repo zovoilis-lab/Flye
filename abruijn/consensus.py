@@ -12,8 +12,9 @@ from itertools import izip
 import multiprocessing
 import signal
 
-from abruijn.alignment import shift_gaps, SynchronizedReader
+from abruijn.alignment import shift_gaps, SynchronizedSamReader
 import abruijn.config as config
+import abruijn.fasta_parser as fp
 
 logger = logging.getLogger()
 
@@ -24,35 +25,34 @@ class Profile:
         self.insertions = defaultdict(str)
         self.matches = defaultdict(int)
         self.nucl = "-"
-        #self.length = length
-        #self.insertions = [defaultdict(str) for _ in xrange(length)]
-        #self.matches = [defaultdict(int) for _ in xrange(length)]
-        #self.nucl = ["-" for _ in xrange(length)]
 
-
-def _thread_worker(blasr_reader, contigs_info, results_queue,
+def _thread_worker(aln_reader, contigs_info, platform, results_queue,
                    error_queue):
     try:
-        blasr_reader.init_reading()
+        aln_reader.init_reading()
 
-        while not blasr_reader.is_eof():
-            ctg_id, ctg_aln = blasr_reader.get_chunk()
+        while not aln_reader.is_eof():
+            ctg_id, ctg_aln = aln_reader.get_chunk()
             if ctg_id is None:
                 break
 
-            profile = _contig_profile(ctg_aln, contigs_info[ctg_id].length)
-            sequence = _flattern_profile(profile)
-            results_queue.put((ctg_id, sequence))
+            profile, aln_errors = _contig_profile(ctg_aln, platform,
+                                                  contigs_info[ctg_id].length)
+            sequence = _flatten_profile(profile)
+            results_queue.put((ctg_id, sequence, aln_errors))
 
     except Exception as e:
         error_queue.put(e)
 
 
-def get_consensus(alignment_path, contigs_info, num_proc):
+def get_consensus(alignment_path, contigs_path, contigs_info, min_aln_length,
+                  platform, num_proc):
     """
     Main function
     """
-    blasr_reader = SynchronizedReader(alignment_path)
+    aln_reader = SynchronizedSamReader(alignment_path,
+                                       fp.read_fasta_dict(contigs_path),
+                                       min_aln_length)
     manager = multiprocessing.Manager()
     results_queue = manager.Queue()
     error_queue = manager.Queue()
@@ -62,8 +62,9 @@ def get_consensus(alignment_path, contigs_info, num_proc):
     threads = []
     for _ in xrange(num_proc):
         threads.append(multiprocessing.Process(target=_thread_worker,
-                                               args=(blasr_reader, contigs_info,
-                                                     results_queue, error_queue)))
+                                               args=(aln_reader, contigs_info,
+                                                     platform, results_queue,
+                                                     error_queue)))
     signal.signal(signal.SIGINT, orig_sigint)
 
     for t in threads:
@@ -79,25 +80,29 @@ def get_consensus(alignment_path, contigs_info, num_proc):
         raise error_queue.get()
 
     out_fasta = {}
+    total_aln_errors = []
     while not results_queue.empty():
-        ctg_id, ctg_seq = results_queue.get()
+        ctg_id, ctg_seq, aln_errors = results_queue.get()
+        total_aln_errors.extend(aln_errors)
         if len(ctg_seq) > 0:
             out_fasta[ctg_id] = ctg_seq
+
+    mean_aln_error = float(sum(total_aln_errors)) / (len(total_aln_errors) + 1)
+    logger.debug("Alignment error rate: {0}".format(mean_aln_error))
 
     return out_fasta
 
 
-def _contig_profile(alignment, genome_len):
+def _contig_profile(alignment, platform, genome_len):
     """
     Computes alignment profile
     """
-    MIN_ALIGNMENT = config.vals["min_alignment_length"]
-
-    #profile = Profile(genome_len)
+    max_aln_err = config.vals["err_modes"][platform]["max_aln_error"]
+    aln_errors = []
     profile = [Profile() for _ in xrange(genome_len)]
     for aln in alignment:
-        if aln.err_rate > 0.5 or aln.trg_end - aln.trg_start < MIN_ALIGNMENT:
-            continue
+        #if aln.err_rate > max_aln_err: continue
+        aln_errors.append(aln.err_rate)
 
         qry_seq = shift_gaps(aln.trg_seq, aln.qry_seq)
         trg_seq = shift_gaps(qry_seq, aln.trg_seq)
@@ -111,24 +116,20 @@ def _contig_profile(alignment, genome_len):
 
             prof_elem = profile[trg_pos]
             if trg_nuc == "-":
-                #profile.insertions[trg_pos][aln.qry_id] += qry_nuc
                 prof_elem.insertions[aln.qry_id] += qry_nuc
             else:
-                #profile.nucl[trg_pos] = trg_nuc
                 prof_elem.nucl = trg_nuc
-                #profile.matches[trg_pos][qry_nuc] += 1
                 prof_elem.matches[qry_nuc] += 1
 
             trg_pos += 1
 
-    return profile
+    return profile, aln_errors
 
 
-def _flattern_profile(profile):
+def _flatten_profile(profile):
     growing_seq = []
     ins_group = defaultdict(int)
 
-    #for i in xrange(profile.length):
     for elem in profile:
         pos_matches = elem.matches
         pos_insertions = elem.insertions

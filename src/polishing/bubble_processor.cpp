@@ -4,6 +4,7 @@
 
 #include <chrono>
 #include <thread>
+#include <sys/stat.h>
 
 #include "bubble_processor.h"
 
@@ -11,9 +12,9 @@ namespace
 {
 	size_t fileSize(const std::string& filename)
 	{
-		std::ifstream in(filename);
-		in.ignore(std::numeric_limits<std::streamsize>::max());
-	    return in.gcount();
+		struct stat st;
+		if (stat(filename.c_str(), &st) != 0) return 0;
+		return st.st_size;
 	}
 }
 

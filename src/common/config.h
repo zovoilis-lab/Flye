@@ -36,6 +36,7 @@ namespace Constants
 	const float minRepeatResSupport = 0.5f;
 	const int outPathsRatio = 5;
 	const int readCovRate = 100;
+	const int coverageEstimateWindow = 100;
 
 	//index construction parameters
 	const int assembleKmerSample = 5;

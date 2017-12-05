@@ -6,7 +6,7 @@
 #include <algorithm>
 #include <fstream>
 
-#include "contig_generator.h"
+#include "consensus_generator.h"
 
 #include "../common/config.h"
 #include "../common/logger.h"
@@ -91,8 +91,8 @@ namespace
 		}
 
 		//backtrack
-		outOne.reserve(seqOne.length() * 9 / 8);
-		outTwo.reserve(seqTwo.length() * 9 / 8);
+		outOne.reserve(seqOne.length() * 3 / 2);
+		outTwo.reserve(seqTwo.length() * 3 / 2);
 
 		int i = numRows - 1;
 		int j = bandWidth - (int)numRows + (int)seqTwo.length() + 1;
@@ -125,31 +125,36 @@ namespace
 }
 
 
-void ContigGenerator::generateContigs(const std::vector<ContigPath>& contigs)
+std::vector<FastaRecord> 
+	ConsensusGenerator::generateConsensuses(const std::vector<ContigPath>& contigs, 
+											bool verbose)
 {
-	Logger::get().info() << "Generating contig sequences";
+	if (verbose) Logger::get().info() << "Generating contig sequences";
+	std::vector<std::vector<AlignmentInfo>> allAlignments;
+	std::vector<FastaRecord> consensuses;
 
-	for (const ContigPath& path : contigs)
+	auto alnMap = this->generateAlignments(contigs, verbose);
+	//then, generate contig sequences
+	for (size_t i = 0; i < contigs.size(); ++i)
 	{
-		if (path.sequences.size() < 2) 
+		if (contigs[i].sequences.empty()) continue;
+		if (contigs[i].sequences.size() == 1)
 		{
-			if (!path.sequences.empty())
-			{
-				FastaRecord rec(path.sequences.front(), path.name, 
-								FastaRecord::ID_NONE);
-				_contigs.push_back({rec});
-			}
-			continue;
+			FastaRecord rec(contigs[i].sequences.front(), contigs[i].name, 
+							FastaRecord::ID_NONE);
+			consensuses.push_back(rec);
 		}
-
-		std::vector<FastaRecord> contigParts;
-		_contigs.push_back(this->generateLinear(path));
+		else
+		{
+			consensuses.push_back(this->generateLinear(contigs[i], alnMap));
+		}
 	}
+	return consensuses;
 }
 
-FastaRecord ContigGenerator::generateLinear(const ContigPath& path)
+FastaRecord ConsensusGenerator::generateLinear(const ContigPath& path, 
+											   const AlignmentsMap& alnMap)
 {
-	auto alignments = this->generateAlignments(path);
 	std::vector<FastaRecord> contigParts;
 
 	auto prevSwitch = std::make_pair(0, 0);
@@ -161,8 +166,9 @@ FastaRecord ContigGenerator::generateLinear(const ContigPath& path)
 		int32_t rightCut = sequence.length();
 		if (i != path.sequences.size() - 1)
 		{
-			auto curSwitch = this->getSwitchPositions(alignments[i], 
-													  prevSwitch.second);
+			auto curSwitch = 
+				this->getSwitchPositions(alnMap.at(&path.overlaps[i]),
+										 prevSwitch.second);
 			rightCut = curSwitch.first;
 			prevSwitch = curSwitch;
 		}
@@ -174,31 +180,28 @@ FastaRecord ContigGenerator::generateLinear(const ContigPath& path)
 }
 
 
-void ContigGenerator::outputContigs(const std::string& fileName)
+ConsensusGenerator::AlignmentsMap 
+	ConsensusGenerator::generateAlignments(const std::vector<ContigPath>& contigs,
+										   bool verbose)
 {
-	SequenceContainer::writeFasta(_contigs, fileName);
-}
+	typedef std::pair<const ContigPath*, size_t> AlnTask;
 
-
-std::vector<ContigGenerator::AlignmentInfo> 
-ContigGenerator::generateAlignments(const ContigPath& path)
-{
-	if (path.sequences.size() < 2) return {};
-
-	typedef size_t AlnTask;
-
-	std::vector<AlignmentInfo> alnResults;
+	AlignmentsMap alnMap;
+	std::mutex mapMutex;
 	std::function<void(const AlnTask&)> alnFunc =
-	[this, &alnResults, &path](const AlnTask& i)
+	[this, &alnMap, &mapMutex](const AlnTask& task)
 	{
-		int32_t leftStart = path.overlaps[i].curBegin;
-		int32_t leftLen = path.overlaps[i].curRange();
-		std::string leftSeq = path.sequences[i].substr(leftStart, leftLen).str();
+		const ContigPath* path = task.first;
+		size_t i = task.second;
 
-		int32_t rightStart = path.overlaps[i].extBegin;
-		int32_t rightLen = path.overlaps[i].extRange();
-		std::string rightSeq = path.sequences[i + 1].substr(rightStart, 
-															rightLen).str();
+		int32_t leftStart = path->overlaps[i].curBegin;
+		int32_t leftLen = path->overlaps[i].curRange();
+		std::string leftSeq = path->sequences[i].substr(leftStart, leftLen).str();
+
+		int32_t rightStart = path->overlaps[i].extBegin;
+		int32_t rightLen = path->overlaps[i].extRange();
+		std::string rightSeq = path->sequences[i + 1].substr(rightStart, 
+															 rightLen).str();
 		
 		const int bandWidth = abs((int)leftSeq.length() - 
 								  (int)rightSeq.length()) + 
@@ -215,24 +218,29 @@ ContigGenerator::generateAlignments(const ContigPath& path)
 		pairwiseAlignment(leftSeq, rightSeq, alignedLeft, 
 						  alignedRight, bandWidth);
 
-		alnResults[i] = {alignedLeft, alignedRight, 
-						 leftStart, rightStart};
+		{
+			std::lock_guard<std::mutex> lock(mapMutex);
+			alnMap[&path->overlaps[i]] = {alignedLeft, alignedRight, 
+						 				  leftStart, rightStart};
+		}
 	};
 
 	std::vector<AlnTask> tasks;
-	for (size_t i = 0; i < path.sequences.size() - 1; ++i)
+	for (auto& path : contigs)
 	{
-		tasks.push_back(i);
+		for (size_t i = 0; i < path.sequences.size() - 1; ++i)
+		{
+			tasks.emplace_back(&path, i);
+		}
 	}
-	alnResults.resize(tasks.size());
-	processInParallel(tasks, alnFunc, Parameters::get().numThreads, false);
+	processInParallel(tasks, alnFunc, Parameters::get().numThreads, verbose);
 
-	return alnResults;
+	return alnMap;
 }
 
 
 std::pair<int32_t, int32_t> 
-ContigGenerator::getSwitchPositions(const AlignmentInfo& aln,
+ConsensusGenerator::getSwitchPositions(const AlignmentInfo& aln,
 									int32_t prevSwitch)
 {
 	int leftPos = aln.startOne;

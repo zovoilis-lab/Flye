@@ -11,7 +11,7 @@ void DinucleotideFixer::fixBubble(Bubble& bubble) const
 						     const std::vector<std::string>& branches)
 	{
 		Alignment align(branches.size(), _subsMatrix);
-		double score = 0;
+		AlnScoreType score = 0;
 		for (size_t i = 0; i < branches.size(); ++i) 
 		{
 			score += align.globalAlignment(candidate, branches[i], i);
@@ -29,9 +29,9 @@ void DinucleotideFixer::fixBubble(Bubble& bubble) const
 	std::string decreased = bubble.candidate;
 	decreased.erase(runPair.first, 2);
 
-	double normalScore = likelihood(bubble.candidate, bubble.branches);
-	double increasedScore = likelihood(increased, bubble.branches);
-	double decreasedScore = likelihood(decreased, bubble.branches);
+	AlnScoreType normalScore = likelihood(bubble.candidate, bubble.branches);
+	AlnScoreType increasedScore = likelihood(increased, bubble.branches);
+	AlnScoreType decreasedScore = likelihood(decreased, bubble.branches);
 
 	/*
 	if (increasedScore > normalScore || decreasedScore > normalScore)

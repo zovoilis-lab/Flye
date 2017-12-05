@@ -44,7 +44,7 @@ def assemble(args, out_file, log_file):
         cmdline.extend(["-m", str(args.min_kmer_count)])
     if args.max_kmer_count is not None:
         cmdline.extend(["-x", str(args.max_kmer_count)])
-    cmdline.extend([args.reads, out_file, str(args.coverage)])
+    cmdline.extend([args.reads, out_file, str(args.genome_size)])
 
     try:
         subprocess.check_call(cmdline)

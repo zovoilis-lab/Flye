@@ -14,9 +14,9 @@ step, which improves the structural accuracy of the resulting sequence.
 The algorithm also produces a graph representation of the final assembly.
 
 ABruijn has moderate memory requirements and is designed to run on a single node.
-Typically, assembly of a bacteria with 50x coverage takes less than half an hour 
-on a modern desktop and yeast assembly takes about 2 hours. A metagenome of total size 200 Mbp
-can be assembled within a day on using 70Gb of memory and 20 CPUs.
+Typically, assembly of a bacteria or yeast assembly takes less than half an hour 
+on a modern desktop. A whole human genome with 30x coverage could be assembled 
+within a week on a node with 32 CPUs and 800Gb RAM.
 
 Install
 -------
@@ -41,7 +41,7 @@ ABruijn package includes some third-party software:
 * libcuckoo [http://github.com/efficient/libcuckoo]
 * intervaltree [https://github.com/ekg/intervaltree]
 * lemon [http://lemon.cs.elte.hu/trac/lemon]
-* BLASR [https://github.com/PacificBiosciences/blasr]
+* minimap2 [https://github.com/lh3/minimap2]
 
 
 License

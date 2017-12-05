@@ -2,11 +2,16 @@
 //This file is a part of ABruijn program.
 //Released under the BSD license (see LICENSE file)
 
+//This module provides a few repeat graph processing functions
+//that do no require reads alignment (e.g. only graph sctructure is used)
+
 #pragma once
 
 #include "repeat_graph.h"
 #include "repeat_resolver.h"
 
+//Represents an unbranching path in the graph.
+//Used to represent contigs and more
 struct UnbranchingPath
 {
 	UnbranchingPath(const GraphPath& path, 
@@ -17,16 +22,14 @@ struct UnbranchingPath
 
 	std::string name() const
 	{
-		std::string nameTag = circular ? "circular" : "linear";
-		return nameTag + "_" + std::to_string(id.signedId());
+		return "contig_" + std::to_string(id.signedId());
 	}
 
 	std::string nameUnsigned() const
 	{
-		std::string nameTag = circular ? "circular" : "linear";
 		std::string idTag = id.strand() ? std::to_string(id.signedId()) : 
 										  std::to_string(id.rc().signedId());
-		return nameTag + "_" + idTag;
+		return "contig_" + idTag;
 	}
 
 	std::string edgesStr() const
@@ -43,16 +46,21 @@ struct UnbranchingPath
 		return contentsStr;
 	}
 
+	bool isLoop() const
+	{
+		return path.front()->nodeLeft == path.back()->nodeRight;
+	}
+
 	GraphPath path;
 	FastaRecord::Id id;
-	std::string sequence;
 	bool circular;
 	bool repetitive;
-	int length;
-	int meanCoverage;
+	int  length;
+	int  meanCoverage;
 };
 
-
+//A class for basic repeat graph processing
+//Condencing edges, collapsing bulges, trimming tips etc.
 class GraphProcessor
 {
 public:
@@ -61,14 +69,14 @@ public:
 		_graph(graph), _asmSeqs(asmSeqs), _readSeqs(readSeqs),
 		_tipThreshold(Parameters::get().minimumOverlap) {}
 
-	void condence();
+	void simplify();
 	void fixChimericJunctions();
-	std::vector<UnbranchingPath> getUnbranchingPaths();
+	std::vector<UnbranchingPath> getUnbranchingPaths() const;
+	std::vector<UnbranchingPath> getEdgesPaths() const;
 
 private:
 	void trimTips();
 	void condenceEdges();
-	void updateEdgesMultiplicity();
 	void collapseBulges();
 
 	RepeatGraph& _graph;

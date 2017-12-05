@@ -26,9 +26,9 @@ void StructureResolver::unrollLoops()
 						 SequenceSegment segment,
 						 std::vector<FastaRecord::Id> ids)
 	{
-		int mult = loop->multiplicity;
+		int mult = std::max(loop->multiplicity, 1);
 		_graph.removeEdge(loop);
-		if (mult == 0) return;
+		//if (mult == 0) return;
 
 		GraphNode* lastNode = leftEdge->nodeRight;
 		for (int i = 0; i < mult; ++i)
@@ -60,7 +60,9 @@ void StructureResolver::unrollLoops()
 		auto segment = edge->seqSegments[edge->seqSegments.size() / 2];
 		std::vector<FastaRecord::Id> fwdIds;
 		std::vector<FastaRecord::Id> revIds;
-		for (int i = 0; i < edge->multiplicity; ++i)
+
+		int mult = std::max(edge->multiplicity, 1);
+		for (int i = 0; i < mult; ++i)
 		{
 			fwdIds.emplace_back(_graph.newEdgeId());
 			revIds.emplace_back(fwdIds.back().rc());
@@ -68,7 +70,7 @@ void StructureResolver::unrollLoops()
 		std::reverse(revIds.begin(), revIds.end());
 
 		Logger::get().debug() << "Unrolling " << edge->edgeId.signedId()
-			<< " of multiplicity " << edge->multiplicity;
+			<< " of multiplicity " << mult;
 
 		GraphEdge* complLoop = _graph.complementEdge(edge);
 		unroll(leftEdge, edge, rightEdge, segment, fwdIds);

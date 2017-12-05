@@ -56,6 +56,8 @@ public:
 		_data = new SharedBuffer;
 		++_data->useCount;
 
+		if (string.empty()) return;
+
 		_data->length = string.length();
 		_data->chunks.assign((_data->length - 1) / NUCL_IN_CHUNK + 1, 0);
 		for (size_t i = 0; i < string.length(); ++i)

@@ -2,11 +2,15 @@
 //This file is a part of ABruijn program.
 //Released under the BSD license (see LICENSE file)
 
+//Given contigs, represented as list of possibly overlapping sequences
+//generate a single consensus sequence for each contig
+
 #pragma once
 
 #include <vector>
 
 #include "../sequence/overlap.h"
+
 
 struct ContigPath
 {
@@ -17,12 +21,12 @@ struct ContigPath
 	std::vector<OverlapRange> overlaps;
 };
 
-class ContigGenerator
+class ConsensusGenerator
 {
 public:
-	void generateContigs(const std::vector<ContigPath>& contigs);
-	void outputContigs(const std::string& fileName);
-	FastaRecord generateLinear(const ContigPath& path);
+	std::vector<FastaRecord> 
+		generateConsensuses(const std::vector<ContigPath>& contigs, 
+							bool verbose = true);
 	
 private:
 	struct AlignmentInfo
@@ -33,10 +37,13 @@ private:
 		int32_t startOne;
 		int32_t startTwo;
 	};
-	
-	std::vector<AlignmentInfo> generateAlignments(const ContigPath& path);
+	typedef std::unordered_map<const OverlapRange*, 
+							   AlignmentInfo> AlignmentsMap;
+
+	FastaRecord generateLinear(const ContigPath& path, 
+							   const AlignmentsMap& alnMap);
+	AlignmentsMap generateAlignments(const std::vector<ContigPath>& contigs, 
+									 bool verbose);
 	std::pair<int32_t, int32_t> getSwitchPositions(const AlignmentInfo& aln,
 												   int32_t prevSwitch);
-
-	std::vector<FastaRecord> _contigs;
 };

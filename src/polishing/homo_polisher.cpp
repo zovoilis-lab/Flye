@@ -16,10 +16,10 @@ namespace
 						   const SubstitutionMatrix& subsMat,
 						   std::string& outOne, std::string& outTwo)
 	{
-		Matrix<double> scoreMat(seqOne.length() + 1, seqTwo.length() + 1);
+		Matrix<AlnScoreType> scoreMat(seqOne.length() + 1, seqTwo.length() + 1);
 		Matrix<char> backtrackMat(seqOne.length() + 1, seqTwo.length() + 1);
 
-		scoreMat.at(0, 0) = 0.0f;
+		scoreMat.at(0, 0) = 0;
 		backtrackMat.at(0, 0) = 0;
 		for (size_t i = 0; i < seqOne.length(); ++i) 
 		{
@@ -39,15 +39,15 @@ namespace
 		{
 			for (size_t j = 1; j < seqTwo.length() + 1; ++j) 
 			{
-				double left = scoreMat.at(i, j - 1) + 
-							 subsMat.getScore('-', seqTwo[j - 1]);
-				double up = scoreMat.at(i - 1, j) + 
-							subsMat.getScore(seqOne[i - 1], '-');
-				double cross = scoreMat.at(i - 1, j - 1) + 
-							  subsMat.getScore(seqOne[i - 1], seqTwo[j - 1]);
+				AlnScoreType left = scoreMat.at(i, j - 1) + 
+							 		subsMat.getScore('-', seqTwo[j - 1]);
+				AlnScoreType up = scoreMat.at(i - 1, j) + 
+								  subsMat.getScore(seqOne[i - 1], '-');
+				AlnScoreType cross = scoreMat.at(i - 1, j - 1) + 
+							  		 subsMat.getScore(seqOne[i - 1], seqTwo[j - 1]);
 
 				int prev = 2;
-				double score = cross;
+				AlnScoreType score = cross;
 				if (up > score)
 				{
 					prev = 1;
@@ -171,7 +171,6 @@ namespace
 //processes a single bubble
 void HomoPolisher::polishBubble(Bubble& bubble) const
 {
-	//if (bubble.position != 139807) return;
 	std::string prevCandidate;
 	std::string curCandidate = bubble.candidate;
 
@@ -226,11 +225,11 @@ void HomoPolisher::polishBubble(Bubble& bubble) const
 	}
 }
 
-//likelihood of a goven state
-double HomoPolisher::likelihood(HopoMatrix::State state, 
+//likelihood of a given state
+AlnScoreType HomoPolisher::likelihood(HopoMatrix::State state, 
 								const HopoMatrix::ObsVector& observations) const
 {
-	double likelihood = 0.0f;
+	AlnScoreType likelihood = 0.0f;
 	for (auto obs : observations)
 	{
 		if (obs.extactMatch)
@@ -252,12 +251,12 @@ size_t HomoPolisher::mostLikelyLen(char nucleotide,
 	const size_t MIN_HOPO = 1;
 	const size_t MAX_HOPO = 20;
 
-	typedef std::pair<double, size_t> ScorePair;
+	typedef std::pair<AlnScoreType, size_t> ScorePair;
 	std::vector<ScorePair> scores;
 	for (size_t len = MIN_HOPO; len <= MAX_HOPO; ++len)
 	{
 		auto newState = HopoMatrix::State(nucleotide, len);
-		double likelihood = this->likelihood(newState, observations);
+		AlnScoreType likelihood = this->likelihood(newState, observations);
 		scores.push_back(std::make_pair(likelihood, len));
 	}
 
@@ -299,7 +298,7 @@ size_t HomoPolisher::compareTopTwo(char nucleotide, size_t firstChoice,
 		if (commonSet.count(obs.id)) commonObservations.push_back(obs);
 	}
 
-	double likelihoods[2];
+	AlnScoreType likelihoods[2];
 	for (size_t i = 0; i < 2; ++i)
 	{
 		auto state = HopoMatrix::State(nucleotide, choices[i]);

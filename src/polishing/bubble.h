@@ -7,10 +7,12 @@
 #include <string>
 #include <vector>
 
+#include "subs_matrix.h"
+
 struct StepInfo 
 {
 	std::string sequence;
-	double 	 score;
+	AlnScoreType score;
 
 	StepInfo(): score(0.0f) {}
 };

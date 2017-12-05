@@ -24,31 +24,52 @@ void VertexIndex::countKmers(size_t hardThreshold)
 	Logger::get().debug() << "Started kmer counting";
 
 	size_t preCountSize = 1024 * 1024 * 1024;	//1G by default
-	if (Parameters::get().kmerSize > 15)
+	if (Parameters::get().kmerSize > 15)		//4 ^ 15 = 1G
 	{
-		preCountSize *= 4;	//4G in case of larger k-mers
+		preCountSize *= 4 * 4;					//16G in case of larger k-mers
 	}
-	std::vector<unsigned char> preCounters(preCountSize, 0);
+	auto preCounters = new std::atomic<unsigned char>[preCountSize];
+	for (size_t i = 0; i < preCountSize; ++i) preCounters[i] = 0;
 
-	//filling up bloom filter
-	if (_outputProgress) Logger::get().info() << "Counting kmers (1/2):";
-	ProgressPercent bloomProg(_seqContainer.getIndex().size());
-	for (auto& seqPair : _seqContainer.getIndex())
+	std::vector<FastaRecord::Id> allReads;
+	for (auto& hashPair : _seqContainer.getIndex())
 	{
-		if (_outputProgress) bloomProg.advance();
+		allReads.push_back(hashPair.first);
+	}
 
-		if (!seqPair.first.strand()) continue;
-
-		for (auto kmerPos : IterKmers(_seqContainer.getSeq(seqPair.first)))
+	//first pass: filling up naive hash counting filter
+	if (_outputProgress) Logger::get().info() << "Counting kmers (1/2):";
+	std::function<void(const FastaRecord::Id&)> preCountUpdate = 
+	[&preCounters, hardThreshold, this, preCountSize] 
+		(const FastaRecord::Id& readId)
+	{
+		if (!readId.strand()) return;
+		
+		for (auto kmerPos : IterKmers(_seqContainer.getSeq(readId)))
 		{
 			kmerPos.kmer.standardForm();
-			if (preCounters[kmerPos.kmer.hash() % preCountSize] != 
-				std::numeric_limits<unsigned char>::max())
-				++preCounters[kmerPos.kmer.hash() % preCountSize];
-		}
-	}
+			size_t kmerBucket = kmerPos.kmer.hash() % preCountSize;
 
-	//counting only kmers that have passed the filter
+			unsigned char expected = 0;
+			while (true)
+			{
+				expected = preCounters[kmerBucket]; 
+				if (expected == std::numeric_limits<unsigned char>::max()) 
+				{
+					break;
+				}
+				if (preCounters[kmerBucket]
+						.compare_exchange_weak(expected, expected + 1))
+				{
+					break;
+				}
+			}
+		}
+	};
+	processInParallel(allReads, preCountUpdate, 
+					  Parameters::get().numThreads, _outputProgress);
+
+	//second pass: counting kmers that have passed the filter
 	if (_outputProgress) Logger::get().info() << "Counting kmers (2/2):";
 
 	std::function<void(const FastaRecord::Id&)> countUpdate = 
@@ -67,11 +88,6 @@ void VertexIndex::countKmers(size_t hardThreshold)
 			}
 		}
 	};
-	std::vector<FastaRecord::Id> allReads;
-	for (auto& hashPair : _seqContainer.getIndex())
-	{
-		allReads.push_back(hashPair.first);
-	}
 	processInParallel(allReads, countUpdate, 
 					  Parameters::get().numThreads, _outputProgress);
 	
@@ -79,23 +95,61 @@ void VertexIndex::countKmers(size_t hardThreshold)
 	{
 		_kmerDistribution[kmer.second] += 1;
 	}
+	delete[] preCounters;
 }
 
 
 void VertexIndex::buildIndex(int minCoverage, int maxCoverage, int filterRatio)
 {
 	if (_outputProgress) Logger::get().info() << "Filling index table";
-
+	
+	//"Replacing" k-mer couns with k-mer index. We need multiple passes
+	//to avoid peaks in memory usage during the has table extensions +
+	//prevent memory fragmentation
+	
 	size_t kmerEntries = 0;
-	for (auto kmer : _kmerCounts.lock_table())
+	size_t solidKmers = 0;
+	for (auto& kmer : _kmerCounts.lock_table())
 	{
 		if ((size_t)minCoverage <= kmer.second && 
 			kmer.second <= (size_t)maxCoverage)
 		{
 			kmerEntries += kmer.second;
+			++solidKmers;
 		}
 	}
+	Logger::get().debug() << "Solid kmers: " << solidKmers;
 	Logger::get().debug() << "Kmer index size: " << kmerEntries;
+
+	_kmerIndex.reserve(solidKmers);
+	for (auto& kmer : _kmerCounts.lock_table())
+	{
+		if ((size_t)minCoverage <= kmer.second && 
+			kmer.second <= (size_t)maxCoverage)
+		{
+			ReadVector rv{(uint32_t)kmer.second, 0, nullptr};
+			_kmerIndex.insert(kmer.first, rv);
+		}
+	}
+	_kmerCounts.clear();
+	_kmerCounts.reserve(0);
+
+	_memoryChunks.push_back(new ReadPosition[INDEX_CHUNK]);
+	size_t chunkOffset = 0;
+	size_t wasted = 0;
+	for (auto& kmer : _kmerIndex.lock_table())
+	{
+		if (INDEX_CHUNK - chunkOffset < kmer.second.capacity)
+		{
+			wasted += INDEX_CHUNK - chunkOffset;
+			_memoryChunks.push_back(new ReadPosition[INDEX_CHUNK]);
+			chunkOffset = 0;
+		}
+		kmer.second.data = _memoryChunks.back() + chunkOffset;
+		chunkOffset += kmer.second.capacity;
+	}
+	Logger::get().debug() << "Total chunks " << _memoryChunks.size()
+		<< " wasted space: " << wasted;
 
 	std::function<void(const FastaRecord::Id&)> indexUpdate = 
 	[minCoverage, maxCoverage, filterRatio, this] 
@@ -118,29 +172,13 @@ void VertexIndex::buildIndex(int minCoverage, int maxCoverage, int filterRatio)
 			//subsampling
 			if (kmerPos.position % filterRatio != 0) continue;
 
-			size_t count = 0;
-			_kmerCounts.find(kmerPos.kmer, count);
-
-			if ((int)count < minCoverage) continue;
-			if ((int)count > maxCoverage)
-			{
-				//downsampling, so as to have approximately
-				//maxCoverage k-mer instances
-				//if (rand() % (int)count > maxCoverage / 10) continue;
-				continue;
-			}
-
-			//all good
-			_kmerIndex.insert(kmerPos.kmer, nullptr);
 			_kmerIndex.update_fn(kmerPos.kmer, 
-				[targetRead, &kmerPos, count](ReadVector*& vec)
+				[targetRead, &kmerPos](ReadVector& rv)
 				{
-					if (vec == nullptr)
-					{
-						vec = new ReadVector;
-						vec->reserve(count);
-					}
-					vec->emplace_back(targetRead, kmerPos.position);
+
+					rv.data[rv.size] = ReadPosition(targetRead, 
+													kmerPos.position);
+					++rv.size;
 				});
 		}
 	};
@@ -151,18 +189,14 @@ void VertexIndex::buildIndex(int minCoverage, int maxCoverage, int filterRatio)
 	}
 	processInParallel(allReads, indexUpdate, 
 					  Parameters::get().numThreads, _outputProgress);
-
-	_kmerCounts.clear();
-	_kmerCounts.reserve(0);
 }
 
 
 void VertexIndex::clear()
 {
-	for (auto kmerHash : _kmerIndex.lock_table())
-	{
-		delete kmerHash.second;
-	}
+	for (auto& chunk : _memoryChunks) delete[] chunk;
+	_memoryChunks.clear();
+
 	_kmerIndex.clear();
 	_kmerIndex.reserve(0);
 
