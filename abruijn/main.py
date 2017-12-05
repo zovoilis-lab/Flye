@@ -136,35 +136,53 @@ class JobFinalize(Job):
         shutil.copy2(self.contigs_file, self.out_files["contigs"])
         shutil.copy2(self.graph_file, self.out_files["graph"])
 
+        contigs_length = {}
+        contigs_coverage = {}
         repeat_stats = {}
         table_lines = open(self.repeat_stats, "r").readlines()
         header_line = table_lines[0]
         for line in table_lines[1:]:
             tokens = line.strip().split("\t")
             repeat_stats[tokens[0]] = tokens[1:]
+            if self.polished_stats is None:
+                contigs_length[tokens[0]] = int(tokens[1])
+                contigs_coverage[tokens[0]] = int(tokens[2])
 
         if self.polished_stats is not None:
-            polished_stats = {}
             for line in open(self.polished_stats, "r").readlines()[1:]:
                 tokens = line.strip().split("\t")
-                polished_stats[tokens[0]] = tokens[1:]
+                contigs_length[tokens[0]] = int(tokens[1])
+                contigs_coverage[tokens[0]] = int(tokens[2])
 
-        if self.polished_stats:
-            all_contigs = sorted(polished_stats.keys(),
-                                 key=lambda c: int(c.split("_")[1]))
-        else:
-            all_contigs = sorted(repeat_stats.keys(),
-                                 key=lambda c: int(c.split("_")[1]))
+        all_contigs = sorted(contigs_length.keys(),
+                             key=lambda c: int(c.split("_")[1]))
 
         with open(self.out_files["stats"], "w") as f:
             f.write(header_line)
             for ctg_id in all_contigs:
                 fields = repeat_stats[ctg_id]
-                if self.polished_stats:
-                    fields[0] = polished_stats[ctg_id][0]   #length
-                    fields[1] = polished_stats[ctg_id][1]   #coverage
-
+                fields[0] = str(contigs_length[ctg_id])
+                fields[1] = str(contigs_coverage[ctg_id])
                 f.write("{0}\t{1}\n".format(ctg_id, "\t".join(fields)))
+
+        total_length = sum(contigs_length.values())
+        if total_length > 0:
+            largest_len = contigs_length[max(contigs_length,
+                                             key=contigs_length.get)]
+            ctg_n50 = _calc_n50(contigs_length.values(), total_length)
+            mean_read_cov = 0
+            for ctg_id in contigs_coverage:
+                mean_read_cov += contigs_length[ctg_id] * contigs_coverage[ctg_id]
+            mean_read_cov /= total_length
+
+            logger.info("Assembly statistics:\n\n"
+                        "\tContigs:\t{0}\n"
+                        "\tTotal length:\t{1}\n"
+                        "\tContigs N50:\t{2}\n"
+                        "\tLargest contig:\t{3}\n"
+                        "\tMean coverage:\t{4}\n"
+                        .format(len(contigs_length), total_length,
+                                ctg_n50, largest_len, mean_read_cov))
 
         logger.info("Done! your assembly is in {0} file"
                     .format(self.out_files["contigs"]))
@@ -395,6 +413,17 @@ def _enable_logging(log_file, debug, overwrite):
     logger.setLevel(logging.DEBUG)
     logger.addHandler(console_log)
     logger.addHandler(file_handler)
+
+
+def _calc_n50(scaffolds_lengths, assembly_len):
+    n50 = 0
+    sum_len = 0
+    for l in sorted(scaffolds_lengths, reverse=True):
+        sum_len += l
+        if sum_len > assembly_len / 2:
+            n50 = l
+            break
+    return n50
 
 
 def main():
