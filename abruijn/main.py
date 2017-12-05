@@ -23,7 +23,7 @@ import abruijn.repeat_graph as repeat
 import abruijn.consensus as cons
 from abruijn.__version__ import __version__
 import abruijn.config as config
-
+from abruijn.bytes2human import human2bytes
 
 logger = logging.getLogger()
 
@@ -326,10 +326,11 @@ def _get_kmer_size(args):
     else:
         raise ResumeException("Uknown input reads format: " + suffix)
 
-    genome_size = reads_size / args.coverage
-    logger.debug("Estimated genome size: {0}".format(genome_size))
+    genome_coverage = reads_size / args.genome_size
+    logger.debug("Genome size: {0}".format(args.genome_size))
+    logger.debug("Estimated genome coverage: {0}".format(genome_coverage))
     kmer_size = 15
-    if genome_size > config.vals["big_genome"]:
+    if args.genome_size > config.vals["big_genome"]:
         kmer_size = 17
     logger.debug("Chosen k-mer size: {0}".format(kmer_size))
     return kmer_size
@@ -439,21 +440,23 @@ def main():
     parser = argparse.ArgumentParser(description="ABruijn: assembly of long and"
                                      " error-prone reads")
 
-    parser.add_argument("reads", metavar="reads",
-                        help="path to reads file (FASTA/Q format)")
-    parser.add_argument("out_dir", metavar="out_dir",
-                        help="output directory")
-    parser.add_argument("coverage", metavar="coverage (integer)",
-                        type=lambda v: check_int_range(v, 1, 1000),
-                        help="estimated assembly coverage")
-    parser.add_argument("--debug", action="store_true",
-                        dest="debug", default=False,
-                        help="enable debug output")
-    parser.add_argument("--resume", action="store_true",
-                        dest="resume", default=False,
-                        help="resume from the last completed stage")
-    parser.add_argument("--resume-from", dest="resume_from",
-                        default=None, help="resume from a custom stage")
+    parser.add_argument("--pacbio-raw", dest="pacbio_raw",
+                        default=None, help="PacBio raw reads")
+    parser.add_argument("--nano-raw", dest="nano_raw",
+                        default=None, help="ONT raw reads")
+    parser.add_argument("-o", "--out-dir", dest="out_dir",
+                        default=None, required=True, help="Output directory")
+    #parser.add_argument("reads", metavar="reads",
+    #                    help="path to reads file (FASTA/Q format)")
+    #parser.add_argument("out_dir", metavar="out_dir",
+    #                    help="output directory")
+    #parser.add_argument("-c", "--coverage", metavar="coverage (integer)",
+    #                    type=lambda v: check_int_range(v, 1, 1000),
+    #                    help="estimated assembly coverage",
+    #                    required=True)
+    parser.add_argument("-g", "--genome_size", metavar="genome_size",
+                        help="estimated genome size (Mb/Gb suffixes allowed)",
+                        required=True)
     parser.add_argument("-t", "--threads", dest="threads",
                         type=lambda v: check_int_range(v, 1, 128),
                         default=1, help="number of parallel threads "
@@ -462,27 +465,49 @@ def main():
                         type=lambda v: check_int_range(v, 0, 10),
                         default=1, help="number of polishing iterations "
                         "(default: 1)")
-    parser.add_argument("-p", "--platform", dest="platform",
-                        default="pacbio",
-                        choices=["pacbio", "nano", "pacbio_hi_err"],
-                        help="sequencing platform (default: pacbio)")
-    parser.add_argument("-k", "--kmer-size", dest="kmer_size",
-                        type=lambda v: check_int_range(v, 11, 31, require_odd=True),
-                        default=None, help="kmer size (default: auto)")
-    parser.add_argument("-o", "--min-overlap", dest="min_overlap",
+    parser.add_argument("--min-overlap", dest="min_overlap",
                         type=lambda v: check_int_range(v, 2000, 10000),
                         default=5000, help="minimum overlap between reads "
                         "(default: 5000)")
-    parser.add_argument("-m", "--min-coverage", dest="min_kmer_count",
+    parser.add_argument("--resume", action="store_true",
+                        dest="resume", default=False,
+                        help="resume from the last completed stage")
+    parser.add_argument("--resume-from", dest="resume_from",
+                        default=None, help="resume from a custom stage")
+    parser.add_argument("--kmer-size", dest="kmer_size",
+                        type=lambda v: check_int_range(v, 11, 31, require_odd=True),
+                        default=None, help="kmer size (default: auto)")
+    parser.add_argument("--min-coverage", dest="min_kmer_count",
                         type=lambda v: check_int_range(v, 1, 1000),
                         default=None, help="minimum kmer coverage "
                         "(default: auto)")
-    parser.add_argument("-x", "--max-coverage", dest="max_kmer_count",
+    parser.add_argument("--max-coverage", dest="max_kmer_count",
                         type=lambda v: check_int_range(v, 1, 1000),
                         default=None, help="maximum kmer coverage "
                         "(default: auto)")
+    parser.add_argument("--debug", action="store_true",
+                        dest="debug", default=False,
+                        help="enable debug output")
     parser.add_argument("--version", action="version", version=__version__)
     args = parser.parse_args()
+
+    reads_files = []
+    if args.pacbio_raw:
+        reads_files.append(args.pacbio_raw)
+        args.platform = "pacbio"
+    if args.nano_raw:
+        reads_files.append(args.nano_raw)
+        args.platform = "nano"
+    if len(reads_files) == 0:
+        parser.error("Reads file is not specified")
+    if len(reads_files) > 1:
+        parser.error("Mixing PacBio and ONT is not supported")
+    args.reads = reads_files[0]
+
+    if args.genome_size.isdigit():
+        args.genome_size = int(args.genome_size)
+    else:
+        args.genome_size = human2bytes(args.genome_size.upper())
 
     try:
         _run(args)

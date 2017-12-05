@@ -9,10 +9,10 @@ class ParametersEstimator
 {
 public:
 	ParametersEstimator(const SequenceContainer& seqContainer,
-						const VertexIndex& vertexIndex, int coverage):
+						const VertexIndex& vertexIndex, size_t genomeSize):
 		_vertexIndex(vertexIndex), 
 		_seqContainer(seqContainer),
-		_coverage(coverage)
+		_genomeSize(genomeSize)
 	{}
 
 	void    estimateMinKmerCount(int upperCutoff);
@@ -22,7 +22,7 @@ private:
 
 	const VertexIndex& _vertexIndex;
 	const SequenceContainer& _seqContainer;
-	const int _coverage;
+	const size_t _genomeSize;
 	size_t _takenKmers;
 	size_t _minKmerCount;
 };
