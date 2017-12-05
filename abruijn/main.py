@@ -296,11 +296,11 @@ def _create_job_list(args, work_dir, log_file):
 
     #Polishing
     contigs_file = raw_contigs
-    #polished_stats = None
-    #if args.num_iters > 0:
-    #    jobs.append(JobPolishing(args, work_dir, log_file, raw_contigs))
-    #    contigs_file = jobs[-1].out_files["contigs"]
-    #    polished_stats = jobs[-1].out_files["stats"]
+    polished_stats = None
+    if args.num_iters > 0:
+        jobs.append(JobPolishing(args, work_dir, log_file, raw_contigs))
+        contigs_file = jobs[-1].out_files["contigs"]
+        polished_stats = jobs[-1].out_files["stats"]
 
     #Report results
     jobs.append(JobFinalize(args, work_dir, log_file, contigs_file,
@@ -440,23 +440,6 @@ def main():
     parser = argparse.ArgumentParser(description="ABruijn: assembly of long and"
                                      " error-prone reads")
 
-<<<<<<< HEAD
-    parser.add_argument("reads", metavar="reads",
-                        help="path to reads file (FASTA/Q format)")
-    parser.add_argument("out_dir", metavar="out_dir",
-                        help="output directory")
-    parser.add_argument("coverage", metavar="coverage",
-                        type=lambda v: check_int_range(v, 1, 1000),
-                        help="estimated assembly coverage")
-    parser.add_argument("--debug", action="store_true",
-                        dest="debug", default=False,
-                        help="enable debug output")
-    parser.add_argument("--resume", action="store_true",
-                        dest="resume", default=False,
-                        help="resume from the last completed stage")
-    parser.add_argument("--resume-from", dest="resume_from",
-                        default=None, help="resume from a custom stage")
-=======
     parser.add_argument("--pacbio-raw", dest="pacbio_raw",
                         default=None, help="PacBio raw reads")
     parser.add_argument("--nano-raw", dest="nano_raw",
@@ -474,33 +457,18 @@ def main():
     parser.add_argument("-g", "--genome_size", metavar="genome_size",
                         help="estimated genome size (Mb/Gb suffixes allowed)",
                         required=True)
->>>>>>> flye
     parser.add_argument("-t", "--threads", dest="threads",
                         type=lambda v: check_int_range(v, 1, 128),
                         default=1, help="number of parallel threads "
                         "(default: 1)")
     parser.add_argument("-i", "--iterations", dest="num_iters",
                         type=lambda v: check_int_range(v, 0, 10),
-                        default=1, help="number of polishing iterations "
-                        "(default: 1)")
-<<<<<<< HEAD
-    parser.add_argument("-p", "--platform", dest="sequencing_platform",
-                        default="pacbio",
-                        choices=["pacbio", "nano", "pacbio_hi_err"],
-                        help="sequencing platform (default: pacbio)")
-    parser.add_argument("-k", "--kmer-size", dest="kmer_size",
-                        type=lambda v: check_int_range(v, 11, 31, require_odd=True),
-                        default=None, help="kmer size (default: auto)")
-    parser.add_argument("-o", "--min-overlap", dest="min_overlap",
+                        default=0, help="number of polishing iterations "
+                        "(default: 0)")
+    parser.add_argument("--min-overlap", dest="min_overlap",
                         type=lambda v: check_int_range(v, 1000, 10000),
                         default=1000, help="minimum overlap between reads "
                         "(default: 1000)")
-    parser.add_argument("-m", "--min-coverage", dest="min_kmer_count",
-=======
-    parser.add_argument("--min-overlap", dest="min_overlap",
-                        type=lambda v: check_int_range(v, 2000, 10000),
-                        default=5000, help="minimum overlap between reads "
-                        "(default: 5000)")
     parser.add_argument("--resume", action="store_true",
                         dest="resume", default=False,
                         help="resume from the last completed stage")
@@ -510,7 +478,6 @@ def main():
                         type=lambda v: check_int_range(v, 11, 31, require_odd=True),
                         default=None, help="kmer size (default: auto)")
     parser.add_argument("--min-coverage", dest="min_kmer_count",
->>>>>>> flye
                         type=lambda v: check_int_range(v, 1, 1000),
                         default=None, help="minimum kmer coverage "
                         "(default: auto)")
