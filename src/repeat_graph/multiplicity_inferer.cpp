@@ -11,8 +11,8 @@
 void MultiplicityInferer::
 	estimateCoverage(const std::vector<GraphAlignment>& readAln)
 {
-	const int WINDOW = Constants::coverageEstimateWindow;
-	const int SHORT_EDGE = Constants::trustedEdgeLength;
+	const int WINDOW = Config::get("coverage_estimate_window");
+	const int SHORT_EDGE = Config::get("trusted_edge_length");
 
 	//alternative coverage
 	std::unordered_map<GraphEdge*, std::vector<int>> wndCoverage;
@@ -97,7 +97,8 @@ void MultiplicityInferer::
 //removes edges with low coverage support from the graph
 void MultiplicityInferer::removeUnsupportedEdges()
 {
-	int coverageThreshold = this->getMeanCoverage() / Constants::readCovRate;
+	int coverageThreshold = this->getMeanCoverage() / 
+							Config::get("read_cov_rate");
 	Logger::get().debug() << "Read coverage cutoff: " << coverageThreshold;
 
 	std::unordered_set<GraphEdge*> edgesRemove;

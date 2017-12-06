@@ -22,6 +22,13 @@ std::vector<GraphAlignment>
 	ReadAligner::chainReadAlignments(const SequenceContainer& edgeSeqs,
 								 	 const std::vector<EdgeAlignment>& ovlps) const
 {
+	static const int32_t MAX_DISCORDANCE = 
+		std::max(Config::get("maximum_jump") / Config::get("far_jump_rate"),
+				 Config::get("max_separation"));
+	static const int32_t MAX_JUMP = Config::get("maximum_jump");
+	static const int32_t ALN_GAP = Config::get("read_align_gap");
+	static const int32_t PENALTY_WND = Config::get("penalty_window");
+
 	std::list<Chain> activeChains;
 	for (auto& edgeAlignment : ovlps)
 	{
@@ -36,18 +43,14 @@ std::vector<GraphAlignment>
 			int32_t readDiff = nextOvlp.curBegin - prevOvlp.curEnd;
 			int32_t graphDiff = nextOvlp.extBegin +
 								prevOvlp.extLen - prevOvlp.extEnd;
-			int32_t maxDiscordance = std::max(Constants::maximumJump / 
-													Constants::farJumpRate,
-											  Constants::maxSeparation);
 
 			if (chain.aln.back()->edge->nodeRight == edgeAlignment.edge->nodeLeft &&
-				Constants::maximumJump > readDiff && readDiff > 0 &&
-				Constants::maximumJump > graphDiff && graphDiff > 0  &&
-				abs(readDiff - graphDiff) < maxDiscordance)
+				MAX_JUMP > readDiff && readDiff > 0 &&
+				MAX_JUMP > graphDiff && graphDiff > 0  &&
+				abs(readDiff - graphDiff) < MAX_DISCORDANCE)
 			{
-				int32_t gapScore = -(readDiff - Constants::readAlignGap) / 
-										Constants::penaltyWindow;
-				if (readDiff < Constants::readAlignGap) gapScore = 1;
+				int32_t gapScore = -(readDiff - ALN_GAP) / PENALTY_WND;
+				if (readDiff < ALN_GAP) gapScore = 1;
 				//if (chain.aln.back()->segment.end != 
 				//	edgeAlignment.segment.start) gapScore -= 10;
 				//int32_t ovlpScore = !edgeAlignment.edge->isLooped() ? nextOvlp.score : 10;
@@ -96,7 +99,7 @@ std::vector<GraphAlignment>
 
 			int32_t overlapRate = std::min(curEnd, existEnd) - 
 									std::max(curStart, existStart);
-			if (overlapRate > Constants::maxSeparation) overlaps = true;
+			if (overlapRate > (int)Config::get("max_separation")) overlaps = true;
 		}
 		if (!overlaps) 
 		{
@@ -136,13 +139,13 @@ void ReadAligner::alignReads()
 	//index it and align reads
 	VertexIndex pathsIndex(pathsContainer);
 	pathsIndex.countKmers(1);
-	pathsIndex.buildIndex(1, Constants::readAlignMaxKmer, 
-						  Constants::readAlignKmerSample);
+	pathsIndex.buildIndex(1, (int)Config::get("read_align_max_kmer"), 
+						  (int)Config::get("read_align_kmer_sample"));
 	OverlapDetector readsOverlapper(pathsContainer, pathsIndex, 
-									Constants::maximumJump,
-									Constants::maxSeparation,
+									(int)Config::get("maximum_jump"),
+									(int)Config::get("max_separation"),
 									/*no overhang*/0,
-									Constants::readAlignGap,
+									(int)Config::get("read_align_gap"),
 									/*keep alignment*/ false);
 	OverlapContainer readsOverlaps(readsOverlapper, _readSeqs, 
 								   /*onlyMax*/ false);

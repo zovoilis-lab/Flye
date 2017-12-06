@@ -117,7 +117,8 @@ void ContigExtender::generateContigs()
 
 			Logger::get().debug() << "Ctg " << upath.id.signedId() <<
 				" overhang " << overhang << " upath " << lastUpath->id.signedId();
-			if (overhang > Constants::maxSeparation && !lastUpath->isLoop())
+			if (overhang > (int)Config::get("max_separation") && 
+				!lastUpath->isLoop())
 			{
 				bestAlignment.pop_back();
 			}
@@ -129,7 +130,8 @@ void ContigExtender::generateContigs()
 				extendedSeq = _readSeqs.getSeq(readId)
 					.substr(readStart, readEnd - readStart).str();
 			}
-			if (overhang > Constants::maxSeparation && !lastUpath->isLoop())
+			if (overhang > (int)Config::get("max_separation") && 
+				!lastUpath->isLoop())
 			{
 				extendedSeq += upathsSeqs[lastUpath]->sequence.str();
 			}

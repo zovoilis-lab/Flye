@@ -318,7 +318,7 @@ private:
 	void logEdges();
 	
 	const SequenceContainer& _asmSeqs;
-	const int _maxSeparation = Constants::maxSeparation;
+	const int _maxSeparation = Config::get("max_separation");
 
 	std::unordered_map<FastaRecord::Id, 
 					   std::vector<GluePoint>> _gluePoints;

@@ -9,6 +9,9 @@ File with configurations
 vals = {
         "big_genome" : 50 * 1024 * 1024,
 
+        "raw_cfg" : "asm_raw_reads.cfg",
+        "corrected_cfg" : "asm_corrected_reads.cfg",
+
         "simple_kmer_length" : 4,
         "solid_kmer_length" : 10,
         "max_bubble_length" : 500,

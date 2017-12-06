@@ -33,20 +33,23 @@ OverlapDetector::JumpRes
 OverlapDetector::jumpTest(int32_t curPrev, int32_t curNext,
 						  int32_t extPrev, int32_t extNext) const
 {
+	static const int CLOSE_JUMP = Config::get("close_jump_rate");
+	static const int FAR_JUMP = Config::get("far_jump_rate");
+
 	if (curNext - curPrev > _maxJump) return J_END;
 
 	if (0 < curNext - curPrev && curNext - curPrev < _maxJump &&
 		0 < extNext - extPrev && extNext - extPrev < _maxJump)
 	{
 		if (abs((curNext - curPrev) - (extNext - extPrev)) 
-				< _maxJump / Constants::closeJumpRate &&
+				< _maxJump / CLOSE_JUMP &&
 			curNext - curPrev < _gapSize)
 		{
 			return J_CLOSE;
 		}
 
 		if (abs((curNext - curPrev) - (extNext - extPrev)) 
-			< _maxJump / Constants::farJumpRate)
+			< _maxJump / FAR_JUMP)
 		{
 			return J_FAR;
 		}
@@ -58,7 +61,7 @@ OverlapDetector::jumpTest(int32_t curPrev, int32_t curNext,
 //Check if it is a proper overlap
 bool OverlapDetector::overlapTest(const OverlapRange& ovlp) const
 {
-
+	static const int OVLP_DIVERGENCE = Config::get("overlap_divergence_rate");
 	if (ovlp.curRange() < _minOverlap || 
 		ovlp.extRange() < _minOverlap) 
 	{
@@ -67,7 +70,7 @@ bool OverlapDetector::overlapTest(const OverlapRange& ovlp) const
 
 	float lengthDiff = abs(ovlp.curRange() - ovlp.extRange());
 	float meanLength = (ovlp.curRange() + ovlp.extRange()) / 2.0f;
-	if (lengthDiff > meanLength / Constants::overlapDivergenceRate)
+	if (lengthDiff > meanLength / OVLP_DIVERGENCE)
 	{
 		return false;
 	}
@@ -106,6 +109,8 @@ std::vector<OverlapRange>
 OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec, 
 								bool uniqueExtensions) const
 {
+	static const int PENALTY_WND = Config::get("penalty_window");
+
 	std::unordered_map<FastaRecord::Id, 
 					   std::vector<DPRecord>> activePaths;
 	std::unordered_map<FastaRecord::Id, 
@@ -149,8 +154,7 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 								   extPaths[pathId].ovlp.extEnd, extPos);
 
 				int32_t jumpLength = curPos - extPaths[pathId].ovlp.curEnd;
-				int32_t gapScore = -(jumpLength - _gapSize) / 
-										Constants::penaltyWindow;
+				int32_t gapScore = -(jumpLength - _gapSize) / PENALTY_WND;
 				if (jumpLength < _gapSize) gapScore = 1;
 
 				int32_t jumpScore = extPaths[pathId].ovlp.score + gapScore;

@@ -141,7 +141,7 @@ int RepeatResolver::resolveConnections(const std::vector<Connection>& connection
 			<< leftId.signedId() << "\t" << rightId.rc().signedId()
 			<< "\t" << support / 4 << "\t" << confidence;
 
-		if (confidence < Constants::minRepeatResSupport)
+		if (confidence < (float)Config::get("min_repeat_res_support"))
 		{
 			++unresolvedLinks;
 			continue;
@@ -256,6 +256,7 @@ void RepeatResolver::findRepeats()
 
 	//Masking small bubbles that correspond to two alternative alleles
 	int diploidBubbles = 0;
+	const int MAX_BUBBLE_LEN = (int)Config::get("trusted_edge_length");
 	for (auto& edge : _graph.iterEdges())
 	{
 		if (edge->isLooped()) continue;
@@ -268,8 +269,8 @@ void RepeatResolver::findRepeats()
 			}
 		}
 		if (parallelEdges.size() != 2) continue;
-		if (parallelEdges[0]->length() > Constants::trustedEdgeLength || 
-			parallelEdges[1]->length() > Constants::trustedEdgeLength) continue;
+		if (parallelEdges[0]->length() > MAX_BUBBLE_LEN || 
+			parallelEdges[1]->length() > MAX_BUBBLE_LEN) continue;
 
 		float covSum = parallelEdges[0]->meanCoverage + 
 					   parallelEdges[1]->meanCoverage;
@@ -290,7 +291,7 @@ void RepeatResolver::findRepeats()
 		int overhang = std::max(readPath.front().overlap.curBegin,
 								readPath.back().overlap.curLen - 
 									readPath.back().overlap.curEnd);
-		if (overhang > Constants::maximumOverhang) continue;
+		if (overhang > (int)Config::get("maximum_overhang")) continue;
 
 		for (size_t i = 0; i < readPath.size() - 1; ++i)
 		{
@@ -319,7 +320,7 @@ void RepeatResolver::findRepeats()
 
 		int repeatMult = 0;
 		int uniqueMult = 0;
-		int minSupport = maxSupport / Constants::outPathsRatio;
+		int minSupport = maxSupport / (int)Config::get("out_paths_ratio");
 		for (auto& outConn : outConnections[edge]) 
 		{
 			if (outConn.second > minSupport)
