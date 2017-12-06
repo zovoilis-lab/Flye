@@ -67,6 +67,8 @@ void BubbleProcessor::polishAll(const std::string& inBubbles,
 
 void BubbleProcessor::parallelWorker()
 {
+	const int MAX_BUBBLE = 5000;
+
 	_stateMutex.lock();
 	while (true)
 	{
@@ -83,11 +85,15 @@ void BubbleProcessor::parallelWorker()
 		Bubble bubble = _cachedBubbles.back();
 		_cachedBubbles.pop_back();
 
-		_stateMutex.unlock();
-		_generalPolisher.polishBubble(bubble);
-		_homoPolisher.polishBubble(bubble);
-		_dinucFixer.fixBubble(bubble);
-		_stateMutex.lock();
+		if (bubble.candidate.size() < MAX_BUBBLE &&
+			bubble.branches.size() > 1)
+		{
+			_stateMutex.unlock();
+			_generalPolisher.polishBubble(bubble);
+			_homoPolisher.polishBubble(bubble);
+			_dinucFixer.fixBubble(bubble);
+			_stateMutex.lock();
+		}
 		
 		this->writeBubbles({bubble});
 		if (_verbose) this->writeLog({bubble});

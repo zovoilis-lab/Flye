@@ -10,7 +10,7 @@
 #include <iomanip>
 #include <vector>
 
-typedef int32_t AlnScoreType;
+typedef int64_t AlnScoreType;
 
 class SubstitutionMatrix 
 {
