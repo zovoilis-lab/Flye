@@ -286,11 +286,12 @@ def _create_job_list(args, work_dir, log_file):
     draft_assembly = jobs[-1].out_files["assembly"]
 
     #Consensus
-    jobs.append(JobConsensus(args, work_dir, draft_assembly))
-    consensus_paths = jobs[-1].out_files["consensus"]
+    if args.read_type == "raw":
+        jobs.append(JobConsensus(args, work_dir, draft_assembly))
+        draft_assembly = jobs[-1].out_files["consensus"]
 
     #Repeat analysis
-    jobs.append(JobRepeat(args, work_dir, log_file, consensus_paths))
+    jobs.append(JobRepeat(args, work_dir, log_file, draft_assembly))
     raw_contigs = jobs[-1].out_files["contigs"]
     graph_file = jobs[-1].out_files["assembly_graph"]
     repeat_stats = jobs[-1].out_files["stats"]
@@ -444,8 +445,12 @@ def main():
 
     parser.add_argument("--pacbio-raw", dest="pacbio_raw",
                         default=None, help="PacBio raw reads")
+    parser.add_argument("--pacbio-corr", dest="pacbio_corrected",
+                        default=None, help="PacBio corrected reads")
     parser.add_argument("--nano-raw", dest="nano_raw",
                         default=None, help="ONT raw reads")
+    parser.add_argument("--nano-corr", dest="nano_corrected",
+                        default=None, help="ONT corrected reads")
     parser.add_argument("-o", "--out-dir", dest="out_dir",
                         default=None, required=True, help="Output directory")
     #parser.add_argument("reads", metavar="reads",
@@ -497,17 +502,31 @@ def main():
     if args.pacbio_raw:
         reads_files.append(args.pacbio_raw)
         args.platform = "pacbio"
+        args.read_type = "raw"
+    if args.pacbio_corrected:
+        reads_files.append(args.pacbio_corrected)
+        args.platform = "pacbio"
+        args.read_type = "corrected"
     if args.nano_raw:
         reads_files.append(args.nano_raw)
         args.platform = "nano"
+        args.read_type = "raw"
+    if args.nano_corrected:
+        reads_files.append(args.nano_corrected)
+        args.platform = "nano"
+        args.read_type = "corrected"
     if len(reads_files) == 0:
         parser.error("Reads file is not specified")
     if len(reads_files) > 1:
-        parser.error("Mixing PacBio and ONT is not supported")
+        parser.error("Mixing multiple read files is not supported yet")
     args.reads = reads_files[0]
 
     root = os.path.dirname(__file__)
-    args.asm_config = os.path.join(root, "resource", "asm_raw_reads.cfg")
+    if args.read_type == "raw":
+        args.asm_config = os.path.join(root, "resource", config.vals["raw_cfg"])
+    elif args.read_type == "corrected":
+        args.asm_config = os.path.join(root, "resource",
+                                       config.vals["corrected_cfg"])
 
     if args.genome_size.isdigit():
         args.genome_size = int(args.genome_size)

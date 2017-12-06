@@ -44,9 +44,9 @@ def check_binaries():
 def polish(bubbles_file, num_proc, err_mode, work_dir, iter_id, out_polished):
     _ROOT = os.path.dirname(__file__)
 
-    subs_matrix = os.path.join(_ROOT, 'resource',
+    subs_matrix = os.path.join(_ROOT, "resource",
                                config.vals["err_modes"][err_mode]["subs_matrix"])
-    hopo_matrix = os.path.join(_ROOT, 'resource',
+    hopo_matrix = os.path.join(_ROOT, "resource",
                                config.vals["err_modes"][err_mode]["hopo_matrix"])
 
     consensus_out = os.path.join(work_dir, "consensus_{0}.fasta"
