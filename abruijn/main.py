@@ -86,7 +86,8 @@ class JobAssembly(Job):
     def run(self):
         if not os.path.isdir(self.assembly_dir):
             os.mkdir(self.assembly_dir)
-        asm.assemble(self.args, self.assembly_filename, self.log_file)
+        asm.assemble(self.args, self.assembly_filename, self.log_file,
+                     self.args.asm_config)
 
 
 class JobRepeat(Job):
@@ -111,7 +112,7 @@ class JobRepeat(Job):
             os.mkdir(self.repeat_dir)
         logger.info("Performing repeat analysis")
         repeat.analyse_repeats(self.args, self.in_assembly, self.repeat_dir,
-                               self.log_file)
+                               self.log_file, self.args.asm_config)
 
 
 class JobFinalize(Job):
@@ -349,6 +350,7 @@ def _run(args):
                     overwrite=not args.resume and not args.resume_from)
 
     logger.info("Running ABruijn")
+    logger.debug("Cmd: {0}".format(" ".join(sys.argv)))
     aln.check_binaries()
     pol.check_binaries()
     asm.check_binaries()
@@ -503,6 +505,9 @@ def main():
     if len(reads_files) > 1:
         parser.error("Mixing PacBio and ONT is not supported")
     args.reads = reads_files[0]
+
+    root = os.path.dirname(__file__)
+    args.asm_config = os.path.join(root, "resource", "asm_raw_reads.cfg")
 
     if args.genome_size.isdigit():
         args.genome_size = int(args.genome_size)

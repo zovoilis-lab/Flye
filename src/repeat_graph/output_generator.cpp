@@ -63,13 +63,13 @@ std::vector<FastaRecord> OutputGenerator::
 			//make the consecutive sequences overlapping if possible,
 			//so the consensus module can correct possibly imprecise
 			//ends of the edges sequences
-			int32_t leftFlank = std::min(Constants::maxSeparation,
+			int32_t leftFlank = std::min((int32_t)Config::get("max_separation"),
 										 bestSegment->start);
 			if (i == 0) 
 			{
 				leftFlank = 0;
 			}
-			int32_t rightFlank = std::min(Constants::maxSeparation,
+			int32_t rightFlank = std::min((int32_t)Config::get("max_separation"),
 										  (int32_t)sequence.length() - 
 										  		bestSegment->end);
 			if (i == contig.path.size() - 1) 

@@ -26,18 +26,20 @@
 bool parseArgs(int argc, char** argv, std::string& readsFasta, 
 			   std::string& outFolder, std::string& logFile, 
 			   std::string& inAssembly, int& kmerSize,
-			   int& minOverlap, bool& debug, size_t& numThreads)
+			   int& minOverlap, bool& debug, size_t& numThreads, 
+			   std::string& configPath)
 {
 	auto printUsage = [argv]()
 	{
 		std::cerr << "Usage: " << argv[0]
-				  << "\tin_assembly reads_file out_folder \n\t\t\t\t"
-				  << "[-l log_file] [-t num_threads] [-v min_overlap]\n\t\t\t\t"
+				  << "\tin_assembly reads_file out_folder config_path\n\t"
+				  << "[-l log_file] [-t num_threads] [-v min_overlap]\n\t"
 				  << "[-k kmer_size] [-d]\n\n"
 				  << "positional arguments:\n"
 				  << "\tin_assembly\tpath to input assembly\n"
 				  << "\treads file\tpath to fasta with reads\n"
 				  << "\tout_assembly\tpath to output assembly\n"
+				  << "\tconfig_path\tpath to config file\n"
 				  << "\noptional arguments:\n"
 				  << "\t-k kmer_size\tk-mer size [default = 15] \n"
 				  << "\t-v min_overlap\tminimum overlap between reads "
@@ -82,7 +84,7 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 			exit(0);
 		}
 	}
-	if (argc - optind != 3)
+	if (argc - optind != 4)
 	{
 		printUsage();
 		return false;
@@ -91,6 +93,7 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 	inAssembly = *(argv + optind);
 	readsFasta = *(argv + optind + 1);
 	outFolder = *(argv + optind + 2);
+	configPath = *(argv + optind + 3);
 
 	return true;
 }
@@ -156,9 +159,10 @@ int main(int argc, char** argv)
 	std::string inAssembly;
 	std::string outFolder;
 	std::string logFile;
+	std::string configPath;
 
 	if (!parseArgs(argc, argv, readsFasta, outFolder, logFile, inAssembly,
-				   kmerSize, minOverlap, debugging, numThreads)) 
+				   kmerSize, minOverlap, debugging, numThreads, configPath)) 
 	{
 		return 1;
 	}
@@ -169,6 +173,7 @@ int main(int argc, char** argv)
 	Logger::get().setDebugging(debugging);
 	if (!logFile.empty()) Logger::get().setOutputFile(logFile);
 	std::ios::sync_with_stdio(false);
+	Config::load(configPath);
 
 	Logger::get().debug() << "Build date: " << __DATE__ << " " << __TIME__;
 

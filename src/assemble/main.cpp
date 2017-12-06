@@ -23,18 +23,19 @@
 bool parseArgs(int argc, char** argv, std::string& readsFasta, 
 			   std::string& outAssembly, std::string& logFile, size_t& genomeSize,
 			   int& kmerSize, int& minKmer, int& maxKmer, bool& debug,
-			   size_t& numThreads, std::string& overlapsFile, int& minOverlap)
+			   size_t& numThreads, int& minOverlap, std::string& configPath)
 {
 	auto printUsage = [argv]()
 	{
 		std::cerr << "Usage: " << argv[0]
-				  << "\treads_file out_assembly genome_size \n\t\t\t\t"
-				  << "[-k kmer_size] [-m min_kmer_cov] \n\t\t\t\t"
+				  << "\treads_file out_assembly genome_size config_file\n\t"
+				  << "[-k kmer_size] [-m min_kmer_cov] \n\t"
 				  << "[-x max_kmer_cov] [-l log_file] [-t num_threads] [-d]\n\n"
 				  << "positional arguments:\n"
 				  << "\treads file\tpath to fasta with reads\n"
 				  << "\tout_assembly\tpath to output file\n"
 				  << "\tgenome_size\tgenome size in bytes\n"
+				  << "\tconfig_file\tpath to the config file\n"
 				  << "\noptional arguments:\n"
 				  << "\t-k kmer_size\tk-mer size [default = 15] \n"
 				  << "\t-m min_kmer_cov\tminimum k-mer coverage "
@@ -59,10 +60,9 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 	numThreads = 1;
 	debug = false;
 	logFile = "";
-	overlapsFile = "";
 	minOverlap = 5000;
 
-	const char optString[] = "k:m:x:l:t:o:v:hd";
+	const char optString[] = "k:m:x:l:t:v:hd";
 	int opt = 0;
 	while ((opt = getopt(argc, argv, optString)) != -1)
 	{
@@ -86,9 +86,6 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 		case 'l':
 			logFile = optarg;
 			break;
-		case 'o':
-			overlapsFile = optarg;
-			break;
 		case 'd':
 			debug = true;
 			break;
@@ -97,7 +94,7 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 			exit(0);
 		}
 	}
-	if (argc - optind != 3)
+	if (argc - optind != 4)
 	{
 		printUsage();
 		return false;
@@ -105,6 +102,7 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 	readsFasta = *(argv + optind);
 	outAssembly = *(argv + optind + 1);
 	genomeSize = atoll(*(argv + optind + 2));
+	configPath = *(argv + optind + 3);
 
 	return true;
 }
@@ -172,21 +170,23 @@ int main(int argc, char** argv)
 	std::string readsFasta;
 	std::string outAssembly;
 	std::string logFile;
-	std::string overlapsFile;
+	std::string configPath;
 
 	if (!parseArgs(argc, argv, readsFasta, outAssembly, logFile, genomeSize,
 				   kmerSize, minKmerCov, maxKmerCov, debugging, numThreads,
-				   overlapsFile, minOverlap)) 
+				   minOverlap, configPath)) 
 	{
 		return 1;
 	}
-	Parameters::get().minimumOverlap = minOverlap;
-	Parameters::get().kmerSize = kmerSize;
-	Parameters::get().numThreads = numThreads;
 
 	Logger::get().setDebugging(debugging);
 	if (!logFile.empty()) Logger::get().setOutputFile(logFile);
 	std::ios::sync_with_stdio(false);
+
+	Config::load(configPath);
+	Parameters::get().minimumOverlap = minOverlap;
+	Parameters::get().kmerSize = kmerSize;
+	Parameters::get().numThreads = numThreads;
 
 	SequenceContainer readsContainer;
 	Logger::get().debug() << "Build date: " << __DATE__ << " " << __TIME__;
@@ -214,12 +214,12 @@ int main(int argc, char** argv)
 	Logger::get().debug() << "Estimated coverage: " << coverage;
 	if (maxKmerCov == -1)
 	{
-		maxKmerCov = Constants::repeatCoverageRate * coverage;
+		maxKmerCov = (int)Config::get("repeat_coverage_rate") * coverage;
 	}
 
 	Logger::get().info() << "Generating solid k-mer index";
 	size_t hardThreshold = std::max(1.0f, std::round((float)coverage / 
-									Constants::hardMinCoverageRate));
+								(float)Config::get("hard_min_coverage_rate")));
 	vertexIndex.countKmers(hardThreshold);
 
 	ParametersEstimator estimator(readsContainer, vertexIndex, genomeSize);
@@ -230,13 +230,13 @@ int main(int argc, char** argv)
 	}
 
 	vertexIndex.buildIndex(minKmerCov, maxKmerCov, 
-						   Constants::assembleKmerSample);
+						   (int)Config::get("assemble_kmer_sample"));
 
 	OverlapDetector ovlp(readsContainer, vertexIndex,
-						 Constants::maximumJump, 
+						 (int)Config::get("maximum_jump"), 
 						 Parameters::get().minimumOverlap,
-						 Constants::maximumOverhang, 
-						 Constants::assembleGap,
+						 (int)Config::get("maximum_overhang"),
+						 (int)Config::get("assemble_gap"),
 						 /*store alignment*/ false);
 	OverlapContainer readOverlaps(ovlp, readsContainer, /*only max*/ true);
 

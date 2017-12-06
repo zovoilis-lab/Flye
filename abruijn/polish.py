@@ -27,9 +27,6 @@ logger = logging.getLogger()
 class PolishException(Exception):
     pass
 
-def get_root():
-    return os.path.dirname(__file__)
-
 
 def check_binaries():
     if not which(POLISH_BIN):
@@ -45,7 +42,7 @@ def check_binaries():
 
 
 def polish(bubbles_file, num_proc, err_mode, work_dir, iter_id, out_polished):
-    _ROOT = get_root()
+    _ROOT = os.path.dirname(__file__)
 
     subs_matrix = os.path.join(_ROOT, 'resource',
                                config.vals["err_modes"][err_mode]["subs_matrix"])

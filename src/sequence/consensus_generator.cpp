@@ -205,7 +205,7 @@ ConsensusGenerator::AlignmentsMap
 		
 		const int bandWidth = abs((int)leftSeq.length() - 
 								  (int)rightSeq.length()) + 
-								  		Constants::maximumJump;
+								  		Config::get("maximum_jump");
 		if (abs((int)leftSeq.length() - (int)rightSeq.length()) >
 			std::min((int)leftSeq.length(), (int)rightSeq.length()))
 		{
@@ -252,7 +252,7 @@ ConsensusGenerator::getSwitchPositions(const AlignmentInfo& aln,
 		if (aln.alnTwo[i] != '-') ++rightPos;
 
 		if (aln.alnOne[i] == aln.alnTwo[i] &&
-			leftPos > prevSwitch + Constants::maximumJump)
+			leftPos > prevSwitch + Config::get("maximum_jump"))
 		{
 			++matchRun;
 		}

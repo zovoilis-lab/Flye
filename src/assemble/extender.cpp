@@ -32,7 +32,7 @@ Extender::ExtensionInfo Extender::extendContig(FastaRecord::Id startRead)
 		for (auto& ovlp : _ovlpContainer.lazySeqOverlaps(readId))
 		{
 			if (ovlp.extId == startRead &&
-				ovlp.leftShift > Constants::maximumJump) 
+				ovlp.leftShift > (int)Config::get("maximum_jump")) 
 			{
 				return true;
 			}
@@ -63,7 +63,7 @@ Extender::ExtensionInfo Extender::extendContig(FastaRecord::Id startRead)
 
 		//getting extension
 		int minExtensions = (int)extensions.size() / 
-							Constants::maxCoverageDropRate;
+							(int)Config::get("max_coverage_drop_rate");
 		FastaRecord::Id bestSuspicious = FastaRecord::ID_NONE;
 		if (!overlapsVisited)
 		{
@@ -149,6 +149,7 @@ Extender::ExtensionInfo Extender::extendContig(FastaRecord::Id startRead)
 
 void Extender::assembleContigs()
 {
+	static const int MAX_JUMP = Config::get("maximum_jump");
 	Logger::get().info() << "Extending reads";
 	_chimDetector.estimateGlobalCoverage();
 	_innerReads.clear();
@@ -175,7 +176,8 @@ void Extender::assembleContigs()
 		
 		//Good to go!
 		ExtensionInfo exInfo = this->extendContig(startRead);
-		if (exInfo.reads.size() < Constants::minReadsInContig) return true;
+		if (exInfo.reads.size() < 
+			(size_t)Config::get("min_reads_in_contig")) return true;
 
 		//Exclusive part - updating the overall assembly
 		std::lock_guard<std::mutex> guard(indexMutex);
@@ -185,8 +187,9 @@ void Extender::assembleContigs()
 		{
 			if (_innerReads.contains(readId)) ++innerCount;
 		}
-		int innerThreshold = std::min(Constants::maxInnerReads,
-						int(Constants::maxInnerFraction * exInfo.reads.size()));
+		int innerThreshold = std::min((int)Config::get("max_inner_reads"),
+									  int((float)Config::get("max_inner_fraction") * 
+										  exInfo.reads.size()));
 		if (innerCount > innerThreshold)
 		{
 			Logger::get().debug() << "Discarded contig with "
@@ -222,15 +225,15 @@ void Extender::assembleContigs()
 				coveredReads.insert(ovlp.extId, true);
 
 				//contained inside the other read - probably repetitive
-				if (ovlp.leftShift > Constants::maximumJump &&
-					ovlp.rightShift < -Constants::maximumJump) continue;
+				if (ovlp.leftShift > MAX_JUMP &&
+					ovlp.rightShift < -MAX_JUMP) continue;
 
-				if (ovlp.leftShift > Constants::maximumJump)
+				if (ovlp.leftShift > MAX_JUMP)
 				{
 					leftExtended.insert(ovlp.extId);
 					rightExtended.insert(ovlp.extId.rc());
 				}
-				if (ovlp.rightShift < -Constants::maximumJump)	
+				if (ovlp.rightShift < -MAX_JUMP)	
 				{
 					rightExtended.insert(ovlp.extId);
 					leftExtended.insert(ovlp.extId.rc());
@@ -317,5 +320,6 @@ bool Extender::isRightRepeat(FastaRecord::Id readId) const
 
 bool Extender::extendsRight(const OverlapRange& ovlp) const
 {
-	return ovlp.rightShift > Constants::maximumJump;
+	static const int MAX_JUMP = Config::get("maximum_jump");
+	return ovlp.rightShift > MAX_JUMP;
 }

@@ -33,7 +33,7 @@ def check_binaries():
         raise AssembleException(str(e))
 
 
-def assemble(args, out_file, log_file):
+def assemble(args, out_file, log_file, config_path):
     logger.info("Assembling reads")
     logger.debug("-----Begin assembly log------")
     cmdline = [ASSEMBLE_BIN, "-k", str(args.kmer_size), "-l", log_file,
@@ -44,7 +44,7 @@ def assemble(args, out_file, log_file):
         cmdline.extend(["-m", str(args.min_kmer_count)])
     if args.max_kmer_count is not None:
         cmdline.extend(["-x", str(args.max_kmer_count)])
-    cmdline.extend([args.reads, out_file, str(args.genome_size)])
+    cmdline.extend([args.reads, out_file, str(args.genome_size), config_path])
 
     try:
         subprocess.check_call(cmdline)

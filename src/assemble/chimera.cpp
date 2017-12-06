@@ -27,6 +27,8 @@ bool ChimeraDetector::isChimeric(FastaRecord::Id readId)
 void ChimeraDetector::estimateGlobalCoverage()
 {
 	const int NUM_SAMPLES = 1000;
+	const int MAX_COVERAGE = _inputCoverage * 
+					(int)Config::get("max_coverage_drop_rate");
 	int sampleNum = 0;
 	std::vector<int32_t> readMeans;
 
@@ -38,7 +40,7 @@ void ChimeraDetector::estimateGlobalCoverage()
 		int64_t sum = 0;
 		for (auto c : coverage)
 		{
-			if (c < _inputCoverage * Constants::maxCoverageDropRate)
+			if (c < MAX_COVERAGE)
 			{
 				isZero |= (c == 0);
 				sum += c;
@@ -74,8 +76,8 @@ void ChimeraDetector::estimateGlobalCoverage()
 
 std::vector<int32_t> ChimeraDetector::getReadCoverage(FastaRecord::Id readId)
 {
-	static const int WINDOW = Constants::chimeraWindow;
-	const int FLANK = Constants::maximumOverhang / WINDOW;
+	static const int WINDOW = Config::get("chimera_window");
+	const int FLANK = (int)Config::get("maximum_overhang") / WINDOW;
 
 	std::vector<int> coverage;
 	int numWindows = _seqContainer.seqLen(readId) / WINDOW;
@@ -104,7 +106,7 @@ std::vector<int32_t> ChimeraDetector::getReadCoverage(FastaRecord::Id readId)
 bool ChimeraDetector::testReadByCoverage(FastaRecord::Id readId)
 {
 	auto coverage = this->getReadCoverage(readId);
-
+	const float MAX_DROP_RATE = Config::get("max_coverage_drop_rate");
 	/*std::string covStr;
 	for (int cov : coverage)
 	{
@@ -118,7 +120,7 @@ bool ChimeraDetector::testReadByCoverage(FastaRecord::Id readId)
 	{
 		if (cov == 0) return true;
 
-		if ((float)_overlapCoverage / cov > (float)Constants::maxCoverageDropRate) 
+		if ((float)_overlapCoverage / cov > MAX_DROP_RATE) 
 		{
 			//Logger::get().debug() << "Chimeric: " 
 			//	<< _seqContainer.seqName(readId) << covStr;

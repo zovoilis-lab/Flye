@@ -33,13 +33,13 @@ def check_binaries():
         raise RepeatException(str(e))
 
 
-def analyse_repeats(args, input_assembly, out_folder, log_file):
+def analyse_repeats(args, input_assembly, out_folder, log_file, config_file):
     logger.debug("-----Begin repeat analyser log------")
     cmdline = [REPEAT_BIN, "-k", str(args.kmer_size), "-l", log_file,
                "-t", str(args.threads), "-v", str(args.min_overlap)]
     if args.debug:
         cmdline.append("-d")
-    cmdline.extend([input_assembly, args.reads, out_folder])
+    cmdline.extend([input_assembly, args.reads, out_folder, config_file])
 
     try:
         subprocess.check_call(cmdline)

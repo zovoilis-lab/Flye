@@ -16,8 +16,10 @@ namespace
 {
 	struct Point2d
 	{
-		Point2d(FastaRecord::Id curId = FastaRecord::ID_NONE, int32_t curPos = 0, 
-			  FastaRecord::Id extId = FastaRecord::ID_NONE, int32_t extPos = 0):
+		Point2d(FastaRecord::Id curId = FastaRecord::ID_NONE, 
+				int32_t curPos = 0, 
+			    FastaRecord::Id extId = FastaRecord::ID_NONE, 
+				int32_t extPos = 0):
 			curId(curId), curPos(curPos), extId(extId), extPos(extPos) {}
 		
 		FastaRecord::Id curId;
@@ -57,14 +59,14 @@ void RepeatGraph::build()
 	//getting overlaps
 	VertexIndex asmIndex(_asmSeqs);
 	asmIndex.countKmers(1);
-	asmIndex.buildIndex(1, Constants::repeatGraphMaxKmer, 
-						Constants::repeatGraphKmerSample);
+	asmIndex.buildIndex(1, (int)Config::get("repeat_graph_max_kmer"), 
+						(int)Config::get("repeat_graph_kmer_sample"));
 
 	OverlapDetector asmOverlapper(_asmSeqs, asmIndex, 
-								  Constants::maximumJump, 
+								  (int)Config::get("maximum_jump"), 
 								  Parameters::get().minimumOverlap,
 								  /*no overhang*/ 0, 
-								  Constants::repeatGraphGap,
+								  (int)Config::get("repeat_graph_gap"),
 								  /*keep alignment*/ true);
 	OverlapContainer asmOverlaps(asmOverlapper, _asmSeqs, /*only max*/ false);
 	asmOverlaps.findAllOverlaps();
@@ -137,6 +139,7 @@ void RepeatGraph::getGluepoints(const OverlapContainer& asmOverlaps)
 
 	//we will now split each cluster based on it's Y coordinates
 	//and project these subgroups to the corresponding sequences
+	static const int MAX_SEPARATION = Config::get("max_separation");
 	for (auto& clustEndpoints : clusters)
 	{
 		//first, simply add projections for each point from the cluster
@@ -167,8 +170,8 @@ void RepeatGraph::getGluepoints(const OverlapContainer& asmOverlaps)
 													  clusterXpos - 1, 
 													  clusterXpos + 1))
 		{
-			if (interval.value->curEnd - clusterXpos > Constants::maxSeparation &&
-				clusterXpos - interval.value->curBegin > Constants::maxSeparation)
+			if (interval.value->curEnd - clusterXpos > MAX_SEPARATION &&
+				clusterXpos - interval.value->curBegin > MAX_SEPARATION)
 			{
 				int32_t projectedPos = interval.value->project(clusterXpos);
 				extCoords.emplace_back(Point2d(clustSeq, clusterXpos,
