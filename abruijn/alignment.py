@@ -21,7 +21,7 @@ import abruijn.config as config
 
 
 logger = logging.getLogger()
-MINIMAP_BIN = "/home/bioinf/Software/graphmap/bin/Linux-x64/graphmap"
+GRAPHMAP_BIN = "/home/bioinf/Software/graphmap/bin/Linux-x64/graphmap"
 
 Alignment = namedtuple("Alignment", ["qry_id", "trg_id", "qry_start", "qry_end",
                                      "qry_sign", "qry_len", "trg_start",
@@ -262,18 +262,16 @@ def _run_minimap(reference_file, reads_file, num_proc, platform, out_file):
     #cmdline = [MINIMAP_BIN, reference_file, reads_file, "-a", "-Q",
     #           "-w5", "-m100", "-g10000", "--max-chain-skip", "25",
     #           "-t", str(num_proc)]
-    cmdline = [MINIMAP_BIN, reference_file, reads_file, "-a", "-Q",
-               "-w5", "-m100", "-g10000", "--max-chain-skip", "25",
-               "-t", str(num_proc)]    
-    if platform == "nano":
-        cmdline.append("-k15")
-    else:
-        cmdline.append("-Hk19")
+    cmdline = [GRAPHMAP_BIN, "-r", reference_file, "-d", reads_file,
+               "-t", str(num_proc), "-o", out_file]    
+    #if platform == "nano":
+    #    cmdline.append("-k15")
+    #else:
+    #    cmdline.append("-Hk19")
 
     try:
         devnull = open(os.devnull, "w")
-        subprocess.check_call(cmdline, stderr=devnull,
-                              stdout=open(out_file, "w"))
+        subprocess.check_call(cmdline, stderr=devnull)
     except (subprocess.CalledProcessError, OSError) as e:
         if e.returncode == -9:
             logger.error("Looks like the system ran out of memory")
