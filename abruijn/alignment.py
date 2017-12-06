@@ -21,7 +21,7 @@ import abruijn.config as config
 
 
 logger = logging.getLogger()
-MINIMAP_BIN = "abruijn-minimap2"
+MINIMAP_BIN = "/home/bioinf/Software/graphmap/bin/Linux-x64/graphmap"
 
 Alignment = namedtuple("Alignment", ["qry_id", "trg_id", "qry_start", "qry_end",
                                      "qry_sign", "qry_len", "trg_start",
@@ -259,9 +259,12 @@ def shift_gaps(seq_trg, seq_qry):
 
 
 def _run_minimap(reference_file, reads_file, num_proc, platform, out_file):
+    #cmdline = [MINIMAP_BIN, reference_file, reads_file, "-a", "-Q",
+    #           "-w5", "-m100", "-g10000", "--max-chain-skip", "25",
+    #           "-t", str(num_proc)]
     cmdline = [MINIMAP_BIN, reference_file, reads_file, "-a", "-Q",
                "-w5", "-m100", "-g10000", "--max-chain-skip", "25",
-               "-t", str(num_proc)]
+               "-t", str(num_proc)]    
     if platform == "nano":
         cmdline.append("-k15")
     else:
