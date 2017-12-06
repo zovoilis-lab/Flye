@@ -198,7 +198,7 @@ class SynchronizedSamReader(object):
 
 
 def check_binaries():
-    if not which(MINIMAP_BIN):
+    if not which(GRAPHMAP_BIN):
         raise AlignmentException("Minimap2 is not installed")
     if not which("sort"):
         raise AlignmentException("UNIX sort utility is not available")
