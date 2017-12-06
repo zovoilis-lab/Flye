@@ -263,7 +263,7 @@ def _run_minimap(reference_file, reads_file, num_proc, platform, out_file):
     #           "-w5", "-m100", "-g10000", "--max-chain-skip", "25",
     #           "-t", str(num_proc)]
     cmdline = [GRAPHMAP_BIN, "align", "-r", reference_file, "-d", reads_file,
-               "-t", str(num_proc), "-o", out_file]    
+               "-t", str(num_proc), "-b 5", "-o", out_file]    
     #if platform == "nano":
     #    cmdline.append("-k15")
     #else:
