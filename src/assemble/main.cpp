@@ -242,7 +242,7 @@ int main(int argc, char** argv)
 
 	Extender extender(readsContainer, readOverlaps, coverage, 
 					  estimator.genomeSizeEstimate());
-	extender.assembleContigs();
+	extender.assembleContigs(/*addSingletons*/true);
 	vertexIndex.clear();
 
 	ConsensusGenerator consGen;

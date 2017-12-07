@@ -147,7 +147,7 @@ Extender::ExtensionInfo Extender::extendContig(FastaRecord::Id startRead)
 }
 
 
-void Extender::assembleContigs()
+void Extender::assembleContigs(bool addSingletons)
 {
 	static const int MAX_JUMP = Config::get("maximum_jump");
 	Logger::get().info() << "Extending reads";
@@ -225,8 +225,8 @@ void Extender::assembleContigs()
 				coveredReads.insert(ovlp.extId, true);
 
 				//contained inside the other read - probably repetitive
-				//if (ovlp.leftShift > MAX_JUMP &&
-				//	ovlp.rightShift < -MAX_JUMP) continue;
+				if (ovlp.leftShift > MAX_JUMP &&
+					ovlp.rightShift < -MAX_JUMP) continue;
 
 				if (ovlp.leftShift > MAX_JUMP)
 				{
@@ -266,24 +266,31 @@ void Extender::assembleContigs()
 	processInParallel(allReads, threadWorker,
 					  Parameters::get().numThreads, true);
 
-	int singletonsAdded = 0;
-	for (auto& indexPair : _readsContainer.getIndex())
+	if (addSingletons)
 	{
-		if (!indexPair.first.strand()) continue;
-		
-		if (!_innerReads.contains(indexPair.first) && 
-			_readsContainer.seqLen(indexPair.first) > 
-				Parameters::get().minimumOverlap)
+		int singletonsAdded = 0;
+		for (auto& indexPair : _readsContainer.getIndex())
 		{
-			ExtensionInfo path;
-			path.reads.push_back(indexPair.first);
-			_readLists.push_back(path);
-			++singletonsAdded;
+			if (!indexPair.first.strand()) continue;
+			
+			if (!coveredReads.contains(indexPair.first) && 
+				_readsContainer.seqLen(indexPair.first) > 
+					Parameters::get().minimumOverlap)
+			{
+				for (auto& ovlp : _ovlpContainer.lazySeqOverlaps(indexPair.first))
+				{
+					coveredReads.insert(ovlp.extId, true);
+				}
+				ExtensionInfo path;
+				path.reads.push_back(indexPair.first);
+				_readLists.push_back(path);
+				++singletonsAdded;
+			}
 		}
+		Logger::get().info() << "Added " << singletonsAdded << " singleton reads";
 	}
 
 	this->convertToContigs();
-	Logger::get().info() << "Added " << singletonsAdded << " singleton reads";
 	Logger::get().info() << "Assembled " << _contigPaths.size() << " draft contigs";
 }
 
