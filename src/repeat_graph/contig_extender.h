@@ -20,7 +20,7 @@ public:
 		_asmSeqs(asmSeqs), _readSeqs(readSeqs) {}
 
 	void generateUnbranchingPaths();
-	void generateContigs();
+	void generateContigs(bool graphContinue);
 	void outputContigs(const std::string& filename);
 	void outputStatsTable(const std::string& filename);
 	//std::vector<UnbranchingPath> getContigPaths();

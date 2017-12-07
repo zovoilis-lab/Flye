@@ -228,7 +228,7 @@ int main(int argc, char** argv)
 	Logger::get().info() << "Generating contigs";
 
 	extender.generateUnbranchingPaths();
-	extender.generateContigs();
+	extender.generateContigs(/*graphContinue*/ false);
 	extender.outputContigs(outFolder + "/graph_paths.fasta");
 	extender.outputStatsTable(outFolder + "/contigs_stats.txt");
 
