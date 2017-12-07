@@ -470,12 +470,12 @@ def main():
                         "(default: 1)")
     parser.add_argument("-i", "--iterations", dest="num_iters",
                         type=lambda v: check_int_range(v, 0, 10),
-                        default=0, help="number of polishing iterations "
-                        "(default: 0)")
+                        default=1, help="number of polishing iterations "
+                        "(default: 1)")
     parser.add_argument("--min-overlap", dest="min_overlap",
                         type=lambda v: check_int_range(v, 1000, 10000),
-                        default=1000, help="minimum overlap between reads "
-                        "(default: 1000)")
+                        default=5000, help="minimum overlap between reads "
+                        "(default: 5000)")
     parser.add_argument("--resume", action="store_true",
                         dest="resume", default=False,
                         help="resume from the last completed stage")
