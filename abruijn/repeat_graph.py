@@ -39,11 +39,16 @@ def analyse_repeats(args, input_assembly, out_folder, log_file, config_file):
                "-t", str(args.threads), "-v", str(args.min_overlap)]
     if args.debug:
         cmdline.append("-d")
+    if args.read_type != "subassemblies":
+        cmdline.append("-g")
     cmdline.extend([input_assembly, args.reads, out_folder, config_file])
 
     try:
+        logger.debug("Running: " + " ".join(cmdline))
         subprocess.check_call(cmdline)
-    except (subprocess.CalledProcessError, OSError) as e:
+    except subprocess.CalledProcessError as e:
         if e.returncode == -9:
             logger.error("Looks like the system ran out of memory")
         raise RepeatException(str(e))
+    except OSError as e:
+        raise AssembleException(str(e))

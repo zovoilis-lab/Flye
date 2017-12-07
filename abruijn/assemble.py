@@ -40,15 +40,20 @@ def assemble(args, out_file, log_file, config_path):
                "-t", str(args.threads), "-v", str(args.min_overlap)]
     if args.debug:
         cmdline.append("-d")
-    if args.min_kmer_count is not None:
-        cmdline.extend(["-m", str(args.min_kmer_count)])
-    if args.max_kmer_count is not None:
-        cmdline.extend(["-x", str(args.max_kmer_count)])
+    if args.read_type == "subassemblies":
+        cmdline.append("-s")
+    #if args.min_kmer_count is not None:
+    #    cmdline.extend(["-m", str(args.min_kmer_count)])
+    #if args.max_kmer_count is not None:
+    #    cmdline.extend(["-x", str(args.max_kmer_count)])
     cmdline.extend([args.reads, out_file, str(args.genome_size), config_path])
 
     try:
+        logger.debug("Running: " + " ".join(cmdline))
         subprocess.check_call(cmdline)
-    except (subprocess.CalledProcessError, OSError) as e:
+    except subprocess.CalledProcessError as e:
         if e.returncode == -9:
             logger.error("Looks like the system ran out of memory")
+        raise AssembleException(str(e))
+    except OSError as e:
         raise AssembleException(str(e))

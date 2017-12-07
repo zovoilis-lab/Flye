@@ -27,7 +27,7 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 			   std::string& outFolder, std::string& logFile, 
 			   std::string& inAssembly, int& kmerSize,
 			   int& minOverlap, bool& debug, size_t& numThreads, 
-			   std::string& configPath)
+			   std::string& configPath, bool& graphContinue)
 {
 	auto printUsage = [argv]()
 	{
@@ -44,6 +44,8 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 				  << "\t-k kmer_size\tk-mer size [default = 15] \n"
 				  << "\t-v min_overlap\tminimum overlap between reads "
 				  << "[default = 5000] \n"
+				  << "\t-g \t\tcontinue contigs using graph structure "
+				  << "[default = false] \n"
 				  << "\t-d \t\tenable debug output "
 				  << "[default = false] \n"
 				  << "\t-l log_file\toutput log to file "
@@ -54,11 +56,11 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 
 	numThreads = 1;
 	debug = false;
-	logFile = "";
+	graphContinue = false;
 	minOverlap = 5000;
 	kmerSize = 15;
 
-	const char optString[] = "l:t:k:v:hd";
+	const char optString[] = "l:t:k:v:hdg";
 	int opt = 0;
 	while ((opt = getopt(argc, argv, optString)) != -1)
 	{
@@ -78,6 +80,9 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 			break;
 		case 'd':
 			debug = true;
+			break;
+		case 'g':
+			graphContinue = true;
 			break;
 		case 'h':
 			printUsage();
@@ -152,30 +157,27 @@ int main(int argc, char** argv)
 	#endif
 
 	bool debugging = false;
-	size_t numThreads;
-	int kmerSize;
-	int minOverlap;
+	bool graphContinue = false;
+	size_t numThreads = 1;
+	int kmerSize = 15;
+	int minOverlap = 5000;
 	std::string readsFasta;
 	std::string inAssembly;
 	std::string outFolder;
 	std::string logFile;
 	std::string configPath;
-
 	if (!parseArgs(argc, argv, readsFasta, outFolder, logFile, inAssembly,
-				   kmerSize, minOverlap, debugging, numThreads, configPath)) 
-	{
-		return 1;
-	}
+				   kmerSize, minOverlap, debugging, 
+				   numThreads, configPath, graphContinue))  return 1;
 	Parameters::get().minimumOverlap = minOverlap;
 	Parameters::get().kmerSize = kmerSize;
 	Parameters::get().numThreads = numThreads;
 
 	Logger::get().setDebugging(debugging);
 	if (!logFile.empty()) Logger::get().setOutputFile(logFile);
+	Logger::get().debug() << "Build date: " << __DATE__ << " " << __TIME__;
 	std::ios::sync_with_stdio(false);
 	Config::load(configPath);
-
-	Logger::get().debug() << "Build date: " << __DATE__ << " " << __TIME__;
 
 	Logger::get().info() << "Reading sequences";
 	SequenceContainer seqAssembly; 
@@ -228,17 +230,17 @@ int main(int argc, char** argv)
 	Logger::get().info() << "Generating contigs";
 
 	extender.generateUnbranchingPaths();
-	extender.generateContigs(/*graphContinue*/ false);
+	extender.generateContigs(graphContinue);
 	extender.outputContigs(outFolder + "/graph_paths.fasta");
 	extender.outputStatsTable(outFolder + "/contigs_stats.txt");
 
-	outGen.dumpRepeats(extender.getUnbranchingPaths(), 
+	outGen.dumpRepeats(extender.getUnbranchingPaths(),
 					   outFolder + "/repeats_dump.txt");
-	outGen.outputDot(extender.getUnbranchingPaths(), 
+	outGen.outputDot(extender.getUnbranchingPaths(),
 					 outFolder + "/graph_final.dot");
-	outGen.outputFasta(extender.getUnbranchingPaths(), 
+	outGen.outputFasta(extender.getUnbranchingPaths(),
 					   outFolder + "/graph_final.fasta");
-	outGen.outputGfa(extender.getUnbranchingPaths(), 
+	outGen.outputGfa(extender.getUnbranchingPaths(),
 					 outFolder + "/graph_final.gfa");
 	return 0;
 }

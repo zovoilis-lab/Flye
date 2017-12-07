@@ -13,6 +13,7 @@ import logging
 import argparse
 import json
 import shutil
+import subprocess
 
 import abruijn.alignment as aln
 import abruijn.bubbles as bbl
@@ -311,10 +312,15 @@ def _create_job_list(args, work_dir, log_file):
     return jobs
 
 
-def _get_kmer_size(args):
+def _set_kmer_size(args):
     """
     Select k-mer size based on the target genome size
     """
+    if args.genome_size.isdigit():
+        args.genome_size = int(args.genome_size)
+    else:
+        args.genome_size = human2bytes(args.genome_size.upper())
+
     multiplier = 1
     suffix = args.reads.rsplit(".")[-1]
     if suffix == "gz":
@@ -331,39 +337,33 @@ def _get_kmer_size(args):
     genome_coverage = reads_size / args.genome_size
     logger.debug("Genome size: {0}".format(args.genome_size))
     logger.debug("Estimated genome coverage: {0}".format(genome_coverage))
-    kmer_size = 15
+    args.kmer_size = config.vals["small_kmer"]
     if args.genome_size > config.vals["big_genome"]:
-        kmer_size = 17
-    logger.debug("Chosen k-mer size: {0}".format(kmer_size))
-    return kmer_size
+        args.kmer_size = config.vals["big_kmer"]
+    logger.debug("Chosen k-mer size: {0}".format(args.kmer_size))
+
+
+def _set_read_attributes(args):
+    root = os.path.dirname(__file__)
+    if args.read_type == "raw":
+        args.asm_config = os.path.join(root, "resource", config.vals["raw_cfg"])
+    elif args.read_type in ["corrected", "subassemblies"]:
+        args.asm_config = os.path.join(root, "resource",
+                                       config.vals["corrected_cfg"])
 
 
 def _run(args):
     """
     Runs the pipeline
     """
-    if not os.path.isdir(args.out_dir):
-        os.mkdir(args.out_dir)
-    work_dir = os.path.abspath(args.out_dir)
-
-    log_file = os.path.join(work_dir, "abruijn.log")
-    _enable_logging(log_file, args.debug,
-                    overwrite=not args.resume and not args.resume_from)
-
-    logger.info("Running ABruijn")
+    logger.info("Running ABruijn " + _version())
     logger.debug("Cmd: {0}".format(" ".join(sys.argv)))
-    aln.check_binaries()
-    pol.check_binaries()
-    asm.check_binaries()
 
     if not os.path.exists(args.reads):
         raise ResumeException("Can't open " + args.reads)
 
-    if args.kmer_size is None:
-        args.kmer_size = _get_kmer_size(args)
-
-    save_file = os.path.join(work_dir, "abruijn.save")
-    jobs = _create_job_list(args, work_dir, log_file)
+    save_file = os.path.join(args.out_dir, "abruijn.save")
+    jobs = _create_job_list(args, args.out_dir, args.log_file)
 
     current_job = 0
     if args.resume or args.resume_from:
@@ -430,6 +430,39 @@ def _calc_n50(scaffolds_lengths, assembly_len):
     return n50
 
 
+def _usage():
+    return ("abruijn [--pacbio-raw | --pacbio-corr | --nano-raw |\n"
+            "\t\t--nano-corr | --subassemblies] reads_path\n"
+            "\t\t--genome-size size --out-dir dir_path [--threads int]\n"
+            "\t\t[--iterations int] [--min-overlap int] [--resume]\n"
+            "\t\t[--debug] [--version] [--help]")
+
+
+def _epilog():
+    return ("Input reads could be in FASTA or FASTQ format, uncompressed\n"
+            "or compressed with gz. Currenlty, raw and corrected reads\n"
+            "from PacBio and ONT are supported. Additionally, --subassemblies\n"
+            "option does a consensus assembly of high-quality input contigs\n"
+            "(for example, to create a consensus of multiple short read assemblies).\n\n"
+            "You must provide an estimate of the genome size as input,\n"
+            "which is used for solid k-mers selection. The estimate could\n"
+            "be rough (e.g. withing 0.5x-2x range) and does not affect\n"
+            "the other assembly stages. Standard size modificators are\n"
+            "supported (e.g. 5m or 2.6g)")
+
+
+def _version():
+    repo_root = os.path.dirname((os.path.dirname(__file__)))
+    try:
+        git_label = subprocess.check_output(["git", "-C", repo_root,
+                                            "describe", "--tags"],
+                                            stderr=open(os.devnull, "w"))
+        return git_label.strip("\n")
+    except (subprocess.CalledProcessError, OSError):
+        pass
+    return __version__ + "-release"
+
+
 def main():
     def check_int_range(value, min_val, max_val, require_odd=False):
         ival = int(value)
@@ -440,64 +473,69 @@ def main():
             raise argparse.ArgumentTypeError("should be an odd number")
         return ival
 
-    parser = argparse.ArgumentParser(description="ABruijn: assembly of long and"
-                                     " error-prone reads")
+    parser = argparse.ArgumentParser \
+        (description="Assembly of long and error-prone reads",
+         formatter_class=argparse.RawDescriptionHelpFormatter,
+         usage=_usage(), epilog=_epilog())
 
     parser.add_argument("--pacbio-raw", dest="pacbio_raw",
-                        default=None, help="PacBio raw reads")
+                        default=None, metavar="path",
+                        help="PacBio raw reads")
     parser.add_argument("--pacbio-corr", dest="pacbio_corrected",
-                        default=None, help="PacBio corrected reads")
+                        default=None, metavar="path",
+                        help="PacBio corrected reads")
     parser.add_argument("--nano-raw", dest="nano_raw",
-                        default=None, help="ONT raw reads")
+                        default=None, metavar="path",
+                        help="ONT raw reads")
     parser.add_argument("--nano-corr", dest="nano_corrected",
-                        default=None, help="ONT corrected reads")
+                        default=None, metavar="path",
+                        help="ONT corrected reads")
+    parser.add_argument("--subassemblies", dest="subassemblies",
+                        default=None, metavar="path",
+                        help="high-quality contig-like input")
+    parser.add_argument("-g", "--genome-size", dest="genome_size",
+                        metavar="size", required=True,
+                        help="estimated genome size (for example, 5m or 2.6g)")
     parser.add_argument("-o", "--out-dir", dest="out_dir",
-                        default=None, required=True, help="Output directory")
-    #parser.add_argument("reads", metavar="reads",
-    #                    help="path to reads file (FASTA/Q format)")
-    #parser.add_argument("out_dir", metavar="out_dir",
-    #                    help="output directory")
-    #parser.add_argument("-c", "--coverage", metavar="coverage (integer)",
-    #                    type=lambda v: check_int_range(v, 1, 1000),
-    #                    help="estimated assembly coverage",
-    #                    required=True)
-    parser.add_argument("-g", "--genome_size", metavar="genome_size",
-                        help="estimated genome size (Mb/Gb suffixes allowed)",
-                        required=True)
+                        default=None, required=True,
+                        metavar="path", help="Output directory")
+
     parser.add_argument("-t", "--threads", dest="threads",
                         type=lambda v: check_int_range(v, 1, 128),
-                        default=1, help="number of parallel threads "
+                        default=1, metavar="int", help="number of parallel threads "
                         "(default: 1)")
     parser.add_argument("-i", "--iterations", dest="num_iters",
                         type=lambda v: check_int_range(v, 0, 10),
                         default=1, help="number of polishing iterations "
-                        "(default: 1)")
-    parser.add_argument("--min-overlap", dest="min_overlap",
+                        "(default: 1)", metavar="int")
+    parser.add_argument("--min-overlap", dest="min_overlap", metavar="int",
                         type=lambda v: check_int_range(v, 1000, 10000),
                         default=5000, help="minimum overlap between reads "
                         "(default: 5000)")
+
     parser.add_argument("--resume", action="store_true",
                         dest="resume", default=False,
                         help="resume from the last completed stage")
-    parser.add_argument("--resume-from", dest="resume_from",
+    parser.add_argument("--resume-from", dest="resume_from", metavar="stage_name",
                         default=None, help="resume from a custom stage")
-    parser.add_argument("--kmer-size", dest="kmer_size",
-                        type=lambda v: check_int_range(v, 11, 31, require_odd=True),
-                        default=None, help="kmer size (default: auto)")
-    parser.add_argument("--min-coverage", dest="min_kmer_count",
-                        type=lambda v: check_int_range(v, 1, 1000),
-                        default=None, help="minimum kmer coverage "
-                        "(default: auto)")
-    parser.add_argument("--max-coverage", dest="max_kmer_count",
-                        type=lambda v: check_int_range(v, 1, 1000),
-                        default=None, help="maximum kmer coverage "
-                        "(default: auto)")
+    #parser.add_argument("--kmer-size", dest="kmer_size",
+    #                    type=lambda v: check_int_range(v, 11, 31, require_odd=True),
+    #                    default=None, help="kmer size (default: auto)")
+    #parser.add_argument("--min-coverage", dest="min_kmer_count",
+    #                    type=lambda v: check_int_range(v, 1, 1000),
+    #                    default=None, help="minimum kmer coverage "
+    #                    "(default: auto)")
+    #parser.add_argument("--max-coverage", dest="max_kmer_count",
+    #                    type=lambda v: check_int_range(v, 1, 1000),
+    #                    default=None, help="maximum kmer coverage "
+    #                    "(default: auto)")
     parser.add_argument("--debug", action="store_true",
                         dest="debug", default=False,
                         help="enable debug output")
-    parser.add_argument("--version", action="version", version=__version__)
+    parser.add_argument("-v", "--version", action="version", version=_version())
     args = parser.parse_args()
 
+    #additional reads input handling
     reads_files = []
     if args.pacbio_raw:
         reads_files.append(args.pacbio_raw)
@@ -515,23 +553,30 @@ def main():
         reads_files.append(args.nano_corrected)
         args.platform = "nano"
         args.read_type = "corrected"
+    if args.subassemblies:
+        reads_files.append(args.subassemblies)
+        args.platform = "pacbio"
+        args.read_type = "subassemblies"
     if len(reads_files) == 0:
         parser.error("Reads file is not specified")
     if len(reads_files) > 1:
         parser.error("Mixing multiple read files is not supported yet")
     args.reads = reads_files[0]
 
-    root = os.path.dirname(__file__)
-    if args.read_type == "raw":
-        args.asm_config = os.path.join(root, "resource", config.vals["raw_cfg"])
-    elif args.read_type == "corrected":
-        args.asm_config = os.path.join(root, "resource",
-                                       config.vals["corrected_cfg"])
+    if not os.path.isdir(args.out_dir):
+        os.mkdir(args.out_dir)
+    args.out_dir = os.path.abspath(args.out_dir)
 
-    if args.genome_size.isdigit():
-        args.genome_size = int(args.genome_size)
-    else:
-        args.genome_size = human2bytes(args.genome_size.upper())
+    args.log_file = os.path.join(args.out_dir, "abruijn.log")
+    _enable_logging(args.log_file, args.debug,
+                    overwrite=not args.resume and not args.resume_from)
+
+    aln.check_binaries()
+    pol.check_binaries()
+    asm.check_binaries()
+
+    _set_kmer_size(args)
+    _set_read_attributes(args)
 
     try:
         _run(args)
