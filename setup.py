@@ -25,6 +25,6 @@ setup(name='abruijn',
       packages=['abruijn'],
       package_data={'abruijn': ['resource/*.mat']},
       scripts = ['bin/abruijn-assemble', 'bin/abruijn-polish',
-                 'bin/abruijn-repeat', 'bin/abruijn', 'bin/abruijn-minimap2'],
+                 'bin/abruijn-repeat', 'bin/abruijn', 'bin/abruijn-minimap2', 'bin/abruijn-graphmap'],
       cmdclass={'build': MakeBuild}
       )
