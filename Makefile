@@ -23,6 +23,7 @@ ${BIN_DIR}/abruijn-minimap2:
 	
 
 ${BIN_DIR}/abruijn-graphmap:
+	git submodule update --init --recursive
 	make modules -C ${GRAPHMAP_DIR}
 	make -C ${GRAPHMAP_DIR}
 	cp ${GRAPHMAP_BIN}/graphmap ${BIN_DIR}/abruijn-graphmap
