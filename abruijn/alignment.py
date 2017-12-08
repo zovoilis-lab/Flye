@@ -272,7 +272,9 @@ def _run_mapper(reference_file, reads_file, num_proc, platform, out_file):
             cmdline.append("-Hk19")
     else:
         cmdline = [GRAPHMAP_BIN, "align", "-r", reference_file, "-d", reads_file,
-                   "-t", str(num_proc), "-b", "5", "-o", out_file]    
+                   "-t", str(num_proc), "-b", "0", "-o", out_file]
+        #FIXME: Find a way to output GraphMap sam without QValues (due to large SAM file this way)
+        # "-b 5" does output without QValues, but also headers will contain timing and stuff which breaks ABruijn on another spot
 
     try:
         devnull = open(os.devnull, "w")
