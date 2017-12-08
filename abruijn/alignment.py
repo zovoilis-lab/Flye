@@ -3,7 +3,7 @@
 #Released under the BSD license (see LICENSE file)
 
 """
-Runs Minimap2 and parses its output
+Runs mapper (Minimap2(default) or Graphmap) and parses its output
 """
 
 import os
@@ -21,7 +21,8 @@ import abruijn.config as config
 
 
 logger = logging.getLogger()
-GRAPHMAP_BIN = "/home/bioinf/Software/graphmap/bin/Linux-x64/graphmap"
+MINIMAP_BIN = "abruijn-minimap"
+GRAPHMAP_BIN = "abruijn-graphmap"
 
 Alignment = namedtuple("Alignment", ["qry_id", "trg_id", "qry_start", "qry_end",
                                      "qry_sign", "qry_len", "trg_start",
@@ -198,8 +199,10 @@ class SynchronizedSamReader(object):
 
 
 def check_binaries():
+    if not which(MINIMAP_BIN):
+        raise AlignmentException("Minimap2 is not installed")          
     if not which(GRAPHMAP_BIN):
-        raise AlignmentException("Minimap2 is not installed")
+        raise AlignmentException("Graphmap is not installed")
     if not which("sort"):
         raise AlignmentException("UNIX sort utility is not available")
 
@@ -207,9 +210,9 @@ def check_binaries():
 def make_alignment(reference_file, reads_file, num_proc,
                    work_dir, platform, out_alignment):
     """
-    Runs minimap2 and sort its output
+    Runs mapper and sort its output
     """
-    _run_minimap(reference_file, reads_file, num_proc, platform, out_alignment)
+    _run_mapper(reference_file, reads_file, num_proc, platform, out_alignment)
     logger.debug("Sorting alignment file")
     temp_file = out_alignment + "_sorted"
     env = os.environ.copy()
@@ -258,16 +261,18 @@ def shift_gaps(seq_trg, seq_qry):
     return "".join(lst_qry[1 : -1])
 
 
-def _run_minimap(reference_file, reads_file, num_proc, platform, out_file):
-    #cmdline = [MINIMAP_BIN, reference_file, reads_file, "-a", "-Q",
-    #           "-w5", "-m100", "-g10000", "--max-chain-skip", "25",
-    #           "-t", str(num_proc)]
-    cmdline = [GRAPHMAP_BIN, "align", "-r", reference_file, "-d", reads_file,
-               "-t", str(num_proc), "-b", "5", "-o", out_file]    
-    #if platform == "nano":
-    #    cmdline.append("-k15")
-    #else:
-    #    cmdline.append("-Hk19")
+def _run_mapper(reference_file, reads_file, num_proc, platform, out_file):
+    if mapper_tool == "minimap2":
+        cmdline = [MINIMAP_BIN, reference_file, reads_file, "-a", "-Q",
+                   "-w5", "-m100", "-g10000", "--max-chain-skip", "25",
+                   "-t", str(num_proc)]
+        if platform == "nano":
+            cmdline.append("-k15")
+        else:
+            cmdline.append("-Hk19")
+    else:
+        cmdline = [GRAPHMAP_BIN, "align", "-r", reference_file, "-d", reads_file,
+                   "-t", str(num_proc), "-b", "5", "-o", out_file]    
 
     try:
         devnull = open(os.devnull, "w")
