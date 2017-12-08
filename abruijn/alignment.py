@@ -21,7 +21,7 @@ import abruijn.config as config
 
 
 logger = logging.getLogger()
-MINIMAP_BIN = "abruijn-minimap"
+MINIMAP_BIN = "abruijn-minimap2"
 GRAPHMAP_BIN = "abruijn-graphmap"
 
 Alignment = namedtuple("Alignment", ["qry_id", "trg_id", "qry_start", "qry_end",
