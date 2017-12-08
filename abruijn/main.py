@@ -240,7 +240,7 @@ def _run(args):
     logger.info("Running ABruijn")
     logger.info("  Run invoked with:")
     for arg in vars(args):
-        logger.info("  {}:{}".format(arg,getattr(args, arg)))
+        logger.info("  *{}:{}".format(arg,getattr(args, arg)))
     aln.check_binaries()
     pol.check_binaries()
     asm.check_binaries()
