@@ -202,7 +202,7 @@ def check_binaries():
     if not which(MINIMAP_BIN):
         raise AlignmentException("Minimap2 is not installed")          
     if not which(GRAPHMAP_BIN):
-        raise AlignmentException("Graphmap is not installed")
+        raise AlignmentException("GraphMap is not installed")
     if not which("sort"):
         raise AlignmentException("UNIX sort utility is not available")
 
