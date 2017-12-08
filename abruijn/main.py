@@ -110,7 +110,10 @@ class JobAlignment(Job):
     def run(self):
         #logger.info("Polishing genome ({0}/{1})".format(self.stage_id,
         #                                                self.args.num_iters))
-        logger.info("Running Minimap2")
+        if mapper_tool == "minimap":
+            logger.info("Running Minimap2")
+        else:
+            logger.info("Running GraphMap")            
         aln.make_alignment(self.in_reference, self.args.reads, self.args.threads,
                            self.work_dir, self.args.platform, self.out_alignment)
 
@@ -175,7 +178,7 @@ def _create_job_list(args, work_dir, log_file):
     jobs.append(JobAssembly(draft_assembly, log_file))
 
     #Pre-polishing
-    alignment_file = os.path.join(work_dir, "minimap_0.sam")
+    alignment_file = os.path.join(work_dir, "mapping_0.sam")
     pre_polished_file = os.path.join(work_dir, "polished_0.fasta")
     jobs.append(JobAlignment(draft_assembly, alignment_file, 0))
     jobs.append(JobConsensus(draft_assembly, alignment_file,
@@ -189,7 +192,7 @@ def _create_job_list(args, work_dir, log_file):
     #Full polishing
     prev_assembly = edges_sequences
     for i in xrange(args.num_iters):
-        alignment_file = os.path.join(work_dir, "minimap_{0}.sam".format(i + 1))
+        alignment_file = os.path.join(work_dir, "mapping_{0}.sam".format(i + 1))
         polished_file = os.path.join(work_dir,
                                      "polished_{0}.fasta".format(i + 1))
         jobs.append(JobAlignment(prev_assembly, alignment_file, i + 1))
