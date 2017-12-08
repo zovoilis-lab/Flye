@@ -30,14 +30,11 @@ minimap2: ${BIN_DIR}/abruijn-minimap2
 
 graphmap: ${BIN_DIR}/abruijn-graphmap
 
-all: minimap2
-	graphmap
+all: minimap2 graphmap
 	make release -C src
-profile: minimap2
-	graphmap
+profile: minimap2 graphmap
 	make profile -C src
-debug: minimap2
-	graphmap
+debug: minimap2 graphmap
 	make debug -C src
 clean:
 	make clean -C src
