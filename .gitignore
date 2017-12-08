@@ -7,6 +7,7 @@ bin/abruijn-assemble
 bin/abruijn-polish
 bin/abruijn-repeat
 bin/abruijn-minimap2
+bin/abruijn-graphmap
 bin/blasr
 build
 lib/blasr_install/*
