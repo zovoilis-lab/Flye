@@ -22,7 +22,7 @@ ${BIN_DIR}/abruijn-minimap2:
 	
 
 ${BIN_DIR}/abruijn-graphmap:
-        make modules -C ${GRAPHMAP_DIR}
+	make modules -C ${GRAPHMAP_DIR}
 	make -C ${GRAPHMAP_DIR}
 	cp ${GRAPHMAP_DIR}/graphmap ${BIN_DIR}/abruijn-graphmap
 
@@ -31,13 +31,13 @@ minimap2: ${BIN_DIR}/abruijn-minimap2
 graphmap: ${BIN_DIR}/abruijn-graphmap
 
 all: minimap2
-        graphmap
+	graphmap
 	make release -C src
 profile: minimap2
-        graphmap
+	graphmap
 	make profile -C src
 debug: minimap2
-        graphmap
+	graphmap
 	make debug -C src
 clean:
 	make clean -C src
