@@ -22,7 +22,7 @@ ${BIN_DIR}/abruijn-minimap2:
 	
 
 ${BIN_DIR}/abruijn-graphmap:
-        make -C ${GRAPHMAP_DIR} modules
+        make modules -C ${GRAPHMAP_DIR}
 	make -C ${GRAPHMAP_DIR}
 	cp ${GRAPHMAP_DIR}/graphmap ${BIN_DIR}/abruijn-graphmap
 
