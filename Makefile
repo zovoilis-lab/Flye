@@ -6,7 +6,7 @@ export INTERVAL_TREE = -I${ROOT_DIR}/lib/interval_tree
 export LEMON = -I${ROOT_DIR}/lib/lemon
 export BIN_DIR = ${ROOT_DIR}/bin
 export MINIMAP2_DIR = ${ROOT_DIR}/lib/minimap2
-export GRAPHMAP_DIR = ${ROOT_DIR}/lib/graphmap
+export GRAPHMAP_DIR = ${ROOT_DIR}/lib/graphmap/bin/Linux-x64/
 
 export CXXFLAGS = ${LIBCUCKOO} ${INTERVAL_TREE} ${LEMON} ${COMMON} 
 #export LDFLAGS = 
