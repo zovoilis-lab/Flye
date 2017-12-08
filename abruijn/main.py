@@ -359,6 +359,10 @@ def main():
                         type=lambda v: check_int_range(v, 1, 1000),
                         default=None, help="maximum kmer coverage "
                         "(default: auto)")
+    parser.add_argument("--mapper", dest="mapping_tool",
+                        default="minimap2",
+                        choices=["minimap2", "graphmap"],
+                        help="mapping tool (default: minimap2)")
     parser.add_argument("--version", action="version", version=__version__)
     args = parser.parse_args()
 
