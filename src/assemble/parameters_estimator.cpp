@@ -58,13 +58,16 @@ void ParametersEstimator::estimateMinKmerCount(int upperCutoff)
 
 	if (cutoff < 2)
 	{
-		Logger::get().warning() << "Unable to separate erroneous k-mers "
-					  "from solid k-mers. Possible reasons: \n"
-					  "\t(1) Incorrect expected assembly size parameter \n"
-					  "\t(2) Highly uneven coverage of the assembly \n"
-					  "\t(3) Running with error-corrected reads in raw reads mode\n"
-					  "\t(4) Assembling big genome with small k-mer size\n"
-					  "\tAssembly will continue, but results might not be optimal";
+		if ((bool)Config::get("low_cutoff_warning"))
+		{
+			Logger::get().warning() << "Unable to separate erroneous k-mers "
+						  "from solid k-mers. Possible reasons: \n"
+						  "\t(1) Incorrect expected assembly size parameter \n"
+						  "\t(2) Highly uneven coverage of the assembly \n"
+						  "\t(3) Running with error-corrected reads in raw reads mode\n"
+						  "\t(4) Assembling big genome with small k-mer size\n"
+						  "\tAssembly will continue, but results might not be optimal";
+		}
 		cutoff = MIN_CUTOFF;
 	}
 	

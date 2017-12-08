@@ -508,7 +508,7 @@ def main():
                         type=lambda v: check_int_range(v, 0, 10),
                         default=1, help="number of polishing iterations "
                         "(default: 1)", metavar="int")
-    parser.add_argument("--min-overlap", dest="min_overlap", metavar="int",
+    parser.add_argument("-m", "--min-overlap", dest="min_overlap", metavar="int",
                         type=lambda v: check_int_range(v, 1000, 10000),
                         default=5000, help="minimum overlap between reads "
                         "(default: 5000)")

@@ -7,7 +7,7 @@ File with configurations
 """
 
 vals = {
-        "big_genome" : 50 * 1024 * 1024,
+        "big_genome" : 100 * 1024 * 1024,
         "small_kmer" : 15,
         "big_kmer" : 17,
 
