@@ -3,7 +3,7 @@
 #Released under the BSD license (see LICENSE file)
 
 """
-Runs mapper (Minimap2(default) or Graphmap) and parses its output
+Runs mapper (Minimap2(default) or GraphMap) and parses its output
 """
 
 import os
