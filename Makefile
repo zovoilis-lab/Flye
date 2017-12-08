@@ -6,7 +6,8 @@ export INTERVAL_TREE = -I${ROOT_DIR}/lib/interval_tree
 export LEMON = -I${ROOT_DIR}/lib/lemon
 export BIN_DIR = ${ROOT_DIR}/bin
 export MINIMAP2_DIR = ${ROOT_DIR}/lib/minimap2
-export GRAPHMAP_DIR = ${ROOT_DIR}/lib/graphmap/bin/Linux-x64/
+export GRAPHMAP_DIR = ${ROOT_DIR}/lib/graphmap
+export GRAPHMAP_BIN = ${GRAPHMAP_DIR}/bin/Linux-x64
 
 export CXXFLAGS = ${LIBCUCKOO} ${INTERVAL_TREE} ${LEMON} ${COMMON} 
 #export LDFLAGS = 
@@ -24,7 +25,7 @@ ${BIN_DIR}/abruijn-minimap2:
 ${BIN_DIR}/abruijn-graphmap:
 	make modules -C ${GRAPHMAP_DIR}
 	make -C ${GRAPHMAP_DIR}
-	cp ${GRAPHMAP_DIR}/graphmap ${BIN_DIR}/abruijn-graphmap
+	cp ${GRAPHMAP_BIN}/graphmap ${BIN_DIR}/abruijn-graphmap
 
 minimap2: ${BIN_DIR}/abruijn-minimap2
 
