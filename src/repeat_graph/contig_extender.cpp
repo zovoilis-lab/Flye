@@ -157,23 +157,28 @@ void ContigExtender::generateContigs(bool graphContinue)
 		Contig contig(upath);
 		auto leftPaths = this->asUPaths(leftExt.first);
 		auto rightPaths = this->asUPaths(rightExt.first);
+
+		GraphPath leftEdges;
 		for (auto& path : leftPaths)
 		{
-			for (auto& edge : path->path)
-			{
-				contig.graphEdges.path.insert(contig.graphEdges.path.end() - 1, 
-											  edge);
-			}
-			contig.graphPaths.insert(contig.graphPaths.end() - 1, path);
+			leftEdges.insert(leftEdges.end(), path->path.begin(), 
+						     path->path.end());
 		}
+		contig.graphEdges.path.insert(contig.graphEdges.path.begin(), 
+								      leftEdges.begin(), leftEdges.end());
+		contig.graphPaths.insert(contig.graphPaths.begin(), 
+								 leftPaths.begin(), leftPaths.end());
+
+		GraphPath rightEdges;
 		for (auto& path : rightPaths)
 		{
-			for (auto& edge : path->path)
-			{
-				contig.graphEdges.path.push_back(edge);
-			}
-			contig.graphPaths.push_back(path);
+			rightEdges.insert(rightEdges.end(), path->path.begin(), 
+						      path->path.end());
 		}
+		contig.graphEdges.path.insert(contig.graphEdges.path.end(), 
+								      rightEdges.begin(), rightEdges.end());
+		contig.graphPaths.insert(contig.graphPaths.end(), 
+								 rightPaths.begin(), rightPaths.end());
 
 		auto coreSeq = upathsSeqs[&upath]->sequence.str();
 		contig.sequence = DnaSequence(leftExt.second + coreSeq + rightExt.second);
@@ -232,7 +237,7 @@ void ContigExtender::outputStatsTable(const std::string& filename)
 	fout << "contig_id\tlength\tcoverage\tcircular\trepeat"
 		<< "\tmult\ttelomere\tgraph_path\n";
 
-	char YES_NO[] = {'N', 'Y'};
+	char YES_NO[] = {'-', '+'};
 
 	for (auto& ctg : _contigs)
 	{
@@ -253,15 +258,19 @@ void ContigExtender::outputStatsTable(const std::string& filename)
 		}
 		if (!ctg.graphEdges.repetitive) minMult = 1;
 
+		std::string telomereStr;
+		bool telLeft = (ctg.graphEdges.path.front()->nodeLeft->isTelomere());
+		bool telRight = (ctg.graphEdges.path.back()->nodeRight->isTelomere());
+		if (telLeft && !telRight) telomereStr = "left";
+		if (!telLeft && telRight) telomereStr = "right";
+		if (telLeft && telRight) telomereStr = "both";
+		if (!telLeft && !telRight) telomereStr = "none";
+
 		fout << ctg.graphEdges.name() << "\t" << ctg.sequence.length() << "\t" 
 			<< ctg.graphEdges.meanCoverage << "\t"
 			<< YES_NO[ctg.graphEdges.circular]
 			<< "\t" << YES_NO[ctg.graphEdges.repetitive] << "\t"
-			<< minMult << "\t" << "L:" 
-			<< YES_NO[ctg.graphEdges.path.front()->nodeLeft->isTelomere()]
-			<< ",R:" 
-			<< YES_NO[ctg.graphEdges.path.back()->nodeRight->isTelomere()]
-			<< "\t" << pathStr << "\n";
+			<< minMult << "\t" << telomereStr << "\t" << pathStr << "\n";
 
 		Logger::get().debug() << "Contig: " << ctg.graphEdges.id.signedId()
 			<< ": " << pathStr;
