@@ -186,7 +186,6 @@ int main(int argc, char** argv)
 	try
 	{
 		seqAssembly.loadFromFile(inAssembly);
-		seqReads.loadFromFile(readsFasta);
 		for (auto& readsFile : readsList)
 		{
 			seqReads.loadFromFile(readsFile);
