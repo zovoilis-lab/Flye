@@ -78,7 +78,7 @@ void SequenceContainer::loadFromFile(const std::string& fileName)
 	std::random_shuffle(indicesPerm.begin(), indicesPerm.end());
 	//
 
-	_seqIndex.reserve(records.size());
+	_seqIndex.reserve(_seqIndex.size() + records.size());
 	for (size_t i : indicesPerm)
 	{
 		_seqIndex[records[i].id] = std::move(records[i]);

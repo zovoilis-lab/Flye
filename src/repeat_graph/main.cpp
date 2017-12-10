@@ -32,12 +32,12 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 	auto printUsage = [argv]()
 	{
 		std::cerr << "Usage: " << argv[0]
-				  << "\tin_assembly reads_file out_folder config_path\n\t"
+				  << "\tin_assembly reads_files out_folder config_path\n\t"
 				  << "[-l log_file] [-t num_threads] [-v min_overlap]\n\t"
 				  << "[-k kmer_size] [-d]\n\n"
 				  << "positional arguments:\n"
 				  << "\tin_assembly\tpath to input assembly\n"
-				  << "\treads file\tpath to fasta with reads\n"
+				  << "\treads_files\tcomma-separated list with reads\n"
 				  << "\tout_assembly\tpath to output assembly\n"
 				  << "\tconfig_path\tpath to config file\n"
 				  << "\noptional arguments:\n"
@@ -182,10 +182,15 @@ int main(int argc, char** argv)
 	Logger::get().info() << "Reading sequences";
 	SequenceContainer seqAssembly; 
 	SequenceContainer seqReads;
+	std::vector<std::string> readsList = splitString(readsFasta, ',');
 	try
 	{
 		seqAssembly.loadFromFile(inAssembly);
 		seqReads.loadFromFile(readsFasta);
+		for (auto& readsFile : readsList)
+		{
+			seqReads.loadFromFile(readsFile);
+		}
 	}
 	catch (SequenceContainer::ParseException& e)
 	{

@@ -321,6 +321,7 @@ def _set_kmer_size(args):
     else:
         args.genome_size = human2bytes(args.genome_size.upper())
 
+    """
     multiplier = 1
     suffix = args.reads.rsplit(".")[-1]
     if suffix == "gz":
@@ -333,10 +334,11 @@ def _set_kmer_size(args):
         reads_size = os.path.getsize(args.reads) * multiplier / 2
     else:
         raise ResumeException("Uknown input reads format: " + suffix)
+    """
 
-    genome_coverage = reads_size / args.genome_size
+    #genome_coverage = reads_size / args.genome_size
     logger.debug("Genome size: {0}".format(args.genome_size))
-    logger.debug("Estimated genome coverage: {0}".format(genome_coverage))
+    #logger.debug("Estimated genome coverage: {0}".format(genome_coverage))
     args.kmer_size = config.vals["small_kmer"]
     if args.genome_size > config.vals["big_genome"]:
         args.kmer_size = config.vals["big_kmer"]
@@ -359,8 +361,9 @@ def _run(args):
     logger.info("Running ABruijn " + _version())
     logger.debug("Cmd: {0}".format(" ".join(sys.argv)))
 
-    if not os.path.exists(args.reads):
-        raise ResumeException("Can't open " + args.reads)
+    for read_file in args.reads:
+        if not os.path.exists(read_file):
+            raise ResumeException("Can't open " + read_file)
 
     save_file = os.path.join(args.out_dir, "abruijn.save")
     jobs = _create_job_list(args, args.out_dir, args.log_file)
@@ -431,8 +434,8 @@ def _calc_n50(scaffolds_lengths, assembly_len):
 
 
 def _usage():
-    return ("abruijn [--pacbio-raw | --pacbio-corr | --nano-raw |\n"
-            "\t\t--nano-corr | --subassemblies] reads_path\n"
+    return ("abruijn (--pacbio-raw | --pacbio-corr | --nano-raw |\n"
+            "\t\t--nano-corr | --subassemblies) file1 [file_2 ...]\n"
             "\t\t--genome-size size --out-dir dir_path [--threads int]\n"
             "\t\t[--iterations int] [--min-overlap int] [--resume]\n"
             "\t\t[--debug] [--version] [--help]")
@@ -442,8 +445,9 @@ def _epilog():
     return ("Input reads could be in FASTA or FASTQ format, uncompressed\n"
             "or compressed with gz. Currenlty, raw and corrected reads\n"
             "from PacBio and ONT are supported. Additionally, --subassemblies\n"
-            "option does a consensus assembly of high-quality input contigs\n"
-            "(for example, to create a consensus of multiple short read assemblies).\n\n"
+            "option does a consensus assembly of high-quality input contigs.\n"
+            "You may specify multiple fles with reads (separated by spaces).\n"
+            "Mixing different read types is not yet supported.\n\n"
             "You must provide an estimate of the genome size as input,\n"
             "which is used for solid k-mers selection. The estimate could\n"
             "be rough (e.g. withing 0.5x-2x range) and does not affect\n"
@@ -478,21 +482,23 @@ def main():
          formatter_class=argparse.RawDescriptionHelpFormatter,
          usage=_usage(), epilog=_epilog())
 
-    parser.add_argument("--pacbio-raw", dest="pacbio_raw",
-                        default=None, metavar="path",
+    read_group = parser.add_mutually_exclusive_group(required=True)
+    read_group.add_argument("--pacbio-raw", dest="pacbio_raw",
+                        default=None, metavar="path", nargs="+",
                         help="PacBio raw reads")
-    parser.add_argument("--pacbio-corr", dest="pacbio_corrected",
-                        default=None, metavar="path",
+    read_group.add_argument("--pacbio-corr", dest="pacbio_corrected",
+                        default=None, metavar="path", nargs="+",
                         help="PacBio corrected reads")
-    parser.add_argument("--nano-raw", dest="nano_raw",
+    read_group.add_argument("--nano-raw", dest="nano_raw", nargs="+",
                         default=None, metavar="path",
                         help="ONT raw reads")
-    parser.add_argument("--nano-corr", dest="nano_corrected",
+    read_group.add_argument("--nano-corr", dest="nano_corrected", nargs="+",
                         default=None, metavar="path",
                         help="ONT corrected reads")
-    parser.add_argument("--subassemblies", dest="subassemblies",
+    read_group.add_argument("--subassemblies", dest="subassemblies", nargs="+",
                         default=None, metavar="path",
                         help="high-quality contig-like input")
+
     parser.add_argument("-g", "--genome-size", dest="genome_size",
                         metavar="size", required=True,
                         help="estimated genome size (for example, 5m or 2.6g)")
@@ -535,33 +541,26 @@ def main():
     parser.add_argument("-v", "--version", action="version", version=_version())
     args = parser.parse_args()
 
-    #additional reads input handling
-    reads_files = []
     if args.pacbio_raw:
-        reads_files.append(args.pacbio_raw)
+        args.reads = args.pacbio_raw
         args.platform = "pacbio"
         args.read_type = "raw"
     if args.pacbio_corrected:
-        reads_files.append(args.pacbio_corrected)
+        args.reads = args.pacbio_corrected
         args.platform = "pacbio"
         args.read_type = "corrected"
     if args.nano_raw:
-        reads_files.append(args.nano_raw)
+        args.reads = args.nano_raw
         args.platform = "nano"
         args.read_type = "raw"
     if args.nano_corrected:
-        reads_files.append(args.nano_corrected)
+        args.reads = args.nano_corrected
         args.platform = "nano"
         args.read_type = "corrected"
     if args.subassemblies:
-        reads_files.append(args.subassemblies)
+        args.reads = args.subassemblies
         args.platform = "pacbio"
         args.read_type = "subassemblies"
-    if len(reads_files) == 0:
-        parser.error("Reads file is not specified")
-    if len(reads_files) > 1:
-        parser.error("Mixing multiple read files is not supported yet")
-    args.reads = reads_files[0]
 
     if not os.path.isdir(args.out_dir):
         os.mkdir(args.out_dir)

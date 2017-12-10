@@ -19,6 +19,7 @@
 #include "extender.h"
 #include "parameters_estimator.h"
 #include "../common/logger.h"
+#include "../common/utils.h"
 
 bool parseArgs(int argc, char** argv, std::string& readsFasta, 
 			   std::string& outAssembly, std::string& logFile, size_t& genomeSize,
@@ -29,11 +30,11 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 	auto printUsage = [argv]()
 	{
 		std::cerr << "Usage: " << argv[0]
-				  << "\treads_file out_assembly genome_size config_file\n\t"
+				  << "\treads_files out_assembly genome_size config_file\n\t"
 				  << "[-k kmer_size] [-m min_kmer_cov] \n\t"
 				  << "[-x max_kmer_cov] [-l log_file] [-t num_threads] [-d]\n\n"
 				  << "positional arguments:\n"
-				  << "\treads file\tpath to fasta with reads\n"
+				  << "\treads file\tcomma-separated list of read files\n"
 				  << "\tout_assembly\tpath to output file\n"
 				  << "\tgenome_size\tgenome size in bytes\n"
 				  << "\tconfig_file\tpath to the config file\n"
@@ -194,10 +195,14 @@ int main(int argc, char** argv)
 	Parameters::get().numThreads = numThreads;
 
 	SequenceContainer readsContainer;
+	std::vector<std::string> readsList = splitString(readsFasta, ',');
 	Logger::get().info() << "Reading sequences";
 	try
 	{
-		readsContainer.loadFromFile(readsFasta);
+		for (auto& readsFile : readsList)
+		{
+			readsContainer.loadFromFile(readsFile);
+		}
 	}
 	catch (SequenceContainer::ParseException& e)
 	{

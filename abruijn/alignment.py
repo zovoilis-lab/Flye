@@ -258,10 +258,11 @@ def shift_gaps(seq_trg, seq_qry):
     return "".join(lst_qry[1 : -1])
 
 
-def _run_minimap(reference_file, reads_file, num_proc, platform, out_file):
-    cmdline = [MINIMAP_BIN, reference_file, reads_file, "-a", "-Q",
-               "-w5", "-m100", "-g10000", "--max-chain-skip", "25",
-               "-t", str(num_proc)]
+def _run_minimap(reference_file, reads_files, num_proc, platform, out_file):
+    cmdline = [MINIMAP_BIN, reference_file]
+    cmdline.extend(reads_files)
+    cmdline.extend(["-a", "-Q", "-w5", "-m100", "-g10000", "--max-chain-skip",
+                    "25", "-t", str(num_proc)])
     if platform == "nano":
         cmdline.append("-k15")
     else:
@@ -269,6 +270,7 @@ def _run_minimap(reference_file, reads_file, num_proc, platform, out_file):
 
     try:
         devnull = open(os.devnull, "w")
+        logger.debug("Running: " + " ".join(cmdline))
         subprocess.check_call(cmdline, stderr=devnull,
                               stdout=open(out_file, "w"))
     except (subprocess.CalledProcessError, OSError) as e:

@@ -41,7 +41,8 @@ def analyse_repeats(args, input_assembly, out_folder, log_file, config_file):
         cmdline.append("-d")
     if args.read_type != "subassemblies":
         cmdline.append("-g")
-    cmdline.extend([input_assembly, args.reads, out_folder, config_file])
+    cmdline.extend([input_assembly, ",".join(args.reads),
+                    out_folder, config_file])
 
     try:
         logger.debug("Running: " + " ".join(cmdline))
