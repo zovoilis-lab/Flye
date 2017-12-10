@@ -89,6 +89,9 @@ class JobAssembly(Job):
             os.mkdir(self.assembly_dir)
         asm.assemble(self.args, self.assembly_filename, self.log_file,
                      self.args.asm_config)
+        if os.path.getsize(self.assembly_filename) == 0:
+            raise asm.AssembleException("No contigs were assembled - "
+                                        "are you using corrected input instead of raw?")
 
 
 class JobRepeat(Job):
