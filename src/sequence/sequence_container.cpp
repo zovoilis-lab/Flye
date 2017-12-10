@@ -223,7 +223,11 @@ size_t SequenceContainer::readFastq(std::vector<FastaRecord>& record,
 				}
 			}
 
-			if (nextLine.empty()) continue;
+			if (nextLine.empty()) 
+			{
+				stateCounter = (stateCounter + 1) % 4;
+				continue;
+			}
 			if (nextLine.back() == '\r') nextLine.pop_back();
 
 			if (stateCounter == 0)
