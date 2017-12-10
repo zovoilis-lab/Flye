@@ -114,7 +114,7 @@ public:
 		}
 
 	private:
-		const ReadVector& rv;
+		ReadVector rv;
 		bool revComp;
 		const SequenceContainer& seqContainer;
 	};
