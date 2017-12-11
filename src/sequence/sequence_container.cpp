@@ -78,7 +78,7 @@ void SequenceContainer::loadFromFile(const std::string& fileName)
 	std::random_shuffle(indicesPerm.begin(), indicesPerm.end());
 	//
 
-	_seqIndex.reserve(records.size());
+	_seqIndex.reserve(_seqIndex.size() + records.size());
 	for (size_t i : indicesPerm)
 	{
 		_seqIndex[records[i].id] = std::move(records[i]);
@@ -223,7 +223,11 @@ size_t SequenceContainer::readFastq(std::vector<FastaRecord>& record,
 				}
 			}
 
-			if (nextLine.empty()) continue;
+			if (nextLine.empty()) 
+			{
+				stateCounter = (stateCounter + 1) % 4;
+				continue;
+			}
 			if (nextLine.back() == '\r') nextLine.pop_back();
 
 			if (stateCounter == 0)

@@ -8,6 +8,8 @@ File with configurations
 
 vals = {
         "big_genome" : 50 * 1024 * 1024,
+        "small_kmer" : 15,
+        "big_kmer" : 17,
 
         "raw_cfg" : "asm_raw_reads.cfg",
         "corrected_cfg" : "asm_corrected_reads.cfg",

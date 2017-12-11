@@ -19,20 +19,22 @@
 #include "extender.h"
 #include "parameters_estimator.h"
 #include "../common/logger.h"
+#include "../common/utils.h"
 
 bool parseArgs(int argc, char** argv, std::string& readsFasta, 
 			   std::string& outAssembly, std::string& logFile, size_t& genomeSize,
 			   int& kmerSize, int& minKmer, int& maxKmer, bool& debug,
-			   size_t& numThreads, int& minOverlap, std::string& configPath)
+			   size_t& numThreads, int& minOverlap, std::string& configPath,
+			   bool& singletonReads)
 {
 	auto printUsage = [argv]()
 	{
 		std::cerr << "Usage: " << argv[0]
-				  << "\treads_file out_assembly genome_size config_file\n\t"
+				  << "\treads_files out_assembly genome_size config_file\n\t"
 				  << "[-k kmer_size] [-m min_kmer_cov] \n\t"
 				  << "[-x max_kmer_cov] [-l log_file] [-t num_threads] [-d]\n\n"
 				  << "positional arguments:\n"
-				  << "\treads file\tpath to fasta with reads\n"
+				  << "\treads file\tcomma-separated list of read files\n"
 				  << "\tout_assembly\tpath to output file\n"
 				  << "\tgenome_size\tgenome size in bytes\n"
 				  << "\tconfig_file\tpath to the config file\n"
@@ -44,6 +46,8 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 				  << "[default = auto] \n"
 				  << "\t-v min_overlap\tminimum overlap between reads "
 				  << "[default = 5000] \n"
+				  << "\t-s \t\tadd singleton reads "
+				  << "[default = false] \n"
 				  << "\t-d \t\tenable debug output "
 				  << "[default = false] \n"
 				  << "\t-l log_file\toutput log to file "
@@ -59,10 +63,10 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 	maxKmer = -1;
 	numThreads = 1;
 	debug = false;
-	logFile = "";
+	singletonReads = false;
 	minOverlap = 5000;
 
-	const char optString[] = "k:m:x:l:t:v:hd";
+	const char optString[] = "k:m:x:l:t:v:hds";
 	int opt = 0;
 	while ((opt = getopt(argc, argv, optString)) != -1)
 	{
@@ -88,6 +92,9 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 			break;
 		case 'd':
 			debug = true;
+			break;
+		case 's':
+			singletonReads = true;
 			break;
 		case 'h':
 			printUsage();
@@ -160,13 +167,14 @@ int main(int argc, char** argv)
 	std::set_terminate(exceptionHandler);
 	#endif
 
-	int kmerSize = 0;
+	int kmerSize = 15;
 	int minKmerCov = 0;
 	int maxKmerCov = 0;
 	size_t genomeSize = 0;
-	int minOverlap = 0;
+	int minOverlap = 5000;
 	bool debugging = false;
-	size_t numThreads;
+	bool singletonReads = false;
+	size_t numThreads = 1;
 	std::string readsFasta;
 	std::string outAssembly;
 	std::string logFile;
@@ -174,13 +182,11 @@ int main(int argc, char** argv)
 
 	if (!parseArgs(argc, argv, readsFasta, outAssembly, logFile, genomeSize,
 				   kmerSize, minKmerCov, maxKmerCov, debugging, numThreads,
-				   minOverlap, configPath)) 
-	{
-		return 1;
-	}
+				   minOverlap, configPath, singletonReads)) return 1;
 
 	Logger::get().setDebugging(debugging);
 	if (!logFile.empty()) Logger::get().setOutputFile(logFile);
+	Logger::get().debug() << "Build date: " << __DATE__ << " " << __TIME__;
 	std::ios::sync_with_stdio(false);
 
 	Config::load(configPath);
@@ -189,11 +195,14 @@ int main(int argc, char** argv)
 	Parameters::get().numThreads = numThreads;
 
 	SequenceContainer readsContainer;
-	Logger::get().debug() << "Build date: " << __DATE__ << " " << __TIME__;
+	std::vector<std::string> readsList = splitString(readsFasta, ',');
 	Logger::get().info() << "Reading sequences";
 	try
 	{
-		readsContainer.loadFromFile(readsFasta);
+		for (auto& readsFile : readsList)
+		{
+			readsContainer.loadFromFile(readsFile);
+		}
 	}
 	catch (SequenceContainer::ParseException& e)
 	{
@@ -242,7 +251,7 @@ int main(int argc, char** argv)
 
 	Extender extender(readsContainer, readOverlaps, coverage, 
 					  estimator.genomeSizeEstimate());
-	extender.assembleContigs();
+	extender.assembleContigs(singletonReads);
 	vertexIndex.clear();
 
 	ConsensusGenerator consGen;

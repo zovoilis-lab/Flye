@@ -30,7 +30,7 @@ void ContigExtender::generateUnbranchingPaths()
 }
 
 
-void ContigExtender::generateContigs()
+void ContigExtender::generateContigs(bool graphContinue)
 {
 	OutputGenerator outGen(_graph, _aligner, _asmSeqs, _readSeqs);
 	auto coreSeqs = outGen.generatePathSequences(_unbranchingPaths);
@@ -58,7 +58,8 @@ void ContigExtender::generateContigs()
 	typedef std::pair<GraphPath, std::string> PathAndSeq;
 	auto extendPathRight =
 		[this, &coveredRepeats, &repeatDirections, &upathsSeqs, 
-		 &canTraverse, &interestingAlignments] (UnbranchingPath& upath)
+		 &canTraverse, &interestingAlignments, graphContinue] 
+	(UnbranchingPath& upath)
 	{
 
 		bool extendFwd = !upath.path.back()->nodeRight->outEdges.empty();
@@ -95,48 +96,45 @@ void ContigExtender::generateContigs()
 		}
 		if (maxExtension == 0) return PathAndSeq();
 
-		//record repeat directions
-		for (auto& aln : bestAlignment)
-		{
-			repeatDirections[aln.edge] = true;
-			repeatDirections[_graph.complementEdge(aln.edge)] = false;
-			coveredRepeats.insert(aln.edge);
-			coveredRepeats.insert(_graph.complementEdge(aln.edge));
-		}
+		auto lastUpath = this->asUPaths({bestAlignment.back().edge}).front();
+		int32_t overhang = upathsSeqs[lastUpath]->sequence.length() - 
+						   bestAlignment.back().overlap.extEnd;
+		bool lastIncomplete = overhang > (int)Config::get("max_separation");
+		Logger::get().debug() << "Ctg " << upath.id.signedId() <<
+			" overhang " << overhang << " upath " << lastUpath->id.signedId();
 
-		GraphPath extendedPath;
-		for (auto& aln : bestAlignment) extendedPath.push_back(aln.edge);
+		for (size_t i = 0; i < bestAlignment.size(); ++i)
+		{
+			if (i == bestAlignment.size() - 1 && 
+				lastIncomplete && !graphContinue) break;
+
+			repeatDirections[bestAlignment[i].edge] = true;
+			repeatDirections[_graph.complementEdge(bestAlignment[i].edge)] = false;
+			coveredRepeats.insert(bestAlignment[i].edge);
+			coveredRepeats.insert(_graph.complementEdge(bestAlignment[i].edge));
+		}
 
 		//generate extension sequence
 		std::string extendedSeq;
+		if (lastIncomplete && graphContinue)
+		{
+			bestAlignment.pop_back();
+		}
 		if (!bestAlignment.empty())
 		{
-			auto lastUpath = this->asUPaths({bestAlignment.back().edge}).front();
-			int32_t overhang = bestAlignment.back().overlap.extLen - 
-							   bestAlignment.back().overlap.extEnd;
-
-			Logger::get().debug() << "Ctg " << upath.id.signedId() <<
-				" overhang " << overhang << " upath " << lastUpath->id.signedId();
-			if (overhang > (int)Config::get("max_separation") && 
-				!lastUpath->isLoop())
-			{
-				bestAlignment.pop_back();
-			}
-			if (!bestAlignment.empty())
-			{
-				FastaRecord::Id readId = bestAlignment.front().overlap.curId;
-				int32_t readStart = bestAlignment.front().overlap.curBegin;
-				int32_t readEnd = bestAlignment.back().overlap.curEnd;
-				extendedSeq = _readSeqs.getSeq(readId)
-					.substr(readStart, readEnd - readStart).str();
-			}
-			if (overhang > (int)Config::get("max_separation") && 
-				!lastUpath->isLoop())
-			{
-				extendedSeq += upathsSeqs[lastUpath]->sequence.str();
-			}
+			FastaRecord::Id readId = bestAlignment.front().overlap.curId;
+			int32_t readStart = bestAlignment.front().overlap.curBegin;
+			int32_t readEnd = bestAlignment.back().overlap.curEnd;
+			extendedSeq = _readSeqs.getSeq(readId)
+				.substr(readStart, readEnd - readStart).str();
+		}
+		if (lastIncomplete && graphContinue)
+		{
+			extendedSeq += upathsSeqs[lastUpath]->sequence.str();
 		}
 		
+		GraphPath extendedPath;
+		for (auto& aln : bestAlignment) extendedPath.push_back(aln.edge);
 		return PathAndSeq(extendedPath, extendedSeq);
 	};
 
@@ -159,23 +157,28 @@ void ContigExtender::generateContigs()
 		Contig contig(upath);
 		auto leftPaths = this->asUPaths(leftExt.first);
 		auto rightPaths = this->asUPaths(rightExt.first);
+
+		GraphPath leftEdges;
 		for (auto& path : leftPaths)
 		{
-			for (auto& edge : path->path)
-			{
-				contig.graphEdges.path.insert(contig.graphEdges.path.end() - 1, 
-											  edge);
-			}
-			contig.graphPaths.insert(contig.graphPaths.end() - 1, path);
+			leftEdges.insert(leftEdges.end(), path->path.begin(), 
+						     path->path.end());
 		}
+		contig.graphEdges.path.insert(contig.graphEdges.path.begin(), 
+								      leftEdges.begin(), leftEdges.end());
+		contig.graphPaths.insert(contig.graphPaths.begin(), 
+								 leftPaths.begin(), leftPaths.end());
+
+		GraphPath rightEdges;
 		for (auto& path : rightPaths)
 		{
-			for (auto& edge : path->path)
-			{
-				contig.graphEdges.path.push_back(edge);
-			}
-			contig.graphPaths.push_back(path);
+			rightEdges.insert(rightEdges.end(), path->path.begin(), 
+						      path->path.end());
 		}
+		contig.graphEdges.path.insert(contig.graphEdges.path.end(), 
+								      rightEdges.begin(), rightEdges.end());
+		contig.graphPaths.insert(contig.graphPaths.end(), 
+								 rightPaths.begin(), rightPaths.end());
 
 		auto coreSeq = upathsSeqs[&upath]->sequence.str();
 		contig.sequence = DnaSequence(leftExt.second + coreSeq + rightExt.second);
@@ -202,7 +205,7 @@ void ContigExtender::generateContigs()
 		else
 		{
 			++numCovered;
-			Logger::get().debug() << "Covered: " << upath.id.signedId();
+			//Logger::get().debug() << "Covered: " << upath.id.signedId();
 		}
 	}
 
@@ -234,7 +237,7 @@ void ContigExtender::outputStatsTable(const std::string& filename)
 	fout << "contig_id\tlength\tcoverage\tcircular\trepeat"
 		<< "\tmult\ttelomere\tgraph_path\n";
 
-	char YES_NO[] = {'N', 'Y'};
+	char YES_NO[] = {'-', '+'};
 
 	for (auto& ctg : _contigs)
 	{
@@ -255,15 +258,19 @@ void ContigExtender::outputStatsTable(const std::string& filename)
 		}
 		if (!ctg.graphEdges.repetitive) minMult = 1;
 
+		std::string telomereStr;
+		bool telLeft = (ctg.graphEdges.path.front()->nodeLeft->isTelomere());
+		bool telRight = (ctg.graphEdges.path.back()->nodeRight->isTelomere());
+		if (telLeft && !telRight) telomereStr = "left";
+		if (!telLeft && telRight) telomereStr = "right";
+		if (telLeft && telRight) telomereStr = "both";
+		if (!telLeft && !telRight) telomereStr = "none";
+
 		fout << ctg.graphEdges.name() << "\t" << ctg.sequence.length() << "\t" 
 			<< ctg.graphEdges.meanCoverage << "\t"
 			<< YES_NO[ctg.graphEdges.circular]
 			<< "\t" << YES_NO[ctg.graphEdges.repetitive] << "\t"
-			<< minMult << "\t" << "L:" 
-			<< YES_NO[ctg.graphEdges.path.front()->nodeLeft->isTelomere()]
-			<< ",R:" 
-			<< YES_NO[ctg.graphEdges.path.back()->nodeRight->isTelomere()]
-			<< "\t" << pathStr << "\n";
+			<< minMult << "\t" << telomereStr << "\t" << pathStr << "\n";
 
 		Logger::get().debug() << "Contig: " << ctg.graphEdges.id.signedId()
 			<< ": " << pathStr;

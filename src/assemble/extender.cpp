@@ -147,7 +147,7 @@ Extender::ExtensionInfo Extender::extendContig(FastaRecord::Id startRead)
 }
 
 
-void Extender::assembleContigs()
+void Extender::assembleContigs(bool addSingletons)
 {
 	static const int MAX_JUMP = Config::get("maximum_jump");
 	Logger::get().info() << "Extending reads";
@@ -266,9 +266,32 @@ void Extender::assembleContigs()
 	processInParallel(allReads, threadWorker,
 					  Parameters::get().numThreads, true);
 
+	if (addSingletons)
+	{
+		int singletonsAdded = 0;
+		for (auto& indexPair : _readsContainer.getIndex())
+		{
+			if (!indexPair.first.strand()) continue;
+			
+			if (!coveredReads.contains(indexPair.first) && 
+				_readsContainer.seqLen(indexPair.first) > 
+					Parameters::get().minimumOverlap)
+			{
+				for (auto& ovlp : _ovlpContainer.lazySeqOverlaps(indexPair.first))
+				{
+					coveredReads.insert(ovlp.extId, true);
+				}
+				ExtensionInfo path;
+				path.reads.push_back(indexPair.first);
+				_readLists.push_back(path);
+				++singletonsAdded;
+			}
+		}
+		Logger::get().info() << "Added " << singletonsAdded << " singleton reads";
+	}
+
 	this->convertToContigs();
-	Logger::get().info() << "Assembled " << _contigPaths.size()
-		<< " draft contigs";
+	Logger::get().info() << "Assembled " << _contigPaths.size() << " draft contigs";
 }
 
 void Extender::convertToContigs()
