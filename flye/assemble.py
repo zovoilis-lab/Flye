@@ -10,9 +10,9 @@ import subprocess
 import logging
 import os
 
-from abruijn.utils import which
+from flye.utils import which
 
-ASSEMBLE_BIN = "abruijn-assemble"
+ASSEMBLE_BIN = "flye-assemble"
 logger = logging.getLogger()
 
 

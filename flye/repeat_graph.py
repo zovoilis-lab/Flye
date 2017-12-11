@@ -10,9 +10,9 @@ import subprocess
 import logging
 import os
 
-from abruijn.utils import which
+from flye.utils import which
 
-REPEAT_BIN = "abruijn-repeat"
+REPEAT_BIN = "flye-repeat"
 logger = logging.getLogger()
 
 

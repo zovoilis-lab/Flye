@@ -6,7 +6,7 @@
 
 """
 This script does all the necessary preparations
-and invokes ABruijn
+and invokes Flye
 """
 
 import os
@@ -16,7 +16,7 @@ BIN_DIR = "bin"
 
 #Check Python version
 if sys.version_info[:2] != (2, 7):
-    print("Error: ABruijn requires Python version 2.7 ({0}.{1} detected)."
+    print("Error: Flye requires Python version 2.7 ({0}.{1} detected)."
           .format(sys.version_info[0], sys.version_info[1]))
     sys.exit(-1)
 
@@ -27,5 +27,5 @@ sys.path.insert(0, abruijn_root)
 os.environ["PATH"] = bin_absolute + os.pathsep + os.environ["PATH"]
 
 #ABruijn entry point
-from abruijn.main import main
+from flye.main import main
 sys.exit(main())

@@ -15,16 +15,16 @@ import json
 import shutil
 import subprocess
 
-import abruijn.alignment as aln
-import abruijn.bubbles as bbl
-import abruijn.polish as pol
-import abruijn.fasta_parser as fp
-import abruijn.assemble as asm
-import abruijn.repeat_graph as repeat
-import abruijn.consensus as cons
-from abruijn.__version__ import __version__
-import abruijn.config as config
-from abruijn.bytes2human import human2bytes
+import flye.alignment as aln
+import flye.bubbles as bbl
+import flye.polish as pol
+import flye.fasta_parser as fp
+import flye.assemble as asm
+import flye.repeat_graph as repeat
+import flye.consensus as cons
+from flye.__version__ import __version__
+import flye.config as config
+from flye.bytes2human import human2bytes
 
 logger = logging.getLogger()
 
@@ -361,14 +361,14 @@ def _run(args):
     """
     Runs the pipeline
     """
-    logger.info("Running ABruijn " + _version())
+    logger.info("Running Flye " + _version())
     logger.debug("Cmd: {0}".format(" ".join(sys.argv)))
 
     for read_file in args.reads:
         if not os.path.exists(read_file):
             raise ResumeException("Can't open " + read_file)
 
-    save_file = os.path.join(args.out_dir, "abruijn.save")
+    save_file = os.path.join(args.out_dir, "flye.save")
     jobs = _create_job_list(args, args.out_dir, args.log_file)
 
     current_job = 0
@@ -437,11 +437,11 @@ def _calc_n50(scaffolds_lengths, assembly_len):
 
 
 def _usage():
-    return ("abruijn (--pacbio-raw | --pacbio-corr | --nano-raw |\n"
-            "\t\t--nano-corr | --subassemblies) file1 [file_2 ...]\n"
-            "\t\t--genome-size size --out-dir dir_path [--threads int]\n"
-            "\t\t[--iterations int] [--min-overlap int] [--resume]\n"
-            "\t\t[--debug] [--version] [--help]")
+    return ("flye (--pacbio-raw | --pacbio-corr | --nano-raw |\n"
+            "\t     --nano-corr | --subassemblies) file1 [file_2 ...]\n"
+            "\t     --genome-size size --out-dir dir_path [--threads int]\n"
+            "\t     [--iterations int] [--min-overlap int] [--resume]\n"
+            "\t     [--debug] [--version] [--help]")
 
 
 def _epilog():
@@ -464,7 +464,8 @@ def _version():
         git_label = subprocess.check_output(["git", "-C", repo_root,
                                             "describe", "--tags"],
                                             stderr=open(os.devnull, "w"))
-        return git_label.strip("\n")
+        commit_id = git_label.strip("\n").split("-", 1)[-1]
+        return __version__ + "-" + commit_id
     except (subprocess.CalledProcessError, OSError):
         pass
     return __version__ + "-release"
@@ -569,7 +570,7 @@ def main():
         os.mkdir(args.out_dir)
     args.out_dir = os.path.abspath(args.out_dir)
 
-    args.log_file = os.path.join(args.out_dir, "abruijn.log")
+    args.log_file = os.path.join(args.out_dir, "flye.log")
     _enable_logging(args.log_file, args.debug,
                     overwrite=not args.resume and not args.resume_from)
 

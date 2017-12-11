@@ -15,13 +15,13 @@ import logging
 import multiprocessing
 import ctypes
 
-import abruijn.fasta_parser as fp
-from abruijn.utils import which
-import abruijn.config as config
+import flye.fasta_parser as fp
+from flye.utils import which
+import flye.config as config
 
 
 logger = logging.getLogger()
-MINIMAP_BIN = "abruijn-minimap2"
+MINIMAP_BIN = "flye-minimap2"
 
 Alignment = namedtuple("Alignment", ["qry_id", "trg_id", "qry_start", "qry_end",
                                      "qry_sign", "qry_len", "trg_start",

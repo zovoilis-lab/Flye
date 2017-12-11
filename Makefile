@@ -15,11 +15,11 @@ export LDFLAGS = -lz
 .DEFAULT_GOAL := all
 
 
-${BIN_DIR}/abruijn-minimap2:
+${BIN_DIR}/flye-minimap2:
 	make -C ${MINIMAP2_DIR}
-	cp ${MINIMAP2_DIR}/minimap2 ${BIN_DIR}/abruijn-minimap2
+	cp ${MINIMAP2_DIR}/minimap2 ${BIN_DIR}/flye-minimap2
 
-minimap2: ${BIN_DIR}/abruijn-minimap2
+minimap2: ${BIN_DIR}/flye-minimap2
 
 all: minimap2
 	make release -C src
@@ -30,4 +30,4 @@ debug: minimap2
 clean:
 	make clean -C src
 	make clean -C ${MINIMAP2_DIR}
-	rm ${BIN_DIR}/abruijn-minimap2
+	rm ${BIN_DIR}/flye-minimap2

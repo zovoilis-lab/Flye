@@ -6,6 +6,8 @@ from distutils.core import setup
 from distutils.command.build import build as DistutilsBuild
 import subprocess
 
+from flye.__version__ import __version__
+
 class MakeBuild(DistutilsBuild):
     def run(self):
         try:
@@ -15,16 +17,16 @@ class MakeBuild(DistutilsBuild):
             return
         DistutilsBuild.run(self)
 
-setup(name='abruijn',
-      version='2.2b',
-      description='Long read assembly via A-Bruijn graph',
+setup(name='flye',
+      version=__version__,
+      description='Fast and accurate de novo assembler for single molecule sequencing reads',
       url='https://github.com/fenderglass/ABruijn',
       author='Mikhail Kolmogorov',
-      author_email = '',
+      author_email = 'fenderglass@gmail.com',
       license='BSD-3-Clause',
-      packages=['abruijn'],
-      package_data={'abruijn': ['resource/*.mat']},
-      scripts = ['bin/abruijn-assemble', 'bin/abruijn-polish',
-                 'bin/abruijn-repeat', 'bin/abruijn', 'bin/abruijn-minimap2'],
+      packages=['flye'],
+      package_data={'flye': ['resource/*.mat']},
+      scripts = ['bin/flye-assemble', 'bin/flye-polish',
+                 'bin/flye-repeat', 'bin/flye', 'bin/flye-minimap2'],
       cmdclass={'build': MakeBuild}
       )

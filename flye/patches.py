@@ -12,8 +12,8 @@ from itertools import izip
 import math
 import logging
 
-import abruijn.fasta_parser as fp
-import abruijn.config as config
+import flye.fasta_parser as fp
+import flye.config as config
 
 
 DiscordandRead = namedtuple("DiscordandRead", ["alignment", "loop"])

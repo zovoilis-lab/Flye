@@ -13,13 +13,13 @@ import os
 from collections import defaultdict
 from threading import Thread
 
-import abruijn.bubbles as bbl
-import abruijn.fasta_parser as fp
-from abruijn.utils import which
-import abruijn.config as config
+import flye.bubbles as bbl
+import flye.fasta_parser as fp
+from flye.utils import which
+import flye.config as config
 
 
-POLISH_BIN = "abruijn-polish"
+POLISH_BIN = "flye-polish"
 
 logger = logging.getLogger()
 
