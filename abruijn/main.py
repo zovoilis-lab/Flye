@@ -115,7 +115,8 @@ class JobAlignment(Job):
         else:
             logger.info("Running GraphMap")            
         aln.make_alignment(self.in_reference, self.args.reads, self.args.threads,
-                           self.work_dir, self.args.platform, self.out_alignment)
+                           self.work_dir, self.args.platform, self.out_alignment, 
+                           self.args.mapping_tool)
 
 
 class JobConsensus(Job):
