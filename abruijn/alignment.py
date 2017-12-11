@@ -278,7 +278,10 @@ def _run_mapper(reference_file, reads_file, num_proc, platform, out_file, mappin
 
     try:
         devnull = open(os.devnull, "w")
-        subprocess.check_call(cmdline, stderr=devnull)
+        if mapping_tool == "minimap2":
+          subprocess.check_call(cmdline, stderr=devnull, stdout=open(out_file, "w"))          
+        else:
+          subprocess.check_call(cmdline, stderr=devnull)
     except (subprocess.CalledProcessError, OSError) as e:
         if e.returncode == -9:
             logger.error("Looks like the system ran out of memory")
