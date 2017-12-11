@@ -12,7 +12,9 @@ accuracy of the resulting sequence. The package also includes a polisher
 module, which produces the final assembly of high nucleotide-level quality.
 
 The 2.x software branch has been renamed to Flye because of
-the substantial algorithmic differences.
+the substantial algorithmic differences. Command-line syntax 
+and output formats were changed a bit. A fallback executable
+which translates the old command line syntax to the new one is available.
 
 Install
 -------
@@ -54,7 +56,7 @@ Code contributions:
 
 * Original assembler code: Yu Lin
 * Original polisher code: Jeffrey Yuan
-* Current package: Mikhail Kolmogorov
+* Repeat analysis module and current package support: Mikhail Kolmogorov
 
 
 Contacts
