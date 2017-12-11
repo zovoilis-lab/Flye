@@ -35,11 +35,11 @@ init:
 	git submodule init
 	git submodule update
 
-all: minimap2 graphmap init
+all: init minimap2 graphmap
 	make release -C src
-profile: minimap2 graphmap init
+profile: init minimap2 graphmap init
 	make profile -C src
-debug: minimap2 graphmap init
+debug: init minimap2 graphmap init
 	make debug -C src
 clean:
 	make clean -C src
