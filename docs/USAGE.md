@@ -1,5 +1,5 @@
-ABruijn manual
-==============
+Flye manual
+===========
 
 Quick usage
 -----------
@@ -10,7 +10,7 @@ Quick usage
                    [--version]
                    reads out_dir coverage
     
-    ABruijn: assembly of long and error-prone reads
+    Flye: assembly of long and error-prone reads
     
     positional arguments:
       reads                 path to reads file (FASTA/Q format)
@@ -42,7 +42,7 @@ Quick usage
 Examples
 --------
 
-You can try ABruijn assembly on these ready-to-use datasets:
+You can try Flye assembly on these ready-to-use datasets:
 
 ### E. coli P6-C4 PacBio data
 
@@ -67,18 +67,18 @@ The dataset was originally released by the Loman lab (http://lab.loman.net/2015/
 Supported Input Data
 --------------------
 
-ABruijn was designed for assembly of long reads from both PacBio and 
+Flye was designed for assembly of long reads from both PacBio and 
 Oxford Nanopore Technologies (ONT). For simplicity, input reads should 
 be in FASTA or FASTQ format - you will need to convert raw PacBio / ONT data to
 FASTA/Q format using the corresponding official tools.
 
 ### PacBio data
 
-ABruijn was tested on the newest P6-C4 chemistry data with error rates 11-15%.
+Flye was tested on the newest P6-C4 chemistry data with error rates 11-15%.
 Typically, a bacterial WGS project with 20x-30x+ coverage can be assembled 
 into a single, structurally concordant contig for each chromosome. However, to get the best 
 nucleotide-level quaity, you might need deeper coverage. For a 50x E. coli dataset,
-ABruijn makes roughly 30 errors (single nucleotide insertions/deletions). 
+Flye makes roughly 30 errors (single nucleotide insertions/deletions). 
 Below are empirical error estimates for E. Coli assemblies with lower coverage:
 
 	cov.   errors
@@ -108,11 +108,11 @@ per-nucleotide accuracy is usually lower for ONT data than with PacBio data, esp
 Input Data Preparation
 ----------------------
 
-ABruijn works directly with base-called raw reads and does not require any 
+Flye works directly with base-called raw reads and does not require any 
 prior error correction. The algorithm will work on corrected reads as well, 
 but the running time might increase significantly.
 
-ABruijn automatically detects chimeric reads or reads with low quality ends, 
+Flye automatically detects chimeric reads or reads with low quality ends, 
 so you do not need to trim them before the assembly. However, it is always
 worth checking for possible contamination in the reads, since it may affect the 
 automatic selection of estimated parameters for solid kmers and genome size / coverage.
@@ -123,20 +123,20 @@ Parameter descriptions
 
 ### Estimated assembly coverage (required)
 
-ABruijn requires an estimate of genome coverage as input for 
+Flye requires an estimate of genome coverage as input for 
 the selection of solid kmers. This can be a very rough estimate
 (e.g. within 0.5x - 2x of the real coverage).
 
 ### Sequencing platform	
 
 Indicate whether the data was generated from PacBio or ONT sequencing
-so ABruijn can account for their different error patterns.
+so Flye can account for their different error patterns.
 
 ### Number of polishing iterations
 
-ABruijn first constructs a draft assembly of the genome, which is a 
+Flye first constructs a draft assembly of the genome, which is a 
 concatenation of a collection of raw read segments. In the end, the draft assembly
-is polished into a high quality sequence. By default, ABruijn runs one polishing 
+is polished into a high quality sequence. By default, Flye runs one polishing 
 iteration. The number could be increased, which might correct a small number of additional
 errors (due to improvements on how reads may align to the corrected assembly; 
 especially for ONT datasets). If the parameter is set to 0, the polishing will
@@ -159,14 +159,14 @@ PacBio chemistry).
 ### Kmer size
 
 This parameter controls the size of the kmers used to construct the
-ABruijn graph. The default kmer size (15) is suitable for most genomes
+A-Bruijn graph. The default kmer size (15) is suitable for most genomes
 under several hundreds of megabytes in size. You might want to increase it
 a bit (17 or 19) for larger genomes (500 Mb+). Should be an odd number.
 
 
 ### Minimum / maximum kmer frequency
 
-Defines which kmers to select for ABruijn graph construction.
+Defines which kmers to select for A-Bruijn graph construction.
 Kmers with low frequency are likely to be erroneous, while extremely
 frequent kmers might significantly slow down the computation.
 This parameter depends on the size of the genome, coverage
@@ -199,17 +199,17 @@ for different datasets.
 Algorithm description
 ---------------------
 
-This is a brief description of the ABruijn algorithm. Plase refer to the manuscript
+This is a brief description of the Flye algorithm. Plase refer to the manuscript
 for more detailed information. The assembly pipeline is organized as follows:
 
 * Kmer counting / erronoeus kmer pre-filtering
 * Solid kmer selection (kmers with sufficient frequency, which are unlikely to be erroneous)
-* Finding read overlaps based on the ABruijn graph
+* Finding read overlaps based on the A-Bruijn graph
 * Detection of chimeric sequences
 * Contig assembly by read extension
 
 The resulting contig assembly is now simply a concatenation of read parts 
-and is error-prone. ABruijn then aligns the reads on the draft contigs and
+and is error-prone. Flye then aligns the reads on the draft contigs and
 calls a rough consensus. Afterwards, the algorithm performs additional repeat analysis
 as follows:
 
@@ -218,7 +218,7 @@ as follows:
 * The algorithm resolves repeats using the read information and graph structure
 * The unbranching paths in the graph are output as contigs
 
-Finally, ABruijn performs polishing of the resulting assembly
+Finally, Flye performs polishing of the resulting assembly
 to correct the remaining errors:
 
 * Alignment of all reads to the current assembly using minimap2
@@ -227,4 +227,3 @@ to correct the remaining errors:
 * Error correction of each bubble using a maximum likelihood approach
 
 The polishing steps could be repeated, which might slightly increase quality for some datasets.
-

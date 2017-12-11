@@ -1,10 +1,10 @@
-ABruijn Installation
-====================
+Flye Installation
+=================
 
 Availability
 ------------
 
-ABruijn is available for Linux and MacOS platforms. Windows support is not guaranteed.
+Flye is available for Linux and MacOS platforms. Windows support is not guaranteed.
 
 
 Requirements
@@ -17,18 +17,18 @@ Requirements
 * Basic OS development headers (zlib, etc.)
 
 
-ABruijn Installation
---------------------
+Flye Installation
+-----------------
 
-ABruijn is written in both C++ and Python and requires a Python 2.7 environment.
+Flye is written in C++ and Python and requires a Python 2.7 environment.
 
-First, to build ABruijn, run:
+First, to build Flye, run:
 
     python setup.py build
 
-ABruijn could be invoked with the following command:
+Flye could be invoked with the following command:
 
-    bin/abruijn
+    bin/flye
 
 Additonally, you may install the package for the better OS integration:
 
