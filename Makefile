@@ -31,11 +31,15 @@ minimap2: ${BIN_DIR}/abruijn-minimap2
 
 graphmap: ${BIN_DIR}/abruijn-graphmap
 
-all: minimap2 graphmap
+init:
+	git submodule init
+	git submodule update
+
+all: minimap2 graphmap init
 	make release -C src
-profile: minimap2 graphmap
+profile: minimap2 graphmap init
 	make profile -C src
-debug: minimap2 graphmap
+debug: minimap2 graphmap init
 	make debug -C src
 clean:
 	make clean -C src
