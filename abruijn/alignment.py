@@ -208,11 +208,11 @@ def check_binaries():
 
 
 def make_alignment(reference_file, reads_file, num_proc,
-                   work_dir, platform, out_alignment):
+                   work_dir, platform, out_alignment, mapping_tool):
     """
     Runs mapper and sort its output
     """
-    _run_mapper(reference_file, reads_file, num_proc, platform, out_alignment)
+    _run_mapper(reference_file, reads_file, num_proc, platform, out_alignment, mapping_tool)
     logger.debug("Sorting alignment file")
     temp_file = out_alignment + "_sorted"
     env = os.environ.copy()
@@ -261,8 +261,8 @@ def shift_gaps(seq_trg, seq_qry):
     return "".join(lst_qry[1 : -1])
 
 
-def _run_mapper(reference_file, reads_file, num_proc, platform, out_file):
-    if mapper_tool == "minimap2":
+def _run_mapper(reference_file, reads_file, num_proc, platform, out_file, mapping_tool):
+    if mapping_tool == "minimap2":
         cmdline = [MINIMAP_BIN, reference_file, reads_file, "-a", "-Q",
                    "-w5", "-m100", "-g10000", "--max-chain-skip", "25",
                    "-t", str(num_proc)]
