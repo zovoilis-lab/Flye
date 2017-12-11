@@ -110,7 +110,7 @@ class JobAlignment(Job):
     def run(self):
         #logger.info("Polishing genome ({0}/{1})".format(self.stage_id,
         #                                                self.args.num_iters))
-        if self.args.mapping_tool == "minimap":
+        if self.args.mapping_tool == "minimap2":
             logger.info("Running Minimap2")
         else:
             logger.info("Running GraphMap")            
