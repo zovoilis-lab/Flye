@@ -4,7 +4,7 @@ Flye Installation
 Availability
 ------------
 
-Flye is available for Linux and MacOS platforms. Windows support is not guaranteed.
+Flye is available for Linux and MacOS platforms.
 
 
 Requirements
@@ -17,11 +17,10 @@ Requirements
 * Basic OS development headers (zlib, etc.)
 
 
-Flye Installation
------------------
+Installation
+------------
 
 Flye is written in C++ and Python and requires a Python 2.7 environment.
-
 First, to build Flye, run:
 
     python setup.py build

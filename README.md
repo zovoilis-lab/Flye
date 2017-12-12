@@ -11,10 +11,19 @@ Flye performs an extra repeat classification and analysis step to improve the st
 accuracy of the resulting sequence. The package also includes a polisher
 module, which produces the final assembly of high nucleotide-level quality.
 
-The 2.x software branch has been renamed to Flye because of
-the substantial algorithmic differences. Command-line syntax 
-and output formats were changed a bit. A fallback executable
-which translates the old command line syntax to the new one is available.
+
+New in version 2.3
+==================
+
+* ABruijn 2.x branch has been renamed to Flye, highlighting many substantial algorithmic changes
+* Stable version of the repeat analysis module
+* New command-line syntax (fallback mode with the old syntax is available)
+* New --subassemblies mode for generating consensus of multiple assemblies
+* Improved preformance and reduced memory footprint (now scales to human genome)
+* Corrected reads are now supported
+* Extra output with information about the contigs (coverage, multiplicity, graph paths etc.)
+* Gzipped Fasta/q support
+* Multiple read files support
 
 Install
 -------
