@@ -75,6 +75,7 @@ void RepeatGraph::build()
 	this->getGluepoints(asmOverlaps);
 	this->collapseTandems();
 	this->initializeEdges(asmOverlaps);
+	this->markChimericEdges();
 }
 
 
@@ -660,6 +661,7 @@ void RepeatGraph::logEdges()
 				  [](const SegEdgePair& s1, const SegEdgePair& s2)
 				  	{return s1.first->start < s2.first->start;});
 	}
+
 	for (auto& seqEdgesPair : sequenceEdges)
 	{
 		if (!seqEdgesPair.first.strand()) continue;
@@ -679,6 +681,51 @@ void RepeatGraph::logEdges()
 		}
 	}
 	Logger::get().debug() << "Total edges: " << _nextEdgeId / 2;
+}
+
+void RepeatGraph::markChimericEdges()
+{
+	typedef std::pair<SequenceSegment*, GraphEdge*> SegEdgePair;
+	std::unordered_map<FastaRecord::Id, 
+					   std::vector<SegEdgePair>> sequenceEdges;
+	for (auto& edge : this->iterEdges())
+	{
+		for (auto& segment : edge->seqSegments)
+		{
+			sequenceEdges[segment.seqId].push_back({&segment, edge});
+		}
+	}
+	for (auto& seqEdgesPair : sequenceEdges)
+	{
+		std::sort(seqEdgesPair.second.begin(), seqEdgesPair.second.end(),
+				  [](const SegEdgePair& s1, const SegEdgePair& s2)
+				  	{return s1.first->start < s2.first->start;});
+	}
+
+	int extraSelfCompl = 0;
+	for (auto& seqEdgesPair : sequenceEdges)
+	{
+		if (!seqEdgesPair.first.strand()) continue;
+
+		for (size_t i = 1; i < seqEdgesPair.second.size() - 1; ++i)
+		{
+			GraphEdge* leftEdge = seqEdgesPair.second[i - 1].second;
+			GraphEdge* midEdge = seqEdgesPair.second[i].second;
+			GraphEdge* rightEdge = seqEdgesPair.second[i + 1].second;
+
+			if (leftEdge->edgeId == rightEdge->edgeId.rc() &&
+				leftEdge->edgeId != midEdge->edgeId &&
+				rightEdge->edgeId != midEdge->edgeId &&
+				midEdge->seqSegments.size() == 1 &&
+				midEdge->length() < Parameters::get().minimumOverlap)
+			{
+				midEdge->selfComplement = true;
+				this->complementEdge(midEdge)->selfComplement = true;
+				++extraSelfCompl;
+			}
+		}
+	}
+	Logger::get().debug() << "Extra self-complements: " << extraSelfCompl;
 }
 
 
