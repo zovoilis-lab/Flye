@@ -228,10 +228,15 @@ void RepeatResolver::findRepeats()
 		}
 
 		//self-complements are repetitive
-		if (&path == complPath(&path))
+		for (auto& edge : path.path)
 		{
-			Logger::get().debug() << "Self-compl: " << path.edgesStr();
-			markRepetitive(&path);
+			if (edge->selfComplement)
+			{
+				Logger::get().debug() << "Self-compl: " << path.edgesStr();
+				markRepetitive(&path);
+				markRepetitive(complPath(&path));
+				break;
+			}
 		}
 
 		//tandem repeats
@@ -253,34 +258,6 @@ void RepeatResolver::findRepeats()
 			}
 		}
 	}
-
-	//Masking small bubbles that correspond to two alternative alleles
-	int diploidBubbles = 0;
-	const int MAX_BUBBLE_LEN = (int)Config::get("trusted_edge_length");
-	for (auto& edge : _graph.iterEdges())
-	{
-		if (edge->isLooped()) continue;
-		std::vector<GraphEdge*> parallelEdges;
-		for (auto& parEdge : edge->nodeLeft->outEdges)
-		{
-			if (parEdge->nodeRight == edge->nodeRight) 
-			{
-				parallelEdges.push_back(parEdge);
-			}
-		}
-		if (parallelEdges.size() != 2) continue;
-		if (parallelEdges[0]->length() > MAX_BUBBLE_LEN || 
-			parallelEdges[1]->length() > MAX_BUBBLE_LEN) continue;
-
-		float covSum = parallelEdges[0]->meanCoverage + 
-					   parallelEdges[1]->meanCoverage;
-		if (covSum / _multInf.getMeanCoverage() > 1.5) continue;
-
-		parallelEdges[0]->repetitive = true;
-		parallelEdges[1]->repetitive = true;
-		++diploidBubbles;
-	}
-	Logger::get().debug() << "Masked " << diploidBubbles / 4 << " diploid bubbles";
 
 	//Finally, using the read alignments
 	std::unordered_map<GraphEdge*, 
@@ -370,6 +347,31 @@ void RepeatResolver::findRepeats()
 				Logger::get().debug() << "-\t" << star << " " << loop << " " 
 					<< outEdgeCount.first->edgeId.signedId() << "\t" << outEdgeCount.second;
 			}
+		}
+	}
+
+	//now, check for this structure >-<, in case read alignments were not enough
+	for (auto& path : sortedPaths)
+	{
+		if (path->path.front()->repetitive || path->isLoop()) continue;
+		if (path->path.front()->nodeLeft->outEdges.size() > 1 ||
+			path->path.back()->nodeRight->inEdges.size() > 1) continue;
+
+		int numIn = 0;
+		int numOut = 0;
+		for (auto& edge: path->path.front()->nodeLeft->inEdges)
+		{
+			if (!edge->repetitive) ++numIn;
+		}
+		for (auto& edge: path->path.back()->nodeRight->outEdges)
+		{
+			if (!edge->repetitive) ++numOut;
+		}
+		if (numIn > 1 && numOut > 1)
+		{
+			Logger::get().debug() << "Structure: " << path->edgesStr();
+			markRepetitive(path);
+			markRepetitive(complPath(path));
 		}
 	}
 }
