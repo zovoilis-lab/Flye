@@ -269,17 +269,23 @@ void Extender::assembleContigs(bool addSingletons)
 	if (addSingletons)
 	{
 		int singletonsAdded = 0;
+		std::unordered_set<FastaRecord::Id> coveredLocal;
 		for (auto& indexPair : _readsContainer.getIndex())
 		{
 			if (!indexPair.first.strand()) continue;
 			
-			if (!coveredReads.contains(indexPair.first) && 
+			if (!_innerReads.contains(indexPair.first) && 
+				!coveredLocal.count(indexPair.first) &&
 				_readsContainer.seqLen(indexPair.first) > 
 					Parameters::get().minimumOverlap)
 			{
 				for (auto& ovlp : _ovlpContainer.lazySeqOverlaps(indexPair.first))
 				{
-					coveredReads.insert(ovlp.extId, true);
+					if (abs(ovlp.leftShift) < Parameters::get().minimumOverlap &&
+						abs(ovlp.rightShift) < Parameters::get().minimumOverlap)
+					{
+						coveredLocal.insert(ovlp.extId);
+					}
 				}
 				ExtensionInfo path;
 				path.reads.push_back(indexPair.first);
