@@ -23,6 +23,7 @@ public:
 	void generateContigs(bool graphContinue);
 	void outputContigs(const std::string& filename);
 	void outputStatsTable(const std::string& filename);
+	void outputScaffoldConnections(const std::string& filename);
 	//std::vector<UnbranchingPath> getContigPaths();
 
 	const std::vector<UnbranchingPath>& getUnbranchingPaths() 
@@ -38,13 +39,19 @@ private:
 		std::vector<const UnbranchingPath*> graphPaths;
 		DnaSequence sequence;
 	};
+	struct Scaffold
+	{
+		GraphEdge* leftContig;
+		GraphEdge* rightContig;
+		std::unordered_set<GraphEdge*> repetitiveEdges;
+	};
 
 	std::vector<UnbranchingPath*> asUPaths(const GraphPath& path);
 
 	std::vector<UnbranchingPath> _unbranchingPaths;
 	std::unordered_map<GraphEdge*, UnbranchingPath*> _edgeToPath;
 	std::vector<Contig> _contigs;
-	
+
 	RepeatGraph& _graph;
 	const ReadAligner& _aligner;
 	const SequenceContainer& _asmSeqs;

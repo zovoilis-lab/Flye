@@ -56,9 +56,16 @@ std::vector<FastaRecord> OutputGenerator::
 			}
 			if (bestSegment->length() == 0) continue;
 
-			auto& sequence = (!bestSegment->readSequence) ? 
-							  _asmSeqs.getSeq(bestSegment->seqId) :
-							  _readSeqs.getSeq(bestSegment->seqId);
+			DnaSequence sequence;
+			switch (bestSegment->segType)
+			{
+				case SequenceSegment::Asm:
+					sequence = _asmSeqs.getSeq(bestSegment->seqId);
+					break;
+				case SequenceSegment::Read:
+					sequence = _readSeqs.getSeq(bestSegment->seqId);
+					break;
+			}
 
 			//make the consecutive sequences overlapping if possible,
 			//so the consensus module can correct possibly imprecise

@@ -100,8 +100,8 @@ void ContigExtender::generateContigs(bool graphContinue)
 		int32_t overhang = upathsSeqs[lastUpath]->sequence.length() - 
 						   bestAlignment.back().overlap.extEnd;
 		bool lastIncomplete = overhang > (int)Config::get("max_separation");
-		Logger::get().debug() << "Ctg " << upath.id.signedId() <<
-			" overhang " << overhang << " upath " << lastUpath->id.signedId();
+		//Logger::get().debug() << "Ctg " << upath.id.signedId() <<
+		//	" overhang " << overhang << " upath " << lastUpath->id.signedId();
 
 		for (size_t i = 0; i < bestAlignment.size(); ++i)
 		{
@@ -286,4 +286,61 @@ void ContigExtender::outputContigs(const std::string& filename)
 					   			  FastaRecord::ID_NONE);
 	}
 	SequenceContainer::writeFasta(contigsFasta, filename);
+}
+
+void ContigExtender::outputScaffoldConnections(const std::string& filename)
+{
+	std::ofstream fout(filename);
+	if (!fout) throw std::runtime_error("Can't open " + filename);
+
+	for (auto& edge : _graph.iterEdges())
+	{
+		if (edge->repetitive) continue;
+
+		std::vector<GraphEdge*> dfsStack;
+		std::unordered_set<GraphEdge*> visited;
+		std::unordered_set<GraphEdge*> reachableUnique;
+		std::unordered_set<GraphEdge*> traversedRepeats;
+
+		dfsStack.push_back(edge);
+		while(!dfsStack.empty())
+		{
+			auto curEdge = dfsStack.back(); 
+			dfsStack.pop_back();
+			if (visited.count(curEdge)) continue;
+
+			visited.insert(curEdge);
+			visited.insert(_graph.complementEdge(curEdge));
+			for (auto& adjEdge: curEdge->nodeRight->outEdges)
+			{
+				if (adjEdge->isRepetitive() && !visited.count(adjEdge))
+				{
+					dfsStack.push_back(adjEdge);
+					traversedRepeats.insert(adjEdge);
+				}
+				else if (!adjEdge->isRepetitive() && adjEdge != edge)
+				{
+					reachableUnique.insert(adjEdge);
+				}
+			}
+		}
+
+		if (reachableUnique.size() == 1)
+		{
+			GraphEdge* outEdge = *reachableUnique.begin();
+			if ((edge->nodeRight->isBifurcation() || 
+					outEdge->nodeLeft->isBifurcation()) &&
+				edge->edgeId != outEdge->edgeId.rc() &&
+				abs(edge->edgeId.signedId()) < abs(outEdge->edgeId.signedId()))
+			{
+				UnbranchingPath* leftCtg = this->asUPaths({edge}).front();
+				UnbranchingPath* rightCtg = this->asUPaths({outEdge}).front();
+
+				fout << leftCtg->nameUnsigned() << "\t" << 
+					(leftCtg->id.strand() ? '+' : '-') << "\t" <<
+					rightCtg->nameUnsigned() << "\t" << 
+					(rightCtg->id.strand() ? '+' : '-') << "\n";
+			}
+		}
+	}
 }

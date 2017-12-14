@@ -19,7 +19,6 @@
 #include "multiplicity_inferer.h"
 #include "graph_processing.h"
 #include "repeat_resolver.h"
-#include "structure_resolver.h"
 #include "output_generator.h"
 #include "contig_extender.h"
 
@@ -225,10 +224,11 @@ int main(int argc, char** argv)
 	outGen.outputFasta(proc.getEdgesPaths(), outFolder + "/graph_before_rr.fasta");
 
 	resolver.resolveRepeats();
-	StructureResolver structRes(rg, seqAssembly, seqReads);
-	structRes.unrollLoops();
-	aligner.updateAlignments();
-	resolver.findRepeats();
+	//StructureResolver structRes(rg, seqAssembly, seqReads, aligner);
+	//structRes.unrollLoops();
+	//structRes.scaffold();
+	//aligner.updateAlignments();
+	//resolver.findRepeats();
 	outGen.outputDot(proc.getEdgesPaths(), outFolder + "/graph_after_rr.dot");
 
 	Logger::get().info() << "Generating contigs";
@@ -237,6 +237,7 @@ int main(int argc, char** argv)
 	extender.generateContigs(graphContinue);
 	extender.outputContigs(outFolder + "/graph_paths.fasta");
 	extender.outputStatsTable(outFolder + "/contigs_stats.txt");
+	extender.outputScaffoldConnections(outFolder + "/scaffolds_links.txt");
 
 	outGen.dumpRepeats(extender.getUnbranchingPaths(),
 					   outFolder + "/repeats_dump.txt");

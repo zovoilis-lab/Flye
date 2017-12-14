@@ -444,7 +444,7 @@ std::vector<RepeatResolver::Connection>
 					readEnd = std::max(readStart + 100, readEnd);	//TODO: less ad-hoc fix
 					SequenceSegment segment(aln.overlap.curId, aln.overlap.curLen, 
 											readStart, readEnd);
-					segment.readSequence = true;
+					segment.segType = SequenceSegment::Read;
 					SequenceSegment complSegment = segment.complement();
 
 					readConnections.push_back({currentPath, segment, flankScore});

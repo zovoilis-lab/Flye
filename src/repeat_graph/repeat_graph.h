@@ -13,11 +13,13 @@
 
 struct SequenceSegment
 {
+	enum SegmentType {Asm, Read};
+
 	SequenceSegment(FastaRecord::Id seqId = FastaRecord::ID_NONE, 
 					int32_t seqLen = 0, int32_t start = 0, 
 					int32_t end = 0):
 		seqId(seqId), seqLen(seqLen), start(start), 
-		end(end), readSequence(false) {}
+		end(end), segType(Asm) {}
 
 	SequenceSegment complement() const
 	{
@@ -39,7 +41,8 @@ struct SequenceSegment
 	int32_t seqLen;
 	int32_t start;
 	int32_t end;
-	bool readSequence;
+
+	SegmentType segType;
 };
 
 struct GraphNode;

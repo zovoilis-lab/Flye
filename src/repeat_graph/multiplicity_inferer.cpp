@@ -75,16 +75,10 @@ void MultiplicityInferer::
 
 		std::string match = estMult != edge->multiplicity ? "*" : " ";
 		std::string covStr;
-		/*for (int cov : altCoverage[edge])
-		{
-			covStr += std::to_string(cov) + " ";
-		}*/
+
 		Logger::get().debug() << match << "\t" << edge->edgeId.signedId() << "\t"
-				<< edge->length() << "\t"
-				<< edge->multiplicity << "\t" << estMult << "\t"
-				<< medianCov << "\t"
+				<< edge->length() << "\t" << medianCov << "\t"
 				<< (float)medianCov / _meanCoverage;
-		//Logger::get().debug() << covStr;
 
 		edge->multiplicity = estMult;
 		edge->meanCoverage = medianCov;
