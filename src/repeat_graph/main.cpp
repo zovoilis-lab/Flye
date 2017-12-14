@@ -224,11 +224,6 @@ int main(int argc, char** argv)
 	outGen.outputFasta(proc.getEdgesPaths(), outFolder + "/graph_before_rr.fasta");
 
 	resolver.resolveRepeats();
-	//StructureResolver structRes(rg, seqAssembly, seqReads, aligner);
-	//structRes.unrollLoops();
-	//structRes.scaffold();
-	//aligner.updateAlignments();
-	//resolver.findRepeats();
 	outGen.outputDot(proc.getEdgesPaths(), outFolder + "/graph_after_rr.dot");
 
 	Logger::get().info() << "Generating contigs";

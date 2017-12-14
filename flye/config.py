@@ -19,6 +19,8 @@ vals = {
         "max_bubble_length" : 500,
         "max_bubble_branches" : 50,
 
+        "scaffold_gap" : 100,
+
         "err_modes" : {
             "pacbio" : {
                 "subs_matrix" : "pacbio_substitutions.mat",

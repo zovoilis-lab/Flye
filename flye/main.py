@@ -22,6 +22,7 @@ import flye.fasta_parser as fp
 import flye.assemble as asm
 import flye.repeat_graph as repeat
 import flye.consensus as cons
+import flye.scaffolder as scf
 from flye.__version__ import __version__
 import flye.config as config
 from flye.bytes2human import human2bytes
@@ -108,6 +109,8 @@ class JobRepeat(Job):
         assembly_graph = os.path.join(self.repeat_dir, "graph_final.dot")
         contigs_stats = os.path.join(self.repeat_dir, "contigs_stats.txt")
         self.out_files["contigs"] = contig_sequences
+        self.out_files["scaffold_links"] = os.path.join(self.repeat_dir,
+                                                        "scaffolds_links.txt")
         self.out_files["assembly_graph"] = assembly_graph
         self.out_files["stats"] = contigs_stats
 
@@ -122,7 +125,7 @@ class JobRepeat(Job):
 class JobFinalize(Job):
     def __init__(self, args, work_dir, log_file,
                  contigs_file, graph_file, repeat_stats,
-                 polished_stats):
+                 polished_stats, scaffold_links):
         super(JobFinalize, self).__init__()
 
         self.args = args
@@ -132,14 +135,19 @@ class JobFinalize(Job):
         self.graph_file = graph_file
         self.repeat_stats = repeat_stats
         self.polished_stats = polished_stats
+        self.scaffold_links = scaffold_links
 
         self.out_files["contigs"] = os.path.join(work_dir, "contigs.fasta")
+        self.out_files["scaffolds"] = os.path.join(work_dir, "scaffolds.fasta")
         self.out_files["stats"] = os.path.join(work_dir, "contigs_info.txt")
         self.out_files["graph"] = os.path.join(work_dir, "assembly_graph.dot")
 
     def run(self):
         shutil.copy2(self.contigs_file, self.out_files["contigs"])
         shutil.copy2(self.graph_file, self.out_files["graph"])
+
+        scf.generate_scaffolds(self.contigs_file, self.scaffold_links,
+                               self.out_files["scaffolds"])
 
         contigs_length = {}
         contigs_coverage = {}
@@ -297,6 +305,7 @@ def _create_job_list(args, work_dir, log_file):
     #Repeat analysis
     jobs.append(JobRepeat(args, work_dir, log_file, draft_assembly))
     raw_contigs = jobs[-1].out_files["contigs"]
+    scaffold_links = jobs[-1].out_files["scaffold_links"]
     graph_file = jobs[-1].out_files["assembly_graph"]
     repeat_stats = jobs[-1].out_files["stats"]
 
@@ -310,7 +319,8 @@ def _create_job_list(args, work_dir, log_file):
 
     #Report results
     jobs.append(JobFinalize(args, work_dir, log_file, contigs_file,
-                            graph_file, repeat_stats, polished_stats))
+                            graph_file, repeat_stats, polished_stats,
+                            scaffold_links))
 
     return jobs
 
