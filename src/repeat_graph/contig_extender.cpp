@@ -256,6 +256,7 @@ void ContigExtender::outputStatsTable(const std::string& filename)
 				minMult = std::min(minMult, edge->multiplicity);
 			}
 		}
+		minMult = std::max(1, minMult);
 		//if (!ctg.graphEdges.repetitive) minMult = 1;
 
 		std::string telomereStr;

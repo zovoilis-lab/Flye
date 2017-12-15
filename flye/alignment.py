@@ -141,7 +141,8 @@ class SynchronizedSamReader(object):
 
                 tokens = line.strip().split()
                 if len(tokens) < 11:
-                    raise AlignmentException("Error reading SAM file")
+                    continue
+                    #raise AlignmentException("Error reading SAM file")
 
                 read_contig = tokens[2]
                 flags = int(tokens[1])
