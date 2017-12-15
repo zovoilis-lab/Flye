@@ -335,11 +335,13 @@ void ContigExtender::outputScaffoldConnections(const std::string& filename)
 			{
 				UnbranchingPath* leftCtg = this->asUPaths({edge}).front();
 				UnbranchingPath* rightCtg = this->asUPaths({outEdge}).front();
-
-				fout << leftCtg->nameUnsigned() << "\t" << 
-					(leftCtg->id.strand() ? '+' : '-') << "\t" <<
-					rightCtg->nameUnsigned() << "\t" << 
-					(rightCtg->id.strand() ? '+' : '-') << "\n";
+				if (leftCtg != rightCtg)
+				{
+					fout << leftCtg->nameUnsigned() << "\t" << 
+						(leftCtg->id.strand() ? '+' : '-') << "\t" <<
+						rightCtg->nameUnsigned() << "\t" << 
+						(rightCtg->id.strand() ? '+' : '-') << "\n";
+				}
 			}
 		}
 	}
