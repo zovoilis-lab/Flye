@@ -234,7 +234,7 @@ void ContigExtender::outputStatsTable(const std::string& filename)
 	std::ofstream fout(filename);
 	if (!fout) throw std::runtime_error("Can't write " + filename);
 
-	fout << "contig_id\tlength\tcoverage\tcircular\trepeat"
+	fout << "seq_name\tlength\tcoverage\tcircular\trepeat"
 		<< "\tmult\ttelomere\tgraph_path\n";
 
 	char YES_NO[] = {'-', '+'};
@@ -256,7 +256,7 @@ void ContigExtender::outputStatsTable(const std::string& filename)
 				minMult = std::min(minMult, edge->multiplicity);
 			}
 		}
-		if (!ctg.graphEdges.repetitive) minMult = 1;
+		//if (!ctg.graphEdges.repetitive) minMult = 1;
 
 		std::string telomereStr;
 		bool telLeft = (ctg.graphEdges.path.front()->nodeLeft->isTelomere());

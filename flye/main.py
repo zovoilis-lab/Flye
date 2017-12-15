@@ -139,66 +139,19 @@ class JobFinalize(Job):
 
         self.out_files["contigs"] = os.path.join(work_dir, "contigs.fasta")
         self.out_files["scaffolds"] = os.path.join(work_dir, "scaffolds.fasta")
-        self.out_files["stats"] = os.path.join(work_dir, "contigs_info.txt")
+        self.out_files["stats"] = os.path.join(work_dir, "assembly_info.txt")
         self.out_files["graph"] = os.path.join(work_dir, "assembly_graph.dot")
 
     def run(self):
         shutil.copy2(self.contigs_file, self.out_files["contigs"])
         shutil.copy2(self.graph_file, self.out_files["graph"])
 
-        scf.generate_scaffolds(self.contigs_file, self.scaffold_links,
-                               self.out_files["scaffolds"])
+        scaffolds = scf.generate_scaffolds(self.contigs_file, self.scaffold_links,
+                                           self.out_files["scaffolds"])
+        scf.generate_stats(self.repeat_stats, self.polished_stats, scaffolds,
+                           self.out_files["stats"])
 
-        contigs_length = {}
-        contigs_coverage = {}
-        repeat_stats = {}
-        table_lines = open(self.repeat_stats, "r").readlines()
-        header_line = table_lines[0]
-        for line in table_lines[1:]:
-            tokens = line.strip().split("\t")
-            repeat_stats[tokens[0]] = tokens[1:]
-            if self.polished_stats is None:
-                contigs_length[tokens[0]] = int(tokens[1])
-                contigs_coverage[tokens[0]] = int(tokens[2])
-
-        if self.polished_stats is not None:
-            for line in open(self.polished_stats, "r").readlines()[1:]:
-                tokens = line.strip().split("\t")
-                contigs_length[tokens[0]] = int(tokens[1])
-                contigs_coverage[tokens[0]] = int(tokens[2])
-
-        all_contigs = sorted(contigs_length.keys(),
-                             key=lambda c: int(c.split("_")[1]))
-
-        with open(self.out_files["stats"], "w") as f:
-            f.write(header_line)
-            for ctg_id in all_contigs:
-                fields = repeat_stats[ctg_id]
-                fields[0] = str(contigs_length[ctg_id])
-                fields[1] = str(contigs_coverage[ctg_id])
-                f.write("{0}\t{1}\n".format(ctg_id, "\t".join(fields)))
-
-        total_length = sum(contigs_length.values())
-        if total_length > 0:
-            largest_len = contigs_length[max(contigs_length,
-                                             key=contigs_length.get)]
-            ctg_n50 = _calc_n50(contigs_length.values(), total_length)
-            mean_read_cov = 0
-            for ctg_id in contigs_coverage:
-                mean_read_cov += contigs_length[ctg_id] * contigs_coverage[ctg_id]
-            mean_read_cov /= total_length
-
-            logger.info("Assembly statistics:\n\n"
-                        "\tContigs:\t{0}\n"
-                        "\tTotal length:\t{1}\n"
-                        "\tContigs N50:\t{2}\n"
-                        "\tLargest contig:\t{3}\n"
-                        "\tMean coverage:\t{4}\n"
-                        .format(len(contigs_length), total_length,
-                                ctg_n50, largest_len, mean_read_cov))
-
-        logger.info("Done! your assembly is in {0} file"
-                    .format(self.out_files["contigs"]))
+        logger.info("Final assembly: {0}".format(self.out_files["scaffolds"]))
 
 
 class JobConsensus(Job):
@@ -281,7 +234,7 @@ class JobPolishing(Job):
             prev_assembly = polished_file
 
         with open(self.out_files["stats"], "w") as f:
-            f.write("contig_id\tlength\tcoverage\n")
+            f.write("seq_name\tlength\tcoverage\n")
             for ctg_id in contig_lengths:
                 f.write("{0}\t{1}\t{2}\n".format(ctg_id,
                         contig_lengths[ctg_id], coverage_stats[ctg_id]))
@@ -334,24 +287,7 @@ def _set_kmer_size(args):
     else:
         args.genome_size = human2bytes(args.genome_size.upper())
 
-    """
-    multiplier = 1
-    suffix = args.reads.rsplit(".")[-1]
-    if suffix == "gz":
-        suffix = args.reads.rsplit(".")[-2]
-        multiplier = 2
-
-    if suffix in ["fasta", "fa"]:
-        reads_size = os.path.getsize(args.reads) * multiplier
-    elif suffix in ["fastq", "fq"]:
-        reads_size = os.path.getsize(args.reads) * multiplier / 2
-    else:
-        raise ResumeException("Uknown input reads format: " + suffix)
-    """
-
-    #genome_coverage = reads_size / args.genome_size
     logger.debug("Genome size: {0}".format(args.genome_size))
-    #logger.debug("Estimated genome coverage: {0}".format(genome_coverage))
     args.kmer_size = config.vals["small_kmer"]
     if args.genome_size > config.vals["big_genome"]:
         args.kmer_size = config.vals["big_kmer"]
@@ -433,17 +369,6 @@ def _enable_logging(log_file, debug, overwrite):
     logger.setLevel(logging.DEBUG)
     logger.addHandler(console_log)
     logger.addHandler(file_handler)
-
-
-def _calc_n50(scaffolds_lengths, assembly_len):
-    n50 = 0
-    sum_len = 0
-    for l in sorted(scaffolds_lengths, reverse=True):
-        sum_len += l
-        if sum_len > assembly_len / 2:
-            n50 = l
-            break
-    return n50
 
 
 def _usage():

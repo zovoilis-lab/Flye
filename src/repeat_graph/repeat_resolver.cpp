@@ -392,6 +392,7 @@ void RepeatResolver::resolveRepeats()
 
 	GraphProcessor proc(_graph, _asmSeqs, _readSeqs);
 	proc.fixChimericJunctions();
+	_aligner.updateAlignments();
 }
 
 
