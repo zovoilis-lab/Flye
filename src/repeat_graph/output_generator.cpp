@@ -380,11 +380,13 @@ void OutputGenerator::outputDot(const std::vector<UnbranchingPath>& paths,
 		if (contig.repetitive)
 		{
 			std::string color = edgeColors[contig.path.front()];
+			std::string direction = contig.path.front()->selfComplement ?
+									", dir = both" : "";
 			fout << "\"" << nodeToId(contig.path.front()->nodeLeft) 
 				 << "\" -> \"" << nodeToId(contig.path.back()->nodeRight)
 				 << "\" [label = \"id " << contig.id.signedId() << 
 				 "\\l" << lengthStr.str() << "\", color = \"" 
-				 << color << "\" " << " penwidth = 3] ;\n";
+				 << color << "\" " << ", penwidth = 3" << direction << "] ;\n";
 		}
 		else
 		{
