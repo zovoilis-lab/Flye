@@ -251,13 +251,8 @@ void ContigExtender::outputStatsTable(const std::string& filename)
 		int minMult = std::numeric_limits<int>::max();
 		for (auto& edge : ctg.graphEdges.path) 
 		{
-			if (edge->multiplicity > 0) 
-			{
-				minMult = std::min(minMult, edge->multiplicity);
-			}
+			minMult = std::min(minMult, std::max(1, edge->multiplicity));
 		}
-		minMult = std::max(1, minMult);
-		//if (!ctg.graphEdges.repetitive) minMult = 1;
 
 		std::string telomereStr;
 		bool telLeft = (ctg.graphEdges.path.front()->nodeLeft->isTelomere());

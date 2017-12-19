@@ -162,7 +162,7 @@ void MultiplicityInferer::removeUnsupportedConnections()
 		if (!edge->edgeId.strand() || edge->isLooped()) continue;
 		GraphEdge* complEdge = _graph.complementEdge(edge);
 
-		Logger::get().debug() << "Adjacencies: " << edge->edgeId << " "
+		Logger::get().debug() << "Adjacencies: " << edge->edgeId.signedId() << " "
 			<< leftConnections[edge] / 2 << " " << rightConnections[edge] / 2;
 
 		if (!edge->nodeRight->isEnd() &&
