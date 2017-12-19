@@ -8,8 +8,7 @@
 
 
 //Estimates the mean coverage and assingns edges multiplicity accordingly
-void MultiplicityInferer::
-	estimateCoverage(const std::vector<GraphAlignment>& readAln)
+void MultiplicityInferer::estimateCoverage()
 {
 	const int WINDOW = Config::get("coverage_estimate_window");
 	const int SHORT_EDGE = Config::get("trusted_edge_length");
@@ -23,7 +22,7 @@ void MultiplicityInferer::
 		wndCoverage[edge].assign(numWindows, 0);
 	}
 
-	for (auto& path : readAln)
+	for (auto& path : _aligner.getAlignments())
 	{
 		for (size_t i = 0; i < path.size(); ++i)
 		{
@@ -92,7 +91,7 @@ void MultiplicityInferer::
 void MultiplicityInferer::removeUnsupportedEdges()
 {
 	int coverageThreshold = this->getMeanCoverage() / 
-							Config::get("read_cov_rate");
+							Config::get("graph_cov_drop_rate");
 	Logger::get().debug() << "Read coverage cutoff: " << coverageThreshold;
 
 	std::unordered_set<GraphEdge*> edgesRemove;
@@ -108,4 +107,83 @@ void MultiplicityInferer::removeUnsupportedEdges()
 	for (auto& edge : edgesRemove) _graph.removeEdge(edge);
 	Logger::get().debug() << "Removed " << edgesRemove.size() 
 		<< " unsupported edges";
+
+	_aligner.updateAlignments();
+}
+
+void MultiplicityInferer::removeUnsupportedConnections()
+{
+	std::unordered_map<GraphEdge*, int> rightConnections;
+	std::unordered_map<GraphEdge*, int> leftConnections;
+
+	for (auto& readPath : _aligner.getAlignments())
+	{
+		if (readPath.size() < 2) continue;
+		int overhang = std::max(readPath.front().overlap.curBegin,
+								readPath.back().overlap.curLen - 
+									readPath.back().overlap.curEnd);
+		if (overhang > (int)Config::get("maximum_overhang")) continue;
+
+		for (size_t i = 0; i < readPath.size() - 1; ++i)
+		{
+			if (readPath[i].edge == readPath[i + 1].edge &&
+				readPath[i].edge->isLooped()) continue;
+			if (readPath[i].edge->edgeId == 
+				readPath[i + 1].edge->edgeId.rc()) continue;
+
+			//GraphEdge* complLeft = _graph.complementEdge(readPath[i].edge);
+			//GraphEdge* complRight = _graph.complementEdge(readPath[i + 1].edge);
+			++rightConnections[readPath[i].edge];
+			++leftConnections[readPath[i + 1].edge];
+			//++rightConnections[complRight];
+			//++leftConnections[complLeft];
+		}
+	}
+
+	auto disconnectRight = [this](GraphEdge* edge)
+	{
+		GraphNode* newNode = _graph.addNode();
+		vecRemove(edge->nodeRight->inEdges, edge);
+		edge->nodeRight = newNode;
+		edge->nodeRight->inEdges.push_back(edge);
+	};
+	auto disconnectLeft = [this](GraphEdge* edge)
+	{
+		GraphNode* newNode = _graph.addNode();
+		vecRemove(edge->nodeLeft->outEdges, edge);
+		edge->nodeLeft = newNode;
+		edge->nodeLeft->outEdges.push_back(edge);
+	};
+
+	int coverageThreshold = this->getMeanCoverage() / 
+							Config::get("graph_cov_drop_rate");
+	for (auto& edge : _graph.iterEdges())
+	{
+		if (!edge->edgeId.strand()) continue;
+		GraphEdge* complEdge = _graph.complementEdge(edge);
+
+		//Logger::get().debug() << "Cons: " << edge->edgeId 
+		//	<< leftConnections[edge] << " " << rightConnections[edge];
+
+		if (!edge->nodeRight->isEnd() &&
+			rightConnections[edge] < coverageThreshold)
+		{
+			Logger::get().debug() << "Chimeric right: " <<
+				edge->edgeId.signedId() << " " << rightConnections[edge];
+
+			disconnectRight(edge);
+			if (complEdge != edge) disconnectLeft(complEdge);
+		}
+		if (!edge->nodeLeft->isEnd() &&
+			leftConnections[edge] < coverageThreshold)
+		{
+			Logger::get().debug() << "Chimeric left: " <<
+				edge->edgeId.signedId() << " " << leftConnections[edge];
+
+			disconnectLeft(edge);
+			if (complEdge != edge) disconnectRight(complEdge);
+		}
+	}
+
+	_aligner.updateAlignments();
 }

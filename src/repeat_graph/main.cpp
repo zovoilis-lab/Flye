@@ -210,10 +210,10 @@ int main(int argc, char** argv)
 	Logger::get().info() << "Aligning reads to the graph";
 	aligner.alignReads();
 
-	MultiplicityInferer multInf(rg);
-	multInf.estimateCoverage(aligner.getAlignments());
+	MultiplicityInferer multInf(rg, aligner);
+	multInf.estimateCoverage();
 	multInf.removeUnsupportedEdges();
-	aligner.updateAlignments();
+	multInf.removeUnsupportedConnections();
 
 	Logger::get().info() << "Resolving repeats";
 	RepeatResolver resolver(rg, seqAssembly, seqReads, aligner, multInf);

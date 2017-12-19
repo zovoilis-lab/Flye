@@ -75,7 +75,7 @@ void RepeatGraph::build()
 	this->getGluepoints(asmOverlaps);
 	this->collapseTandems();
 	this->initializeEdges(asmOverlaps);
-	this->markChimericEdges();
+	//this->markChimericEdges();
 }
 
 
