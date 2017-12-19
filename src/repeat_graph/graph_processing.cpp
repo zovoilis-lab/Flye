@@ -260,6 +260,10 @@ void GraphProcessor::condenceEdges()
 			addedStr += std::to_string(addedEdge->edgeId.signedId()) + " -> ";
 		}
 
+		if (addedStr.size() > 4) addedStr.erase(addedStr.size() - 4);
+		Logger::get().debug() << "Collapsed: " << unbranchingPath.edgesStr() 
+			<< " to " << addedStr;
+
 		std::unordered_set<GraphEdge*> toRemove;
 		for (auto& edge : unbranchingPath.path) toRemove.insert(edge);
 		for (auto& edge : complPath) toRemove.insert(edge);
@@ -267,10 +271,6 @@ void GraphProcessor::condenceEdges()
 
 		edgesRemoved += unbranchingPath.path.size();
 		edgesAdded += newEdges.size();
-
-		if (addedStr.size() > 4) addedStr.erase(addedStr.size() - 4);
-		Logger::get().debug() << "Collapsed: " << unbranchingPath.edgesStr() 
-			<< " to " << addedStr;
 	}
 
 	Logger::get().debug() << "Removed " << edgesRemoved << " edges";
