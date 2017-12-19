@@ -131,12 +131,12 @@ void MultiplicityInferer::removeUnsupportedConnections()
 			if (readPath[i].edge->edgeId == 
 				readPath[i + 1].edge->edgeId.rc()) continue;
 
-			//GraphEdge* complLeft = _graph.complementEdge(readPath[i].edge);
-			//GraphEdge* complRight = _graph.complementEdge(readPath[i + 1].edge);
 			++rightConnections[readPath[i].edge];
 			++leftConnections[readPath[i + 1].edge];
-			//++rightConnections[complRight];
-			//++leftConnections[complLeft];
+			GraphEdge* complLeft = _graph.complementEdge(readPath[i].edge);
+			GraphEdge* complRight = _graph.complementEdge(readPath[i + 1].edge);
+			++rightConnections[complRight];
+			++leftConnections[complLeft];
 		}
 	}
 
@@ -159,29 +159,31 @@ void MultiplicityInferer::removeUnsupportedConnections()
 							Config::get("graph_cov_drop_rate");
 	for (auto& edge : _graph.iterEdges())
 	{
-		if (!edge->edgeId.strand()) continue;
+		if (!edge->edgeId.strand() || edge->isLooped()) continue;
 		GraphEdge* complEdge = _graph.complementEdge(edge);
 
-		//Logger::get().debug() << "Cons: " << edge->edgeId 
-		//	<< leftConnections[edge] << " " << rightConnections[edge];
+		Logger::get().debug() << "Adjacencies: " << edge->edgeId << " "
+			<< leftConnections[edge] / 2 << " " << rightConnections[edge] / 2;
 
 		if (!edge->nodeRight->isEnd() &&
-			rightConnections[edge] < coverageThreshold)
+			rightConnections[edge] / 2 < coverageThreshold)
 		{
 			Logger::get().debug() << "Chimeric right: " <<
-				edge->edgeId.signedId() << " " << rightConnections[edge];
+				edge->edgeId.signedId() << " " << rightConnections[edge] / 2;
 
 			disconnectRight(edge);
-			if (complEdge != edge) disconnectLeft(complEdge);
+			disconnectLeft(complEdge);
+
+			if (edge->selfComplement) continue;	//already discinnected
 		}
 		if (!edge->nodeLeft->isEnd() &&
-			leftConnections[edge] < coverageThreshold)
+			leftConnections[edge] / 2 < coverageThreshold)
 		{
 			Logger::get().debug() << "Chimeric left: " <<
-				edge->edgeId.signedId() << " " << leftConnections[edge];
+				edge->edgeId.signedId() << " " << leftConnections[edge] / 2;
 
 			disconnectLeft(edge);
-			if (complEdge != edge) disconnectRight(complEdge);
+			disconnectRight(complEdge);
 		}
 	}
 
