@@ -50,8 +50,8 @@ void ContigExtender::generateContigs(bool graphContinue)
 	std::unordered_map<const GraphEdge*, bool> repeatDirections;
 	auto canTraverse = [&repeatDirections] (const GraphEdge* edge)
 	{
-		return edge->selfComplement || 
-			   !repeatDirections.count(edge) || 
+		if (edge->isLooped() && edge->selfComplement) return false;
+		return !repeatDirections.count(edge) || 
 			   repeatDirections.at(edge);
 	};
 
@@ -99,7 +99,8 @@ void ContigExtender::generateContigs(bool graphContinue)
 		auto lastUpath = this->asUPaths({bestAlignment.back().edge}).front();
 		int32_t overhang = upathsSeqs[lastUpath]->sequence.length() - 
 						   bestAlignment.back().overlap.extEnd;
-		bool lastIncomplete = overhang > (int)Config::get("max_separation");
+		bool lastIncomplete = overhang > (int)Config::get("max_separation") &&
+							  !bestAlignment.back().edge->isLooped();
 		//Logger::get().debug() << "Ctg " << upath.id.signedId() <<
 		//	" overhang " << overhang << " upath " << lastUpath->id.signedId();
 
