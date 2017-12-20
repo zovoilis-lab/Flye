@@ -28,8 +28,8 @@ New in version 2.3
 
 Manual
 -----
-- [Installation instructions] (docs/INSTALL.md)
-- [Usage] (dosc/USAGE.md)
+- [Installation instructions](#docs/INSTALL.md)
+- [Usage](#docs/USAGE.md)
 
 
 Publications
