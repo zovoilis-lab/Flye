@@ -1,8 +1,19 @@
 Flye manual
 ===========
 
-Quick usage
------------
+Table of Contents
+-----------------
+
+- [Quick usage](#quickusage)
+- [Examples](#examples)
+- [Supported Input Data](#inputdata)
+- [Parameter Descriptions](#parameters)
+- [Output Files](#output)
+- [Running Time and Memory Requirements](#performance)
+- [Algorithm Description](#algorithm)
+
+
+## <a name="quickusage"></a> Quick usage
 
     usage: flye (--pacbio-raw | --pacbio-corr | --nano-raw |
                  --nano-corr | --subassemblies) file1 [file_2 ...]
@@ -42,8 +53,7 @@ Quick usage
 
 
 
-Examples
---------
+## <a name="examples"></a> Examples
 
 You can try Flye assembly on these ready-to-use datasets:
 
@@ -69,8 +79,7 @@ The dataset was originally released by the Loman lab
 	abruijn --nano-raw Loman_E.coli_MAP006-1_2D_50x.fasta --out-dir out_nano --genome-size 5m --threads 4
 
 
-Supported Input Data
---------------------
+## <a name="inputdata"></a> Supported Input Data
 
 Input reads could be in FASTA or FASTQ format, uncompressed
 or compressed with gz. Currenlty, raw and corrected reads
@@ -87,15 +96,6 @@ Typically, a bacterial WGS project with 20x-30x+ coverage can be assembled
 into a single, structurally concordant contig for each chromosome. However, to get the best 
 nucleotide-level quaity, you might need deeper coverage. For a 50x E. coli dataset,
 Flye makes roughly 30 errors (single nucleotide insertions/deletions). 
-Below are empirical error estimates for E. Coli assemblies with lower coverage:
-
-	cov.   errors
-	50x    33
-	45x    45
-	40x    84
-	35x    153
-	30x    291
-	25x    687
 
 If the coverage of the bacterial dataset is significantly higher than 100x, you
 might consider decreasing the coverage by filtering out shorter reads - this
@@ -123,8 +123,7 @@ You might also want to skip the polishing stage with '--iterations 0' argument
 (however, it might still be helpful).
 
 
-Input Data Preparation
-----------------------
+### Input data preparation
 
 Flye works directly with base-called raw reads and does not require any 
 prior error correction. Flye automatically detects chimeric reads or reads with low quality ends, 
@@ -133,8 +132,7 @@ worth checking for possible contamination in the reads, since it may affect the
 automatic selection of estimated parameters for solid kmers and genome size / coverage.
 
 
-Parameter descriptions
-----------------------
+## <a name="parameters"></a> Parameter descriptions
 
 ### Estimated genome size (required)
 
@@ -144,6 +142,14 @@ be rough (e.g. withing 0.5x-2x range) and does not affect
 the other assembly stages. Standard size modificators are
 supported (e.g. 5m or 2.6g)
 
+### Minimum overlap length
+
+This sets a minimum overlap length for two reads to be considered overlapping.
+Since the algorithm is based on approximate overlaps (without computing exact alignment), 
+we require relatively long overlaps (5000 by default) - which is suitable for the most datasets
+with realtively good read length and coverage. However, you may decrease this parameter for better contiguity
+on low-coverage datasets or datasets with shorter mean read length (such as produced with older
+PacBio chemistry).
 
 ### Number of polishing iterations
 
@@ -160,36 +166,31 @@ not be performed (in case you want to use an external polisher).
 Use --resume to resume a previous run of the assembler that may have terminated
 prematurely. The assembly will continue from the last previously completed step.
 
-### Minimum overlap length
 
-This sets a minimum overlap length for two reads to be considered overlapping.
-Since the algorithm is based on approximate overlaps (without computing exact alignment), 
-we require relatively long overlaps (5000 by default) - which is suitable for the most datasets
-with realtively good read length and coverage. However, you may decrease this parameter for better contiguity
-on low-coverage datasets or datasets with shorter mean read length (such as produced with older
-PacBio chemistry).
+## <a name="output"></a> Output files
 
+Flye outputs final contigs/scaffolds along with the simplified assembly graph
+and extra information about the assembly fragments. All files will be in the root
+of the specified output directory.
 
-Output files
-------------
+### TBD
 
+## <a name="performance"></a> Running time and memory requirements
 
-Running time and memory requirements
-------------------------------------
 
 Typically, assembly of a bacteria or small eukaryote coverage takes less than half an hour 
-on a modern desktop. C. elegans can be assembled within a few hours on a machine with 24 CPUs
-(and fits within 32Gb). Some more detailed time and memory benchmarks are below.
+on a modern desktop. C. elegans can be assembled within a few hours on a 
+computational node. The more detailed benchmarks are below.
 
-    Genome              Size     Coverage   CPU_time   RAM
-    E. Coli             4. 6Mb   50         170 m      2 Gb
-    S. Cerevisiae       12.2 Mb  120        180 m      7 Gb
-	C. elegans          100 Mb   30         160 h      23 Gb
-	H. sapiens          3 Gb     30         8400 h     840 Gb
+|Genome        | Size   | Coverage | CPU\_time | RAM    |
+|--------------|--------|----------|-----------|--------|
+| E.coli       | 5 Mb   | 50       | 170 m     | 2 Gb   |
+| S.cerevisiae | 12 Mb  | 30       | 180 m     | 7 Gb   |
+| C.elegans    | 100 Mb | 30       | 160 h     | 23 Gb  |
+| H.sapiens    | 3 Gb   | 30       | 8400 h    | 700 Gb |
 
 
-Algorithm description
----------------------
+## <a name="algorithm"></a> Algorithm Description
 
 This is a brief description of the Flye algorithm. Plase refer to the manuscript
 for more detailed information. The assembly pipeline is organized as follows:
