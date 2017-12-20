@@ -13,7 +13,7 @@ module, which produces the final assembly of high nucleotide-level quality.
 
 
 New in version 2.3
-==================
+------------------
 
 * ABruijn 2.x branch has been renamed to Flye, highlighting many substantial algorithmic changes
 * Stable version of the repeat analysis module
@@ -25,14 +25,11 @@ New in version 2.3
 * Gzipped Fasta/q support
 * Multiple read files support
 
-Install
--------
-See the *docs/INSTALL.md* file.
 
-
-Usage
+Manual
 -----
-See the *docs/USAGE.md* file.
+- [Installation instructions] (docs/INSTALL.md)
+- [Usage] (dosc/USAGE.md)
 
 
 Publications
