@@ -1,7 +1,7 @@
 Flye assembler (successor of ABruijn)
 =====================================
 
-Version: 2.3
+### Version: 2.3
 
 Flye is a de novo assembler for long and noisy reads, such as
 those produced by PacBio and Oxford Nanopore Technologies.
@@ -26,31 +26,28 @@ New in version 2.3
 * Multiple read files support
 
 
-Manual
------
-- [Installation instructions](#docs/INSTALL.md)
-- [Usage](#docs/USAGE.md)
+Manuals
+-------
 
-
-Publications
-------------
-Yu Lin, Jeffrey Yuan, Mikhail Kolmogorov, Max W Shen, Mark Chaisson and Pavel Pevzner, 
-"Assembly of Long Error-Prone Reads Using de Bruijn Graphs", PNAS 2016
+- [Installation instructions](docs/INSTALL.md)
+- [Usage](docs/USAGE.md)
 
 
 Third-party
 -----------
+
 Flye package includes some third-party software:
 
-* libcuckoo [http://github.com/efficient/libcuckoo]
-* intervaltree [https://github.com/ekg/intervaltree]
-* lemon [http://lemon.cs.elte.hu/trac/lemon]
-* minimap2 [https://github.com/lh3/minimap2]
+* [libcuckoo](http://github.com/efficient/libcuckoo)
+* [intervaltree](https://github.com/ekg/intervaltree)
+* [lemon](http://lemon.cs.elte.hu/trac/lemon)
+* [minimap2](https://github.com/lh3/minimap2)
 
 
 License
 -------
-Flye is distributed under a BSD license. See the *LICENSE* file for details.
+
+Flye is distributed under a BSD license. See the [LICENSE file](LICENSE) for details.
 
 
 Credits
@@ -62,7 +59,13 @@ Code contributions:
 
 * Original assembler code: Yu Lin
 * Original polisher code: Jeffrey Yuan
-* Repeat analysis module and current package support: Mikhail Kolmogorov
+* Repeat graph and current package support: Mikhail Kolmogorov
+
+
+Publications
+------------
+Yu Lin, Jeffrey Yuan, Mikhail Kolmogorov, Max W Shen, Mark Chaisson and Pavel Pevzner, 
+"Assembly of Long Error-Prone Reads Using de Bruijn Graphs", PNAS 2016
 
 
 Contacts

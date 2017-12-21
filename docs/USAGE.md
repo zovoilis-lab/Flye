@@ -8,7 +8,8 @@ Table of Contents
 - [Examples](#examples)
 - [Supported Input Data](#inputdata)
 - [Parameter Descriptions](#parameters)
-- [Output Files](#output)
+- [Assembly graph](#graph)
+- [Contigs/scaffolds output](#output)
 - [Running Time and Memory Requirements](#performance)
 - [Algorithm Description](#algorithm)
 
@@ -166,14 +167,50 @@ not be performed (in case you want to use an external polisher).
 Use --resume to resume a previous run of the assembler that may have terminated
 prematurely. The assembly will continue from the last previously completed step.
 
+## <a name="graph"></a> Assembly graph
 
-## <a name="output"></a> Output files
+The final assembly graph is output into the "assembly\_graph.dot" file.
+It could be visualized using [Graphviz](https://graphviz.gitlab.io/): 
+```dot -Tpng -O assembly_graph.dot```. The edges in this graph 
+represent genomic sequences, and nodes simply serve
+as junctions. The genoimc chromosomes traverse this graph (in an unknown way) 
+so as each unique edge is covered exatly once. The genomic repeats that were not
+resolved and collapsed into the corresponding edges in the graph
+(therefore genome structure remain umbigious).
 
-Flye outputs final contigs/scaffolds along with the simplified assembly graph
-and extra information about the assembly fragments. All files will be in the root
-of the specified output directory.
+<p align="center">
+  <img src="docs/graph_example.png" alt="Graph example"/>
+</p>
 
-### TBD
+The example of a final assembly graph of a bacterial genome is above.
+Each edge is labeled with its id, length and coverage. Repetitive edges are shown
+in color, with unique edges are black. The clusters of adjacent repeats are shown with the 
+same color. Note that each edge is represented in two copies: forward and
+reverse complement (that are marked with +/- signs), therefore the entire genome is
+presented in two copies as well. Sometimes (as in this example), forward and reverse-complement
+components are clearly separated, but often they form a single connected component
+(in case if the genome contain unresolved inverted repeats).
+
+In this example, there are two unresolved repeats: (i) a red repeat of multiplicity two
+and length 35k and (ii) a green repeat cluster of multiplicity three and length 34k - 36k.
+The fact that repeat vere unresolved means that there were no reads in the dataset that contained
+these repeats in full.
+
+
+## <a name="output"></a> Contigs/scaffolds output
+
+Explain how contigs are formed
+
+Final contigs are output into the "contigs.fasta" file. Sometimes it is possible to
+further order some contigs based on the assembly graph structure. In this case,
+scaffolds are formed by interleaving the corresponding contigs with 100 Ns.
+Scaffolds (along with contigs that are not contained in scaffolds) are output
+into the "scaffolds.fasta" file. In case no scaffolds were contructed, 
+the two files will be identical. Scaffolds will potentially have higher N50, 
+but the gap size might not be very accurate.
+
+Extra information
+
 
 ## <a name="performance"></a> Running time and memory requirements
 
@@ -182,7 +219,7 @@ Typically, assembly of a bacteria or small eukaryote coverage takes less than ha
 on a modern desktop. C. elegans can be assembled within a few hours on a 
 computational node. The more detailed benchmarks are below.
 
-|Genome        | Size   | Coverage | CPU\_time | RAM    |
+|Genome        | Size   | Coverage | CPU time  | RAM    |
 |--------------|--------|----------|-----------|--------|
 | E.coli       | 5 Mb   | 50       | 170 m     | 2 Gb   |
 | S.cerevisiae | 12 Mb  | 30       | 180 m     | 7 Gb   |
