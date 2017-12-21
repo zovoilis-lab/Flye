@@ -33,6 +33,36 @@ Manuals
 - [Usage](docs/USAGE.md)
 
 
+Assembly graph
+--------------
+
+The Flye algorithms are operating on the assembly (repeat) graph. The edges in this graph 
+represent genomic sequences, and nodes simply serve
+as junctions. The genoimc chromosomes traverse this graph (in an unknown way) 
+so as each unique edge is covered exatly once. The genomic repeats that were not
+resolved and collapsed into the corresponding edges in the graph
+(therefore genome structure remain umbigious).
+
+
+<p align="center">
+  <img src="docs/graph_example.png" alt="Graph example"/>
+</p>
+
+An example of a final assembly graph of a bacterial genome is above.
+Each edge is labeled with its id, length and coverage. Repetitive edges are shown
+in color, while unique edges are black. The clusters of adjacent repeats are shown with the 
+same color. Note that each edge is represented in two copies: forward and
+reverse complement (marked with +/- signs), therefore the entire genome is
+represented in two copies as well. Sometimes (as in this example), forward and reverse-complement
+components are clearly separated, but often they form a single connected component
+(in case if the genome contain unresolved inverted repeats).
+
+In this example, there are two unresolved repeats: (i) a red repeat of multiplicity two
+and length 35k and (ii) a green repeat cluster of multiplicity three and length 34k - 36k.
+As the repeats remained unresolved, there are no reads in the dataset that cover
+those repeats in full.
+
+
 Third-party
 -----------
 

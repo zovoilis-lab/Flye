@@ -182,9 +182,9 @@ resolved and collapsed into the corresponding edges in the graph
   <img src="graph_example.png" alt="Graph example"/>
 </p>
 
-The example of a final assembly graph of a bacterial genome is above.
+An example of a final assembly graph of a bacterial genome is above.
 Each edge is labeled with its id, length and coverage. Repetitive edges are shown
-in color, with unique edges are black. The clusters of adjacent repeats are shown with the 
+in color, while unique edges are black. The clusters of adjacent repeats are shown with the 
 same color. Note that each edge is represented in two copies: forward and
 reverse complement (marked with +/- signs), therefore the entire genome is
 represented in two copies as well. Sometimes (as in this example), forward and reverse-complement
