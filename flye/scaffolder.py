@@ -164,7 +164,7 @@ def generate_stats(repeat_file, polished_file, scaffolds, out_stats):
             path.append(ctg_path)
         prefix = "*," if scf_left else ""
         suffix = ",*" if scf_right else ""
-        scaffolds_stats[scf].graph_path = prefix + ",-,".join(path) + suffix
+        scaffolds_stats[scf].graph_path = prefix + ",??,".join(path) + suffix
 
     with open(out_stats, "w") as f:
         f.write(header_line + "\n")

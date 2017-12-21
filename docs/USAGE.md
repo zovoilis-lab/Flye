@@ -179,28 +179,31 @@ resolved and collapsed into the corresponding edges in the graph
 (therefore genome structure remain umbigious).
 
 <p align="center">
-  <img src="docs/graph_example.png" alt="Graph example"/>
+  <img src="graph_example.png" alt="Graph example"/>
 </p>
 
 The example of a final assembly graph of a bacterial genome is above.
 Each edge is labeled with its id, length and coverage. Repetitive edges are shown
 in color, with unique edges are black. The clusters of adjacent repeats are shown with the 
 same color. Note that each edge is represented in two copies: forward and
-reverse complement (that are marked with +/- signs), therefore the entire genome is
-presented in two copies as well. Sometimes (as in this example), forward and reverse-complement
+reverse complement (marked with +/- signs), therefore the entire genome is
+represented in two copies as well. Sometimes (as in this example), forward and reverse-complement
 components are clearly separated, but often they form a single connected component
 (in case if the genome contain unresolved inverted repeats).
 
 In this example, there are two unresolved repeats: (i) a red repeat of multiplicity two
 and length 35k and (ii) a green repeat cluster of multiplicity three and length 34k - 36k.
-The fact that repeat vere unresolved means that there were no reads in the dataset that contained
-these repeats in full.
+As the repeats remained unresolved, there are no reads in the dataset that cover
+those repeats in full.
 
+Initial assembly graph state (before repeats were resolved) could be found in
+the "2-repeat/graph_before_rr.dot" file. Additionally, ".gfa" versions of
+assembly graphs could be found in "2-repeat" directory.
 
 ## <a name="output"></a> Contigs/scaffolds output
 
-Explain how contigs are formed
-
+Each contig is formed by a single uniqe edge and possibly multiple repetitive
+edges and correponds to a genomic path through the graph.
 Final contigs are output into the "contigs.fasta" file. Sometimes it is possible to
 further order some contigs based on the assembly graph structure. In this case,
 scaffolds are formed by interleaving the corresponding contigs with 100 Ns.
@@ -209,8 +212,18 @@ into the "scaffolds.fasta" file. In case no scaffolds were contructed,
 the two files will be identical. Scaffolds will potentially have higher N50, 
 but the gap size might not be very accurate.
 
-Extra information
+Extra information about contigs/scaffolds is output into the "assembly_info.txt" file.
+The table columns are as follows:
 
+* Sequence id
+* Length
+* Coverage
+* Cirular (if contig represent a circular sequence)
+* Repetitive (if contig represent repetitive, rather than unique sesquence)
+* Multiplicity (inferred contig multiplicity based on coverage)
+* Graph path (the edges of the assembly graph that form this particular contig).
+     Scaffold gaps are marked with "??" symbols, and '*' symbol in the end means
+	 that telomeric region was reached.
 
 ## <a name="performance"></a> Running time and memory requirements
 
