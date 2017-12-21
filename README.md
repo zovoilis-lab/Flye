@@ -39,8 +39,8 @@ Assembly graph
 The Flye algorithms are operating on the assembly (repeat) graph. The edges in this graph 
 represent genomic sequences, and nodes simply serve
 as junctions. The genoimc chromosomes traverse this graph (in an unknown way) 
-so as each unique edge is covered exatly once. The genomic repeats that were not
-resolved and collapsed into the corresponding edges in the graph
+so as each unique edge is covered exactly once. The genomic repeats that were not
+resolved are collapsed into the corresponding edges in the graph
 (therefore genome structure remain umbigious).
 
 

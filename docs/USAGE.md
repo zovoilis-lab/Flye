@@ -47,7 +47,7 @@ Table of Contents
       -m int, --min-overlap int
                             minimum overlap between reads (default: 5000)
       --resume              resume from the last completed stage
-      --resume-from stage\_name
+      --resume-from stage_name
                             resume from a custom stage
       --debug               enable debug output
       -v, --version         show program's version number and exit
@@ -60,21 +60,21 @@ You can try Flye assembly on these ready-to-use datasets:
 
 ### E. coli P6-C4 PacBio data
 
-The original dataset is available at the PacBio website 
-(https://github.com/PacificBiosciences/DevNet/wiki/E.-coli-Bacterial-Assembly).
-We coverted the raw 'bas.h5' file to the FASTA format for the convenience.
+The original dataset is available at the 
+[PacBio website](https://github.com/PacificBiosciences/DevNet/wiki/E.-coli-Bacterial-Assembly).
+We coverted the raw ```bas.h5``` file to the FASTA format for the convenience.
 
     wget https://github.com/fenderglass/datasets/raw/master/pacbio/E.coli_PacBio_40x.fasta
 	flye --pacbio-raw E.coli_PacBio_40x.fasta --out-dir out_pacbio --genome-size 5m --threads 4
 
-with '5m' being the expected genome size, the threads argument being optional 
-(you may adjust it for your environment), and 'out\_pacbio' being the directory
+with ```5m``` being the expected genome size, the threads argument being optional 
+(you may adjust it for your environment), and ```out_pacbio``` being the directory
 where the assembly results will be placed.
 
 ### E. coli Oxford Nanopore Technologies data
 
-The dataset was originally released by the Loman lab 
-(http://lab.loman.net/2015/09/24/first-sqk-map-006-experiment/).
+The dataset was originally released by the 
+[Loman lab](http://lab.loman.net/2015/09/24/first-sqk-map-006-experiment/).
 
     wget https://github.com/fenderglass/datasets/raw/master/ont/Loman_E.coli_MAP006-1_2D_50x.fasta
 	abruijn --nano-raw Loman_E.coli_MAP006-1_2D_50x.fasta --out-dir out_nano --genome-size 5m --threads 4
@@ -84,7 +84,7 @@ The dataset was originally released by the Loman lab
 
 Input reads could be in FASTA or FASTQ format, uncompressed
 or compressed with gz. Currenlty, raw and corrected reads
-from PacBio and ONT are supported. Additionally, --subassemblies
+from PacBio and ONT are supported. Additionally, ```--subassemblies```
 option does a consensus assembly of high-quality input contigs.
 You may specify multiple fles with reads (separated by spaces).
 Mixing different read types is not yet supported.
@@ -116,11 +116,11 @@ per-nucleotide accuracy is usually lower for ONT data than with PacBio data, esp
 
 ### Consensus of multiple input contig sets
 
---subassemblies input mode generates a consensus of multiple high quality contig assemblies
+```--subassemblies``` input mode generates a consensus of multiple high quality contig assemblies
 (such as produced by different short read assemblers). The expected error rate
 is similar to the one in corrected PacBio or ONT reads. When using this option,
 consider decresing the minimum overlap parameter (for example, 1000 instead of 5000).
-You might also want to skip the polishing stage with '--iterations 0' argument
+You might also want to skip the polishing stage with ```--iterations 0``` argument
 (however, it might still be helpful).
 
 
@@ -169,13 +169,13 @@ prematurely. The assembly will continue from the last previously completed step.
 
 ## <a name="graph"></a> Assembly graph
 
-The final assembly graph is output into the "assembly\_graph.dot" file.
+The final assembly graph is output into the ```assembly_graph.dot``` file.
 It could be visualized using [Graphviz](https://graphviz.gitlab.io/): 
 ```dot -Tpng -O assembly_graph.dot```. The edges in this graph 
 represent genomic sequences, and nodes simply serve
 as junctions. The genoimc chromosomes traverse this graph (in an unknown way) 
-so as each unique edge is covered exatly once. The genomic repeats that were not
-resolved and collapsed into the corresponding edges in the graph
+so as each unique edge is covered exactly once. The genomic repeats that were not
+resolved are collapsed into the corresponding edges in the graph
 (therefore genome structure remain umbigious).
 
 <p align="center">
@@ -197,8 +197,8 @@ As the repeats remained unresolved, there are no reads in the dataset that cover
 those repeats in full.
 
 Initial assembly graph state (before repeats were resolved) could be found in
-the "2-repeat/graph_before_rr.dot" file. Additionally, ".gfa" versions of
-assembly graphs could be found in "2-repeat" directory.
+the ```2-repeat/graph_before_rr.dot``` file. Additionally, ```.gfa``` versions of
+assembly graphs could be found in ```2-repeat``` directory.
 
 ## <a name="output"></a> Contigs/scaffolds output
 
@@ -212,17 +212,17 @@ into the "scaffolds.fasta" file. In case no scaffolds were contructed,
 the two files will be identical. Scaffolds will potentially have higher N50, 
 but the gap size might not be very accurate.
 
-Extra information about contigs/scaffolds is output into the "assembly_info.txt" file.
+Extra information about contigs/scaffolds is output into the ```assembly_info.txt``` file.
 The table columns are as follows:
 
 * Sequence id
 * Length
 * Coverage
-* Cirular (if contig represent a circular sequence)
-* Repetitive (if contig represent repetitive, rather than unique sesquence)
+* Circular? (if contig represent a circular sequence)
+* Repetitive? (if contig represent repetitive, rather than unique sequence)
 * Multiplicity (inferred contig multiplicity based on coverage)
 * Graph path (the edges of the assembly graph that form this particular contig).
-     Scaffold gaps are marked with "??" symbols, and '*' symbol in the end means
+     Scaffold gaps are marked with "??" symbols, and '*' symbol means
 	 that telomeric region was reached.
 
 ## <a name="performance"></a> Running time and memory requirements
