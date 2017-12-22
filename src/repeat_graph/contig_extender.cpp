@@ -278,11 +278,8 @@ void ContigExtender::outputStatsTable(const std::string& filename)
 		}
 		pathStr.pop_back();
 
-		int minMult = std::numeric_limits<int>::max();
-		for (auto& edge : ctg.graphEdges.path) 
-		{
-			minMult = std::min(minMult, std::max(1, edge->multiplicity));
-		}
+		int estMult = std::max(1.0f, roundf((float)ctg.graphEdges.meanCoverage / 
+											  _meanCoverage));
 
 		std::string telomereStr;
 		bool telLeft = (ctg.graphEdges.path.front()->nodeLeft->isTelomere());
@@ -296,7 +293,7 @@ void ContigExtender::outputStatsTable(const std::string& filename)
 			<< ctg.graphEdges.meanCoverage << "\t"
 			<< YES_NO[ctg.graphEdges.circular]
 			<< "\t" << YES_NO[ctg.graphEdges.repetitive] << "\t"
-			<< minMult << "\t" << telomereStr << "\t" << pathStr << "\n";
+			<< estMult << "\t" << telomereStr << "\t" << pathStr << "\n";
 
 		Logger::get().debug() << "Contig: " << ctg.graphEdges.id.signedId()
 			<< ": " << pathStr;

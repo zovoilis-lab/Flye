@@ -200,7 +200,6 @@ int main(int argc, char** argv)
 	GraphProcessor proc(rg, seqAssembly, seqReads);
 	ReadAligner aligner(rg, seqAssembly, seqReads);
 	OutputGenerator outGen(rg, aligner, seqAssembly, seqReads);
-	ContigExtender extender(rg, aligner, seqAssembly, seqReads);
 
 	Logger::get().info() << "Building repeat graph";
 	rg.build();
@@ -228,6 +227,8 @@ int main(int argc, char** argv)
 
 	Logger::get().info() << "Generating contigs";
 
+	ContigExtender extender(rg, aligner, seqAssembly, seqReads, 
+							multInf.getMeanCoverage());
 	extender.generateUnbranchingPaths();
 	extender.generateContigs(graphContinue);
 	extender.outputContigs(outFolder + "/graph_paths.fasta");

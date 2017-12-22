@@ -15,9 +15,11 @@ class ContigExtender
 public:
 	ContigExtender(RepeatGraph& graph, const ReadAligner& aligner,
 				   const SequenceContainer& asmSeqs, 
-				   const SequenceContainer& readSeqs):
+				   const SequenceContainer& readSeqs,
+				   int meanCoverage):
 		_graph(graph), _aligner(aligner), 
-		_asmSeqs(asmSeqs), _readSeqs(readSeqs) {}
+		_asmSeqs(asmSeqs), _readSeqs(readSeqs), 
+		_meanCoverage(meanCoverage) {}
 
 	void generateUnbranchingPaths();
 	void generateContigs(bool graphContinue);
@@ -62,4 +64,5 @@ private:
 	const ReadAligner& _aligner;
 	const SequenceContainer& _asmSeqs;
 	const SequenceContainer& _readSeqs;
+	const int _meanCoverage;
 };

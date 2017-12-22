@@ -11,7 +11,7 @@
 void MultiplicityInferer::estimateCoverage()
 {
 	const int WINDOW = Config::get("coverage_estimate_window");
-	const int SHORT_EDGE = Config::get("trusted_edge_length");
+	const int SHORT_EDGE = Config::get("unique_edge_length");
 
 	//alternative coverage
 	std::unordered_map<GraphEdge*, std::vector<int>> wndCoverage;
@@ -72,14 +72,14 @@ void MultiplicityInferer::estimateCoverage()
 			edgesCoverage.push_back(medianCov);
 		}
 
-		std::string match = estMult != edge->multiplicity ? "*" : " ";
+		//std::string match = estMult != edge->multiplicity ? "*" : " ";
 		std::string covStr;
 
-		Logger::get().debug() << match << "\t" << edge->edgeId.signedId() << "\t"
+		Logger::get().debug() << edge->edgeId.signedId() << "\t"
 				<< edge->length() << "\t" << medianCov << "\t"
 				<< (float)medianCov / _meanCoverage;
 
-		edge->multiplicity = estMult;
+		//edge->multiplicity = estMult;
 		edge->meanCoverage = medianCov;
 	}
 
