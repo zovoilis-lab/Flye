@@ -376,6 +376,31 @@ void RepeatResolver::findRepeats()
 	}
 }
 
+void RepeatResolver::fixLongEdges()
+{
+	GraphProcessor proc(_graph, _asmSeqs, _readSeqs);
+	auto unbranchingPaths = proc.getUnbranchingPaths();
+	for (auto& path : unbranchingPaths)
+	{
+		if (!path.id.strand()) continue;
+
+		if (path.path.front()->repetitive &&
+			path.length > (int)Config::get("unique_edge_length") &&
+			(float)path.meanCoverage < 1.5 * _multInf.getMeanCoverage())
+		{
+			for (auto& edge : path.path)
+			{
+				edge->repetitive = false;
+				_graph.complementEdge(edge)->repetitive = false;
+			}
+
+			Logger::get().debug() << "Fixed: " 
+				<< path.edgesStr() << "\t" << path.length << "\t" 
+				<< path.meanCoverage;
+		}
+	}
+}
+
 //Iterates repeat detection and resolution until
 //no new repeats are resolved
 void RepeatResolver::resolveRepeats()

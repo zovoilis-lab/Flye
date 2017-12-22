@@ -101,7 +101,8 @@ void ContigExtender::generateContigs(bool graphContinue)
 		int32_t overhang = upathsSeqs[lastUpath]->sequence.length() - 
 						   upathAln.back().aln.back().overlap.curEnd + 
 						   upathAln.back().aln.front().overlap.curBegin;
-		bool lastIncomplete = overhang > (int)Config::get("max_separation");
+		bool lastIncomplete = overhang > (int)Config::get("max_separation") &&
+							  !lastUpath->isLoop();
 		Logger::get().debug() << "Ctg " << upath.id.signedId() <<
 			" overhang " << overhang << " upath " << lastUpath->id.signedId();
 
