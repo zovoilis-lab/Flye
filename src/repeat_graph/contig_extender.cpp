@@ -317,10 +317,8 @@ void ContigExtender::outputScaffoldConnections(const std::string& filename)
 	std::ofstream fout(filename);
 	if (!fout) throw std::runtime_error("Can't open " + filename);
 
-	for (auto& edge : _graph.iterEdges())
+	auto reachableEdges = [this](GraphEdge* edge)
 	{
-		if (edge->repetitive) continue;
-
 		std::vector<GraphEdge*> dfsStack;
 		std::unordered_set<GraphEdge*> visited;
 		std::unordered_set<GraphEdge*> reachableUnique;
@@ -348,24 +346,31 @@ void ContigExtender::outputScaffoldConnections(const std::string& filename)
 				}
 			}
 		}
+		return reachableUnique;
+	};
 
-		if (reachableUnique.size() == 1)
+	for (auto& edge : _graph.iterEdges())
+	{
+		if (edge->repetitive) continue;
+
+		auto reachableUnique = reachableEdges(edge);	
+		if (reachableUnique.size() != 1) continue;
+		GraphEdge* outEdge = *reachableUnique.begin();
+		if (reachableEdges(_graph.complementEdge(outEdge)).size() != 1) continue;
+
+		if ((edge->nodeRight->isBifurcation() || 
+			 outEdge->nodeLeft->isBifurcation()) &&
+			edge->edgeId != outEdge->edgeId.rc() &&
+			abs(edge->edgeId.signedId()) < abs(outEdge->edgeId.signedId()))
 		{
-			GraphEdge* outEdge = *reachableUnique.begin();
-			if ((edge->nodeRight->isBifurcation() || 
-					outEdge->nodeLeft->isBifurcation()) &&
-				edge->edgeId != outEdge->edgeId.rc() &&
-				abs(edge->edgeId.signedId()) < abs(outEdge->edgeId.signedId()))
+			UnbranchingPath* leftCtg = this->asUpaths({edge}).front();
+			UnbranchingPath* rightCtg = this->asUpaths({outEdge}).front();
+			if (leftCtg != rightCtg)
 			{
-				UnbranchingPath* leftCtg = this->asUpaths({edge}).front();
-				UnbranchingPath* rightCtg = this->asUpaths({outEdge}).front();
-				if (leftCtg != rightCtg)
-				{
-					fout << leftCtg->nameUnsigned() << "\t" << 
-						(leftCtg->id.strand() ? '+' : '-') << "\t" <<
-						rightCtg->nameUnsigned() << "\t" << 
-						(rightCtg->id.strand() ? '+' : '-') << "\n";
-				}
+				fout << leftCtg->nameUnsigned() << "\t" << 
+					(leftCtg->id.strand() ? '+' : '-') << "\t" <<
+					rightCtg->nameUnsigned() << "\t" << 
+					(rightCtg->id.strand() ? '+' : '-') << "\n";
 			}
 		}
 	}
