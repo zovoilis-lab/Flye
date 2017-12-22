@@ -45,8 +45,14 @@ private:
 		GraphEdge* rightContig;
 		std::unordered_set<GraphEdge*> repetitiveEdges;
 	};
+	struct UpathAlignment
+	{
+		GraphAlignment aln;
+		UnbranchingPath* upath;
+	};
 
-	std::vector<UnbranchingPath*> asUPaths(const GraphPath& path);
+	std::vector<UnbranchingPath*> asUpaths(const GraphPath& path);
+	std::vector<UpathAlignment> asUpathAlignment(const GraphAlignment& aln);
 
 	std::vector<UnbranchingPath> _unbranchingPaths;
 	std::unordered_map<GraphEdge*, UnbranchingPath*> _edgeToPath;

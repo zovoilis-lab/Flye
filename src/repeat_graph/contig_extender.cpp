@@ -96,36 +96,43 @@ void ContigExtender::generateContigs(bool graphContinue)
 		}
 		if (maxExtension == 0) return PathAndSeq();
 
-		auto lastUpath = this->asUPaths({bestAlignment.back().edge}).front();
+		auto upathAln = this->asUpathAlignment(bestAlignment);
+		auto lastUpath = upathAln.back().upath;
 		int32_t overhang = upathsSeqs[lastUpath]->sequence.length() - 
-						   bestAlignment.back().overlap.extEnd;
-		bool lastIncomplete = overhang > (int)Config::get("max_separation") &&
-							  !bestAlignment.back().edge->isLooped();
-		//Logger::get().debug() << "Ctg " << upath.id.signedId() <<
-		//	" overhang " << overhang << " upath " << lastUpath->id.signedId();
+						   upathAln.back().aln.back().overlap.curEnd + 
+						   upathAln.back().aln.front().overlap.curBegin;
+		bool lastIncomplete = overhang > (int)Config::get("max_separation");
+		Logger::get().debug() << "Ctg " << upath.id.signedId() <<
+			" overhang " << overhang << " upath " << lastUpath->id.signedId();
 
-		for (size_t i = 0; i < bestAlignment.size(); ++i)
+		for (size_t i = 0; i < upathAln.size(); ++i)
 		{
-			if (i == bestAlignment.size() - 1 && 
+			//in case we don't extend using graph structure,
+			//dont mark the last upath as covered if it is
+			//incomplete
+			if (i == upathAln.size() - 1 && 
 				lastIncomplete && !graphContinue) break;
 
-			repeatDirections[bestAlignment[i].edge] = true;
-			repeatDirections[_graph.complementEdge(bestAlignment[i].edge)] = false;
-			coveredRepeats.insert(bestAlignment[i].edge);
-			coveredRepeats.insert(_graph.complementEdge(bestAlignment[i].edge));
+			for (auto& aln : upathAln[i].aln)
+			{
+				repeatDirections[aln.edge] = true;
+				repeatDirections[_graph.complementEdge(aln.edge)] = false;
+				coveredRepeats.insert(aln.edge);
+				coveredRepeats.insert(_graph.complementEdge(aln.edge));
+			}
 		}
 
 		//generate extension sequence
 		std::string extendedSeq;
 		if (lastIncomplete && graphContinue)
 		{
-			bestAlignment.pop_back();
+			upathAln.pop_back();
 		}
-		if (!bestAlignment.empty())
+		if (!upathAln.empty())
 		{
 			FastaRecord::Id readId = bestAlignment.front().overlap.curId;
-			int32_t readStart = bestAlignment.front().overlap.curBegin;
-			int32_t readEnd = bestAlignment.back().overlap.curEnd;
+			int32_t readStart = upathAln.front().aln.front().overlap.curBegin;
+			int32_t readEnd = upathAln.back().aln.back().overlap.curEnd;
 			extendedSeq = _readSeqs.getSeq(readId)
 				.substr(readStart, readEnd - readStart).str();
 		}
@@ -135,7 +142,10 @@ void ContigExtender::generateContigs(bool graphContinue)
 		}
 		
 		GraphPath extendedPath;
-		for (auto& aln : bestAlignment) extendedPath.push_back(aln.edge);
+		for (auto& ualn : upathAln)
+		{
+			for (auto& edgeAln : ualn.aln) extendedPath.push_back(edgeAln.edge);
+		}
 		return PathAndSeq(extendedPath, extendedSeq);
 	};
 
@@ -156,8 +166,8 @@ void ContigExtender::generateContigs(bool graphContinue)
 		leftExt.second = DnaSequence(leftExt.second).complement().str();
 
 		Contig contig(upath);
-		auto leftPaths = this->asUPaths(leftExt.first);
-		auto rightPaths = this->asUPaths(rightExt.first);
+		auto leftPaths = this->asUpaths(leftExt.first);
+		auto rightPaths = this->asUpaths(rightExt.first);
 
 		GraphPath leftEdges;
 		for (auto& path : leftPaths)
@@ -214,7 +224,7 @@ void ContigExtender::generateContigs(bool graphContinue)
 	Logger::get().info() << "Generated " << _contigs.size() << " contigs";
 }
 
-std::vector<UnbranchingPath*> ContigExtender::asUPaths(const GraphPath& path)
+std::vector<UnbranchingPath*> ContigExtender::asUpaths(const GraphPath& path)
 {
 	std::vector<UnbranchingPath*> upathRepr;
 	for (size_t i = 0; i < path.size(); ++i)
@@ -228,6 +238,25 @@ std::vector<UnbranchingPath*> ContigExtender::asUPaths(const GraphPath& path)
 	}
 
 	return upathRepr;
+}
+
+std::vector<ContigExtender::UpathAlignment> 
+	ContigExtender::asUpathAlignment(const GraphAlignment& graphAln)
+{
+	std::vector<ContigExtender::UpathAlignment> upathAln;
+	for (size_t i = 0; i < graphAln.size(); ++i)
+	{
+		UnbranchingPath* upath = _edgeToPath.at(graphAln[i].edge);
+		if (upathAln.empty() || upathAln.back().upath != upath ||
+			graphAln[i - 1].edge == graphAln[i].edge)
+		{
+			upathAln.emplace_back();
+			upathAln.back().upath = upath;
+		}
+		upathAln.back().aln.push_back(graphAln[i]);
+	}
+
+	return upathAln;
 }
 
 void ContigExtender::outputStatsTable(const std::string& filename)
@@ -330,8 +359,8 @@ void ContigExtender::outputScaffoldConnections(const std::string& filename)
 				edge->edgeId != outEdge->edgeId.rc() &&
 				abs(edge->edgeId.signedId()) < abs(outEdge->edgeId.signedId()))
 			{
-				UnbranchingPath* leftCtg = this->asUPaths({edge}).front();
-				UnbranchingPath* rightCtg = this->asUPaths({outEdge}).front();
+				UnbranchingPath* leftCtg = this->asUpaths({edge}).front();
+				UnbranchingPath* rightCtg = this->asUpaths({outEdge}).front();
 				if (leftCtg != rightCtg)
 				{
 					fout << leftCtg->nameUnsigned() << "\t" << 
