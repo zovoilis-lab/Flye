@@ -147,6 +147,10 @@ void ContigExtender::generateContigs(bool graphContinue)
 		{
 			for (auto& edgeAln : ualn.aln) extendedPath.push_back(edgeAln.edge);
 		}
+		if (lastIncomplete && graphContinue)
+		{
+			for (auto& edge : lastUpath->path) extendedPath.push_back(edge);
+		}
 		return PathAndSeq(extendedPath, extendedSeq);
 	};
 
