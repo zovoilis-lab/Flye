@@ -6,7 +6,6 @@ Availability
 
 Flye is available for Linux and MacOS platforms.
 
-
 Requirements
 ------------
 
@@ -16,22 +15,26 @@ Requirements
 * Git
 * Basic OS development headers (zlib, etc.)
 
+Get the latest version (recommended)
+------------------------------------
 
-Installation
-------------
+To get and compile the latest git version, run:
 
-Flye is written in C++ and Python and requires a Python 2.7 environment.
-First, to build Flye, run:
-
+    git clone https://github.com/fenderglass/ABruijn.git
+	cd ABruijn
     python setup.py build
 
-Flye could be invoked with the following command:
+Alternatively, you can get a release verson from the "releases" page.
+
+After building, Flye could be invoked with the following command:
 
     bin/flye
 
-Additonally, you may install the package for the better OS integration:
+Installation (optional)
+-----------------------
+You may install the package for the better OS integration:
 
     python setup.py install
 
-Alternatively, you can perform local user installation by adding '--user' or '--prefix'
+Alternatively, you can perform local user installation by adding ```--user``` or ```--prefix```
 options to the previous command.
