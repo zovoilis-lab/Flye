@@ -337,14 +337,16 @@ void RepeatResolver::findRepeats()
 			{
 				std::string star = outEdgeCount.first->repetitive ? "R" : " ";
 				std::string loop = outEdgeCount.first->isLooped() ? "L" : " ";
-				Logger::get().debug() << "+\t" << star << " " << loop << " " 
+				std::string tip = outEdgeCount.first->isTip() ? "T" : " ";
+				Logger::get().debug() << "+\t" << star << " " << loop << " " << tip << " "
 					<< outEdgeCount.first->edgeId.signedId() << "\t" << outEdgeCount.second;
 			}
 			for (auto& outEdgeCount : outConnections[complPath(path)->path.back()])
 			{
 				std::string star = outEdgeCount.first->repetitive ? "R" : " ";
 				std::string loop = outEdgeCount.first->isLooped() ? "L" : " ";
-				Logger::get().debug() << "-\t" << star << " " << loop << " " 
+				std::string tip = outEdgeCount.first->isTip() ? "T" : " ";
+				Logger::get().debug() << "-\t" << star << " " << loop << " " << tip << " "
 					<< outEdgeCount.first->edgeId.signedId() << "\t" << outEdgeCount.second;
 			}
 		}
@@ -413,7 +415,6 @@ void RepeatResolver::resolveRepeats()
 		_aligner.updateAlignments();
 		if (!resolvedConnections) break;
 		this->findRepeats();
-		this->fixLongEdges();
 	}
 
 	GraphProcessor proc(_graph, _asmSeqs, _readSeqs);

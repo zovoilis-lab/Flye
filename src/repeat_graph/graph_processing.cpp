@@ -13,7 +13,7 @@
 //all other simplification procedures
 void GraphProcessor::simplify()
 {
-	//this->trimTips();
+	this->trimTips();
 	this->condenceEdges();
 	this->fixChimericJunctions();
 	this->collapseBulges();
@@ -140,19 +140,24 @@ void GraphProcessor::collapseBulges()
 //Removing tips
 void GraphProcessor::trimTips()
 {
-	std::unordered_set<GraphNode*> toRemove;
+	const int TIP_THRESHOLD = Config::get("tip_length_threshold");
+	std::unordered_set<GraphEdge*> toRemove;
 	for (GraphEdge* tipEdge : _graph.iterEdges())
 	{
-		if (tipEdge->length() < _tipThreshold && tipEdge->isTip())
+		int rightOut = tipEdge->nodeRight->outEdges.size();
+		int leftIn = tipEdge->nodeLeft->inEdges.size();
+		int leftOut = tipEdge->nodeLeft->outEdges.size();
+
+		if (tipEdge->length() < TIP_THRESHOLD && rightOut == 0 &&
+			leftIn == 1 && leftOut == 1)
 		{
-			int leftDegree = tipEdge->nodeLeft->inEdges.size();
-			toRemove.insert(leftDegree == 0 ? tipEdge->nodeLeft : 
-							tipEdge->nodeRight);
+			toRemove.insert(tipEdge);
+			toRemove.insert(_graph.complementEdge(tipEdge));
 		}
 	}
 
-	Logger::get().debug() << toRemove.size() << " tips removed";
-	for (auto& edge : toRemove)	_graph.removeNode(edge);
+	Logger::get().debug() << toRemove.size() / 2 << " tips removed";
+	for (auto& edge : toRemove)	_graph.removeEdge(edge);
 }
 
 //This function collapses non-branching edges paths in the graph.
