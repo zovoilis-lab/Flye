@@ -209,7 +209,7 @@ int main(int argc, char** argv)
 	Logger::get().info() << "Aligning reads to the graph";
 	aligner.alignReads();
 
-	MultiplicityInferer multInf(rg, aligner);
+	MultiplicityInferer multInf(rg, aligner, seqAssembly, seqReads);
 	multInf.estimateCoverage();
 	multInf.removeUnsupportedEdges();
 	multInf.removeUnsupportedConnections();

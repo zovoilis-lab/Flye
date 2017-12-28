@@ -3,6 +3,7 @@
 //Released under the BSD license (see LICENSE file)
 
 #include "multiplicity_inferer.h"
+#include "graph_processing.h"
 #include "../common/disjoint_set.h"
 #include "../common/utils.h"
 
@@ -90,22 +91,29 @@ void MultiplicityInferer::estimateCoverage()
 //removes edges with low coverage support from the graph
 void MultiplicityInferer::removeUnsupportedEdges()
 {
+	GraphProcessor proc(_graph, _asmSeqs, _readSeqs);
+	auto unbranchingPaths = proc.getUnbranchingPaths();
+
 	int coverageThreshold = this->getMeanCoverage() / 
 							Config::get("graph_cov_drop_rate");
 	Logger::get().debug() << "Read coverage cutoff: " << coverageThreshold;
 
 	std::unordered_set<GraphEdge*> edgesRemove;
-	for (auto& edge : _graph.iterEdges())
+	for (auto& path : unbranchingPaths)
 	{
-		GraphEdge* complEdge = _graph.complementEdge(edge);
-		if (edge->meanCoverage <= coverageThreshold)
+		if (!path.id.strand()) continue;
+
+		if (path.meanCoverage <= coverageThreshold)
 		{
-			edgesRemove.insert(edge);
-			edgesRemove.insert(complEdge);
+			for (auto& edge : path.path)
+			{
+				edgesRemove.insert(edge);
+				edgesRemove.insert(_graph.complementEdge(edge));
+			}
 		}
 	}
 	for (auto& edge : edgesRemove) _graph.removeEdge(edge);
-	Logger::get().debug() << "Removed " << edgesRemove.size() 
+	Logger::get().debug() << "Removed " << edgesRemove.size() / 2
 		<< " unsupported edges";
 
 	_aligner.updateAlignments();
