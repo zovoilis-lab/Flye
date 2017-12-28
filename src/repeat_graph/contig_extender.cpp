@@ -101,8 +101,7 @@ void ContigExtender::generateContigs(bool graphContinue)
 		int32_t overhang = upathsSeqs[lastUpath]->sequence.length() - 
 						   upathAln.back().aln.back().overlap.curEnd + 
 						   upathAln.back().aln.front().overlap.curBegin;
-		bool lastIncomplete = overhang > (int)Config::get("max_separation") &&
-							  !lastUpath->isLoop();
+		bool lastIncomplete = overhang > (int)Config::get("max_separation");
 		Logger::get().debug() << "Ctg " << upath.id.signedId() <<
 			" overhang " << overhang << " upath " << lastUpath->id.signedId();
 
@@ -125,7 +124,7 @@ void ContigExtender::generateContigs(bool graphContinue)
 
 		//generate extension sequence
 		std::string extendedSeq;
-		if (lastIncomplete && graphContinue)
+		if (lastIncomplete && graphContinue && !lastUpath->isLoop())
 		{
 			upathAln.pop_back();
 		}
@@ -137,7 +136,7 @@ void ContigExtender::generateContigs(bool graphContinue)
 			extendedSeq = _readSeqs.getSeq(readId)
 				.substr(readStart, readEnd - readStart).str();
 		}
-		if (lastIncomplete && graphContinue)
+		if (lastIncomplete && graphContinue && !lastUpath->isLoop())
 		{
 			extendedSeq += upathsSeqs[lastUpath]->sequence.str();
 		}
@@ -147,7 +146,7 @@ void ContigExtender::generateContigs(bool graphContinue)
 		{
 			for (auto& edgeAln : ualn.aln) extendedPath.push_back(edgeAln.edge);
 		}
-		if (lastIncomplete && graphContinue)
+		if (lastIncomplete && graphContinue && !lastUpath->isLoop())
 		{
 			for (auto& edge : lastUpath->path) extendedPath.push_back(edge);
 		}
