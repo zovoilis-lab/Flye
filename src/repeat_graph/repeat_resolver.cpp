@@ -413,6 +413,7 @@ void RepeatResolver::resolveRepeats()
 		_aligner.updateAlignments();
 		if (!resolvedConnections) break;
 		this->findRepeats();
+		this->fixLongEdges();
 	}
 
 	GraphProcessor proc(_graph, _asmSeqs, _readSeqs);
