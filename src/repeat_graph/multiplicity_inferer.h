@@ -22,6 +22,7 @@ public:
 	int  getMeanCoverage() const {return _meanCoverage;}
 	void removeUnsupportedEdges();
 	void removeUnsupportedConnections();
+	void separateHaplotypes();
 
 	//coverage threshold for an edge to be considered "unique"
 	int  getUniqueCovThreshold() const 	{return _uniqueCovThreshold;}

@@ -197,3 +197,55 @@ void MultiplicityInferer::removeUnsupportedConnections()
 
 	_aligner.updateAlignments();
 }
+
+void MultiplicityInferer::separateHaplotypes()
+{
+	std::unordered_set<GraphEdge*> toSeparate;
+	for (auto& edge : _graph.iterEdges())
+	{
+		if (edge->isLooped()) continue;
+
+		std::vector<GraphEdge*> parallelEdges;
+		for (auto& parEdge : edge->nodeLeft->outEdges)
+		{
+			if (parEdge->nodeRight == edge->nodeRight) 
+			{
+				parallelEdges.push_back(parEdge);
+			}
+		}
+
+		if (parallelEdges.size() != 2) continue;
+		if (parallelEdges[0]->edgeId == parallelEdges[1]->edgeId.rc()) continue;
+		if (toSeparate.count(parallelEdges[0]) || 
+			toSeparate.count(parallelEdges[1])) continue;
+		float covSum = parallelEdges[0]->meanCoverage + 
+					   parallelEdges[1]->meanCoverage;
+		if (covSum / this->getMeanCoverage() > 1.25) continue;
+
+		if (parallelEdges[0]->meanCoverage < parallelEdges[1]->meanCoverage)
+		{
+			toSeparate.insert(parallelEdges[0]);
+			toSeparate.insert(_graph.complementEdge(parallelEdges[0]));
+		}
+		else
+		{
+			toSeparate.insert(parallelEdges[1]);
+			toSeparate.insert(_graph.complementEdge(parallelEdges[1]));
+		}
+		//if (parallelEdges[0]->length() > Constants::trustedEdgeLength || 
+		//	parallelEdges[1]->length() > Constants::trustedEdgeLength) continue;
+	}
+
+	for (auto& edge : toSeparate)
+	{
+		GraphNode* newLeft = _graph.addNode();
+		GraphNode* newRight = _graph.addNode();
+		vecRemove(edge->nodeLeft->outEdges, edge);
+		vecRemove(edge->nodeRight->inEdges, edge);
+		edge->nodeLeft = newLeft;
+		edge->nodeRight = newRight;
+		edge->nodeLeft->outEdges.push_back(edge);
+		edge->nodeRight->inEdges.push_back(edge);
+	}
+	Logger::get().debug() << "Separated " << toSeparate.size() / 2 << " haplotypes";
+}
