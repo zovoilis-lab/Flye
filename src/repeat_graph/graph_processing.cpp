@@ -149,15 +149,25 @@ void GraphProcessor::trimTips()
 		int leftOut = tipEdge->nodeLeft->outEdges.size();
 
 		if (tipEdge->length() < TIP_THRESHOLD && rightOut == 0 &&
-			leftIn == 1 && leftOut == 1)
+			leftIn == 1 && leftOut == 2 &&
+			!tipEdge->nodeLeft->inEdges.front()->isLooped())
 		{
 			toRemove.insert(tipEdge);
-			toRemove.insert(_graph.complementEdge(tipEdge));
 		}
 	}
 
-	Logger::get().debug() << toRemove.size() / 2 << " tips removed";
-	for (auto& edge : toRemove)	_graph.removeEdge(edge);
+	for (auto& edge : toRemove)
+	{
+		vecRemove(edge->nodeLeft->outEdges, edge);
+		edge->nodeLeft = _graph.addNode();
+		edge->nodeLeft->outEdges.push_back(edge);
+
+		GraphEdge* complEdge = _graph.complementEdge(edge);
+		vecRemove(complEdge->nodeRight->inEdges, complEdge);
+		complEdge->nodeRight = _graph.addNode();
+		complEdge->nodeRight->inEdges.push_back(complEdge);
+	}
+	Logger::get().debug() << toRemove.size() << " tips clipped";
 }
 
 //This function collapses non-branching edges paths in the graph.
