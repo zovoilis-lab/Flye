@@ -1,4 +1,4 @@
-Flye 2.3 (?? Dec 2017)
+Flye 2.3 (04 Jan 2017)
 ======================
 
 * ABruijn 2.x branch has been renamed to Flye, highlighting many substantial algorithmic changes
