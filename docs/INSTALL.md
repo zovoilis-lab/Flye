@@ -20,8 +20,8 @@ Get the latest version (recommended)
 
 To get and compile the latest git version, run:
 
-    git clone https://github.com/fenderglass/ABruijn.git
-	cd ABruijn
+    git clone https://github.com/fenderglass/Flye
+	cd Flye
     python setup.py build
 
 Alternatively, you can get a release verson from the "releases" page.
