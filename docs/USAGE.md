@@ -77,7 +77,7 @@ The dataset was originally released by the
 [Loman lab](http://lab.loman.net/2015/09/24/first-sqk-map-006-experiment/).
 
     wget https://github.com/fenderglass/datasets/raw/master/ont/Loman_E.coli_MAP006-1_2D_50x.fasta
-	abruijn --nano-raw Loman_E.coli_MAP006-1_2D_50x.fasta --out-dir out_nano --genome-size 5m --threads 4
+	flye --nano-raw Loman_E.coli_MAP006-1_2D_50x.fasta --out-dir out_nano --genome-size 5m --threads 4
 
 
 ## <a name="inputdata"></a> Supported Input Data
