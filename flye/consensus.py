@@ -45,8 +45,8 @@ def _thread_worker(aln_reader, contigs_info, platform, results_queue,
         error_queue.put(e)
 
 
-def get_consensus(alignment_path, contigs_path, contigs_info, min_aln_length,
-                  platform, num_proc):
+def get_consensus(alignment_path, contigs_path, contigs_info, num_proc,
+                  platform, min_aln_length):
     """
     Main function
     """
