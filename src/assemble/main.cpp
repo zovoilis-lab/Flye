@@ -221,6 +221,12 @@ int main(int argc, char** argv)
 		<< sumLength / readsContainer.getIndex().size();
 	int coverage = sumLength / 2 / genomeSize;
 	Logger::get().debug() << "Estimated coverage: " << coverage;
+	if (coverage < 5 || coverage > 1000)
+	{
+		Logger::get().warning() << "Estimated read coverage is " << coverage
+			<< ", the assembly is not guaranteed to be optimal in this setting."
+			<< " Are you sure that the genome size was entered correctly?";
+	}
 	if (maxKmerCov == -1)
 	{
 		maxKmerCov = (int)Config::get("repeat_coverage_rate") * coverage;

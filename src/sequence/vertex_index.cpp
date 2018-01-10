@@ -16,7 +16,7 @@
 void VertexIndex::countKmers(size_t hardThreshold)
 {
 	Logger::get().debug() << "Hard threshold set to " << hardThreshold;
-	if (hardThreshold == 0 || hardThreshold > 100) 
+	if (hardThreshold == 0)
 	{
 		throw std::runtime_error("Wrong hard threshold value: " + 
 								 std::to_string(hardThreshold));
