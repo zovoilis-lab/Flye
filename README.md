@@ -1,7 +1,7 @@
 Flye assembler (successor of ABruijn)
 =====================================
 
-### Version: 2.3
+### Version: 2.3.1
 
 Flye is a de novo assembler for long and noisy reads, such as
 those produced by PacBio and Oxford Nanopore Technologies.
@@ -94,8 +94,11 @@ Code contributions:
 
 Publications
 ------------
+Mikhail Kolmogorov, Jeffrey Yuan, Yu Lin and Pavel Pevzner, 
+"Assembly of Long Error-Prone Reads Using Repeat Graphs", bioRxiv, 2018
+
 Yu Lin, Jeffrey Yuan, Mikhail Kolmogorov, Max W Shen, Mark Chaisson and Pavel Pevzner, 
-"Assembly of Long Error-Prone Reads Using de Bruijn Graphs", PNAS 2016
+"Assembly of Long Error-Prone Reads Using de Bruijn Graphs", PNAS, 2016
 
 
 Contacts
