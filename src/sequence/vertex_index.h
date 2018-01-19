@@ -120,8 +120,8 @@ public:
 	};
 
 
-	void countKmers(size_t hardThreshold);
-	void buildIndex(int minCoverage, int maxCoverage, int filterRatio);
+	void countKmers(size_t hardThreshold, int genomeSize, int sampleRate);
+	void buildIndex(int minCoverage, int maxCoverage, int sampleRate);
 	void clear();
 
 	IterHelper iterKmerPos(Kmer kmer) const

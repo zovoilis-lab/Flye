@@ -235,7 +235,8 @@ int main(int argc, char** argv)
 	Logger::get().info() << "Generating solid k-mer index";
 	size_t hardThreshold = std::max(1.0f, std::round((float)coverage / 
 								(float)Config::get("hard_min_coverage_rate")));
-	vertexIndex.countKmers(hardThreshold);
+	vertexIndex.countKmers(hardThreshold, genomeSize, 
+						   (int)Config::get("assemble_kmer_sample"));
 
 	ParametersEstimator estimator(readsContainer, vertexIndex, genomeSize);
 	estimator.estimateMinKmerCount(maxKmerCov);

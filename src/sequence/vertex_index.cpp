@@ -13,8 +13,14 @@
 #include "../common/config.h"
 
 
-void VertexIndex::countKmers(size_t hardThreshold)
+void VertexIndex::countKmers(size_t hardThreshold, int genomeSize, 
+							 int sampleRate)
 {
+	if (Parameters::get().kmerSize > 31)
+	{
+		throw std::runtime_error("Maximum kmer size is 31");
+	}
+
 	Logger::get().debug() << "Hard threshold set to " << hardThreshold;
 	if (hardThreshold == 0)
 	{
@@ -24,9 +30,9 @@ void VertexIndex::countKmers(size_t hardThreshold)
 	Logger::get().debug() << "Started kmer counting";
 
 	size_t preCountSize = 1024 * 1024 * 1024;	//1G by default
-	if (Parameters::get().kmerSize > 15)		//4 ^ 15 = 1G
+	if (genomeSize > 200 * 1024 * 1024)			//200 Mb
 	{
-		preCountSize *= 4 * 4;					//16G in case of larger k-mers
+		preCountSize *= 4 * 4;					//16G in case of larger genomes
 	}
 	auto preCounters = new std::atomic<unsigned char>[preCountSize];
 	for (size_t i = 0; i < preCountSize; ++i) preCounters[i] = 0;
@@ -40,14 +46,22 @@ void VertexIndex::countKmers(size_t hardThreshold)
 	//first pass: filling up naive hash counting filter
 	if (_outputProgress) Logger::get().info() << "Counting kmers (1/2):";
 	std::function<void(const FastaRecord::Id&)> preCountUpdate = 
-	[&preCounters, hardThreshold, this, preCountSize] 
+	[&preCounters, hardThreshold, this, sampleRate, preCountSize] 
 		(const FastaRecord::Id& readId)
 	{
 		if (!readId.strand()) return;
 		
 		for (auto kmerPos : IterKmers(_seqContainer.getSeq(readId)))
 		{
-			kmerPos.kmer.standardForm();
+			bool revCmp = kmerPos.kmer.standardForm();
+			if (revCmp)
+			{
+				kmerPos.position = _seqContainer.seqLen(readId) - 
+										kmerPos.position -
+										Parameters::get().kmerSize;
+			}
+			if (kmerPos.position % sampleRate != 0) continue;	//subsampling
+
 			size_t kmerBucket = kmerPos.kmer.hash() % preCountSize;
 
 			unsigned char expected = 0;
@@ -73,14 +87,22 @@ void VertexIndex::countKmers(size_t hardThreshold)
 	if (_outputProgress) Logger::get().info() << "Counting kmers (2/2):";
 
 	std::function<void(const FastaRecord::Id&)> countUpdate = 
-	[&preCounters, hardThreshold, this, preCountSize] 
+	[&preCounters, hardThreshold, this, sampleRate, preCountSize] 
 		(const FastaRecord::Id& readId)
 	{
 		if (!readId.strand()) return;
 
 		for (auto kmerPos : IterKmers(_seqContainer.getSeq(readId)))
 		{
-			kmerPos.kmer.standardForm();
+			bool revCmp = kmerPos.kmer.standardForm();
+			if (revCmp)
+			{
+				kmerPos.position = _seqContainer.seqLen(readId) - 
+										kmerPos.position -
+										Parameters::get().kmerSize;
+			}
+			if (kmerPos.position % sampleRate != 0) continue;	//subsampling
+
 			size_t count = preCounters[kmerPos.kmer.hash() % preCountSize];
 			if (count >= hardThreshold)
 			{
@@ -99,7 +121,7 @@ void VertexIndex::countKmers(size_t hardThreshold)
 }
 
 
-void VertexIndex::buildIndex(int minCoverage, int maxCoverage, int filterRatio)
+void VertexIndex::buildIndex(int minCoverage, int maxCoverage, int sampleRate)
 {
 	if (_outputProgress) Logger::get().info() << "Filling index table";
 	
@@ -148,11 +170,11 @@ void VertexIndex::buildIndex(int minCoverage, int maxCoverage, int filterRatio)
 		kmer.second.data = _memoryChunks.back() + chunkOffset;
 		chunkOffset += kmer.second.capacity;
 	}
-	Logger::get().debug() << "Total chunks " << _memoryChunks.size()
-		<< " wasted space: " << wasted;
+	//Logger::get().debug() << "Total chunks " << _memoryChunks.size()
+	//	<< " wasted space: " << wasted;
 
 	std::function<void(const FastaRecord::Id&)> indexUpdate = 
-	[minCoverage, maxCoverage, filterRatio, this] 
+	[minCoverage, maxCoverage, sampleRate, this] 
 	(const FastaRecord::Id& readId)
 	{
 		if (!readId.strand()) return;
@@ -168,9 +190,8 @@ void VertexIndex::buildIndex(int minCoverage, int maxCoverage, int filterRatio)
 										Parameters::get().kmerSize;
 				targetRead = targetRead.rc();
 			}
-
 			//subsampling
-			if (kmerPos.position % filterRatio != 0) continue;
+			if (kmerPos.position % sampleRate != 0) continue;
 
 			_kmerIndex.update_fn(kmerPos.kmer, 
 				[targetRead, &kmerPos](ReadVector& rv)

@@ -138,7 +138,8 @@ void ReadAligner::alignReads()
 
 	//index it and align reads
 	VertexIndex pathsIndex(pathsContainer);
-	pathsIndex.countKmers(1);
+	pathsIndex.countKmers(1, /* genome size*/ 0,
+						  (int)Config::get("read_align_kmer_sample"));
 	pathsIndex.buildIndex(1, (int)Config::get("read_align_max_kmer"), 
 						  (int)Config::get("read_align_kmer_sample"));
 	OverlapDetector readsOverlapper(pathsContainer, pathsIndex, 
