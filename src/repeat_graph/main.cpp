@@ -57,7 +57,7 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 	debug = false;
 	graphContinue = false;
 	minOverlap = 5000;
-	kmerSize = 15;
+	kmerSize = -1;
 
 	const char optString[] = "l:t:k:v:hdg";
 	int opt = 0;
@@ -158,7 +158,7 @@ int main(int argc, char** argv)
 	bool debugging = false;
 	bool graphContinue = false;
 	size_t numThreads = 1;
-	int kmerSize = 15;
+	int kmerSize = -1;
 	int minOverlap = 5000;
 	std::string readsFasta;
 	std::string inAssembly;
@@ -168,15 +168,18 @@ int main(int argc, char** argv)
 	if (!parseArgs(argc, argv, readsFasta, outFolder, logFile, inAssembly,
 				   kmerSize, minOverlap, debugging, 
 				   numThreads, configPath, graphContinue))  return 1;
-	Parameters::get().minimumOverlap = minOverlap;
-	Parameters::get().kmerSize = kmerSize;
-	Parameters::get().numThreads = numThreads;
-
+	
 	Logger::get().setDebugging(debugging);
 	if (!logFile.empty()) Logger::get().setOutputFile(logFile);
 	Logger::get().debug() << "Build date: " << __DATE__ << " " << __TIME__;
 	std::ios::sync_with_stdio(false);
+	
 	Config::load(configPath);
+	Parameters::get().minimumOverlap = minOverlap;
+	Parameters::get().numThreads = numThreads;
+	Parameters::get().kmerSize = (int)Config::get("kmer_size");
+	if (kmerSize != -1) Parameters::get().kmerSize = kmerSize; 
+
 
 	Logger::get().info() << "Reading sequences";
 	SequenceContainer seqAssembly; 

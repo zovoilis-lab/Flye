@@ -35,11 +35,11 @@ def check_binaries():
 
 def analyse_repeats(args, input_assembly, out_folder, log_file, config_file):
     logger.debug("-----Begin repeat analyser log------")
-    cmdline = [REPEAT_BIN, "-k", str(args.kmer_size), "-l", log_file,
+    cmdline = [REPEAT_BIN, "-l", log_file,
                "-t", str(args.threads), "-v", str(args.min_overlap)]
     if args.debug:
         cmdline.append("-d")
-    if args.read_type != "subassemblies":
+    if args.read_type != "subasm":
         cmdline.append("-g")
     cmdline.extend([input_assembly, ",".join(args.reads),
                     out_folder, config_file])

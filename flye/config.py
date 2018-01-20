@@ -7,12 +7,9 @@ File with configurations
 """
 
 vals = {
-        "big_genome" : 50 * 1024 * 1024,
-        "small_kmer" : 15,
-        "big_kmer" : 17,
-
         "raw_cfg" : "asm_raw_reads.cfg",
         "corrected_cfg" : "asm_corrected_reads.cfg",
+        "subasm_cfg" : "asm_subasm.cfg",
 
         "simple_kmer_length" : 4,
         "solid_kmer_length" : 10,
@@ -42,6 +39,13 @@ vals = {
                 "solid_missmatch" : 0.25,
                 "solid_indel" : 0.25,
                 "max_aln_error" : 0.3
-            }
+            },
+            "subasm" : {
+                "subs_matrix" : "pacbio_substitutions.mat",
+                "hopo_matrix" : "pacbio_homopolymers.mat",
+                "solid_missmatch" : 0.2,
+                "solid_indel" : 0.2,
+                "max_aln_error" : 0.25
+            },
         }
     }

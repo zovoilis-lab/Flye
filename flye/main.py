@@ -279,28 +279,27 @@ def _create_job_list(args, work_dir, log_file):
 
 
 def _set_kmer_size(args):
-    """
-    Select k-mer size based on the target genome size
-    """
     if args.genome_size.isdigit():
         args.genome_size = int(args.genome_size)
     else:
         args.genome_size = human2bytes(args.genome_size.upper())
 
     logger.debug("Genome size: {0}".format(args.genome_size))
-    args.kmer_size = config.vals["small_kmer"]
-    if args.genome_size > config.vals["big_genome"]:
-        args.kmer_size = config.vals["big_kmer"]
-    logger.debug("Chosen k-mer size: {0}".format(args.kmer_size))
+    #args.kmer_size = config.vals["small_kmer"]
+    #if args.genome_size > config.vals["big_genome"]:
+    #    args.kmer_size = config.vals["big_kmer"]
+    #logger.debug("Chosen k-mer size: {0}".format(args.kmer_size))
 
 
 def _set_read_attributes(args):
     root = os.path.dirname(__file__)
     if args.read_type == "raw":
         args.asm_config = os.path.join(root, "resource", config.vals["raw_cfg"])
-    elif args.read_type in ["corrected", "subassemblies"]:
+    elif args.read_type == "corrected":
         args.asm_config = os.path.join(root, "resource",
                                        config.vals["corrected_cfg"])
+    elif args.read_type == "subasm":
+        args.asm_config = os.path.join(root, "resource", config.vals["subasm_cfg"])
 
 
 def _run(args):
@@ -498,8 +497,8 @@ def main():
         args.read_type = "corrected"
     if args.subassemblies:
         args.reads = args.subassemblies
-        args.platform = "pacbio"
-        args.read_type = "subassemblies"
+        args.platform = "subasm"
+        args.read_type = "subasm"
 
     if not os.path.isdir(args.out_dir):
         os.mkdir(args.out_dir)

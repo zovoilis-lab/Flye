@@ -58,7 +58,7 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 				  << "[default = 1] \n";
 	};
 
-	kmerSize = 15;
+	kmerSize = -1;
 	minKmer = -1;
 	maxKmer = -1;
 	numThreads = 1;
@@ -167,7 +167,7 @@ int main(int argc, char** argv)
 	std::set_terminate(exceptionHandler);
 	#endif
 
-	int kmerSize = 15;
+	int kmerSize = 0;
 	int minKmerCov = 0;
 	int maxKmerCov = 0;
 	size_t genomeSize = 0;
@@ -191,8 +191,9 @@ int main(int argc, char** argv)
 
 	Config::load(configPath);
 	Parameters::get().minimumOverlap = minOverlap;
-	Parameters::get().kmerSize = kmerSize;
 	Parameters::get().numThreads = numThreads;
+	Parameters::get().kmerSize = (int)Config::get("kmer_size");
+	if (kmerSize != -1) Parameters::get().kmerSize = kmerSize; 
 
 	SequenceContainer readsContainer;
 	std::vector<std::string> readsList = splitString(readsFasta, ',');
