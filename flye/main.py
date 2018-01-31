@@ -92,7 +92,8 @@ class JobAssembly(Job):
                      self.args.asm_config)
         if os.path.getsize(self.assembly_filename) == 0:
             raise asm.AssembleException("No contigs were assembled - "
-                                        "are you using corrected input instead of raw?")
+                                        "please check if the read type and genome "
+                                        "size parameters are correct")
 
 
 class JobRepeat(Job):
@@ -395,10 +396,9 @@ def _epilog():
 def _version():
     repo_root = os.path.dirname((os.path.dirname(__file__)))
     try:
-        git_label = subprocess.check_output(["git", "-C", repo_root,
-                                            "describe", "--tags"],
+        git_label = subprocess.check_output(["git", "-C", repo_root, "describe"],
                                             stderr=open(os.devnull, "w"))
-        commit_id = git_label.strip("\n").split("-", 1)[-1]
+        commit_id = git_label.strip("\n").rsplit("-", 1)[-1]
         return __version__ + "-" + commit_id
     except (subprocess.CalledProcessError, OSError):
         pass
