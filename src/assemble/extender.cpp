@@ -59,44 +59,55 @@ Extender::ExtensionInfo Extender::extendContig(FastaRecord::Id startRead)
 
 		//checking if read overlaps with one of the used reads
 		bool foundExtension = false;
-		bool overlapsVisited = false;
 
 		//getting extension
-		int minExtensions = (int)extensions.size() / 
-							(int)Config::get("max_coverage_drop_rate");
-		FastaRecord::Id bestSuspicious = FastaRecord::ID_NONE;
-		if (!overlapsVisited)
+		int minExtensions = std::max(1, (int)extensions.size() / 
+										(int)Config::get("max_coverage_drop_rate"));
+
+		/*Logger::get().debug() << _readsContainer.seqName(currentRead) 
+			<< "\t" << overlaps.size();
+		for (auto& ovlp : overlaps)
 		{
-			for (auto& ovlp : extensions)
+			if (this->extendsRight(ovlp))
 			{
-				if(leftExtendsStart(ovlp.extId)) continue;
-
-				//try to find a good one
-				if (!_chimDetector.isChimeric(ovlp.extId) &&
-					!this->isRightRepeat(ovlp.extId) &&
-					this->countRightExtensions(ovlp.extId) > minExtensions)
-				{
-					foundExtension = true;
-					currentRead = ovlp.extId;
-					break;
-				}
-				//or not so good
-				else if(bestSuspicious == FastaRecord::ID_NONE)
-				{
-					bestSuspicious = ovlp.extId;
-				}
+				Logger::get().debug() << "\t" << 
+					_readsContainer.seqName(ovlp.extId) << "\t" 
+					<< "o:" << ovlp.curRange() << "\tchim:"
+					<< _chimDetector.isChimeric(ovlp.extId)
+					<< "\trep:" << this->isRightRepeat(ovlp.extId)
+					<< "\text:" << this->countRightExtensions(ovlp.extId);
 			}
+		}*/
 
-			if (!foundExtension && bestSuspicious != FastaRecord::ID_NONE)
+		FastaRecord::Id bestSuspicious = FastaRecord::ID_NONE;
+		for (auto& ovlp : extensions)
+		{
+			if(leftExtendsStart(ovlp.extId)) continue;
+
+			//try to find a good one
+			if (!_chimDetector.isChimeric(ovlp.extId) &&
+				!this->isRightRepeat(ovlp.extId) &&
+				this->countRightExtensions(ovlp.extId) > minExtensions)
 			{
-				++exInfo.numSuspicious;
 				foundExtension = true;
-				currentRead = bestSuspicious;
+				currentRead = ovlp.extId;
+				break;
+			}
+			//or not so good
+			else if(bestSuspicious == FastaRecord::ID_NONE)
+			{
+				bestSuspicious = ovlp.extId;
 			}
 		}
 
-		overlapsVisited |= _innerReads.contains(currentRead);
-		overlapsVisited |= currentReads.count(currentRead);
+		if (!foundExtension && bestSuspicious != FastaRecord::ID_NONE)
+		{
+			++exInfo.numSuspicious;
+			foundExtension = true;
+			currentRead = bestSuspicious;
+		}
+
+		bool overlapsVisited = _innerReads.contains(currentRead);
 		if (foundExtension) 
 		{
 			for (auto& ovlp : extensions)
@@ -108,6 +119,7 @@ Extender::ExtensionInfo Extender::extendContig(FastaRecord::Id startRead)
 				}
 			}
 			exInfo.reads.push_back(currentRead);
+			overlapsVisited |= currentReads.count(currentRead);
 		}
 		else
 		{
@@ -116,6 +128,9 @@ Extender::ExtensionInfo Extender::extendContig(FastaRecord::Id startRead)
 
 		if (!foundExtension || overlapsVisited)
 		{
+			//Logger::get().debug() << "Not found: " << !foundExtension << 
+			//	" overlaps visited: " << overlapsVisited;
+
 			//right extension done, try to extend left from start read
 			if (rightExtension && !exInfo.reads.empty())
 			{
@@ -215,7 +230,7 @@ void Extender::assembleContigs(bool addSingletons)
 		std::unordered_set<FastaRecord::Id> leftExtended;
 		for (auto& readId : exInfo.reads)
 		{
-			//repetitive read - will bring to much "off-target" reads
+			//repetitive read - will bring to many "off-target" reads
 			if (this->isRightRepeat(readId) ||
 				this->isRightRepeat(readId.rc())) continue;
 
