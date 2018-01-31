@@ -30,7 +30,7 @@ class MakeBuild(DistutilsBuild):
 setup(name='flye',
       version=__version__,
       description='Fast and accurate de novo assembler for single molecule sequencing reads',
-      url='https://github.com/fenderglass/ABruijn',
+      url='https://github.com/fenderglass/Flye',
       author='Mikhail Kolmogorov',
       author_email = 'fenderglass@gmail.com',
       license='BSD-3-Clause',
