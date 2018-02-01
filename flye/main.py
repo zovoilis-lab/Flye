@@ -252,7 +252,7 @@ def _create_job_list(args, work_dir, log_file):
     draft_assembly = jobs[-1].out_files["assembly"]
 
     #Consensus
-    if args.read_type == "raw":
+    if args.read_type != "subasm":
         jobs.append(JobConsensus(args, work_dir, draft_assembly))
         draft_assembly = jobs[-1].out_files["consensus"]
 

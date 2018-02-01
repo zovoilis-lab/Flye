@@ -134,7 +134,7 @@ void VertexIndex::buildIndex(int minCoverage, int maxCoverage, int sampleRate)
 	for (auto& kmer : _kmerCounts.lock_table())
 	{
 		if ((size_t)minCoverage <= kmer.second && 
-			kmer.second <= (size_t)maxCoverage)
+			kmer.second <= (size_t)maxCoverage / sampleRate)
 		{
 			kmerEntries += kmer.second;
 			++solidKmers;
@@ -147,7 +147,7 @@ void VertexIndex::buildIndex(int minCoverage, int maxCoverage, int sampleRate)
 	for (auto& kmer : _kmerCounts.lock_table())
 	{
 		if ((size_t)minCoverage <= kmer.second && 
-			kmer.second <= (size_t)maxCoverage)
+			kmer.second <= (size_t)maxCoverage / sampleRate)
 		{
 			ReadVector rv{(uint32_t)kmer.second, 0, nullptr};
 			_kmerIndex.insert(kmer.first, rv);
@@ -174,7 +174,7 @@ void VertexIndex::buildIndex(int minCoverage, int maxCoverage, int sampleRate)
 	//	<< " wasted space: " << wasted;
 
 	std::function<void(const FastaRecord::Id&)> indexUpdate = 
-	[minCoverage, maxCoverage, sampleRate, this] 
+	[minCoverage, sampleRate, this] 
 	(const FastaRecord::Id& readId)
 	{
 		if (!readId.strand()) return;
