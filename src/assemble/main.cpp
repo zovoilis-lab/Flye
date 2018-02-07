@@ -23,7 +23,7 @@
 
 bool parseArgs(int argc, char** argv, std::string& readsFasta, 
 			   std::string& outAssembly, std::string& logFile, size_t& genomeSize,
-			   int& kmerSize, int& minKmer, int& maxKmer, bool& debug,
+			   int& minKmer, int& maxKmer, bool& debug,
 			   size_t& numThreads, int& minOverlap, std::string& configPath,
 			   bool& singletonReads)
 {
@@ -31,7 +31,7 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 	{
 		std::cerr << "Usage: " << argv[0]
 				  << "\treads_files out_assembly genome_size config_file\n\t"
-				  << "[-k kmer_size] [-m min_kmer_cov] \n\t"
+				  << "[-m min_kmer_cov] \n\t"
 				  << "[-x max_kmer_cov] [-l log_file] [-t num_threads] [-d]\n\n"
 				  << "positional arguments:\n"
 				  << "\treads file\tcomma-separated list of read files\n"
@@ -39,7 +39,7 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 				  << "\tgenome_size\tgenome size in bytes\n"
 				  << "\tconfig_file\tpath to the config file\n"
 				  << "\noptional arguments:\n"
-				  << "\t-k kmer_size\tk-mer size [default = 15] \n"
+				  //<< "\t-k kmer_size\tk-mer size [default = 15] \n"
 				  << "\t-m min_kmer_cov\tminimum k-mer coverage "
 				  << "[default = auto] \n"
 				  << "\t-x max_kmer_cov\tmaximum k-mer coverage "
@@ -58,7 +58,7 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 				  << "[default = 1] \n";
 	};
 
-	kmerSize = -1;
+	//kmerSize = -1;
 	minKmer = -1;
 	maxKmer = -1;
 	numThreads = 1;
@@ -66,15 +66,15 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 	singletonReads = false;
 	minOverlap = 5000;
 
-	const char optString[] = "k:m:x:l:t:v:hds";
+	const char optString[] = "m:x:l:t:v:hds";
 	int opt = 0;
 	while ((opt = getopt(argc, argv, optString)) != -1)
 	{
 		switch(opt)
 		{
-		case 'k':
-			kmerSize = atoi(optarg);
-			break;
+		//case 'k':
+		//	kmerSize = atoi(optarg);
+		//	break;
 		case 'm':
 			minKmer = atoi(optarg);
 			break;
@@ -160,6 +160,13 @@ void exceptionHandler()
 	exit(1);
 }
 
+int getKmerSize(size_t genomeSize)
+{
+	return (genomeSize < (size_t)Config::get("big_genome_threshold")) ?
+			(int)Config::get("kmer_size") : 
+			(int)Config::get("kmer_size_big");
+}
+
 int main(int argc, char** argv)
 {
 	#ifndef _DEBUG
@@ -167,7 +174,7 @@ int main(int argc, char** argv)
 	std::set_terminate(exceptionHandler);
 	#endif
 
-	int kmerSize = 0;
+	//int kmerSize = 0;
 	int minKmerCov = 0;
 	int maxKmerCov = 0;
 	size_t genomeSize = 0;
@@ -181,7 +188,7 @@ int main(int argc, char** argv)
 	std::string configPath;
 
 	if (!parseArgs(argc, argv, readsFasta, outAssembly, logFile, genomeSize,
-				   kmerSize, minKmerCov, maxKmerCov, debugging, numThreads,
+				   minKmerCov, maxKmerCov, debugging, numThreads,
 				   minOverlap, configPath, singletonReads)) return 1;
 
 	Logger::get().setDebugging(debugging);
@@ -192,8 +199,10 @@ int main(int argc, char** argv)
 	Config::load(configPath);
 	Parameters::get().minimumOverlap = minOverlap;
 	Parameters::get().numThreads = numThreads;
-	Parameters::get().kmerSize = (int)Config::get("kmer_size");
-	if (kmerSize != -1) Parameters::get().kmerSize = kmerSize; 
+	Parameters::get().kmerSize = getKmerSize(genomeSize);
+	Logger::get().debug() << "Running with k-mer size: " << 
+		Parameters::get().kmerSize; 
+	//if (kmerSize != -1) Parameters::get().kmerSize = kmerSize; 
 
 	SequenceContainer readsContainer;
 	std::vector<std::string> readsList = splitString(readsFasta, ',');
@@ -234,8 +243,8 @@ int main(int argc, char** argv)
 	}
 
 	Logger::get().info() << "Generating solid k-mer index";
-	size_t hardThreshold = std::max(1.0f, std::round((float)coverage / 
-								(float)Config::get("hard_min_coverage_rate")));
+	size_t hardThreshold = std::min(5, std::max(2, 
+			coverage / (int)Config::get("hard_min_coverage_rate")));
 	vertexIndex.countKmers(hardThreshold, genomeSize, 
 						   (int)Config::get("assemble_kmer_sample"));
 

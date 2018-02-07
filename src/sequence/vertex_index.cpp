@@ -30,7 +30,7 @@ void VertexIndex::countKmers(size_t hardThreshold, int genomeSize,
 	Logger::get().debug() << "Started kmer counting";
 
 	size_t preCountSize = 1024 * 1024 * 1024;	//1G by default
-	if (genomeSize > 200 * 1024 * 1024)			//200 Mb
+	if (genomeSize > (int)Config::get("big_genome_threshold"))
 	{
 		preCountSize *= 4 * 4;					//16G in case of larger genomes
 	}

@@ -42,7 +42,7 @@ def analyse_repeats(args, input_assembly, out_folder, log_file, config_file):
     if args.read_type != "subasm":
         cmdline.append("-g")
     cmdline.extend([input_assembly, ",".join(args.reads),
-                    out_folder, config_file])
+                    out_folder, str(args.genome_size), config_file])
 
     try:
         logger.debug("Running: " + " ".join(cmdline))

@@ -26,21 +26,21 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 			   std::string& outFolder, std::string& logFile, 
 			   std::string& inAssembly, int& kmerSize,
 			   int& minOverlap, bool& debug, size_t& numThreads, 
-			   std::string& configPath, bool& graphContinue)
+			   std::string& configPath, bool& graphContinue, size_t& genomeSize)
 {
 	auto printUsage = [argv]()
 	{
 		std::cerr << "Usage: " << argv[0]
-				  << "\tin_assembly reads_files out_folder config_path\n\t"
+				  << "\tin_assembly reads_files out_folder genome_size config_path\n\t"
 				  << "[-l log_file] [-t num_threads] [-v min_overlap]\n\t"
-				  << "[-k kmer_size] [-d]\n\n"
+				  << "[-d]\n\n"
 				  << "positional arguments:\n"
 				  << "\tin_assembly\tpath to input assembly\n"
 				  << "\treads_files\tcomma-separated list with reads\n"
 				  << "\tout_assembly\tpath to output assembly\n"
 				  << "\tconfig_path\tpath to config file\n"
 				  << "\noptional arguments:\n"
-				  << "\t-k kmer_size\tk-mer size [default = 15] \n"
+				  //<< "\t-k kmer_size\tk-mer size [default = 15] \n"
 				  << "\t-v min_overlap\tminimum overlap between reads "
 				  << "[default = 5000] \n"
 				  << "\t-g \t\tcontinue contigs using graph structure "
@@ -57,9 +57,9 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 	debug = false;
 	graphContinue = false;
 	minOverlap = 5000;
-	kmerSize = -1;
+	//kmerSize = -1;
 
-	const char optString[] = "l:t:k:v:hdg";
+	const char optString[] = "l:t:v:hdg";
 	int opt = 0;
 	while ((opt = getopt(argc, argv, optString)) != -1)
 	{
@@ -71,9 +71,9 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 		case 'v':
 			minOverlap = atoi(optarg);
 			break;
-		case 'k':
-			kmerSize = atoi(optarg);
-			break;
+		//case 'k':
+		//	kmerSize = atoi(optarg);
+		//	break;
 		case 'l':
 			logFile = optarg;
 			break;
@@ -88,7 +88,7 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 			exit(0);
 		}
 	}
-	if (argc - optind != 4)
+	if (argc - optind != 5)
 	{
 		printUsage();
 		return false;
@@ -97,7 +97,8 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 	inAssembly = *(argv + optind);
 	readsFasta = *(argv + optind + 1);
 	outFolder = *(argv + optind + 2);
-	configPath = *(argv + optind + 3);
+	genomeSize = atoll(*(argv + optind + 3));
+	configPath = *(argv + optind + 4);
 
 	return true;
 }
@@ -148,6 +149,13 @@ void exceptionHandler()
 	exit(1);
 }
 
+int getKmerSize(size_t genomeSize)
+{
+	return (genomeSize < (size_t)Config::get("big_genome_threshold")) ?
+			(int)Config::get("kmer_size") : 
+			(int)Config::get("kmer_size_big");
+}
+
 int main(int argc, char** argv)
 {
 	#ifndef _DEBUG
@@ -160,6 +168,7 @@ int main(int argc, char** argv)
 	size_t numThreads = 1;
 	int kmerSize = -1;
 	int minOverlap = 5000;
+	size_t genomeSize = 0;
 	std::string readsFasta;
 	std::string inAssembly;
 	std::string outFolder;
@@ -167,7 +176,7 @@ int main(int argc, char** argv)
 	std::string configPath;
 	if (!parseArgs(argc, argv, readsFasta, outFolder, logFile, inAssembly,
 				   kmerSize, minOverlap, debugging, 
-				   numThreads, configPath, graphContinue))  return 1;
+				   numThreads, configPath, graphContinue, genomeSize))  return 1;
 	
 	Logger::get().setDebugging(debugging);
 	if (!logFile.empty()) Logger::get().setOutputFile(logFile);
@@ -177,8 +186,10 @@ int main(int argc, char** argv)
 	Config::load(configPath);
 	Parameters::get().minimumOverlap = minOverlap;
 	Parameters::get().numThreads = numThreads;
-	Parameters::get().kmerSize = (int)Config::get("kmer_size");
-	if (kmerSize != -1) Parameters::get().kmerSize = kmerSize; 
+	Parameters::get().kmerSize = getKmerSize(genomeSize);
+	Logger::get().debug() << "Running with k-mer size: " << 
+		Parameters::get().kmerSize; 
+	//if (kmerSize != -1) Parameters::get().kmerSize = kmerSize; 
 
 
 	Logger::get().info() << "Reading sequences";
