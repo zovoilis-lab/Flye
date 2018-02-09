@@ -116,7 +116,7 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 	std::unordered_map<FastaRecord::Id, 
 					   std::vector<DPRecord>> completedPaths;
 	std::set<size_t> eraseMarks;
-	size_t curLen = fastaRec.sequence.length();
+	int32_t curLen = fastaRec.sequence.length();
 
 	//for all kmers in this read
 	for (auto curKmerPos : IterKmers(fastaRec.sequence))
@@ -132,8 +132,8 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 			if (extReadPos.readId == fastaRec.id &&
 				extReadPos.position == curPos) continue;
 
-			size_t extLen = _seqContainer.seqLen(extReadPos.readId);
-			if (extLen < (size_t)_minOverlap) continue;
+			int32_t extLen = _seqContainer.seqLen(extReadPos.readId);
+			if (extLen < (int32_t)_minOverlap) continue;
 
 			int32_t extPos = extReadPos.position;
 			auto& extPaths = activePaths[extReadPos.readId];
@@ -198,10 +198,15 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 				extPaths[maxCloseId].ovlp.extEnd = extPos;
 				extPaths[maxCloseId].ovlp.score = maxCloseScore;
 				extPaths[maxCloseId].shifts.push_back(curPos - extPos);
+
 				if (_keepAlignment)
 				{
-					extPaths[maxCloseId].ovlp.kmerMatches
-										.emplace_back(curPos, extPos);
+					auto& kmerMatches = extPaths[maxCloseId].ovlp.kmerMatches;
+					if (kmerMatches.empty() || curPos - kmerMatches.back().first > 
+											   (int32_t)Parameters::get().kmerSize)
+					{
+						kmerMatches.emplace_back(curPos, extPos);
+					}
 				}
 			}
 			//update the best far extension, keep the old path as a copy
@@ -212,10 +217,15 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 				extPaths.back().ovlp.extEnd = extPos;
 				extPaths.back().ovlp.score = maxFarScore;
 				extPaths.back().shifts.push_back(curPos - extPos);
+
 				if (_keepAlignment)
 				{
-					extPaths.back().ovlp.kmerMatches
-										.emplace_back(curPos, extPos);
+					auto& kmerMatches = extPaths.back().ovlp.kmerMatches;
+					if (kmerMatches.empty() || curPos - kmerMatches.back().first > 
+											   (int32_t)Parameters::get().kmerSize)
+					{
+						kmerMatches.emplace_back(curPos, extPos);
+					}
 				}
 			}
 			//if no extensions possible (or there are no active paths), start a new path
@@ -248,6 +258,7 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 			}
 		}
 	}
+
 	//leave only one overlap for each starting position
 	for (auto& ap : completedPaths)
 	{
@@ -269,7 +280,7 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 	std::vector<OverlapRange> detectedOverlaps;
 	for (auto& ap : completedPaths)
 	{
-		size_t extLen = _seqContainer.seqLen(ap.first);
+		int32_t extLen = _seqContainer.seqLen(ap.first);
 		DPRecord* maxRecord = nullptr;
 		bool passedTest = false;
 		for (auto& dpRec : ap.second)

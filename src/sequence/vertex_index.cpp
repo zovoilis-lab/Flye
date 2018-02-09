@@ -60,7 +60,7 @@ void VertexIndex::countKmers(size_t hardThreshold, int genomeSize,
 										kmerPos.position -
 										Parameters::get().kmerSize;
 			}
-			if (kmerPos.position % sampleRate != 0) continue;	//subsampling
+			if (kmerPos.kmer.hash() % sampleRate != 0) continue;	//subsampling
 
 			size_t kmerBucket = kmerPos.kmer.hash() % preCountSize;
 
@@ -101,7 +101,7 @@ void VertexIndex::countKmers(size_t hardThreshold, int genomeSize,
 										kmerPos.position -
 										Parameters::get().kmerSize;
 			}
-			if (kmerPos.position % sampleRate != 0) continue;	//subsampling
+			if (kmerPos.kmer.hash() % sampleRate != 0) continue;	//subsampling
 
 			size_t count = preCounters[kmerPos.kmer.hash() % preCountSize];
 			if (count >= hardThreshold)
@@ -134,7 +134,7 @@ void VertexIndex::buildIndex(int minCoverage, int maxCoverage, int sampleRate)
 	for (auto& kmer : _kmerCounts.lock_table())
 	{
 		if ((size_t)minCoverage <= kmer.second && 
-			kmer.second <= (size_t)maxCoverage / sampleRate)
+			kmer.second <= (size_t)maxCoverage)
 		{
 			kmerEntries += kmer.second;
 			++solidKmers;
@@ -147,7 +147,7 @@ void VertexIndex::buildIndex(int minCoverage, int maxCoverage, int sampleRate)
 	for (auto& kmer : _kmerCounts.lock_table())
 	{
 		if ((size_t)minCoverage <= kmer.second && 
-			kmer.second <= (size_t)maxCoverage / sampleRate)
+			kmer.second <= (size_t)maxCoverage)
 		{
 			ReadVector rv{(uint32_t)kmer.second, 0, nullptr};
 			_kmerIndex.insert(kmer.first, rv);
@@ -191,7 +191,7 @@ void VertexIndex::buildIndex(int minCoverage, int maxCoverage, int sampleRate)
 				targetRead = targetRead.rc();
 			}
 			//subsampling
-			if (kmerPos.position % sampleRate != 0) continue;
+			if (kmerPos.kmer.hash() % sampleRate != 0) continue;
 
 			_kmerIndex.update_fn(kmerPos.kmer, 
 				[targetRead, &kmerPos](ReadVector& rv)
