@@ -137,17 +137,17 @@ void ReadAligner::alignReads()
 	}
 
 	//index it and align reads
-	VertexIndex pathsIndex(pathsContainer);
-	pathsIndex.countKmers(1, /* genome size*/ 0,
-						  (int)Config::get("read_align_kmer_sample"));
-	pathsIndex.buildIndex(1, (int)Config::get("read_align_max_kmer"), 
-						  (int)Config::get("read_align_kmer_sample"));
+	VertexIndex pathsIndex(pathsContainer, 
+						   (int)Config::get("read_align_kmer_sample"));
+	pathsIndex.countKmers(1, /* genome size*/ 0);
+	pathsIndex.buildIndex(1, (int)Config::get("read_align_max_kmer"));
 	OverlapDetector readsOverlapper(pathsContainer, pathsIndex, 
 									(int)Config::get("maximum_jump"),
 									(int)Config::get("max_separation"),
 									/*no overhang*/0,
 									(int)Config::get("read_align_gap"),
 									/*keep alignment*/ false);
+
 	OverlapContainer readsOverlaps(readsOverlapper, _readSeqs, 
 								   /*onlyMax*/ false);
 
@@ -165,10 +165,12 @@ void ReadAligner::alignReads()
 	std::mutex indexMutex;
 	int numAligned = 0;
 	int64_t alignedLength = 0;
+	double divergenceSum = 0;
+	int numOverlaps = 0;
 	std::function<void(const FastaRecord::Id&)> alignRead = 
 	[this, &indexMutex, &numAligned, &readsOverlaps, 
-		&idToSegment, &pathsContainer, &alignedLength] 
-		(const FastaRecord::Id& seqId)
+		&idToSegment, &pathsContainer, &alignedLength, 
+		&divergenceSum, &numOverlaps] (const FastaRecord::Id& seqId)
 	{
 		auto overlaps = readsOverlaps.seqOverlaps(seqId);
 		std::vector<EdgeAlignment> alignments;
@@ -176,6 +178,8 @@ void ReadAligner::alignReads()
 		{
 			alignments.push_back({ovlp, idToSegment[ovlp.extId].first,
 								  idToSegment[ovlp.extId].second});
+			divergenceSum += ovlp.divergence;
+			++numOverlaps;
 		}
 		std::sort(alignments.begin(), alignments.end(),
 		  [](const EdgeAlignment& e1, const EdgeAlignment& e2)
@@ -228,6 +232,8 @@ void ReadAligner::alignReads()
 		<< allQueries.size();
 	Logger::get().debug() << "Aligned length " << alignedLength << " / " 
 		<< totalLength << " " << (float)alignedLength / totalLength;
+	Logger::get().debug() << "Mean graph-to-read overlap divergence: " 
+		<< divergenceSum / numOverlaps;
 }
 
 //updates alignments with respect to the new graph

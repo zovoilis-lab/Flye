@@ -52,8 +52,6 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 				  << "[default = false] \n"
 				  << "\t-l log_file\toutput log to file "
 				  << "[default = not set] \n"
-				  << "\t-o ovlp_file\tstore/load overlaps to/from file "
-				  << "[default = not set] \n"
 				  << "\t-t num_threads\tnumber of parallel threads "
 				  << "[default = 1] \n";
 	};
@@ -219,7 +217,8 @@ int main(int argc, char** argv)
 		Logger::get().error() << e.what();
 		return 1;
 	}
-	VertexIndex vertexIndex(readsContainer);
+	VertexIndex vertexIndex(readsContainer, 
+							(int)Config::get("assemble_kmer_sample"));
 	vertexIndex.outputProgress(true);
 
 	int64_t sumLength = 0;
@@ -245,8 +244,7 @@ int main(int argc, char** argv)
 	Logger::get().info() << "Generating solid k-mer index";
 	size_t hardThreshold = std::min(5, std::max(2, 
 			coverage / (int)Config::get("hard_min_coverage_rate")));
-	vertexIndex.countKmers(hardThreshold, genomeSize, 
-						   (int)Config::get("assemble_kmer_sample"));
+	vertexIndex.countKmers(hardThreshold, genomeSize);
 
 	ParametersEstimator estimator(readsContainer, vertexIndex, genomeSize);
 	estimator.estimateMinKmerCount(maxKmerCov);
@@ -255,8 +253,7 @@ int main(int argc, char** argv)
 		minKmerCov = estimator.minKmerCount();
 	}
 
-	vertexIndex.buildIndex(minKmerCov, maxKmerCov, 
-						   (int)Config::get("assemble_kmer_sample"));
+	vertexIndex.buildIndex(minKmerCov, maxKmerCov);
 
 	OverlapDetector ovlp(readsContainer, vertexIndex,
 						 (int)Config::get("maximum_jump"), 
@@ -270,6 +267,9 @@ int main(int argc, char** argv)
 					  estimator.genomeSizeEstimate());
 	extender.assembleContigs(singletonReads);
 	vertexIndex.clear();
+
+	Logger::get().debug() << "Mean read-to-read overlap divergence: " 
+		<< readOverlaps.meanDivergence();
 
 	ConsensusGenerator consGen;
 	auto contigsFasta = consGen.generateConsensuses(extender.getContigPaths());

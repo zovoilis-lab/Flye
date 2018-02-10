@@ -319,7 +319,7 @@ private:
 	void initializeEdges(const OverlapContainer& asmOverlaps);
 	void collapseTandems();
 	void logEdges();
-	void markChimericEdges();
+	//void markChimericEdges();
 	
 	const SequenceContainer& _asmSeqs;
 	const int _maxSeparation = Config::get("max_separation");

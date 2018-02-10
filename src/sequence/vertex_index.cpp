@@ -13,8 +13,7 @@
 #include "../common/config.h"
 
 
-void VertexIndex::countKmers(size_t hardThreshold, int genomeSize, 
-							 int sampleRate)
+void VertexIndex::countKmers(size_t hardThreshold, int genomeSize)
 {
 	if (Parameters::get().kmerSize > 31)
 	{
@@ -46,7 +45,7 @@ void VertexIndex::countKmers(size_t hardThreshold, int genomeSize,
 	//first pass: filling up naive hash counting filter
 	if (_outputProgress) Logger::get().info() << "Counting kmers (1/2):";
 	std::function<void(const FastaRecord::Id&)> preCountUpdate = 
-	[&preCounters, hardThreshold, this, sampleRate, preCountSize] 
+	[&preCounters, hardThreshold, this, preCountSize] 
 		(const FastaRecord::Id& readId)
 	{
 		if (!readId.strand()) return;
@@ -60,7 +59,7 @@ void VertexIndex::countKmers(size_t hardThreshold, int genomeSize,
 										kmerPos.position -
 										Parameters::get().kmerSize;
 			}
-			if (kmerPos.kmer.hash() % sampleRate != 0) continue;	//subsampling
+			if (kmerPos.kmer.hash() % _sampleRate != 0) continue;	//subsampling
 
 			size_t kmerBucket = kmerPos.kmer.hash() % preCountSize;
 
@@ -87,7 +86,7 @@ void VertexIndex::countKmers(size_t hardThreshold, int genomeSize,
 	if (_outputProgress) Logger::get().info() << "Counting kmers (2/2):";
 
 	std::function<void(const FastaRecord::Id&)> countUpdate = 
-	[&preCounters, hardThreshold, this, sampleRate, preCountSize] 
+	[&preCounters, hardThreshold, this, preCountSize] 
 		(const FastaRecord::Id& readId)
 	{
 		if (!readId.strand()) return;
@@ -101,7 +100,7 @@ void VertexIndex::countKmers(size_t hardThreshold, int genomeSize,
 										kmerPos.position -
 										Parameters::get().kmerSize;
 			}
-			if (kmerPos.kmer.hash() % sampleRate != 0) continue;	//subsampling
+			if (kmerPos.kmer.hash() % _sampleRate != 0) continue;	//subsampling
 
 			size_t count = preCounters[kmerPos.kmer.hash() % preCountSize];
 			if (count >= hardThreshold)
@@ -121,7 +120,7 @@ void VertexIndex::countKmers(size_t hardThreshold, int genomeSize,
 }
 
 
-void VertexIndex::buildIndex(int minCoverage, int maxCoverage, int sampleRate)
+void VertexIndex::buildIndex(int minCoverage, int maxCoverage)
 {
 	if (_outputProgress) Logger::get().info() << "Filling index table";
 	
@@ -174,7 +173,7 @@ void VertexIndex::buildIndex(int minCoverage, int maxCoverage, int sampleRate)
 	//	<< " wasted space: " << wasted;
 
 	std::function<void(const FastaRecord::Id&)> indexUpdate = 
-	[minCoverage, sampleRate, this] 
+	[minCoverage, this] 
 	(const FastaRecord::Id& readId)
 	{
 		if (!readId.strand()) return;
@@ -191,7 +190,7 @@ void VertexIndex::buildIndex(int minCoverage, int maxCoverage, int sampleRate)
 				targetRead = targetRead.rc();
 			}
 			//subsampling
-			if (kmerPos.kmer.hash() % sampleRate != 0) continue;
+			if (kmerPos.kmer.hash() % _sampleRate != 0) continue;
 
 			_kmerIndex.update_fn(kmerPos.kmer, 
 				[targetRead, &kmerPos](ReadVector& rv)

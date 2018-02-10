@@ -25,7 +25,7 @@ struct OverlapRange
 				 int32_t curLen = 0, int32_t extLen = 0): 
 		curId(curId), curBegin(curInit), curEnd(curInit), curLen(curLen),
 		extId(extId), extBegin(extInit), extEnd(extInit), extLen(extLen),
-		leftShift(0), rightShift(0), score(0)
+		leftShift(0), rightShift(0), score(0), divergence(0.0f)
 	{}
 	int32_t curRange() const {return curEnd - curBegin;}
 	int32_t extRange() const {return extEnd - extBegin;}
@@ -167,7 +167,9 @@ struct OverlapRange
 
 	int32_t leftShift;
 	int32_t rightShift;
+
 	int32_t score;
+	float divergence;
 
 	std::vector<std::pair<int32_t, int32_t>> kmerMatches;
 };
@@ -187,10 +189,16 @@ public:
 		_keepAlignment(keepAlignment),
 		_vertexIndex(vertexIndex),
 		_seqContainer(seqContainer)
-	{}
+	{
+		this->preComputeKmerDivergence();
+	}
 
 	std::vector<OverlapRange> 
 	getSeqOverlaps(const FastaRecord& fastaRec, bool uniqueExtensions) const;
+	void setDumpFile(const std::string& dumpFile)
+	{
+		_dumpFile.open(dumpFile);
+	}
 
 private:
 	enum JumpRes {J_END, J_INCONS, J_CLOSE, J_FAR};
@@ -202,6 +210,10 @@ private:
 	JumpRes jumpTest(int32_t currentPrev, int32_t currentNext,
 				     int32_t extensionPrev, int32_t extensionNext) const;
 
+	void  preComputeKmerDivergence();
+	float kmerToSeqDivergence(float kmerDivergence) const;
+	std::vector<float> _seqToKmerDiv;
+
 	const int _maxJump;
 	const int _minOverlap;
 	const int _maxOverhang;
@@ -211,6 +223,7 @@ private:
 
 	const VertexIndex& _vertexIndex;
 	const SequenceContainer& _seqContainer;
+	mutable std::ofstream _dumpFile;
 };
 
 
@@ -228,13 +241,14 @@ public:
 	typedef std::unordered_map<FastaRecord::Id, 
 					   std::vector<OverlapRange>> OverlapIndex;
 
-	void saveOverlaps(const std::string& filename);
-	void loadOverlaps(const std::string& filename);
+	//void saveOverlaps(const std::string& filename);
+	//void loadOverlaps(const std::string& filename);
 
 	void findAllOverlaps();
 	std::vector<OverlapRange> seqOverlaps(FastaRecord::Id readId) const;
 	std::vector<OverlapRange> lazySeqOverlaps(FastaRecord::Id readId);
 	const OverlapIndex& getOverlapIndex() const {return _overlapIndex;}
+	float meanDivergence();
 
 	void buildIntervalTree();
 	std::vector<Interval<OverlapRange*>> 

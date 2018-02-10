@@ -25,8 +25,8 @@ public:
 	{
 		this->clear();
 	}
-	VertexIndex(const SequenceContainer& seqContainer):
-		_seqContainer(seqContainer), _outputProgress(false) 
+	VertexIndex(const SequenceContainer& seqContainer, int sampleRate):
+		_seqContainer(seqContainer), _outputProgress(false), _sampleRate(sampleRate)
 	{}
 
 	VertexIndex(const VertexIndex&) = delete;
@@ -120,8 +120,8 @@ public:
 	};
 
 
-	void countKmers(size_t hardThreshold, int genomeSize, int sampleRate);
-	void buildIndex(int minCoverage, int maxCoverage, int sampleRate);
+	void countKmers(size_t hardThreshold, int genomeSize);
+	void buildIndex(int minCoverage, int maxCoverage);
 	void clear();
 
 	IterHelper iterKmerPos(Kmer kmer) const
@@ -147,12 +147,15 @@ public:
 		return _kmerDistribution;
 	}
 
+	int getSampleRate() const {return _sampleRate;}
+
 private:
 	void addFastaSequence(const FastaRecord& fastaRecord);
 
 	const SequenceContainer& _seqContainer;
 	KmerDistribution _kmerDistribution;
 	bool _outputProgress;
+	int _sampleRate;
 
 	const size_t INDEX_CHUNK = 32 * 1024 * 1024 / sizeof(ReadPosition);
 	std::vector<ReadPosition*> _memoryChunks;

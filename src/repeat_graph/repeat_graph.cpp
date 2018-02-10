@@ -57,11 +57,9 @@ std::unordered_set<GraphEdge*> GraphEdge::adjacentEdges()
 void RepeatGraph::build()
 {
 	//getting overlaps
-	VertexIndex asmIndex(_asmSeqs);
-	asmIndex.countKmers(1, /*genome size*/ 0, 
-						(int)Config::get("repeat_graph_kmer_sample"));
-	asmIndex.buildIndex(1, (int)Config::get("repeat_graph_max_kmer"), 
-						(int)Config::get("repeat_graph_kmer_sample"));
+	VertexIndex asmIndex(_asmSeqs, (int)Config::get("repeat_graph_kmer_sample"));
+	asmIndex.countKmers(1, /*genome size*/ 0);
+	asmIndex.buildIndex(1, (int)Config::get("repeat_graph_max_kmer"));
 
 	OverlapDetector asmOverlapper(_asmSeqs, asmIndex, 
 								  (int)Config::get("maximum_jump"), 
@@ -69,9 +67,13 @@ void RepeatGraph::build()
 								  /*no overhang*/ 0, 
 								  (int)Config::get("repeat_graph_gap"),
 								  /*keep alignment*/ true);
+
 	OverlapContainer asmOverlaps(asmOverlapper, _asmSeqs, /*only max*/ false);
 	asmOverlaps.findAllOverlaps();
 	asmOverlaps.buildIntervalTree();
+
+	Logger::get().debug() << "Mean contig-to-contig overlap divergence: " 
+		<< asmOverlaps.meanDivergence();
 
 	this->getGluepoints(asmOverlaps);
 	this->collapseTandems();
@@ -684,6 +686,7 @@ void RepeatGraph::logEdges()
 	Logger::get().debug() << "Total edges: " << _nextEdgeId / 2;
 }
 
+/*
 void RepeatGraph::markChimericEdges()
 {
 	typedef std::pair<SequenceSegment*, GraphEdge*> SegEdgePair;
@@ -727,7 +730,7 @@ void RepeatGraph::markChimericEdges()
 		}
 	}
 	Logger::get().debug() << "Extra self-complements: " << extraSelfCompl;
-}
+}*/
 
 
 GraphPath RepeatGraph::complementPath(const GraphPath& path) const
