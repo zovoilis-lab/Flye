@@ -64,7 +64,7 @@ The original dataset is available at the
 [PacBio website](https://github.com/PacificBiosciences/DevNet/wiki/E.-coli-Bacterial-Assembly).
 We coverted the raw ```bas.h5``` file to the FASTA format for the convenience.
 
-    wget https://github.com/fenderglass/datasets/raw/master/pacbio/E.coli_PacBio_40x.fasta
+    wget https://zenodo.org/record/1172816/files/E.coli_PacBio_40x.fasta
 	flye --pacbio-raw E.coli_PacBio_40x.fasta --out-dir out_pacbio --genome-size 5m --threads 4
 
 with ```5m``` being the expected genome size, the threads argument being optional 
@@ -76,7 +76,7 @@ where the assembly results will be placed.
 The dataset was originally released by the 
 [Loman lab](http://lab.loman.net/2015/09/24/first-sqk-map-006-experiment/).
 
-    wget https://github.com/fenderglass/datasets/raw/master/ont/Loman_E.coli_MAP006-1_2D_50x.fasta
+    wget https://zenodo.org/record/1172816/files/Loman_E.coli_MAP006-1_2D_50x.fasta
 	flye --nano-raw Loman_E.coli_MAP006-1_2D_50x.fasta --out-dir out_nano --genome-size 5m --threads 4
 
 
