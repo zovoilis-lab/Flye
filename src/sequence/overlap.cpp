@@ -279,29 +279,6 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 		for (auto& maxDp : maxByStart) ap.second.push_back(maxDp.second);
 	}
 
-	//copmutes sequence divergence rate
-	auto computeSequenceDiv = [this](DPRecord& rec)
-	{
-		static const int32_t WND_SIZE = Config::get("maximum_jump");
-		int32_t numWnd = rec.ovlp.curRange() / WND_SIZE + 1;
-		std::vector<int32_t> hist(numWnd, 0);
-		for (auto& pos : rec.sharedKmers) 
-		{
-			++hist[(pos - rec.ovlp.curBegin) / WND_SIZE];
-		}
-
-		double sum = 0;
-		for (auto& wnd : hist)
-		{
-			//std::cout << " " << wnd << std::endl;
-			int32_t spoiledKmers = WND_SIZE - (wnd * _vertexIndex.getSampleRate());
-			sum += this->kmerToSeqDivergence(((float)spoiledKmers / WND_SIZE));
-		}
-		float divergence = sum / hist.size();
-		rec.ovlp.divergence = divergence;
-		//std::cout << "div" << divergence << std::endl;
-	};
-	
 	std::vector<OverlapRange> detectedOverlaps;
 	for (auto& ap : completedPaths)
 	{
@@ -315,7 +292,6 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 				dpRec.ovlp.leftShift = median(dpRec.shifts);
 				dpRec.ovlp.rightShift = extLen - curLen + 
 										dpRec.ovlp.leftShift;
-				computeSequenceDiv(dpRec);
 				detectedOverlaps.push_back(dpRec.ovlp);
 			}
 			else
@@ -332,78 +308,11 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 			maxRecord->ovlp.leftShift = median(maxRecord->shifts);
 			maxRecord->ovlp.rightShift = extLen - curLen + 
 									maxRecord->ovlp.leftShift;
-			computeSequenceDiv(*maxRecord);
 			detectedOverlaps.push_back(maxRecord->ovlp);
 		}
 	}
 
-	for (auto& ovlp : detectedOverlaps)
-	{
-		if (_dumpFile) _dumpFile << ovlp.divergence << "\n";
-	}
-
 	return detectedOverlaps;
-}
-
-
-//pre-computes sequence-to-kmer divergence function by
-//direct simulation
-void OverlapDetector::preComputeKmerDivergence()
-{
-	const int NUM_BASES = 1000000;
-	auto simulate = [](float seqDivergence, int numBases)
-	{
-		std::vector<char> bases(numBases, true);
-		for (size_t i = 0; i < (size_t)(seqDivergence * numBases); ++i)
-		{
-			size_t pos = random() % (NUM_BASES - Parameters::get().kmerSize);
-			for (size_t j = 0; j < Parameters::get().kmerSize; ++j)
-			{
-				bases[pos + j] = 0;
-			}
-		}
-		size_t corrupted = false;
-		for (auto c : bases) if (!c) ++corrupted;
-		return (float)corrupted / numBases;
-	};
-
-	for (size_t i = 0; i < 50; ++i)
-	{
-		float seqDiv = (float)i / 100;
-		float kmerDiv = simulate(seqDiv, NUM_BASES);
-		_seqToKmerDiv.push_back(kmerDiv);
-		//std::cout << seqDiv << " " << kmerDiv << std::endl;
-	}
-}
-
-float OverlapDetector::kmerToSeqDivergence(float kmerDivergence) const
-{
-	float lowestDiff = std::numeric_limits<float>::max();
-	float seqDiv = 0.0f;
-	for (size_t i = 0; i < _seqToKmerDiv.size(); ++i)
-	{
-		if (fabs(_seqToKmerDiv[i] - kmerDivergence) < lowestDiff)
-		{
-			lowestDiff = fabs(_seqToKmerDiv[i] - kmerDivergence);
-			seqDiv = (float)i / 100;
-		}
-	}
-	return seqDiv;
-}
-
-float OverlapContainer::meanDivergence()
-{
-	double sumDiv = 0.0f;
-	int numDiv = 0;
-	for (auto& seqOvlps : _overlapIndex)
-	{
-		for (auto& ovlp : seqOvlps.second)
-		{
-			sumDiv += ovlp.divergence;
-			++numDiv;
-		}
-	}
-	return numDiv ? sumDiv / numDiv : 0.0f;
 }
 
 std::vector<OverlapRange>
