@@ -25,7 +25,7 @@ struct OverlapRange
 				 int32_t curLen = 0, int32_t extLen = 0): 
 		curId(curId), curBegin(curInit), curEnd(curInit), curLen(curLen),
 		extId(extId), extBegin(extInit), extEnd(extInit), extLen(extLen),
-		leftShift(0), rightShift(0), score(0), divergence(0.0f)
+		leftShift(0), rightShift(0), score(0)
 	{}
 	int32_t curRange() const {return curEnd - curBegin;}
 	int32_t extRange() const {return extEnd - extBegin;}
@@ -169,8 +169,6 @@ struct OverlapRange
 	int32_t rightShift;
 
 	int32_t score;
-	float divergence;
-
 	std::vector<std::pair<int32_t, int32_t>> kmerMatches;
 };
 

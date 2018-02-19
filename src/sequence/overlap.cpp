@@ -102,7 +102,6 @@ namespace
 
 		OverlapRange ovlp;
 		std::vector<int32_t> shifts;
-		std::vector<int32_t> sharedKmers;
 	};
 }
 
@@ -198,7 +197,6 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 				extPaths[maxCloseId].ovlp.extEnd = extPos;
 				extPaths[maxCloseId].ovlp.score = maxCloseScore;
 				extPaths[maxCloseId].shifts.push_back(curPos - extPos);
-				extPaths[maxCloseId].sharedKmers.push_back(curPos);
 
 				if (_keepAlignment)
 				{
@@ -218,7 +216,6 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 				extPaths.back().ovlp.extEnd = extPos;
 				extPaths.back().ovlp.score = maxFarScore;
 				extPaths.back().shifts.push_back(curPos - extPos);
-				extPaths.back().sharedKmers.push_back(curPos);
 
 				if (_keepAlignment)
 				{
