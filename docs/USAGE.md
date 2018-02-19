@@ -173,7 +173,7 @@ The final assembly graph is output into the ```assembly_graph.dot``` file.
 It could be visualized using [Graphviz](https://graphviz.gitlab.io/): 
 ```dot -Tpng -O assembly_graph.dot```. The edges in this graph 
 represent genomic sequences, and nodes simply serve
-as junctions. The genoimc chromosomes traverse this graph (in an unknown way) 
+as junctions. The genomic chromosomes traverse this graph (in an unknown way) 
 so as each unique edge is covered exactly once. The genomic repeats that were not
 resolved are collapsed into the corresponding edges in the graph
 (therefore genome structure remain umbigious).
@@ -202,7 +202,7 @@ assembly graphs could be found in ```2-repeat``` directory.
 
 ## <a name="output"></a> Contigs/scaffolds output
 
-Each contig is formed by a single uniqe edge and possibly multiple repetitive
+Each contig is formed by a single unique edge and possibly multiple repetitive
 edges and correponds to a genomic path through the graph.
 Final contigs are output into the "contigs.fasta" file. Sometimes it is possible to
 further order some contigs based on the assembly graph structure. In this case,
@@ -242,10 +242,10 @@ computational node. The more detailed benchmarks are below.
 
 ## <a name="algorithm"></a> Algorithm Description
 
-This is a brief description of the Flye algorithm. Plase refer to the manuscript
+This is a brief description of the Flye algorithm. Please refer to the manuscript
 for more detailed information. The assembly pipeline is organized as follows:
 
-* Kmer counting / erronoeus kmer pre-filtering
+* Kmer counting / erroneous kmer pre-filtering
 * Solid kmer selection (kmers with sufficient frequency, which are unlikely to be erroneous)
 * Finding read overlaps based on the A-Bruijn graph
 * Detection of chimeric sequences
