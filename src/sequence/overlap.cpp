@@ -33,23 +33,24 @@ OverlapDetector::JumpRes
 OverlapDetector::jumpTest(int32_t curPrev, int32_t curNext,
 						  int32_t extPrev, int32_t extNext) const
 {
-	static const int CLOSE_JUMP = Config::get("close_jump_rate");
-	static const int FAR_JUMP = Config::get("far_jump_rate");
+	//static const int CLOSE_JUMP = Config::get("close_jump_rate");
+	static const int FAR_JUMP = Config::get("jump_divergence_rate");
 
 	if (curNext - curPrev > _maxJump) return J_END;
+
+	float jumpLength = ((curNext - curPrev) + (extNext - extPrev)) / 2.0f;
+	float jumpDiv = abs((curNext - curPrev) - (extNext - extPrev));
 
 	if (0 < curNext - curPrev && curNext - curPrev < _maxJump &&
 		0 < extNext - extPrev && extNext - extPrev < _maxJump)
 	{
-		if (abs((curNext - curPrev) - (extNext - extPrev)) 
-				< _maxJump / CLOSE_JUMP &&
-			curNext - curPrev < _gapSize)
+		if (jumpLength < Parameters::get().kmerSize &&
+			jumpDiv < Parameters::get().kmerSize)
 		{
 			return J_CLOSE;
 		}
 
-		if (abs((curNext - curPrev) - (extNext - extPrev)) 
-			< _maxJump / FAR_JUMP)
+		if (jumpDiv < jumpLength / FAR_JUMP)
 		{
 			return J_FAR;
 		}
@@ -89,7 +90,6 @@ bool OverlapDetector::overlapTest(const OverlapRange& ovlp) const
 		}
 	}
 
-	
 	return true;
 }
 

@@ -23,7 +23,7 @@ std::vector<GraphAlignment>
 								 	 const std::vector<EdgeAlignment>& ovlps) const
 {
 	static const int32_t MAX_DISCORDANCE = 
-		std::max(Config::get("maximum_jump") / Config::get("far_jump_rate"),
+		std::max(Config::get("maximum_jump") / Config::get("jump_divergence_rate"),
 				 Config::get("max_separation"));
 	static const int32_t MAX_JUMP = Config::get("maximum_jump");
 	static const int32_t ALN_GAP = Config::get("read_align_gap");
