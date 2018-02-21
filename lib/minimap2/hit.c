@@ -80,6 +80,7 @@ mm_reg1_t *mm_gen_regs(void *km, uint32_t hash, int qlen, int n_u, uint64_t *u, 
 		ri->hash = (uint32_t)z[i].x;
 		ri->cnt = (int32_t)z[i].y;
 		ri->as = z[i].y >> 32;
+		ri->div = -1.0f;
 		mm_reg_set_coor(ri, qlen, a);
 	}
 	kfree(km, z);
@@ -93,6 +94,7 @@ void mm_split_reg(mm_reg1_t *r, mm_reg1_t *r2, int n, int qlen, mm128_t *a)
 	r2->id = -1;
 	r2->sam_pri = 0;
 	r2->p = 0;
+	r2->split_inv = 0;
 	r2->cnt = r->cnt - n;
 	r2->score = (int32_t)(r->score * ((float)r2->cnt / r->cnt) + .499);
 	r2->as = r->as + n;
@@ -147,7 +149,7 @@ void mm_set_parent(void *km, float mask_level, int n, mm_reg1_t *r, int sub_diff
 				ri->parent = rp->parent;
 				rp->subsc = rp->subsc > ri->score? rp->subsc : ri->score;
 				if (ri->cnt >= rp->cnt) cnt_sub = 1;
-				if (rp->p && ri->p && (rp->rs != ri->rs || rp->re != ri->re || ol != min)) { // the last condition excludes identical hits after DP
+				if (rp->p && ri->p && (rp->rid != ri->rid || rp->rs != ri->rs || rp->re != ri->re || ol != min)) { // the last condition excludes identical hits after DP
 					rp->p->dp_max2 = rp->p->dp_max2 > ri->p->dp_max? rp->p->dp_max2 : ri->p->dp_max;
 					if (rp->p->dp_max - ri->p->dp_max <= sub_diff) cnt_sub = 1;
 				}
@@ -234,7 +236,7 @@ void mm_select_sub(void *km, float pri_ratio, int min_diff, int best_n, int *n_,
 			if (p == i || r[i].inv) { // primary or inversion
 				r[k++] = r[i];
 			} else if ((r[i].score >= r[p].score * pri_ratio || r[i].score + min_diff >= r[p].score) && n_2nd < best_n) {
-				if (!(r[i].qs == r[p].qs && r[i].qe == r[p].qe && r[i].rs == r[p].rs && r[i].re == r[p].re)) // not identical hits
+				if (!(r[i].qs == r[p].qs && r[i].qe == r[p].qe && r[i].rid == r[p].rid && r[i].rs == r[p].rs && r[i].re == r[p].re)) // not identical hits
 					r[k++] = r[i], ++n_2nd;
 				else if (r[i].p) free(r[i].p);
 			} else if (r[i].p) free(r[i].p);
@@ -244,16 +246,17 @@ void mm_select_sub(void *km, float pri_ratio, int min_diff, int best_n, int *n_,
 	}
 }
 
-void mm_filter_regs(void *km, const mm_mapopt_t *opt, int *n_regs, mm_reg1_t *regs)
+void mm_filter_regs(void *km, const mm_mapopt_t *opt, int qlen, int *n_regs, mm_reg1_t *regs)
 { // NB: after this call, mm_reg1_t::parent can be -1 if its parent filtered out
 	int i, k;
 	for (i = k = 0; i < *n_regs; ++i) {
 		mm_reg1_t *r = &regs[i];
 		int flt = 0;
 		if (!r->inv && !r->seg_split && r->cnt < opt->min_cnt) flt = 1;
-		if (r->p) {
+		if (r->p) { // these filters are only applied when base-alignment is available
 			if (r->mlen < opt->min_chain_score) flt = 1;
 			else if (r->p->dp_max < opt->min_dp_max) flt = 1;
+			else if (r->qs > qlen * opt->max_clip_ratio && qlen - r->qe > qlen * opt->max_clip_ratio) flt = 1;
 			if (flt) free(r->p);
 		}
 		if (!flt) {
@@ -336,7 +339,7 @@ void mm_join_long(void *km, const mm_mapopt_t *opt, int qlen, int *n_regs_, mm_r
 					r->parent = regs[r->parent].parent;
 			}
 		}
-		mm_filter_regs(km, opt, n_regs_, regs);
+		mm_filter_regs(km, opt, qlen, n_regs_, regs);
 		mm_sync_regs(km, *n_regs_, regs);
 	}
 }
@@ -389,8 +392,10 @@ mm_seg_t *mm_seg_gen(void *km, uint32_t hash, int n_segs, const int *qlens, int 
 	for (s = 0; s < n_segs; ++s) {
 		regs[s] = mm_gen_regs(km, hash, qlens[s], seg[s].n_u, seg[s].u, seg[s].a);
 		n_regs[s] = seg[s].n_u;
-		for (i = 0; i < n_regs[s]; ++i)
+		for (i = 0; i < n_regs[s]; ++i) {
 			regs[s][i].seg_split = 1;
+			regs[s][i].seg_id = s;
+		}
 	}
 	return seg;
 }
@@ -403,7 +408,33 @@ void mm_seg_free(void *km, int n_segs, mm_seg_t *segs)
 	kfree(km, segs);
 }
 
-void mm_set_mapq(int n_regs, mm_reg1_t *regs, int min_chain_sc, int match_sc, int rep_len, int is_sr)
+static void mm_set_inv_mapq(void *km, int n_regs, mm_reg1_t *regs)
+{
+	int i, n_aux;
+	uint64_t *aux;
+	if (n_regs < 3) return;
+	for (i = 0; i < n_regs; ++i)
+		if (regs[i].inv) break;
+	if (i == n_regs) return; // no inversion hits
+
+	aux = (uint64_t*)kmalloc(km, n_regs * 8);
+	for (i = n_aux = 0; i < n_regs; ++i)
+		if (regs[i].parent == i || regs[i].parent < 0)
+			aux[n_aux++] = (uint64_t)regs[i].as << 32 | i;
+	radix_sort_64(aux, aux + n_aux);
+
+	for (i = 1; i < n_aux - 1; ++i) {
+		mm_reg1_t *inv = &regs[(int32_t)aux[i]];
+		if (inv->inv) {
+			mm_reg1_t *l = &regs[(int32_t)aux[i-1]];
+			mm_reg1_t *r = &regs[(int32_t)aux[i+1]];
+			inv->mapq = l->mapq < r->mapq? l->mapq : r->mapq;
+		}
+	}
+	kfree(km, aux);
+}
+
+void mm_set_mapq(void *km, int n_regs, mm_reg1_t *regs, int min_chain_sc, int match_sc, int rep_len, int is_sr)
 {
 	static const float q_coef = 40.0f;
 	int64_t sum_sc = 0;
@@ -446,4 +477,5 @@ void mm_set_mapq(int n_regs, mm_reg1_t *regs, int min_chain_sc, int match_sc, in
 			if (r->p && r->p->dp_max > r->p->dp_max2 && r->mapq == 0) r->mapq = 1;
 		} else r->mapq = 0;
 	}
+	mm_set_inv_mapq(km, n_regs, regs);
 }

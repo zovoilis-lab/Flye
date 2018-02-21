@@ -1,10 +1,7 @@
-[![Release](https://img.shields.io/badge/Release-v2.5-blue.svg?style=flat)](https://github.com/lh3/minimap2/releases)
-[![BioConda](https://img.shields.io/conda/vn/bioconda/minimap2.svg?style=flat)](https://anaconda.org/bioconda/minimap2)
+[![GitHub Downloads](https://img.shields.io/github/downloads/lh3/minimap2/total.svg?style=social&logo=github&label=Download)](https://github.com/lh3/minimap2/releases)
+[![BioConda Install](https://img.shields.io/conda/dn/bioconda/minimap2.svg?style=flag&label=BioConda%20install)](https://anaconda.org/bioconda/minimap2)
 [![PyPI](https://img.shields.io/pypi/v/mappy.svg?style=flat)](https://pypi.python.org/pypi/mappy)
-[![Python Version](https://img.shields.io/pypi/pyversions/mappy.svg?style=flat)](https://pypi.python.org/pypi/mappy)
-[![License](https://img.shields.io/badge/License-MIT-blue.svg?style=flat)](LICENSE.txt)
 [![Build Status](https://travis-ci.org/lh3/minimap2.svg?branch=master)](https://travis-ci.org/lh3/minimap2)
-[![Downloads](https://img.shields.io/github/downloads/lh3/minimap2/total.svg?style=flat)](https://github.com/lh3/minimap2/releases)
 ## <a name="started"></a>Getting Started
 ```sh
 git clone https://github.com/lh3/minimap2
@@ -41,7 +38,7 @@ man ./minimap2.1
   - [Advanced features](#advanced)
     - [Working with >65535 CIGAR operations](#long-cigar)
     - [The cs optional tag](#cs)
-    - [Evaluation scripts](#eval)
+    - [Working with the PAF format](#paftools)
   - [Algorithm overview](#algo)
   - [Getting help](#help)
   - [Citing minimap2](#cite)
@@ -68,17 +65,20 @@ Detailed evaluations are available from the [minimap2 preprint][preprint].
 
 ### <a name="install"></a>Installation
 
-Minimap2 only works on x86-64 CPUs. You can acquire precompiled binaries from
+Minimap2 is optimized for x86-64 CPUs. You can acquire precompiled binaries from
 the [release page][release] with:
 ```sh
-curl -L https://github.com/lh3/minimap2/releases/download/v2.5/minimap2-2.5_x64-linux.tar.bz2 \
+curl -L https://github.com/lh3/minimap2/releases/download/v2.8/minimap2-2.8_x64-linux.tar.bz2 \
   | tar -jxvf -
-./minimap2-2.5_x64-linux/minimap2
+./minimap2-2.8_x64-linux/minimap2
 ```
 If you want to compile from the source, you need to have a C compiler, GNU make
 and zlib development files installed. Then type `make` in the source code
 directory to compile. If you see compilation errors, try `make sse2only=1`
 to disable SSE4 code, which will make minimap2 slightly slower.
+
+Minimap2 also works with ARM CPUs supporting the NEON instruction sets. To
+compile, use `make arm_neon=1`.
 
 ### <a name="general"></a>General usage
 
@@ -153,6 +153,20 @@ consider the forward transcript strand only. This speeds up alignment with
 slight improvement to accuracy. For noisy Nanopore Direct RNA-seq reads, it is
 recommended to use a smaller k-mer size for increased sensitivity to the first
 or the last exons.
+
+Minimap2 rates an alignment by the score of the max-scoring sub-segment,
+*excluding* introns, and marks the best alignment as primary in SAM. When a
+spliced gene also has unspliced pseudogenes, minimap2 does not intentionally
+prefer spliced alignment, though in practice it more often marks the spliced
+alignment as the primary. By default, minimap2 outputs up to five secondary
+alignments (i.e. likely pseudogenes in the context of RNA-seq mapping). This
+can be tuned with option **-N**.
+
+For long RNA-seq reads, minimap2 may produce chimeric alignments potentially
+caused by gene fusions/structural variations or by an intron longer than the
+max intron length **-G** (200k by default). For now, it is not recommended to
+apply an excessively large **-G** as this slows down minimap2 and sometimes
+leads to false alignments.
 
 It is worth noting that by default `-x splice` prefers GT[A/G]..[C/T]AG
 over GT[C/T]..[A/G]AG, and then over other splicing signals. Considering
@@ -242,26 +256,13 @@ the alignment. The above example will become
 `=CGATCG-ata=AATAGAGTAG+gtc=GAAT*at=GCA`. The long form of `cs` encodes both
 reference and query sequences in one string.
 
-#### <a name="eval"></a>Evaluation scripts
+#### <a name="paftools"></a>Working with the PAF format
 
-Minimap2 comes with several (java)scripts for evaluating the accuracy of
-minimap2. These scripts require the [k8][k8] javascript shell to run.
-Recent minimap2 binary release tar-balls contain a copy of k8 executable, a
-single file. Here are a few examples on how to use these scripts:
-
-```sh
-# Generate reads from PBSIM alignment (truth encoded in read names)
-k8 misc/sim-pbsim.js ref.fa.fai pbsim-aln.maf > pbsim-reads.fq
-# Generate reads from mason2 alignment (not tested for simulated SVs)
-k8 misc/sim-mason2.js mason2-aln.sam > mason2-reads.fq
-# Evaluate mapping accuracy with ROC-like curve
-k8 misc/sim-eval.js my-aln.sam.gz > result.txt
-k8 misc/sim-eval.js my-aln.paf.gz > result.txt
-# Collect alignment statistics
-k8 misc/mapstat.js my-aln.sam > result.txt
-# Compare spliced junctions to existing gene annotations
-k8 misc/intron-eval.js anno.gtf my-spliced-aln.sam > result.txt
-```
+Minimap2 also comes with a (java)script [paftools.js](misc/paftools.js) that
+processes alignments in the PAF format. It calls variants from
+assembly-to-reference alignment, lifts over BED files based on alignment,
+converts between formats and provides utilities for various evaluations. For
+details, please see [misc/README.md](misc/README.md).
 
 ### <a name="algo"></a>Algorithm overview
 
@@ -341,12 +342,9 @@ mappy` or [from BioConda][mappyconda] via `conda install -c bioconda mappy`.
   regions where seed positions may be suboptimal. This should not be a big
   concern because even the optimal alignment may be wrong in such regions.
 
-* Minimap2 requires SSE2 instructions to compile. It is possible to add
-  non-SSE2 support, but it would make minimap2 slower by several times.
-
-In general, minimap2 is a young project with most code written since June, 2017.
-It may have bugs and room for improvements. Bug reports and suggestions are
-warmly welcomed.
+* Minimap2 requires SSE2 instructions on x86 CPUs or NEON on ARM CPUs. It is
+  possible to add non-SIMD support, but it would make minimap2 slower by
+  several times.
 
 
 

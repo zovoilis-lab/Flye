@@ -5,26 +5,30 @@
 #include <stdio.h>
 #include <sys/types.h>
 
-#define MM_F_NO_SELF     0x001
-#define MM_F_AVA         0x002
-#define MM_F_CIGAR       0x004
-#define MM_F_OUT_SAM     0x008
-#define MM_F_NO_QUAL     0x010
-#define MM_F_OUT_CG      0x020
-#define MM_F_OUT_CS      0x040
-#define MM_F_SPLICE      0x080 // splice mode
-#define MM_F_SPLICE_FOR  0x100 // match GT-AG
-#define MM_F_SPLICE_REV  0x200 // match CT-AC, the reverse complement of GT-AG
-#define MM_F_NO_LJOIN    0x400
-#define MM_F_OUT_CS_LONG 0x800
-#define MM_F_SR          0x1000
-#define MM_F_FRAG_MODE   0x2000
+#define MM_F_NO_DIAG       0x001 // no exact diagonal hit
+#define MM_F_NO_DUAL       0x002 // skip pairs where query name is lexicographically larger than target name
+#define MM_F_CIGAR         0x004
+#define MM_F_OUT_SAM       0x008
+#define MM_F_NO_QUAL       0x010
+#define MM_F_OUT_CG        0x020
+#define MM_F_OUT_CS        0x040
+#define MM_F_SPLICE        0x080 // splice mode
+#define MM_F_SPLICE_FOR    0x100 // match GT-AG
+#define MM_F_SPLICE_REV    0x200 // match CT-AC, the reverse complement of GT-AG
+#define MM_F_NO_LJOIN      0x400
+#define MM_F_OUT_CS_LONG   0x800
+#define MM_F_SR            0x1000
+#define MM_F_FRAG_MODE     0x2000
 #define MM_F_NO_PRINT_2ND  0x4000
 #define MM_F_2_IO_THREADS  0x8000
 #define MM_F_LONG_CIGAR    0x10000
 #define MM_F_INDEPEND_SEG  0x20000
 #define MM_F_SPLICE_FLANK  0x40000
 #define MM_F_SOFTCLIP      0x80000
+#define MM_F_FOR_ONLY      0x100000
+#define MM_F_REV_ONLY      0x200000
+#define MM_F_HEAP_SORT     0x400000
+#define MM_F_ALL_CHAINS    0x800000
 
 #define MM_I_HPC          0x1
 #define MM_I_NO_SEQ       0x2
@@ -68,17 +72,19 @@ typedef struct {
 } mm_extra_t;
 
 typedef struct {
-	int32_t id;                     // ID for internal uses (see also parent below)
-	uint32_t cnt:28, rev:1, seg_split:1, sam_pri:1, proper_frag:1; // number of minimizers; if on the reverse strand
-	uint32_t rid:31, inv:1;         // reference index; if this is an alignment from inversion rescue
-	int32_t score;                  // DP alignment score
-	int32_t qs, qe, rs, re;         // query start and end; reference start and end
-	int32_t parent, subsc;          // parent==id if primary; best alternate mapping score
-	int32_t as;                     // offset in the a[] array (for internal uses only)
-	int32_t mlen, blen;             // seeded exact match length; seeded alignment block length
-	uint32_t mapq:8, split:2, n_sub:22; // mapQ; split pattern; number of suboptimal mappings
-	uint32_t pe_thru:1, score0:31;
+	int32_t id;             // ID for internal uses (see also parent below)
+	int32_t cnt;            // number of minimizers; if on the reverse strand
+	int32_t rid;            // reference index; if this is an alignment from inversion rescue
+	int32_t score;          // DP alignment score
+	int32_t qs, qe, rs, re; // query start and end; reference start and end
+	int32_t parent, subsc;  // parent==id if primary; best alternate mapping score
+	int32_t as;             // offset in the a[] array (for internal uses only)
+	int32_t mlen, blen;     // seeded exact match length; seeded alignment block length
+	int32_t n_sub;          // number of suboptimal mappings
+	int32_t score0;         // initial chaining score (before chain merging/spliting)
+	uint32_t mapq:8, split:2, rev:1, inv:1, sam_pri:1, proper_frag:1, pe_thru:1, seg_split:1, seg_id:8, split_inv:1, dummy:7;
 	uint32_t hash;
+	float div;
 	mm_extra_t *p;
 } mm_reg1_t;
 
@@ -110,10 +116,12 @@ typedef struct {
 
 	int a, b, q, e, q2, e2; // matching score, mismatch, gap-open and gap-ext penalties
 	int noncan;      // cost of non-canonical splicing sites
-	int zdrop;       // break alignment if alignment score drops too fast along the diagonal
+	int zdrop, zdrop_inv;   // break alignment if alignment score drops too fast along the diagonal
 	int end_bonus;
 	int min_dp_max;  // drop an alignment if the score of the max scoring segment is below this threshold
 	int min_ksw_len;
+	int anchor_ext_len, anchor_ext_shift;
+	float max_clip_ratio; // drop an alignment if BOTH ends are clipped above this ratio
 
 	int pe_ori, pe_bonus;
 
@@ -152,6 +160,7 @@ extern double mm_realtime0; // wall-clock timer
  * @return 0 if success; -1 if _present_ unknown
  */
 int mm_set_opt(const char *preset, mm_idxopt_t *io, mm_mapopt_t *mo);
+int mm_check_opt(const mm_idxopt_t *io, const mm_mapopt_t *mo);
 
 /**
  * Update mm_mapopt_t::mid_occ via mm_mapopt_t::mid_occ_frac
@@ -205,6 +214,21 @@ void mm_idx_reader_close(mm_idx_reader_t *r);
 int mm_idx_reader_eof(const mm_idx_reader_t *r);
 
 /**
+ * Create an index from strings in memory
+ *
+ * @param w            minimizer window size
+ * @param k            minimizer k-mer size
+ * @param is_hpc       use HPC k-mer if true
+ * @param bucket_bits  number of bits for the first level of the hash table
+ * @param n            number of sequences
+ * @param seq          sequences in A/C/G/T
+ * @param name         sequence names; could be NULL
+ *
+ * @return minimap2 index
+ */
+mm_idx_t *mm_idx_str(int w, int k, int is_hpc, int bucket_bits, int n, const char **seq, const char **name);
+
+/**
  * Print index statistics to stderr
  *
  * @param mi         minimap2 index
@@ -256,6 +280,8 @@ void mm_tbuf_destroy(mm_tbuf_t *b);
  *         with mm_reg1_t::p of each element. The size is written to _n_regs_.
  */
 mm_reg1_t *mm_map(const mm_idx_t *mi, int l_seq, const char *seq, int *n_regs, mm_tbuf_t *b, const mm_mapopt_t *opt, const char *name);
+
+void mm_map_frag(const mm_idx_t *mi, int n_segs, const int *qlens, const char **seqs, int *n_regs, mm_reg1_t **regs, mm_tbuf_t *b, const mm_mapopt_t *opt, const char *qname);
 
 /**
  * Align a fasta/fastq file and print alignments to stdout

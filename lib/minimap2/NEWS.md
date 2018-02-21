@@ -1,3 +1,89 @@
+Release 2.8-r672 (1 February 2018)
+----------------------------------
+
+Notable changes in this release include:
+
+ * Speed up short-read alignment by ~10%. The overall mapping accuracy stays
+   the same, but the output alignments are not always identical to v2.7 due to
+   unstable sorting employed during chaining. Long-read alignment is not
+   affected by this change as the speedup is short-read specific.
+
+ * Mappy now supports paired-end short-read alignment (#87). Please see
+   python/README.rst for details.
+
+ * Added option --for-only and --rev-only to perform alignment against the
+   forward or the reverse strand of the reference genome only (#91).
+
+ * Alleviated the issue with undesired diagonal alignment in the self mapping
+   mode (#10). Even if the output is not ideal, it should not interfere with
+   other alignments. Fully resolving the issue is intricate and may require
+   additional heuristic thresholds.
+
+ * Enhanced error checking against incorrect input (#92 and #96).
+
+For long query sequences, minimap2 should output identical alignments to v2.7.
+
+(2.8: 1 February 2018, r672)
+
+
+
+Release 2.7-r654 (9 January 2018)
+---------------------------------
+
+This release fixed a bug in the splice mode and added a few minor features:
+
+ * Fixed a bug that occasionally takes an intron as a long deletion in the
+   splice mode. This was caused by wrong backtracking at the last CIGAR
+   operator. The current fix eliminates the error, but it is not optimal in
+   that it often produces a wrong junction when the last operator is an intron.
+   A future version of minimap2 may improve upon this.
+
+ * Support high-end ARM CPUs that implement the NEON instruction set (#81).
+   This enables minimap2 to work on Raspberry Pi 3 and Odroid XU4.
+
+ * Added a C API to construct a minimizer index from a set of C strings (#80).
+
+ * Check scoring specified on the command line (#79). Due to the 8-bit limit,
+   excessively large score penalties fail minimap2.
+
+For genomic sequences, minimap2 should give identical alignments to v2.6.
+
+(2.7: 9 January 2018, r654)
+
+
+
+Release 2.6-r623 (12 December 2017)
+-----------------------------------
+
+This release adds several features and fixes two minor bugs:
+
+ * Optionally build an index without sequences. This helps to reduce the
+   peak memory for read overlapping and is automatically applied when
+   base-level alignment is not requested.
+
+ * Approximately estimate per-base sequence divergence (i.e. 1-identity)
+   without performing base-level alignment, using a MashMap-like method. The
+   estimate is written to a new dv:f tag.
+
+ * Reduced the number of tiny terminal exons in RNA-seq alignment. The current
+   setting is conservative. Increase --end-seed-pen to drop more such exons.
+
+ * Reduced the peak memory when aligning long query sequences.
+
+ * Fixed a bug that is caused by HPC minimizers longer than 256bp. This should
+   have no effect in practice, but it is recommended to rebuild HPC indices if
+   possible.
+
+ * Fixed a bug when identifying identical hits (#71). This should only affect
+   artifactual reference consisting of near identical sequences.
+
+For genomic sequences, minimap2 should give nearly identical alignments to
+v2.5, except the new dv:f tag.
+
+(2.6: 12 December 2017, r623)
+
+
+
 Release 2.5-r572 (11 November 2017)
 -----------------------------------
 

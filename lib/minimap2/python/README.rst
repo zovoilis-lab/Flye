@@ -81,10 +81,13 @@ This constructor accepts the following arguments:
 
 .. code:: python
 
-	mappy.Aligner.map(seq)
+	mappy.Aligner.map(seq, seq2=None)
 
 This method aligns :code:`seq` against the index. It is a generator, *yielding*
-a series of :code:`mappy.Alignment` objects.
+a series of :code:`mappy.Alignment` objects. If :code:`seq2` is present, mappy
+performs paired-end alignment, assuming the two ends are in the FR orientation.
+Alignments of the two ends can be distinguished by the :code:`read_num` field
+(see below).
 
 Class mappy.Alignment
 ~~~~~~~~~~~~~~~~~~~~~
@@ -118,6 +121,9 @@ properties:
 * **is_primary**: if the alignment is primary (typically the best and the first
   to generate)
 
+* **read_num**: read number that the alignment corresponds to; 1 for the first
+  read and 2 for the second read
+
 * **cigar_str**: CIGAR string
 
 * **cigar**: CIGAR returned as an array of shape :code:`(n_cigar,2)`. The two
@@ -133,8 +139,8 @@ the following format:
 It is effectively the PAF format without the QueryName and QueryLength columns
 (the first two columns in PAF).
 
-Function mappy.fastx_read
-~~~~~~~~~~~~~~~~~~~~~~~~~
+Miscellaneous Functions
+~~~~~~~~~~~~~~~~~~~~~~~
 
 .. code:: python
 
@@ -143,3 +149,11 @@ Function mappy.fastx_read
 This generator function opens a FASTA/FASTQ file and *yields* a
 :code:`(name,seq,qual)` tuple for each sequence entry. The input file may be
 optionally gzip'd.
+
+.. code:: python
+
+	mappy.revcomp(seq)
+
+Return the reverse complement of DNA string :code:`seq`. This function
+recognizes IUB code and preserves the letter cases. Uracil :code:`U` is
+complemented to :code:`A`.
