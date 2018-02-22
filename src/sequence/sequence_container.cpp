@@ -233,7 +233,7 @@ size_t SequenceContainer::readFastq(std::vector<FastaRecord>& record,
 			if (stateCounter == 0)
 			{
 				if (nextLine[0] != '@') throw ParseException("Fastq format error");
-				header = nextLine.substr(1);
+				header = nextLine;
 				this->validateHeader(header);
 			}
 			else if (stateCounter == 1)
