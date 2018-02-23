@@ -50,7 +50,7 @@ OverlapDetector::jumpTest(int32_t curPrev, int32_t curNext,
 			return J_CLOSE;
 		}
 
-		if (jumpDiv < jumpLength / FAR_JUMP)
+		if (jumpDiv < _maxJump / FAR_JUMP)
 		{
 			return J_FAR;
 		}

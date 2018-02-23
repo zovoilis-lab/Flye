@@ -29,7 +29,13 @@ struct FastaRecord
 		bool strand() const		//true = positive, false = negative
 			{return !(_id % 2);}
 		size_t hash() const 
-			{return 0x9ddfea08eb382d69ULL * (size_t)_id;}
+		{
+			size_t x = _id;
+			size_t z = (x += 0x9E3779B97F4A7C15ULL);
+			z = (z ^ (z >> 30)) * 0xBF58476D1CE4E5B9ULL;
+			z = (z ^ (z >> 27)) * 0x94D049BB133111EBULL;
+			return z ^ (z >> 31);
+		}
 		int signedId() const
 			{return (_id % 2) ? -((int)_id + 1) / 2 : (int)_id / 2 + 1;}
 
