@@ -13,22 +13,19 @@ import os
 from collections import defaultdict
 from threading import Thread
 
-import abruijn.bubbles as bbl
-import abruijn.fasta_parser as fp
-from abruijn.utils import which
-import abruijn.config as config
+import flye.bubbles as bbl
+import flye.fasta_parser as fp
+from flye.utils import which
+import flye.config as config
 
 
-POLISH_BIN = "abruijn-polish"
+POLISH_BIN = "flye-polish"
 
 logger = logging.getLogger()
 
 
 class PolishException(Exception):
     pass
-
-def get_root():
-    return os.path.dirname(__file__)
 
 
 def check_binaries():
@@ -45,11 +42,11 @@ def check_binaries():
 
 
 def polish(bubbles_file, num_proc, err_mode, work_dir, iter_id, out_polished):
-    _ROOT = get_root()
+    _ROOT = os.path.dirname(__file__)
 
-    subs_matrix = os.path.join(_ROOT, 'resource',
+    subs_matrix = os.path.join(_ROOT, "resource",
                                config.vals["err_modes"][err_mode]["subs_matrix"])
-    hopo_matrix = os.path.join(_ROOT, 'resource',
+    hopo_matrix = os.path.join(_ROOT, "resource",
                                config.vals["err_modes"][err_mode]["hopo_matrix"])
 
     consensus_out = os.path.join(work_dir, "consensus_{0}.fasta"

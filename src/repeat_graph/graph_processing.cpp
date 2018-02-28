@@ -13,7 +13,7 @@
 //all other simplification procedures
 void GraphProcessor::simplify()
 {
-	//this->trimTips();
+	this->trimTips();
 	this->condenceEdges();
 	this->fixChimericJunctions();
 	this->collapseBulges();
@@ -140,19 +140,34 @@ void GraphProcessor::collapseBulges()
 //Removing tips
 void GraphProcessor::trimTips()
 {
-	std::unordered_set<GraphNode*> toRemove;
+	const int TIP_THRESHOLD = Config::get("tip_length_threshold");
+	std::unordered_set<GraphEdge*> toRemove;
 	for (GraphEdge* tipEdge : _graph.iterEdges())
 	{
-		if (tipEdge->length() < _tipThreshold && tipEdge->isTip())
+		int rightOut = tipEdge->nodeRight->outEdges.size();
+		int leftIn = tipEdge->nodeLeft->inEdges.size();
+		int leftOut = tipEdge->nodeLeft->outEdges.size();
+
+		if (tipEdge->length() < TIP_THRESHOLD && rightOut == 0 &&
+			leftIn == 1 && leftOut == 2 &&
+			!tipEdge->nodeLeft->inEdges.front()->isLooped())
 		{
-			int leftDegree = tipEdge->nodeLeft->inEdges.size();
-			toRemove.insert(leftDegree == 0 ? tipEdge->nodeLeft : 
-							tipEdge->nodeRight);
+			toRemove.insert(tipEdge);
 		}
 	}
 
-	Logger::get().debug() << toRemove.size() << " tips removed";
-	for (auto& edge : toRemove)	_graph.removeNode(edge);
+	for (auto& edge : toRemove)
+	{
+		vecRemove(edge->nodeLeft->outEdges, edge);
+		edge->nodeLeft = _graph.addNode();
+		edge->nodeLeft->outEdges.push_back(edge);
+
+		GraphEdge* complEdge = _graph.complementEdge(edge);
+		vecRemove(complEdge->nodeRight->inEdges, complEdge);
+		complEdge->nodeRight = _graph.addNode();
+		complEdge->nodeRight->inEdges.push_back(complEdge);
+	}
+	Logger::get().debug() << toRemove.size() << " tips clipped";
 }
 
 //This function collapses non-branching edges paths in the graph.
@@ -260,6 +275,10 @@ void GraphProcessor::condenceEdges()
 			addedStr += std::to_string(addedEdge->edgeId.signedId()) + " -> ";
 		}
 
+		if (addedStr.size() > 4) addedStr.erase(addedStr.size() - 4);
+		Logger::get().debug() << "Collapsed: " << unbranchingPath.edgesStr() 
+			<< " to " << addedStr;
+
 		std::unordered_set<GraphEdge*> toRemove;
 		for (auto& edge : unbranchingPath.path) toRemove.insert(edge);
 		for (auto& edge : complPath) toRemove.insert(edge);
@@ -267,10 +286,6 @@ void GraphProcessor::condenceEdges()
 
 		edgesRemoved += unbranchingPath.path.size();
 		edgesAdded += newEdges.size();
-
-		if (addedStr.size() > 4) addedStr.erase(addedStr.size() - 4);
-		Logger::get().debug() << "Collapsed: " << unbranchingPath.edgesStr() 
-			<< " to " << addedStr;
 	}
 
 	Logger::get().debug() << "Removed " << edgesRemoved << " edges";

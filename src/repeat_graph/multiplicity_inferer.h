@@ -5,18 +5,24 @@
 #pragma once
 
 #include "repeat_graph.h"
+#include "read_aligner.h"
 
 //A simple class that assigns edges multiplicity based on the coverage
 //and copmutes the mean coverage of all edges
 class MultiplicityInferer
 {
 public:
-	MultiplicityInferer(RepeatGraph& graph):
-		_graph(graph), _uniqueCovThreshold(0), _meanCoverage(0) {}
+	MultiplicityInferer(RepeatGraph& graph, ReadAligner& aligner,
+						const SequenceContainer& asmSeqs, 
+						const SequenceContainer& readSeqs):
+		_graph(graph), _aligner(aligner), _asmSeqs(asmSeqs), 
+		_readSeqs(readSeqs), _uniqueCovThreshold(0), _meanCoverage(0) {}
 
-	void estimateCoverage(const std::vector<GraphAlignment>& readAln);
+	void estimateCoverage();
 	int  getMeanCoverage() const {return _meanCoverage;}
 	void removeUnsupportedEdges();
+	void removeUnsupportedConnections();
+	void separateHaplotypes();
 
 	//coverage threshold for an edge to be considered "unique"
 	int  getUniqueCovThreshold() const 	{return _uniqueCovThreshold;}
@@ -24,6 +30,9 @@ public:
 private:
 
 	RepeatGraph& _graph;
+	ReadAligner& _aligner;
+	const SequenceContainer& _asmSeqs;
+	const SequenceContainer& _readSeqs;
 	int _uniqueCovThreshold; 
 	int _meanCoverage;
 };

@@ -15,14 +15,14 @@ import logging
 import multiprocessing
 import ctypes
 
-import abruijn.fasta_parser as fp
-from abruijn.utils import which
-import abruijn.config as config
+import flye.fasta_parser as fp
+from flye.utils import which
+import flye.config as config
 
 
 logger = logging.getLogger()
-MINIMAP_BIN = "abruijn-minimap2"
-GRAPHMAP_BIN = "abruijn-graphmap"
+MINIMAP_BIN = "flye-minimap2"
+GRAPHMAP_BIN = "flye-graphmap"
 
 Alignment = namedtuple("Alignment", ["qry_id", "trg_id", "qry_start", "qry_end",
                                      "qry_sign", "qry_len", "trg_start",
@@ -142,7 +142,8 @@ class SynchronizedSamReader(object):
 
                 tokens = line.strip().split()
                 if len(tokens) < 11:
-                    raise AlignmentException("Error reading SAM file")
+                    continue
+                    #raise AlignmentException("Error reading SAM file")
 
                 read_contig = tokens[2]
                 flags = int(tokens[1])
@@ -261,27 +262,32 @@ def shift_gaps(seq_trg, seq_qry):
     return "".join(lst_qry[1 : -1])
 
 
-def _run_mapper(reference_file, reads_file, num_proc, platform, out_file, mapping_tool):
+def _run_mapper(reference_file, reads_files, num_proc, platform, out_file, mapping_tool):
     if mapping_tool == "minimap2":
-        cmdline = [MINIMAP_BIN, reference_file, reads_file, "-a", "-Q",
-                   "-w5", "-m100", "-g10000", "--max-chain-skip", "25",
-                   "-t", str(num_proc)]
+        cmdline = [MINIMAP_BIN, reference_file]
+        cmdline.extend(reads_files)
+        cmdline.extend(["-a", "-Q", "-w5", "-m100", "-g10000", "--max-chain-skip",
+                        "25", "-t", str(num_proc)])
         if platform == "nano":
             cmdline.append("-k15")
-        else:
-            cmdline.append("-Hk19")
+
     else:
-        cmdline = [GRAPHMAP_BIN, "align", "-r", reference_file, "-d", reads_file,
+        cmdline = [GRAPHMAP_BIN, "align", "-r", reference_file,
                    "-t", str(num_proc), "-b", "0", "-o", out_file]
+        for reads_file in reads_files:
+            cmdline.extend(["-d", reads_file])
         #FIXME: Find a way to output GraphMap sam without QValues (due to large SAM file this way)
-        # "-b 5" does output without QValues, but also headers will contain timing and stuff which breaks ABruijn on another spot
+        # "-b 5" does output without QValues, but also headers will contain timing and stuff 
+        #which breaks ABruijn on another spot
 
     try:
         devnull = open(os.devnull, "w")
+        logger.debug("Running: " + " ".join(cmdline))
         if mapping_tool == "minimap2":
-          subprocess.check_call(cmdline, stderr=devnull, stdout=open(out_file, "w"))          
+          subprocess.check_call(cmdline, stderr=devnull, stdout=open(out_file, "w"))
         else:
           subprocess.check_call(cmdline, stderr=devnull)
+
     except (subprocess.CalledProcessError, OSError) as e:
         if e.returncode == -9:
             logger.error("Looks like the system ran out of memory")

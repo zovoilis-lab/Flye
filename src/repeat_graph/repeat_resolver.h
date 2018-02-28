@@ -24,6 +24,7 @@ public:
 
 	void findRepeats();
 	void resolveRepeats();
+	void fixLongEdges();
 
 private:
 	struct Connection

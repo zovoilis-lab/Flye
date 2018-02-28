@@ -13,17 +13,19 @@ import logging
 import argparse
 import json
 import shutil
+import subprocess
 
-import abruijn.alignment as aln
-import abruijn.bubbles as bbl
-import abruijn.polish as pol
-import abruijn.fasta_parser as fp
-import abruijn.assemble as asm
-import abruijn.repeat_graph as repeat
-import abruijn.consensus as cons
-from abruijn.__version__ import __version__
-import abruijn.config as config
-
+import flye.alignment as aln
+import flye.bubbles as bbl
+import flye.polish as pol
+import flye.fasta_parser as fp
+import flye.assemble as asm
+import flye.repeat_graph as repeat
+import flye.consensus as cons
+import flye.scaffolder as scf
+from flye.__version__ import __version__
+import flye.config as config
+from flye.bytes2human import human2bytes
 
 logger = logging.getLogger()
 
@@ -86,7 +88,12 @@ class JobAssembly(Job):
     def run(self):
         if not os.path.isdir(self.assembly_dir):
             os.mkdir(self.assembly_dir)
-        asm.assemble(self.args, self.assembly_filename, self.log_file)
+        asm.assemble(self.args, self.assembly_filename, self.log_file,
+                     self.args.asm_config)
+        if os.path.getsize(self.assembly_filename) == 0:
+            raise asm.AssembleException("No contigs were assembled - "
+                                        "please check if the read type and genome "
+                                        "size parameters are correct")
 
 
 class JobRepeat(Job):
@@ -103,6 +110,8 @@ class JobRepeat(Job):
         assembly_graph = os.path.join(self.repeat_dir, "graph_final.dot")
         contigs_stats = os.path.join(self.repeat_dir, "contigs_stats.txt")
         self.out_files["contigs"] = contig_sequences
+        self.out_files["scaffold_links"] = os.path.join(self.repeat_dir,
+                                                        "scaffolds_links.txt")
         self.out_files["assembly_graph"] = assembly_graph
         self.out_files["stats"] = contigs_stats
 
@@ -111,13 +120,13 @@ class JobRepeat(Job):
             os.mkdir(self.repeat_dir)
         logger.info("Performing repeat analysis")
         repeat.analyse_repeats(self.args, self.in_assembly, self.repeat_dir,
-                               self.log_file)
+                               self.log_file, self.args.asm_config)
 
 
 class JobFinalize(Job):
     def __init__(self, args, work_dir, log_file,
                  contigs_file, graph_file, repeat_stats,
-                 polished_stats):
+                 polished_stats, scaffold_links):
         super(JobFinalize, self).__init__()
 
         self.args = args
@@ -127,65 +136,23 @@ class JobFinalize(Job):
         self.graph_file = graph_file
         self.repeat_stats = repeat_stats
         self.polished_stats = polished_stats
+        self.scaffold_links = scaffold_links
 
         self.out_files["contigs"] = os.path.join(work_dir, "contigs.fasta")
-        self.out_files["stats"] = os.path.join(work_dir, "contigs_info.txt")
+        self.out_files["scaffolds"] = os.path.join(work_dir, "scaffolds.fasta")
+        self.out_files["stats"] = os.path.join(work_dir, "assembly_info.txt")
         self.out_files["graph"] = os.path.join(work_dir, "assembly_graph.dot")
 
     def run(self):
         shutil.copy2(self.contigs_file, self.out_files["contigs"])
         shutil.copy2(self.graph_file, self.out_files["graph"])
 
-        contigs_length = {}
-        contigs_coverage = {}
-        repeat_stats = {}
-        table_lines = open(self.repeat_stats, "r").readlines()
-        header_line = table_lines[0]
-        for line in table_lines[1:]:
-            tokens = line.strip().split("\t")
-            repeat_stats[tokens[0]] = tokens[1:]
-            if self.polished_stats is None:
-                contigs_length[tokens[0]] = int(tokens[1])
-                contigs_coverage[tokens[0]] = int(tokens[2])
+        scaffolds = scf.generate_scaffolds(self.contigs_file, self.scaffold_links,
+                                           self.out_files["scaffolds"])
+        scf.generate_stats(self.repeat_stats, self.polished_stats, scaffolds,
+                           self.out_files["stats"])
 
-        if self.polished_stats is not None:
-            for line in open(self.polished_stats, "r").readlines()[1:]:
-                tokens = line.strip().split("\t")
-                contigs_length[tokens[0]] = int(tokens[1])
-                contigs_coverage[tokens[0]] = int(tokens[2])
-
-        all_contigs = sorted(contigs_length.keys(),
-                             key=lambda c: int(c.split("_")[1]))
-
-        with open(self.out_files["stats"], "w") as f:
-            f.write(header_line)
-            for ctg_id in all_contigs:
-                fields = repeat_stats[ctg_id]
-                fields[0] = str(contigs_length[ctg_id])
-                fields[1] = str(contigs_coverage[ctg_id])
-                f.write("{0}\t{1}\n".format(ctg_id, "\t".join(fields)))
-
-        total_length = sum(contigs_length.values())
-        if total_length > 0:
-            largest_len = contigs_length[max(contigs_length,
-                                             key=contigs_length.get)]
-            ctg_n50 = _calc_n50(contigs_length.values(), total_length)
-            mean_read_cov = 0
-            for ctg_id in contigs_coverage:
-                mean_read_cov += contigs_length[ctg_id] * contigs_coverage[ctg_id]
-            mean_read_cov /= total_length
-
-            logger.info("Assembly statistics:\n\n"
-                        "\tContigs:\t{0}\n"
-                        "\tTotal length:\t{1}\n"
-                        "\tContigs N50:\t{2}\n"
-                        "\tLargest contig:\t{3}\n"
-                        "\tMean coverage:\t{4}\n"
-                        .format(len(contigs_length), total_length,
-                                ctg_n50, largest_len, mean_read_cov))
-
-        logger.info("Done! your assembly is in {0} file"
-                    .format(self.out_files["contigs"]))
+        logger.info("Final assembly: {0}".format(self.out_files["scaffolds"]))
 
 
 class JobConsensus(Job):
@@ -285,7 +252,7 @@ class JobPolishing(Job):
             prev_assembly = polished_file
 
         with open(self.out_files["stats"], "w") as f:
-            f.write("contig_id\tlength\tcoverage\n")
+            f.write("seq_name\tlength\tcoverage\n")
             for ctg_id in contig_lengths:
                 f.write("{0}\t{1}\t{2}\n".format(ctg_id,
                         contig_lengths[ctg_id], coverage_stats[ctg_id]))
@@ -302,12 +269,14 @@ def _create_job_list(args, work_dir, log_file):
     draft_assembly = jobs[-1].out_files["assembly"]
 
     #Consensus
-    jobs.append(JobConsensus(args, work_dir, draft_assembly))
-    consensus_paths = jobs[-1].out_files["consensus"]
+    if args.read_type != "subasm":
+        jobs.append(JobConsensus(args, work_dir, draft_assembly))
+        draft_assembly = jobs[-1].out_files["consensus"]
 
     #Repeat analysis
-    jobs.append(JobRepeat(args, work_dir, log_file, consensus_paths))
+    jobs.append(JobRepeat(args, work_dir, log_file, draft_assembly))
     raw_contigs = jobs[-1].out_files["contigs"]
+    scaffold_links = jobs[-1].out_files["scaffold_links"]
     graph_file = jobs[-1].out_files["assembly_graph"]
     repeat_stats = jobs[-1].out_files["stats"]
 
@@ -321,62 +290,49 @@ def _create_job_list(args, work_dir, log_file):
 
     #Report results
     jobs.append(JobFinalize(args, work_dir, log_file, contigs_file,
-                            graph_file, repeat_stats, polished_stats))
+                            graph_file, repeat_stats, polished_stats,
+                            scaffold_links))
 
     return jobs
 
 
-def _get_kmer_size(args):
-    """
-    Select k-mer size based on the target genome size
-    """
-    multiplier = 1
-    suffix = args.reads.rsplit(".")[-1]
-    if suffix == "gz":
-        suffix = args.reads.rsplit(".")[-2]
-        multiplier = 2
-
-    if suffix in ["fasta", "fa"]:
-        reads_size = os.path.getsize(args.reads) * multiplier
-    elif suffix in ["fastq", "fq"]:
-        reads_size = os.path.getsize(args.reads) * multiplier / 2
+def _set_kmer_size(args):
+    if args.genome_size.isdigit():
+        args.genome_size = int(args.genome_size)
     else:
-        raise ResumeException("Uknown input reads format: " + suffix)
+        args.genome_size = human2bytes(args.genome_size.upper())
 
-    genome_size = reads_size / args.coverage
-    logger.debug("Estimated genome size: {0}".format(genome_size))
-    kmer_size = 15
-    if genome_size > config.vals["big_genome"]:
-        kmer_size = 17
-    logger.debug("Chosen k-mer size: {0}".format(kmer_size))
-    return kmer_size
+    logger.debug("Genome size: {0}".format(args.genome_size))
+    #args.kmer_size = config.vals["small_kmer"]
+    #if args.genome_size > config.vals["big_genome"]:
+    #    args.kmer_size = config.vals["big_kmer"]
+    #logger.debug("Chosen k-mer size: {0}".format(args.kmer_size))
+
+
+def _set_read_attributes(args):
+    root = os.path.dirname(__file__)
+    if args.read_type == "raw":
+        args.asm_config = os.path.join(root, "resource", config.vals["raw_cfg"])
+    elif args.read_type == "corrected":
+        args.asm_config = os.path.join(root, "resource",
+                                       config.vals["corrected_cfg"])
+    elif args.read_type == "subasm":
+        args.asm_config = os.path.join(root, "resource", config.vals["subasm_cfg"])
 
 
 def _run(args):
     """
     Runs the pipeline
     """
-    if not os.path.isdir(args.out_dir):
-        os.mkdir(args.out_dir)
-    work_dir = os.path.abspath(args.out_dir)
+    logger.info("Running Flye " + _version())
+    logger.debug("Cmd: {0}".format(" ".join(sys.argv)))
 
-    log_file = os.path.join(work_dir, "abruijn.log")
-    _enable_logging(log_file, args.debug,
-                    overwrite=not args.resume and not args.resume_from)
+    for read_file in args.reads:
+        if not os.path.exists(read_file):
+            raise ResumeException("Can't open " + read_file)
 
-    logger.info("Running ABruijn")
-    aln.check_binaries()
-    pol.check_binaries()
-    asm.check_binaries()
-
-    if not os.path.exists(args.reads):
-        raise ResumeException("Can't open " + args.reads)
-
-    if args.kmer_size is None:
-        args.kmer_size = _get_kmer_size(args)
-
-    save_file = os.path.join(work_dir, "abruijn.save")
-    jobs = _create_job_list(args, work_dir, log_file)
+    save_file = os.path.join(args.out_dir, "flye.save")
+    jobs = _create_job_list(args, args.out_dir, args.log_file)
 
     current_job = 0
     if args.resume or args.resume_from:
@@ -432,15 +388,38 @@ def _enable_logging(log_file, debug, overwrite):
     logger.addHandler(file_handler)
 
 
-def _calc_n50(scaffolds_lengths, assembly_len):
-    n50 = 0
-    sum_len = 0
-    for l in sorted(scaffolds_lengths, reverse=True):
-        sum_len += l
-        if sum_len > assembly_len / 2:
-            n50 = l
-            break
-    return n50
+def _usage():
+    return ("flye (--pacbio-raw | --pacbio-corr | --nano-raw |\n"
+            "\t     --nano-corr | --subassemblies) file1 [file_2 ...]\n"
+            "\t     --genome-size size --out-dir dir_path [--threads int]\n"
+            "\t     [--iterations int] [--min-overlap int] [--resume]\n"
+            "\t     [--debug] [--version] [--help]")
+
+
+def _epilog():
+    return ("Input reads could be in FASTA or FASTQ format, uncompressed\n"
+            "or compressed with gz. Currenlty, raw and corrected reads\n"
+            "from PacBio and ONT are supported. Additionally, --subassemblies\n"
+            "option does a consensus assembly of high-quality input contigs.\n"
+            "You may specify multiple fles with reads (separated by spaces).\n"
+            "Mixing different read types is not yet supported.\n\n"
+            "You must provide an estimate of the genome size as input,\n"
+            "which is used for solid k-mers selection. The estimate could\n"
+            "be rough (e.g. withing 0.5x-2x range) and does not affect\n"
+            "the other assembly stages. Standard size modificators are\n"
+            "supported (e.g. 5m or 2.6g)")
+
+
+def _version():
+    repo_root = os.path.dirname((os.path.dirname(__file__)))
+    try:
+        git_label = subprocess.check_output(["git", "-C", repo_root, "describe"],
+                                            stderr=open(os.devnull, "w"))
+        commit_id = git_label.strip("\n").rsplit("-", 1)[-1]
+        return __version__ + "-" + commit_id
+    except (subprocess.CalledProcessError, OSError):
+        pass
+    return __version__ + "-release"
 
 
 def main():
@@ -453,57 +432,108 @@ def main():
             raise argparse.ArgumentTypeError("should be an odd number")
         return ival
 
-    parser = argparse.ArgumentParser(description="ABruijn: assembly of long and"
-                                     " error-prone reads")
+    parser = argparse.ArgumentParser \
+        (description="Assembly of long and error-prone reads",
+         formatter_class=argparse.RawDescriptionHelpFormatter,
+         usage=_usage(), epilog=_epilog())
 
-    parser.add_argument("reads", metavar="reads",
-                        help="path to reads file (FASTA/Q format)")
-    parser.add_argument("out_dir", metavar="out_dir",
-                        help="output directory")
-    parser.add_argument("coverage", metavar="coverage (integer)",
-                        type=lambda v: check_int_range(v, 1, 1000),
-                        help="estimated assembly coverage")
-    parser.add_argument("--debug", action="store_true",
-                        dest="debug", default=False,
-                        help="enable debug output")
-    parser.add_argument("--resume", action="store_true",
-                        dest="resume", default=False,
-                        help="resume from the last completed stage")
-    parser.add_argument("--resume-from", dest="resume_from",
-                        default=None, help="resume from a custom stage")
+    read_group = parser.add_mutually_exclusive_group(required=True)
+    read_group.add_argument("--pacbio-raw", dest="pacbio_raw",
+                        default=None, metavar="path", nargs="+",
+                        help="PacBio raw reads")
+    read_group.add_argument("--pacbio-corr", dest="pacbio_corrected",
+                        default=None, metavar="path", nargs="+",
+                        help="PacBio corrected reads")
+    read_group.add_argument("--nano-raw", dest="nano_raw", nargs="+",
+                        default=None, metavar="path",
+                        help="ONT raw reads")
+    read_group.add_argument("--nano-corr", dest="nano_corrected", nargs="+",
+                        default=None, metavar="path",
+                        help="ONT corrected reads")
+    read_group.add_argument("--subassemblies", dest="subassemblies", nargs="+",
+                        default=None, metavar="path",
+                        help="high-quality contig-like input")
+
+    parser.add_argument("-g", "--genome-size", dest="genome_size",
+                        metavar="size", required=True,
+                        help="estimated genome size (for example, 5m or 2.6g)")
+    parser.add_argument("-o", "--out-dir", dest="out_dir",
+                        default=None, required=True,
+                        metavar="path", help="Output directory")
+
     parser.add_argument("-t", "--threads", dest="threads",
                         type=lambda v: check_int_range(v, 1, 128),
-                        default=1, help="number of parallel threads "
+                        default=1, metavar="int", help="number of parallel threads "
                         "(default: 1)")
     parser.add_argument("-i", "--iterations", dest="num_iters",
                         type=lambda v: check_int_range(v, 0, 10),
                         default=1, help="number of polishing iterations "
-                        "(default: 1)")
-    parser.add_argument("-p", "--platform", dest="platform",
-                        default="pacbio",
-                        choices=["pacbio", "nano", "pacbio_hi_err"],
-                        help="sequencing platform (default: pacbio)")
-    parser.add_argument("-k", "--kmer-size", dest="kmer_size",
-                        type=lambda v: check_int_range(v, 11, 31, require_odd=True),
-                        default=None, help="kmer size (default: auto)")
-    parser.add_argument("-o", "--min-overlap", dest="min_overlap",
-                        type=lambda v: check_int_range(v, 2000, 10000),
+                        "(default: 1)", metavar="int")
+    parser.add_argument("-m", "--min-overlap", dest="min_overlap", metavar="int",
+                        type=lambda v: check_int_range(v, 1000, 10000),
                         default=5000, help="minimum overlap between reads "
                         "(default: 5000)")
-    parser.add_argument("-m", "--min-coverage", dest="min_kmer_count",
-                        type=lambda v: check_int_range(v, 1, 1000),
-                        default=None, help="minimum kmer coverage "
-                        "(default: auto)")
-    parser.add_argument("-x", "--max-coverage", dest="max_kmer_count",
-                        type=lambda v: check_int_range(v, 1, 1000),
-                        default=None, help="maximum kmer coverage "
-                        "(default: auto)")
+    parser.add_argument("--resume", action="store_true",
+                        dest="resume", default=False,
+                        help="resume from the last completed stage")
+    parser.add_argument("--resume-from", dest="resume_from", metavar="stage_name",
+                        default=None, help="resume from a custom stage")
     parser.add_argument("--mapper", dest="mapping_tool",
                         default="minimap2",
                         choices=["minimap2", "graphmap"],
                         help="mapping tool (default: minimap2)")
-    parser.add_argument("--version", action="version", version=__version__)
+    #parser.add_argument("--kmer-size", dest="kmer_size",
+    #                    type=lambda v: check_int_range(v, 11, 31, require_odd=True),
+    #                    default=None, help="kmer size (default: auto)")
+    #parser.add_argument("--min-coverage", dest="min_kmer_count",
+    #                    type=lambda v: check_int_range(v, 1, 1000),
+    #                    default=None, help="minimum kmer coverage "
+    #                    "(default: auto)")
+    #parser.add_argument("--max-coverage", dest="max_kmer_count",
+    #                    type=lambda v: check_int_range(v, 1, 1000),
+    #                    default=None, help="maximum kmer coverage "
+    #                    "(default: auto)")
+    parser.add_argument("--debug", action="store_true",
+                        dest="debug", default=False,
+                        help="enable debug output")
+    parser.add_argument("-v", "--version", action="version", version=_version())
     args = parser.parse_args()
+
+    if args.pacbio_raw:
+        args.reads = args.pacbio_raw
+        args.platform = "pacbio"
+        args.read_type = "raw"
+    if args.pacbio_corrected:
+        args.reads = args.pacbio_corrected
+        args.platform = "pacbio"
+        args.read_type = "corrected"
+    if args.nano_raw:
+        args.reads = args.nano_raw
+        args.platform = "nano"
+        args.read_type = "raw"
+    if args.nano_corrected:
+        args.reads = args.nano_corrected
+        args.platform = "nano"
+        args.read_type = "corrected"
+    if args.subassemblies:
+        args.reads = args.subassemblies
+        args.platform = "subasm"
+        args.read_type = "subasm"
+
+    if not os.path.isdir(args.out_dir):
+        os.mkdir(args.out_dir)
+    args.out_dir = os.path.abspath(args.out_dir)
+
+    args.log_file = os.path.join(args.out_dir, "flye.log")
+    _enable_logging(args.log_file, args.debug,
+                    overwrite=not args.resume and not args.resume_from)
+
+    aln.check_binaries()
+    pol.check_binaries()
+    asm.check_binaries()
+
+    _set_kmer_size(args)
+    _set_read_attributes(args)
 
     try:
         _run(args)

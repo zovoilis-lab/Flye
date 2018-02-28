@@ -167,8 +167,8 @@ struct OverlapRange
 
 	int32_t leftShift;
 	int32_t rightShift;
-	int32_t score;
 
+	int32_t score;
 	std::vector<std::pair<int32_t, int32_t>> kmerMatches;
 };
 
@@ -187,7 +187,8 @@ public:
 		_keepAlignment(keepAlignment),
 		_vertexIndex(vertexIndex),
 		_seqContainer(seqContainer)
-	{}
+	{
+	}
 
 	std::vector<OverlapRange> 
 	getSeqOverlaps(const FastaRecord& fastaRec, bool uniqueExtensions) const;
@@ -228,8 +229,8 @@ public:
 	typedef std::unordered_map<FastaRecord::Id, 
 					   std::vector<OverlapRange>> OverlapIndex;
 
-	void saveOverlaps(const std::string& filename);
-	void loadOverlaps(const std::string& filename);
+	//void saveOverlaps(const std::string& filename);
+	//void loadOverlaps(const std::string& filename);
 
 	void findAllOverlaps();
 	std::vector<OverlapRange> seqOverlaps(FastaRecord::Id readId) const;

@@ -56,20 +56,27 @@ std::vector<FastaRecord> OutputGenerator::
 			}
 			if (bestSegment->length() == 0) continue;
 
-			auto& sequence = (!bestSegment->readSequence) ? 
-							  _asmSeqs.getSeq(bestSegment->seqId) :
-							  _readSeqs.getSeq(bestSegment->seqId);
+			DnaSequence sequence;
+			switch (bestSegment->segType)
+			{
+				case SequenceSegment::Asm:
+					sequence = _asmSeqs.getSeq(bestSegment->seqId);
+					break;
+				case SequenceSegment::Read:
+					sequence = _readSeqs.getSeq(bestSegment->seqId);
+					break;
+			}
 
 			//make the consecutive sequences overlapping if possible,
 			//so the consensus module can correct possibly imprecise
 			//ends of the edges sequences
-			int32_t leftFlank = std::min(Constants::maxSeparation,
+			int32_t leftFlank = std::min((int32_t)Config::get("max_separation"),
 										 bestSegment->start);
 			if (i == 0) 
 			{
 				leftFlank = 0;
 			}
-			int32_t rightFlank = std::min(Constants::maxSeparation,
+			int32_t rightFlank = std::min((int32_t)Config::get("max_separation"),
 										  (int32_t)sequence.length() - 
 										  		bestSegment->end);
 			if (i == contig.path.size() - 1) 
@@ -373,11 +380,13 @@ void OutputGenerator::outputDot(const std::vector<UnbranchingPath>& paths,
 		if (contig.repetitive)
 		{
 			std::string color = edgeColors[contig.path.front()];
+			std::string direction = contig.path.front()->selfComplement ?
+									", dir = both" : "";
 			fout << "\"" << nodeToId(contig.path.front()->nodeLeft) 
 				 << "\" -> \"" << nodeToId(contig.path.back()->nodeRight)
 				 << "\" [label = \"id " << contig.id.signedId() << 
 				 "\\l" << lengthStr.str() << "\", color = \"" 
-				 << color << "\" " << " penwidth = 3] ;\n";
+				 << color << "\" " << ", penwidth = 3" << direction << "] ;\n";
 		}
 		else
 		{

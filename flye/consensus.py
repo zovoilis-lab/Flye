@@ -12,9 +12,9 @@ from itertools import izip
 import multiprocessing
 import signal
 
-from abruijn.alignment import shift_gaps, SynchronizedSamReader
-import abruijn.config as config
-import abruijn.fasta_parser as fp
+from flye.alignment import shift_gaps, SynchronizedSamReader
+import flye.config as config
+import flye.fasta_parser as fp
 
 logger = logging.getLogger()
 
@@ -45,8 +45,8 @@ def _thread_worker(aln_reader, contigs_info, platform, results_queue,
         error_queue.put(e)
 
 
-def get_consensus(alignment_path, contigs_path, contigs_info, min_aln_length,
-                  platform, num_proc):
+def get_consensus(alignment_path, contigs_path, contigs_info, num_proc,
+                  platform, min_aln_length):
     """
     Main function
     """

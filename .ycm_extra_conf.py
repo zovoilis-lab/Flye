@@ -47,7 +47,7 @@ flags = [
 '-Isrc/include',
 '-Ilib/libcuckoo',
 '-Ilib/interval_tree',
-'-Ilib/lemon-1.3.1/install/include',
+'-Ilib/lemon',
 # ...and the same thing goes for the magic -x option which specifies the
 # language that the files to be compiled are written in. This is mostly
 # relevant for c++ headers.

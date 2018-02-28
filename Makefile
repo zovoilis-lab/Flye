@@ -17,19 +17,18 @@ export LDFLAGS = -lz
 .DEFAULT_GOAL := all
 
 
-${BIN_DIR}/abruijn-minimap2:
+${BIN_DIR}/flye-minimap2:
 	make -C ${MINIMAP2_DIR}
-	cp ${MINIMAP2_DIR}/minimap2 ${BIN_DIR}/abruijn-minimap2
-	
+	cp ${MINIMAP2_DIR}/minimap2 ${BIN_DIR}/flye-minimap2
 
-${BIN_DIR}/abruijn-graphmap:
+${BIN_DIR}/flye-graphmap:
 	make modules -C ${GRAPHMAP_DIR}
 	make -C ${GRAPHMAP_DIR}
-	cp ${GRAPHMAP_BIN}/graphmap ${BIN_DIR}/abruijn-graphmap
+	cp ${GRAPHMAP_BIN}/graphmap ${BIN_DIR}/flye-graphmap
 
-minimap2: ${BIN_DIR}/abruijn-minimap2
+minimap2: ${BIN_DIR}/flye-minimap2
 
-graphmap: ${BIN_DIR}/abruijn-graphmap
+graphmap: ${BIN_DIR}/flye-graphmap
 
 init:
 	git submodule init
@@ -45,5 +44,5 @@ clean:
 	make clean -C src
 	make clean -C ${MINIMAP2_DIR}
 	make clean -C ${GRAPHMAP_DIR}	
-	rm ${BIN_DIR}/abruijn-minimap2
-	rm ${BIN_DIR}/abruijn-graphmap
+	rm ${BIN_DIR}/flye-minimap2
+	rm ${BIN_DIR}/flye-graphmap

@@ -33,20 +33,23 @@ OverlapDetector::JumpRes
 OverlapDetector::jumpTest(int32_t curPrev, int32_t curNext,
 						  int32_t extPrev, int32_t extNext) const
 {
+	static const int CLOSE_JUMP = Config::get("close_jump_rate");
+	static const int FAR_JUMP = Config::get("far_jump_rate");
+
 	if (curNext - curPrev > _maxJump) return J_END;
 
 	if (0 < curNext - curPrev && curNext - curPrev < _maxJump &&
 		0 < extNext - extPrev && extNext - extPrev < _maxJump)
 	{
 		if (abs((curNext - curPrev) - (extNext - extPrev)) 
-				< _maxJump / Constants::closeJumpRate &&
+				< _maxJump / CLOSE_JUMP &&
 			curNext - curPrev < _gapSize)
 		{
 			return J_CLOSE;
 		}
 
 		if (abs((curNext - curPrev) - (extNext - extPrev)) 
-			< _maxJump / Constants::farJumpRate)
+			< _maxJump / FAR_JUMP)
 		{
 			return J_FAR;
 		}
@@ -58,7 +61,7 @@ OverlapDetector::jumpTest(int32_t curPrev, int32_t curNext,
 //Check if it is a proper overlap
 bool OverlapDetector::overlapTest(const OverlapRange& ovlp) const
 {
-
+	static const int OVLP_DIVERGENCE = Config::get("overlap_divergence_rate");
 	if (ovlp.curRange() < _minOverlap || 
 		ovlp.extRange() < _minOverlap) 
 	{
@@ -67,7 +70,7 @@ bool OverlapDetector::overlapTest(const OverlapRange& ovlp) const
 
 	float lengthDiff = abs(ovlp.curRange() - ovlp.extRange());
 	float meanLength = (ovlp.curRange() + ovlp.extRange()) / 2.0f;
-	if (lengthDiff > meanLength / Constants::overlapDivergenceRate)
+	if (lengthDiff > meanLength / OVLP_DIVERGENCE)
 	{
 		return false;
 	}
@@ -86,6 +89,7 @@ bool OverlapDetector::overlapTest(const OverlapRange& ovlp) const
 		}
 	}
 
+	
 	return true;
 }
 
@@ -97,7 +101,6 @@ namespace
 		DPRecord(const OverlapRange& ovlp): ovlp(ovlp) {}
 
 		OverlapRange ovlp;
-		//int score;
 		std::vector<int32_t> shifts;
 	};
 }
@@ -111,7 +114,7 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 	std::unordered_map<FastaRecord::Id, 
 					   std::vector<DPRecord>> completedPaths;
 	std::set<size_t> eraseMarks;
-	size_t curLen = fastaRec.sequence.length();
+	int32_t curLen = fastaRec.sequence.length();
 
 	//for all kmers in this read
 	for (auto curKmerPos : IterKmers(fastaRec.sequence))
@@ -127,8 +130,8 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 			if (extReadPos.readId == fastaRec.id &&
 				extReadPos.position == curPos) continue;
 
-			size_t extLen = _seqContainer.seqLen(extReadPos.readId);
-			if (extLen < (size_t)_minOverlap) continue;
+			int32_t extLen = _seqContainer.seqLen(extReadPos.readId);
+			if (extLen < (int32_t)_minOverlap) continue;
 
 			int32_t extPos = extReadPos.position;
 			auto& extPaths = activePaths[extReadPos.readId];
@@ -148,9 +151,9 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 					this->jumpTest(extPaths[pathId].ovlp.curEnd, curPos,
 								   extPaths[pathId].ovlp.extEnd, extPos);
 
+				static const int PENALTY_WND = Config::get("penalty_window");
 				int32_t jumpLength = curPos - extPaths[pathId].ovlp.curEnd;
-				int32_t gapScore = -(jumpLength - _gapSize) / 
-										Constants::penaltyWindow;
+				int32_t gapScore = -(jumpLength - _gapSize) / PENALTY_WND;
 				if (jumpLength < _gapSize) gapScore = 1;
 
 				int32_t jumpScore = extPaths[pathId].ovlp.score + gapScore;
@@ -194,10 +197,15 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 				extPaths[maxCloseId].ovlp.extEnd = extPos;
 				extPaths[maxCloseId].ovlp.score = maxCloseScore;
 				extPaths[maxCloseId].shifts.push_back(curPos - extPos);
+
 				if (_keepAlignment)
 				{
-					extPaths[maxCloseId].ovlp.kmerMatches
-										.emplace_back(curPos, extPos);
+					auto& kmerMatches = extPaths[maxCloseId].ovlp.kmerMatches;
+					if (kmerMatches.empty() || curPos - kmerMatches.back().first > 
+											   (int32_t)Parameters::get().kmerSize)
+					{
+						kmerMatches.emplace_back(curPos, extPos);
+					}
 				}
 			}
 			//update the best far extension, keep the old path as a copy
@@ -208,16 +216,21 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 				extPaths.back().ovlp.extEnd = extPos;
 				extPaths.back().ovlp.score = maxFarScore;
 				extPaths.back().shifts.push_back(curPos - extPos);
+
 				if (_keepAlignment)
 				{
-					extPaths.back().ovlp.kmerMatches
-										.emplace_back(curPos, extPos);
+					auto& kmerMatches = extPaths.back().ovlp.kmerMatches;
+					if (kmerMatches.empty() || curPos - kmerMatches.back().first > 
+											   (int32_t)Parameters::get().kmerSize)
+					{
+						kmerMatches.emplace_back(curPos, extPos);
+					}
 				}
 			}
 			//if no extensions possible (or there are no active paths), start a new path
 			if (!extendsClose && !extendsFar &&
 				(this->goodStart(curPos, extPos, curLen, extLen) ||
-				fastaRec.id == extReadPos.readId.rc()))	//TODO: temporary bypass overhang
+				fastaRec.id == extReadPos.readId.rc()))	//FIXME: temporary bypass overhang
 			{
 				OverlapRange ovlp(fastaRec.id, extReadPos.readId,
 								  curPos, extPos, curLen, extLen);
@@ -244,6 +257,7 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 			}
 		}
 	}
+
 	//leave only one overlap for each starting position
 	for (auto& ap : completedPaths)
 	{
@@ -261,11 +275,11 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 		ap.second.clear();
 		for (auto& maxDp : maxByStart) ap.second.push_back(maxDp.second);
 	}
-	
+
 	std::vector<OverlapRange> detectedOverlaps;
 	for (auto& ap : completedPaths)
 	{
-		size_t extLen = _seqContainer.seqLen(ap.first);
+		int32_t extLen = _seqContainer.seqLen(ap.first);
 		DPRecord* maxRecord = nullptr;
 		bool passedTest = false;
 		for (auto& dpRec : ap.second)
@@ -296,7 +310,6 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 	}
 
 	return detectedOverlaps;
-
 }
 
 std::vector<OverlapRange>
@@ -453,7 +466,7 @@ void OverlapContainer::filterOverlaps()
 }
 
 
-void OverlapContainer::saveOverlaps(const std::string& filename)
+/*void OverlapContainer::saveOverlaps(const std::string& filename)
 {
 	std::ofstream fout(filename);
 	if (!fout.is_open())
@@ -487,7 +500,7 @@ void OverlapContainer::loadOverlaps(const std::string& filename)
 		ovlp.unserialize(buffer);
 		_overlapIndex[ovlp.curId].push_back(ovlp);
 	}
-}
+}*/
 
 void OverlapContainer::buildIntervalTree()
 {

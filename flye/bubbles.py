@@ -14,9 +14,9 @@ import math
 import multiprocessing
 import signal
 
-import abruijn.fasta_parser as fp
-import abruijn.config as config
-from abruijn.alignment import shift_gaps, SynchronizedSamReader
+import flye.fasta_parser as fp
+import flye.config as config
+from flye.alignment import shift_gaps, SynchronizedSamReader
 
 
 logger = logging.getLogger()

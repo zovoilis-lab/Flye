@@ -30,7 +30,7 @@ void ContigExtender::generateUnbranchingPaths()
 }
 
 
-void ContigExtender::generateContigs()
+void ContigExtender::generateContigs(bool graphContinue)
 {
 	OutputGenerator outGen(_graph, _aligner, _asmSeqs, _readSeqs);
 	auto coreSeqs = outGen.generatePathSequences(_unbranchingPaths);
@@ -50,15 +50,16 @@ void ContigExtender::generateContigs()
 	std::unordered_map<const GraphEdge*, bool> repeatDirections;
 	auto canTraverse = [&repeatDirections] (const GraphEdge* edge)
 	{
-		return edge->selfComplement || 
-			   !repeatDirections.count(edge) || 
+		if (edge->isLooped() && edge->selfComplement) return false;
+		return !repeatDirections.count(edge) || 
 			   repeatDirections.at(edge);
 	};
 
 	typedef std::pair<GraphPath, std::string> PathAndSeq;
 	auto extendPathRight =
 		[this, &coveredRepeats, &repeatDirections, &upathsSeqs, 
-		 &canTraverse, &interestingAlignments] (UnbranchingPath& upath)
+		 &canTraverse, &interestingAlignments, graphContinue] 
+	(UnbranchingPath& upath)
 	{
 
 		bool extendFwd = !upath.path.back()->nodeRight->outEdges.empty();
@@ -95,46 +96,60 @@ void ContigExtender::generateContigs()
 		}
 		if (maxExtension == 0) return PathAndSeq();
 
-		//record repeat directions
-		for (auto& aln : bestAlignment)
-		{
-			repeatDirections[aln.edge] = true;
-			repeatDirections[_graph.complementEdge(aln.edge)] = false;
-			coveredRepeats.insert(aln.edge);
-			coveredRepeats.insert(_graph.complementEdge(aln.edge));
-		}
+		auto upathAln = this->asUpathAlignment(bestAlignment);
+		auto lastUpath = upathAln.back().upath;
+		int32_t overhang = upathsSeqs[lastUpath]->sequence.length() - 
+						   upathAln.back().aln.back().overlap.curEnd + 
+						   upathAln.back().aln.front().overlap.curBegin;
+		bool lastIncomplete = overhang > (int)Config::get("max_separation");
+		Logger::get().debug() << "Ctg " << upath.id.signedId() <<
+			" overhang " << overhang << " upath " << lastUpath->id.signedId();
 
-		GraphPath extendedPath;
-		for (auto& aln : bestAlignment) extendedPath.push_back(aln.edge);
+		for (size_t i = 0; i < upathAln.size(); ++i)
+		{
+			//in case we don't extend using graph structure,
+			//dont mark the last upath as covered if it is
+			//incomplete
+			if (i == upathAln.size() - 1 && 
+				lastIncomplete && !graphContinue) break;
+
+			for (auto& aln : upathAln[i].aln)
+			{
+				repeatDirections[aln.edge] = true;
+				repeatDirections[_graph.complementEdge(aln.edge)] = false;
+				coveredRepeats.insert(aln.edge);
+				coveredRepeats.insert(_graph.complementEdge(aln.edge));
+			}
+		}
 
 		//generate extension sequence
 		std::string extendedSeq;
-		if (!bestAlignment.empty())
+		if (lastIncomplete && graphContinue && !lastUpath->isLoop())
 		{
-			auto lastUpath = this->asUPaths({bestAlignment.back().edge}).front();
-			int32_t overhang = bestAlignment.back().overlap.extLen - 
-							   bestAlignment.back().overlap.extEnd;
-
-			Logger::get().debug() << "Ctg " << upath.id.signedId() <<
-				" overhang " << overhang << " upath " << lastUpath->id.signedId();
-			if (overhang > Constants::maxSeparation && !lastUpath->isLoop())
-			{
-				bestAlignment.pop_back();
-			}
-			if (!bestAlignment.empty())
-			{
-				FastaRecord::Id readId = bestAlignment.front().overlap.curId;
-				int32_t readStart = bestAlignment.front().overlap.curBegin;
-				int32_t readEnd = bestAlignment.back().overlap.curEnd;
-				extendedSeq = _readSeqs.getSeq(readId)
-					.substr(readStart, readEnd - readStart).str();
-			}
-			if (overhang > Constants::maxSeparation && !lastUpath->isLoop())
-			{
-				extendedSeq += upathsSeqs[lastUpath]->sequence.str();
-			}
+			upathAln.pop_back();
+		}
+		if (!upathAln.empty())
+		{
+			FastaRecord::Id readId = bestAlignment.front().overlap.curId;
+			int32_t readStart = upathAln.front().aln.front().overlap.curBegin;
+			int32_t readEnd = upathAln.back().aln.back().overlap.curEnd;
+			extendedSeq = _readSeqs.getSeq(readId)
+				.substr(readStart, readEnd - readStart).str();
+		}
+		if (lastIncomplete && graphContinue && !lastUpath->isLoop())
+		{
+			extendedSeq += upathsSeqs[lastUpath]->sequence.str();
 		}
 		
+		GraphPath extendedPath;
+		for (auto& ualn : upathAln)
+		{
+			for (auto& edgeAln : ualn.aln) extendedPath.push_back(edgeAln.edge);
+		}
+		if (lastIncomplete && graphContinue && !lastUpath->isLoop())
+		{
+			for (auto& edge : lastUpath->path) extendedPath.push_back(edge);
+		}
 		return PathAndSeq(extendedPath, extendedSeq);
 	};
 
@@ -155,25 +170,30 @@ void ContigExtender::generateContigs()
 		leftExt.second = DnaSequence(leftExt.second).complement().str();
 
 		Contig contig(upath);
-		auto leftPaths = this->asUPaths(leftExt.first);
-		auto rightPaths = this->asUPaths(rightExt.first);
+		auto leftPaths = this->asUpaths(leftExt.first);
+		auto rightPaths = this->asUpaths(rightExt.first);
+
+		GraphPath leftEdges;
 		for (auto& path : leftPaths)
 		{
-			for (auto& edge : path->path)
-			{
-				contig.graphEdges.path.insert(contig.graphEdges.path.end() - 1, 
-											  edge);
-			}
-			contig.graphPaths.insert(contig.graphPaths.end() - 1, path);
+			leftEdges.insert(leftEdges.end(), path->path.begin(), 
+						     path->path.end());
 		}
+		contig.graphEdges.path.insert(contig.graphEdges.path.begin(), 
+								      leftEdges.begin(), leftEdges.end());
+		contig.graphPaths.insert(contig.graphPaths.begin(), 
+								 leftPaths.begin(), leftPaths.end());
+
+		GraphPath rightEdges;
 		for (auto& path : rightPaths)
 		{
-			for (auto& edge : path->path)
-			{
-				contig.graphEdges.path.push_back(edge);
-			}
-			contig.graphPaths.push_back(path);
+			rightEdges.insert(rightEdges.end(), path->path.begin(), 
+						      path->path.end());
 		}
+		contig.graphEdges.path.insert(contig.graphEdges.path.end(), 
+								      rightEdges.begin(), rightEdges.end());
+		contig.graphPaths.insert(contig.graphPaths.end(), 
+								 rightPaths.begin(), rightPaths.end());
 
 		auto coreSeq = upathsSeqs[&upath]->sequence.str();
 		contig.sequence = DnaSequence(leftExt.second + coreSeq + rightExt.second);
@@ -200,7 +220,7 @@ void ContigExtender::generateContigs()
 		else
 		{
 			++numCovered;
-			Logger::get().debug() << "Covered: " << upath.id.signedId();
+			//Logger::get().debug() << "Covered: " << upath.id.signedId();
 		}
 	}
 
@@ -208,7 +228,7 @@ void ContigExtender::generateContigs()
 	Logger::get().info() << "Generated " << _contigs.size() << " contigs";
 }
 
-std::vector<UnbranchingPath*> ContigExtender::asUPaths(const GraphPath& path)
+std::vector<UnbranchingPath*> ContigExtender::asUpaths(const GraphPath& path)
 {
 	std::vector<UnbranchingPath*> upathRepr;
 	for (size_t i = 0; i < path.size(); ++i)
@@ -224,15 +244,34 @@ std::vector<UnbranchingPath*> ContigExtender::asUPaths(const GraphPath& path)
 	return upathRepr;
 }
 
+std::vector<ContigExtender::UpathAlignment> 
+	ContigExtender::asUpathAlignment(const GraphAlignment& graphAln)
+{
+	std::vector<ContigExtender::UpathAlignment> upathAln;
+	for (size_t i = 0; i < graphAln.size(); ++i)
+	{
+		UnbranchingPath* upath = _edgeToPath.at(graphAln[i].edge);
+		if (upathAln.empty() || upathAln.back().upath != upath ||
+			graphAln[i - 1].edge == graphAln[i].edge)
+		{
+			upathAln.emplace_back();
+			upathAln.back().upath = upath;
+		}
+		upathAln.back().aln.push_back(graphAln[i]);
+	}
+
+	return upathAln;
+}
+
 void ContigExtender::outputStatsTable(const std::string& filename)
 {
 	std::ofstream fout(filename);
 	if (!fout) throw std::runtime_error("Can't write " + filename);
 
-	fout << "contig_id\tlength\tcoverage\tcircular\trepeat"
+	fout << "seq_name\tlength\tcoverage\tcircular\trepeat"
 		<< "\tmult\ttelomere\tgraph_path\n";
 
-	char YES_NO[] = {'N', 'Y'};
+	char YES_NO[] = {'-', '+'};
 
 	for (auto& ctg : _contigs)
 	{
@@ -243,25 +282,22 @@ void ContigExtender::outputStatsTable(const std::string& filename)
 		}
 		pathStr.pop_back();
 
-		int minMult = std::numeric_limits<int>::max();
-		for (auto& edge : ctg.graphEdges.path) 
-		{
-			if (edge->multiplicity > 0) 
-			{
-				minMult = std::min(minMult, edge->multiplicity);
-			}
-		}
-		if (!ctg.graphEdges.repetitive) minMult = 1;
+		int estMult = std::max(1.0f, roundf((float)ctg.graphEdges.meanCoverage / 
+											  _meanCoverage));
+
+		std::string telomereStr;
+		bool telLeft = (ctg.graphEdges.path.front()->nodeLeft->isTelomere());
+		bool telRight = (ctg.graphEdges.path.back()->nodeRight->isTelomere());
+		if (telLeft && !telRight) telomereStr = "left";
+		if (!telLeft && telRight) telomereStr = "right";
+		if (telLeft && telRight) telomereStr = "both";
+		if (!telLeft && !telRight) telomereStr = "none";
 
 		fout << ctg.graphEdges.name() << "\t" << ctg.sequence.length() << "\t" 
 			<< ctg.graphEdges.meanCoverage << "\t"
 			<< YES_NO[ctg.graphEdges.circular]
 			<< "\t" << YES_NO[ctg.graphEdges.repetitive] << "\t"
-			<< minMult << "\t" << "L:" 
-			<< YES_NO[ctg.graphEdges.path.front()->nodeLeft->isTelomere()]
-			<< ",R:" 
-			<< YES_NO[ctg.graphEdges.path.back()->nodeRight->isTelomere()]
-			<< "\t" << pathStr << "\n";
+			<< estMult << "\t" << telomereStr << "\t" << pathStr << "\n";
 
 		Logger::get().debug() << "Contig: " << ctg.graphEdges.id.signedId()
 			<< ": " << pathStr;
@@ -277,4 +313,68 @@ void ContigExtender::outputContigs(const std::string& filename)
 					   			  FastaRecord::ID_NONE);
 	}
 	SequenceContainer::writeFasta(contigsFasta, filename);
+}
+
+void ContigExtender::outputScaffoldConnections(const std::string& filename)
+{
+	std::ofstream fout(filename);
+	if (!fout) throw std::runtime_error("Can't open " + filename);
+
+	auto reachableEdges = [this](GraphEdge* edge)
+	{
+		std::vector<GraphEdge*> dfsStack;
+		std::unordered_set<GraphEdge*> visited;
+		std::unordered_set<GraphEdge*> reachableUnique;
+		std::unordered_set<GraphEdge*> traversedRepeats;
+
+		dfsStack.push_back(edge);
+		while(!dfsStack.empty())
+		{
+			auto curEdge = dfsStack.back(); 
+			dfsStack.pop_back();
+			if (visited.count(curEdge)) continue;
+
+			visited.insert(curEdge);
+			visited.insert(_graph.complementEdge(curEdge));
+			for (auto& adjEdge: curEdge->nodeRight->outEdges)
+			{
+				if (adjEdge->isRepetitive() && !visited.count(adjEdge))
+				{
+					dfsStack.push_back(adjEdge);
+					traversedRepeats.insert(adjEdge);
+				}
+				else if (!adjEdge->isRepetitive() && adjEdge != edge)
+				{
+					reachableUnique.insert(adjEdge);
+				}
+			}
+		}
+		return reachableUnique;
+	};
+
+	for (auto& edge : _graph.iterEdges())
+	{
+		if (edge->repetitive) continue;
+
+		auto reachableUnique = reachableEdges(edge);	
+		if (reachableUnique.size() != 1) continue;
+		GraphEdge* outEdge = *reachableUnique.begin();
+		if (reachableEdges(_graph.complementEdge(outEdge)).size() != 1) continue;
+
+		if ((edge->nodeRight->isBifurcation() || 
+			 outEdge->nodeLeft->isBifurcation()) &&
+			edge->edgeId != outEdge->edgeId.rc() &&
+			abs(edge->edgeId.signedId()) < abs(outEdge->edgeId.signedId()))
+		{
+			UnbranchingPath* leftCtg = this->asUpaths({edge}).front();
+			UnbranchingPath* rightCtg = this->asUpaths({outEdge}).front();
+			if (leftCtg != rightCtg)
+			{
+				fout << leftCtg->nameUnsigned() << "\t" << 
+					(leftCtg->id.strand() ? '+' : '-') << "\t" <<
+					rightCtg->nameUnsigned() << "\t" << 
+					(rightCtg->id.strand() ? '+' : '-') << "\n";
+			}
+		}
+	}
 }

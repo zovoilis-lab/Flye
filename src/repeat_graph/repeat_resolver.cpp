@@ -34,7 +34,7 @@ void RepeatResolver::separatePath(const GraphPath& graphPath,
 	for (size_t i = 1; i < graphPath.size() - 1; ++i)
 	{
 		graphPath[i]->resolved = true;
-		--graphPath[i]->multiplicity;
+		//--graphPath[i]->multiplicity;
 		//graphPath[i]->meanCoverage = 
 		//	std::max(graphPath[i]->meanCoverage - pathCoverage, 0);
 	}
@@ -141,7 +141,7 @@ int RepeatResolver::resolveConnections(const std::vector<Connection>& connection
 			<< leftId.signedId() << "\t" << rightId.rc().signedId()
 			<< "\t" << support / 4 << "\t" << confidence;
 
-		if (confidence < Constants::minRepeatResSupport)
+		if (confidence < (float)Config::get("min_repeat_res_support"))
 		{
 			++unresolvedLinks;
 			continue;
@@ -228,10 +228,15 @@ void RepeatResolver::findRepeats()
 		}
 
 		//self-complements are repetitive
-		if (&path == complPath(&path))
+		for (auto& edge : path.path)
 		{
-			Logger::get().debug() << "Self-compl: " << path.edgesStr();
-			markRepetitive(&path);
+			if (edge->selfComplement)
+			{
+				Logger::get().debug() << "Self-compl: " << path.edgesStr();
+				markRepetitive(&path);
+				markRepetitive(complPath(&path));
+				break;
+			}
 		}
 
 		//tandem repeats
@@ -254,33 +259,6 @@ void RepeatResolver::findRepeats()
 		}
 	}
 
-	//Masking small bubbles that correspond to two alternative alleles
-	int diploidBubbles = 0;
-	for (auto& edge : _graph.iterEdges())
-	{
-		if (edge->isLooped()) continue;
-		std::vector<GraphEdge*> parallelEdges;
-		for (auto& parEdge : edge->nodeLeft->outEdges)
-		{
-			if (parEdge->nodeRight == edge->nodeRight) 
-			{
-				parallelEdges.push_back(parEdge);
-			}
-		}
-		if (parallelEdges.size() != 2) continue;
-		if (parallelEdges[0]->length() > Constants::trustedEdgeLength || 
-			parallelEdges[1]->length() > Constants::trustedEdgeLength) continue;
-
-		float covSum = parallelEdges[0]->meanCoverage + 
-					   parallelEdges[1]->meanCoverage;
-		if (covSum / _multInf.getMeanCoverage() > 1.5) continue;
-
-		parallelEdges[0]->repetitive = true;
-		parallelEdges[1]->repetitive = true;
-		++diploidBubbles;
-	}
-	Logger::get().debug() << "Masked " << diploidBubbles / 4 << " diploid bubbles";
-
 	//Finally, using the read alignments
 	std::unordered_map<GraphEdge*, 
 					   std::unordered_map<GraphEdge*, int>> outConnections;
@@ -290,7 +268,7 @@ void RepeatResolver::findRepeats()
 		int overhang = std::max(readPath.front().overlap.curBegin,
 								readPath.back().overlap.curLen - 
 									readPath.back().overlap.curEnd);
-		if (overhang > Constants::maximumOverhang) continue;
+		if (overhang > (int)Config::get("maximum_overhang")) continue;
 
 		for (size_t i = 0; i < readPath.size() - 1; ++i)
 		{
@@ -319,7 +297,7 @@ void RepeatResolver::findRepeats()
 
 		int repeatMult = 0;
 		int uniqueMult = 0;
-		int minSupport = maxSupport / Constants::outPathsRatio;
+		int minSupport = maxSupport / (int)Config::get("out_paths_ratio");
 		for (auto& outConn : outConnections[edge]) 
 		{
 			if (outConn.second > minSupport)
@@ -359,16 +337,69 @@ void RepeatResolver::findRepeats()
 			{
 				std::string star = outEdgeCount.first->repetitive ? "R" : " ";
 				std::string loop = outEdgeCount.first->isLooped() ? "L" : " ";
-				Logger::get().debug() << "+\t" << star << " " << loop << " " 
+				std::string tip = outEdgeCount.first->isTip() ? "T" : " ";
+				Logger::get().debug() << "+\t" << star << " " << loop << " " << tip << " "
 					<< outEdgeCount.first->edgeId.signedId() << "\t" << outEdgeCount.second;
 			}
 			for (auto& outEdgeCount : outConnections[complPath(path)->path.back()])
 			{
 				std::string star = outEdgeCount.first->repetitive ? "R" : " ";
 				std::string loop = outEdgeCount.first->isLooped() ? "L" : " ";
-				Logger::get().debug() << "-\t" << star << " " << loop << " " 
+				std::string tip = outEdgeCount.first->isTip() ? "T" : " ";
+				Logger::get().debug() << "-\t" << star << " " << loop << " " << tip << " "
 					<< outEdgeCount.first->edgeId.signedId() << "\t" << outEdgeCount.second;
 			}
+		}
+	}
+
+	//now, check for this structure >-<, in case read alignments were not enough
+	for (auto& path : sortedPaths)
+	{
+		if (path->path.front()->repetitive || path->isLoop()) continue;
+		if (path->path.front()->nodeLeft->outEdges.size() > 1 ||
+			path->path.back()->nodeRight->inEdges.size() > 1) continue;
+
+		int numIn = 0;
+		int numOut = 0;
+		for (auto& edge: path->path.front()->nodeLeft->inEdges)
+		{
+			if (!edge->repetitive) ++numIn;
+		}
+		for (auto& edge: path->path.back()->nodeRight->outEdges)
+		{
+			if (!edge->repetitive) ++numOut;
+		}
+		if (numIn > 1 && numOut > 1)
+		{
+			Logger::get().debug() << "Structure: " << path->edgesStr();
+			markRepetitive(path);
+			markRepetitive(complPath(path));
+		}
+	}
+}
+
+void RepeatResolver::fixLongEdges()
+{
+	GraphProcessor proc(_graph, _asmSeqs, _readSeqs);
+	auto unbranchingPaths = proc.getUnbranchingPaths();
+	for (auto& path : unbranchingPaths)
+	{
+		if (!path.id.strand()) continue;
+
+		if (!path.path.front()->selfComplement &&
+			path.path.front()->repetitive &&
+			path.length > (int)Config::get("unique_edge_length") &&
+			(float)path.meanCoverage < 1.5 * _multInf.getMeanCoverage())
+		{
+			for (auto& edge : path.path)
+			{
+				edge->repetitive = false;
+				_graph.complementEdge(edge)->repetitive = false;
+			}
+
+			Logger::get().debug() << "Fixed: " 
+				<< path.edgesStr() << "\t" << path.length << "\t" 
+				<< path.meanCoverage;
 		}
 	}
 }
@@ -389,6 +420,7 @@ void RepeatResolver::resolveRepeats()
 
 	GraphProcessor proc(_graph, _asmSeqs, _readSeqs);
 	proc.fixChimericJunctions();
+	_aligner.updateAlignments();
 }
 
 
@@ -441,7 +473,7 @@ std::vector<RepeatResolver::Connection>
 					readEnd = std::max(readStart + 100, readEnd);	//TODO: less ad-hoc fix
 					SequenceSegment segment(aln.overlap.curId, aln.overlap.curLen, 
 											readStart, readEnd);
-					segment.readSequence = true;
+					segment.segType = SequenceSegment::Read;
 					SequenceSegment complSegment = segment.complement();
 
 					readConnections.push_back({currentPath, segment, flankScore});

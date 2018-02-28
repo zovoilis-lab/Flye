@@ -66,8 +66,7 @@ class GraphProcessor
 public:
 	GraphProcessor(RepeatGraph& graph, const SequenceContainer& asmSeqs,
 				   const SequenceContainer& readSeqs):
-		_graph(graph), _asmSeqs(asmSeqs), _readSeqs(readSeqs),
-		_tipThreshold(Parameters::get().minimumOverlap) {}
+		_graph(graph), _asmSeqs(asmSeqs), _readSeqs(readSeqs) {}
 
 	void simplify();
 	void fixChimericJunctions();
@@ -82,5 +81,4 @@ private:
 	RepeatGraph& _graph;
 	const SequenceContainer& _asmSeqs;
 	const SequenceContainer& _readSeqs;
-	const int _tipThreshold;
 };

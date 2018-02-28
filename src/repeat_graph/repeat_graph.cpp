@@ -16,8 +16,10 @@ namespace
 {
 	struct Point2d
 	{
-		Point2d(FastaRecord::Id curId = FastaRecord::ID_NONE, int32_t curPos = 0, 
-			  FastaRecord::Id extId = FastaRecord::ID_NONE, int32_t extPos = 0):
+		Point2d(FastaRecord::Id curId = FastaRecord::ID_NONE, 
+				int32_t curPos = 0, 
+			    FastaRecord::Id extId = FastaRecord::ID_NONE, 
+				int32_t extPos = 0):
 			curId(curId), curPos(curPos), extId(extId), extPos(extPos) {}
 		
 		FastaRecord::Id curId;
@@ -55,17 +57,17 @@ std::unordered_set<GraphEdge*> GraphEdge::adjacentEdges()
 void RepeatGraph::build()
 {
 	//getting overlaps
-	VertexIndex asmIndex(_asmSeqs);
-	asmIndex.countKmers(1);
-	asmIndex.buildIndex(1, Constants::repeatGraphMaxKmer, 
-						Constants::repeatGraphKmerSample);
+	VertexIndex asmIndex(_asmSeqs, (int)Config::get("repeat_graph_kmer_sample"));
+	asmIndex.countKmers(1, /*genome size*/ 0);
+	asmIndex.buildIndex(1, (int)Config::get("repeat_graph_max_kmer"));
 
 	OverlapDetector asmOverlapper(_asmSeqs, asmIndex, 
-								  Constants::maximumJump, 
+								  (int)Config::get("maximum_jump"), 
 								  Parameters::get().minimumOverlap,
 								  /*no overhang*/ 0, 
-								  Constants::repeatGraphGap,
+								  (int)Config::get("repeat_graph_gap"),
 								  /*keep alignment*/ true);
+
 	OverlapContainer asmOverlaps(asmOverlapper, _asmSeqs, /*only max*/ false);
 	asmOverlaps.findAllOverlaps();
 	asmOverlaps.buildIntervalTree();
@@ -73,6 +75,7 @@ void RepeatGraph::build()
 	this->getGluepoints(asmOverlaps);
 	this->collapseTandems();
 	this->initializeEdges(asmOverlaps);
+	//this->markChimericEdges();
 }
 
 
@@ -137,6 +140,7 @@ void RepeatGraph::getGluepoints(const OverlapContainer& asmOverlaps)
 
 	//we will now split each cluster based on it's Y coordinates
 	//and project these subgroups to the corresponding sequences
+	static const int MAX_SEPARATION = Config::get("max_separation");
 	for (auto& clustEndpoints : clusters)
 	{
 		//first, simply add projections for each point from the cluster
@@ -167,8 +171,8 @@ void RepeatGraph::getGluepoints(const OverlapContainer& asmOverlaps)
 													  clusterXpos - 1, 
 													  clusterXpos + 1))
 		{
-			if (interval.value->curEnd - clusterXpos > Constants::maxSeparation &&
-				clusterXpos - interval.value->curBegin > Constants::maxSeparation)
+			if (interval.value->curEnd - clusterXpos > MAX_SEPARATION &&
+				clusterXpos - interval.value->curBegin > MAX_SEPARATION)
 			{
 				int32_t projectedPos = interval.value->project(clusterXpos);
 				extCoords.emplace_back(Point2d(clustSeq, clusterXpos,
@@ -657,6 +661,7 @@ void RepeatGraph::logEdges()
 				  [](const SegEdgePair& s1, const SegEdgePair& s2)
 				  	{return s1.first->start < s2.first->start;});
 	}
+
 	for (auto& seqEdgesPair : sequenceEdges)
 	{
 		if (!seqEdgesPair.first.strand()) continue;
@@ -677,6 +682,52 @@ void RepeatGraph::logEdges()
 	}
 	Logger::get().debug() << "Total edges: " << _nextEdgeId / 2;
 }
+
+/*
+void RepeatGraph::markChimericEdges()
+{
+	typedef std::pair<SequenceSegment*, GraphEdge*> SegEdgePair;
+	std::unordered_map<FastaRecord::Id, 
+					   std::vector<SegEdgePair>> sequenceEdges;
+	for (auto& edge : this->iterEdges())
+	{
+		for (auto& segment : edge->seqSegments)
+		{
+			sequenceEdges[segment.seqId].push_back({&segment, edge});
+		}
+	}
+	for (auto& seqEdgesPair : sequenceEdges)
+	{
+		std::sort(seqEdgesPair.second.begin(), seqEdgesPair.second.end(),
+				  [](const SegEdgePair& s1, const SegEdgePair& s2)
+				  	{return s1.first->start < s2.first->start;});
+	}
+
+	int extraSelfCompl = 0;
+	for (auto& seqEdgesPair : sequenceEdges)
+	{
+		if (!seqEdgesPair.first.strand()) continue;
+
+		for (size_t i = 1; i < seqEdgesPair.second.size() - 1; ++i)
+		{
+			GraphEdge* leftEdge = seqEdgesPair.second[i - 1].second;
+			GraphEdge* midEdge = seqEdgesPair.second[i].second;
+			GraphEdge* rightEdge = seqEdgesPair.second[i + 1].second;
+
+			if (leftEdge->edgeId == rightEdge->edgeId.rc() &&
+				leftEdge->edgeId != midEdge->edgeId &&
+				rightEdge->edgeId != midEdge->edgeId &&
+				midEdge->seqSegments.size() == 1 &&
+				midEdge->length() < Parameters::get().minimumOverlap)
+			{
+				midEdge->selfComplement = true;
+				this->complementEdge(midEdge)->selfComplement = true;
+				++extraSelfCompl;
+			}
+		}
+	}
+	Logger::get().debug() << "Extra self-complements: " << extraSelfCompl;
+}*/
 
 
 GraphPath RepeatGraph::complementPath(const GraphPath& path) const

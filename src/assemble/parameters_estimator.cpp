@@ -8,13 +8,6 @@
 
 size_t ParametersEstimator::genomeSizeEstimate()
 {
-	/*
-	int kmersNeeded = 0;
-	for (auto& seqPair : _seqContainer.getIndex()) 
-	{
-		kmersNeeded += _seqContainer.seqLen(seqPair.first) / _coverage;
-	}
-	return kmersNeeded / 2;*/
 	return _takenKmers;
 }
 
@@ -23,12 +16,12 @@ void ParametersEstimator::estimateMinKmerCount(int upperCutoff)
 {
 	const int MIN_CUTOFF = 2;
 
-	size_t kmersNeeded = 0;
+	/*size_t kmersNeeded = 0;
 	for (auto& seqPair : _seqContainer.getIndex()) 
 	{
 		kmersNeeded += _seqContainer.seqLen(seqPair.first) / 2 / _coverage;
 	}
-	Logger::get().debug() << "Genome size estimate: " << kmersNeeded;
+	Logger::get().debug() << "Genome size estimate: " << kmersNeeded;*/
 	
 	size_t takenKmers = 0;
 	size_t cutoff = 0;
@@ -40,10 +33,10 @@ void ParametersEstimator::estimateMinKmerCount(int upperCutoff)
 		if (mapPair->first <= (size_t)upperCutoff)
 		{
 			takenKmers += mapPair->second;
-			if (takenKmers >= kmersNeeded)
+			if (takenKmers >= _genomeSize)
 			{
-				if (std::max(takenKmers, kmersNeeded) - 
-					std::min(takenKmers, kmersNeeded) < prevDiff)
+				if (std::max(takenKmers, _genomeSize) - 
+					std::min(takenKmers, _genomeSize) < prevDiff)
 				{
 					cutoff = mapPair->first;
 				}
@@ -54,8 +47,8 @@ void ParametersEstimator::estimateMinKmerCount(int upperCutoff)
 				}
 				break;
 			}
-			prevDiff = std::max(takenKmers, kmersNeeded) - 
-					   std::min(takenKmers, kmersNeeded);
+			prevDiff = std::max(takenKmers, _genomeSize) - 
+					   std::min(takenKmers, _genomeSize);
 		}
 		else
 		{
@@ -65,15 +58,15 @@ void ParametersEstimator::estimateMinKmerCount(int upperCutoff)
 
 	if (cutoff < 2)
 	{
-		Logger::get().warning() << "Unable to separate erroneous k-mers "
-					  "from solid k-mers. Possible reasons: \n"
-					  "\t(1) Incorrect expected assembly size parameter \n"
-					  "\t(2) Highly uneven coverage of the assembly \n"
-					  "\t(3) Running with error-corrected reads "
-					  "(please use raw reads instead)\n"
-					  "\t(4) Assembling big genome with small k-mer size "
-					  "(try to increase it manually).\n"
-					  "\tAssembly will continue, but results might not be optimal";
+		if ((bool)Config::get("low_cutoff_warning"))
+		{
+			Logger::get().warning() << "Unable to separate erroneous k-mers "
+						  "from solid k-mers. Possible reasons: \n"
+						  "\t(1) Incorrect expected assembly size parameter \n"
+						  "\t(2) Highly uneven coverage of the assembly \n"
+						  "\t(3) Running with error-corrected reads in raw reads mode\n"
+						  "\tAssembly will continue, but results might not be optimal";
+		}
 		cutoff = MIN_CUTOFF;
 	}
 	

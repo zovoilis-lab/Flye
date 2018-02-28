@@ -13,11 +13,13 @@
 
 struct SequenceSegment
 {
+	enum SegmentType {Asm, Read};
+
 	SequenceSegment(FastaRecord::Id seqId = FastaRecord::ID_NONE, 
 					int32_t seqLen = 0, int32_t start = 0, 
 					int32_t end = 0):
 		seqId(seqId), seqLen(seqLen), start(start), 
-		end(end), readSequence(false) {}
+		end(end), segType(Asm) {}
 
 	SequenceSegment complement() const
 	{
@@ -39,7 +41,8 @@ struct SequenceSegment
 	int32_t seqLen;
 	int32_t start;
 	int32_t end;
-	bool readSequence;
+
+	SegmentType segType;
 };
 
 struct GraphNode;
@@ -49,7 +52,7 @@ struct GraphEdge
 	GraphEdge(GraphNode* nodeLeft, GraphNode* nodeRight, 
 			  FastaRecord::Id edgeId = FastaRecord::ID_NONE):
 		nodeLeft(nodeLeft), nodeRight(nodeRight), 
-		edgeId(edgeId), multiplicity(0), repetitive(false), 
+		edgeId(edgeId), repetitive(false), 
 		selfComplement(false), resolved(false), meanCoverage(0) {}
 
 	bool isRepetitive() const 
@@ -64,7 +67,7 @@ struct GraphEdge
 					 int32_t start, int32_t end)
 	{
 		seqSegments.emplace_back(id, length, start, end);
-		++multiplicity;
+		//++multiplicity;
 	}
 
 	int32_t length() const
@@ -87,7 +90,7 @@ struct GraphEdge
 	FastaRecord::Id edgeId;
 	std::vector<SequenceSegment> seqSegments;
 
-	int  multiplicity;
+	//int  multiplicity;
 	bool repetitive;
 	bool selfComplement;
 	bool resolved;
@@ -316,9 +319,10 @@ private:
 	void initializeEdges(const OverlapContainer& asmOverlaps);
 	void collapseTandems();
 	void logEdges();
+	//void markChimericEdges();
 	
 	const SequenceContainer& _asmSeqs;
-	const int _maxSeparation = Constants::maxSeparation;
+	const int _maxSeparation = Config::get("max_separation");
 
 	std::unordered_map<FastaRecord::Id, 
 					   std::vector<GluePoint>> _gluePoints;

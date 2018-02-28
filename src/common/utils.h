@@ -6,6 +6,7 @@
 
 #include <vector>
 #include <algorithm>
+#include <sstream>
 
 template<class T>
 void vecRemove(std::vector<T>& v, T val)
@@ -50,4 +51,14 @@ T q75(std::vector<T>& vec)
 	//std::nth_element(vec.begin(), vec.begin() + vec.size() / 2, 
 	//				 vec.end());
 	return vec[vec.size() * 3 / 4];
+}
+
+inline std::vector<std::string> 
+splitString(const std::string &s, char delim) 
+{
+	std::vector<std::string> elems;
+	std::stringstream ss(s);
+	std::string item;
+	while (std::getline(ss, item, delim)) elems.push_back(item);
+	return elems;
 }

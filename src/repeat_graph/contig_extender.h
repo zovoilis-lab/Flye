@@ -15,14 +15,17 @@ class ContigExtender
 public:
 	ContigExtender(RepeatGraph& graph, const ReadAligner& aligner,
 				   const SequenceContainer& asmSeqs, 
-				   const SequenceContainer& readSeqs):
+				   const SequenceContainer& readSeqs,
+				   int meanCoverage):
 		_graph(graph), _aligner(aligner), 
-		_asmSeqs(asmSeqs), _readSeqs(readSeqs) {}
+		_asmSeqs(asmSeqs), _readSeqs(readSeqs), 
+		_meanCoverage(meanCoverage) {}
 
 	void generateUnbranchingPaths();
-	void generateContigs();
+	void generateContigs(bool graphContinue);
 	void outputContigs(const std::string& filename);
 	void outputStatsTable(const std::string& filename);
+	void outputScaffoldConnections(const std::string& filename);
 	//std::vector<UnbranchingPath> getContigPaths();
 
 	const std::vector<UnbranchingPath>& getUnbranchingPaths() 
@@ -38,15 +41,28 @@ private:
 		std::vector<const UnbranchingPath*> graphPaths;
 		DnaSequence sequence;
 	};
+	struct Scaffold
+	{
+		GraphEdge* leftContig;
+		GraphEdge* rightContig;
+		std::unordered_set<GraphEdge*> repetitiveEdges;
+	};
+	struct UpathAlignment
+	{
+		GraphAlignment aln;
+		UnbranchingPath* upath;
+	};
 
-	std::vector<UnbranchingPath*> asUPaths(const GraphPath& path);
+	std::vector<UnbranchingPath*> asUpaths(const GraphPath& path);
+	std::vector<UpathAlignment> asUpathAlignment(const GraphAlignment& aln);
 
 	std::vector<UnbranchingPath> _unbranchingPaths;
 	std::unordered_map<GraphEdge*, UnbranchingPath*> _edgeToPath;
 	std::vector<Contig> _contigs;
-	
+
 	RepeatGraph& _graph;
 	const ReadAligner& _aligner;
 	const SequenceContainer& _asmSeqs;
 	const SequenceContainer& _readSeqs;
+	const int _meanCoverage;
 };

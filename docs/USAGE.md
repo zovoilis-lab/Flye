@@ -1,93 +1,102 @@
-ABruijn manual
-==============
+Flye manual
+===========
 
-Quick usage
------------
+Table of Contents
+-----------------
 
-    usage: abruijn [-h] [--debug] [--resume] [-t THREADS] [-i NUM_ITERS]
-                   [-p {pacbio,nano,pacbio_hi_err}] [-k KMER_SIZE]
-                   [-o MIN_OVERLAP] [-m MIN_KMER_COUNT] [-x MAX_KMER_COUNT]
-                   [--version]
-                   reads out_dir coverage
+- [Quick usage](#quickusage)
+- [Examples](#examples)
+- [Supported Input Data](#inputdata)
+- [Parameter Descriptions](#parameters)
+- [Assembly graph](#graph)
+- [Contigs/scaffolds output](#output)
+- [Running Time and Memory Requirements](#performance)
+- [Algorithm Description](#algorithm)
+
+
+## <a name="quickusage"></a> Quick usage
+
+    usage: flye (--pacbio-raw | --pacbio-corr | --nano-raw |
+                 --nano-corr | --subassemblies) file1 [file_2 ...]
+                 --genome-size size --out-dir dir_path [--threads int]
+                 [--iterations int] [--min-overlap int] [--resume]
+                 [--debug] [--version] [--help]
     
-    ABruijn: assembly of long and error-prone reads
-    
-    positional arguments:
-      reads                 path to reads file (FASTA/Q format)
-      out_dir               output directory
-      coverage              estimated assembly coverage (integer)
+    Assembly of long and error-prone reads
     
     optional arguments:
       -h, --help            show this help message and exit
-      --debug               enable debug output
-      --resume              try to resume previous assembly
-      -t THREADS, --threads THREADS
+      --pacbio-raw path [path ...]
+                            PacBio raw reads
+      --pacbio-corr path [path ...]
+                            PacBio corrected reads
+      --nano-raw path [path ...]
+                            ONT raw reads
+      --nano-corr path [path ...]
+                            ONT corrected reads
+      --subassemblies path [path ...]
+                            high-quality contig-like input
+      -g size, --genome-size size
+                            estimated genome size (for example, 5m or 2.6g)
+      -o path, --out-dir path
+                            Output directory
+      -t int, --threads int
                             number of parallel threads (default: 1)
-      -i NUM_ITERS, --iterations NUM_ITERS
+      -i int, --iterations int
                             number of polishing iterations (default: 1)
-      -p {pacbio,nano,pacbio_hi_err}, --platform {pacbio,nano,pacbio_hi_err}
-                            sequencing platform (default: pacbio)
-      -k KMER_SIZE, --kmer-size KMER_SIZE
-                            kmer size (default: 15)
-      -o MIN_OVERLAP, --min-overlap MIN_OVERLAP
+      -m int, --min-overlap int
                             minimum overlap between reads (default: 5000)
-      -m MIN_KMER_COUNT, --min-coverage MIN_KMER_COUNT
-                            minimum kmer coverage (default: auto)
-      -x MAX_KMER_COUNT, --max-coverage MAX_KMER_COUNT
-                            maximum kmer coverage (default: auto)
-      --version             show program's version number and exit
+      --resume              resume from the last completed stage
+      --resume-from stage_name
+                            resume from a custom stage
+      --debug               enable debug output
+      -v, --version         show program's version number and exit
 
 
 
-Examples
---------
+## <a name="examples"></a> Examples
 
-You can try ABruijn assembly on these ready-to-use datasets:
+You can try Flye assembly on these ready-to-use datasets:
 
 ### E. coli P6-C4 PacBio data
 
-The original dataset is available at the PacBio website (https://github.com/PacificBiosciences/DevNet/wiki/E.-coli-Bacterial-Assembly).
-We coverted the raw 'bas.h5' file to the FASTA format for the convenience.
+The original dataset is available at the 
+[PacBio website](https://github.com/PacificBiosciences/DevNet/wiki/E.-coli-Bacterial-Assembly).
+We coverted the raw ```bas.h5``` file to the FASTA format for the convenience.
 
-    wget https://github.com/fenderglass/datasets/raw/master/pacbio/E.coli_PacBio_40x.fasta
-	abruijn E.coli_PacBio_40x.fasta out_pacbio 40 --platform pacbio --threads 4
+    wget https://zenodo.org/record/1172816/files/E.coli_PacBio_40x.fasta
+	flye --pacbio-raw E.coli_PacBio_40x.fasta --out-dir out_pacbio --genome-size 5m --threads 4
 
-with '40' being the dataset's coverage, the threads argument being optional 
-(you may adjust it for your environment), and 'out\_pacbio' being the directory
+with ```5m``` being the expected genome size, the threads argument being optional 
+(you may adjust it for your environment), and ```out_pacbio``` being the directory
 where the assembly results will be placed.
 
 ### E. coli Oxford Nanopore Technologies data
 
-The dataset was originally released by the Loman lab (http://lab.loman.net/2015/09/24/first-sqk-map-006-experiment/).
+The dataset was originally released by the 
+[Loman lab](http://lab.loman.net/2015/09/24/first-sqk-map-006-experiment/).
 
-    wget https://github.com/fenderglass/datasets/raw/master/ont/Loman_E.coli_MAP006-1_2D_50x.fasta
-	abruijn Loman_E.coli_MAP006-1_2D_50x.fasta out_nano 50 --platform nano --threads 4
+    wget https://zenodo.org/record/1172816/files/Loman_E.coli_MAP006-1_2D_50x.fasta
+	flye --nano-raw Loman_E.coli_MAP006-1_2D_50x.fasta --out-dir out_nano --genome-size 5m --threads 4
 
 
-Supported Input Data
---------------------
+## <a name="inputdata"></a> Supported Input Data
 
-ABruijn was designed for assembly of long reads from both PacBio and 
-Oxford Nanopore Technologies (ONT). For simplicity, input reads should 
-be in FASTA or FASTQ format - you will need to convert raw PacBio / ONT data to
-FASTA/Q format using the corresponding official tools.
+Input reads could be in FASTA or FASTQ format, uncompressed
+or compressed with gz. Currenlty, raw and corrected reads
+from PacBio and ONT are supported. Additionally, ```--subassemblies```
+option does a consensus assembly of high-quality input contigs.
+You may specify multiple fles with reads (separated by spaces).
+Mixing different read types is not yet supported.
+
 
 ### PacBio data
 
-ABruijn was tested on the newest P6-C4 chemistry data with error rates 11-15%.
+Flye was tested on the P6-C4 chemistry data with error rates 11-15%.
 Typically, a bacterial WGS project with 20x-30x+ coverage can be assembled 
 into a single, structurally concordant contig for each chromosome. However, to get the best 
 nucleotide-level quaity, you might need deeper coverage. For a 50x E. coli dataset,
-ABruijn makes roughly 30 errors (single nucleotide insertions/deletions). 
-Below are empirical error estimates for E. Coli assemblies with lower coverage:
-
-	cov.   errors
-	50x    33
-	45x    45
-	40x    84
-	35x    153
-	30x    291
-	25x    687
+Flye makes roughly 30 errors (single nucleotide insertions/deletions). 
 
 If the coverage of the bacterial dataset is significantly higher than 100x, you
 might consider decreasing the coverage by filtering out shorter reads - this
@@ -105,38 +114,49 @@ to get a complete chromosome assembly (60x as in the E. coli example above). For
 (as described below) to get complete chromosomes. Due to the biased error pattern, 
 per-nucleotide accuracy is usually lower for ONT data than with PacBio data, especially in homopolymer regions.
 
-Input Data Preparation
-----------------------
+### Consensus of multiple input contig sets
 
-ABruijn works directly with base-called raw reads and does not require any 
-prior error correction. The algorithm will work on corrected reads as well, 
-but the running time might increase significantly.
+```--subassemblies``` input mode generates a consensus of multiple high quality contig assemblies
+(such as produced by different short read assemblers). The expected error rate
+is similar to the one in corrected PacBio or ONT reads. When using this option,
+consider decresing the minimum overlap parameter (for example, 1000 instead of 5000).
+You might also want to skip the polishing stage with ```--iterations 0``` argument
+(however, it might still be helpful).
 
-ABruijn automatically detects chimeric reads or reads with low quality ends, 
-so you do not need to trim them before the assembly. However, it is always
+
+### Input data preparation
+
+Flye works directly with base-called raw reads and does not require any 
+prior error correction. Flye automatically detects chimeric reads or reads with low quality ends, 
+so you do not need to curate them before the assembly. However, it is always
 worth checking for possible contamination in the reads, since it may affect the 
 automatic selection of estimated parameters for solid kmers and genome size / coverage.
 
 
-Parameter descriptions
-----------------------
+## <a name="parameters"></a> Parameter descriptions
 
-### Estimated assembly coverage (required)
+### Estimated genome size (required)
 
-ABruijn requires an estimate of genome coverage as input for 
-the selection of solid kmers. This can be a very rough estimate
-(e.g. within 0.5x - 2x of the real coverage).
+You must provide an estimate of the genome size as input,
+which is used for solid k-mers selection. The estimate could
+be rough (e.g. withing 0.5x-2x range) and does not affect
+the other assembly stages. Standard size modificators are
+supported (e.g. 5m or 2.6g)
 
-### Sequencing platform	
+### Minimum overlap length
 
-Indicate whether the data was generated from PacBio or ONT sequencing
-so ABruijn can account for their different error patterns.
+This sets a minimum overlap length for two reads to be considered overlapping.
+Since the algorithm is based on approximate overlaps (without computing exact alignment), 
+we require relatively long overlaps (5000 by default) - which is suitable for the most datasets
+with realtively good read length and coverage. However, you may decrease this parameter for better contiguity
+on low-coverage datasets or datasets with shorter mean read length (such as produced with older
+PacBio chemistry).
 
 ### Number of polishing iterations
 
-ABruijn first constructs a draft assembly of the genome, which is a 
+Flye first constructs a draft assembly of the genome, which is a 
 concatenation of a collection of raw read segments. In the end, the draft assembly
-is polished into a high quality sequence. By default, ABruijn runs one polishing 
+is polished into a high quality sequence. By default, Flye runs one polishing 
 iteration. The number could be increased, which might correct a small number of additional
 errors (due to improvements on how reads may align to the corrected assembly; 
 especially for ONT datasets). If the parameter is set to 0, the polishing will
@@ -147,69 +167,92 @@ not be performed (in case you want to use an external polisher).
 Use --resume to resume a previous run of the assembler that may have terminated
 prematurely. The assembly will continue from the last previously completed step.
 
-### Minimum overlap length
+## <a name="graph"></a> Assembly graph
 
-This sets a minimum overlap length for two reads to be considered overlapping.
-Since the algithm is based on approximate overlaps (without computing exact alignment), 
-we require relatively long overlaps (5000 by default), which is suitable for the most datasets
-with realtively good read length and coverage. However, you may decrease this parameter for better contiguity
-on low-coverage datasets or datasets with shorter mean read length (such as produced with older
-PacBio chemistry).
+The final assembly graph is output into the ```assembly_graph.dot``` file.
+It could be visualized using [Graphviz](https://graphviz.gitlab.io/): 
+```dot -Tpng -O assembly_graph.dot```. The edges in this graph 
+represent genomic sequences, and nodes simply serve
+as junctions. The genomic chromosomes traverse this graph (in an unknown way) 
+so as each unique edge is covered exactly once. The genomic repeats that were not
+resolved are collapsed into the corresponding edges in the graph
+(therefore genome structure remain umbigious).
 
-### Kmer size
+<p align="center">
+  <img src="graph_example.png" alt="Graph example"/>
+</p>
 
-This parameter controls the size of the kmers used to construct the
-ABruijn graph. The default kmer size (15) is suitable for most genomes
-under several hundreds of megabytes in size. You might want to increase it
-a bit (17 or 19) for larger genomes (500 Mb+). Should be an odd number.
+An example of a final assembly graph of a bacterial genome is above.
+Each edge is labeled with its id, length and coverage. Repetitive edges are shown
+in color, while unique edges are black. The clusters of adjacent repeats are shown with the 
+same color. Note that each edge is represented in two copies: forward and
+reverse complement (marked with +/- signs), therefore the entire genome is
+represented in two copies as well. Sometimes (as in this example), forward and reverse-complement
+components are clearly separated, but often they form a single connected component
+(in case if the genome contain unresolved inverted repeats).
+
+In this example, there are two unresolved repeats: (i) a red repeat of multiplicity two
+and length 35k and (ii) a green repeat cluster of multiplicity three and length 34k - 36k.
+As the repeats remained unresolved, there are no reads in the dataset that cover
+those repeats in full.
+
+Initial assembly graph state (before repeats were resolved) could be found in
+the ```2-repeat/graph_before_rr.dot``` file. Additionally, ```.gfa``` versions of
+assembly graphs could be found in ```2-repeat``` directory.
+
+## <a name="output"></a> Contigs/scaffolds output
+
+Each contig is formed by a single unique edge and possibly multiple repetitive
+edges and correponds to a genomic path through the graph.
+Final contigs are output into the "contigs.fasta" file. Sometimes it is possible to
+further order some contigs based on the assembly graph structure. In this case,
+scaffolds are formed by interleaving the corresponding contigs with 100 Ns.
+Scaffolds (along with contigs that are not contained in scaffolds) are output
+into the "scaffolds.fasta" file. In case no scaffolds were contructed, 
+the two files will be identical. Scaffolds will potentially have higher N50, 
+but the gap size might not be very accurate.
+
+Extra information about contigs/scaffolds is output into the ```assembly_info.txt``` file.
+The table columns are as follows:
+
+* Sequence id
+* Length
+* Coverage
+* Circular? (if contig represent a circular sequence)
+* Repetitive? (if contig represent repetitive, rather than unique sequence)
+* Multiplicity (inferred contig multiplicity based on coverage)
+* Graph path (the edges of the assembly graph that form this particular contig).
+     Scaffold gaps are marked with "??" symbols, and '*' symbol means
+	 that telomeric region was reached.
+
+## <a name="performance"></a> Running time and memory requirements
 
 
-### Minimum / maximum kmer frequency
+Typically, assembly of a bacteria or small eukaryote coverage takes less than half an hour 
+on a modern desktop. C. elegans can be assembled within a few hours on a 
+computational node. The more detailed benchmarks are below.
 
-Defines which kmers to select for ABruijn graph construction.
-Kmers with low frequency are likely to be erroneous, while extremely
-frequent kmers might significantly slow down the computation.
-This parameter depends on the size of the genome, coverage
-and sequencing platform. We recommend that it be chosen automatically 
-by the assembler.
-
-
-
-Running time and memory requirements
-------------------------------------
-
-Typically, assembly of a bacteria with 50x coverage takes less than half an hour 
-on a modern desktop, while yeast assembly takes about 2 hours. A eukaryotic genome of size 200 Mbp
-can be assembled within a day on a machine with 128Gb of memory and 20 CPUs.
-
-The amount of memory required scales linearly with the genome size and read coverage.
-A rough formula for estimating memory requirements is:
-1 Gb of RAM = 1 Mb of genome x coverage / 100
-For example, an assembly of 500 Mb genome with 50x coverage would require
-approximately 250 Gb of memory. Below are running times and memory footprints 
-for different datasets.
-
-    Genome              Size     Coverage   Wall_clock   CPU_time   RAM
-    E. Coli             4. 6Mb   50         25m          2h         0.5 Gb
-    X. Oryzae           5.1 Mb   225        1h30m        10h        5 Gb
-    S. Cerevisiae       12.2 Mb  120        1h50m        10h20m     7 Gb
-    B. Neritina meta    200 Mb   30         36h5m        600h       70 Gb
+|Genome        | Size   | Coverage | CPU time  | RAM    |
+|--------------|--------|----------|-----------|--------|
+| E.coli       | 5 Mb   | 50       | 170 m     | 2 Gb   |
+| S.cerevisiae | 12 Mb  | 30       | 180 m     | 7 Gb   |
+| C.elegans    | 100 Mb | 30       | 160 h     | 23 Gb  |
+| H.sapiens    | 3 Gb   | 30       | 8400 h    | 700 Gb |
 
 
-Algorithm description
----------------------
+## <a name="algorithm"></a> Algorithm Description
 
-This is a brief description of the ABruijn algorithm. Plase refer to the manuscript
+This is a brief description of the Flye algorithm. Please refer to the manuscript
 for more detailed information. The assembly pipeline is organized as follows:
 
-* Kmer counting / erronoeus kmer pre-filtering
+* Kmer counting / erroneous kmer pre-filtering
 * Solid kmer selection (kmers with sufficient frequency, which are unlikely to be erroneous)
-* Finding read overlaps based on the ABruijn graph
+* Finding read overlaps based on the A-Bruijn graph
 * Detection of chimeric sequences
 * Contig assembly by read extension
 
 The resulting contig assembly is now simply a concatenation of read parts 
-and is error-prone. ABruijn then aligns the reads on the draft contigs and
+and is error-prone. Flye then aligns the reads on the draft contigs using minimap2 and
 calls a rough consensus. Afterwards, the algorithm performs additional repeat analysis
 as follows:
 
@@ -218,7 +261,7 @@ as follows:
 * The algorithm resolves repeats using the read information and graph structure
 * The unbranching paths in the graph are output as contigs
 
-Finally, ABruijn performs polishing of the resulting assembly
+Finally, Flye performs polishing of the resulting assembly
 to correct the remaining errors:
 
 * Alignment of all reads to the current assembly using minimap2
@@ -227,4 +270,3 @@ to correct the remaining errors:
 * Error correction of each bubble using a maximum likelihood approach
 
 The polishing steps could be repeated, which might slightly increase quality for some datasets.
-

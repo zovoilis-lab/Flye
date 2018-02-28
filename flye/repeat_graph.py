@@ -10,9 +10,9 @@ import subprocess
 import logging
 import os
 
-from abruijn.utils import which
+from flye.utils import which
 
-REPEAT_BIN = "abruijn-repeat"
+REPEAT_BIN = "flye-repeat"
 logger = logging.getLogger()
 
 
@@ -33,17 +33,23 @@ def check_binaries():
         raise RepeatException(str(e))
 
 
-def analyse_repeats(args, input_assembly, out_folder, log_file):
+def analyse_repeats(args, input_assembly, out_folder, log_file, config_file):
     logger.debug("-----Begin repeat analyser log------")
-    cmdline = [REPEAT_BIN, "-k", str(args.kmer_size), "-l", log_file,
+    cmdline = [REPEAT_BIN, "-l", log_file,
                "-t", str(args.threads), "-v", str(args.min_overlap)]
     if args.debug:
         cmdline.append("-d")
-    cmdline.extend([input_assembly, args.reads, out_folder])
+    if args.read_type != "subasm":
+        cmdline.append("-g")
+    cmdline.extend([input_assembly, ",".join(args.reads),
+                    out_folder, str(args.genome_size), config_file])
 
     try:
+        logger.debug("Running: " + " ".join(cmdline))
         subprocess.check_call(cmdline)
-    except (subprocess.CalledProcessError, OSError) as e:
+    except subprocess.CalledProcessError as e:
         if e.returncode == -9:
             logger.error("Looks like the system ran out of memory")
         raise RepeatException(str(e))
+    except OSError as e:
+        raise AssembleException(str(e))

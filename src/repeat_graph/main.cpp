@@ -19,29 +19,32 @@
 #include "multiplicity_inferer.h"
 #include "graph_processing.h"
 #include "repeat_resolver.h"
-#include "structure_resolver.h"
 #include "output_generator.h"
 #include "contig_extender.h"
 
 bool parseArgs(int argc, char** argv, std::string& readsFasta, 
 			   std::string& outFolder, std::string& logFile, 
 			   std::string& inAssembly, int& kmerSize,
-			   int& minOverlap, bool& debug, size_t& numThreads)
+			   int& minOverlap, bool& debug, size_t& numThreads, 
+			   std::string& configPath, bool& graphContinue, size_t& genomeSize)
 {
 	auto printUsage = [argv]()
 	{
 		std::cerr << "Usage: " << argv[0]
-				  << "\tin_assembly reads_file out_folder \n\t\t\t\t"
-				  << "[-l log_file] [-t num_threads] [-v min_overlap]\n\t\t\t\t"
-				  << "[-k kmer_size] [-d]\n\n"
+				  << "\tin_assembly reads_files out_folder genome_size config_path\n\t"
+				  << "[-l log_file] [-t num_threads] [-v min_overlap]\n\t"
+				  << "[-d]\n\n"
 				  << "positional arguments:\n"
 				  << "\tin_assembly\tpath to input assembly\n"
-				  << "\treads file\tpath to fasta with reads\n"
+				  << "\treads_files\tcomma-separated list with reads\n"
 				  << "\tout_assembly\tpath to output assembly\n"
+				  << "\tconfig_path\tpath to config file\n"
 				  << "\noptional arguments:\n"
-				  << "\t-k kmer_size\tk-mer size [default = 15] \n"
+				  //<< "\t-k kmer_size\tk-mer size [default = 15] \n"
 				  << "\t-v min_overlap\tminimum overlap between reads "
 				  << "[default = 5000] \n"
+				  << "\t-g \t\tcontinue contigs using graph structure "
+				  << "[default = false] \n"
 				  << "\t-d \t\tenable debug output "
 				  << "[default = false] \n"
 				  << "\t-l log_file\toutput log to file "
@@ -52,11 +55,11 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 
 	numThreads = 1;
 	debug = false;
-	logFile = "";
+	graphContinue = false;
 	minOverlap = 5000;
-	kmerSize = 15;
+	//kmerSize = -1;
 
-	const char optString[] = "l:t:k:v:hd";
+	const char optString[] = "l:t:v:hdg";
 	int opt = 0;
 	while ((opt = getopt(argc, argv, optString)) != -1)
 	{
@@ -68,21 +71,24 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 		case 'v':
 			minOverlap = atoi(optarg);
 			break;
-		case 'k':
-			kmerSize = atoi(optarg);
-			break;
+		//case 'k':
+		//	kmerSize = atoi(optarg);
+		//	break;
 		case 'l':
 			logFile = optarg;
 			break;
 		case 'd':
 			debug = true;
 			break;
+		case 'g':
+			graphContinue = true;
+			break;
 		case 'h':
 			printUsage();
 			exit(0);
 		}
 	}
-	if (argc - optind != 3)
+	if (argc - optind != 5)
 	{
 		printUsage();
 		return false;
@@ -91,6 +97,8 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 	inAssembly = *(argv + optind);
 	readsFasta = *(argv + optind + 1);
 	outFolder = *(argv + optind + 2);
+	genomeSize = atoll(*(argv + optind + 3));
+	configPath = *(argv + optind + 4);
 
 	return true;
 }
@@ -141,6 +149,13 @@ void exceptionHandler()
 	exit(1);
 }
 
+int getKmerSize(size_t genomeSize)
+{
+	return (genomeSize < (size_t)Config::get("big_genome_threshold")) ?
+			(int)Config::get("kmer_size") : 
+			(int)Config::get("kmer_size_big");
+}
+
 int main(int argc, char** argv)
 {
 	#ifndef _DEBUG
@@ -149,36 +164,45 @@ int main(int argc, char** argv)
 	#endif
 
 	bool debugging = false;
-	size_t numThreads;
-	int kmerSize;
-	int minOverlap;
+	bool graphContinue = false;
+	size_t numThreads = 1;
+	int kmerSize = -1;
+	int minOverlap = 5000;
+	size_t genomeSize = 0;
 	std::string readsFasta;
 	std::string inAssembly;
 	std::string outFolder;
 	std::string logFile;
-
+	std::string configPath;
 	if (!parseArgs(argc, argv, readsFasta, outFolder, logFile, inAssembly,
-				   kmerSize, minOverlap, debugging, numThreads)) 
-	{
-		return 1;
-	}
-	Parameters::get().minimumOverlap = minOverlap;
-	Parameters::get().kmerSize = kmerSize;
-	Parameters::get().numThreads = numThreads;
-
+				   kmerSize, minOverlap, debugging, 
+				   numThreads, configPath, graphContinue, genomeSize))  return 1;
+	
 	Logger::get().setDebugging(debugging);
 	if (!logFile.empty()) Logger::get().setOutputFile(logFile);
-	std::ios::sync_with_stdio(false);
-
 	Logger::get().debug() << "Build date: " << __DATE__ << " " << __TIME__;
+	std::ios::sync_with_stdio(false);
+	
+	Config::load(configPath);
+	Parameters::get().minimumOverlap = minOverlap;
+	Parameters::get().numThreads = numThreads;
+	Parameters::get().kmerSize = getKmerSize(genomeSize);
+	Logger::get().debug() << "Running with k-mer size: " << 
+		Parameters::get().kmerSize; 
+	//if (kmerSize != -1) Parameters::get().kmerSize = kmerSize; 
+
 
 	Logger::get().info() << "Reading sequences";
 	SequenceContainer seqAssembly; 
 	SequenceContainer seqReads;
+	std::vector<std::string> readsList = splitString(readsFasta, ',');
 	try
 	{
 		seqAssembly.loadFromFile(inAssembly);
-		seqReads.loadFromFile(readsFasta);
+		for (auto& readsFile : readsList)
+		{
+			seqReads.loadFromFile(readsFile);
+		}
 	}
 	catch (SequenceContainer::ParseException& e)
 	{
@@ -190,7 +214,6 @@ int main(int argc, char** argv)
 	GraphProcessor proc(rg, seqAssembly, seqReads);
 	ReadAligner aligner(rg, seqAssembly, seqReads);
 	OutputGenerator outGen(rg, aligner, seqAssembly, seqReads);
-	ContigExtender extender(rg, aligner, seqAssembly, seqReads);
 
 	Logger::get().info() << "Building repeat graph";
 	rg.build();
@@ -200,10 +223,11 @@ int main(int argc, char** argv)
 	Logger::get().info() << "Aligning reads to the graph";
 	aligner.alignReads();
 
-	MultiplicityInferer multInf(rg);
-	multInf.estimateCoverage(aligner.getAlignments());
+	MultiplicityInferer multInf(rg, aligner, seqAssembly, seqReads);
+	multInf.estimateCoverage();
 	multInf.removeUnsupportedEdges();
-	aligner.updateAlignments();
+	multInf.removeUnsupportedConnections();
+	multInf.separateHaplotypes();
 
 	Logger::get().info() << "Resolving repeats";
 	RepeatResolver resolver(rg, seqAssembly, seqReads, aligner, multInf);
@@ -214,26 +238,26 @@ int main(int argc, char** argv)
 	outGen.outputFasta(proc.getEdgesPaths(), outFolder + "/graph_before_rr.fasta");
 
 	resolver.resolveRepeats();
-	StructureResolver structRes(rg, seqAssembly, seqReads);
-	structRes.unrollLoops();
-	aligner.updateAlignments();
-	resolver.findRepeats();
+	resolver.fixLongEdges();
 	outGen.outputDot(proc.getEdgesPaths(), outFolder + "/graph_after_rr.dot");
 
 	Logger::get().info() << "Generating contigs";
 
+	ContigExtender extender(rg, aligner, seqAssembly, seqReads, 
+							multInf.getMeanCoverage());
 	extender.generateUnbranchingPaths();
-	extender.generateContigs();
+	extender.generateContigs(graphContinue);
 	extender.outputContigs(outFolder + "/graph_paths.fasta");
 	extender.outputStatsTable(outFolder + "/contigs_stats.txt");
+	extender.outputScaffoldConnections(outFolder + "/scaffolds_links.txt");
 
-	outGen.dumpRepeats(extender.getUnbranchingPaths(), 
+	outGen.dumpRepeats(extender.getUnbranchingPaths(),
 					   outFolder + "/repeats_dump.txt");
-	outGen.outputDot(extender.getUnbranchingPaths(), 
+	outGen.outputDot(extender.getUnbranchingPaths(),
 					 outFolder + "/graph_final.dot");
-	outGen.outputFasta(extender.getUnbranchingPaths(), 
+	outGen.outputFasta(extender.getUnbranchingPaths(),
 					   outFolder + "/graph_final.fasta");
-	outGen.outputGfa(extender.getUnbranchingPaths(), 
+	outGen.outputGfa(extender.getUnbranchingPaths(),
 					 outFolder + "/graph_final.gfa");
 	return 0;
 }

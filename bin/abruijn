@@ -1,31 +1,102 @@
 #!/usr/bin/env python2.7
 
-#(c) 2016 by Authors
-#This file is a part of ABruijn program.
+#(c) 2017 by Authors
+#This file is a part of Flye program.
 #Released under the BSD license (see LICENSE file)
 
 """
-This script does all the necessary preparations
-and invokes ABruijn
+A fallback script to invoke Flye using the old ABruijn command
+line syntax
 """
 
 import os
 import sys
+import subprocess
+import argparse
 
-BIN_DIR = "bin"
+bin_dir = os.path.dirname(os.path.realpath(__file__))
 
-#Check Python version
-if sys.version_info[:2] != (2, 7):
-    print("Error: ABruijn requires Python version 2.7 ({0}.{1} detected)."
-          .format(sys.version_info[0], sys.version_info[1]))
-    sys.exit(-1)
 
-#Setting executable paths
-abruijn_root = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
-bin_absolute = os.path.join(abruijn_root, BIN_DIR)
-sys.path.insert(0, abruijn_root)
-os.environ["PATH"] = bin_absolute + os.pathsep + os.environ["PATH"]
 
-#ABruijn entry point
-from abruijn.main import main
-sys.exit(main())
+def _get_genome_size(args):
+    """
+    Select k-mer size based on the target genome size
+    """
+    suffix = args.reads.rsplit(".", 1)[-1]
+    if suffix in ["fasta", "fa"]:
+        reads_size = os.path.getsize(args.reads)
+    elif suffix in ["fastq", "fq"]:
+        reads_size = os.path.getsize(args.reads) / 2
+    else:
+        raise Exception("Uknown input reads format: " + suffix)
+
+    genome_size = reads_size / args.coverage
+    return genome_size
+
+
+def main():
+    print >>sys.stderr, ("\n\nWARNING: this script invokes Flye using the old ABruijn "
+                         "command-line syntax. \nPlease switch to 'flye' executable "
+                         "as the old syntax support will be dropped in the future\n\n")
+
+    def check_int_range(value, min_val, max_val, require_odd=False):
+        ival = int(value)
+        if ival < min_val or ival > max_val:
+             raise argparse.ArgumentTypeError("value should be in "
+                            "range [{0}, {1}]".format(min_val, max_val))
+        if require_odd and ival % 2 == 0:
+            raise argparse.ArgumentTypeError("should be an odd number")
+        return ival
+
+    parser = argparse.ArgumentParser(description="Flye invocation using ABruijn syntax")
+
+    parser.add_argument("reads", metavar="reads",
+                        help="path to reads file (FASTA/Q format)")
+    parser.add_argument("out_dir", metavar="out_dir",
+                        help="output directory")
+    parser.add_argument("coverage", metavar="coverage (integer)",
+                        type=lambda v: check_int_range(v, 1, 1000),
+                        help="estimated assembly coverage")
+
+    parser.add_argument("--debug", action="store_true",
+                        dest="debug", default=False,
+                        help="enable debug output")
+    parser.add_argument("--resume", action="store_true",
+                        dest="resume", default=False,
+                        help="resume from the last completed stage")
+    parser.add_argument("--resume-from", dest="resume_from",
+                        default=None, help="resume from a custom stage")
+    parser.add_argument("-t", "--threads", dest="threads",
+                        type=lambda v: check_int_range(v, 1, 128),
+                        default=1, help="number of parallel threads "
+                        "(default: 1)")
+    parser.add_argument("-i", "--iterations", dest="num_iters",
+                        type=lambda v: check_int_range(v, 0, 10),
+                        default=1, help="number of polishing iterations "
+                        "(default: 1)")
+    parser.add_argument("-p", "--platform", dest="platform",
+                        default="pacbio",
+                        choices=["pacbio", "nano", "pacbio_hi_err"],
+                        help="sequencing platform (default: pacbio)")
+    parser.add_argument("-o", "--min-overlap", dest="min_overlap",
+                        type=lambda v: check_int_range(v, 2000, 10000),
+                        default=5000, help="minimum overlap between reads "
+                        "(default: 5000)")
+    args = parser.parse_args()
+
+    flye_exec = os.path.join(bin_dir, "flye")
+    reads_prefix = "--nano-raw" if args.platform == "nano" else "--pacbio-raw"
+    cmd = [flye_exec, reads_prefix, args.reads, "-o", args.out_dir,
+           "-g", str(_get_genome_size(args)), "-i", str(args.num_iters),
+           "--min-overlap", str(args.min_overlap), "-t", str(args.threads)]
+    if args.debug:
+        cmd.append("--debug")
+    if args.resume:
+        cmd.append("--resume")
+
+    print >>sys.stderr, " ".join(cmd)
+    subprocess.check_call(cmd)
+
+
+if __name__ == "__main__":
+    main()

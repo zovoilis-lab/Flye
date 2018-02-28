@@ -13,10 +13,15 @@
 #include "../common/config.h"
 
 
-void VertexIndex::countKmers(size_t hardThreshold)
+void VertexIndex::countKmers(size_t hardThreshold, int genomeSize)
 {
+	if (Parameters::get().kmerSize > 31)
+	{
+		throw std::runtime_error("Maximum kmer size is 31");
+	}
+
 	Logger::get().debug() << "Hard threshold set to " << hardThreshold;
-	if (hardThreshold == 0 || hardThreshold > 100) 
+	if (hardThreshold == 0)
 	{
 		throw std::runtime_error("Wrong hard threshold value: " + 
 								 std::to_string(hardThreshold));
@@ -24,9 +29,9 @@ void VertexIndex::countKmers(size_t hardThreshold)
 	Logger::get().debug() << "Started kmer counting";
 
 	size_t preCountSize = 1024 * 1024 * 1024;	//1G by default
-	if (Parameters::get().kmerSize > 15)		//4 ^ 15 = 1G
+	if (genomeSize > (int)Config::get("big_genome_threshold"))
 	{
-		preCountSize *= 4 * 4;					//16G in case of larger k-mers
+		preCountSize *= 4 * 4;					//16G in case of larger genomes
 	}
 	auto preCounters = new std::atomic<unsigned char>[preCountSize];
 	for (size_t i = 0; i < preCountSize; ++i) preCounters[i] = 0;
@@ -45,9 +50,20 @@ void VertexIndex::countKmers(size_t hardThreshold)
 	{
 		if (!readId.strand()) return;
 		
+		int32_t nextKmerPos = _sampleRate;
 		for (auto kmerPos : IterKmers(_seqContainer.getSeq(readId)))
 		{
-			kmerPos.kmer.standardForm();
+			//subsampling
+			if (--nextKmerPos > 0) continue;
+			nextKmerPos = _sampleRate + (int32_t)kmerPos.kmer.hash() % 3 - 1;
+
+			bool revCmp = kmerPos.kmer.standardForm();
+			if (revCmp)
+			{
+				kmerPos.position = _seqContainer.seqLen(readId) - 
+										kmerPos.position -
+										Parameters::get().kmerSize;
+			}
 			size_t kmerBucket = kmerPos.kmer.hash() % preCountSize;
 
 			unsigned char expected = 0;
@@ -78,9 +94,21 @@ void VertexIndex::countKmers(size_t hardThreshold)
 	{
 		if (!readId.strand()) return;
 
+		int32_t nextKmerPos = _sampleRate;
 		for (auto kmerPos : IterKmers(_seqContainer.getSeq(readId)))
 		{
-			kmerPos.kmer.standardForm();
+			//subsampling
+			if (--nextKmerPos > 0) continue;
+			nextKmerPos = _sampleRate + (int32_t)kmerPos.kmer.hash() % 3 - 1;
+
+			bool revCmp = kmerPos.kmer.standardForm();
+			if (revCmp)
+			{
+				kmerPos.position = _seqContainer.seqLen(readId) - 
+										kmerPos.position -
+										Parameters::get().kmerSize;
+			}
+
 			size_t count = preCounters[kmerPos.kmer.hash() % preCountSize];
 			if (count >= hardThreshold)
 			{
@@ -99,7 +127,7 @@ void VertexIndex::countKmers(size_t hardThreshold)
 }
 
 
-void VertexIndex::buildIndex(int minCoverage, int maxCoverage, int filterRatio)
+void VertexIndex::buildIndex(int minCoverage, int maxCoverage)
 {
 	if (_outputProgress) Logger::get().info() << "Filling index table";
 	
@@ -111,8 +139,8 @@ void VertexIndex::buildIndex(int minCoverage, int maxCoverage, int filterRatio)
 	size_t solidKmers = 0;
 	for (auto& kmer : _kmerCounts.lock_table())
 	{
-		if ((size_t)minCoverage <= kmer.second && 
-			kmer.second <= (size_t)maxCoverage)
+		if ((size_t)minCoverage / _sampleRate <= kmer.second && 
+			kmer.second <= (size_t)maxCoverage / _sampleRate)
 		{
 			kmerEntries += kmer.second;
 			++solidKmers;
@@ -124,8 +152,8 @@ void VertexIndex::buildIndex(int minCoverage, int maxCoverage, int filterRatio)
 	_kmerIndex.reserve(solidKmers);
 	for (auto& kmer : _kmerCounts.lock_table())
 	{
-		if ((size_t)minCoverage <= kmer.second && 
-			kmer.second <= (size_t)maxCoverage)
+		if ((size_t)minCoverage / _sampleRate <= kmer.second && 
+			kmer.second <= (size_t)maxCoverage / _sampleRate)
 		{
 			ReadVector rv{(uint32_t)kmer.second, 0, nullptr};
 			_kmerIndex.insert(kmer.first, rv);
@@ -148,17 +176,21 @@ void VertexIndex::buildIndex(int minCoverage, int maxCoverage, int filterRatio)
 		kmer.second.data = _memoryChunks.back() + chunkOffset;
 		chunkOffset += kmer.second.capacity;
 	}
-	Logger::get().debug() << "Total chunks " << _memoryChunks.size()
-		<< " wasted space: " << wasted;
+	//Logger::get().debug() << "Total chunks " << _memoryChunks.size()
+	//	<< " wasted space: " << wasted;
 
 	std::function<void(const FastaRecord::Id&)> indexUpdate = 
-	[minCoverage, maxCoverage, filterRatio, this] 
-	(const FastaRecord::Id& readId)
+	[this] (const FastaRecord::Id& readId)
 	{
 		if (!readId.strand()) return;
 
+		int32_t nextKmerPos = _sampleRate;
 		for (auto kmerPos : IterKmers(_seqContainer.getSeq(readId)))
 		{
+			//subsampling
+			if (--nextKmerPos > 0) continue;
+			nextKmerPos = _sampleRate + (int32_t)kmerPos.kmer.hash() % 3 - 1;
+
 			FastaRecord::Id targetRead = readId;
 			bool revCmp = kmerPos.kmer.standardForm();
 			if (revCmp)
@@ -168,9 +200,6 @@ void VertexIndex::buildIndex(int minCoverage, int maxCoverage, int filterRatio)
 										Parameters::get().kmerSize;
 				targetRead = targetRead.rc();
 			}
-
-			//subsampling
-			if (kmerPos.position % filterRatio != 0) continue;
 
 			_kmerIndex.update_fn(kmerPos.kmer, 
 				[targetRead, &kmerPos](ReadVector& rv)

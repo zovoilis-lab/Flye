@@ -13,13 +13,25 @@ void GeneralPolisher::polishBubble(Bubble& bubble) const
 	{
 		std::string prevCandidate = candidate;
 		Alignment align(branches.size(), _subsMatrix);
+		size_t iterNum = 0;
 		while(true)
 		{
 			StepInfo rec = this->makeStep(prevCandidate, branches, align);
 			polishSteps.push_back(rec);
-			if (prevCandidate == rec.sequence) return prevCandidate;
+			if (prevCandidate == rec.sequence) break;
+			if (rec.score > 0)
+			{
+				std::cerr << "Overflow!\n";
+				break;
+			}
+			if (iterNum++ > 10 * candidate.size())
+			{
+				std::cerr << "Too many iters!\n";
+				break;
+			}
 			prevCandidate = rec.sequence;
 		}
+		return prevCandidate;
 	};
 
 	//first, select closest X branches (by length) and polish with them

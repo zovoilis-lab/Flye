@@ -10,9 +10,9 @@ import subprocess
 import logging
 import os
 
-from abruijn.utils import which
+from flye.utils import which
 
-ASSEMBLE_BIN = "abruijn-assemble"
+ASSEMBLE_BIN = "flye-assemble"
 logger = logging.getLogger()
 
 
@@ -33,22 +33,28 @@ def check_binaries():
         raise AssembleException(str(e))
 
 
-def assemble(args, out_file, log_file):
+def assemble(args, out_file, log_file, config_path):
     logger.info("Assembling reads")
     logger.debug("-----Begin assembly log------")
-    cmdline = [ASSEMBLE_BIN, "-k", str(args.kmer_size), "-l", log_file,
+    cmdline = [ASSEMBLE_BIN, "-l", log_file,
                "-t", str(args.threads), "-v", str(args.min_overlap)]
     if args.debug:
         cmdline.append("-d")
-    if args.min_kmer_count is not None:
-        cmdline.extend(["-m", str(args.min_kmer_count)])
-    if args.max_kmer_count is not None:
-        cmdline.extend(["-x", str(args.max_kmer_count)])
-    cmdline.extend([args.reads, out_file, str(args.coverage)])
+    if args.read_type == "subasm":
+        cmdline.append("-s")
+    #if args.min_kmer_count is not None:
+    #    cmdline.extend(["-m", str(args.min_kmer_count)])
+    #if args.max_kmer_count is not None:
+    #    cmdline.extend(["-x", str(args.max_kmer_count)])
+    cmdline.extend([",".join(args.reads), out_file,
+                    str(args.genome_size), config_path])
 
     try:
+        logger.debug("Running: " + " ".join(cmdline))
         subprocess.check_call(cmdline)
-    except (subprocess.CalledProcessError, OSError) as e:
+    except subprocess.CalledProcessError as e:
         if e.returncode == -9:
             logger.error("Looks like the system ran out of memory")
+        raise AssembleException(str(e))
+    except OSError as e:
         raise AssembleException(str(e))
