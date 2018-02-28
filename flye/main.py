@@ -179,11 +179,6 @@ class JobConsensus(Job):
                            self.consensus_dir, self.args.platform, out_alignment,
                            self.args.mapping_tool)
 
-        #logger.info("Running Minimap2")
-        #out_alignment = os.path.join(self.consensus_dir, "minimap.sam")
-        #aln.make_alignment(self.in_contigs, self.args.reads, self.args.threads,
-        #                   self.consensus_dir, self.args.platform, out_alignment)
-
         contigs_info = aln.get_contigs_info(self.in_contigs)
         logger.info("Computing consensus")
         consensus_fasta = cons.get_consensus(out_alignment, self.in_contigs,
@@ -228,11 +223,6 @@ class JobPolishing(Job):
             aln.make_alignment(prev_assembly, self.args.reads, self.args.threads,
                                self.polishing_dir, self.args.platform, alignment_file,
                                self.args.mapping_tool)
-
-            #logger.info("Running Minimap2")
-            #aln.make_alignment(prev_assembly, self.args.reads, self.args.threads,
-            #                   self.polishing_dir, self.args.platform,
-            #                   alignment_file)
 
             logger.info("Separating alignment into bubbles")
             contigs_info = aln.get_contigs_info(prev_assembly)
