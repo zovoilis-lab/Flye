@@ -1,0 +1,3 @@
+[submodule "lib/graphmap"]
+	path = lib/graphmap
+	url = https://github.com/isovic/graphmap

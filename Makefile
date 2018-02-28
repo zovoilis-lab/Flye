@@ -6,11 +6,13 @@ export INTERVAL_TREE = -I${ROOT_DIR}/lib/interval_tree
 export LEMON = -I${ROOT_DIR}/lib/lemon
 export BIN_DIR = ${ROOT_DIR}/bin
 export MINIMAP2_DIR = ${ROOT_DIR}/lib/minimap2
+export GRAPHMAP_DIR = ${ROOT_DIR}/lib/graphmap
+export GRAPHMAP_BIN = ${GRAPHMAP_DIR}/bin/Linux-x64
 
 export CXXFLAGS = ${LIBCUCKOO} ${INTERVAL_TREE} ${LEMON} ${COMMON} 
 export LDFLAGS = -lz
 
-.PHONY: clean all profile debug minimap2
+.PHONY: clean all profile debug minimap2 graphmap
 
 .DEFAULT_GOAL := all
 
@@ -18,16 +20,30 @@ export LDFLAGS = -lz
 ${BIN_DIR}/abruijn-minimap2:
 	make -C ${MINIMAP2_DIR}
 	cp ${MINIMAP2_DIR}/minimap2 ${BIN_DIR}/abruijn-minimap2
+	
+
+${BIN_DIR}/abruijn-graphmap:
+	make modules -C ${GRAPHMAP_DIR}
+	make -C ${GRAPHMAP_DIR}
+	cp ${GRAPHMAP_BIN}/graphmap ${BIN_DIR}/abruijn-graphmap
 
 minimap2: ${BIN_DIR}/abruijn-minimap2
 
-all: minimap2
+graphmap: ${BIN_DIR}/abruijn-graphmap
+
+init:
+	git submodule init
+	git submodule update
+
+all: init minimap2 graphmap
 	make release -C src
-profile: minimap2
+profile: init minimap2 graphmap init
 	make profile -C src
-debug: minimap2
+debug: init minimap2 graphmap init
 	make debug -C src
 clean:
 	make clean -C src
 	make clean -C ${MINIMAP2_DIR}
+	make clean -C ${GRAPHMAP_DIR}	
 	rm ${BIN_DIR}/abruijn-minimap2
+	rm ${BIN_DIR}/abruijn-graphmap

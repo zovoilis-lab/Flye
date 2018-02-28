@@ -203,10 +203,19 @@ class JobConsensus(Job):
         if not os.path.isdir(self.consensus_dir):
             os.mkdir(self.consensus_dir)
 
-        logger.info("Running Minimap2")
+        if self.args.mapping_tool == "minimap2":
+            logger.info("Running Minimap2")
+        else:
+            logger.info("Running GraphMap")
         out_alignment = os.path.join(self.consensus_dir, "minimap.sam")
         aln.make_alignment(self.in_contigs, self.args.reads, self.args.threads,
-                           self.consensus_dir, self.args.platform, out_alignment)
+                           self.consensus_dir, self.args.platform, out_alignment,
+                           self.args.mapping_tool)
+
+        #logger.info("Running Minimap2")
+        #out_alignment = os.path.join(self.consensus_dir, "minimap.sam")
+        #aln.make_alignment(self.in_contigs, self.args.reads, self.args.threads,
+        #                   self.consensus_dir, self.args.platform, out_alignment)
 
         contigs_info = aln.get_contigs_info(self.in_contigs)
         logger.info("Computing consensus")
@@ -245,10 +254,18 @@ class JobPolishing(Job):
 
             alignment_file = os.path.join(self.polishing_dir,
                                           "minimap_{0}.sam".format(i + 1))
-            logger.info("Running Minimap2")
+            if self.args.mapping_tool == "minimap2":
+                logger.info("Running Minimap2")
+            else:
+                logger.info("Running GraphMap")
             aln.make_alignment(prev_assembly, self.args.reads, self.args.threads,
-                               self.polishing_dir, self.args.platform,
-                               alignment_file)
+                               self.polishing_dir, self.args.platform, alignment_file,
+                               self.args.mapping_tool)
+
+            #logger.info("Running Minimap2")
+            #aln.make_alignment(prev_assembly, self.args.reads, self.args.threads,
+            #                   self.polishing_dir, self.args.platform,
+            #                   alignment_file)
 
             logger.info("Separating alignment into bubbles")
             contigs_info = aln.get_contigs_info(prev_assembly)
@@ -481,6 +498,10 @@ def main():
                         type=lambda v: check_int_range(v, 1, 1000),
                         default=None, help="maximum kmer coverage "
                         "(default: auto)")
+    parser.add_argument("--mapper", dest="mapping_tool",
+                        default="minimap2",
+                        choices=["minimap2", "graphmap"],
+                        help="mapping tool (default: minimap2)")
     parser.add_argument("--version", action="version", version=__version__)
     args = parser.parse_args()
 
