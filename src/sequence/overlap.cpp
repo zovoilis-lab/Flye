@@ -98,10 +98,11 @@ namespace
 	struct DPRecord
 	{
 		DPRecord() {}
-		DPRecord(const OverlapRange& ovlp): ovlp(ovlp) {}
+		DPRecord(const OverlapRange& ovlp): ovlp(ovlp), wasContinued(false) {}
 
 		OverlapRange ovlp;
 		std::vector<int32_t> shifts;
+		bool wasContinued;
 	};
 }
 
@@ -162,7 +163,8 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 				{
 					case J_END:
 						eraseMarks.insert(pathId);
-						if (this->overlapTest(extPaths[pathId].ovlp))
+						if (this->overlapTest(extPaths[pathId].ovlp) &&
+							!extPaths[pathId].wasContinued)
 						{
 							completedPaths[extReadPos.readId]
 									.push_back(extPaths[pathId]);
@@ -193,6 +195,7 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 			if (extendsClose)
 			{
 				eraseMarks.erase(maxCloseId);
+				extPaths[maxCloseId].wasContinued = false;
 				extPaths[maxCloseId].ovlp.curEnd = curPos;
 				extPaths[maxCloseId].ovlp.extEnd = extPos;
 				extPaths[maxCloseId].ovlp.score = maxCloseScore;
@@ -211,7 +214,9 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 			//update the best far extension, keep the old path as a copy
 			if (extendsFar)
 			{
+				extPaths[maxFarId].wasContinued = true;
 				extPaths.push_back(extPaths[maxFarId]);
+				extPaths.back().wasContinued = false;
 				extPaths.back().ovlp.curEnd = curPos;
 				extPaths.back().ovlp.extEnd = extPos;
 				extPaths.back().ovlp.score = maxFarScore;
