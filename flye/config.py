@@ -15,6 +15,7 @@ vals = {
         "solid_kmer_length" : 10,
         "max_bubble_length" : 500,
         "max_bubble_branches" : 50,
+        "min_aln_length" : 1000,
 
         "scaffold_gap" : 100,
 

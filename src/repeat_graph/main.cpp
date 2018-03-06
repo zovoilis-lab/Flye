@@ -156,6 +156,16 @@ int getKmerSize(size_t genomeSize)
 			(int)Config::get("kmer_size_big");
 }
 
+int chooseMinOverlap(const SequenceContainer& seqReads)
+{
+	//choose minimum overlap as reads N90
+	const int GRADE = 1000;
+	int estMinOvlp = round((float)seqReads.computeNxStat(0.90) / GRADE) * GRADE;
+	return std::min(std::max((int)Config::get("low_minimum_overlap"), 
+							 estMinOvlp),
+					(int)Config::get("high_minimum_overlap"));
+}
+
 int main(int argc, char** argv)
 {
 	#ifndef _DEBUG
@@ -207,13 +217,9 @@ int main(int argc, char** argv)
 		return 1;
 	}
 
-	if (minOverlap == -1)
-	{
-		int estMinOvlp = seqReads.computeNxStat(0.90) / 500 * 500;
-		minOverlap = std::min(std::max(1000, estMinOvlp), 7000);
-	}
+	if (minOverlap == -1) minOverlap = chooseMinOverlap(seqReads);
 	Parameters::get().minimumOverlap = minOverlap;
-	Logger::get().info() << "Selected minimum overlap " << minOverlap;
+	Logger::get().debug() << "Selected minimum overlap " << minOverlap;
 
 	RepeatGraph rg(seqAssembly);
 	GraphProcessor proc(rg, seqAssembly, seqReads);

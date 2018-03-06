@@ -130,7 +130,7 @@ def make_bubbles(alignment_path, contigs_info, contigs_path,
             _output_bubbles(ctg_bubbles, f)
 
     mean_aln_error = float(sum(total_aln_errors)) / (len(total_aln_errors) + 1)
-    logger.debug("Alignment error rate: {0}".format(mean_aln_error))
+    logger.info("Alignment error rate: {0}".format(mean_aln_error))
     logger.debug("Generated {0} bubbles".format(total_bubbles))
     logger.debug("Split {0} long bubbles".format(total_long_bubbles))
     logger.debug("Skipped {0} empty bubbles".format(total_empty))

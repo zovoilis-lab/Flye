@@ -54,7 +54,7 @@ void MultiplicityInferer::estimateCoverage()
 	}
 	_meanCoverage = (sumLength != 0) ? sumCov / sumLength : 1;
 
-	Logger::get().debug() << "Mean edge coverage: " << _meanCoverage;
+	Logger::get().info() << "Mean edge coverage: " << _meanCoverage;
 
 	std::vector<int> edgesCoverage;
 	for (auto edge : _graph.iterEdges())

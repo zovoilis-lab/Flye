@@ -165,6 +165,16 @@ int getKmerSize(size_t genomeSize)
 			(int)Config::get("kmer_size_big");
 }
 
+int chooseMinOverlap(const SequenceContainer& seqReads)
+{
+	//choose minimum overlap as reads N90
+	const int GRADE = 1000;
+	int estMinOvlp = round((float)seqReads.computeNxStat(0.90) / GRADE) * GRADE;
+	return std::min(std::max((int)Config::get("low_minimum_overlap"), 
+							 estMinOvlp),
+					(int)Config::get("high_minimum_overlap"));
+}
+
 int main(int argc, char** argv)
 {
 	#ifndef _DEBUG
@@ -197,7 +207,7 @@ int main(int argc, char** argv)
 	Config::load(configPath);
 	Parameters::get().numThreads = numThreads;
 	Parameters::get().kmerSize = getKmerSize(genomeSize);
-	Logger::get().debug() << "Running with k-mer size: " << 
+	Logger::get().info() << "Running with k-mer size: " << 
 		Parameters::get().kmerSize; 
 	//if (kmerSize != -1) Parameters::get().kmerSize = kmerSize; 
 
@@ -220,25 +230,20 @@ int main(int argc, char** argv)
 							(int)Config::get("assemble_kmer_sample"));
 	vertexIndex.outputProgress(true);
 
+	Logger::get().info() << "Reads N50/90: " << readsContainer.computeNxStat(0.50) <<
+		" / " << readsContainer.computeNxStat(0.90);
+
+	if (minOverlap == -1) minOverlap = chooseMinOverlap(readsContainer);
+	Parameters::get().minimumOverlap = minOverlap;
+	Logger::get().info() << "Selected minimum overlap " << minOverlap;
+
 	int64_t sumLength = 0;
 	for (auto& seqId : readsContainer.getIndex())
 	{
 		sumLength += seqId.second.sequence.length();
 	}
-	/*Logger::get().debug() << "Mean read length: " 
-		<< sumLength / readsContainer.getIndex().size();*/
-	Logger::get().debug() << "Reads N50: " << readsContainer.computeNxStat(0.50);
-	Logger::get().debug() << "Reads N90: " << readsContainer.computeNxStat(0.90);
-	if (minOverlap == -1)
-	{
-		int estMinOvlp = readsContainer.computeNxStat(0.90) / 500 * 500;
-		minOverlap = std::min(std::max(1000, estMinOvlp), 7000);
-	}
-	Logger::get().info() << "Selected minimum overlap " << minOverlap;
-	Parameters::get().minimumOverlap = minOverlap;
-	
 	int coverage = sumLength / 2 / genomeSize;
-	Logger::get().debug() << "Expected read coverage: " << coverage;
+	Logger::get().info() << "Expected read coverage: " << coverage;
 	if (coverage < 5 || coverage > 1000)
 	{
 		Logger::get().warning() << "Expected read coverage is " << coverage

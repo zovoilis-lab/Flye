@@ -224,10 +224,10 @@ void ReadAligner::alignReads()
 		}
 	}*/
 
-	Logger::get().debug() << "Aligned " << numAligned << " / " 
+	Logger::get().debug() << "Aligned reads: " << numAligned << " / " 
 		<< allQueries.size();
-	Logger::get().debug() << "Aligned length " << alignedLength << " / " 
-		<< totalLength << " " << (float)alignedLength / totalLength;
+	Logger::get().info() << "Aligned sequence: " << alignedLength << " / " 
+		<< totalLength << " (" << (float)alignedLength / totalLength << ")";
 }
 
 //updates alignments with respect to the new graph
