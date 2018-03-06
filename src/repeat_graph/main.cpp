@@ -184,7 +184,6 @@ int main(int argc, char** argv)
 	std::ios::sync_with_stdio(false);
 	
 	Config::load(configPath);
-	Parameters::get().minimumOverlap = minOverlap;
 	Parameters::get().numThreads = numThreads;
 	Parameters::get().kmerSize = getKmerSize(genomeSize);
 	Logger::get().debug() << "Running with k-mer size: " << 
@@ -213,6 +212,7 @@ int main(int argc, char** argv)
 		int estMinOvlp = seqReads.computeNxStat(0.90) / 500 * 500;
 		minOverlap = std::min(std::max(1000, estMinOvlp), 7000);
 	}
+	Parameters::get().minimumOverlap = minOverlap;
 	Logger::get().info() << "Selected minimum overlap " << minOverlap;
 
 	RepeatGraph rg(seqAssembly);
