@@ -86,6 +86,33 @@ void SequenceContainer::loadFromFile(const std::string& fileName)
 }
 
 
+int SequenceContainer::computeNxStat(float fraction) const
+{
+	std::vector<int32_t> readLengths;
+	int64_t totalLengh = 0;
+	for (auto& read : _seqIndex) 
+	{
+		readLengths.push_back(read.second.sequence.length());
+		totalLengh += read.second.sequence.length();
+	}
+	std::sort(readLengths.begin(), readLengths.end(),
+			  [](int32_t a, int32_t b) {return a > b;});
+
+	int32_t nx = 0;
+    int64_t cummulativeLen = 0;
+	for (auto l : readLengths)
+	{
+        cummulativeLen += l;
+        if (cummulativeLen > fraction * totalLengh)
+		{
+            nx = l;
+            break;
+		}
+	}
+	return nx;
+}
+
+
 const FastaRecord& 
 	SequenceContainer::addSequence(const DnaSequence& sequence, 
 								   const std::string& description)

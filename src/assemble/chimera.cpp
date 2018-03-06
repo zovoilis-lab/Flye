@@ -26,52 +26,52 @@ bool ChimeraDetector::isChimeric(FastaRecord::Id readId)
 
 void ChimeraDetector::estimateGlobalCoverage()
 {
+	Logger::get().debug() << "Computing overlap coverage";
+
 	const int NUM_SAMPLES = 1000;
-	const int MAX_COVERAGE = _inputCoverage * 
+	const int sampleRate = _seqContainer.getIndex().size() / NUM_SAMPLES;
+	static const int minCoverage = _inputCoverage / 
+					(int)Config::get("max_coverage_drop_rate") + 1;
+	static const int maxCoverage = _inputCoverage * 
 					(int)Config::get("max_coverage_drop_rate");
-	int sampleNum = 0;
-	std::vector<int32_t> readMeans;
+
+	std::unordered_map<int32_t, int32_t> readHist;
 
 	for (auto& seq : _seqContainer.getIndex())
 	{
+		if (rand() % sampleRate) continue;
 		auto coverage = this->getReadCoverage(seq.first);
+		bool nonZero = false;
+		for (auto c : coverage) nonZero |= (c != 0);
+		if (!nonZero) continue;
 
-		bool isZero = false;
-		int64_t sum = 0;
-		for (auto c : coverage)
+		for (size_t i = 0; i < coverage.size(); ++i)
 		{
-			if (c < MAX_COVERAGE)
+			if (minCoverage < coverage[i] && coverage[i] < maxCoverage)
 			{
-				isZero |= (c == 0);
-				sum += c;
+				++readHist[coverage[i]];
 			}
 		}
-		
-		if (!isZero)
-		{
-			readMeans.push_back(sum / coverage.size());
-			++sampleNum;
-		
-			/*std::string covStr;
-			for (int cov : coverage)
-			{
-				covStr += std::to_string(cov) + " ";
-			}
-			Logger::get().debug() << "\t" << covStr;*/
-		}
-
-
-		if (sampleNum >= NUM_SAMPLES) break;
 	}
 
-	int64_t sum = 0;
-	for (auto m : readMeans) sum += m;
-
-	if (!readMeans.empty())
+	if (readHist.empty())
 	{
-		_overlapCoverage = sum / readMeans.size();
-		Logger::get().debug() << "Mean read coverage: " << _overlapCoverage;
+		Logger::get().warning() << "No overlaps found!";
+		_overlapCoverage = 0;
 	}
+
+	int32_t maxCount = 0;
+	int32_t peakCoverage = 0;
+	for (auto& histIt : readHist)
+	{
+		if (histIt.second > maxCount)
+		{
+			maxCount = histIt.second;
+			peakCoverage = histIt.first;
+		}
+	}
+	_overlapCoverage = peakCoverage;
+	Logger::get().debug() << "Overlap-based coverage: " << _overlapCoverage;
 }
 
 std::vector<int32_t> ChimeraDetector::getReadCoverage(FastaRecord::Id readId)

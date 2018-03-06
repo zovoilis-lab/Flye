@@ -62,7 +62,7 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 	numThreads = 1;
 	debug = false;
 	singletonReads = false;
-	minOverlap = 5000;
+	minOverlap = -1;
 
 	const char optString[] = "m:x:l:t:v:hds";
 	int opt = 0;
@@ -176,7 +176,7 @@ int main(int argc, char** argv)
 	int minKmerCov = 0;
 	int maxKmerCov = 0;
 	size_t genomeSize = 0;
-	int minOverlap = 5000;
+	int minOverlap = -1;
 	bool debugging = false;
 	bool singletonReads = false;
 	size_t numThreads = 1;
@@ -195,7 +195,6 @@ int main(int argc, char** argv)
 	std::ios::sync_with_stdio(false);
 
 	Config::load(configPath);
-	Parameters::get().minimumOverlap = minOverlap;
 	Parameters::get().numThreads = numThreads;
 	Parameters::get().kmerSize = getKmerSize(genomeSize);
 	Logger::get().debug() << "Running with k-mer size: " << 
@@ -226,13 +225,23 @@ int main(int argc, char** argv)
 	{
 		sumLength += seqId.second.sequence.length();
 	}
-	Logger::get().debug() << "Mean read length: " 
-		<< sumLength / readsContainer.getIndex().size();
+	/*Logger::get().debug() << "Mean read length: " 
+		<< sumLength / readsContainer.getIndex().size();*/
+	Logger::get().debug() << "Reads N50: " << readsContainer.computeNxStat(0.50);
+	Logger::get().debug() << "Reads N90: " << readsContainer.computeNxStat(0.90);
+	if (minOverlap == -1)
+	{
+		int estMinOvlp = readsContainer.computeNxStat(0.90) / 500 * 500;
+		minOverlap = std::min(std::max(1000, estMinOvlp), 7000);
+	}
+	Logger::get().info() << "Selected minimum overlap " << minOverlap;
+	Parameters::get().minimumOverlap = minOverlap;
+	
 	int coverage = sumLength / 2 / genomeSize;
-	Logger::get().debug() << "Estimated coverage: " << coverage;
+	Logger::get().debug() << "Expected read coverage: " << coverage;
 	if (coverage < 5 || coverage > 1000)
 	{
-		Logger::get().warning() << "Estimated read coverage is " << coverage
+		Logger::get().warning() << "Expected read coverage is " << coverage
 			<< ", the assembly is not guaranteed to be optimal in this setting."
 			<< " Are you sure that the genome size was entered correctly?";
 	}

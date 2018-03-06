@@ -167,7 +167,7 @@ int main(int argc, char** argv)
 	bool graphContinue = false;
 	size_t numThreads = 1;
 	int kmerSize = -1;
-	int minOverlap = 5000;
+	int minOverlap = -1;
 	size_t genomeSize = 0;
 	std::string readsFasta;
 	std::string inAssembly;
@@ -189,8 +189,6 @@ int main(int argc, char** argv)
 	Parameters::get().kmerSize = getKmerSize(genomeSize);
 	Logger::get().debug() << "Running with k-mer size: " << 
 		Parameters::get().kmerSize; 
-	//if (kmerSize != -1) Parameters::get().kmerSize = kmerSize; 
-
 
 	Logger::get().info() << "Reading sequences";
 	SequenceContainer seqAssembly; 
@@ -209,6 +207,13 @@ int main(int argc, char** argv)
 		Logger::get().error() << e.what();
 		return 1;
 	}
+
+	if (minOverlap == -1)
+	{
+		int estMinOvlp = seqReads.computeNxStat(0.90) / 500 * 500;
+		minOverlap = std::min(std::max(1000, estMinOvlp), 7000);
+	}
+	Logger::get().info() << "Selected minimum overlap " << minOverlap;
 
 	RepeatGraph rg(seqAssembly);
 	GraphProcessor proc(rg, seqAssembly, seqReads);

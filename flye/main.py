@@ -454,8 +454,8 @@ def main():
                         "(default: 1)", metavar="int")
     parser.add_argument("-m", "--min-overlap", dest="min_overlap", metavar="int",
                         type=lambda v: check_int_range(v, 1000, 10000),
-                        default=5000, help="minimum overlap between reads "
-                        "(default: 5000)")
+                        default=None, help="minimum overlap between reads "
+                        "(default: auto)")
 
     parser.add_argument("--resume", action="store_true",
                         dest="resume", default=False,
@@ -465,14 +465,6 @@ def main():
     #parser.add_argument("--kmer-size", dest="kmer_size",
     #                    type=lambda v: check_int_range(v, 11, 31, require_odd=True),
     #                    default=None, help="kmer size (default: auto)")
-    #parser.add_argument("--min-coverage", dest="min_kmer_count",
-    #                    type=lambda v: check_int_range(v, 1, 1000),
-    #                    default=None, help="minimum kmer coverage "
-    #                    "(default: auto)")
-    #parser.add_argument("--max-coverage", dest="max_kmer_count",
-    #                    type=lambda v: check_int_range(v, 1, 1000),
-    #                    default=None, help="maximum kmer coverage "
-    #                    "(default: auto)")
     parser.add_argument("--debug", action="store_true",
                         dest="debug", default=False,
                         help="enable debug output")

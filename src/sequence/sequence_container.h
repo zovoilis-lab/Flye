@@ -159,6 +159,7 @@ public:
 	{
 		return _seqIndex.at(readId).description;
 	}
+	int computeNxStat(float fraction) const;
 
 private:
 	size_t readFasta(std::vector<FastaRecord>& record, 
