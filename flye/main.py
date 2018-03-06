@@ -179,8 +179,7 @@ class JobConsensus(Job):
         logger.info("Computing consensus")
         consensus_fasta = cons.get_consensus(out_alignment, self.in_contigs,
                                              contigs_info, self.args.threads,
-                                             self.args.platform,
-                                             self.args.min_overlap)
+                                             self.args.platform, 1000)
         fp.write_fasta_dict(consensus_fasta, self.out_consensus)
 
 
@@ -224,7 +223,7 @@ class JobPolishing(Job):
             coverage_stats = \
                 bbl.make_bubbles(alignment_file, contigs_info, prev_assembly,
                                  self.args.platform, self.args.threads,
-                                 self.args.min_overlap, bubbles_file)
+                                 1000, bubbles_file)
 
             logger.info("Correcting bubbles")
             polished_file = os.path.join(self.polishing_dir,

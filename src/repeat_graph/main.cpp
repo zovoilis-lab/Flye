@@ -56,7 +56,7 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 	numThreads = 1;
 	debug = false;
 	graphContinue = false;
-	minOverlap = 5000;
+	minOverlap = -1;
 	//kmerSize = -1;
 
 	const char optString[] = "l:t:v:hdg";
