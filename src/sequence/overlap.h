@@ -190,16 +190,22 @@ public:
 	{
 	}
 
-	std::vector<OverlapRange> 
-	getSeqOverlaps(const FastaRecord& fastaRec, bool uniqueExtensions) const;
+	friend class OverlapContainer;
 
 private:
+	std::vector<OverlapRange> 
+	getSeqOverlaps(const FastaRecord& fastaRec, 
+				   bool uniqueExtensions,
+				   bool& outSuggestChiemeric) const;
+
 	enum JumpRes {J_END, J_INCONS, J_CLOSE, J_FAR};
 
 	
 	bool    goodStart(int32_t currentPos, int32_t extensionPos, 
-				      int32_t curLen, int32_t extLen) const;
-	bool    overlapTest(const OverlapRange& ovlp) const;
+				      int32_t curLen, int32_t extLen,
+					  FastaRecord::Id curId, 
+					  FastaRecord::Id extId) const;
+	bool    overlapTest(const OverlapRange& ovlp, bool& outSuggestChimeric) const;
 	JumpRes jumpTest(int32_t currentPrev, int32_t currentNext,
 				     int32_t extensionPrev, int32_t extensionNext) const;
 
@@ -233,13 +239,15 @@ public:
 	//void loadOverlaps(const std::string& filename);
 
 	void findAllOverlaps();
-	std::vector<OverlapRange> seqOverlaps(FastaRecord::Id readId) const;
+	std::vector<OverlapRange> seqOverlaps(FastaRecord::Id readId,
+										  bool& outSuggestChimeric) const;
 	std::vector<OverlapRange> lazySeqOverlaps(FastaRecord::Id readId);
 	const OverlapIndex& getOverlapIndex() const {return _overlapIndex;}
 
 	void buildIntervalTree();
 	std::vector<Interval<OverlapRange*>> 
 		getOverlaps(FastaRecord::Id seqId, int32_t start, int32_t end) const;
+	bool hasSelfOverlaps(FastaRecord::Id seqId);
 
 private:
 	void storeOverlaps(const std::vector<OverlapRange>& overlaps, 
@@ -253,6 +261,7 @@ private:
 	std::mutex _indexMutex;
 	OverlapIndex _overlapIndex;
 	std::unordered_set<FastaRecord::Id> _cached;
+	std::unordered_set<FastaRecord::Id> _suggestedChimeras;
 
 	std::unordered_map<FastaRecord::Id, 
 					   IntervalTree<OverlapRange*>> _ovlpTree;

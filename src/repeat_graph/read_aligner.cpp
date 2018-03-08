@@ -170,7 +170,8 @@ void ReadAligner::alignReads()
 		&idToSegment, &pathsContainer, &alignedLength] 
 	(const FastaRecord::Id& seqId)
 	{
-		auto overlaps = readsOverlaps.seqOverlaps(seqId);
+		bool suggestChimeric = false;
+		auto overlaps = readsOverlaps.seqOverlaps(seqId, suggestChimeric);
 		std::vector<EdgeAlignment> alignments;
 		for (auto& ovlp : overlaps)
 		{

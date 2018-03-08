@@ -15,12 +15,19 @@
 #include "../common/disjoint_set.h"
 
 
-//pre-filtering
+//reject overlaps early to speed everything up
 bool OverlapDetector::goodStart(int32_t curPos, int32_t extPos, 
-								int32_t curLen, int32_t extLen) const
+								int32_t curLen, int32_t extLen,
+								FastaRecord::Id curId, 
+								FastaRecord::Id extId) const
 {	
-	if (_checkOverhang && 
-		std::min(curPos, extPos) > _maxOverhang) return false;
+	if (_checkOverhang)
+	{
+		//allow overlaps between a read and its complement to
+		//bypass overhang checks to detect the typical PacBio chimera pattern
+		if (std::min(curPos, extPos) > _maxOverhang &&
+			curId != extId.rc()) return false;
+	}
 
 	if (extPos > extLen - _minOverlap ||
 	    curPos > curLen - _minOverlap) return false;
@@ -60,7 +67,8 @@ OverlapDetector::jumpTest(int32_t curPrev, int32_t curNext,
 
 
 //Check if it is a proper overlap
-bool OverlapDetector::overlapTest(const OverlapRange& ovlp) const
+bool OverlapDetector::overlapTest(const OverlapRange& ovlp,
+								  bool& outSuggestChimeric) const
 {
 	static const int OVLP_DIVERGENCE = Config::get("overlap_divergence_rate");
 	if (ovlp.curRange() < _minOverlap || 
@@ -76,7 +84,8 @@ bool OverlapDetector::overlapTest(const OverlapRange& ovlp) const
 		return false;
 	}
 
-	if (_checkOverhang && ovlp.curId != ovlp.extId.rc())
+	if (ovlp.curId == ovlp.extId.rc()) outSuggestChimeric = true;
+	if (_checkOverhang)
 	{
 		if (std::min(ovlp.curBegin, ovlp.extBegin) > 
 			_maxOverhang) 
@@ -98,18 +107,23 @@ namespace
 	struct DPRecord
 	{
 		DPRecord() {}
-		DPRecord(const OverlapRange& ovlp): ovlp(ovlp), wasContinued(false) {}
+		DPRecord(const OverlapRange& ovlp):
+			ovlp(ovlp), wasContinued(false), suspectChimeric(false) {}
 
 		OverlapRange ovlp;
 		std::vector<int32_t> shifts;
 		bool wasContinued;
+		bool suspectChimeric;
 	};
 }
 
 std::vector<OverlapRange> 
 OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec, 
-								bool uniqueExtensions) const
+								bool uniqueExtensions,
+								bool& outSuggestChimeric) const
 {
+	outSuggestChimeric = false;
+
 	std::unordered_map<FastaRecord::Id, 
 					   std::vector<DPRecord>> activePaths;
 	std::unordered_map<FastaRecord::Id, 
@@ -163,7 +177,8 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 				{
 					case J_END:
 						eraseMarks.insert(pathId);
-						if (this->overlapTest(extPaths[pathId].ovlp) &&
+						if (this->overlapTest(extPaths[pathId].ovlp, 
+											  outSuggestChimeric) &&
 							!extPaths[pathId].wasContinued)
 						{
 							completedPaths[extReadPos.readId]
@@ -234,8 +249,8 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 			}
 			//if no extensions possible (or there are no active paths), start a new path
 			if (!extendsClose && !extendsFar &&
-				(this->goodStart(curPos, extPos, curLen, extLen) ||
-				fastaRec.id == extReadPos.readId.rc()))	//FIXME: temporary bypass overhang
+				this->goodStart(curPos, extPos, curLen, extLen, 
+								fastaRec.id, extReadPos.readId))
 			{
 				OverlapRange ovlp(fastaRec.id, extReadPos.readId,
 								  curPos, extPos, curLen, extLen);
@@ -256,7 +271,7 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 	{
 		for (auto& dpRec : ap.second)
 		{
-			if (this->overlapTest(dpRec.ovlp))
+			if (this->overlapTest(dpRec.ovlp, outSuggestChimeric))
 			{
 				completedPaths[ap.first].push_back(dpRec);
 			}
@@ -318,10 +333,26 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 }
 
 std::vector<OverlapRange>
-OverlapContainer::seqOverlaps(FastaRecord::Id seqId) const
+OverlapContainer::seqOverlaps(FastaRecord::Id seqId,
+							  bool& outSuggestChimeric) const
 {
 	const FastaRecord& record = _queryContainer.getIndex().at(seqId);
-	return _ovlpDetect.getSeqOverlaps(record, _onlyMax);
+	return _ovlpDetect.getSeqOverlaps(record, _onlyMax, outSuggestChimeric);
+}
+
+
+bool OverlapContainer::hasSelfOverlaps(FastaRecord::Id seqId)
+{
+	_indexMutex.lock();
+	if (!_cached.count(seqId)) 
+	{
+		_indexMutex.unlock();
+		this->lazySeqOverlaps(seqId);
+		_indexMutex.lock();
+	}
+	bool selfOvlp = _suggestedChimeras.count(seqId);
+	_indexMutex.unlock();
+	return selfOvlp;
 }
 
 std::vector<OverlapRange>
@@ -331,9 +362,15 @@ std::vector<OverlapRange>
 	if (!_cached.count(readId))
 	{
 		_indexMutex.unlock();
-		auto overlaps = this->seqOverlaps(readId);
+		bool suggestChimeric = false;
+		auto overlaps = this->seqOverlaps(readId, suggestChimeric);
 		_indexMutex.lock();
 		this->storeOverlaps(overlaps, readId);
+		if (suggestChimeric) 
+		{
+			_suggestedChimeras.insert(readId);
+			_suggestedChimeras.insert(readId.rc());
+		}
 	}
 	auto overlaps = _overlapIndex.at(readId);
 	_indexMutex.unlock();
@@ -381,10 +418,17 @@ void OverlapContainer::findAllOverlaps()
 	[this, &indexMutex] (const FastaRecord::Id& seqId)
 	{
 		auto& fastaRec = _queryContainer.getIndex().at(seqId);
-		auto overlaps = _ovlpDetect.getSeqOverlaps(fastaRec, false);
+		bool suggestChimeric = false;
+		auto overlaps = _ovlpDetect.getSeqOverlaps(fastaRec, false, 
+												   suggestChimeric);
 
 		indexMutex.lock();
 		this->storeOverlaps(overlaps, seqId);
+		if (suggestChimeric) 
+		{
+			_suggestedChimeras.insert(seqId);
+			_suggestedChimeras.insert(seqId.rc());
+		}
 		indexMutex.unlock();
 	};
 
