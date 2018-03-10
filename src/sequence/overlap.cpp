@@ -51,7 +51,7 @@ OverlapDetector::jumpTest(int32_t curPrev, int32_t curNext,
 	if (0 < curNext - curPrev && curNext - curPrev < _maxJump &&
 		0 < extNext - extPrev && extNext - extPrev < _maxJump)
 	{
-		if (jumpLength < Parameters::get().kmerSize &&
+		if (jumpLength < _gapSize &&
 			jumpDiv < Parameters::get().kmerSize)
 		{
 			return J_CLOSE;
@@ -108,12 +108,11 @@ namespace
 	{
 		DPRecord() {}
 		DPRecord(const OverlapRange& ovlp):
-			ovlp(ovlp), wasContinued(false), suspectChimeric(false) {}
+			ovlp(ovlp) {}
 
 		OverlapRange ovlp;
 		std::vector<int32_t> shifts;
-		bool wasContinued;
-		bool suspectChimeric;
+		//bool wasContinued;
 	};
 }
 
@@ -177,9 +176,11 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 				{
 					case J_END:
 						eraseMarks.insert(pathId);
+						//if (this->overlapTest(extPaths[pathId].ovlp, 
+						//					  outSuggestChimeric) &&
+						//	!extPaths[pathId].wasContinued)
 						if (this->overlapTest(extPaths[pathId].ovlp, 
-											  outSuggestChimeric) &&
-							!extPaths[pathId].wasContinued)
+											  outSuggestChimeric))
 						{
 							completedPaths[extReadPos.readId]
 									.push_back(extPaths[pathId]);
@@ -210,7 +211,7 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 			if (extendsClose)
 			{
 				eraseMarks.erase(maxCloseId);
-				extPaths[maxCloseId].wasContinued = false;
+				//extPaths[maxCloseId].wasContinued = false;
 				extPaths[maxCloseId].ovlp.curEnd = curPos;
 				extPaths[maxCloseId].ovlp.extEnd = extPos;
 				extPaths[maxCloseId].ovlp.score = maxCloseScore;
@@ -229,9 +230,9 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 			//update the best far extension, keep the old path as a copy
 			if (extendsFar)
 			{
-				extPaths[maxFarId].wasContinued = true;
+				//extPaths[maxFarId].wasContinued = true;
 				extPaths.push_back(extPaths[maxFarId]);
-				extPaths.back().wasContinued = false;
+				//extPaths.back().wasContinued = false;
 				extPaths.back().ovlp.curEnd = curPos;
 				extPaths.back().ovlp.extEnd = extPos;
 				extPaths.back().ovlp.score = maxFarScore;

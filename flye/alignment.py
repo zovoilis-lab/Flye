@@ -39,12 +39,12 @@ class SynchronizedSamReader(object):
     """
     Parsing SAM file in multiple threads
     """
-    def __init__(self, sam_alignment, reference_fasta, min_aln_length):
+    def __init__(self, sam_alignment, reference_fasta, min_aln_rate):
         #will not be changed during exceution
         self.aln_path = sam_alignment
         self.ref_fasta = reference_fasta
         self.change_strand = True
-        self.min_aln_length = min_aln_length
+        self.min_aln_rate = min_aln_rate
 
         #will be shared between processes
         self.lock = multiprocessing.Lock()
@@ -186,7 +186,8 @@ class SynchronizedSamReader(object):
             qry_start, qry_end, qry_len, qry_seq, err_rate) = \
                     self.parse_cigar(cigar_str, read_str, read_contig, ctg_pos)
 
-            if qry_end - qry_start < self.min_aln_length: continue
+            if float(qry_end - qry_start) / qry_len < self.min_aln_rate:
+                continue
 
             aln = Alignment(read_id, read_contig, qry_start,
                             qry_end, "-" if is_reversed else "+",
