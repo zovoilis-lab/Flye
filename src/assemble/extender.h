@@ -47,6 +47,7 @@ private:
 	ExtensionInfo extendContig(FastaRecord::Id startingRead);
 	int   countRightExtensions(FastaRecord::Id readId) const;
 	bool  extendsRight(const OverlapRange& ovlp) const;
+	bool  checkOverhangs(const OverlapRange& ovlp, bool checkExt = false) const;
 	bool  isRightRepeat(FastaRecord::Id readId) const;
 	void  convertToContigs();
 

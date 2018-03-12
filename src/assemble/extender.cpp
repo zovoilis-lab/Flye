@@ -31,6 +31,8 @@ Extender::ExtensionInfo Extender::extendContig(FastaRecord::Id startRead)
 	{
 		for (auto& ovlp : _ovlpContainer.lazySeqOverlaps(readId))
 		{
+			if (!this->checkOverhangs(ovlp)) continue;
+
 			if (ovlp.extId == startRead &&
 				ovlp.leftShift > (int)Config::get("maximum_jump")) 
 			{
@@ -47,12 +49,13 @@ Extender::ExtensionInfo Extender::extendContig(FastaRecord::Id startRead)
 		int innerOverlaps = 0;
 		for (auto& ovlp : overlaps)
 		{
+			if (!this->checkOverhangs(ovlp)) continue;
 			if (_innerReads.contains(ovlp.extId)) ++innerOverlaps;
 			if (this->extendsRight(ovlp)) extensions.push_back(ovlp);
 		}
 		numOverlaps.push_back(extensions.size());
 
-		//sort from longes to shortest overlap
+		//sort from the longest to the shortest overlaps
 		std::sort(extensions.begin(), extensions.end(), 
 				  [](const OverlapRange& a, const OverlapRange& b)
 					 {return a.curRange() > b.curRange();});
@@ -85,8 +88,9 @@ Extender::ExtensionInfo Extender::extendContig(FastaRecord::Id startRead)
 			if(leftExtendsStart(ovlp.extId)) continue;
 
 			//try to find a good one
-			if (!_chimDetector.isChimeric(ovlp.extId) &&
-				!this->isRightRepeat(ovlp.extId) &&
+			if (this->checkOverhangs(ovlp, /*checkExt*/ true) &&
+				!_chimDetector.isChimeric(ovlp.extId) &&
+				!this->isRightRepeat(ovlp.extId.rc()) &&
 				this->countRightExtensions(ovlp.extId) > minExtensions)
 			{
 				foundExtension = true;
@@ -179,6 +183,7 @@ void Extender::assembleContigs(bool addSingletons)
 		int numInnerOvlp = 0;
 		for (auto& ovlp : _ovlpContainer.lazySeqOverlaps(startRead))
 		{
+			if (!this->checkOverhangs(ovlp)) continue;
 			if (_innerReads.contains(ovlp.extId)) ++numInnerOvlp;
 			if (ovlp.extId == startRead || 
 				ovlp.extId.rc() == startRead) return true;
@@ -237,6 +242,8 @@ void Extender::assembleContigs(bool addSingletons)
 			//so each read is covered from the left and right
 			for (auto& ovlp : _ovlpContainer.lazySeqOverlaps(readId))
 			{
+				if (!this->checkOverhangs(ovlp)) continue;
+
 				coveredReads.insert(ovlp.extId, true);
 
 				//contained inside the other read - probably repetitive
@@ -296,6 +303,8 @@ void Extender::assembleContigs(bool addSingletons)
 			{
 				for (auto& ovlp : _ovlpContainer.lazySeqOverlaps(indexPair.first))
 				{
+					if (!this->checkOverhangs(ovlp)) continue;
+
 					if (abs(ovlp.leftShift) < Parameters::get().minimumOverlap &&
 						abs(ovlp.rightShift) < Parameters::get().minimumOverlap)
 					{
@@ -351,6 +360,7 @@ int Extender::countRightExtensions(FastaRecord::Id readId) const
 	int count = 0;
 	for (auto& ovlp : _ovlpContainer.lazySeqOverlaps(readId))
 	{
+		if (!this->checkOverhangs(ovlp)) continue;
 		if (this->extendsRight(ovlp)) ++count;
 	}
 	return count;
@@ -360,6 +370,28 @@ bool Extender::isRightRepeat(FastaRecord::Id readId) const
 {
 	int maxExtensions = _chimDetector.getOverlapCoverage() * 10;
 	return this->countRightExtensions(readId) >= maxExtensions;
+}
+
+bool Extender::checkOverhangs(const OverlapRange& ovlp, bool checkExt) const
+{
+	static const int MAX_OVERHANG = Config::get("maximum_overhang");
+	int curLeftTrim = _chimDetector.getLeftTrim(ovlp.curId);
+	int curRightTrim = _chimDetector.getLeftTrim(ovlp.curId);
+	int extLeftTrim = MAX_OVERHANG;
+	int extRightTrim = MAX_OVERHANG;
+	if (checkExt)
+	{
+		extLeftTrim = _chimDetector.getLeftTrim(ovlp.extId);
+		extRightTrim = _chimDetector.getRightTrim(ovlp.extId);
+	}
+
+	if (ovlp.curBegin > curLeftTrim && 
+		ovlp.extBegin > extLeftTrim) return false;
+
+	if (ovlp.curLen - ovlp.curEnd > curRightTrim &&
+		ovlp.extLen - ovlp.extEnd > extRightTrim) return false;
+
+	return true;
 }
 
 bool Extender::extendsRight(const OverlapRange& ovlp) const

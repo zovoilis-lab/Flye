@@ -273,7 +273,7 @@ int main(int argc, char** argv)
 	OverlapDetector ovlp(readsContainer, vertexIndex,
 						 (int)Config::get("maximum_jump"), 
 						 Parameters::get().minimumOverlap,
-						 (int)Config::get("maximum_overhang"),
+						 /* no overhang*/ 0,
 						 (int)Config::get("assemble_gap"),
 						 /*store alignment*/ false);
 	OverlapContainer readOverlaps(ovlp, readsContainer, /*only max*/ true);

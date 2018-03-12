@@ -98,16 +98,17 @@ void ChimeraDetector::estimateGlobalCoverage()
 	Logger::get().info() << "Overlap-based coverage: " << _overlapCoverage;
 }
 
-std::vector<int32_t> ChimeraDetector::getReadCoverage(FastaRecord::Id readId)
+std::vector<int32_t> ChimeraDetector::getReadCoverage(FastaRecord::Id readId) const
 {
 	static const int WINDOW = Config::get("chimera_window");
-	const int FLANK = (int)Config::get("maximum_overhang") / WINDOW;
+	//const int FLANK = (int)Config::get("maximum_overhang") / WINDOW;
+	const int FLANK = 0;
 
 	std::vector<int> coverage;
 	int numWindows = _seqContainer.seqLen(readId) / WINDOW;
 	if (numWindows - 2 * FLANK <= 0) return {0};
 
-	coverage.assign(numWindows - 2 * FLANK, 0);
+	coverage.assign(numWindows - 2 * FLANK, 1);
 	for (auto& ovlp : _ovlpContainer.lazySeqOverlaps(readId))
 	{
 		if (ovlp.curId == ovlp.extId.rc()) continue;
@@ -126,24 +127,85 @@ std::vector<int32_t> ChimeraDetector::getReadCoverage(FastaRecord::Id readId)
 	return coverage;
 }
 
+int ChimeraDetector::getLeftTrim(const std::vector<int32_t>& coverage) const
+{
+	int64_t sumCov = 0;
+	for (auto c: coverage) sumCov += c;
+	int32_t meanCov = !coverage.empty() ? sumCov / coverage.size() : 0;
+	int32_t threshold = meanCov / Config::get("max_coverage_drop_rate");
+	
+	size_t pos = 0;
+	for (pos = 0; pos < coverage.size(); ++pos)
+	{
+		if (coverage[pos] > threshold) break;
+	}
+
+	return (pos + 1) * Config::get("chimera_window");
+}
+
+int ChimeraDetector::getRightTrim(const std::vector<int32_t>& coverage) const
+{
+	int64_t sumCov = 0;
+	for (auto c: coverage) sumCov += c;
+	int32_t meanCov = !coverage.empty() ? sumCov / coverage.size() : 0;
+	int32_t threshold = meanCov / Config::get("max_coverage_drop_rate");
+	
+	size_t pos = 0;
+	for (pos = 0; pos < coverage.size(); ++pos)
+	{
+		if (coverage[coverage.size() - 1 - pos] > threshold) break;
+	}
+
+	return (pos + 1) * Config::get("chimera_window");
+}
+
+int ChimeraDetector::getRightTrim(FastaRecord::Id readId) const
+{
+	auto coverage = this->getReadCoverage(readId);
+	return this->getRightTrim(coverage);
+}
+
+int ChimeraDetector::getLeftTrim(FastaRecord::Id readId) const
+{
+	auto coverage = this->getReadCoverage(readId);
+	return this->getLeftTrim(coverage);
+}
 
 bool ChimeraDetector::testReadByCoverage(FastaRecord::Id readId)
 {
 	auto coverage = this->getReadCoverage(readId);
-	const float MAX_DROP_RATE = Config::get("max_coverage_drop_rate");
+	//const float MAX_DROP_RATE = Config::get("max_coverage_drop_rate");
+
 	/*std::string covStr;
 	for (int cov : coverage)
 	{
 		covStr += std::to_string(cov) + " ";
-	}*/
-	//Logger::get().debug() << "\t" << _seqContainer.seqName(readId) << covStr;
+	}
+	Logger::get().debug() << "\t" << _seqContainer.seqName(readId) << " " << covStr;
+	Logger::get().debug() << "Left trim: " << this->getLeftTrim(coverage);
+	Logger::get().debug() << "Right trim: " << this->getRightTrim(coverage);*/
+	
+	int64_t sumCov = 0;
+	for (auto c: coverage) sumCov += c;
+	int32_t meanCov = !coverage.empty() ? sumCov / coverage.size() : 0;
+	int32_t threshold = meanCov / Config::get("max_coverage_drop_rate");
 
-	for (auto cov : coverage)
+
+	//for (auto cov : coverage)
+	size_t leftFlank = this->getLeftTrim(coverage) / Config::get("chimera_window");
+	size_t rightFlank = this->getRightTrim(coverage) / Config::get("chimera_window");
+	for (size_t i = leftFlank; i < coverage.size() - rightFlank; ++i)
 	{
-		if (cov == 0) return true;
+		if (coverage[i] == 0) return true;
 
-		if ((float)_overlapCoverage / cov > MAX_DROP_RATE) 
+		if (coverage[i] < threshold) 
 		{
+			/*std::string covStr;
+			for (int cov : coverage)
+			{
+				covStr += std::to_string(cov) + " ";
+			}
+			Logger::get().debug() << "\t" << _seqContainer.seqName(readId) << "\t" << covStr;*/
 			return true;
 		}
 	}

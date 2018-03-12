@@ -23,10 +23,14 @@ public:
 	void estimateGlobalCoverage();
 	bool isChimeric(FastaRecord::Id readId);
 	int  getOverlapCoverage() const {return _overlapCoverage;}
-	int  getRightTrim(FastaRecord::Id readId);
+	int  getLeftTrim(FastaRecord::Id readId) const;
+	int  getRightTrim(FastaRecord::Id readId) const;
 
 private:
-	std::vector<int32_t> getReadCoverage(FastaRecord::Id readId);
+	int getLeftTrim(const std::vector<int32_t>& coverage) const;
+	int getRightTrim(const std::vector<int32_t>& coverage) const;
+
+	std::vector<int32_t> getReadCoverage(FastaRecord::Id readId) const;
 	bool testReadByCoverage(FastaRecord::Id readId);
 
 	const SequenceContainer& _seqContainer;
