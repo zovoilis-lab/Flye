@@ -185,11 +185,14 @@ void Extender::assembleContigs(bool addSingletons)
 		{
 			if (!this->checkOverhangs(ovlp)) continue;
 			if (_innerReads.contains(ovlp.extId)) ++numInnerOvlp;
-			if (ovlp.extId == startRead || 
-				ovlp.extId.rc() == startRead) return true;
+			//if (ovlp.extId == startRead || 
+			//	ovlp.extId.rc() == startRead) return true;
 		}
 		if (numInnerOvlp > 0) return true;
 
+		static const int MAX_OVERHANG = Config::get("maximum_overhang");
+		if (_chimDetector.getLeftTrim(startRead) > MAX_OVERHANG ||
+			_chimDetector.getLeftTrim(startRead) > MAX_OVERHANG) return true;
 		if (_chimDetector.isChimeric(startRead) ||
 			this->isRightRepeat(startRead) ||
 			this->isRightRepeat(startRead.rc())) return true;
@@ -245,6 +248,7 @@ void Extender::assembleContigs(bool addSingletons)
 				if (!this->checkOverhangs(ovlp)) continue;
 
 				coveredReads.insert(ovlp.extId, true);
+				coveredReads.insert(ovlp.extId.rc(), true);
 
 				//contained inside the other read - probably repetitive
 				if (ovlp.leftShift > MAX_JUMP &&
@@ -264,7 +268,11 @@ void Extender::assembleContigs(bool addSingletons)
 		}
 		for (auto& read : rightExtended)
 		{
-			if (leftExtended.count(read)) _innerReads.insert(read, true);
+			if (leftExtended.count(read)) 
+			{
+				_innerReads.insert(read, true);
+				_innerReads.insert(read.rc(), true);
+			}
 		}
 
 		Logger::get().debug() << "Inner: " << 
@@ -375,8 +383,9 @@ bool Extender::isRightRepeat(FastaRecord::Id readId) const
 bool Extender::checkOverhangs(const OverlapRange& ovlp, bool checkExt) const
 {
 	static const int MAX_OVERHANG = Config::get("maximum_overhang");
+
 	int curLeftTrim = _chimDetector.getLeftTrim(ovlp.curId);
-	int curRightTrim = _chimDetector.getLeftTrim(ovlp.curId);
+	int curRightTrim = _chimDetector.getRightTrim(ovlp.curId);
 	int extLeftTrim = MAX_OVERHANG;
 	int extRightTrim = MAX_OVERHANG;
 	if (checkExt)
