@@ -138,11 +138,22 @@ bool ChimeraDetector::testReadByCoverage(FastaRecord::Id readId)
 	}*/
 	//Logger::get().debug() << "\t" << _seqContainer.seqName(readId) << covStr;
 
+	//int64_t sumCov = 0;
+	int maxCov = 0;
+	for (auto cov : coverage)
+	{
+		//sumCov += cov;
+		maxCov = std::max(maxCov, cov);
+	}
+	//int meanCov = sumCov ? sumCov / coverage.size() : 0;
+	int threshold = round((float)std::min(_overlapCoverage, maxCov) /
+						  MAX_DROP_RATE);
+
 	for (auto cov : coverage)
 	{
 		if (cov == 0) return true;
 
-		if ((float)_overlapCoverage / cov > MAX_DROP_RATE) 
+		if (cov < threshold)
 		{
 			return true;
 		}
