@@ -55,8 +55,8 @@ struct UnbranchingPath
 	FastaRecord::Id id;
 	bool circular;
 	bool repetitive;
-	int  length;
-	int  meanCoverage;
+	int32_t length;
+	int32_t meanCoverage;
 };
 
 //A class for basic repeat graph processing

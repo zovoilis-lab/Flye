@@ -15,11 +15,11 @@ void MultiplicityInferer::estimateCoverage()
 	const int SHORT_EDGE = Config::get("unique_edge_length");
 
 	//alternative coverage
-	std::unordered_map<GraphEdge*, std::vector<int>> wndCoverage;
+	std::unordered_map<GraphEdge*, std::vector<int32_t>> wndCoverage;
 
 	for (auto& edge : _graph.iterEdges())
 	{
-		int numWindows = edge->length() / WINDOW;
+		size_t numWindows = edge->length() / WINDOW;
 		wndCoverage[edge].assign(numWindows, 0);
 	}
 
@@ -48,7 +48,7 @@ void MultiplicityInferer::estimateCoverage()
 		if (edgeCoverage.first->length() < SHORT_EDGE) continue;
 		for (auto& cov : edgeCoverage.second)
 		{
-			sumCov += cov;
+			sumCov += (int64_t)cov;
 			++sumLength;
 		}
 	}
@@ -56,14 +56,14 @@ void MultiplicityInferer::estimateCoverage()
 
 	Logger::get().info() << "Mean edge coverage: " << _meanCoverage;
 
-	std::vector<int> edgesCoverage;
+	std::vector<int32_t> edgesCoverage;
 	for (auto edge : _graph.iterEdges())
 	{
 		if (wndCoverage[edge].empty()) continue;
 
 		GraphEdge* complEdge = _graph.complementEdge(edge);
-		int medianCov = (median(wndCoverage[edge]) + 
-						 median(wndCoverage[complEdge])) / 2;
+		int32_t medianCov = (median(wndCoverage[edge]) + 
+						 	 median(wndCoverage[complEdge])) / 2;
 
 		float minMult = (!edge->isTip()) ? 1 : 0;
 		int estMult = std::max(minMult, 
@@ -76,8 +76,8 @@ void MultiplicityInferer::estimateCoverage()
 		//std::string match = estMult != edge->multiplicity ? "*" : " ";
 		std::string covStr;
 
-		Logger::get().debug() << edge->edgeId.signedId() << "\t"
-				<< edge->length() << "\t" << medianCov << "\t"
+		Logger::get().debug() << edge->edgeId.signedId() << "\tlen:"
+				<< edge->length() << "\tcov:" << medianCov << "\tmult:"
 				<< (float)medianCov / _meanCoverage;
 
 		//edge->multiplicity = estMult;
@@ -94,8 +94,8 @@ void MultiplicityInferer::removeUnsupportedEdges()
 	GraphProcessor proc(_graph, _asmSeqs, _readSeqs);
 	auto unbranchingPaths = proc.getUnbranchingPaths();
 
-	int coverageThreshold = this->getMeanCoverage() / 
-							Config::get("graph_cov_drop_rate");
+	int32_t coverageThreshold = this->getMeanCoverage() / 
+								Config::get("graph_cov_drop_rate");
 	Logger::get().debug() << "Read coverage cutoff: " << coverageThreshold;
 
 	std::unordered_set<GraphEdge*> edgesRemove;
@@ -121,8 +121,8 @@ void MultiplicityInferer::removeUnsupportedEdges()
 
 void MultiplicityInferer::removeUnsupportedConnections()
 {
-	std::unordered_map<GraphEdge*, int> rightConnections;
-	std::unordered_map<GraphEdge*, int> leftConnections;
+	std::unordered_map<GraphEdge*, int32_t> rightConnections;
+	std::unordered_map<GraphEdge*, int32_t> leftConnections;
 
 	for (auto& readPath : _aligner.getAlignments())
 	{
@@ -163,8 +163,8 @@ void MultiplicityInferer::removeUnsupportedConnections()
 		edge->nodeLeft->outEdges.push_back(edge);
 	};
 
-	int coverageThreshold = this->getMeanCoverage() / 
-							Config::get("graph_cov_drop_rate");
+	int32_t coverageThreshold = this->getMeanCoverage() / 
+								Config::get("graph_cov_drop_rate");
 	for (auto& edge : _graph.iterEdges())
 	{
 		if (!edge->edgeId.strand() || edge->isLooped()) continue;
