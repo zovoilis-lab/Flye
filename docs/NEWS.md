@@ -1,3 +1,10 @@
+Flye 2.3.3 (27 Mar 2018)
+========================
+* Automatic selection of minimum overlap parameter based on read length
+* Improvements in large genome assemblies
+* Minimap2 updated
+* Other bugfixes
+
 Flye 2.3.2 (19 Feb 2018)
 ========================
 * Better contiguity for larger genome assemblies
