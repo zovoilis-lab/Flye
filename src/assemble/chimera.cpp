@@ -28,13 +28,13 @@ void ChimeraDetector::estimateGlobalCoverage()
 {
 	Logger::get().debug() << "Estimating overlap coverage";
 
-	const int NUM_SAMPLES = 1000;
-	const int sampleRate = _seqContainer.getIndex().size() / NUM_SAMPLES;
-	static const int minCoverage = _inputCoverage / 
+	int numSamples = std::min(1000, (int)_seqContainer.getIndex().size());
+	int sampleRate = (int)_seqContainer.getIndex().size() / numSamples;
+	int minCoverage = _inputCoverage / 
 					(int)Config::get("max_coverage_drop_rate") + 1;
-	static const int maxCoverage = _inputCoverage * 
+	int maxCoverage = _inputCoverage * 
 					(int)Config::get("max_coverage_drop_rate");
-	static const int flankSize = 0;
+	int flankSize = 0;
 
 	std::unordered_map<int32_t, int32_t> readHist;
 
