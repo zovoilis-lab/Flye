@@ -369,12 +369,12 @@ std::vector<UnbranchingPath> GraphProcessor::getUnbranchingPaths() const
 		bool repetitive = traversed.front()->isRepetitive() || 
 						  traversed.back()->isRepetitive();
 
-		int contigLength = 0;
+		int64_t contigLength = 0;
 		int64_t sumCov = 0;
 		for (auto& edge : traversed) 
 		{
 			contigLength += edge->length();
-			sumCov += edge->meanCoverage * edge->length();
+			sumCov += (int64_t)edge->meanCoverage * (int64_t)edge->length();
 		}
 		int meanCoverage = contigLength ? sumCov / contigLength : 0;
 

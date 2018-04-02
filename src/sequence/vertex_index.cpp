@@ -53,9 +53,11 @@ void VertexIndex::countKmers(size_t hardThreshold, int genomeSize)
 		int32_t nextKmerPos = _sampleRate;
 		for (auto kmerPos : IterKmers(_seqContainer.getSeq(readId)))
 		{
-			//subsampling
-			if (--nextKmerPos > 0) continue;
-			nextKmerPos = _sampleRate + (int32_t)kmerPos.kmer.hash() % 3 - 1;
+			if (_sampleRate > 1) //subsampling
+			{
+				if (--nextKmerPos > 0) continue;
+				nextKmerPos = _sampleRate + (int32_t)(kmerPos.kmer.hash() % 3) - 1;
+			}
 
 			bool revCmp = kmerPos.kmer.standardForm();
 			if (revCmp)
@@ -97,9 +99,11 @@ void VertexIndex::countKmers(size_t hardThreshold, int genomeSize)
 		int32_t nextKmerPos = _sampleRate;
 		for (auto kmerPos : IterKmers(_seqContainer.getSeq(readId)))
 		{
-			//subsampling
-			if (--nextKmerPos > 0) continue;
-			nextKmerPos = _sampleRate + (int32_t)kmerPos.kmer.hash() % 3 - 1;
+			if (_sampleRate > 1) //subsampling
+			{
+				if (--nextKmerPos > 0) continue;
+				nextKmerPos = _sampleRate + (int32_t)(kmerPos.kmer.hash() % 3) - 1;
+			}
 
 			bool revCmp = kmerPos.kmer.standardForm();
 			if (revCmp)
@@ -187,9 +191,11 @@ void VertexIndex::buildIndex(int minCoverage, int maxCoverage)
 		int32_t nextKmerPos = _sampleRate;
 		for (auto kmerPos : IterKmers(_seqContainer.getSeq(readId)))
 		{
-			//subsampling
-			if (--nextKmerPos > 0) continue;
-			nextKmerPos = _sampleRate + (int32_t)kmerPos.kmer.hash() % 3 - 1;
+			if (_sampleRate > 1) //subsampling
+			{
+				if (--nextKmerPos > 0) continue;
+				nextKmerPos = _sampleRate + (int32_t)(kmerPos.kmer.hash() % 3) - 1;
+			}
 
 			FastaRecord::Id targetRead = readId;
 			bool revCmp = kmerPos.kmer.standardForm();
