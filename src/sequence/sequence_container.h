@@ -39,7 +39,7 @@ struct FastaRecord
 		int signedId() const
 			{return (_id % 2) ? -((int)_id + 1) / 2 : (int)_id / 2 + 1;}
 
-        uint32_t get() const { return _id; }
+		uint32_t get() const { return _id; }
 
 		std::string toString() const
 		{
@@ -170,9 +170,9 @@ public:
 
 private:
 	size_t readFasta(std::vector<FastaRecord>& record, 
-				     const std::string& fileName);
+					 const std::string& fileName);
 	size_t readFastq(std::vector<FastaRecord>& record, 
-				     const std::string& fileName);
+					 const std::string& fileName);
 	bool isFasta(const std::string& fileName);
 
 	/*size_t 	getSequences(std::vector<FastaRecord>& record, 

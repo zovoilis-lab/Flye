@@ -99,14 +99,14 @@ int SequenceContainer::computeNxStat(float fraction) const
 			  [](int32_t a, int32_t b) {return a > b;});
 
 	int32_t nx = 0;
-    int64_t cummulativeLen = 0;
+	int64_t cummulativeLen = 0;
 	for (auto l : readLengths)
 	{
-        cummulativeLen += l;
-        if (cummulativeLen > fraction * totalLengh)
+		cummulativeLen += l;
+		if (cummulativeLen > fraction * totalLengh)
 		{
-            nx = l;
-            break;
+			nx = l;
+			break;
 		}
 	}
 	return nx;

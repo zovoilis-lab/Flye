@@ -58,8 +58,8 @@ struct OverlapRange
 		}
 		std::sort(rev.kmerMatches.begin(), rev.kmerMatches.end(),
 				  [](const std::pair<int32_t, int32_t>& p1,
-				  	 const std::pair<int32_t, int32_t>& p2)
-				  	 {return p1.first < p2.first;});
+					 const std::pair<int32_t, int32_t>& p2)
+					 {return p1.first < p2.first;});
 
 		return rev;
 	}
@@ -104,7 +104,7 @@ struct OverlapRange
 		else
 		{
 			auto cmpFirst = [] (const std::pair<int32_t, int32_t>& pair, 
-							  	int32_t value)
+								int32_t value)
 								{return pair.first < value;};
 			auto iter = std::lower_bound(kmerMatches.begin(), kmerMatches.end(), 
 										 curPos, cmpFirst);
@@ -214,12 +214,12 @@ private:
 
 	
 	bool    goodStart(int32_t currentPos, int32_t extensionPos, 
-				      int32_t curLen, int32_t extLen,
+					  int32_t curLen, int32_t extLen,
 					  FastaRecord::Id curId, 
 					  FastaRecord::Id extId) const;
 	bool    overlapTest(const OverlapRange& ovlp, bool& outSuggestChimeric) const;
 	JumpRes jumpTest(int32_t currentPrev, int32_t currentNext,
-				     int32_t extensionPrev, int32_t extensionNext) const;
+					 int32_t extensionPrev, int32_t extensionNext) const;
 
 	const int _maxJump;
 	const int _minOverlap;

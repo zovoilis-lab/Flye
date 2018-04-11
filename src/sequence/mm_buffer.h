@@ -5,14 +5,14 @@
 class MinimapBuffer
 {
 public:
-    MinimapBuffer();
-    ~MinimapBuffer();
+	MinimapBuffer();
+	~MinimapBuffer();
 
-    MinimapBuffer(const MinimapBuffer&) = delete;
-    void operator=(const MinimapBuffer&) = delete;
+	MinimapBuffer(const MinimapBuffer&) = delete;
+	void operator=(const MinimapBuffer&) = delete;
 
-    mm_tbuf_t* get() const;
+	mm_tbuf_t* get() const;
 
 private:
-    mm_tbuf_t* _buffer;
+	mm_tbuf_t* _buffer;
 };

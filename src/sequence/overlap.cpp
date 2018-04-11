@@ -32,7 +32,7 @@ bool OverlapDetector::goodStart(int32_t curPos, int32_t extPos,
 	}
 
 	if (extPos > extLen - _minOverlap ||
-	    curPos > curLen - _minOverlap) return false;
+		curPos > curLen - _minOverlap) return false;
 
 	return true;
 }
@@ -131,8 +131,8 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 	MinimapBuffer minimapBuffer;
 	std::string cur = fastaRec.sequence.str();
 	int32_t curId = fastaRec.id.get();
-    int32_t curLen = fastaRec.sequence.length();
-    int32_t curRevCompId = fastaRec.id.rc().get();
+	int32_t curLen = fastaRec.sequence.length();
+	int32_t curRevCompId = fastaRec.id.rc().get();
 
 	int numOfAlignments = 0;
 	mm_reg1_t *pAlignments = mm_map(_minimapIndex.get(),
@@ -141,7 +141,7 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 									&numOfAlignments,
 									minimapBuffer.get(), &mopt, 0);
 
-    MinimapAlignmentContainer alignmentContainer(pAlignments, numOfAlignments);
+	MinimapAlignmentContainer alignmentContainer(pAlignments, numOfAlignments);
 
 	std::unordered_map<int32_t, OverlapRange> bestOverlapsHash;
 	std::vector<OverlapRange> bestOverlapsVector;
@@ -154,50 +154,50 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 			int32_t curStart = alignmentContainer.getCurStart(i);
 			int32_t curEnd = alignmentContainer.getCurEnd(i);
 			bool strand = alignmentContainer.curStrand(i);
-            
-            if (!strand)
-            {
-                std::swap(curId, curRevCompId);
-                curStart = curLen - curEnd; // -1 ?
-                curEnd = curLen - curStart; // -1 ?
-            }
-            
+			
+			if (!strand)
+			{
+				std::swap(curId, curRevCompId);
+				curStart = curLen - curEnd; // -1 ?
+				curEnd = curLen - curStart; // -1 ?
+			}
+			
 			int32_t extStart = alignmentContainer.getExtStart(i);
 			int32_t extEnd = alignmentContainer.getExtEnd(i);
 			int32_t extLen = _minimapIndex.getSeqLength(alignmentContainer.getExtIndexId(i));
 
 			int32_t score = alignmentContainer.getScore(i);
-            OverlapRange overlapRange;
-            
-            auto overlap = bestOverlapsHash.find(extId);
-            
-            if (overlap != bestOverlapsHash.end())
-            {
-                if (overlap->second.score < score)
-                {
-                    overlap->second = OverlapRange(FastaRecord::Id(curId), curStart, curEnd, curLen, 
-                                                   FastaRecord::Id(extId), extStart, extEnd, extLen,
-                                                   0, 0, score);
-                }
-            }
-            else
-            {
-                bestOverlapsHash[extId] = OverlapRange(FastaRecord::Id(curId), curStart, curEnd, curLen,
-                                                       FastaRecord::Id(extId), extStart, extEnd, extLen,
-                                                       0, 0, score);
-            }
+			OverlapRange overlapRange;
+			
+			auto overlap = bestOverlapsHash.find(extId);
+			
+			if (overlap != bestOverlapsHash.end())
+			{
+				if (overlap->second.score < score)
+				{
+					overlap->second = OverlapRange(FastaRecord::Id(curId), curStart, curEnd, curLen, 
+												   FastaRecord::Id(extId), extStart, extEnd, extLen,
+												   0, 0, score);
+				}
+			}
+			else
+			{
+				bestOverlapsHash[extId] = OverlapRange(FastaRecord::Id(curId), curStart, curEnd, curLen,
+													   FastaRecord::Id(extId), extStart, extEnd, extLen,
+													   0, 0, score);
+			}
 		}
 	}
 
-    for (auto &overlapPair : bestOverlapsHash)
-    {
-        if (overlapTest(overlapPair.second, outSuggestChimeric)
-        {
-            bestOverlapsVector.push_back(overlapPair.second);
-        }
-    }
+	for (auto &overlapPair : bestOverlapsHash)
+	{
+		if (overlapTest(overlapPair.second, outSuggestChimeric)
+		{
+			bestOverlapsVector.push_back(overlapPair.second);
+		}
+	}
 
-    return bestOverlapsVector;
+	return bestOverlapsVector;
 
 	/*
 	outSuggestChimeric = false;
