@@ -195,7 +195,7 @@ size_t SequenceContainer::readFasta(std::vector<FastaRecord>& record,
 		if (sequence.empty()) throw ParseException("empty sequence");
 		if (header.empty())
 		{
-			throw ParseException("Fasta fromat error");
+			throw ParseException("Fasta format error");
 		}
 		record.emplace_back(DnaSequence(sequence), header, 
 							FastaRecord::Id(g_nextSeqId));

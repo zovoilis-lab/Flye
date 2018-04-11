@@ -39,6 +39,13 @@ struct FastaRecord
 		int signedId() const
 			{return (_id % 2) ? -((int)_id + 1) / 2 : (int)_id / 2 + 1;}
 
+        uint32_t get() const { return _id; }
+
+		std::string toString() const
+		{
+			return std::to_string(_id);
+		}
+
 		friend std::ostream& operator << (std::ostream& stream, const Id& id)
 		{
 			stream << std::to_string(id._id);

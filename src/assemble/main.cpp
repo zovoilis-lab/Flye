@@ -187,6 +187,8 @@ void testMinimapIndex(const SequenceContainer& readsContainer)
     std::cout << "Done!" << std::endl;
 }
 
+
+
 int main(int argc, char** argv)
 {
     
@@ -239,18 +241,23 @@ int main(int argc, char** argv)
         Logger::get().error() << e.what();
         return 1;
     }
-    
-    clock_t tStart = clock();
-    testMinimapIndex(readsContainer);
-    std::cout << "Building of minimapIndex takes " // 22.5615 seconds
-              << (double)(clock() - tStart) / CLOCKS_PER_SEC << " seconds"
-              << std::endl;
 
-    tStart = clock();
-    VertexIndex vertexIndex(readsContainer, 
-                            (int)Config::get("assemble_kmer_sample"));
+    //
 
-    vertexIndex.outputProgress(true);
+    MinimapIndex minimapIndex(readsContainer);
+
+    //clock_t tStart = clock();
+    //testMinimapIndex(readsContainer);
+    //std::cout << "Building of minimapIndex takes " // 22.5615 seconds
+    //          << (double)(clock() - tStart) / CLOCKS_PER_SEC << " seconds"
+    //          << std::endl;
+
+    //tStart = clock();
+
+    //VertexIndex vertexIndex(readsContainer,
+    //                        (int)Config::get("assemble_kmer_sample"));
+
+    //vertexIndex.outputProgress(true);
 
     Logger::get().info() << "Reads N50/90: " << readsContainer.computeNxStat(0.50) <<
         " / " << readsContainer.computeNxStat(0.90);
@@ -277,25 +284,25 @@ int main(int argc, char** argv)
         maxKmerCov = (int)Config::get("repeat_coverage_rate") * coverage;
     }
 
-    Logger::get().info() << "Generating solid k-mer index";
-    size_t hardThreshold = std::min(5, std::max(2, 
-            coverage / (int)Config::get("hard_min_coverage_rate")));
-    vertexIndex.countKmers(hardThreshold, genomeSize);
+    //Logger::get().info() << "Generating solid k-mer index";
+    //size_t hardThreshold = std::min(5, std::max(2,
+    //        coverage / (int)Config::get("hard_min_coverage_rate")));
+    //vertexIndex.countKmers(hardThreshold, genomeSize);
 
-    ParametersEstimator estimator(readsContainer, vertexIndex, genomeSize);
-    estimator.estimateMinKmerCount(maxKmerCov);
-    if (minKmerCov == -1)
-    {
-        minKmerCov = estimator.minKmerCount();
-    }
+    //ParametersEstimator estimator(readsContainer, vertexIndex, genomeSize);
+    //estimator.estimateMinKmerCount(maxKmerCov);
+    //if (minKmerCov == -1)
+    //{
+    //    minKmerCov = estimator.minKmerCount();
+    //}
 
-    vertexIndex.buildIndex(minKmerCov, maxKmerCov);
-    std::cout << "Building of vertexIndex takes " // 155.948 seconds
-      << (double)(clock() - tStart) / CLOCKS_PER_SEC << " seconds"
-      << std::endl;
+    //vertexIndex.buildIndex(minKmerCov, maxKmerCov);
+    //std::cout << "Building of vertexIndex takes " // 155.948 seconds
+    //  << (double)(clock() - tStart) / CLOCKS_PER_SEC << " seconds"
+    //  << std::endl;
 
-    OverlapDetector ovlp(readsContainer, vertexIndex,
-                         (int)Config::get("maximum_jump"), 
+    OverlapDetector ovlp(readsContainer, minimapIndex,
+                         (int)Config::get("maximum_jump"),
                          Parameters::get().minimumOverlap,
                          (int)Config::get("maximum_overhang"),
                          (int)Config::get("assemble_gap"),
@@ -310,5 +317,6 @@ int main(int argc, char** argv)
     ConsensusGenerator consGen;
     auto contigsFasta = consGen.generateConsensuses(extender.getContigPaths());
     SequenceContainer::writeFasta(contigsFasta, outAssembly);
+
     return 0;
 }

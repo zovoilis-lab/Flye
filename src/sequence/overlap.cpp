@@ -9,6 +9,8 @@
 #include <thread>
 
 #include "overlap.h"
+#include "mm_buffer.h"
+#include "mm_alignment_container.h"
 #include "../common/config.h"
 #include "../common/utils.h"
 #include "../common/parallel.h"
@@ -121,6 +123,83 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 								bool uniqueExtensions,
 								bool& outSuggestChimeric) const
 {
+	// set options for alignment
+	mm_idxopt_t iopt;
+	mm_mapopt_t mopt;
+	mm_set_opt("ava-pb", &iopt, &mopt);
+
+	MinimapBuffer minimapBuffer;
+	std::string cur = fastaRec.sequence.str();
+	int32_t curId = fastaRec.id.get();
+    int32_t curLen = fastaRec.sequence.length();
+    int32_t curRevCompId = fastaRec.id.rc().get();
+
+	int numOfAlignments = 0;
+	mm_reg1_t *pAlignments = mm_map(_minimapIndex.get(),
+									curLen,
+									cur.data(),
+									&numOfAlignments,
+									minimapBuffer.get(), &mopt, 0);
+
+    MinimapAlignmentContainer alignmentContainer(pAlignments, numOfAlignments);
+
+	std::unordered_map<int32_t, OverlapRange> bestOverlapsHash;
+	std::vector<OverlapRange> bestOverlapsVector;
+
+	for (int i = 0; i < alignmentContainer.getNumOfAlignments(); ++i)
+	{
+		int32_t extId = _minimapIndex.getSeqId(alignmentContainer.getExtIndexId(i));
+		if (curId != extId && curRevCompId != extId)
+		{
+			int32_t curStart = alignmentContainer.getCurStart(i);
+			int32_t curEnd = alignmentContainer.getCurEnd(i);
+			bool strand = alignmentContainer.curStrand(i);
+            
+            if (!strand)
+            {
+                std::swap(curId, curRevCompId);
+                curStart = curLen - curEnd; // -1 ?
+                curEnd = curLen - curStart; // -1 ?
+            }
+            
+			int32_t extStart = alignmentContainer.getExtStart(i);
+			int32_t extEnd = alignmentContainer.getExtEnd(i);
+			int32_t extLen = _minimapIndex.getSeqLength(alignmentContainer.getExtIndexId(i));
+
+			int32_t score = alignmentContainer.getScore(i);
+            OverlapRange overlapRange;
+            
+            auto overlap = bestOverlapsHash.find(extId);
+            
+            if (overlap != bestOverlapsHash.end())
+            {
+                if (overlap->second.score < score)
+                {
+                    overlap->second = OverlapRange(FastaRecord::Id(curId), curStart, curEnd, curLen, 
+                                                   FastaRecord::Id(extId), extStart, extEnd, extLen,
+                                                   0, 0, score);
+                }
+            }
+            else
+            {
+                bestOverlapsHash[extId] = OverlapRange(FastaRecord::Id(curId), curStart, curEnd, curLen,
+                                                       FastaRecord::Id(extId), extStart, extEnd, extLen,
+                                                       0, 0, score);
+            }
+		}
+	}
+
+    for (auto &overlapPair : bestOverlapsHash)
+    {
+        if (overlapTest(overlapPair.second, outSuggestChimeric)
+        {
+            bestOverlapsVector.push_back(overlapPair.second);
+        }
+    }
+
+    return bestOverlapsVector;
+
+	/*
 	outSuggestChimeric = false;
 
 	std::unordered_map<FastaRecord::Id, 
@@ -267,7 +346,7 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 		} //end loop over kmer occurences in other reads
 	} //end loop over kmers in the current read
 
-	//copy to coplete paths
+	//copy to complete paths
 	for (auto& ap : activePaths)
 	{
 		for (auto& dpRec : ap.second)
@@ -329,8 +408,7 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 			detectedOverlaps.push_back(maxRecord->ovlp);
 		}
 	}
-
-	return detectedOverlaps;
+	*/
 }
 
 std::vector<OverlapRange>
