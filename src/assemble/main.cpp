@@ -242,17 +242,7 @@ int main(int argc, char** argv)
 		return 1;
 	}
 
-	//
-
 	MinimapIndex minimapIndex(readsContainer);
-
-	//clock_t tStart = clock();
-	//testMinimapIndex(readsContainer);
-	//std::cout << "Building of minimapIndex takes " // 22.5615 seconds
-	//          << (double)(clock() - tStart) / CLOCKS_PER_SEC << " seconds"
-	//          << std::endl;
-
-	//tStart = clock();
 
 	//VertexIndex vertexIndex(readsContainer,
 	//                        (int)Config::get("assemble_kmer_sample"));
@@ -296,11 +286,6 @@ int main(int argc, char** argv)
 	//    minKmerCov = estimator.minKmerCount();
 	//}
 
-	//vertexIndex.buildIndex(minKmerCov, maxKmerCov);
-	//std::cout << "Building of vertexIndex takes " // 155.948 seconds
-	//  << (double)(clock() - tStart) / CLOCKS_PER_SEC << " seconds"
-	//  << std::endl;
-
 	OverlapDetector ovlp(readsContainer, minimapIndex,
 						 (int)Config::get("maximum_jump"),
 						 Parameters::get().minimumOverlap,
@@ -309,10 +294,9 @@ int main(int argc, char** argv)
 						 /* store alignment */ false);
 	OverlapContainer readOverlaps(ovlp, readsContainer, /* only max */ true);
 
-	Extender extender(readsContainer, readOverlaps, coverage, 
-					  estimator.genomeSizeEstimate());
+	Extender extender(readsContainer, readOverlaps, coverage, genomeSize);
 	extender.assembleContigs(singletonReads);
-	vertexIndex.clear();
+	//vertexIndex.clear();
 
 	ConsensusGenerator consGen;
 	auto contigsFasta = consGen.generateConsensuses(extender.getContigPaths());

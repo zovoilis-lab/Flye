@@ -131,8 +131,8 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 	MinimapBuffer minimapBuffer;
 	std::string cur = fastaRec.sequence.str();
 	int32_t curId = fastaRec.id.get();
-	int32_t curLen = fastaRec.sequence.length();
 	int32_t curRevCompId = fastaRec.id.rc().get();
+	int32_t curLen = fastaRec.sequence.length();
 
 	int numOfAlignments = 0;
 	mm_reg1_t *pAlignments = mm_map(_minimapIndex.get(),
@@ -151,15 +151,15 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 		int32_t extId = _minimapIndex.getSeqId(alignmentContainer.getExtIndexId(i));
 		if (curId != extId && curRevCompId != extId)
 		{
-			int32_t curStart = alignmentContainer.getCurStart(i);
+			int32_t curBegin = alignmentContainer.getCurStart(i);
 			int32_t curEnd = alignmentContainer.getCurEnd(i);
 			bool strand = alignmentContainer.curStrand(i);
 			
 			if (!strand)
 			{
 				std::swap(curId, curRevCompId);
-				curStart = curLen - curEnd; // -1 ?
-				curEnd = curLen - curStart; // -1 ?
+				curBegin = curLen - curEnd - 1;
+				curEnd = curLen - curBegin - 1;
 			}
 			
 			int32_t extStart = alignmentContainer.getExtStart(i);
@@ -175,23 +175,25 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 			{
 				if (overlap->second.score < score)
 				{
-					overlap->second = OverlapRange(FastaRecord::Id(curId), curStart, curEnd, curLen, 
+					overlap->second = OverlapRange(FastaRecord::Id(curId), curBegin, curEnd, curLen, 
 												   FastaRecord::Id(extId), extStart, extEnd, extLen,
-												   0, 0, score);
+												   extStart - curEnd, (extLen - extEnd) - (curLen - curEnd),
+												   score);
 				}
 			}
 			else
 			{
-				bestOverlapsHash[extId] = OverlapRange(FastaRecord::Id(curId), curStart, curEnd, curLen,
+				bestOverlapsHash[extId] = OverlapRange(FastaRecord::Id(curId), curBegin, curEnd, curLen,
 													   FastaRecord::Id(extId), extStart, extEnd, extLen,
-													   0, 0, score);
+													   extStart - curEnd, (extLen - extEnd) - (curLen - curEnd),
+													   score);
 			}
 		}
 	}
 
 	for (auto &overlapPair : bestOverlapsHash)
 	{
-		if (overlapTest(overlapPair.second, outSuggestChimeric)
+		if (overlapTest(overlapPair.second, outSuggestChimeric))
 		{
 			bestOverlapsVector.push_back(overlapPair.second);
 		}
