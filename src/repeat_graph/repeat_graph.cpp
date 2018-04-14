@@ -6,7 +6,7 @@
 #include <iomanip>
 
 #include "../sequence/overlap.h"
-#include "../sequence/mm_index.h"
+#include "../sequence/vertex_index.h"
 #include "../common/config.h"
 #include "../common/disjoint_set.h"
 #include "repeat_graph.h"
@@ -57,12 +57,11 @@ std::unordered_set<GraphEdge*> GraphEdge::adjacentEdges()
 void RepeatGraph::build()
 {
 	//getting overlaps
-	//VertexIndex asmIndex(_asmSeqs, (int)Config::get("repeat_graph_kmer_sample"));
-	//asmIndex.countKmers(1, /*genome size*/ 0);
-	//asmIndex.buildIndex(1, (int)Config::get("repeat_graph_max_kmer"));
+	VertexIndex asmIndex(_asmSeqs, (int)Config::get("repeat_graph_kmer_sample"));
+	asmIndex.countKmers(1, /*genome size*/ 0);
+	asmIndex.buildIndex(1, (int)Config::get("repeat_graph_max_kmer"));
 
-	MinimapIndex minimapIndex(_asmSeqs);
-	OverlapDetector asmOverlapper(_asmSeqs, minimapIndex,
+	OverlapDetector asmOverlapper(_asmSeqs, asmIndex, 
 								  (int)Config::get("maximum_jump"), 
 								  Parameters::get().minimumOverlap,
 								  /*no overhang*/ 0, 

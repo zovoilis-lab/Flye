@@ -21,9 +21,6 @@
 #include "../common/logger.h"
 #include "../common/utils.h"
 
-#include "../sequence/mm_index.h"
-#include <ctime>
-
 bool parseArgs(int argc, char** argv, std::string& readsFasta, 
 			   std::string& outAssembly, std::string& logFile, size_t& genomeSize,
 			   int& minKmer, int& maxKmer, bool& debug,
@@ -74,8 +71,8 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 		switch(opt)
 		{
 		//case 'k':
-		//  kmerSize = atoi(optarg);
-		//  break;
+		//	kmerSize = atoi(optarg);
+		//	break;
 		case 'm':
 			minKmer = atoi(optarg);
 			break;
@@ -139,16 +136,16 @@ void exceptionHandler()
 	static bool triedThrow = false;
 	try
 	{
-		if (!triedThrow)
+        if (!triedThrow)
 		{
 			triedThrow = true;
 			throw;
 		}
-	}
-	catch (const std::exception &e) 
+    }
+    catch (const std::exception &e) 
 	{
-		Logger::get().error() << "Caught unhandled exception: " << e.what();
-	}
+        Logger::get().error() << "Caught unhandled exception: " << e.what();
+    }
 	catch (...) {}
 
 	void *stackArray[20];
@@ -179,19 +176,8 @@ int chooseMinOverlap(const SequenceContainer& seqReads)
 					(int)Config::get("high_minimum_overlap"));
 }
 
-void testMinimapIndex(const SequenceContainer& readsContainer)
-{
-	std::cout << "Building minimapIndex..." << std::endl;
-	MinimapIndex minimapIndex(readsContainer);
-	// minimapIndex.clear();
-	std::cout << "Done!" << std::endl;
-}
-
-
-
 int main(int argc, char** argv)
 {
-	
 	#ifndef _DEBUG
 	signal(SIGSEGV, segfaultHandler);
 	std::set_terminate(exceptionHandler);
@@ -241,13 +227,9 @@ int main(int argc, char** argv)
 		Logger::get().error() << e.what();
 		return 1;
 	}
-
-	MinimapIndex minimapIndex(readsContainer);
-
-	//VertexIndex vertexIndex(readsContainer,
-	//                        (int)Config::get("assemble_kmer_sample"));
-
-	//vertexIndex.outputProgress(true);
+	VertexIndex vertexIndex(readsContainer, 
+							(int)Config::get("assemble_kmer_sample"));
+	vertexIndex.outputProgress(true);
 
 	Logger::get().info() << "Reads N50/90: " << readsContainer.computeNxStat(0.50) <<
 		" / " << readsContainer.computeNxStat(0.90);
@@ -274,29 +256,32 @@ int main(int argc, char** argv)
 		maxKmerCov = (int)Config::get("repeat_coverage_rate") * coverage;
 	}
 
-	//Logger::get().info() << "Generating solid k-mer index";
-	//size_t hardThreshold = std::min(5, std::max(2,
-	//        coverage / (int)Config::get("hard_min_coverage_rate")));
-	//vertexIndex.countKmers(hardThreshold, genomeSize);
+	Logger::get().info() << "Generating solid k-mer index";
+	size_t hardThreshold = std::min(5, std::max(2, 
+			coverage / (int)Config::get("hard_min_coverage_rate")));
+	vertexIndex.countKmers(hardThreshold, genomeSize);
 
-	//ParametersEstimator estimator(readsContainer, vertexIndex, genomeSize);
-	//estimator.estimateMinKmerCount(maxKmerCov);
-	//if (minKmerCov == -1)
-	//{
-	//    minKmerCov = estimator.minKmerCount();
-	//}
+	ParametersEstimator estimator(readsContainer, vertexIndex, genomeSize);
+	estimator.estimateMinKmerCount(maxKmerCov);
+	if (minKmerCov == -1)
+	{
+		minKmerCov = estimator.minKmerCount();
+	}
 
-	OverlapDetector ovlp(readsContainer, minimapIndex,
-						 (int)Config::get("maximum_jump"),
+	vertexIndex.buildIndex(minKmerCov, maxKmerCov);
+
+	OverlapDetector ovlp(readsContainer, vertexIndex,
+						 (int)Config::get("maximum_jump"), 
 						 Parameters::get().minimumOverlap,
 						 (int)Config::get("maximum_overhang"),
 						 (int)Config::get("assemble_gap"),
-						 /* store alignment */ false);
-	OverlapContainer readOverlaps(ovlp, readsContainer, /* only max */ true);
+						 /*store alignment*/ false);
+	OverlapContainer readOverlaps(ovlp, readsContainer, /*only max*/ true);
 
-	Extender extender(readsContainer, readOverlaps, coverage, genomeSize);
+	Extender extender(readsContainer, readOverlaps, coverage, 
+					  estimator.genomeSizeEstimate());
 	extender.assembleContigs(singletonReads);
-	//vertexIndex.clear();
+	vertexIndex.clear();
 
 	ConsensusGenerator consGen;
 	auto contigsFasta = consGen.generateConsensuses(extender.getContigPaths());

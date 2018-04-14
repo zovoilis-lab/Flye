@@ -11,13 +11,10 @@
 #include <cuckoohash_map.hh>
 #include "IntervalTree.h"
 
-//#include "vertex_index.h"
-#include "mm_index.h"
+#include "vertex_index.h"
 #include "sequence_container.h"
-#include "../../lib/minimap2/minimap.h"
 #include "../common/logger.h"
 #include "../common/progress_bar.h"
-
 
 
 struct OverlapRange
@@ -30,15 +27,6 @@ struct OverlapRange
 		extId(extId), extBegin(extInit), extEnd(extInit), extLen(extLen),
 		leftShift(0), rightShift(0), score(0)
 	{}
-
-	OverlapRange(FastaRecord::Id curId, int32_t curBegin, int32_t curEnd, int32_t curLen,
-				 FastaRecord::Id extId, int32_t extBegin, int32_t extEnd, int32_t extLen,
-				 int32_t leftShift, int32_t rightShift, int32_t score):
-			curId(curId), curBegin(curBegin), curEnd(curEnd), curLen(curLen),
-			extId(extId), extBegin(extBegin), extEnd(extEnd), extLen(extLen),
-			leftShift(leftShift), rightShift(rightShift), score(score)
-	{}
-
 	int32_t curRange() const {return curEnd - curBegin;}
 	int32_t extRange() const {return extEnd - extBegin;}
 
@@ -58,8 +46,8 @@ struct OverlapRange
 		}
 		std::sort(rev.kmerMatches.begin(), rev.kmerMatches.end(),
 				  [](const std::pair<int32_t, int32_t>& p1,
-					 const std::pair<int32_t, int32_t>& p2)
-					 {return p1.first < p2.first;});
+				  	 const std::pair<int32_t, int32_t>& p2)
+				  	 {return p1.first < p2.first;});
 
 		return rev;
 	}
@@ -104,7 +92,7 @@ struct OverlapRange
 		else
 		{
 			auto cmpFirst = [] (const std::pair<int32_t, int32_t>& pair, 
-								int32_t value)
+							  	int32_t value)
 								{return pair.first < value;};
 			auto iter = std::lower_bound(kmerMatches.begin(), kmerMatches.end(), 
 										 curPos, cmpFirst);
@@ -188,7 +176,7 @@ class OverlapDetector
 {
 public:
 	OverlapDetector(const SequenceContainer& seqContainer,
-					const MinimapIndex& minimapIndex,
+					const VertexIndex& vertexIndex,
 					int maxJump, int minOverlap, int maxOverhang,
 					int gapSize, bool keepAlignment):
 		_maxJump(maxJump),
@@ -197,7 +185,7 @@ public:
 		_gapSize(gapSize),
 		_checkOverhang(maxOverhang > 0),
 		_keepAlignment(keepAlignment),
-		_minimapIndex(minimapIndex),
+		_vertexIndex(vertexIndex),
 		_seqContainer(seqContainer)
 	{
 	}
@@ -214,12 +202,12 @@ private:
 
 	
 	bool    goodStart(int32_t currentPos, int32_t extensionPos, 
-					  int32_t curLen, int32_t extLen,
+				      int32_t curLen, int32_t extLen,
 					  FastaRecord::Id curId, 
 					  FastaRecord::Id extId) const;
 	bool    overlapTest(const OverlapRange& ovlp, bool& outSuggestChimeric) const;
 	JumpRes jumpTest(int32_t currentPrev, int32_t currentNext,
-					 int32_t extensionPrev, int32_t extensionNext) const;
+				     int32_t extensionPrev, int32_t extensionNext) const;
 
 	const int _maxJump;
 	const int _minOverlap;
@@ -228,7 +216,7 @@ private:
 	const bool _checkOverhang;
 	const bool _keepAlignment;
 
-	const MinimapIndex& _minimapIndex;
+	const VertexIndex& _vertexIndex;
 	const SequenceContainer& _seqContainer;
 };
 
