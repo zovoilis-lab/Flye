@@ -16,6 +16,7 @@
 #include "../common/logger.h"
 #include "../common/progress_bar.h"
 
+#include "mm_index.h"
 
 struct OverlapRange
 {
@@ -27,6 +28,15 @@ struct OverlapRange
 		extId(extId), extBegin(extInit), extEnd(extInit), extLen(extLen),
 		leftShift(0), rightShift(0), score(0)
 	{}
+
+	OverlapRange(int32_t curId, int32_t curBegin, int32_t curEnd, int32_t curLen,
+				 int32_t extId, int32_t extBegin, int32_t extEnd, int32_t extLen,
+				 int32_t leftShift, int32_t rightShift, int32_t score)
+			: curId(FastaRecord::Id(curId)), curBegin(curBegin), curEnd(curEnd), curLen(curLen),
+			  extId(FastaRecord::Id(extId)), extBegin(extBegin), extEnd(extEnd), extLen(extLen),
+			  leftShift(leftShift), rightShift(rightShift), score(score)
+	{}
+
 	int32_t curRange() const {return curEnd - curBegin;}
 	int32_t extRange() const {return extEnd - extBegin;}
 
@@ -176,7 +186,7 @@ class OverlapDetector
 {
 public:
 	OverlapDetector(const SequenceContainer& seqContainer,
-					const VertexIndex& vertexIndex,
+					const MinimapIndex& minimapIndex,
 					int maxJump, int minOverlap, int maxOverhang,
 					int gapSize, bool keepAlignment):
 		_maxJump(maxJump),
@@ -185,7 +195,7 @@ public:
 		_gapSize(gapSize),
 		_checkOverhang(maxOverhang > 0),
 		_keepAlignment(keepAlignment),
-		_vertexIndex(vertexIndex),
+		_minimapIndex(minimapIndex),
 		_seqContainer(seqContainer)
 	{
 	}
@@ -216,7 +226,7 @@ private:
 	const bool _checkOverhang;
 	const bool _keepAlignment;
 
-	const VertexIndex& _vertexIndex;
+	const MinimapIndex& _minimapIndex;
 	const SequenceContainer& _seqContainer;
 };
 

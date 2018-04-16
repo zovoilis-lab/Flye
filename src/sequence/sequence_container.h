@@ -53,6 +53,10 @@ struct FastaRecord
 			return stream;
 		}
 
+		std::string toString() const { return std::to_string(_id); }
+
+		uint32_t get() const { return _id; }
+
 	private:
 		uint32_t _id;
 	};

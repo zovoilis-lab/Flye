@@ -5,6 +5,8 @@
 #include "read_aligner.h"
 #include "../common/parallel.h"
 
+#include "../sequence/mm_index.h"
+
 namespace
 {
 	struct Chain
@@ -137,10 +139,11 @@ void ReadAligner::alignReads()
 	}
 
 	//index it and align reads
-	VertexIndex pathsIndex(pathsContainer, 
-						   (int)Config::get("read_align_kmer_sample"));
-	pathsIndex.countKmers(1, /* genome size*/ 0);
-	pathsIndex.buildIndex(1, (int)Config::get("read_align_max_kmer"));
+	//minimapIndex pathsIndex(pathsContainer,
+	//					   (int)Config::get("read_align_kmer_sample"));
+	//pathsIndex.countKmers(1, /* genome size*/ 0);
+	//pathsIndex.buildIndex(1, (int)Config::get("read_align_max_kmer"));
+	MinimapIndex pathsIndex(pathsContainer);
 	OverlapDetector readsOverlapper(pathsContainer, pathsIndex, 
 									(int)Config::get("maximum_jump"),
 									(int)Config::get("max_separation"),
