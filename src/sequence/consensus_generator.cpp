@@ -179,7 +179,6 @@ FastaRecord ConsensusGenerator::generateLinear(const ContigPath& path,
 					   FastaRecord::ID_NONE);
 }
 
-
 ConsensusGenerator::AlignmentsMap 
 	ConsensusGenerator::generateAlignments(const std::vector<ContigPath>& contigs,
 										   bool verbose)

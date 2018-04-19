@@ -231,15 +231,16 @@ std::vector<OverlapRange> findOverlaps(const FastaRecord &fastaRec,
         int32_t score = alignmentContainer.getScore(i);
 
         bool curStrand = alignmentContainer.curStrand(i);
+        int32_t extRevComp = FastaRecord::Id(extId).rc().get();
 
         if (!curStrand)
-        {
-            std::swap(curId, curRevCompId);
-            int32_t newCurBegin = curLen - curEnd - 1;
-            int32_t newCurEnd = curLen - curBegin - 1;
-            curBegin = newCurBegin;
-            curEnd = newCurEnd;
-        }
+		{
+			extId = extRevComp;
+			int32_t newExtBegin = extLen - extEnd - 1;
+			int32_t newExtEnd = extLen - extBegin - 1;
+			extBegin = newExtBegin;
+			extEnd = newExtEnd;
+		}
 
         auto overlap = OverlapRange(curId, curBegin, curEnd, curLen,
                                extId, extBegin, extEnd, extLen,
@@ -369,21 +370,20 @@ int main(int argc, char** argv)
 
     MinimapIndex minimapIndex(readsContainer);
 
-    /*
 	for (auto &hashPair : readsContainer.getIndex())
 	{
-		if (hashPair.first.get() == 3)
+		if (hashPair.first.get() == 0)
 		{
-			auto overlaps = findOverlaps(hashPair.second, index, readsContainer);
+			auto overlaps = findOverlaps(hashPair.second, minimapIndex, readsContainer);
 			for (auto &overlap : overlaps)
             {
                 printOverlapRange(overlap, readsContainer);
             }
 		}
 	}
-    */
 
-    // ./flye --pacbio-raw flye_test.fasta --out-dir out_pacbio --genome-size 5m --threads 4
+    //./flye --pacbio-raw E.coli_PacBio_40x-first500.fasta --out-dir out_pacbio --genome-size 5m --threads 1
+
 
 	//VertexIndex vertexIndex(readsContainer,
 	//						(int)Config::get("assemble_kmer_sample"));

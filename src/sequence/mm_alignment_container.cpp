@@ -89,7 +89,7 @@ bool MinimapAlignmentContainer::curStrand(size_t index) const
 
 int32_t MinimapAlignmentContainer::getScore(size_t index) const
 {
-    return _pAlignments[index].mlen;
+    return _pAlignments[index].qe - _pAlignments[index].qs;
 }
 
 int32_t MinimapAlignmentContainer::getExtIndexId(size_t index) const

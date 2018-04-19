@@ -355,14 +355,15 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 
     MinimapAlignmentContainer alignmentContainer(pAlignments, numOfAlignments);
 
-    std::unordered_map<int32_t, OverlapRange> bestOverlapsHash;
+    std::unordered_map<uint32_t, OverlapRange> bestOverlapsHash;
 
-    int32_t curId = fastaRec.id.get();
-    int32_t curRevCompId = fastaRec.id.rc().get();
+    uint32_t curId = fastaRec.id.get();
+    uint32_t curRevCompId = fastaRec.id.rc().get();
 
     for (int i = 0; i < alignmentContainer.getNumOfAlignments(); ++i)
     {
-        int32_t extId = _minimapIndex.getSequenceId(alignmentContainer.getExtIndexId(i));
+        uint32_t extId = _minimapIndex.getSequenceId(alignmentContainer.getExtIndexId(i));
+		uint32_t extRevComp = FastaRecord::Id(extId).rc().get();
 
         if (curId == extId || curRevCompId == extId)
         {
@@ -380,11 +381,11 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 
         if (!curStrand)
         {
-            std::swap(curId, curRevCompId);
-            int32_t newCurBegin = curLen - curEnd - 1;
-            int32_t newCurEnd = curLen - curBegin - 1;
-            curBegin = newCurBegin;
-            curEnd = newCurEnd;
+            extId = extRevComp;
+            int32_t newExtBegin = extLen - extEnd - 1;
+            int32_t newExtEnd = extLen - extBegin - 1;
+            extBegin = newExtBegin;
+            extEnd = newExtEnd;
         }
 
         auto overlap = OverlapRange(curId, curBegin, curEnd, curLen,
@@ -412,6 +413,8 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
     {
         if (overlapTest(overlapPair.second, outSuggestChimeric))
         {
+			std::cout << "curId " << overlapPair.second.curId.get() << std::endl;
+			std::cout << "extId " << overlapPair.second.extId.get() << std::endl << std::endl;
             overlaps.push_back(overlapPair.second);
         }
     }
