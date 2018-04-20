@@ -370,6 +370,7 @@ int main(int argc, char** argv)
 
     MinimapIndex minimapIndex(readsContainer);
 
+	/*
 	for (auto &hashPair : readsContainer.getIndex())
 	{
 		if (hashPair.first.get() == 0)
@@ -381,6 +382,7 @@ int main(int argc, char** argv)
             }
 		}
 	}
+	 */
 
     //./flye --pacbio-raw E.coli_PacBio_40x-first500.fasta --out-dir out_pacbio --genome-size 5m --threads 1
 

@@ -69,7 +69,7 @@ int32_t MinimapAlignmentContainer::getCurBegin(size_t index) const
 
 int32_t MinimapAlignmentContainer::getCurEnd(size_t index) const
 {
-    return _pAlignments[index].qe;
+    return _pAlignments[index].qe - 1;
 }
 
 int32_t MinimapAlignmentContainer::getExtBegin(size_t index) const
@@ -79,7 +79,7 @@ int32_t MinimapAlignmentContainer::getExtBegin(size_t index) const
 
 int32_t MinimapAlignmentContainer::getExtEnd(size_t index) const
 {
-    return _pAlignments[index].re;
+    return _pAlignments[index].re - 1;
 }
 
 bool MinimapAlignmentContainer::curStrand(size_t index) const

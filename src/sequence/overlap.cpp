@@ -19,6 +19,8 @@
 #include "mm_buffer.h"
 #include "mm_alignment_container.h"
 
+#include <cassert>
+
 //reject overlaps early to speed everything up
 bool OverlapDetector::goodStart(int32_t curPos, int32_t extPos, 
 								int32_t curLen, int32_t extLen,
@@ -381,11 +383,40 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 
         if (!curStrand)
         {
+            //std::cout << extId << std::endl;
+            //std::cout << extLen << std::endl;
+            //std::cout << extBegin << std::endl;
+            //std::cout << extEnd << std::endl;
+
             extId = extRevComp;
             int32_t newExtBegin = extLen - extEnd - 1;
             int32_t newExtEnd = extLen - extBegin - 1;
             extBegin = newExtBegin;
             extEnd = newExtEnd;
+        }
+
+        if (curBegin < 0)
+        {
+            std::cout << "curBegin < 0" << std::endl;
+            exit(1);
+        }
+
+        if (curEnd < 0)
+        {
+            std::cout << "curEnd < 0" << std::endl;
+            exit(1);
+        }
+
+        if (extBegin < 0)
+        {
+            std::cout << "extBegin < 0" << std::endl;
+            exit(1);
+        }
+
+        if (extEnd < 0)
+        {
+            std::cout << "extEnd < 0" << std::endl;
+            exit(1);
         }
 
         auto overlap = OverlapRange(curId, curBegin, curEnd, curLen,
@@ -413,8 +444,8 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
     {
         if (overlapTest(overlapPair.second, outSuggestChimeric))
         {
-			std::cout << "curId " << overlapPair.second.curId.get() << std::endl;
-			std::cout << "extId " << overlapPair.second.extId.get() << std::endl << std::endl;
+			//std::cout << "curId " << overlapPair.second.curId.get() << std::endl;
+			//std::cout << "extId " << overlapPair.second.extId.get() << std::endl << std::endl;
             overlaps.push_back(overlapPair.second);
         }
     }

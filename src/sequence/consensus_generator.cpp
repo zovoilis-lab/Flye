@@ -195,10 +195,19 @@ ConsensusGenerator::AlignmentsMap
 
 		int32_t leftStart = path->overlaps[i].curBegin;
 		int32_t leftLen = path->overlaps[i].curRange();
+
+		//std::cout << "leftStart " << leftStart << std::endl;
+		//std::cout << "leftLen " << leftLen << std::endl;
+
 		std::string leftSeq = path->sequences[i].substr(leftStart, leftLen).str();
 
 		int32_t rightStart = path->overlaps[i].extBegin;
 		int32_t rightLen = path->overlaps[i].extRange();
+
+		//std::cout << "rightStart " << rightStart << std::endl;
+		//std::cout << "rightLen " << rightLen << std::endl;
+
+
 		std::string rightSeq = path->sequences[i + 1].substr(rightStart, 
 															 rightLen).str();
 		

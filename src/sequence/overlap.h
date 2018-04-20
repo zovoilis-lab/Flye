@@ -80,10 +80,10 @@ struct OverlapRange
 		comp.curId = comp.curId.rc();
 		comp.extId = comp.extId.rc();
 
-		for (auto& posPair : comp.kmerMatches) 
+		for (auto& posPair : comp.kmerMatches)
 		{
-			posPair.first = curLen - posPair.first - 1, 
-			posPair.second = extLen - posPair.second - 1;
+			posPair.first = curLen - posPair.first - 1,
+					posPair.second = extLen - posPair.second - 1;
 		}
 		std::reverse(comp.kmerMatches.begin(), comp.kmerMatches.end());
 
