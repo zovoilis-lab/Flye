@@ -185,92 +185,7 @@ int chooseMinOverlap(const SequenceContainer& seqReads)
 #include "../sequence/mm_alignment_container.h"
 #include "../../lib/minimap2/minimap.h"
 
-std::vector<OverlapRange> findOverlaps(const FastaRecord &fastaRec,
-                                       const MinimapIndex &index,
-                                       const SequenceContainer &readsContainer)
-{
-    mm_mapopt_t mopt;
-    mm_mapopt_init(&mopt);
-
-    mopt.flag |= MM_F_ALL_CHAINS | MM_F_NO_DIAG | MM_F_NO_DUAL | MM_F_NO_LJOIN;
-    mopt.min_chain_score = 100, mopt.pri_ratio = 0.0f, mopt.max_gap = 10000, mopt.max_chain_skip = 25;
-
-    mm_mapopt_update(&mopt, index.get());
-
-    std::vector<OverlapRange> overlaps;
-    MinimapBuffer buffer;
-    int numOfAlignments;
-
-    std::string cur = fastaRec.sequence.str();
-    int curLen = fastaRec.sequence.length();
-
-    mm_reg1_t *pAlignments = mm_map(index.get(), curLen, cur.data(),
-                                    &numOfAlignments, buffer.get(), &mopt, 0);
-
-    MinimapAlignmentContainer alignmentContainer(pAlignments, numOfAlignments);
-
-	std::unordered_map<int32_t, OverlapRange> bestOverlapsHash;
-
-    int32_t curId = fastaRec.id.get();
-    int32_t curRevCompId = fastaRec.id.rc().get();
-
-	for (int i = 0; i < alignmentContainer.getNumOfAlignments(); ++i)
-	{
-		int32_t extId = index.getSequenceId(alignmentContainer.getExtIndexId(i));
-
-        if (curId == extId || curRevCompId == extId)
-        {
-            continue;
-        }
-
-        int32_t extLen = index.getSequenceLen(alignmentContainer.getExtIndexId(i));
-        int32_t curBegin = alignmentContainer.getCurBegin(i);
-        int32_t curEnd = alignmentContainer.getCurEnd(i);
-        int32_t extBegin = alignmentContainer.getExtBegin(i);
-        int32_t extEnd = alignmentContainer.getExtEnd(i);
-        int32_t score = alignmentContainer.getScore(i);
-
-        bool curStrand = alignmentContainer.curStrand(i);
-        int32_t extRevComp = FastaRecord::Id(extId).rc().get();
-
-        if (!curStrand)
-		{
-			extId = extRevComp;
-			int32_t newExtBegin = extLen - extEnd - 1;
-			int32_t newExtEnd = extLen - extBegin - 1;
-			extBegin = newExtBegin;
-			extEnd = newExtEnd;
-		}
-
-        auto overlap = OverlapRange(curId, curBegin, curEnd, curLen,
-                               extId, extBegin, extEnd, extLen,
-                               extBegin - curBegin,
-                               (extLen - extEnd) - (curLen - curEnd),
-                               score);
-
-		auto overlapPair = bestOverlapsHash.find(extId);
-
-		if (overlapPair != bestOverlapsHash.end())
-		{
-            if (overlapPair->second.score < score)
-            {
-                overlapPair->second = overlap;
-            }
-		}
-		else
-		{
-            bestOverlapsHash[extId] = overlap;
-		}
-	}
-
-    for (auto &overlapPair : bestOverlapsHash)
-    {
-        overlaps.push_back(overlapPair.second);
-    }
-
-    return overlaps;
-}
-
+/*
 void printOverlapRange(const OverlapRange &overlapRange,
                        const SequenceContainer &readsContainer)
 {
@@ -315,6 +230,7 @@ void printOverlapRange(const OverlapRange &overlapRange,
     }
     std::cout << std::endl;
 }
+ */
 
 int main(int argc, char** argv)
 {
@@ -369,27 +285,6 @@ int main(int argc, char** argv)
 	}
 
     MinimapIndex minimapIndex(readsContainer);
-
-	/*
-	for (auto &hashPair : readsContainer.getIndex())
-	{
-		if (hashPair.first.get() == 0)
-		{
-			auto overlaps = findOverlaps(hashPair.second, minimapIndex, readsContainer);
-			for (auto &overlap : overlaps)
-            {
-                printOverlapRange(overlap, readsContainer);
-            }
-		}
-	}
-	 */
-
-    //./flye --pacbio-raw E.coli_PacBio_40x-first500.fasta --out-dir out_pacbio --genome-size 5m --threads 1
-
-
-	//VertexIndex vertexIndex(readsContainer,
-	//						(int)Config::get("assemble_kmer_sample"));
-	//vertexIndex.outputProgress(true);
 
 	Logger::get().info() << "Reads N50/90: " << readsContainer.computeNxStat(0.50) <<
 		" / " << readsContainer.computeNxStat(0.90);
