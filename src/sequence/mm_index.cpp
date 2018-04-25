@@ -14,30 +14,32 @@ namespace
 
 MinimapIndex::MinimapIndex(const SequenceContainer &readsContainer)
         : _numOfSequences(readsContainer.getIndex().size() / 2)
-        , _pSequences(new const char*[_numOfSequences])
-        , _pSequencesIds(new const char*[_numOfSequences])
         , _minimapIndex(nullptr)
 {
     std::cout << "In MinimapIndex constructor" << std::endl;
 
-    size_t i = 0;
+    size_t total_length = 0;
     for (auto &hashPair : readsContainer.getIndex())
     {
         if (hashPair.first.strand())
         {
             _sequences.push_back(hashPair.second.sequence.str());
             _sequencesIds.push_back(hashPair.first.toString());
-            _pSequences[i] = _sequences[i].data();
-            _pSequencesIds[i] = _sequencesIds[i].data();
-            i += 1;
+            total_length += _sequences[_sequences.size() - 1].length();
         }
     }
 
+    for (size_t i = 0; i < _numOfSequences; ++i)
+    {
+        _pSequences.push_back(_sequences[i].data());
+        _pSequencesIds.push_back(_sequencesIds[i].data());
+    }
+
+    std::cout << "total length = " << total_length << std::endl;
     std::cout << "_numOfSeq: " << _numOfSequences << std::endl;
-    std::cout << "i: " << i << std::endl;
 
     _minimapIndex = mm_idx_str(windows_size, kmer_size, is_hpc, bucket_bits,
-                               _numOfSequences, _pSequences, _pSequencesIds);
+                               _numOfSequences, _pSequences.data(), _pSequencesIds.data());
 
     std::cout << "MinimapIndex has been built!" << std::endl;
 }
@@ -62,7 +64,7 @@ MinimapIndex::~MinimapIndex()
     std::cout << "In MinimapIndex destructor" << std::endl;
     _sequences.clear();
     _sequencesIds.clear();
-    delete [] _pSequences;
-    delete [] _pSequencesIds;
+    _pSequences.clear();
+    _pSequencesIds.clear();
     mm_idx_destroy(_minimapIndex);
 }

@@ -24,9 +24,8 @@ public:
 
 private:
     size_t _numOfSequences;
-    const char** _pSequences;
-    const char** _pSequencesIds;
-
+    std::vector<const char*> _pSequences;
+    std::vector<const char*> _pSequencesIds;
     std::vector<std::string> _sequences;
     std::vector<std::string> _sequencesIds;
 
