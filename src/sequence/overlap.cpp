@@ -151,7 +151,8 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 
         if (curId == extId || curRevCompId == extId)
         {
-            outSuggestChimeric = true;
+            // outSuggestChimeric = true;
+            continue;
         }
 
         int32_t extLen = _minimapIndex.getSequenceLen(alignmentContainer.getExtIndexId(i));
