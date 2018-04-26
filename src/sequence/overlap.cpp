@@ -151,7 +151,7 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 
         if (curId == extId || curRevCompId == extId)
         {
-            continue;
+            outSuggestChimeric = true;
         }
 
         int32_t extLen = _minimapIndex.getSequenceLen(alignmentContainer.getExtIndexId(i));
@@ -196,7 +196,8 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
                     bestOverlapsHash[extId] = overlap;
                 }
             }
-            else {
+            else
+            {
                 overlaps.push_back(overlap);
             }
         }
