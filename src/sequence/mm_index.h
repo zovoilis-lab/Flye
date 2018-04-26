@@ -22,6 +22,8 @@ public:
 
     const char* getSequence(size_t index) const;
 
+    mm_mapopt_t* getOptions() const;
+
 private:
     size_t _numOfSequences;
     std::vector<const char*> _pSequences;
@@ -30,4 +32,5 @@ private:
     std::vector<std::string> _sequencesIds;
 
     mm_idx_t* _minimapIndex;
+    mm_mapopt_t* _minimapOptions;
 };

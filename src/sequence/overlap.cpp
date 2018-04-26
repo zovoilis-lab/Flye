@@ -127,15 +127,6 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 								bool uniqueExtensions,
 								bool& outSuggestChimeric) const
 {
-    mm_mapopt_t mopt;
-    mm_mapopt_init(&mopt);
-
-    mopt.flag |= MM_F_ALL_CHAINS | MM_F_NO_DIAG | MM_F_NO_DUAL | MM_F_NO_LJOIN;
-    mopt.min_chain_score = 100, mopt.pri_ratio = 0.0f, mopt.max_gap = 10000, mopt.max_chain_skip = 25;
-
-    mm_mapopt_update(&mopt, _minimapIndex.get());
-
-    std::vector<OverlapRange> overlaps;
     MinimapBuffer buffer;
     int numOfAlignments;
 
@@ -143,14 +134,15 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
     int curLen = fastaRec.sequence.length();
 
     mm_reg1_t *pAlignments = mm_map(_minimapIndex.get(), curLen, cur.data(),
-                                    &numOfAlignments, buffer.get(), &mopt, 0);
+                                    &numOfAlignments, buffer.get(), _minimapIndex.getOptions(), 0);
 
     MinimapAlignmentContainer alignmentContainer(pAlignments, numOfAlignments);
 
-    std::unordered_map<uint32_t, OverlapRange> bestOverlapsHash;
-
     uint32_t curId = fastaRec.id.get();
     uint32_t curRevCompId = fastaRec.id.rc().get();
+
+    std::vector<OverlapRange> overlaps;
+    std::unordered_map<uint32_t, OverlapRange> bestOverlapsHash;
 
     for (int i = 0; i < alignmentContainer.getNumOfAlignments(); ++i)
     {
@@ -186,26 +178,35 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
                                     (extLen - extEnd) - (curLen - curEnd),
                                     score);
 
-        auto overlapPair = bestOverlapsHash.find(extId);
-
-        if (overlapPair != bestOverlapsHash.end())
+        if (overlapTest(overlap, outSuggestChimeric))
         {
-            if (overlapPair->second.score < score)
+            if (uniqueExtensions)
             {
-                overlapPair->second = overlap;
+                auto overlapPair = bestOverlapsHash.find(extId);
+
+                if (overlapPair != bestOverlapsHash.end())
+                {
+                    if (overlapPair->second.score < score)
+                    {
+                        overlapPair->second = overlap;
+                    }
+                }
+                else
+                {
+                    bestOverlapsHash[extId] = overlap;
+                }
             }
-        }
-        else
-        {
-            bestOverlapsHash[extId] = overlap;
+            else {
+                overlaps.push_back(overlap);
+            }
         }
     }
 
-    for (auto &overlapPair : bestOverlapsHash)
+    if (uniqueExtensions)
     {
-        if (overlapTest(overlapPair.second, outSuggestChimeric))
+        for (auto &hashPair : bestOverlapsHash)
         {
-            overlaps.push_back(overlapPair.second);
+            overlaps.push_back(hashPair.second);
         }
     }
 

@@ -15,8 +15,16 @@ namespace
 MinimapIndex::MinimapIndex(const SequenceContainer &readsContainer)
         : _numOfSequences(readsContainer.getIndex().size() / 2)
         , _minimapIndex(nullptr)
+        , _minimapOptions(new mm_mapopt_t())
 {
     std::cout << "In MinimapIndex constructor" << std::endl;
+
+    mm_mapopt_init(_minimapOptions);
+    _minimapOptions->flag |= MM_F_ALL_CHAINS | MM_F_NO_DIAG | MM_F_NO_DUAL | MM_F_NO_LJOIN;
+    _minimapOptions->min_chain_score = 100;
+    _minimapOptions->pri_ratio = 0.0f;
+    _minimapOptions->max_gap = 10000;
+    _minimapOptions->max_chain_skip = 25;
 
     size_t total_length = 0;
     for (auto &hashPair : readsContainer.getIndex())
@@ -41,6 +49,8 @@ MinimapIndex::MinimapIndex(const SequenceContainer &readsContainer)
     _minimapIndex = mm_idx_str(windows_size, kmer_size, is_hpc, bucket_bits,
                                _numOfSequences, _pSequences.data(), _pSequencesIds.data());
 
+    mm_mapopt_update(_minimapOptions, _minimapIndex);
+
     std::cout << "MinimapIndex has been built!" << std::endl;
 }
 
@@ -59,6 +69,11 @@ int32_t MinimapIndex::getSequenceLen(size_t index) const
     return _minimapIndex->seq[index].len;
 }
 
+mm_mapopt_t* MinimapIndex::getOptions() const
+{
+    return _minimapOptions;
+}
+
 MinimapIndex::~MinimapIndex()
 {
     std::cout << "In MinimapIndex destructor" << std::endl;
@@ -67,4 +82,5 @@ MinimapIndex::~MinimapIndex()
     _pSequences.clear();
     _pSequencesIds.clear();
     mm_idx_destroy(_minimapIndex);
+    delete _minimapOptions;
 }
