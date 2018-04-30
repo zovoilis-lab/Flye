@@ -75,6 +75,9 @@ MinimapIndex::MinimapIndex(const SequenceContainer &readsContainer, const std::s
     mm_mapopt_update(_minimapOptions, _minimapIndex);
 
     std::cout << "MinimapIndex has been built!" << std::endl;
+
+    // clear sequences after we build an index
+    _sequences.clear();
 }
 
 mm_idx_t* MinimapIndex::get() const
@@ -100,7 +103,6 @@ mm_mapopt_t* MinimapIndex::getOptions() const
 MinimapIndex::~MinimapIndex()
 {
     std::cout << "In MinimapIndex destructor" << std::endl;
-    _sequences.clear();
     _sequencesIds.clear();
     _pSequences.clear();
     _pSequencesIds.clear();
