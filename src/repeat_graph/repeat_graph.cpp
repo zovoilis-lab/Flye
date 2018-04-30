@@ -61,7 +61,7 @@ void RepeatGraph::build()
 	//asmIndex.countKmers(1, /*genome size*/ 0);
 	//asmIndex.buildIndex(1, (int)Config::get("repeat_graph_max_kmer"));
 
-	MinimapIndex asmIndex(_asmSeqs);
+	MinimapIndex asmIndex(_asmSeqs, "asm5");
 	OverlapDetector asmOverlapper(_asmSeqs, asmIndex, 
 								  (int)Config::get("maximum_jump"), 
 								  Parameters::get().minimumOverlap,

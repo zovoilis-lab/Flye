@@ -12,7 +12,7 @@ namespace
 
 #include <iostream>
 
-MinimapIndex::MinimapIndex(const SequenceContainer &readsContainer)
+MinimapIndex::MinimapIndex(const SequenceContainer &readsContainer, const std::string &presetOptions)
         : _numOfSequences(readsContainer.getIndex().size() / 2)
         , _minimapIndex(nullptr)
         , _minimapOptions(new mm_mapopt_t())
@@ -20,11 +20,34 @@ MinimapIndex::MinimapIndex(const SequenceContainer &readsContainer)
     std::cout << "In MinimapIndex constructor" << std::endl;
 
     mm_mapopt_init(_minimapOptions);
-    _minimapOptions->flag |= MM_F_ALL_CHAINS | MM_F_NO_DIAG | MM_F_NO_DUAL | MM_F_NO_LJOIN;
-    _minimapOptions->min_chain_score = 100;
-    _minimapOptions->pri_ratio = 0.0f;
-    _minimapOptions->max_gap = 10000;
-    _minimapOptions->max_chain_skip = 25;
+
+    if (presetOptions == "ava-pb")
+    {
+        _minimapOptions->flag |= MM_F_ALL_CHAINS | MM_F_NO_DIAG | MM_F_NO_DUAL | MM_F_NO_LJOIN;
+        _minimapOptions->min_chain_score = 100;
+        _minimapOptions->pri_ratio = 0.0f;
+        _minimapOptions->max_gap = 10000;
+        _minimapOptions->max_chain_skip = 25;
+    }
+
+    if (presetOptions == "asm5")
+    {
+        // io->flag = 0; ? this option is not used by mm_idx_str
+        // io->k = 19, io->w = 19; kmer size is the same as for ava-pb preset, window size is 19 (instead of 5)
+
+        windows_size = 19;
+        is_hpc = false; // this option is not used for asm5 preset, so it is false
+
+        _minimapOptions->a = 1;
+        _minimapOptions->b = 19;
+        _minimapOptions->q = 39;
+        _minimapOptions->q2 = 81;
+        _minimapOptions->e = 3;
+        _minimapOptions->e2 = 1;
+        _minimapOptions->zdrop = _minimapOptions->zdrop_inv = 200;
+        _minimapOptions->min_dp_max = 200;
+        _minimapOptions->best_n = 50;
+    }
 
     size_t total_length = 0;
     for (auto &hashPair : readsContainer.getIndex())
