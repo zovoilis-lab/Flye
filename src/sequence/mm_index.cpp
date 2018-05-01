@@ -30,8 +30,11 @@ MinimapIndex::MinimapIndex(const SequenceContainer &readsContainer, const std::s
         _minimapOptions->pri_ratio = 0.0f;
         _minimapOptions->max_gap = 10000;
         _minimapOptions->max_chain_skip = 25;
+
+        std::cout << presetOptions << " is used" << std::endl;
     }
 
+    /*
     if (presetOptions == "asm5")
     {
         // io->flag = 0; ? this option is not used by mm_idx_str
@@ -49,6 +52,28 @@ MinimapIndex::MinimapIndex(const SequenceContainer &readsContainer, const std::s
         _minimapOptions->zdrop = _minimapOptions->zdrop_inv = 200;
         _minimapOptions->min_dp_max = 200;
         _minimapOptions->best_n = 50;
+    }
+     */
+
+    if (presetOptions == "asm10")
+    {
+        // io->flag = 0, io->k = 19, io->w = 19;
+        windows_size = 19;
+        kmer_size = 19;
+
+        is_hpc = false;
+        _minimapOptions->flag = 0; // ?
+        _minimapOptions->a = 1;
+        _minimapOptions->b = 9;
+        _minimapOptions->q = 16;
+        _minimapOptions->q2 = 41;
+        _minimapOptions->e = 2;
+        _minimapOptions->e2 = 1;
+        _minimapOptions->zdrop = _minimapOptions->zdrop_inv = 200;
+        _minimapOptions->min_dp_max = 200;
+        _minimapOptions->best_n = 50;
+
+        std::cout << presetOptions << " is used" << std::endl;
     }
 
     size_t total_length = 0;
