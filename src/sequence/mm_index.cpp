@@ -21,6 +21,8 @@ MinimapIndex::MinimapIndex(const SequenceContainer &readsContainer, const std::s
 
     mm_mapopt_init(_minimapOptions);
 
+    std::cout << "preset options: " <<  presetOptions << std::endl;
+
     if (presetOptions == "ava-pb")
     {
         _minimapOptions->flag |= MM_F_ALL_CHAINS | MM_F_NO_DIAG | MM_F_NO_DUAL | MM_F_NO_LJOIN;
@@ -77,6 +79,7 @@ MinimapIndex::MinimapIndex(const SequenceContainer &readsContainer, const std::s
     std::cout << "MinimapIndex has been built!" << std::endl;
 
     // clear sequences after we build an index
+    std::cout << "Clear sequences..." << std::endl;
     _sequences.clear();
 }
 
