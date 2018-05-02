@@ -45,7 +45,8 @@ class Bubble:
 
 
 def _thread_worker(aln_reader, contigs_info, err_mode,
-                   results_queue, error_queue):
+                   results_queue, error_queue, bubbles_file_handle,
+                   bubbles_file_lock):
     """
     Will run in parallel
     """
@@ -66,9 +67,14 @@ def _thread_worker(aln_reader, contigs_info, err_mode,
                                ctg_bubbles)) / (len(ctg_bubbles) + 1)
             ctg_bubbles, num_empty, num_long_branch = \
                                     _postprocess_bubbles(ctg_bubbles)
-            results_queue.put((ctg_id, ctg_bubbles, num_long_bubbles,
+            results_queue.put((ctg_id, len(ctg_bubbles), num_long_bubbles,
                                num_empty, num_long_branch, aln_errors,
                                mean_cov))
+            with bubbles_file_lock:
+                _output_bubbles(ctg_bubbles, bubbles_file_handle)
+
+            del profile
+            del ctg_bubbles
 
     except Exception as e:
         error_queue.put(e)
@@ -89,11 +95,14 @@ def make_bubbles(alignment_path, contigs_info, contigs_path,
     #making sure the main process catches SIGINT
     orig_sigint = signal.signal(signal.SIGINT, signal.SIG_IGN)
     threads = []
+    bubbles_out_lock = multiprocessing.Lock()
+    bubbles_out_handle = open(bubbles_out, "w")
     for _ in xrange(num_proc):
         threads.append(multiprocessing.Process(target=_thread_worker,
                                                args=(aln_reader, contigs_info,
                                                      err_mode, results_queue,
-                                                     error_queue)))
+                                                     error_queue, bubbles_out_handle,
+                                                     bubbles_out_lock)))
     signal.signal(signal.SIGINT, orig_sigint)
 
     for t in threads:
@@ -108,7 +117,6 @@ def make_bubbles(alignment_path, contigs_info, contigs_path,
     if not error_queue.empty():
         raise error_queue.get()
 
-    #bubbles = []
     total_bubbles = 0
     total_long_bubbles = 0
     total_long_branches = 0
@@ -116,18 +124,16 @@ def make_bubbles(alignment_path, contigs_info, contigs_path,
     total_aln_errors = []
     coverage_stats = {}
 
-    with open(bubbles_out, "w") as f:
-        while not results_queue.empty():
-            (ctg_id, ctg_bubbles, num_long_bubbles,
-                num_empty, num_long_branch,
-                aln_errors, mean_coverage) = results_queue.get()
-            total_long_bubbles += num_long_bubbles
-            total_long_branches += num_long_branch
-            total_empty += num_empty
-            total_aln_errors.extend(aln_errors)
-            total_bubbles += len(ctg_bubbles)
-            coverage_stats[ctg_id] = mean_coverage
-            _output_bubbles(ctg_bubbles, f)
+    while not results_queue.empty():
+        (ctg_id, num_bubbles, num_long_bubbles,
+            num_empty, num_long_branch,
+            aln_errors, mean_coverage) = results_queue.get()
+        total_long_bubbles += num_long_bubbles
+        total_long_branches += num_long_branch
+        total_empty += num_empty
+        total_aln_errors.extend(aln_errors)
+        total_bubbles += num_bubbles
+        coverage_stats[ctg_id] = mean_coverage
 
     mean_aln_error = float(sum(total_aln_errors)) / (len(total_aln_errors) + 1)
     logger.info("Alignment error rate: {0}".format(mean_aln_error))
@@ -151,6 +157,8 @@ def _output_bubbles(bubbles, out_stream):
         for branch_id, branch in enumerate(bubble.branches):
             out_stream.write(">{0}\n".format(branch_id))
             out_stream.write(branch + "\n")
+
+    out_stream.flush()
 
 
 def _postprocess_bubbles(bubbles):
