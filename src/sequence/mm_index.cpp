@@ -52,6 +52,7 @@ MinimapIndex::MinimapIndex(const SequenceContainer &readsContainer, const std::s
         _minimapOptions->zdrop = _minimapOptions->zdrop_inv = 200;
         _minimapOptions->min_dp_max = 200;
         _minimapOptions->best_n = 50;
+        std::cout << presetOptions << " is used" << std::endl;
     }
 
 
