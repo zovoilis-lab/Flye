@@ -37,7 +37,6 @@ MinimapIndex::MinimapIndex(const SequenceContainer &readsContainer, const std::s
         std::cout << presetOptions << " is used" << std::endl;
     }
 
-    /*
     if (presetOptions == "asm5")
     {
         // io->flag = 0; ? this option is not used by mm_idx_str
@@ -46,6 +45,7 @@ MinimapIndex::MinimapIndex(const SequenceContainer &readsContainer, const std::s
         windows_size = 19;
         is_hpc = false; // this option is not used for asm5 preset, so it is false
 
+        _minimapOptions->pri_ratio = 0;
         _minimapOptions->a = 1;
         _minimapOptions->b = 19;
         _minimapOptions->q = 39;
@@ -55,9 +55,11 @@ MinimapIndex::MinimapIndex(const SequenceContainer &readsContainer, const std::s
         _minimapOptions->zdrop = _minimapOptions->zdrop_inv = 200;
         _minimapOptions->min_dp_max = 200;
         _minimapOptions->best_n = 50;
+        std::cout << presetOptions << " is used" << std::endl;
     }
-     */
 
+
+    /*
     if (presetOptions == "asm10")
     {
         // io->flag = 0, io->k = 19, io->w = 19;
@@ -81,6 +83,7 @@ MinimapIndex::MinimapIndex(const SequenceContainer &readsContainer, const std::s
 
         std::cout << presetOptions << " is used" << std::endl;
     }
+    */
 
     size_t total_length = 0;
     for (auto &hashPair : readsContainer.getIndex())
