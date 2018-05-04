@@ -20,16 +20,19 @@ MinimapIndex::MinimapIndex(const SequenceContainer &readsContainer, const std::s
     std::cout << "In MinimapIndex constructor" << std::endl;
 
     mm_mapopt_init(_minimapOptions);
+	mm_idxopt_t ipt;
+	//mm_mapopt_t opt;
 
     std::cout << "preset options: " <<  presetOptions << std::endl;
 
     if (presetOptions == "ava-pb")
     {
-        _minimapOptions->flag |= MM_F_ALL_CHAINS | MM_F_NO_DIAG | MM_F_NO_DUAL | MM_F_NO_LJOIN;
+		mm_set_opt("ava-pb", &ipt, _minimapOptions);
+        /*_minimapOptions->flag |= MM_F_ALL_CHAINS | MM_F_NO_DIAG | MM_F_NO_DUAL | MM_F_NO_LJOIN;
         _minimapOptions->min_chain_score = 100;
         _minimapOptions->pri_ratio = 0.0f;
         _minimapOptions->max_gap = 10000;
-        _minimapOptions->max_chain_skip = 25;
+        _minimapOptions->max_chain_skip = 25;*/
 
         std::cout << presetOptions << " is used" << std::endl;
     }
@@ -60,8 +63,11 @@ MinimapIndex::MinimapIndex(const SequenceContainer &readsContainer, const std::s
         // io->flag = 0, io->k = 19, io->w = 19;
         windows_size = 19;
         kmer_size = 19;
+		mm_set_opt("map-pb", &ipt, _minimapOptions);
+		_minimapOptions->pri_ratio = 0;
+		_minimapOptions->flag |= MM_F_CIGAR;
 
-        is_hpc = false;
+        /*is_hpc = false;
         _minimapOptions->flag = 0; // ?
         _minimapOptions->a = 1;
         _minimapOptions->b = 9;
@@ -71,7 +77,7 @@ MinimapIndex::MinimapIndex(const SequenceContainer &readsContainer, const std::s
         _minimapOptions->e2 = 1;
         _minimapOptions->zdrop = _minimapOptions->zdrop_inv = 200;
         _minimapOptions->min_dp_max = 200;
-        _minimapOptions->best_n = 50;
+        _minimapOptions->best_n = 50;*/
 
         std::cout << presetOptions << " is used" << std::endl;
     }
