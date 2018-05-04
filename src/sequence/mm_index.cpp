@@ -44,8 +44,12 @@ MinimapIndex::MinimapIndex(const SequenceContainer &readsContainer, const std::s
 
         windows_size = 19;
         is_hpc = false; // this option is not used for asm5 preset, so it is false
+		mm_set_opt("map-pb", &ipt, _minimapOptions);
+		_minimapOptions->pri_ratio = 0;
+		_minimapOptions->flag |= MM_F_CIGAR;
 
-        _minimapOptions->pri_ratio = 0;
+
+        /*_minimapOptions->pri_ratio = 0;
         _minimapOptions->a = 1;
         _minimapOptions->b = 19;
         _minimapOptions->q = 39;
@@ -54,7 +58,7 @@ MinimapIndex::MinimapIndex(const SequenceContainer &readsContainer, const std::s
         _minimapOptions->e2 = 1;
         _minimapOptions->zdrop = _minimapOptions->zdrop_inv = 200;
         _minimapOptions->min_dp_max = 200;
-        _minimapOptions->best_n = 50;
+        _minimapOptions->best_n = 50;*/
         std::cout << presetOptions << " is used" << std::endl;
     }
 
@@ -69,7 +73,7 @@ MinimapIndex::MinimapIndex(const SequenceContainer &readsContainer, const std::s
 		_minimapOptions->pri_ratio = 0;
 		_minimapOptions->flag |= MM_F_CIGAR;
 
-        /*is_hpc = false;
+        is_hpc = false;
         _minimapOptions->flag = 0; // ?
         _minimapOptions->a = 1;
         _minimapOptions->b = 9;
@@ -79,11 +83,11 @@ MinimapIndex::MinimapIndex(const SequenceContainer &readsContainer, const std::s
         _minimapOptions->e2 = 1;
         _minimapOptions->zdrop = _minimapOptions->zdrop_inv = 200;
         _minimapOptions->min_dp_max = 200;
-        _minimapOptions->best_n = 50;*/
+        _minimapOptions->best_n = 50;
 
         std::cout << presetOptions << " is used" << std::endl;
-    }
-    */
+    }*/
+    
 
     size_t total_length = 0;
     for (auto &hashPair : readsContainer.getIndex())
