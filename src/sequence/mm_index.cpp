@@ -2,6 +2,7 @@
 
 #include <cstddef>
 
+/*
 namespace
 {
     int windows_size = 5;
@@ -9,18 +10,77 @@ namespace
     bool is_hpc = true;
     int bucket_bits = 14;
 }
+ */
 
 #include <iostream>
+#include <fstream>
+
+void MinimapIndex::saveSequencesToFile(const SequenceContainer &readsContainer)
+{
+    std::ofstream outFile("__reads__.fasta");
+    std::string sequence;
+    std::string sequenceId;
+
+    for (auto &hashPair : readsContainer.getIndex())
+    {
+        if (hashPair.first.strand())
+        {
+            sequence = hashPair.second.sequence.str();
+            sequenceId = hashPair.first.toString();
+
+            outFile << ">" << sequenceId << std::endl;
+            outFile << sequence << std::endl;
+        }
+    }
+}
+
+///
+#include <zlib.h>
+#include "minimap.h"
+#include "../../lib/minimap2/kseq.h"
+KSEQ_INIT(gzFile, gzread)
+///
 
 MinimapIndex::MinimapIndex(const SequenceContainer &readsContainer, const std::string &presetOptions)
         : _numOfSequences(readsContainer.getIndex().size() / 2)
         , _minimapIndex(nullptr)
-        , _minimapOptions(new mm_mapopt_t())
+        , _mapOptions(new mm_mapopt_t())
+        , _indexOptions(new mm_idxopt_t())
 {
     std::cout << "In MinimapIndex constructor" << std::endl;
 
-    mm_mapopt_init(_minimapOptions);
-	mm_idxopt_t ipt;
+    saveSequencesToFile(readsContainer);
+
+    mm_set_opt(0, _indexOptions, _mapOptions);
+    mm_set_opt("ava-pb", _indexOptions, _mapOptions);
+    mm_check_opt(_indexOptions, _mapOptions);
+
+    int n_threads = 1;
+
+    gzFile f = gzopen("__reads__.fasta", "r");
+
+    kseq_t *ks = kseq_init(f);
+    mm_idx_reader_t *r = mm_idx_reader_open("__reads__.fasta", _indexOptions, 0);
+    _minimapIndex = mm_idx_reader_read(r, n_threads);
+    mm_mapopt_update(_mapOptions, _minimapIndex);
+
+
+    mm_idx_reader_close(r);
+    kseq_destroy(ks);
+    gzclose(f);
+}
+
+/*
+MinimapIndex::MinimapIndex(const SequenceContainer &readsContainer, const std::string &presetOptions)
+        : _numOfSequences(readsContainer.getIndex().size() / 2)
+        , _minimapIndex(nullptr)
+        , _mapOptions(new mm_mapopt_t())
+        , _idxOptions(new mm_idxopt_t())
+{
+    //std::cout << "In MinimapIndex constructor" << std::endl;
+
+    //mm_mapopt_init(_minimapOptions);
+	//mm_idxopt_t ipt;
 	//mm_mapopt_t opt;
 
     std::cout << "preset options: " <<  presetOptions << std::endl;
@@ -28,11 +88,12 @@ MinimapIndex::MinimapIndex(const SequenceContainer &readsContainer, const std::s
     if (presetOptions == "ava-pb")
     {
 		mm_set_opt("ava-pb", &ipt, _minimapOptions);
-        /*_minimapOptions->flag |= MM_F_ALL_CHAINS | MM_F_NO_DIAG | MM_F_NO_DUAL | MM_F_NO_LJOIN;
+        _minimapOptions->flag |= MM_F_ALL_CHAINS | MM_F_NO_DIAG | MM_F_NO_DUAL | MM_F_NO_LJOIN;
         _minimapOptions->min_chain_score = 100;
         _minimapOptions->pri_ratio = 0.0f;
         _minimapOptions->max_gap = 10000;
-        _minimapOptions->max_chain_skip = 25;*/
+        _minimapOptions->max_chain_skip = 25;
+
 
         std::cout << presetOptions << " is used" << std::endl;
     }
@@ -49,7 +110,7 @@ MinimapIndex::MinimapIndex(const SequenceContainer &readsContainer, const std::s
 		_minimapOptions->flag |= MM_F_CIGAR;
 
 
-        /*_minimapOptions->pri_ratio = 0;
+        _minimapOptions->pri_ratio = 0;
         _minimapOptions->a = 1;
         _minimapOptions->b = 19;
         _minimapOptions->q = 39;
@@ -58,12 +119,10 @@ MinimapIndex::MinimapIndex(const SequenceContainer &readsContainer, const std::s
         _minimapOptions->e2 = 1;
         _minimapOptions->zdrop = _minimapOptions->zdrop_inv = 200;
         _minimapOptions->min_dp_max = 200;
-        _minimapOptions->best_n = 50;*/
+        _minimapOptions->best_n = 50;
         std::cout << presetOptions << " is used" << std::endl;
     }
 
-
-    /*
     if (presetOptions == "asm10")
     {
         // io->flag = 0, io->k = 19, io->w = 19;
@@ -86,7 +145,7 @@ MinimapIndex::MinimapIndex(const SequenceContainer &readsContainer, const std::s
         _minimapOptions->best_n = 50;
 
         std::cout << presetOptions << " is used" << std::endl;
-    }*/
+    }
     
 
     size_t total_length = 0;
@@ -120,6 +179,7 @@ MinimapIndex::MinimapIndex(const SequenceContainer &readsContainer, const std::s
     std::cout << "Clear sequences..." << std::endl;
     _sequences.clear();
 }
+*/
 
 mm_idx_t* MinimapIndex::get() const
 {
@@ -138,7 +198,7 @@ int32_t MinimapIndex::getSequenceLen(size_t index) const
 
 mm_mapopt_t* MinimapIndex::getOptions() const
 {
-    return _minimapOptions;
+    return _mapOptions;
 }
 
 MinimapIndex::~MinimapIndex()
@@ -148,5 +208,6 @@ MinimapIndex::~MinimapIndex()
     _pSequences.clear();
     _pSequencesIds.clear();
     mm_idx_destroy(_minimapIndex);
-    delete _minimapOptions;
+    delete _mapOptions;
+    delete _indexOptions;
 }

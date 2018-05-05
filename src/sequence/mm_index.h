@@ -25,6 +25,8 @@ public:
     mm_mapopt_t* getOptions() const;
 
 private:
+    void saveSequencesToFile(const SequenceContainer&);
+
     size_t _numOfSequences;
     std::vector<const char*> _pSequences;
     std::vector<const char*> _pSequencesIds;
@@ -32,5 +34,6 @@ private:
     std::vector<std::string> _sequencesIds;
 
     mm_idx_t* _minimapIndex;
-    mm_mapopt_t* _minimapOptions;
+    mm_mapopt_t* _mapOptions;
+    mm_idxopt_t* _indexOptions;
 };
