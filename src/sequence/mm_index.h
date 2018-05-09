@@ -9,7 +9,9 @@
 class MinimapIndex
 {
 public:
-    explicit MinimapIndex(const SequenceContainer&, const std::string &presetOptions);
+    explicit MinimapIndex(const SequenceContainer&, 
+						  const std::string &presetOptions, 
+						  bool align, bool onlyMax);
     ~MinimapIndex();
 
     MinimapIndex(const MinimapIndex&) = delete;

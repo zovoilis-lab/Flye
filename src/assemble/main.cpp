@@ -284,7 +284,8 @@ int main(int argc, char** argv)
 		return 1;
 	}
 
-    MinimapIndex minimapIndex(readsContainer, "ava-pb");
+    MinimapIndex minimapIndex(readsContainer, "ava-pb", /*align*/ false,
+							  /*onlyMax*/ true);
 
 	Logger::get().info() << "Reads N50/90: " << readsContainer.computeNxStat(0.50) <<
 		" / " << readsContainer.computeNxStat(0.90);
@@ -312,8 +313,8 @@ int main(int argc, char** argv)
 	}
 
 	Logger::get().info() << "Generating solid k-mer index";
-	size_t hardThreshold = std::min(5, std::max(2, 
-			coverage / (int)Config::get("hard_min_coverage_rate")));
+	//size_t hardThreshold = std::min(5, std::max(2, 
+	//		coverage / (int)Config::get("hard_min_coverage_rate")));
 	//vertexIndex.countKmers(hardThreshold, genomeSize);
 
 	//ParametersEstimator estimator(readsContainer, vertexIndex, genomeSize);

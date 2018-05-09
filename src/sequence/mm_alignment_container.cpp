@@ -15,7 +15,7 @@ void MinimapAlignmentContainer::printAllOverlaps(uint32_t curId,
                                                  const MinimapIndex &index,
                                                  const SequenceContainer &readsContainer) const
 {
-    for (size_t i = 0; i < _numOfAlignments; ++i)
+    for (int i = 0; i < _numOfAlignments; ++i)
     {
         int extId = index.getSequenceId(_pAlignments[i].rid);
         std::cout << "id" << curId << '\t';
@@ -29,13 +29,13 @@ void MinimapAlignmentContainer::printAllOverlaps(uint32_t curId,
         std::cout << _pAlignments[i].re << '\t';
         std::cout << _pAlignments[i].mlen << std::endl;
 
-        for (size_t j = _pAlignments[i].qs; j != _pAlignments[i].qs + 30; ++j)
+        for (int j = _pAlignments[i].qs; j != _pAlignments[i].qs + 30; ++j)
         {
             std::cout << cur[j];
         }
         std::cout << "..........";
 
-        for (size_t j = _pAlignments[i].qe - 30; j != _pAlignments[i].qe; ++j)
+        for (int j = _pAlignments[i].qe - 30; j != _pAlignments[i].qe; ++j)
         {
             std::cout << cur[j];
         }
@@ -43,13 +43,13 @@ void MinimapAlignmentContainer::printAllOverlaps(uint32_t curId,
 
         auto ext = readsContainer.getSeq(FastaRecord::Id(extId));
 
-        for (size_t j = _pAlignments[i].rs; j != _pAlignments[i].rs + 30; ++j)
+        for (int j = _pAlignments[i].rs; j != _pAlignments[i].rs + 30; ++j)
         {
             std::cout << ext.at(j);
         }
         std::cout << "..........";
 
-        for (size_t j = _pAlignments[i].re - 30; j != _pAlignments[i].re; ++j)
+        for (int j = _pAlignments[i].re - 30; j != _pAlignments[i].re; ++j)
         {
             std::cout << ext.at(j);
         }

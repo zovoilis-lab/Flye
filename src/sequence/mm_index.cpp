@@ -41,7 +41,9 @@ void MinimapIndex::saveSequencesToFile(const SequenceContainer &readsContainer)
 KSEQ_INIT(gzFile, gzread)
 ///
 
-MinimapIndex::MinimapIndex(const SequenceContainer &readsContainer, const std::string &presetOptions)
+MinimapIndex::MinimapIndex(const SequenceContainer &readsContainer, 
+						   const std::string &presetOptions, bool align,
+						   bool onlyMax)
         : _numOfSequences(readsContainer.getIndex().size() / 2)
         , _minimapIndex(nullptr)
         , _mapOptions(new mm_mapopt_t())
@@ -52,13 +54,23 @@ MinimapIndex::MinimapIndex(const SequenceContainer &readsContainer, const std::s
     saveSequencesToFile(readsContainer);
 
     mm_set_opt(0, _indexOptions, _mapOptions);
-    mm_set_opt("ava-pb", _indexOptions, _mapOptions);
+    mm_set_opt(presetOptions.c_str(), _indexOptions, _mapOptions);
     mm_check_opt(_indexOptions, _mapOptions);
+	if (align) 
+	{
+		_mapOptions->flag |= MM_F_CIGAR;
+	}
+	else
+	{
+		_indexOptions->flag |= MM_I_NO_SEQ;
+	}
+	if (!onlyMax) _mapOptions->pri_ratio = 0;
 
-    int n_threads = 1;
+    int n_threads = 4;
 
     gzFile f = gzopen("__reads__.fasta", "r");
 
+	(void)kseq_read;
     kseq_t *ks = kseq_init(f);
     mm_idx_reader_t *r = mm_idx_reader_open("__reads__.fasta", _indexOptions, 0);
     _minimapIndex = mm_idx_reader_read(r, n_threads);
