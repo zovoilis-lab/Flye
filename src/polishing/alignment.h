@@ -22,26 +22,20 @@ public:
 
 	typedef Matrix<AlnScoreType> ScoreMatrix;
 
-	AlnScoreType globalAlignment(const std::string& v, const std::string& w, 
-						   int index);
-	AlnScoreType addDeletion(unsigned int index, unsigned int letterIndex);
-	AlnScoreType addSubstitution(unsigned int wordIndex, 
-						   unsigned int letterIndex,
-						   char base, const std::string& read);
+	AlnScoreType globalAlignment(const std::string& consensus,
+								 const std::vector<std::string>& reads);
 
-	AlnScoreType addInsertion(unsigned int wordIndex,
-						   unsigned int positionIndex,
-						   char base, const std::string& read);
+	AlnScoreType addDeletion(unsigned int letterIndex) const;
+	AlnScoreType addSubstitution(unsigned int letterIndex,
+						   		 char base, const std::vector<std::string>& reads) const;
+	AlnScoreType addInsertion(unsigned int positionIndex,
+						   	  char base, const std::vector<std::string>& reads) const;
 
 private:
 	std::vector<ScoreMatrix> _forwardScores;
 	std::vector<ScoreMatrix> _reverseScores;
 	const SubstitutionMatrix& _subsMatrix;
 
-	AlnScoreType getBacktrackMatrix(const std::string& v, const std::string& w,
-							     ScoreMatrix& scoreMat);
-
-	void traceback(ScoreMatrix& backtrack, const std::string& v, 
-				   const std::string& w, std::string& o_v, 
-				   std::string& o_w);
+	AlnScoreType getScoringMatrix(const std::string& v, const std::string& w,
+							      ScoreMatrix& scoreMat);
 };

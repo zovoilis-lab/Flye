@@ -59,10 +59,7 @@ namespace
 
 SubstitutionMatrix::SubstitutionMatrix(const std::string& path)
 {	
-	for (int i = 0; i < X_SIZE; i++) 
-	{
-		_matrix.push_back(std::vector<AlnScoreType>(Y_SIZE, 0));
-	}
+	_matrix.assign(MAX_CHAR * MAX_CHAR, AlnScoreType(0));
 	this->loadMatrix(path);
 }
 
@@ -84,38 +81,32 @@ void SubstitutionMatrix::loadMatrix(const std::string& path)
 
 		if (items[0] == "mat") 
 		{
-			int index = dnaToId(items[1][0]); 
+			char nuc = items[1][0];
 			double probability = std::stod(items[2]);
-			_matrix[index][index] = probToScore(probability);
+			this->setScore(nuc, nuc, probToScore(probability));
 		}
 		else if (items[0] == "mis") 
 		{
-			int x = dnaToId(items[1][0]);
-			int y = dnaToId(items[1][items[1].size() - 1]);
+			char x = items[1][0];
+			char y = items[1][items[1].size() - 1];
 			double probability = std::stod(items[2]);
-			_matrix[x][y] = probToScore(probability);
+			this->setScore(x, y, probToScore(probability));
 		}
 		else if (items[0] == "del") 
 		{
-			int x = dnaToId(items[1][0]);
-			int y = Y_SIZE - 1;
+			char x = items[1][0];
 			double probability = std::stod(items[2]);
-			_matrix[x][y] = probToScore(probability);
+			this->setScore(x, '-', probToScore(probability));
 		}
 		else if (items[0] == "ins") 
 		{
-			int y = dnaToId(items[1][0]);
-			int x = X_SIZE - 1;
+			char y = items[1][0];
 			double probability = std::stod(items[2]);
-			_matrix[x][y] = probToScore(probability);
+			this->setScore('-', y, probToScore(probability));
 		}	
 	}
 }
 
-AlnScoreType SubstitutionMatrix::getScore(char v, char w) const 
-{
-	return _matrix[dnaToId(v)][dnaToId(w)];
-}
 
 namespace
 {

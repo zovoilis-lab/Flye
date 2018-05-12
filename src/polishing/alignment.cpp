@@ -13,121 +13,143 @@ Alignment::Alignment(size_t size, const SubstitutionMatrix& sm):
 { 
 }
 
-AlnScoreType Alignment::globalAlignment(const std::string& v, 
-										const std::string& w, int index) 
+
+AlnScoreType Alignment::globalAlignment(const std::string& consensus,
+							 			const std::vector<std::string>& reads)
 {
-	unsigned int x = v.size() + 1;
-	unsigned int y = w.size() + 1;
-	ScoreMatrix scoreMat(x, y, 0);
+	AlnScoreType finalScore = 0;
+	for (size_t readId = 0; readId < _forwardScores.size(); ++readId)
+	{
+		unsigned int x = consensus.size() + 1;
+		unsigned int y = reads[readId].size() + 1;
+		ScoreMatrix scoreMat(x, y, 0);
+			
+		AlnScoreType score = this->getScoringMatrix(consensus, reads[readId], 
+													  scoreMat);
+		_forwardScores[readId] = std::move(scoreMat);
+
+		//The reverse alignment is similar, but we need
+		//the scoring matrix with of the reverse alignment (I guess)
+		std::string revConsensus(consensus.rbegin(), consensus.rend());
+		std::string revRead(reads[readId].rbegin(), reads[readId].rend());
+
+		ScoreMatrix scoreMatRev(x, y, 0);
+		this->getScoringMatrix(revConsensus, revRead, scoreMatRev);
+		_reverseScores[readId] = std::move(scoreMatRev);
+
+		finalScore += score;
+	}
+	return finalScore;
+}
+
+AlnScoreType Alignment::addDeletion(unsigned int letterIndex) const
+{
+	AlnScoreType finalScore = 0;
+	for (size_t readId = 0; readId < _forwardScores.size(); ++readId)
+	{
+		const ScoreMatrix& forwardScore = _forwardScores[readId];
+		const ScoreMatrix& reverseScore = _reverseScores[readId];
+
+		//Note: We subtract 2 because of zero indexing and an extra added row and column count
+		//unsigned int index = (reverseScore.nrows() - 1) - letterIndex;
+		size_t frontRow = letterIndex - 1;
+		size_t revRow = reverseScore.nrows() - 1 - letterIndex;
 		
-	AlnScoreType score = this->getBacktrackMatrix(v, w, scoreMat);
-	_forwardScores[index] = std::move(scoreMat);
-
-	//---------------------------------------------
-	//The reverse alignment returns the same score
-	//---------------------------------------------
-	std::string rev_v(v.rbegin(), v.rend());
-	std::string rev_w(w.rbegin(), w.rend());
-
-	ScoreMatrix scoreMatRev(x, y, 0);
-	this->getBacktrackMatrix(rev_v, rev_w, scoreMatRev);
-	_reverseScores[index] = std::move(scoreMatRev);
-
-	return score;
+		AlnScoreType maxVal = std::numeric_limits<AlnScoreType>::lowest();
+		for (size_t col = 0; col < forwardScore.ncols(); ++col)
+		{
+			size_t backCol = forwardScore.ncols() - col - 1;
+			AlnScoreType sum = forwardScore.at(frontRow, col) + 
+							reverseScore.at(revRow, backCol);
+			maxVal = std::max(maxVal, sum);
+		}
+		finalScore += maxVal;
+	}
+	return finalScore;
 }
 
-AlnScoreType Alignment::addDeletion(unsigned int wordIndex, 
-									unsigned int letterIndex) 
+
+//AlnScoreType Alignment::addSubstitution(unsigned int wordIndex, 
+//							   			unsigned int letterIndex,
+//							   			char base, const std::string& read) 
+
+AlnScoreType Alignment::addSubstitution(unsigned int letterIndex, char base, 
+										const std::vector<std::string>& reads) const
 {
-	const ScoreMatrix& forwardScore = _forwardScores[wordIndex];
-	const ScoreMatrix& reverseScore = _reverseScores[wordIndex];
-
-	//Note: We subtract 2 because of zero indexing and an extra added row and column count
-	//unsigned int index = (reverseScore.nrows() - 1) - letterIndex;
-	size_t frontRow = letterIndex - 1;
-	size_t revRow = reverseScore.nrows() - 1 - letterIndex;
-	
-	AlnScoreType maxVal = std::numeric_limits<AlnScoreType>::lowest();
-	for (size_t col = 0; col < forwardScore.ncols(); ++col)
+	AlnScoreType finalScore = 0;
+	for (size_t readId = 0; readId < reads.size(); ++readId)
 	{
-		size_t backCol = forwardScore.ncols() - col - 1;
-		AlnScoreType sum = forwardScore.at(frontRow, col) + 
-				  		reverseScore.at(revRow, backCol);
-		maxVal = std::max(maxVal, sum);
-	}
+		//LetterIndex must start with 1 and go until (row.size - 1)
+		const ScoreMatrix& forwardScore = _forwardScores[readId];
+		const ScoreMatrix& reverseScore = _reverseScores[readId];
 
-	return maxVal;
+		size_t frontRow = letterIndex - 1;
+		size_t revRow = reverseScore.nrows() - 1 - letterIndex;
+
+		std::vector<AlnScoreType> sub(reads[readId].size() + 1);
+		sub[0] = forwardScore.at(frontRow, 0) + _subsMatrix.getScore(base, '-');
+		for (size_t i = 0; i < reads[readId].size(); ++i)
+		{
+			AlnScoreType match = forwardScore.at(frontRow, i) + 
+							_subsMatrix.getScore(base, reads[readId][i]);
+			AlnScoreType ins = forwardScore.at(frontRow, i + 1) + 
+							_subsMatrix.getScore(base, '-');
+			sub[i + 1] = std::max(match, ins);
+		}
+
+		AlnScoreType maxVal = std::numeric_limits<AlnScoreType>::lowest();
+		for (size_t col = 0; col < forwardScore.ncols(); ++col)
+		{
+			size_t backCol = forwardScore.ncols() - col - 1;
+			AlnScoreType sum = sub[col] + reverseScore.at(revRow, backCol);
+			maxVal = std::max(maxVal, sum);
+		}
+		finalScore += maxVal;
+	}
+	return finalScore;
 }
 
-AlnScoreType Alignment::addSubstitution(unsigned int wordIndex, 
-							   			unsigned int letterIndex,
-							   			char base, const std::string& read) 
+
+AlnScoreType Alignment::addInsertion(unsigned int pos, char base, 
+									 const std::vector<std::string>& reads) const
 {
-	//LetterIndex must start with 1 and go until (row.size - 1)
-	const ScoreMatrix& forwardScore = _forwardScores[wordIndex];
-	const ScoreMatrix& reverseScore = _reverseScores[wordIndex];
-
-	size_t frontRow = letterIndex - 1;
-	size_t revRow = reverseScore.nrows() - 1 - letterIndex;
-
-	std::vector<AlnScoreType> sub(read.size() + 1);
-	sub[0] = forwardScore.at(frontRow, 0) + _subsMatrix.getScore(base, '-');
-	for (size_t i = 0; i < read.size(); ++i)
+	AlnScoreType finalScore = 0;
+	for (size_t readId = 0; readId < reads.size(); ++readId)
 	{
-		AlnScoreType match = forwardScore.at(frontRow, i) + 
-						_subsMatrix.getScore(base, read[i]);
-		AlnScoreType ins = forwardScore.at(frontRow, i + 1) + 
-						_subsMatrix.getScore(base, '-');
-		sub[i + 1] = std::max(match, ins);
-	}
+		//LetterIndex must start with 1 and go until (row.size - 1)
+		const ScoreMatrix& forwardScore = _forwardScores[readId];
+		const ScoreMatrix& reverseScore = _reverseScores[readId];
 
-	AlnScoreType maxVal = std::numeric_limits<AlnScoreType>::lowest();
-	for (size_t col = 0; col < forwardScore.ncols(); ++col)
-	{
-		size_t backCol = forwardScore.ncols() - col - 1;
-		AlnScoreType sum = sub[col] + reverseScore.at(revRow, backCol);
-		maxVal = std::max(maxVal, sum);
+		size_t frontRow = pos - 1;
+		size_t revRow = reverseScore.nrows() - pos;
+
+		std::vector<AlnScoreType> sub(reads[readId].size() + 1);
+		sub[0] = forwardScore.at(frontRow, 0) + _subsMatrix.getScore(base, '-');
+		for (size_t i = 0; i < reads[readId].size(); ++i)
+		{
+			AlnScoreType match = forwardScore.at(frontRow, i) + 
+							_subsMatrix.getScore(base, reads[readId][i]);
+			AlnScoreType ins = forwardScore.at(frontRow, i + 1) + 
+							_subsMatrix.getScore(base, '-');
+			sub[i + 1] = std::max(match, ins);
+		}
+
+		AlnScoreType maxVal = std::numeric_limits<AlnScoreType>::lowest();
+		for (size_t col = 0; col < forwardScore.ncols(); ++col)
+		{
+			size_t backCol = forwardScore.ncols() - col - 1;
+			AlnScoreType sum = sub[col] + reverseScore.at(revRow, backCol);
+			maxVal = std::max(maxVal, sum);
+		}
+		finalScore += maxVal;
 	}
-	return maxVal;
+	return finalScore;
 }
 
 
-AlnScoreType Alignment::addInsertion(unsigned int wordIndex,
-							   		 unsigned int pos, 
-							   		 char base, const std::string& read) 
-{
-	//LetterIndex must start with 1 and go until (row.size - 1)
-	const ScoreMatrix& forwardScore = _forwardScores[wordIndex];
-	const ScoreMatrix& reverseScore = _reverseScores[wordIndex];
-
-	size_t frontRow = pos - 1;
-	size_t revRow = reverseScore.nrows() - pos;
-
-	std::vector<AlnScoreType> sub(read.size() + 1);
-	sub[0] = forwardScore.at(frontRow, 0) + _subsMatrix.getScore(base, '-');
-	for (size_t i = 0; i < read.size(); ++i)
-	{
-		AlnScoreType match = forwardScore.at(frontRow, i) + 
-						_subsMatrix.getScore(base, read[i]);
-		AlnScoreType ins = forwardScore.at(frontRow, i + 1) + 
-						_subsMatrix.getScore(base, '-');
-		sub[i + 1] = std::max(match, ins);
-	}
-
-	AlnScoreType maxVal = std::numeric_limits<AlnScoreType>::lowest();
-	for (size_t col = 0; col < forwardScore.ncols(); ++col)
-	{
-		size_t backCol = forwardScore.ncols() - col - 1;
-		AlnScoreType sum = sub[col] + reverseScore.at(revRow, backCol);
-		maxVal = std::max(maxVal, sum);
-	}
-	return maxVal;
-}
-
-
-AlnScoreType Alignment::getBacktrackMatrix(const std::string& v, 
-										   const std::string& w,
-								  		   ScoreMatrix& scoreMat) 
+AlnScoreType Alignment::getScoringMatrix(const std::string& v, 
+										 const std::string& w,
+								  		 ScoreMatrix& scoreMat) 
 {
 	AlnScoreType score = 0;
 	
