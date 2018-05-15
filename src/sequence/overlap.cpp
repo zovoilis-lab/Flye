@@ -127,89 +127,91 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 								bool uniqueExtensions,
 								bool& outSuggestChimeric) const
 {
-    MinimapBuffer buffer;
-    int numOfAlignments;
-
     std::string cur = fastaRec.sequence.str();
     int curLen = fastaRec.sequence.length();
-
-    mm_reg1_t *pAlignments = mm_map(_minimapIndex.get(), curLen, cur.data(),
-                                    &numOfAlignments, buffer.get(), _minimapIndex.getOptions(), 0);
-
-    MinimapAlignmentContainer alignmentContainer(pAlignments, numOfAlignments);
-
-    uint32_t curId = fastaRec.id.get();
-    uint32_t curRevCompId = fastaRec.id.rc().get();
 
     std::vector<OverlapRange> overlaps;
     std::unordered_map<uint32_t, OverlapRange> bestOverlapsHash;
 
-    for (int i = 0; i < alignmentContainer.getNumOfAlignments(); ++i)
+    for (size_t indexNum = 0; indexNum < _minimapIndex.getNumOfIndexes(); ++indexNum)
     {
-        uint32_t extId = _minimapIndex.getSequenceId(alignmentContainer.getExtIndexId(i));
-		uint32_t extRevComp = FastaRecord::Id(extId).rc().get();
+        mm_mapopt_update(_minimapIndex.getOptions(), _minimapIndex.get(indexNum));
+        MinimapBuffer buffer;
+        int numOfAlignments;
+        mm_reg1_t *pAlignments = mm_map(_minimapIndex.get(indexNum), curLen, cur.data(),
+                                        &numOfAlignments, buffer.get(), _minimapIndex.getOptions(), 0);
 
-        int32_t extLen = _minimapIndex.getSequenceLen(alignmentContainer.getExtIndexId(i));
-        int32_t curBegin = alignmentContainer.getCurBegin(i);
-        int32_t curEnd = alignmentContainer.getCurEnd(i);
-        int32_t extBegin = alignmentContainer.getExtBegin(i);
-        int32_t extEnd = alignmentContainer.getExtEnd(i);
-        int32_t score = alignmentContainer.getScore(i);
+        MinimapAlignmentContainer alignmentContainer(pAlignments, numOfAlignments);
 
-        bool curStrand = alignmentContainer.curStrand(i);
-        if (!curStrand)
+        uint32_t curId = fastaRec.id.get();
+        uint32_t curRevCompId = fastaRec.id.rc().get();
+
+        for (int i = 0; i < alignmentContainer.getNumOfAlignments(); ++i)
         {
-            extId = extRevComp;
-            int32_t newExtBegin = extLen - extEnd - 1;
-            int32_t newExtEnd = extLen - extBegin - 1;
-            extBegin = newExtBegin;
-            extEnd = newExtEnd;
-        }
+            uint32_t extId = _minimapIndex.getSequenceId(indexNum, alignmentContainer.getExtIndexId(i));
+            uint32_t extRevComp = FastaRecord::Id(extId).rc().get();
 
-		//filter out trivial overlaps
-		if (curId == extId && (curBegin == extBegin || curEnd == extEnd))
-		{
-			continue;
-		}
+            int32_t extLen = _minimapIndex.getSequenceLen(indexNum, alignmentContainer.getExtIndexId(i));
+            int32_t curBegin = alignmentContainer.getCurBegin(i);
+            int32_t curEnd = alignmentContainer.getCurEnd(i);
+            int32_t extBegin = alignmentContainer.getExtBegin(i);
+            int32_t extEnd = alignmentContainer.getExtEnd(i);
+            int32_t score = alignmentContainer.getScore(i);
 
-        auto overlap = OverlapRange(curId, curBegin, curEnd, curLen,
-                                    extId, extBegin, extEnd, extLen,
-									curBegin - extBegin,
-                                    (extLen - extEnd) - (curLen - curEnd),
-                                    score);
-
-        if (overlapTest(overlap, outSuggestChimeric))
-        {
-			if (curRevCompId == extId) outSuggestChimeric = true;
-
-            if (uniqueExtensions)
+            bool curStrand = alignmentContainer.curStrand(i);
+            if (!curStrand)
             {
-                auto overlapPair = bestOverlapsHash.find(extId);
+                extId = extRevComp;
+                int32_t newExtBegin = extLen - extEnd - 1;
+                int32_t newExtEnd = extLen - extBegin - 1;
+                extBegin = newExtBegin;
+                extEnd = newExtEnd;
+            }
 
-                if (overlapPair != bestOverlapsHash.end())
+            //filter out trivial overlaps
+            if (curId == extId && (curBegin == extBegin || curEnd == extEnd))
+            {
+                continue;
+            }
+
+            auto overlap = OverlapRange(curId, curBegin, curEnd, curLen,
+                                        extId, extBegin, extEnd, extLen,
+                                        curBegin - extBegin,
+                                        (extLen - extEnd) - (curLen - curEnd),
+                                        score);
+
+            if (overlapTest(overlap, outSuggestChimeric))
+            {
+                if (curRevCompId == extId)
+                    outSuggestChimeric = true;
+
+                if (uniqueExtensions)
                 {
-                    if (overlapPair->second.score < score)
+                    auto overlapPair = bestOverlapsHash.find(extId);
+
+                    if (overlapPair != bestOverlapsHash.end())
                     {
-                        overlapPair->second = overlap;
+                        if (overlapPair->second.score < score)
+                        {
+                            overlapPair->second = overlap;
+                        }
+                    } else
+                    {
+                        bestOverlapsHash[extId] = overlap;
                     }
-                }
-                else
+                } else
                 {
-                    bestOverlapsHash[extId] = overlap;
+                    overlaps.push_back(overlap);
                 }
-            }
-            else
-            {
-                overlaps.push_back(overlap);
             }
         }
-    }
 
-    if (uniqueExtensions)
-    {
-        for (auto &hashPair : bestOverlapsHash)
+        if (uniqueExtensions)
         {
-            overlaps.push_back(hashPair.second);
+            for (auto &hashPair : bestOverlapsHash)
+            {
+                overlaps.push_back(hashPair.second);
+            }
         }
     }
 

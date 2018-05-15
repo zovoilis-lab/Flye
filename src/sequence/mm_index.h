@@ -17,12 +17,11 @@ public:
     MinimapIndex(const MinimapIndex&) = delete;
     void operator=(const MinimapIndex&) = delete;
 
-    mm_idx_t* get() const;
+    mm_idx_t* get(size_t) const;
 
-    int32_t getSequenceId(size_t index) const;
-    int32_t getSequenceLen(size_t index) const;
-
-    const char* getSequence(size_t index) const;
+    int32_t getSequenceId(size_t, size_t) const;
+    int32_t getSequenceLen(size_t, size_t) const;
+	size_t getNumOfIndexes() const;
 
     mm_mapopt_t* getOptions() const;
 
@@ -35,7 +34,8 @@ private:
     std::vector<std::string> _sequences;
     std::vector<std::string> _sequencesIds;
 
-    mm_idx_t* _minimapIndex;
+    //mm_idx_t* _minimapIndex;
     mm_mapopt_t* _mapOptions;
     mm_idxopt_t* _indexOptions;
+	std::vector<mm_idx_t*> _indexes;
 };

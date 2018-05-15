@@ -15,6 +15,7 @@ void MinimapAlignmentContainer::printAllOverlaps(uint32_t curId,
                                                  const MinimapIndex &index,
                                                  const SequenceContainer &readsContainer) const
 {
+    /*
     for (int i = 0; i < _numOfAlignments; ++i)
     {
         int extId = index.getSequenceId(_pAlignments[i].rid);
@@ -55,6 +56,7 @@ void MinimapAlignmentContainer::printAllOverlaps(uint32_t curId,
         }
         std::cout << std::endl;
     }
+     */
 }
 
 int MinimapAlignmentContainer::getNumOfAlignments() const

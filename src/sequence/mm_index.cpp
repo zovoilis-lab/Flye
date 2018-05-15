@@ -45,7 +45,7 @@ MinimapIndex::MinimapIndex(const SequenceContainer &readsContainer,
 						   const std::string &presetOptions, bool align,
 						   bool onlyMax)
         : _numOfSequences(readsContainer.getIndex().size() / 2)
-        , _minimapIndex(nullptr)
+        //, _minimapIndex(nullptr)
         , _mapOptions(new mm_mapopt_t())
         , _indexOptions(new mm_idxopt_t())
 {
@@ -54,17 +54,21 @@ MinimapIndex::MinimapIndex(const SequenceContainer &readsContainer,
     saveSequencesToFile(readsContainer);
 
     mm_set_opt(0, _indexOptions, _mapOptions);
+
+    if (align)
+    {
+        _mapOptions->flag |= MM_F_CIGAR;
+    }
+    else
+    {
+        _indexOptions->flag |= MM_I_NO_SEQ;
+    }
+    if (!onlyMax) _mapOptions->pri_ratio = 0;
+    _indexOptions->batch_size = 4000000000ULL; // 4.0Gb
+    //_indexOptions->batch_size = 120000000ULL;
     mm_set_opt(presetOptions.c_str(), _indexOptions, _mapOptions);
     mm_check_opt(_indexOptions, _mapOptions);
-	if (align) 
-	{
-		_mapOptions->flag |= MM_F_CIGAR;
-	}
-	else
-	{
-		_indexOptions->flag |= MM_I_NO_SEQ;
-	}
-	if (!onlyMax) _mapOptions->pri_ratio = 0;
+
 
     int n_threads = 4;
 
@@ -73,9 +77,21 @@ MinimapIndex::MinimapIndex(const SequenceContainer &readsContainer,
 	(void)kseq_read;
     kseq_t *ks = kseq_init(f);
     mm_idx_reader_t *r = mm_idx_reader_open("__reads__.fasta", _indexOptions, 0);
-    _minimapIndex = mm_idx_reader_read(r, n_threads);
-    mm_mapopt_update(_mapOptions, _minimapIndex);
+    mm_idx_t *idx;
 
+    int nIndexParts = 0;
+    while ((idx = mm_idx_reader_read(r, n_threads)) != 0)
+    {
+        nIndexParts += 1;
+        _indexes.push_back(idx);
+        std::cout << "nIndexParts = " << nIndexParts << std::endl;
+    }
+
+    for (size_t i = 0; i < _indexes.size(); ++i)
+    {
+        std::cout << _indexes[i] << std::endl;
+        mm_idx_stat(_indexes[i]);
+    }
 
     mm_idx_reader_close(r);
     kseq_destroy(ks);
@@ -193,19 +209,24 @@ MinimapIndex::MinimapIndex(const SequenceContainer &readsContainer, const std::s
 }
 */
 
-mm_idx_t* MinimapIndex::get() const
+mm_idx_t* MinimapIndex::get(size_t index) const
 {
-    return _minimapIndex;
+    return _indexes[index];
 }
 
-int32_t MinimapIndex::getSequenceId(size_t index) const
+int32_t MinimapIndex::getSequenceId(size_t indexNum, size_t index) const
 {
-    return atoi(_minimapIndex->seq[index].name);
+    return atoi(_indexes[indexNum]->seq[index].name);
 }
 
-int32_t MinimapIndex::getSequenceLen(size_t index) const
+int32_t MinimapIndex::getSequenceLen(size_t indexNum, size_t index) const
 {
-    return _minimapIndex->seq[index].len;
+    return _indexes[indexNum]->seq[index].len;
+}
+
+size_t MinimapIndex::getNumOfIndexes() const
+{
+    return _indexes.size();
 }
 
 mm_mapopt_t* MinimapIndex::getOptions() const
@@ -219,7 +240,12 @@ MinimapIndex::~MinimapIndex()
     _sequencesIds.clear();
     _pSequences.clear();
     _pSequencesIds.clear();
-    mm_idx_destroy(_minimapIndex);
+
+    for (size_t i = 0; i < _indexes.size(); ++i)
+    {
+        mm_idx_destroy(_indexes[i]);
+    }
+
     delete _mapOptions;
     delete _indexOptions;
 }
