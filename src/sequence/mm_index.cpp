@@ -8,8 +8,6 @@
 ///
 #include <zlib.h>
 #include "minimap.h"
-#include "../../lib/minimap2/kseq.h"
-KSEQ_INIT(gzFile, gzread)
 ///
 
 MinimapIndex::MinimapIndex(const SequenceContainer &readsContainer, 
