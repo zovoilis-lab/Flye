@@ -62,7 +62,7 @@ void RepeatGraph::build()
 	//asmIndex.buildIndex(1, (int)Config::get("repeat_graph_max_kmer"));
 
 	MinimapIndex asmIndex(_asmSeqs, "map-pb", /*align*/true, 
-						  /*onlyMax*/false);
+						  /*onlyMax*/false, /*fromFile*/ false);
 	OverlapDetector asmOverlapper(_asmSeqs, asmIndex, 
 								  (int)Config::get("maximum_jump"), 
 								  Parameters::get().minimumOverlap,

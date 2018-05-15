@@ -29,11 +29,11 @@ struct OverlapRange
 		leftShift(0), rightShift(0), score(0)
 	{}
 
-	OverlapRange(int32_t curId, int32_t curBegin, int32_t curEnd, int32_t curLen,
-				 int32_t extId, int32_t extBegin, int32_t extEnd, int32_t extLen,
+	OverlapRange(FastaRecord::Id curId, int32_t curBegin, int32_t curEnd, int32_t curLen,
+				 FastaRecord::Id extId, int32_t extBegin, int32_t extEnd, int32_t extLen,
 				 int32_t leftShift, int32_t rightShift, int32_t score)
-			: curId(FastaRecord::Id(curId)), curBegin(curBegin), curEnd(curEnd), curLen(curLen),
-			  extId(FastaRecord::Id(extId)), extBegin(extBegin), extEnd(extEnd), extLen(extLen),
+			: curId(curId), curBegin(curBegin), curEnd(curEnd), curLen(curLen),
+			  extId(extId), extBegin(extBegin), extEnd(extEnd), extLen(extLen),
 			  leftShift(leftShift), rightShift(rightShift), score(score)
 	{}
 

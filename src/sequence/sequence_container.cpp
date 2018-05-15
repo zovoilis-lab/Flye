@@ -83,6 +83,8 @@ void SequenceContainer::loadFromFile(const std::string& fileName)
 	{
 		_seqIndex[records[i].id] = std::move(records[i]);
 	}
+
+	buildDescriptionToIdMap();
 }
 
 
@@ -342,4 +344,19 @@ void SequenceContainer::writeFasta(const std::vector<FastaRecord>& records,
 		fwrite(contigSeq.data(), sizeof(contigSeq.data()[0]), 
 			   contigSeq.size(), fout);
 	}
+}
+
+void SequenceContainer::buildDescriptionToIdMap()
+{
+	std::cout << "building descriptionToIdMap" << std::endl;
+	size_t descriptionLength;
+	std::string description;
+
+	for (auto &hashPair : _seqIndex)
+	{
+		descriptionLength = hashPair.second.description.length();
+		description = hashPair.second.description.substr(1, descriptionLength - 1);
+		_descriptionToSequenceIdMap[description] = hashPair.first;
+	}
+	std::cout << "Done!" << std::endl;
 }

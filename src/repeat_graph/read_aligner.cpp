@@ -144,7 +144,7 @@ void ReadAligner::alignReads()
 	//pathsIndex.countKmers(1, /* genome size*/ 0);
 	//pathsIndex.buildIndex(1, (int)Config::get("read_align_max_kmer"));
 	MinimapIndex pathsIndex(pathsContainer, "ava-pb", /*align*/ false,
-							/*onlyMax*/ false);
+							/*onlyMax*/ false, /*fromFile*/ false);
 	OverlapDetector readsOverlapper(pathsContainer, pathsIndex, 
 									(int)Config::get("maximum_jump"),
 									(int)Config::get("max_separation"),

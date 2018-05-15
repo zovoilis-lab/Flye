@@ -285,7 +285,7 @@ int main(int argc, char** argv)
 	}
 
     MinimapIndex minimapIndex(readsContainer, "ava-pb", /*align*/ false,
-							  /*onlyMax*/ true);
+							  /*onlyMax*/ true, /*fromFile*/ true);
 
 	Logger::get().info() << "Reads N50/90: " << readsContainer.computeNxStat(0.50) <<
 		" / " << readsContainer.computeNxStat(0.90);

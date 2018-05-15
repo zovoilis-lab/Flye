@@ -129,9 +129,13 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 {
     std::string cur = fastaRec.sequence.str();
     int curLen = fastaRec.sequence.length();
+    FastaRecord::Id curId = fastaRec.id;
+    FastaRecord::Id curRevCompId = curId.rc();
+
+	std::string description;
 
     std::vector<OverlapRange> overlaps;
-    std::unordered_map<uint32_t, OverlapRange> bestOverlapsHash;
+    std::unordered_map<FastaRecord::Id, OverlapRange> bestOverlapsHash;
 
     for (size_t indexNum = 0; indexNum < _minimapIndex.getNumOfIndexes(); ++indexNum)
     {
@@ -143,13 +147,11 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 
         MinimapAlignmentContainer alignmentContainer(pAlignments, numOfAlignments);
 
-        uint32_t curId = fastaRec.id.get();
-        uint32_t curRevCompId = fastaRec.id.rc().get();
-
         for (int i = 0; i < alignmentContainer.getNumOfAlignments(); ++i)
         {
-            uint32_t extId = _minimapIndex.getSequenceId(indexNum, alignmentContainer.getExtIndexId(i));
-            uint32_t extRevComp = FastaRecord::Id(extId).rc().get();
+			description = _minimapIndex.getSequenceDescription(indexNum, alignmentContainer.getExtIndexId(i));
+            FastaRecord::Id extId = _seqContainer.getSequenceIdByDescription(description);
+            FastaRecord::Id extRevComp = extId.rc();
 
             int32_t extLen = _minimapIndex.getSequenceLen(indexNum, alignmentContainer.getExtIndexId(i));
             int32_t curBegin = alignmentContainer.getCurBegin(i);
@@ -195,25 +197,27 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
                         {
                             overlapPair->second = overlap;
                         }
-                    } else
+                    }
+					else
                     {
                         bestOverlapsHash[extId] = overlap;
                     }
-                } else
+                }
+				else
                 {
                     overlaps.push_back(overlap);
                 }
             }
         }
-
-        if (uniqueExtensions)
-        {
-            for (auto &hashPair : bestOverlapsHash)
-            {
-                overlaps.push_back(hashPair.second);
-            }
-        }
     }
+
+	if (uniqueExtensions)
+	{
+		for (auto &hashPair : bestOverlapsHash)
+		{
+			overlaps.push_back(hashPair.second);
+		}
+	}
 
     return overlaps;
 }

@@ -165,14 +165,21 @@ public:
 	}
 	int computeNxStat(float fraction) const;
 
+    FastaRecord::Id getSequenceIdByDescription(const std::string &description) const
+    {
+        auto hashPair = _descriptionToSequenceIdMap.find(description);
+		return hashPair->second;
+    }
+
 private:
 	size_t readFasta(std::vector<FastaRecord>& record, 
 				     const std::string& fileName);
 	size_t readFastq(std::vector<FastaRecord>& record, 
 				     const std::string& fileName);
 	bool isFasta(const std::string& fileName);
+    void buildDescriptionToIdMap();
 
-	/*size_t 	getSequences(std::vector<FastaRecord>& record, 
+    /*size_t 	getSequences(std::vector<FastaRecord>& record,
 						 const std::string& fileName);
 	size_t 	getSequencesWithComplements(std::vector<FastaRecord>& record, 
 										const std::string& fileName);*/
@@ -181,5 +188,7 @@ private:
 
 	SequenceIndex _seqIndex;
 	static size_t g_nextSeqId;
+
+	std::unordered_map<std::string, FastaRecord::Id> _descriptionToSequenceIdMap;
 };
 

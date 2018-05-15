@@ -2,37 +2,8 @@
 
 #include <cstddef>
 
-/*
-namespace
-{
-    int windows_size = 5;
-    int kmer_size = 19;
-    bool is_hpc = true;
-    int bucket_bits = 14;
-}
- */
-
 #include <iostream>
 #include <fstream>
-
-void MinimapIndex::saveSequencesToFile(const SequenceContainer &readsContainer)
-{
-    std::ofstream outFile("__reads__.fasta");
-    std::string sequence;
-    std::string sequenceId;
-
-    for (auto &hashPair : readsContainer.getIndex())
-    {
-        if (hashPair.first.strand())
-        {
-            sequence = hashPair.second.sequence.str();
-            sequenceId = hashPair.first.toString();
-
-            outFile << ">" << sequenceId << std::endl;
-            outFile << sequence << std::endl;
-        }
-    }
-}
 
 ///
 #include <zlib.h>
@@ -43,16 +14,13 @@ KSEQ_INIT(gzFile, gzread)
 
 MinimapIndex::MinimapIndex(const SequenceContainer &readsContainer, 
 						   const std::string &presetOptions, bool align,
-						   bool onlyMax)
+						   bool onlyMax, bool fromFile)
         : _numOfSequences(readsContainer.getIndex().size() / 2)
-        //, _minimapIndex(nullptr)
+        , _indexForStringsInMemory(nullptr)
         , _mapOptions(new mm_mapopt_t())
         , _indexOptions(new mm_idxopt_t())
 {
     std::cout << "In MinimapIndex constructor" << std::endl;
-
-    saveSequencesToFile(readsContainer);
-
     mm_set_opt(0, _indexOptions, _mapOptions);
 
     if (align)
@@ -64,38 +32,77 @@ MinimapIndex::MinimapIndex(const SequenceContainer &readsContainer,
         _indexOptions->flag |= MM_I_NO_SEQ;
     }
     if (!onlyMax) _mapOptions->pri_ratio = 0;
-    _indexOptions->batch_size = 4000000000ULL; // 4.0Gb
-    //_indexOptions->batch_size = 120000000ULL;
+    //_indexOptions->batch_size = 4000000000ULL; // 4.0Gb
+    _indexOptions->batch_size = 120000000ULL;
     mm_set_opt(presetOptions.c_str(), _indexOptions, _mapOptions);
     mm_check_opt(_indexOptions, _mapOptions);
 
-
-    int n_threads = 4;
-
-    gzFile f = gzopen("__reads__.fasta", "r");
-
-	(void)kseq_read;
-    kseq_t *ks = kseq_init(f);
-    mm_idx_reader_t *r = mm_idx_reader_open("__reads__.fasta", _indexOptions, 0);
-    mm_idx_t *idx;
-
-    int nIndexParts = 0;
-    while ((idx = mm_idx_reader_read(r, n_threads)) != 0)
+    if (fromFile)
     {
-        nIndexParts += 1;
-        _indexes.push_back(idx);
-        std::cout << "nIndexParts = " << nIndexParts << std::endl;
-    }
+        std::cout << "building an index from file" << std::endl;
+        builtFromFile = true;
+        int n_threads = 4;
 
-    for (size_t i = 0; i < _indexes.size(); ++i)
+        //gzFile f = gzopen("__reads__.fasta", "r");
+
+        //(void)kseq_read;
+        //kseq_t *ks = kseq_init(f);
+        mm_idx_reader_t *r = mm_idx_reader_open("input_reads.fasta", _indexOptions, 0);
+        mm_idx_t *idx;
+
+        int nIndexParts = 0;
+        while ((idx = mm_idx_reader_read(r, n_threads)) != 0)
+        {
+            nIndexParts += 1;
+            _indexes.push_back(idx);
+            std::cout << "nIndexParts = " << nIndexParts << std::endl;
+        }
+
+        for (size_t i = 0; i < _indexes.size(); ++i)
+        {
+            std::cout << _indexes[i] << std::endl;
+            mm_idx_stat(_indexes[i]);
+        }
+
+        mm_idx_reader_close(r);
+
+        std::cout << "Done!" << std::endl;
+    }
+    else
     {
-        std::cout << _indexes[i] << std::endl;
-        mm_idx_stat(_indexes[i]);
-    }
+        std::cout << "building an index from sequences in memory" << std::endl;
+        builtFromFile = false;
+        std::string description;
+        size_t descriptionLength;
 
-    mm_idx_reader_close(r);
-    kseq_destroy(ks);
-    gzclose(f);
+        for (auto &hashPair : readsContainer.getIndex())
+        {
+            if (hashPair.first.strand())
+            {
+                descriptionLength = hashPair.second.description.length();
+                description = hashPair.second.description.substr(1, descriptionLength - 1);
+                _sequences.push_back(hashPair.second.sequence.str());
+                _sequencesDescriptions.push_back(description);
+            }
+        }
+
+        for (size_t i = 0; i < _numOfSequences; ++i)
+        {
+            _pSequences.push_back(_sequences[i].data());
+            _pSequencesDescriptions.push_back(_sequencesDescriptions[i].data());
+        }
+
+        _indexForStringsInMemory = mm_idx_str(_indexOptions->w, _indexOptions->k, /*is hpc*/ false,
+                                              /*bucket bits*/ 14, _numOfSequences, _pSequences.data(),
+                                              _pSequencesDescriptions.data());
+
+        mm_idx_stat(_indexForStringsInMemory);
+        mm_mapopt_update(_mapOptions, _indexForStringsInMemory);
+
+        _sequences.clear();
+
+        std::cout << "Done!" << std::endl;
+    }
 }
 
 /*
@@ -211,22 +218,50 @@ MinimapIndex::MinimapIndex(const SequenceContainer &readsContainer, const std::s
 
 mm_idx_t* MinimapIndex::get(size_t index) const
 {
-    return _indexes[index];
+    if (builtFromFile)
+    {
+        return _indexes[index];
+    }
+    else
+    {
+        return _indexForStringsInMemory;
+    }
 }
 
-int32_t MinimapIndex::getSequenceId(size_t indexNum, size_t index) const
+std::string MinimapIndex::getSequenceDescription(size_t indexNum, size_t index) const
 {
-    return atoi(_indexes[indexNum]->seq[index].name);
+    if (builtFromFile)
+    {
+        return std::string(_indexes[indexNum]->seq[index].name);
+    }
+    else
+    {
+        return std::string(_indexForStringsInMemory->seq[index].name);
+    }
 }
 
 int32_t MinimapIndex::getSequenceLen(size_t indexNum, size_t index) const
 {
-    return _indexes[indexNum]->seq[index].len;
+    if (builtFromFile)
+    {
+        return _indexes[indexNum]->seq[index].len;
+    }
+    else
+    {
+        return _indexForStringsInMemory->seq[index].len;
+    }
 }
 
 size_t MinimapIndex::getNumOfIndexes() const
 {
-    return _indexes.size();
+    if (builtFromFile)
+    {
+        return _indexes.size();
+    }
+    else
+    {
+        return 1;
+    }
 }
 
 mm_mapopt_t* MinimapIndex::getOptions() const
@@ -237,14 +272,16 @@ mm_mapopt_t* MinimapIndex::getOptions() const
 MinimapIndex::~MinimapIndex()
 {
     std::cout << "In MinimapIndex destructor" << std::endl;
-    _sequencesIds.clear();
+    _sequences.clear();
+    _sequencesDescriptions.clear();
     _pSequences.clear();
-    _pSequencesIds.clear();
+    _pSequencesDescriptions.clear();
 
     for (size_t i = 0; i < _indexes.size(); ++i)
     {
         mm_idx_destroy(_indexes[i]);
     }
+    mm_idx_destroy(_indexForStringsInMemory);
 
     delete _mapOptions;
     delete _indexOptions;
