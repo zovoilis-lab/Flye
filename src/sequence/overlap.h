@@ -201,13 +201,13 @@ private:
 	enum JumpRes {J_END, J_INCONS, J_CLOSE, J_FAR};
 
 	
-	bool    goodStart(int32_t currentPos, int32_t extensionPos, 
-				      int32_t curLen, int32_t extLen,
-					  FastaRecord::Id curId, 
-					  FastaRecord::Id extId) const;
+	//bool    goodStart(int32_t currentPos, int32_t extensionPos, 
+	//			      int32_t curLen, int32_t extLen,
+	//				  FastaRecord::Id curId, 
+	//				  FastaRecord::Id extId) const;
 	bool    overlapTest(const OverlapRange& ovlp, bool& outSuggestChimeric) const;
-	JumpRes jumpTest(int32_t currentPrev, int32_t currentNext,
-				     int32_t extensionPrev, int32_t extensionNext) const;
+	//JumpRes jumpTest(int32_t currentPrev, int32_t currentNext,
+	//			     int32_t extensionPrev, int32_t extensionNext) const;
 
 	const int _maxJump;
 	const int _minOverlap;

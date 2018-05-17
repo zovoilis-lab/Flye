@@ -151,6 +151,7 @@ void VertexIndex::buildIndex(int minCoverage, int maxCoverage)
 		}
 	}
 	Logger::get().debug() << "Solid kmers: " << solidKmers;
+	//Logger::get().debug() << "Repetitive kmers: " << _repetitivekmers.size();
 	Logger::get().debug() << "Kmer index size: " << kmerEntries;
 
 	_kmerIndex.reserve(solidKmers);
@@ -168,12 +169,14 @@ void VertexIndex::buildIndex(int minCoverage, int maxCoverage)
 
 	_memoryChunks.push_back(new ReadPosition[INDEX_CHUNK]);
 	size_t chunkOffset = 0;
-	size_t wasted = 0;
 	for (auto& kmer : _kmerIndex.lock_table())
 	{
+		if (INDEX_CHUNK < kmer.second.capacity) 
+		{
+			throw std::runtime_error("k-mer is too frequent");
+		}
 		if (INDEX_CHUNK - chunkOffset < kmer.second.capacity)
 		{
-			wasted += INDEX_CHUNK - chunkOffset;
 			_memoryChunks.push_back(new ReadPosition[INDEX_CHUNK]);
 			chunkOffset = 0;
 		}
@@ -207,6 +210,8 @@ void VertexIndex::buildIndex(int minCoverage, int maxCoverage)
 				targetRead = targetRead.rc();
 			}
 
+			//update_fn does not update if the key is not in the table
+			//e.g. if the k-mer is not solid!
 			_kmerIndex.update_fn(kmerPos.kmer, 
 				[targetRead, &kmerPos](ReadVector& rv)
 				{

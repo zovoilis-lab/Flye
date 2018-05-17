@@ -136,6 +136,11 @@ public:
 		kmer.standardForm();
 		return _kmerIndex.contains(kmer);
 	}
+	bool isRepetitive(Kmer kmer) const
+	{
+		kmer.standardForm();
+		return _repetitivekmers.contains(kmer);
+	}
 
 	void outputProgress(bool set) 
 	{
@@ -161,4 +166,5 @@ private:
 	std::vector<ReadPosition*> _memoryChunks;
 	cuckoohash_map<Kmer, ReadVector> _kmerIndex;
 	cuckoohash_map<Kmer, size_t> _kmerCounts;
+	cuckoohash_map<Kmer, bool> _repetitivekmers;
 };
