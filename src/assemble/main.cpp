@@ -239,9 +239,9 @@ int main(int argc, char** argv)
 	Logger::get().info() << "Selected minimum overlap " << minOverlap;
 
 	int64_t sumLength = 0;
-	for (auto& seqId : readsContainer.getIndex())
+	for (auto& seq : readsContainer.iterSeqs())
 	{
-		sumLength += seqId.second.sequence.length();
+		sumLength += seq.sequence.length();
 	}
 	int coverage = sumLength / 2 / genomeSize;
 	Logger::get().info() << "Expected read coverage: " << coverage;

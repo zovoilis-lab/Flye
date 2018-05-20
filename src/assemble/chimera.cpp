@@ -28,8 +28,8 @@ void ChimeraDetector::estimateGlobalCoverage()
 {
 	Logger::get().debug() << "Estimating overlap coverage";
 
-	int numSamples = std::min(1000, (int)_seqContainer.getIndex().size());
-	int sampleRate = (int)_seqContainer.getIndex().size() / numSamples;
+	int numSamples = std::min(1000, (int)_seqContainer.iterSeqs().size());
+	int sampleRate = (int)_seqContainer.iterSeqs().size() / numSamples;
 	int minCoverage = _inputCoverage / 
 					(int)Config::get("max_coverage_drop_rate") + 1;
 	int maxCoverage = _inputCoverage * 
@@ -38,10 +38,10 @@ void ChimeraDetector::estimateGlobalCoverage()
 
 	std::unordered_map<int32_t, int32_t> readHist;
 
-	for (auto& seq : _seqContainer.getIndex())
+	for (auto& seq : _seqContainer.iterSeqs())
 	{
 		if (rand() % sampleRate) continue;
-		auto coverage = this->getReadCoverage(seq.first);
+		auto coverage = this->getReadCoverage(seq.id);
 		bool nonZero = false;
 		for (auto c : coverage) nonZero |= (c != 0);
 		if (!nonZero) continue;

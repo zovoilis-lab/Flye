@@ -322,25 +322,25 @@ void RepeatGraph::getGluepoints(const OverlapContainer& asmOverlaps)
 
 	//add flanking points, if needed
 	const int MAX_TIP = Parameters::get().minimumOverlap;
-	for (auto& seqRec : _asmSeqs.getIndex())
+	for (auto& seq : _asmSeqs.iterSeqs())
 	{
-		if (!seqRec.first.strand()) continue;
-		auto& seqPoints = _gluePoints[seqRec.first];
-		auto& complPoints = _gluePoints[seqRec.first.rc()];
+		if (!seq.id.strand()) continue;
+		auto& seqPoints = _gluePoints[seq.id];
+		auto& complPoints = _gluePoints[seq.id.rc()];
 		if (seqPoints.empty() || seqPoints.front().position > MAX_TIP)
 		{
 			seqPoints.emplace(seqPoints.begin(), pointId++, 
-							  seqRec.first, 0);
-			complPoints.emplace_back(pointId++, seqRec.first.rc(),
-							  		 _asmSeqs.seqLen(seqRec.first) - 1);
+							  seq.id, 0);
+			complPoints.emplace_back(pointId++, seq.id.rc(),
+							  		 _asmSeqs.seqLen(seq.id) - 1);
 		}
 		if (seqPoints.size() == 1 || 
-			_asmSeqs.seqLen(seqRec.first) - seqPoints.back().position > MAX_TIP)
+			_asmSeqs.seqLen(seq.id) - seqPoints.back().position > MAX_TIP)
 		{
-			seqPoints.emplace_back(pointId++, seqRec.first, 
-								   _asmSeqs.seqLen(seqRec.first) - 1);
+			seqPoints.emplace_back(pointId++, seq.id, 
+								   _asmSeqs.seqLen(seq.id) - 1);
 			complPoints.emplace(complPoints.begin(), pointId++, 
-							  	seqRec.first.rc(), 0);
+							  	seq.id.rc(), 0);
 		}
 	}
 	int numGluepoints = 0;

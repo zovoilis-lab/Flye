@@ -131,6 +131,19 @@ public:
 						  _seqContainer);
 	}
 
+	/*struct KmerPosRange
+	{
+		ReadPosition* begin;
+		ReadPosition* end;
+		bool rc;
+	};
+	KmerPosRange iterKmerPos(Kmer kmer) const
+	{
+		bool revCmp = kmer.standardForm();
+		auto rv = _kmerIndex.find(kmer);
+		return {rv.data, rv.data + rv.size, revCmp};
+	}*/
+
 	bool isSolid(Kmer kmer) const
 	{
 		kmer.standardForm();

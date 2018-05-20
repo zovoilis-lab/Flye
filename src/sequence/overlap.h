@@ -186,7 +186,8 @@ public:
 		_checkOverhang(maxOverhang > 0),
 		_keepAlignment(keepAlignment),
 		_vertexIndex(vertexIndex),
-		_seqContainer(seqContainer)
+		_seqContainer(seqContainer),
+		_seqHitCounter(_seqContainer.getMaxSeqId())
 	{
 	}
 
@@ -218,6 +219,9 @@ private:
 
 	const VertexIndex& _vertexIndex;
 	const SequenceContainer& _seqContainer;
+
+	typedef unsigned char CounterType;
+	std::vector<CounterType> _seqHitCounter;
 };
 
 

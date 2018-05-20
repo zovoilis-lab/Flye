@@ -153,13 +153,14 @@ void ReadAligner::alignReads()
 
 	std::vector<FastaRecord::Id> allQueries;
 	int64_t totalLength = 0;
-	for (auto& readId : _readSeqs.getIndex())
+	for (auto& read : _readSeqs.iterSeqs())
 	{
 		//if (_readSeqs.seqLen(readId.first) > Constants::maxSeparation)
-		if (_readSeqs.seqLen(readId.first) > Parameters::get().minimumOverlap)
+		if (_readSeqs.seqLen(read.sequence.length()) > 
+			Parameters::get().minimumOverlap)
 		{
-			totalLength += _readSeqs.seqLen(readId.first);
-			allQueries.push_back(readId.first);
+			totalLength += read.sequence.length();
+			allQueries.push_back(read.id);
 		}
 	}
 	std::mutex indexMutex;

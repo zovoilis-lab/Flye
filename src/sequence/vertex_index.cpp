@@ -37,9 +37,9 @@ void VertexIndex::countKmers(size_t hardThreshold, int genomeSize)
 	for (size_t i = 0; i < preCountSize; ++i) preCounters[i] = 0;
 
 	std::vector<FastaRecord::Id> allReads;
-	for (auto& hashPair : _seqContainer.getIndex())
+	for (auto& seq : _seqContainer.iterSeqs())
 	{
-		allReads.push_back(hashPair.first);
+		allReads.push_back(seq.id);
 	}
 
 	//first pass: filling up naive hash counting filter
@@ -223,9 +223,9 @@ void VertexIndex::buildIndex(int minCoverage, int maxCoverage)
 		}
 	};
 	std::vector<FastaRecord::Id> allReads;
-	for (auto& hashPair : _seqContainer.getIndex())
+	for (auto& seq : _seqContainer.iterSeqs())
 	{
-		allReads.push_back(hashPair.first);
+		allReads.push_back(seq.id);
 	}
 	processInParallel(allReads, indexUpdate, 
 					  Parameters::get().numThreads, _outputProgress);

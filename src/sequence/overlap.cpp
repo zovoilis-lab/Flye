@@ -7,6 +7,7 @@
 #include <cassert>
 #include <algorithm>
 #include <thread>
+#include <ctime>
 
 #include "overlap.h"
 #include "../common/config.h"
@@ -120,10 +121,12 @@ namespace
 {
 	struct KmerMatch
 	{
-		KmerMatch(int32_t cur = 0, int32_t ext = 0): 
-			curPos(cur), extPos(ext) {}
+		KmerMatch(int32_t cur = 0, int32_t ext = 0,
+				  FastaRecord::Id extId = FastaRecord::ID_NONE): 
+			curPos(cur), extPos(ext), extId(extId) {}
 		int32_t curPos;
 		int32_t extPos;
+		FastaRecord::Id extId;
 	};
 }
 
@@ -134,43 +137,97 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 								bool uniqueExtensions,
 								bool& outSuggestChimeric) const
 {
+	const int MAX_LOOK_BACK = 50;
+	const int MIN_SURV_KMERS = _minOverlap / 100;
+	const int MAX_EXT_SEQS = 1000;
+
+	static float totalDpTime = 0;
+	static float totalKmerTime = 0;
+	static float totalHashTime = 0;
+	clock_t begin = clock();
+
 	outSuggestChimeric = false;
 	int32_t curLen = fastaRec.sequence.length();
-	cuckoohash_map<FastaRecord::Id, std::vector<KmerMatch>*> kmerMatches;
 
-	//get solid k-mer matches for each candidate read
+	std::vector<unsigned char> seqHitCount(_seqContainer.getMaxSeqId(), 0);
+	std::vector<std::vector<KmerMatch>*> 
+		seqMatches(_seqContainer.getMaxSeqId(), 0);
+
+	std::vector<KmerMatch> vecMatches;
+	vecMatches.reserve(10000000);
+
 	for (auto curKmerPos : IterKmers(fastaRec.sequence))
 	{
 		if (!_vertexIndex.isSolid(curKmerPos.kmer)) continue;
+
 		for (const auto& extReadPos : _vertexIndex.iterKmerPos(curKmerPos.kmer))
+		//auto kmerRange = _vertexIndex.iterKmerPos(curKmerPos.kmer);
+		//for (auto ptr = kmerRange.begin; ptr < kmerRange.end; ++ptr)
 		{
-			if (extReadPos.readId != fastaRec.id ||
-				extReadPos.position != curKmerPos.position)
+			/*auto extReadPos = *ptr;
+			if (kmerRange.rc)
 			{
-				kmerMatches.insert(extReadPos.readId, nullptr);
-				kmerMatches.update_fn(extReadPos.readId, 
-					[&curKmerPos, &extReadPos](std::vector<KmerMatch>*& vec)
-					{
-						if (!vec) vec = new std::vector<KmerMatch>();
-						vec->emplace_back(curKmerPos.position, extReadPos.position);
-					});
+				int32_t extLen = _seqContainer.seqLen(extReadPos.readId);
+				extReadPos.readId = extReadPos.readId.rc();
+				extReadPos.position = extLen - extReadPos.position - 
+							   Parameters::get().kmerSize;
+			}*/
+
+			if ((extReadPos.readId != fastaRec.id ||
+				extReadPos.position != curKmerPos.position))
+			{
+				if (seqHitCount[extReadPos.readId.rawId()] <
+					std::numeric_limits<unsigned char>::max())
+				{
+					++seqHitCount[extReadPos.readId.rawId()];
+				}
+				vecMatches.emplace_back(curKmerPos.position, 
+										extReadPos.position,
+										extReadPos.readId);
 			}
 		}
 	}
+	auto hashTime = clock();
+	totalHashTime += double(hashTime - begin) / CLOCKS_PER_SEC;
+	
+	for (auto& match : vecMatches)
+	{
+		if (seqHitCount[match.extId.rawId()] < MIN_SURV_KMERS) continue;
+
+		if (!seqMatches[match.extId.rawId()])
+		{
+			seqMatches[match.extId.rawId()] = new std::vector<KmerMatch>();
+			seqMatches[match.extId.rawId()]
+				->reserve(seqHitCount[match.extId.rawId()]);
+		}
+		seqMatches[match.extId.rawId()]->push_back(match);
+	}
+	
+  	clock_t end = clock();
+  	double elapsed_secs = double(end - hashTime) / CLOCKS_PER_SEC;
+	totalKmerTime += elapsed_secs;
+	//Logger::get().debug() << "Got kmers " << elapsed_secs;
+
+	//Logger::get().debug() << "hash: " << totalHashTime << " k-mer: " 
+	//	<< totalKmerTime << " dp: " << totalDpTime;
+	//return {};
 
 	//Logger::get().debug() << "Matches for " << fastaRec.id;
-	const int MAX_LOOK_BACK = 50;
-	const int SURV_KMERS_RATE = 100;
 	std::vector<OverlapRange> detectedOverlaps;
 	int uniqueCandidates = 0;
-	for (auto& readMatches : kmerMatches.lock_table())
+	int initCandidates = 0;
+	for (auto& sm : seqMatches)
 	{
-		const std::vector<KmerMatch>& matchesList = *readMatches.second;
-		int32_t extLen = _seqContainer.seqLen(readMatches.first);
+		if (!sm) continue;
+		++initCandidates;
+		const std::vector<KmerMatch>& matchesList = *sm;
+		int32_t extLen = _seqContainer.seqLen(sm->front().extId);
 
-		//getting number of maximum matching positions possible
+		//pre-filtering
 		int32_t prevPos = -1;
 		int32_t uniqueMatchPos = 0;
+		int32_t minCur = matchesList.front().curPos;
+		int32_t maxCur = matchesList.back().curPos;
 		int32_t minExt = std::numeric_limits<int32_t>::max();
 		int32_t maxExt = std::numeric_limits<int32_t>::min();
 		for (auto& match : matchesList)
@@ -183,10 +240,17 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 				prevPos = match.curPos;
 			}
 		}
-		if (uniqueMatchPos < _minOverlap / SURV_KMERS_RATE) continue;
-		if (matchesList.back().curPos - matchesList.front().curPos < _minOverlap ||
+		if (uniqueMatchPos < MIN_SURV_KMERS) continue;
+		if (maxCur - minCur < _minOverlap || 
 			maxExt - minExt < _minOverlap) continue;
+		if (_checkOverhang)
+		{
+			if (std::min(minCur, minExt) > _maxOverhang) continue;
+			if (std::min(curLen - maxCur, 
+						 extLen - maxExt) > _maxOverhang) continue;
+		}
 		++uniqueCandidates;
+		if (uniqueCandidates > MAX_EXT_SEQS) break;
 		
 		//chain matiching positions with DP
 		std::vector<int32_t> scoreTable(matchesList.size(), 0);
@@ -209,7 +273,13 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 				if (0 < curNext - curPrev && curNext - curPrev < _maxJump &&
 					0 < extNext - extPrev && extNext - extPrev < _maxJump)
 				{
-					nextScore = scoreTable[j] + 1;
+					int32_t matchScore = std::min(curNext - curPrev, 
+												  extNext - extPrev);
+					int32_t jumpDiv = abs((curNext - curPrev) - 
+										  (extNext - extPrev));
+					int32_t gapCost = jumpDiv ? 0.1f * jumpDiv + log2(jumpDiv) : 0;
+
+					nextScore = scoreTable[j] + matchScore - gapCost;
 				}
 
 				if (nextScore > maxScore)
@@ -252,7 +322,7 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 		}
 
 		//filling overlap structure
-		OverlapRange ovlp(fastaRec.id, readMatches.first,
+		OverlapRange ovlp(fastaRec.id, matchesList.front().extId,
 						  matchesList[chosenMatches.back()].curPos, 
 					      matchesList[chosenMatches.back()].extPos,
 						  curLen, extLen);
@@ -271,11 +341,16 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 		}
 
 	}
-	//Logger::get().debug() << kmerMatches.size() << " " 
+
+	clock_t ff = clock();
+	double es = double(ff - end) / CLOCKS_PER_SEC;
+	totalDpTime += es;
+	//Logger::get().debug() << " " << initCandidates << " " 
 	//	<< uniqueCandidates << " " << detectedOverlaps.size();
+	//Logger::get().debug() << "hash: " << totalHashTime << " k-mer: " 
+	//	<< totalKmerTime << " dp: " << totalDpTime;
 
-	for (auto& kmerCounts : kmerMatches.lock_table()) delete kmerCounts.second;
-
+	for (auto& kmerCounts : seqMatches) delete kmerCounts;
 	return detectedOverlaps;
 }
 
@@ -507,7 +582,7 @@ std::vector<OverlapRange>
 OverlapContainer::seqOverlaps(FastaRecord::Id seqId,
 							  bool& outSuggestChimeric) const
 {
-	const FastaRecord& record = _queryContainer.getIndex().at(seqId);
+	const FastaRecord& record = _queryContainer.getRecord(seqId);
 	return _ovlpDetect.getSeqOverlaps(record, _onlyMax, outSuggestChimeric);
 }
 
@@ -579,16 +654,16 @@ void OverlapContainer::findAllOverlaps()
 {
 	//Logger::get().info() << "Finding overlaps:";
 	std::vector<FastaRecord::Id> allQueries;
-	for (auto& hashPair : _queryContainer.getIndex())
+	for (auto& seq : _queryContainer.iterSeqs())
 	{
-		allQueries.push_back(hashPair.first);
+		allQueries.push_back(seq.id);
 	}
 
 	std::mutex indexMutex;
 	std::function<void(const FastaRecord::Id&)> indexUpdate = 
 	[this, &indexMutex] (const FastaRecord::Id& seqId)
 	{
-		auto& fastaRec = _queryContainer.getIndex().at(seqId);
+		auto& fastaRec = _queryContainer.getRecord(seqId);
 		bool suggestChimeric = false;
 		auto overlaps = _ovlpDetect.getSeqOverlaps(fastaRec, false, 
 												   suggestChimeric);
@@ -623,9 +698,9 @@ void OverlapContainer::findAllOverlaps()
 void OverlapContainer::filterOverlaps()
 {
 	std::vector<FastaRecord::Id> seqIds;
-	for (auto seqIndex : _queryContainer.getIndex())
+	for (auto& seq : _queryContainer.iterSeqs())
 	{
-		seqIds.push_back(seqIndex.first);
+		seqIds.push_back(seq.id);
 	}
 
 	std::function<void(const FastaRecord::Id& seqId)> filterParallel =
