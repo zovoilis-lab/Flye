@@ -144,7 +144,7 @@ public:
 	typedef std::vector<FastaRecord> SequenceIndex;
 
 	SequenceContainer():
-		_seqIdOffest(g_nextSeqId) {}
+		_offsetInitialized(false) {}
 
 	void loadFromFile(const std::string& filename);
 	static void writeFasta(const std::vector<FastaRecord>& records,
@@ -205,6 +205,7 @@ private:
 
 	SequenceIndex _seqIndex;
 	size_t _seqIdOffest;
+	bool   _offsetInitialized;
 	static size_t g_nextSeqId;
 };
 

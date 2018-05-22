@@ -229,6 +229,14 @@ void VertexIndex::buildIndex(int minCoverage, int maxCoverage)
 	}
 	processInParallel(allReads, indexUpdate, 
 					  Parameters::get().numThreads, _outputProgress);
+
+	Logger::get().debug() << "Sorting k-mer index";
+	for (auto& kmerVec : _kmerIndex.lock_table())
+	{
+		std::sort(kmerVec.second.data, kmerVec.second.data + kmerVec.second.size,
+				  [](const ReadPosition& p1, const ReadPosition& p2)
+				  	{return p1.readId < p2.readId;});
+	}
 }
 
 

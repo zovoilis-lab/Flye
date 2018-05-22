@@ -239,9 +239,6 @@ public:
 	typedef std::unordered_map<FastaRecord::Id, 
 					   std::vector<OverlapRange>> OverlapIndex;
 
-	//void saveOverlaps(const std::string& filename);
-	//void loadOverlaps(const std::string& filename);
-
 	void findAllOverlaps();
 	std::vector<OverlapRange> seqOverlaps(FastaRecord::Id readId,
 										  bool& outSuggestChimeric) const;

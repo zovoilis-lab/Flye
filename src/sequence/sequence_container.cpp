@@ -47,6 +47,11 @@ bool SequenceContainer::isFasta(const std::string& fileName)
 
 FastaRecord::Id SequenceContainer::addSequence(const FastaRecord& seqRec)
 {
+	if (!_offsetInitialized)
+	{
+		_offsetInitialized = true;
+		_seqIdOffest = g_nextSeqId;
+	}
 	FastaRecord::Id newId(g_nextSeqId);
 	if (_seqIndex.size() != g_nextSeqId - _seqIdOffest) 
 	{

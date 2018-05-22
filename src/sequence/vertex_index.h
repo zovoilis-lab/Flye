@@ -149,6 +149,13 @@ public:
 		kmer.standardForm();
 		return _kmerIndex.contains(kmer);
 	}
+
+	size_t kmerFreq(Kmer kmer) const
+	{
+		kmer.standardForm();
+		return _kmerIndex[kmer].size;
+	}
+
 	bool isRepetitive(Kmer kmer) const
 	{
 		kmer.standardForm();
