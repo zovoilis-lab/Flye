@@ -16,12 +16,14 @@ void ParametersEstimator::estimateMinKmerCount(int upperCutoff)
 {
 	const int MIN_CUTOFF = 2;
 
-	/*size_t kmersNeeded = 0;
-	for (auto& seqPair : _seqContainer.getIndex()) 
+	size_t totalKmers = 0;
+	for (auto mapPair = _vertexIndex.getKmerHist().rbegin();
+		 mapPair != _vertexIndex.getKmerHist().rend(); ++mapPair)
 	{
-		kmersNeeded += _seqContainer.seqLen(seqPair.first) / 2 / _coverage;
+		totalKmers += mapPair->second;
 	}
-	Logger::get().debug() << "Genome size estimate: " << kmersNeeded;*/
+	size_t repeatKmerCount = totalKmers * 
+							(float)Config::get("repeat_kmer_rate");
 	
 	size_t takenKmers = 0;
 	size_t cutoff = 0;
@@ -30,8 +32,17 @@ void ParametersEstimator::estimateMinKmerCount(int upperCutoff)
 	for (auto mapPair = _vertexIndex.getKmerHist().rbegin();
 		 mapPair != _vertexIndex.getKmerHist().rend(); ++mapPair)
 	{
-		if (mapPair->first <= (size_t)upperCutoff)
+		if (repetitiveKmers < repeatKmerCount)
 		{
+			repetitiveKmers += mapPair->second;
+		}
+		else
+		{
+			if (_maxKmerCount == std::numeric_limits<size_t>::max())
+			{
+				_maxKmerCount = mapPair->first;
+			}
+
 			takenKmers += mapPair->second;
 			if (takenKmers >= _genomeSize)
 			{
@@ -49,10 +60,6 @@ void ParametersEstimator::estimateMinKmerCount(int upperCutoff)
 			}
 			prevDiff = std::max(takenKmers, _genomeSize) - 
 					   std::min(takenKmers, _genomeSize);
-		}
-		else
-		{
-			repetitiveKmers += mapPair->second;
 		}
 	}
 
@@ -72,6 +79,7 @@ void ParametersEstimator::estimateMinKmerCount(int upperCutoff)
 	
 	Logger::get().debug() << "Filtered " << repetitiveKmers 
 						  << " repetitive kmers";
+	Logger::get().debug() << "Repetetive k-mer frequency: " << _maxKmerCount;
 	Logger::get().debug() << "Estimated minimum kmer coverage: " << cutoff 
 						  << ", " << takenKmers << " unique kmers selected";
 

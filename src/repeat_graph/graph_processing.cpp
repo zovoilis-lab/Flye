@@ -244,6 +244,7 @@ void GraphProcessor::condenceEdges()
 	for (auto& unbranchingPath : toCollapse)
 	{
 		if (!unbranchingPath.id.strand()) continue;
+		if (unbranchingPath.path.size() == 1) continue;
 
 		GraphPath complPath = _graph.complementPath(unbranchingPath.path);
 		auto newEdges = collapseEdges(unbranchingPath.path);

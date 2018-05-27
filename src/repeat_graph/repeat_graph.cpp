@@ -738,6 +738,7 @@ GraphPath RepeatGraph::complementPath(const GraphPath& path) const
 		complEdges.push_back(_idToEdge.at((*itEdge)->edgeId.rc()));
 	}
 
+	assert(!complEdges.empty());
 	return complEdges;
 }
 

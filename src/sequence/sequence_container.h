@@ -17,7 +17,7 @@ struct FastaRecord
 	{
 	public:
 		Id(): _id(std::numeric_limits<uint32_t>::max()) {}
-		Id(uint32_t id): _id(id) {}
+		explicit Id(uint32_t id): _id(id) {}
 
 		bool operator==(const Id& other) const
 			{return _id == other._id;}
@@ -159,34 +159,22 @@ public:
 	}
 	const FastaRecord& getRecord(FastaRecord::Id seqId) const
 	{
-		if (_seqIndex[seqId._id - _seqIdOffest].id != seqId)
-		{
-			throw std::runtime_error("AAA");
-		}
+		assert(_seqIndex[seqId._id - _seqIdOffest].id == seqId);
 		return _seqIndex[seqId._id - _seqIdOffest];
 	}
 	const DnaSequence& getSeq(FastaRecord::Id readId) const
 	{
-		if (_seqIndex[readId._id - _seqIdOffest].id != readId)
-		{
-			throw std::runtime_error("AAA");
-		}
+		assert(_seqIndex[readId._id - _seqIdOffest].id == readId);
 		return _seqIndex[readId._id - _seqIdOffest].sequence;
 	}
 	int32_t seqLen(FastaRecord::Id readId) const
 	{
-		if (_seqIndex[readId._id - _seqIdOffest].id != readId)
-		{
-			throw std::runtime_error("AAA");
-		}
+		assert(_seqIndex[readId._id - _seqIdOffest].id == readId);
 		return _seqIndex[readId._id - _seqIdOffest].sequence.length();
 	}
 	std::string seqName(FastaRecord::Id readId) const
 	{
-		if (_seqIndex[readId._id - _seqIdOffest].id != readId)
-		{
-			throw std::runtime_error("AAA");
-		}
+		assert(_seqIndex[readId._id - _seqIdOffest].id == readId);
 		return _seqIndex[readId._id - _seqIdOffest].description;
 	}
 	int computeNxStat(float fraction) const;

@@ -23,8 +23,7 @@ std::vector<GraphAlignment>
 								 	 const std::vector<EdgeAlignment>& ovlps) const
 {
 	static const int32_t MAX_DISCORDANCE = 
-		std::max(Config::get("maximum_jump") / Config::get("jump_divergence_rate"),
-				 Config::get("max_separation"));
+		std::max(Config::get("maximum_jump"), Config::get("max_separation"));
 	static const int32_t MAX_JUMP = Config::get("maximum_jump");
 	static const int32_t ALN_GAP = Config::get("read_align_gap");
 	static const int32_t PENALTY_WND = Config::get("penalty_window");
@@ -155,9 +154,7 @@ void ReadAligner::alignReads()
 	int64_t totalLength = 0;
 	for (auto& read : _readSeqs.iterSeqs())
 	{
-		//if (_readSeqs.seqLen(readId.first) > Constants::maxSeparation)
-		if (_readSeqs.seqLen(read.sequence.length()) > 
-			Parameters::get().minimumOverlap)
+		if (read.sequence.length() > (size_t)Parameters::get().minimumOverlap)
 		{
 			totalLength += read.sequence.length();
 			allQueries.push_back(read.id);

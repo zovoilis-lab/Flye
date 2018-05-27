@@ -251,10 +251,6 @@ int main(int argc, char** argv)
 			<< ", the assembly is not guaranteed to be optimal in this setting."
 			<< " Are you sure that the genome size was entered correctly?";
 	}
-	if (maxKmerCov == -1)
-	{
-		maxKmerCov = (int)Config::get("repeat_coverage_rate") * coverage;
-	}
 
 	Logger::get().info() << "Generating solid k-mer index";
 	size_t hardThreshold = std::min(5, std::max(2, 
@@ -266,6 +262,10 @@ int main(int argc, char** argv)
 	if (minKmerCov == -1)
 	{
 		minKmerCov = estimator.minKmerCount();
+	}
+	if (maxKmerCov == -1)
+	{
+		maxKmerCov = estimator.maxKmerCount();
 	}
 
 	vertexIndex.buildIndex(minKmerCov, maxKmerCov);
