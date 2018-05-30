@@ -400,8 +400,8 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 							  matchesList[chainMatches.back()].curPos, 
 							  matchesList[chainMatches.back()].extPos,
 							  curLen, extLen);
-			ovlp.curEnd = matchesList[chainMatches.front()].curPos + kmerSize;
-			ovlp.extEnd = matchesList[chainMatches.front()].extPos + kmerSize;
+			ovlp.curEnd = matchesList[chainMatches.front()].curPos + kmerSize - 1;
+			ovlp.extEnd = matchesList[chainMatches.front()].extPos + kmerSize - 1;
 			ovlp.leftShift = median(shifts);
 			ovlp.rightShift = extLen - curLen + ovlp.leftShift;
 			ovlp.score = scoreTable[chainStart];
