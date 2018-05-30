@@ -126,39 +126,74 @@ void VertexIndex::countKmers(size_t hardThreshold, int genomeSize)
 	for (auto kmer : _kmerCounts.lock_table())
 	{
 		_kmerDistribution[kmer.second] += 1;
+		_repetitiveFrequency = std::max(_repetitiveFrequency, kmer.second);
 	}
 	delete[] preCounters;
 }
 
+void VertexIndex::setRepeatCutoff(int minCoverage)
+{
+	size_t totalKmers = 0;
+	for (auto mapPair = this->getKmerHist().rbegin();
+		 mapPair != this->getKmerHist().rend(); ++mapPair)
+	{
+		if (minCoverage <= mapPair->first)
+		{
+			totalKmers += mapPair->second;
+		}
+	}
+	size_t repeatKmerCount = (float)Config::get("repeat_kmer_rate") * totalKmers;
+	//Logger::get().debug() << "Target number of repetetive k-mers: " 
+	//	<< repeatKmerCount;
+	
+	size_t repetitiveKmers = 0;
+	for (auto mapPair = this->getKmerHist().rbegin();
+		 mapPair != this->getKmerHist().rend(); ++mapPair)
+	{
+		if (repetitiveKmers < repeatKmerCount)
+		{
+			repetitiveKmers += mapPair->second;
+		}
+		else
+		{
+			_repetitiveFrequency = mapPair->first;
+			break;
+		}
+	}
+	Logger::get().debug() << "Repetetive k-mer frequency: " << _repetitiveFrequency;
+	Logger::get().debug() << "Filtered " << repetitiveKmers 
+						  << " repetitive kmers";
+}
 
-void VertexIndex::buildIndex(int minCoverage, int maxCoverage)
+
+void VertexIndex::buildIndex(int minCoverage)
 {
 	if (_outputProgress) Logger::get().info() << "Filling index table";
 	
 	//"Replacing" k-mer couns with k-mer index. We need multiple passes
-	//to avoid peaks in memory usage during the has table extensions +
+	//to avoid peaks in memory usage during the hash table extensions +
 	//prevent memory fragmentation
 	
 	size_t kmerEntries = 0;
 	size_t solidKmers = 0;
 	for (auto& kmer : _kmerCounts.lock_table())
 	{
-		if ((size_t)minCoverage / _sampleRate <= kmer.second && 
-			kmer.second <= (size_t)maxCoverage / _sampleRate)
+		if ((size_t)minCoverage <= kmer.second && 
+			kmer.second <= _repetitiveFrequency)
 		{
 			kmerEntries += kmer.second;
 			++solidKmers;
 		}
 	}
+	Logger::get().debug() << "Samplig rate: " << _sampleRate;
 	Logger::get().debug() << "Solid kmers: " << solidKmers;
-	//Logger::get().debug() << "Repetitive kmers: " << _repetitivekmers.size();
 	Logger::get().debug() << "Kmer index size: " << kmerEntries;
 
 	_kmerIndex.reserve(solidKmers);
 	for (auto& kmer : _kmerCounts.lock_table())
 	{
-		if ((size_t)minCoverage / _sampleRate <= kmer.second && 
-			kmer.second <= (size_t)maxCoverage / _sampleRate)
+		if ((size_t)minCoverage <= kmer.second && 
+			kmer.second <= _repetitiveFrequency)
 		{
 			ReadVector rv{(uint32_t)kmer.second, 0, nullptr};
 			_kmerIndex.insert(kmer.first, rv);

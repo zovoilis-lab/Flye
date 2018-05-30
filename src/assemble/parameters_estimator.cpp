@@ -12,55 +12,33 @@ size_t ParametersEstimator::genomeSizeEstimate()
 }
 
 
-void ParametersEstimator::estimateMinKmerCount(int upperCutoff)
+void ParametersEstimator::estimateMinKmerCount()
 {
 	const int MIN_CUTOFF = 2;
 
-	size_t totalKmers = 0;
-	for (auto mapPair = _vertexIndex.getKmerHist().rbegin();
-		 mapPair != _vertexIndex.getKmerHist().rend(); ++mapPair)
-	{
-		totalKmers += mapPair->second;
-	}
-	size_t repeatKmerCount = totalKmers * 
-							(float)Config::get("repeat_kmer_rate");
-	
 	size_t takenKmers = 0;
 	size_t cutoff = 0;
-	size_t repetitiveKmers = 0;
 	size_t prevDiff = 0;
 	for (auto mapPair = _vertexIndex.getKmerHist().rbegin();
 		 mapPair != _vertexIndex.getKmerHist().rend(); ++mapPair)
 	{
-		if (repetitiveKmers < repeatKmerCount)
+		takenKmers += mapPair->second;
+		if (takenKmers >= _genomeSize)
 		{
-			repetitiveKmers += mapPair->second;
-		}
-		else
-		{
-			if (_maxKmerCount == std::numeric_limits<size_t>::max())
+			if (std::max(takenKmers, _genomeSize) - 
+				std::min(takenKmers, _genomeSize) < prevDiff)
 			{
-				_maxKmerCount = mapPair->first;
+				cutoff = mapPair->first;
 			}
-
-			takenKmers += mapPair->second;
-			if (takenKmers >= _genomeSize)
+			else
 			{
-				if (std::max(takenKmers, _genomeSize) - 
-					std::min(takenKmers, _genomeSize) < prevDiff)
-				{
-					cutoff = mapPair->first;
-				}
-				else
-				{
-					cutoff = mapPair->first + 1;
-					takenKmers -= mapPair->second;
-				}
-				break;
+				cutoff = mapPair->first + 1;
+				takenKmers -= mapPair->second;
 			}
-			prevDiff = std::max(takenKmers, _genomeSize) - 
-					   std::min(takenKmers, _genomeSize);
+			break;
 		}
+		prevDiff = std::max(takenKmers, _genomeSize) - 
+				   std::min(takenKmers, _genomeSize);
 	}
 
 	if (cutoff < 2)
@@ -77,9 +55,6 @@ void ParametersEstimator::estimateMinKmerCount(int upperCutoff)
 		cutoff = MIN_CUTOFF;
 	}
 	
-	Logger::get().debug() << "Filtered " << repetitiveKmers 
-						  << " repetitive kmers";
-	Logger::get().debug() << "Repetetive k-mer frequency: " << _maxKmerCount;
 	Logger::get().debug() << "Estimated minimum kmer coverage: " << cutoff 
 						  << ", " << takenKmers << " unique kmers selected";
 

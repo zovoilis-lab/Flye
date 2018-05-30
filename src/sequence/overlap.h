@@ -94,13 +94,28 @@ struct OverlapRange
 			auto cmpFirst = [] (const std::pair<int32_t, int32_t>& pair, 
 							  	int32_t value)
 								{return pair.first < value;};
-			auto iter = std::lower_bound(kmerMatches.begin(), kmerMatches.end(), 
-										 curPos, cmpFirst);
-			if (iter == kmerMatches.end()) return kmerMatches.back().second;
+			size_t i = std::lower_bound(kmerMatches.begin(), kmerMatches.end(), 
+										curPos, cmpFirst) - kmerMatches.begin();
+
+			if (i >= kmerMatches.size() - 1) 
+			{
+				return kmerMatches.back().second;
+			}
+			else
+			{
+				int32_t curInt = kmerMatches[i + 1].first - 
+								 kmerMatches[i].first;
+				int32_t extInt = kmerMatches[i + 1].second - 
+								 kmerMatches[i].second;
+				float lengthRatio = (float)extInt / curInt;
+				int32_t projectedPos = kmerMatches[i].second + 
+								float(curPos - kmerMatches[i].first) * lengthRatio;
+				return std::max(kmerMatches[i].second, 
+								std::min(projectedPos, kmerMatches[i + 1].second));
+			}
 
 			//Logger::get().debug() << curPos - curBegin << " " << iter->second - extBegin <<
 			//	" " << curPos << " " << curBegin << " " << curEnd << " " << kmerMatches.size();
-			return iter->second;
 		}
 	}
 

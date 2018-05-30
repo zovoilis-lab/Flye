@@ -58,8 +58,9 @@ void RepeatGraph::build()
 {
 	//getting overlaps
 	VertexIndex asmIndex(_asmSeqs, (int)Config::get("repeat_graph_kmer_sample"));
-	asmIndex.countKmers(1, /*genome size*/ 0);
-	asmIndex.buildIndex(1, (int)Config::get("repeat_graph_max_kmer"));
+	asmIndex.countKmers(/*min freq*/ 1, /*genome size*/ 0);
+	asmIndex.setRepeatCutoff(/*min freq*/ 1);
+	asmIndex.buildIndex(/*min freq*/ 1);
 
 	OverlapDetector asmOverlapper(_asmSeqs, asmIndex, 
 								  (int)Config::get("maximum_jump"), 

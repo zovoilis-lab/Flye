@@ -138,9 +138,12 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 								bool uniqueExtensions,
 								bool& outSuggestChimeric) const
 {
+	const int KMER_SURV_RATE = 100;
 	const int MAX_LOOK_BACK = 50;
-	const int MIN_SURV_KMERS = _minOverlap / 100;
-	const int MAX_EXT_SEQS = 1000;
+	//const int MIN_SURV_KMERS = std::max(_minOverlap / _maxJump + 1, 2);
+	const int MIN_SURV_KMERS = _minOverlap / KMER_SURV_RATE;
+	//const int MAX_EXT_SEQS = 1000;
+	const int kmerSize = Parameters::get().kmerSize;
 
 	static float totalDpTime = 0;
 	static float totalKmerTime = 0;
@@ -275,7 +278,7 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 			if (std::min(curLen - maxCur, 
 						 extLen - maxExt) > _maxOverhang) continue;
 		}
-		if (++uniqueCandidates > MAX_EXT_SEQS) break;
+		//if (++uniqueCandidates > MAX_EXT_SEQS) break;
 		
 		//chain matiching positions with DP
 		std::vector<int32_t> scoreTable(matchesList.size(), 0);
@@ -304,11 +307,13 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 				if (0 < curNext - curPrev && curNext - curPrev < _maxJump &&
 					0 < extNext - extPrev && extNext - extPrev < _maxJump)
 				{
-					int32_t matchScore = std::min(curNext - curPrev, 
-												  extNext - extPrev);
+					int32_t matchScore = 
+						std::min(std::min(curNext - curPrev, extNext - extPrev),
+										  kmerSize);
 					int32_t jumpDiv = abs((curNext - curPrev) - 
 										  (extNext - extPrev));
-					int32_t gapCost = jumpDiv ? 0.1f * jumpDiv + log2(jumpDiv) : 0;
+					int32_t gapCost = jumpDiv ? 
+							0.01f * kmerSize * jumpDiv + log2(jumpDiv) : 0;
 
 					nextScore = scoreTable[j] + matchScore - gapCost;
 
@@ -326,9 +331,9 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 				if (curNext - curPrev > _maxJump) break;
 			}
 
+			scoreTable[i] = std::max(maxScore, kmerSize);
 			if (maxScore > 0)
 			{
-				scoreTable[i] = maxScore;
 				backtrackTable[i] = maxId;
 			}
 		}
@@ -343,28 +348,73 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 			chainMatches.reserve(matchesList.size());
 			std::vector<int32_t> shifts;
 			shifts.reserve(matchesList.size());
+			std::vector<std::pair<int32_t, int32_t>> kmerMatches;
+
+			int chainLength = 0;
+			int totalMatch = 0;
+			int totalGap = 0;
 			while (pos != -1)
 			{
 				chainMatches.push_back(pos);
 				shifts.push_back(matchesList[pos].curPos - 
 								 matchesList[pos].extPos);
+
+				int32_t prevPos = backtrackTable[pos];
+				if (prevPos != -1)
+				{
+					int32_t curNext = matchesList[pos].curPos;
+					int32_t extNext = matchesList[pos].extPos;
+					int32_t curPrev = matchesList[prevPos].curPos;
+					int32_t extPrev = matchesList[prevPos].extPos;
+					int32_t matchScore = 
+							std::min(std::min(curNext - curPrev, extNext - extPrev),
+											  kmerSize);
+						int32_t jumpDiv = abs((curNext - curPrev) - 
+											  (extNext - extPrev));
+						int32_t gapCost = jumpDiv ? 
+								0.01f * kmerSize * jumpDiv + log2(jumpDiv) : 0;
+
+						totalMatch += matchScore;
+						totalGap += gapCost;
+				}
+
+				if (_keepAlignment)
+				{
+					if (kmerMatches.empty() || 
+						kmerMatches.back().first - matchesList[pos].curPos >
+						kmerSize)
+					{
+						kmerMatches.emplace_back(matchesList[pos].curPos,
+								 				 matchesList[pos].extPos);
+					}
+				}
 				int32_t newPos = backtrackTable[pos];
 				backtrackTable[pos] = -1;
 				pos = newPos;
+				++chainLength;
 			}
 
+
+			std::reverse(kmerMatches.begin(), kmerMatches.end());
 			OverlapRange ovlp(fastaRec.id, matchesList.front().extId,
 							  matchesList[chainMatches.back()].curPos, 
 							  matchesList[chainMatches.back()].extPos,
 							  curLen, extLen);
-			ovlp.curEnd = matchesList[chainMatches.front()].curPos;
-			ovlp.extEnd = matchesList[chainMatches.front()].extPos;
+			ovlp.curEnd = matchesList[chainMatches.front()].curPos + kmerSize;
+			ovlp.extEnd = matchesList[chainMatches.front()].extPos + kmerSize;
 			ovlp.leftShift = median(shifts);
 			ovlp.rightShift = extLen - curLen + ovlp.leftShift;
 			ovlp.score = scoreTable[chainStart];
-			if (this->overlapTest(ovlp, outSuggestChimeric))
+			ovlp.kmerMatches = std::move(kmerMatches);
+
+			if (totalMatch > ovlp.curRange() / KMER_SURV_RATE &&
+				this->overlapTest(ovlp, outSuggestChimeric))
 			{
 				extOverlaps.push_back(ovlp);
+				/*Logger::get().debug() << ovlp.curRange() << " " <<
+					" " << (float)ovlp.curRange() / chainLength <<
+					" " << ovlp.score << " " << totalMatch <<
+					" " << totalGap;*/
 			}
 		}
 		
@@ -409,229 +459,6 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 	return detectedOverlaps;
 }
 
-/*std::vector<OverlapRange> 
-OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec, 
-								bool uniqueExtensions,
-								bool& outSuggestChimeric) const
-{
-	outSuggestChimeric = false;
-
-	std::unordered_map<FastaRecord::Id, 
-					   std::vector<DPRecord>> activePaths;
-	std::unordered_map<FastaRecord::Id, 
-					   std::vector<DPRecord>> completedPaths;
-	std::set<size_t> eraseMarks;
-	int32_t curLen = fastaRec.sequence.length();
-
-	//for all kmers in this read
-	for (auto curKmerPos : IterKmers(fastaRec.sequence))
-	{
-		if (!_vertexIndex.isSolid(curKmerPos.kmer)) continue;
-		//if (_vertexIndex.isRepetitive(curKmerPos.kmer)) continue;
-
-		int32_t curPos = curKmerPos.position;
-
-		//for all other occurences of this kmer (extension candidates)
-		for (const auto& extReadPos : _vertexIndex.iterKmerPos(curKmerPos.kmer))
-		{
-			//no trivial matches
-			if (extReadPos.readId == fastaRec.id &&
-				extReadPos.position == curPos) continue;
-
-			//don't process highly repetitive k-mers unless
-			//we are continuing paths
-			//if (_vertexIndex.isRepetitive(curKmerPos.kmer) &&
-			//	!activePaths.count(extReadPos.readId)) continue;
-
-			int32_t extLen = _seqContainer.seqLen(extReadPos.readId);
-			if (extLen < (int32_t)_minOverlap) continue;
-
-			int32_t extPos = extReadPos.position;
-			auto& extPaths = activePaths[extReadPos.readId];
-
-			size_t maxCloseId = 0;
-			size_t maxFarId = 0;
-			int32_t maxCloseScore = 0;
-			int32_t maxFarScore = 0;
-			bool extendsClose = false;
-			bool extendsFar = false;
-			eraseMarks.clear();
-
-			//searching for longest possible extension
-			for (size_t pathId = 0; pathId < extPaths.size(); ++pathId)
-			{
-				JumpRes jumpResult = 
-					this->jumpTest(extPaths[pathId].ovlp.curEnd, curPos,
-								   extPaths[pathId].ovlp.extEnd, extPos);
-
-				static const int PENALTY_WND = Config::get("penalty_window");
-				int32_t jumpLength = curPos - extPaths[pathId].ovlp.curEnd;
-				int32_t gapScore = -(jumpLength - _gapSize) / PENALTY_WND;
-				if (jumpLength < _gapSize) gapScore = 1;
-
-				int32_t jumpScore = extPaths[pathId].ovlp.score + gapScore;
-
-				switch (jumpResult)
-				{
-					case J_END:
-						eraseMarks.insert(pathId);
-						//if (this->overlapTest(extPaths[pathId].ovlp, 
-						//					  outSuggestChimeric) &&
-						//	!extPaths[pathId].wasContinued)
-						if (this->overlapTest(extPaths[pathId].ovlp, 
-											  outSuggestChimeric))
-						{
-							completedPaths[extReadPos.readId]
-									.push_back(extPaths[pathId]);
-						}
-						break;
-					case J_INCONS:
-						break;
-					case J_CLOSE:
-						eraseMarks.insert(pathId);
-						if (jumpScore > maxCloseScore)
-						{
-							extendsClose = true;
-							maxCloseId = pathId;	
-							maxCloseScore = jumpScore;
-						}
-						break;
-					case J_FAR:
-						if (jumpScore > maxFarScore)
-						{
-							extendsFar = true;
-							maxFarId = pathId;
-							maxFarScore = jumpScore;
-						}
-						break;
-				}
-			}
-			//update the best close extension
-			if (extendsClose)
-			{
-				eraseMarks.erase(maxCloseId);
-				//extPaths[maxCloseId].wasContinued = false;
-				extPaths[maxCloseId].ovlp.curEnd = curPos;
-				extPaths[maxCloseId].ovlp.extEnd = extPos;
-				extPaths[maxCloseId].ovlp.score = maxCloseScore;
-				extPaths[maxCloseId].shifts.push_back(curPos - extPos);
-
-				if (_keepAlignment)
-				{
-					auto& kmerMatches = extPaths[maxCloseId].ovlp.kmerMatches;
-					if (kmerMatches.empty() || curPos - kmerMatches.back().first > 
-											   (int32_t)Parameters::get().kmerSize)
-					{
-						kmerMatches.emplace_back(curPos, extPos);
-					}
-				}
-			}
-			//update the best far extension, keep the old path as a copy
-			if (extendsFar)
-			{
-				//extPaths[maxFarId].wasContinued = true;
-				extPaths.push_back(extPaths[maxFarId]);
-				//extPaths.back().wasContinued = false;
-				extPaths.back().ovlp.curEnd = curPos;
-				extPaths.back().ovlp.extEnd = extPos;
-				extPaths.back().ovlp.score = maxFarScore;
-				extPaths.back().shifts.push_back(curPos - extPos);
-
-				if (_keepAlignment)
-				{
-					auto& kmerMatches = extPaths.back().ovlp.kmerMatches;
-					if (kmerMatches.empty() || curPos - kmerMatches.back().first > 
-											   (int32_t)Parameters::get().kmerSize)
-					{
-						kmerMatches.emplace_back(curPos, extPos);
-					}
-				}
-			}
-			//if no extensions possible (or there are no active paths), start a new path
-			if (!extendsClose && !extendsFar &&
-				!_vertexIndex.isRepetitive(curKmerPos.kmer) &&
-				this->goodStart(curPos, extPos, curLen, extLen, 
-								fastaRec.id, extReadPos.readId))
-			{
-				OverlapRange ovlp(fastaRec.id, extReadPos.readId,
-								  curPos, extPos, curLen, extLen);
-				extPaths.emplace_back(ovlp);
-			}
-			//cleaning up
-			for (auto itEraseId = eraseMarks.rbegin(); 
-				 itEraseId != eraseMarks.rend(); ++itEraseId)
-			{
-				extPaths[*itEraseId] = extPaths.back();
-				extPaths.pop_back();
-			}
-		} //end loop over kmer occurences in other reads
-	} //end loop over kmers in the current read
-
-	//copy to coplete paths
-	for (auto& ap : activePaths)
-	{
-		for (auto& dpRec : ap.second)
-		{
-			if (this->overlapTest(dpRec.ovlp, outSuggestChimeric))
-			{
-				completedPaths[ap.first].push_back(dpRec);
-			}
-		}
-	}
-
-	//leave only one overlap for each starting position
-	for (auto& ap : completedPaths)
-	{
-		std::unordered_map<std::pair<int32_t, int32_t>, 
-						   DPRecord, pairhash> maxByStart;
-		for (auto& dpRec : ap.second)
-		{
-			auto& curMax = maxByStart[std::make_pair(dpRec.ovlp.curBegin, 
-													 dpRec.ovlp.extBegin)];
-			if (dpRec.ovlp.score > curMax.ovlp.score)
-			{
-				curMax = dpRec;
-			}
-		}
-		ap.second.clear();
-		for (auto& maxDp : maxByStart) ap.second.push_back(maxDp.second);
-	}
-
-	std::vector<OverlapRange> detectedOverlaps;
-	for (auto& ap : completedPaths)
-	{
-		int32_t extLen = _seqContainer.seqLen(ap.first);
-		DPRecord* maxRecord = nullptr;
-		bool passedTest = false;
-		for (auto& dpRec : ap.second)
-		{
-			if (!uniqueExtensions)
-			{
-				dpRec.ovlp.leftShift = median(dpRec.shifts);
-				dpRec.ovlp.rightShift = extLen - curLen + 
-										dpRec.ovlp.leftShift;
-				detectedOverlaps.push_back(dpRec.ovlp);
-			}
-			else
-			{
-				passedTest = true;
-				if (!maxRecord || dpRec.ovlp.score > maxRecord->ovlp.score)
-				{
-					maxRecord = &dpRec;
-				}
-			}
-		}
-		if (uniqueExtensions && passedTest)
-		{
-			maxRecord->ovlp.leftShift = median(maxRecord->shifts);
-			maxRecord->ovlp.rightShift = extLen - curLen + 
-									maxRecord->ovlp.leftShift;
-			detectedOverlaps.push_back(maxRecord->ovlp);
-		}
-	}
-
-	return detectedOverlaps;
-}*/
 
 std::vector<OverlapRange>
 OverlapContainer::seqOverlaps(FastaRecord::Id seqId,

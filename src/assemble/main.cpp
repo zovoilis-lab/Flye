@@ -258,17 +258,13 @@ int main(int argc, char** argv)
 	vertexIndex.countKmers(hardThreshold, genomeSize);
 
 	ParametersEstimator estimator(readsContainer, vertexIndex, genomeSize);
-	estimator.estimateMinKmerCount(maxKmerCov);
+	estimator.estimateMinKmerCount();
 	if (minKmerCov == -1)
 	{
 		minKmerCov = estimator.minKmerCount();
 	}
-	if (maxKmerCov == -1)
-	{
-		maxKmerCov = estimator.maxKmerCount();
-	}
-
-	vertexIndex.buildIndex(minKmerCov, maxKmerCov);
+	vertexIndex.setRepeatCutoff(minKmerCov);
+	vertexIndex.buildIndex(minKmerCov);
 
 	OverlapDetector ovlp(readsContainer, vertexIndex,
 						 (int)Config::get("maximum_jump"), 

@@ -14,14 +14,12 @@ public:
 		_vertexIndex(vertexIndex), 
 		_seqContainer(seqContainer),
 		_genomeSize(genomeSize),
-		_minKmerCount(std::numeric_limits<size_t>::max()),
-		_maxKmerCount(std::numeric_limits<size_t>::max())
+		_minKmerCount(std::numeric_limits<size_t>::max())
 	{}
 
-	void    estimateMinKmerCount(int upperCutoff);
+	void    estimateMinKmerCount();
 	size_t  genomeSizeEstimate();
 	size_t 	minKmerCount() {return _minKmerCount;}
-	size_t  maxKmerCount() {return _maxKmerCount;}
 private:
 
 	const VertexIndex& _vertexIndex;
@@ -29,5 +27,4 @@ private:
 	const size_t _genomeSize;
 	size_t _takenKmers;
 	size_t _minKmerCount;
-	size_t _maxKmerCount;
 };

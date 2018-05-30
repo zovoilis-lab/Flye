@@ -26,7 +26,8 @@ public:
 		this->clear();
 	}
 	VertexIndex(const SequenceContainer& seqContainer, int sampleRate):
-		_seqContainer(seqContainer), _outputProgress(false), _sampleRate(sampleRate)
+		_seqContainer(seqContainer), _outputProgress(false), 
+		_sampleRate(sampleRate), _repetitiveFrequency(0)
 	{}
 
 	VertexIndex(const VertexIndex&) = delete;
@@ -119,9 +120,9 @@ public:
 		const SequenceContainer& seqContainer;
 	};
 
-
 	void countKmers(size_t hardThreshold, int genomeSize);
-	void buildIndex(int minCoverage, int maxCoverage);
+	void setRepeatCutoff(int minCoverage);
+	void buildIndex(int minCoverage);
 	void clear();
 
 	IterHelper iterKmerPos(Kmer kmer) const
@@ -150,7 +151,7 @@ public:
 		return _kmerIndex.contains(kmer);
 	}
 
-	size_t kmerFreq(Kmer kmer) const
+	/*size_t kmerFreq(Kmer kmer) const
 	{
 		kmer.standardForm();
 		return _kmerIndex[kmer].size;
@@ -160,7 +161,7 @@ public:
 	{
 		kmer.standardForm();
 		return _repetitivekmers.contains(kmer);
-	}
+	}*/
 
 	void outputProgress(bool set) 
 	{
@@ -178,13 +179,14 @@ private:
 	void addFastaSequence(const FastaRecord& fastaRecord);
 
 	const SequenceContainer& _seqContainer;
-	KmerDistribution _kmerDistribution;
-	bool _outputProgress;
+	KmerDistribution 		 _kmerDistribution;
+	bool    _outputProgress;
 	int32_t _sampleRate;
+	size_t  _repetitiveFrequency;
 
 	const size_t INDEX_CHUNK = 32 * 1024 * 1024 / sizeof(ReadPosition);
 	std::vector<ReadPosition*> _memoryChunks;
 	cuckoohash_map<Kmer, ReadVector> _kmerIndex;
 	cuckoohash_map<Kmer, size_t> _kmerCounts;
-	cuckoohash_map<Kmer, bool> _repetitivekmers;
+	//cuckoohash_map<Kmer, bool> _repetitivekmers;
 };
