@@ -65,6 +65,20 @@ namespace
 		int32_t extPos;
 		FastaRecord::Id extId;
 	};
+
+	struct MatchVecWrapper
+	{
+		MatchVecWrapper(){}
+		MatchVecWrapper(const KmerMatch& match, size_t capacity):
+			v(new std::vector<KmerMatch>)
+		{
+			v->reserve(capacity);
+			v->push_back(match);
+		}
+		std::shared_ptr<std::vector<KmerMatch>> v;
+		std::vector<KmerMatch>* operator->() {return v.get();}
+		std::vector<KmerMatch>& operator*() {return *v;}
+	};
 }
 
 
@@ -74,15 +88,14 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 								bool uniqueExtensions,
 								bool& outSuggestChimeric) const
 {
-	const int KMER_SURV_RATE = 100;
+	const float MIN_KMER_SURV_RATE = 0.01;	//TODO: put into config
 	const int MAX_LOOK_BACK = 50;
-	const int minSurvKmers = _minOverlap / KMER_SURV_RATE;
 	const int kmerSize = Parameters::get().kmerSize;
 
-	static float totalDpTime = 0;
-	static float totalKmerTime = 0;
-	static float totalHashTime = 0;
-	clock_t begin = clock();
+	//static float totalDpTime = 0;
+	//static float totalKmerTime = 0;
+	//static float totalHashTime = 0;
+	//clock_t begin = clock();
 
 	outSuggestChimeric = false;
 	int32_t curLen = fastaRec.sequence.length();
@@ -122,30 +135,29 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 									extReadPos.readId);
 		}
 	}
-	auto hashTime = clock();
-	totalHashTime += double(hashTime - begin) / CLOCKS_PER_SEC;
+	//auto hashTime = clock();
+	//totalHashTime += double(hashTime - begin) / CLOCKS_PER_SEC;
 
-	cuckoohash_map<FastaRecord::Id, std::vector<KmerMatch>*> seqMatches;
+	cuckoohash_map<FastaRecord::Id, MatchVecWrapper> seqMatches;
 	seqMatches.reserve(500);
 	for (auto& match : vecMatches)
 	{
-		if (seqHitCount[match.extId.rawId()] < minSurvKmers) continue;
+		if (seqHitCount[match.extId.rawId()] < 
+			MIN_KMER_SURV_RATE * _minOverlap) continue;
 
 		seqMatches.upsert(match.extId, 
-						  [&seqHitCount, &match](std::vector<KmerMatch>*& vec)
-						  {
-							  if (!vec)
-							  {
-								  vec = new std::vector<KmerMatch>;
-								  vec->reserve(seqHitCount[match.extId.rawId()]);
-							  }
-							  vec->push_back(match);
-						  }, nullptr);
+				  [&seqHitCount, &match](MatchVecWrapper& v)
+				  {
+					  v->push_back(match);
+				  }, 
+				  match, seqHitCount[match.extId.rawId()]);	//if key is not found
+		//MatchVecWrapper w = seqMatches[match.extId];
+		//assert(w.v != 0);
 	}
 	
-  	clock_t end = clock();
-  	double elapsed_secs = double(end - hashTime) / CLOCKS_PER_SEC;
-	totalKmerTime += elapsed_secs;
+  	//clock_t end = clock();
+  	//double elapsed_secs = double(end - hashTime) / CLOCKS_PER_SEC;
+	//totalKmerTime += elapsed_secs;
 
 	std::vector<OverlapRange> detectedOverlaps;
 	int uniqueCandidates = 0;
@@ -299,7 +311,7 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 			ovlp.score = scoreTable[chainStart];
 			ovlp.kmerMatches = std::move(kmerMatches);
 
-			if (totalMatch > ovlp.curRange() / KMER_SURV_RATE &&
+			if (totalMatch > MIN_KMER_SURV_RATE * ovlp.curRange() &&
 				this->overlapTest(ovlp, outSuggestChimeric))
 			{
 				extOverlaps.push_back(ovlp);
@@ -334,16 +346,16 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 			detectedOverlaps.size() > (size_t)_maxCurOverlaps) break;
 	}
 
-	clock_t ff = clock();
-	double es = double(ff - end) / CLOCKS_PER_SEC;
-	totalDpTime += es;
+	//clock_t ff = clock();
+	//double es = double(ff - end) / CLOCKS_PER_SEC;
+	//totalDpTime += es;
 	/*Logger::get().debug() << "---------";
 	Logger::get().debug() << " " << vecMatches.size() << " " 
 		<< uniqueCandidates << " " << detectedOverlaps.size();
 	Logger::get().debug() << "hash: " << totalHashTime << " k-mer: " 
 		<< totalKmerTime << " dp: " << totalDpTime;*/
 
-	for (auto& kmerCounts : seqMatches.lock_table()) delete kmerCounts.second;
+	//for (auto& kmerCounts : seqMatches.lock_table()) delete kmerCounts.second;
 	return detectedOverlaps;
 }
 
