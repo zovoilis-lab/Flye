@@ -6,6 +6,7 @@
 #include <iostream>
 #include <unordered_set>
 #include <algorithm>
+#include <queue>
 
 #include "vertex_index.h"
 #include "../common/logger.h"
@@ -130,6 +131,15 @@ void VertexIndex::countKmers(size_t hardThreshold, int genomeSize)
 	delete[] preCounters;
 }
 
+namespace
+{
+	struct KmerFreq
+	{
+		Kmer kmer;
+		size_t position;
+		size_t freq;
+	};
+}
 
 void VertexIndex::buildIndex(int minCoverage, int maxCoverage)
 {
@@ -139,7 +149,7 @@ void VertexIndex::buildIndex(int minCoverage, int maxCoverage)
 	//to avoid peaks in memory usage during the has table extensions +
 	//prevent memory fragmentation
 	
-	size_t kmerEntries = 0;
+	/*size_t kmerEntries = 0;
 	size_t solidKmers = 0;
 	for (auto& kmer : _kmerCounts.lock_table())
 	{
@@ -179,23 +189,40 @@ void VertexIndex::buildIndex(int minCoverage, int maxCoverage)
 		}
 		kmer.second.data = _memoryChunks.back() + chunkOffset;
 		chunkOffset += kmer.second.capacity;
-	}
+	}*/
 	//Logger::get().debug() << "Total chunks " << _memoryChunks.size()
 	//	<< " wasted space: " << wasted;
 
+	_kmerIndex.reserve(10000000);
 	std::function<void(const FastaRecord::Id&)> indexUpdate = 
 	[this] (const FastaRecord::Id& readId)
 	{
 		if (!readId.strand()) return;
 
-		int32_t nextKmerPos = _sampleRate;
+		//int32_t nextKmerPos = _sampleRate;
+		auto cmp = [](const KmerFreq& k1, const KmerFreq& k2)
+							{return k1.freq > k2.freq;};
+		std::priority_queue<KmerFreq, std::vector<KmerFreq>,
+							decltype(cmp)> topKmers(cmp);
 		for (auto kmerPos : IterKmers(_seqContainer.getSeq(readId)))
 		{
-			if (_sampleRate > 1) //subsampling
+			/*if (_sampleRate > 1) //subsampling
 			{
 				if (--nextKmerPos > 0) continue;
 				nextKmerPos = _sampleRate + (int32_t)(kmerPos.kmer.hash() % 3) - 1;
+			}*/
+			if (_kmerCounts.contains(kmerPos.kmer))
+			{
+				topKmers.push({kmerPos.kmer, (size_t)kmerPos.position, 
+							   _kmerCounts[kmerPos.kmer]});
+				if (topKmers.size() > _seqContainer.seqLen(readId) / 5) topKmers.pop();
 			}
+		}
+
+		while (!topKmers.empty())
+		{
+			KmerPosition kmerPos(topKmers.top().kmer, topKmers.top().position);
+			topKmers.pop();
 
 			FastaRecord::Id targetRead = readId;
 			bool revCmp = kmerPos.kmer.standardForm();
@@ -207,14 +234,22 @@ void VertexIndex::buildIndex(int minCoverage, int maxCoverage)
 				targetRead = targetRead.rc();
 			}
 
-			_kmerIndex.update_fn(kmerPos.kmer, 
+
+			_kmerIndex.upsert(kmerPos.kmer, 
 				[targetRead, &kmerPos](ReadVector& rv)
 				{
-
+					if (rv.size == rv.capacity)
+					{
+						ReadPosition* newBuffer = new ReadPosition[10 + rv.capacity * 2];
+						for (size_t i = 0; i < rv.size; ++i) newBuffer[i] = rv.data[i];
+						if (rv.data) delete rv.data;
+						rv.data = newBuffer;
+						rv.capacity = 10 + rv.capacity * 2;
+					}
 					rv.data[rv.size] = ReadPosition(targetRead, 
 													kmerPos.position);
 					++rv.size;
-				});
+				}, ReadVector());
 		}
 	};
 	std::vector<FastaRecord::Id> allReads;
@@ -224,6 +259,14 @@ void VertexIndex::buildIndex(int minCoverage, int maxCoverage)
 	}
 	processInParallel(allReads, indexUpdate, 
 					  Parameters::get().numThreads, _outputProgress);
+	
+	size_t totalEntries = 0;
+	for (auto kmerRec : _kmerIndex.lock_table())
+	{
+		totalEntries += kmerRec.second.size;
+	}
+	Logger::get().debug() << "Selected kmers: " << _kmerIndex.size();
+	Logger::get().debug() << "Index size: " << totalEntries;
 }
 
 

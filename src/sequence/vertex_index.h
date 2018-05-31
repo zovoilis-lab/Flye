@@ -44,6 +44,7 @@ private:
 
 	struct ReadVector
 	{
+		ReadVector(): capacity(0), size(0), data(nullptr) {}
 		uint32_t capacity;
 		uint32_t size;
 		ReadPosition* data;
