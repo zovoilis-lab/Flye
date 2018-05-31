@@ -41,6 +41,13 @@ void ParametersEstimator::estimateMinKmerCount()
 				   std::min(takenKmers, _genomeSize);
 	}
 
+	size_t filteredKmers = 0;
+	for (auto itKmer : _vertexIndex.getKmerHist())
+	{
+		if (itKmer.first >= cutoff) break;
+		filteredKmers += itKmer.second;
+	}
+
 	if (cutoff < 2)
 	{
 		if ((bool)Config::get("low_cutoff_warning"))
@@ -55,8 +62,9 @@ void ParametersEstimator::estimateMinKmerCount()
 		cutoff = MIN_CUTOFF;
 	}
 	
-	Logger::get().debug() << "Estimated minimum kmer coverage: " << cutoff 
-						  << ", " << takenKmers << " unique kmers selected";
+	Logger::get().debug() << "Estimated minimum kmer coverage: " << cutoff;
+	//Logger::get().debug() << takenKmers << " unique kmers selected";
+	Logger::get().debug() << "Filtered " << filteredKmers << " erroneous k-mers";
 
 	_takenKmers = takenKmers;
 	_minKmerCount = cutoff;

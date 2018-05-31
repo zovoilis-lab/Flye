@@ -65,8 +65,7 @@ void RepeatGraph::build()
 	OverlapDetector asmOverlapper(_asmSeqs, asmIndex, 
 								  (int)Config::get("maximum_jump"), 
 								  Parameters::get().minimumOverlap,
-								  /*no overhang*/ 0, 
-								  (int)Config::get("repeat_graph_gap"),
+								  /*no overhang*/ 0, /*all overlaps*/ 0,
 								  /*keep alignment*/ true);
 
 	OverlapContainer asmOverlaps(asmOverlapper, _asmSeqs, /*only max*/ false);

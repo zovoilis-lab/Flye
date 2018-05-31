@@ -137,7 +137,7 @@ void VertexIndex::setRepeatCutoff(int minCoverage)
 	for (auto mapPair = this->getKmerHist().rbegin();
 		 mapPair != this->getKmerHist().rend(); ++mapPair)
 	{
-		if (minCoverage <= mapPair->first)
+		if (minCoverage <= (int)mapPair->first)
 		{
 			totalKmers += mapPair->second;
 		}
@@ -185,9 +185,11 @@ void VertexIndex::buildIndex(int minCoverage)
 			++solidKmers;
 		}
 	}
-	Logger::get().debug() << "Samplig rate: " << _sampleRate;
+	Logger::get().debug() << "Sampling rate: " << _sampleRate;
 	Logger::get().debug() << "Solid kmers: " << solidKmers;
 	Logger::get().debug() << "Kmer index size: " << kmerEntries;
+	Logger::get().debug() << "Mean k-mer frequency: " 
+		<< (float)kmerEntries / solidKmers;
 
 	_kmerIndex.reserve(solidKmers);
 	for (auto& kmer : _kmerCounts.lock_table())

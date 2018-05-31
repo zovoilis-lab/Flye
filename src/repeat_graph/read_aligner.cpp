@@ -22,11 +22,11 @@ std::vector<GraphAlignment>
 	ReadAligner::chainReadAlignments(const SequenceContainer& edgeSeqs,
 								 	 const std::vector<EdgeAlignment>& ovlps) const
 {
-	static const int32_t MAX_DISCORDANCE = 
-		std::max(Config::get("maximum_jump"), Config::get("max_separation"));
+	//static const int32_t MAX_DISCORDANCE = 
+	//	std::max(Config::get("maximum_jump"), Config::get("max_separation"));
 	static const int32_t MAX_JUMP = Config::get("maximum_jump");
-	static const int32_t ALN_GAP = Config::get("read_align_gap");
-	static const int32_t PENALTY_WND = Config::get("penalty_window");
+	//static const int32_t ALN_GAP = Config::get("read_align_gap");
+	//static const int32_t PENALTY_WND = Config::get("penalty_window");
 
 	std::list<Chain> activeChains;
 	for (auto& edgeAlignment : ovlps)
@@ -45,15 +45,17 @@ std::vector<GraphAlignment>
 
 			if (chain.aln.back()->edge->nodeRight == edgeAlignment.edge->nodeLeft &&
 				MAX_JUMP > readDiff && readDiff > 0 &&
-				MAX_JUMP > graphDiff && graphDiff > 0  &&
-				abs(readDiff - graphDiff) < MAX_DISCORDANCE)
+				MAX_JUMP > graphDiff && graphDiff > 0)
 			{
-				int32_t gapScore = -(readDiff - ALN_GAP) / PENALTY_WND;
-				if (readDiff < ALN_GAP) gapScore = 1;
+				int32_t jumpDiv = abs(readDiff - graphDiff);
+				int32_t gapCost = jumpDiv ? 0.01f * Parameters::get().kmerSize *
+													jumpDiv + log2(jumpDiv) : 0;
+				//int32_t gapScore = -(readDiff - ALN_GAP) / PENALTY_WND;
+				//if (readDiff < ALN_GAP) gapScore = 1;
 				//if (chain.aln.back()->segment.end != 
 				//	edgeAlignment.segment.start) gapScore -= 10;
 				//int32_t ovlpScore = !edgeAlignment.edge->isLooped() ? nextOvlp.score : 10;
-				int32_t score = chain.score + nextOvlp.score + gapScore;
+				int32_t score = chain.score + nextOvlp.score - gapCost;
 				if (score > maxScore)
 				{
 					maxScore = score;
@@ -144,10 +146,8 @@ void ReadAligner::alignReads()
 	OverlapDetector readsOverlapper(pathsContainer, pathsIndex, 
 									(int)Config::get("maximum_jump"),
 									(int)Config::get("max_separation"),
-									/*no overhang*/0,
-									(int)Config::get("read_align_gap"),
+									/*no overhang*/ 0, /*all overlaps*/ 0,
 									/*keep alignment*/ false);
-
 	OverlapContainer readsOverlaps(readsOverlapper, _readSeqs, 
 								   /*onlyMax*/ false);
 

@@ -193,11 +193,11 @@ public:
 	OverlapDetector(const SequenceContainer& seqContainer,
 					const VertexIndex& vertexIndex,
 					int maxJump, int minOverlap, int maxOverhang,
-					int gapSize, bool keepAlignment):
+					int maxCurOverlaps, bool keepAlignment):
 		_maxJump(maxJump),
 		_minOverlap(minOverlap),
 		_maxOverhang(maxOverhang),
-		_gapSize(gapSize),
+		_maxCurOverlaps(maxCurOverlaps),
 		_checkOverhang(maxOverhang > 0),
 		_keepAlignment(keepAlignment),
 		_vertexIndex(vertexIndex),
@@ -221,7 +221,7 @@ private:
 	const int _maxJump;
 	const int _minOverlap;
 	const int _maxOverhang;
-	const int _gapSize;
+	const int _maxCurOverlaps;
 	const bool _checkOverhang;
 	const bool _keepAlignment;
 
