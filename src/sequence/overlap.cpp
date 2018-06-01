@@ -89,6 +89,7 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 								bool& outSuggestChimeric) const
 {
 	const float MIN_KMER_SURV_RATE = 0.01;	//TODO: put into config
+	const int MAX_SECONDARY_OVLPS = 5;
 	const int MAX_LOOK_BACK = 50;
 	const int kmerSize = Parameters::get().kmerSize;
 
@@ -160,7 +161,7 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 	//totalKmerTime += elapsed_secs;
 
 	std::vector<OverlapRange> detectedOverlaps;
-	int uniqueCandidates = 0;
+	//int uniqueCandidates = 0;
 	for (auto& seqVec : seqMatches.lock_table())
 	{
 		const std::vector<KmerMatch>& matchesList = *seqVec.second;
@@ -191,7 +192,7 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 			if (std::min(curLen - maxCur, 
 						 extLen - maxExt) > _maxOverhang) continue;
 		}
-		++uniqueCandidates;
+		//++uniqueCandidates;
 		//if (uniqueCandidates > MAX_EXT_SEQS) break;
 		
 		//chain matiching positions with DP
@@ -321,27 +322,68 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 			}
 		}
 		
-		OverlapRange* maxOvlp = nullptr;
-		bool passedTest = false;
-		for (auto& ovlp : extOverlaps)
+		//selecting the best
+		if (uniqueExtensions)
 		{
-			if (!uniqueExtensions)
+			OverlapRange* maxOvlp = nullptr;
+			for (auto& ovlp : extOverlaps)
 			{
-				detectedOverlaps.push_back(ovlp);
-			}
-			else
-			{
-				passedTest = true;
 				if (!maxOvlp || ovlp.score > maxOvlp->score)
 				{
 					maxOvlp = &ovlp;
 				}
 			}
+			if (maxOvlp) detectedOverlaps.push_back(*maxOvlp);
 		}
-		if (uniqueExtensions && passedTest)
+		//.. or filtering collected overlaps
+		else
 		{
-			detectedOverlaps.push_back(*maxOvlp);
+			//sort by decreasing score
+			std::sort(extOverlaps.begin(), extOverlaps.end(),
+					  [](const OverlapRange& r1, const OverlapRange& r2)
+					  {return r1.score > r2.score;});
+
+			std::vector<std::pair<OverlapRange*, int>> primaryOverlaps;
+			std::vector<OverlapRange*> secondaryOverlaps;
+			for (auto& ovlp : extOverlaps)
+			{
+				std::pair<OverlapRange*, int>* assignedPrimary = nullptr;
+				bool isContained = false;
+				for (auto& prim : primaryOverlaps)
+				{
+					int32_t intersect = ovlp.extIntersect(*prim.first);
+					if (std::min(ovlp.extRange(), 
+								 ovlp.extRange()) - intersect < kmerSize)
+					{
+						isContained = true;
+						break;
+					}
+					if (intersect > ovlp.extRange() / 2)
+					{
+						assignedPrimary = &prim;
+					}
+				}
+				if (isContained) continue;
+				if (!assignedPrimary) 
+				{
+					primaryOverlaps.emplace_back(&ovlp, 0);
+				}
+				else if (assignedPrimary->second < MAX_SECONDARY_OVLPS)
+				{
+					secondaryOverlaps.push_back(&ovlp);
+					++assignedPrimary->second;
+				}
+			}
+			for (auto& ovlp : primaryOverlaps) 
+			{
+				detectedOverlaps.push_back(*ovlp.first);
+			}
+			for (auto& ovlp : secondaryOverlaps) 
+			{
+				detectedOverlaps.push_back(*ovlp);
+			}
 		}
+
 		if (_maxCurOverlaps > 0 &&
 			detectedOverlaps.size() > (size_t)_maxCurOverlaps) break;
 	}
@@ -355,7 +397,6 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 	Logger::get().debug() << "hash: " << totalHashTime << " k-mer: " 
 		<< totalKmerTime << " dp: " << totalDpTime;*/
 
-	//for (auto& kmerCounts : seqMatches.lock_table()) delete kmerCounts.second;
 	return detectedOverlaps;
 }
 
