@@ -27,7 +27,8 @@ public:
 	}
 	VertexIndex(const SequenceContainer& seqContainer, int sampleRate):
 		_seqContainer(seqContainer), _outputProgress(false), 
-		_sampleRate(sampleRate), _repetitiveFrequency(0)
+		_sampleRate(sampleRate), _repetitiveFrequency(0),
+		_lockedIndex(nullptr)
 	{}
 
 	VertexIndex(const VertexIndex&) = delete;
@@ -128,7 +129,9 @@ public:
 	IterHelper iterKmerPos(Kmer kmer) const
 	{
 		bool revComp = kmer.standardForm();
-		return IterHelper(_kmerIndex.find(kmer), revComp,
+		//return IterHelper(_kmerIndex.find(kmer), revComp,
+		//				  _seqContainer);
+		return IterHelper(_lockedIndex->at(kmer), revComp,
 						  _seqContainer);
 	}
 
@@ -148,20 +151,9 @@ public:
 	bool isSolid(Kmer kmer) const
 	{
 		kmer.standardForm();
-		return _kmerIndex.contains(kmer);
+		//return _kmerIndex.contains(kmer);
+		return _lockedIndex->count(kmer);
 	}
-
-	/*size_t kmerFreq(Kmer kmer) const
-	{
-		kmer.standardForm();
-		return _kmerIndex[kmer].size;
-	}
-
-	bool isRepetitive(Kmer kmer) const
-	{
-		kmer.standardForm();
-		return _repetitivekmers.contains(kmer);
-	}*/
 
 	void outputProgress(bool set) 
 	{
@@ -185,8 +177,10 @@ private:
 	size_t  _repetitiveFrequency;
 
 	const size_t INDEX_CHUNK = 32 * 1024 * 1024 / sizeof(ReadPosition);
-	std::vector<ReadPosition*> _memoryChunks;
+	std::vector<ReadPosition*> 		 _memoryChunks;
+
 	cuckoohash_map<Kmer, ReadVector> _kmerIndex;
-	cuckoohash_map<Kmer, size_t> _kmerCounts;
-	//cuckoohash_map<Kmer, bool> _repetitivekmers;
+	cuckoohash_map<Kmer, size_t> 	 _kmerCounts;
+	std::shared_ptr<cuckoohash_map<Kmer, ReadVector>
+					::locked_table> _lockedIndex;
 };
