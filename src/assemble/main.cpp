@@ -7,6 +7,7 @@
 #include <signal.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <cmath>
 
 #include <execinfo.h>
 
@@ -170,7 +171,7 @@ int chooseMinOverlap(const SequenceContainer& seqReads)
 	//choose minimum overlap as reads N90
 	const float NX_FRAC = 0.90f;
 	const int GRADE = 1000;
-	int estMinOvlp = round((float)seqReads.computeNxStat(NX_FRAC) / GRADE) * GRADE;
+	int estMinOvlp = std::round((float)seqReads.computeNxStat(NX_FRAC) / GRADE) * GRADE;
 	return std::min(std::max((int)Config::get("low_minimum_overlap"), 
 							 estMinOvlp),
 					(int)Config::get("high_minimum_overlap"));

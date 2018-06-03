@@ -128,7 +128,7 @@ public:
 	IterHelper iterKmerPos(Kmer kmer) const
 	{
 		bool revComp = kmer.standardForm();
-		return IterHelper(_kmerIndex[kmer], revComp,
+		return IterHelper(_kmerIndex.find(kmer), revComp,
 						  _seqContainer);
 	}
 

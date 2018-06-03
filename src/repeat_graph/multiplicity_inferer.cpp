@@ -6,6 +6,7 @@
 #include "graph_processing.h"
 #include "../common/disjoint_set.h"
 #include "../common/utils.h"
+#include <cmath>
 
 
 //Estimates the mean coverage and assingns edges multiplicity accordingly
@@ -66,8 +67,8 @@ void MultiplicityInferer::estimateCoverage()
 						 	 median(wndCoverage[complEdge])) / 2;
 
 		float minMult = (!edge->isTip()) ? 1 : 0;
-		int estMult = std::max(minMult, 
-							   roundf((float)medianCov / _meanCoverage));
+		int estMult = std::max(minMult, std::round((float)medianCov / 
+													_meanCoverage));
 		if (estMult == 1)
 		{
 			edgesCoverage.push_back(medianCov);

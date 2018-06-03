@@ -4,6 +4,7 @@
 
 #include "read_aligner.h"
 #include "../common/parallel.h"
+#include <cmath>
 
 namespace
 {
@@ -49,7 +50,7 @@ std::vector<GraphAlignment>
 			{
 				int32_t jumpDiv = abs(readDiff - graphDiff);
 				int32_t gapCost = jumpDiv ? 0.01f * Parameters::get().kmerSize *
-													jumpDiv + log2(jumpDiv) : 0;
+													jumpDiv + std::log2(jumpDiv) : 0;
 				//int32_t gapScore = -(readDiff - ALN_GAP) / PENALTY_WND;
 				//if (readDiff < ALN_GAP) gapScore = 1;
 				//if (chain.aln.back()->segment.end != 

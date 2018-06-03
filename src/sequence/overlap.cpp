@@ -9,6 +9,7 @@
 #include <thread>
 #include <ctime>
 #include <queue>
+#include <cmath>
 
 #include "overlap.h"
 #include "../common/config.h"
@@ -228,7 +229,7 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 					int32_t jumpDiv = abs((curNext - curPrev) - 
 										  (extNext - extPrev));
 					int32_t gapCost = jumpDiv ? 
-							0.01f * kmerSize * jumpDiv + log2(jumpDiv) : 0;
+							0.01f * kmerSize * jumpDiv + std::log2(jumpDiv) : 0;
 					nextScore = scoreTable[j] + matchScore - gapCost;
 					if (nextScore > maxScore)
 					{
@@ -404,7 +405,7 @@ bool OverlapContainer::hasSelfOverlaps(FastaRecord::Id readId)
 {
 	this->lazySeqOverlaps(readId);
 	if (!readId.strand()) readId = readId.rc();
-	return ((IndexVecWrapper)_overlapIndex[readId]).suggestChimeric;
+	return _overlapIndex.find(readId).suggestChimeric;
 }
 
 const std::vector<OverlapRange>&
@@ -546,7 +547,7 @@ std::vector<OverlapRange>&
 {
 		FastaRecord::Id normId = seqId.strand() ? seqId : seqId.rc();
 		_overlapIndex.insert(normId);	//ensure it's in the table
-		IndexVecWrapper wrapper = _overlapIndex[normId];
+		IndexVecWrapper wrapper = _overlapIndex.find(normId);
 		return seqId.strand() ? *wrapper.fwdOverlaps : 
 								*wrapper.revOverlaps;
 }
