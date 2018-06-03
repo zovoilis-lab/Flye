@@ -315,7 +315,7 @@ private:
 		int32_t end;
 	};
 
-	void getGluepoints(const OverlapContainer& ovlps);
+	void getGluepoints(OverlapContainer& ovlps);
 	void initializeEdges(const OverlapContainer& asmOverlaps);
 	void collapseTandems();
 	void logEdges();

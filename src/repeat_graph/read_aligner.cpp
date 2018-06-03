@@ -77,7 +77,7 @@ std::vector<GraphAlignment>
 		activeChains.back().score = edgeAlignment.overlap.score;
 	}
 
-	//choosing optimal(ish) set of alignments
+	//greedily choose non-intersecting set of alignments
 	std::vector<GraphAlignment> acceptedAlignments;
 	std::vector<Chain> sortedChains(activeChains.begin(), activeChains.end());
 	std::sort(sortedChains.begin(), sortedChains.end(),
@@ -169,8 +169,9 @@ void ReadAligner::alignReads()
 		&idToSegment, &pathsContainer, &alignedLength] 
 	(const FastaRecord::Id& seqId)
 	{
-		bool suggestChimeric = false;
-		auto overlaps = readsOverlaps.seqOverlaps(seqId, suggestChimeric);
+		//bool suggestChimeric = false;
+		//auto overlaps = readsOverlaps.seqOverlaps(seqId, suggestChimeric);
+		auto& overlaps = readsOverlaps.lazySeqOverlaps(seqId);
 		std::vector<EdgeAlignment> alignments;
 		for (auto& ovlp : overlaps)
 		{

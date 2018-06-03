@@ -79,7 +79,7 @@ void RepeatGraph::build()
 }
 
 
-void RepeatGraph::getGluepoints(const OverlapContainer& asmOverlaps)
+void RepeatGraph::getGluepoints(OverlapContainer& asmOverlaps)
 {
 	//Warning - The most complex function ever, a bit dirty too :(
 	//Note, that there are two kinds of clustering here:
@@ -93,9 +93,10 @@ void RepeatGraph::getGluepoints(const OverlapContainer& asmOverlaps)
 
 	//first, extract endpoints from all overlaps.
 	//each point has X and Y coordinates (curSeq and extSeq)
-	for (auto& seqOvlps : asmOverlaps.getOverlapIndex())
+	//for (auto& seqOvlps : asmOverlaps.getOverlapIndex())
+	for (auto& seq : _asmSeqs.iterSeqs())
 	{
-		for (auto& ovlp : seqOvlps.second)
+		for (auto& ovlp : asmOverlaps.lazySeqOverlaps(seq.id))
 		{
 			endpoints[ovlp.curId]
 				.push_back(new SetPoint2d(Point2d(ovlp.curId, ovlp.curBegin,
@@ -167,9 +168,9 @@ void RepeatGraph::getGluepoints(const OverlapContainer& asmOverlaps)
 		//for gluepoints that lie within other existing overlaps
 		//(handles situations with 'repeat hierarchy', when some
 		//repeats are parts of the other bigger repeats)
-		for (auto& interval : asmOverlaps.getOverlaps(clustSeq, 
-													  clusterXpos - 1, 
-													  clusterXpos + 1))
+		for (auto& interval : asmOverlaps
+				.getCoveringOverlaps(clustSeq, clusterXpos - 1, 
+									 clusterXpos + 1))
 		{
 			if (interval.value->curEnd - clusterXpos > MAX_SEPARATION &&
 				clusterXpos - interval.value->curBegin > MAX_SEPARATION)
@@ -568,9 +569,9 @@ void RepeatGraph::initializeEdges(const OverlapContainer& asmOverlaps)
 					std::swap(segOne, segTwo);
 				}
 
-				for (auto& interval : asmOverlaps.getOverlaps(segOne->seqId,
-															  segOne->start,
-															  segOne->end))
+				for (auto& interval : asmOverlaps
+						.getCoveringOverlaps(segOne->seqId, segOne->start,
+											 segOne->end))
 				{
 					if (interval.value->extId != segTwo->seqId) continue;
 

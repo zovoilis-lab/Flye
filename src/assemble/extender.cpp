@@ -280,6 +280,7 @@ void Extender::assembleContigs(bool addSingletons)
 	}
 	processInParallel(allReads, threadWorker,
 					  Parameters::get().numThreads, true);
+	_ovlpContainer.ensureTransitivity();
 
 	if (addSingletons)
 	{
