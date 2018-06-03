@@ -84,6 +84,7 @@ namespace
 
 
 //This implementation was inspired by Hen Li's minimap2 paper
+//might be used in parallel
 std::vector<OverlapRange> 
 OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec, 
 								bool uniqueExtensions,
@@ -102,10 +103,14 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 	outSuggestChimeric = false;
 	int32_t curLen = fastaRec.sequence.length();
 
-	std::vector<unsigned char> seqHitCount(_seqContainer.getMaxSeqId(), 0);
+	thread_local std::vector<unsigned char> seqHitCount;
+	if (seqHitCount.size() != _seqContainer.getMaxSeqId())
+	{
+		seqHitCount = std::vector<unsigned char>(_seqContainer.getMaxSeqId(), 0);
+	}
 
-	std::vector<KmerMatch> vecMatches;
-	vecMatches.reserve(10000000);
+	thread_local std::vector<KmerMatch> vecMatches;
+	//vecMatches.reserve(10000000);
 
 	for (auto curKmerPos : IterKmers(fastaRec.sequence))
 	{
@@ -140,19 +145,19 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 	//auto hashTime = clock();
 	//totalHashTime += double(hashTime - begin) / CLOCKS_PER_SEC;
 
-	cuckoohash_map<FastaRecord::Id, MatchVecWrapper> seqMatches;
-	seqMatches.reserve(500);
+	thread_local cuckoohash_map<FastaRecord::Id, MatchVecWrapper> seqMatches;
+	//seqMatches.reserve(500);
 	for (auto& match : vecMatches)
 	{
 		if (seqHitCount[match.extId.rawId()] < 
 			MIN_KMER_SURV_RATE * _minOverlap) continue;
 
 		seqMatches.upsert(match.extId, 
-				  [&seqHitCount, &match](MatchVecWrapper& v)
-				  {
-					  v->push_back(match);
-				  }, 
-				  match, seqHitCount[match.extId.rawId()]);	//if key is not found
+			  [&match](MatchVecWrapper& v)
+			  {
+				  v->push_back(match);
+			  }, 
+			  match, seqHitCount[match.extId.rawId()]);	//if key was not found
 		//MatchVecWrapper w = seqMatches[match.extId];
 		//assert(w.v != 0);
 	}
@@ -388,6 +393,10 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 		if (_maxCurOverlaps > 0 &&
 			detectedOverlaps.size() > (size_t)_maxCurOverlaps) break;
 	}
+
+	seqHitCount.assign(seqHitCount.size(), 0);
+	vecMatches.clear();
+	seqMatches.clear();
 
 	//clock_t ff = clock();
 	//double es = double(ff - end) / CLOCKS_PER_SEC;
