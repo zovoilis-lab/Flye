@@ -27,8 +27,7 @@ public:
 	}
 	VertexIndex(const SequenceContainer& seqContainer, int sampleRate):
 		_seqContainer(seqContainer), _outputProgress(false), 
-		_sampleRate(sampleRate), _repetitiveFrequency(0),
-		_lockedIndex(nullptr)
+		_sampleRate(sampleRate), _repetitiveFrequency(0)
 	{}
 
 	VertexIndex(const VertexIndex&) = delete;
@@ -129,10 +128,10 @@ public:
 	IterHelper iterKmerPos(Kmer kmer) const
 	{
 		bool revComp = kmer.standardForm();
-		//return IterHelper(_kmerIndex.find(kmer), revComp,
-		//				  _seqContainer);
-		return IterHelper(_lockedIndex->at(kmer), revComp,
+		return IterHelper(_kmerIndex.find(kmer), revComp,
 						  _seqContainer);
+		//return IterHelper(_lockedIndex->at(kmer), revComp,
+		//				  _seqContainer);
 	}
 
 	/*struct KmerPosRange
@@ -151,8 +150,8 @@ public:
 	bool isSolid(Kmer kmer) const
 	{
 		kmer.standardForm();
-		//return _kmerIndex.contains(kmer);
-		return _lockedIndex->count(kmer);
+		return _kmerIndex.contains(kmer);
+		//return _lockedIndex->count(kmer);
 	}
 
 	void outputProgress(bool set) 
@@ -181,6 +180,6 @@ private:
 
 	cuckoohash_map<Kmer, ReadVector> _kmerIndex;
 	cuckoohash_map<Kmer, size_t> 	 _kmerCounts;
-	std::shared_ptr<cuckoohash_map<Kmer, ReadVector>
-					::locked_table> _lockedIndex;
+	//std::shared_ptr<cuckoohash_map<Kmer, ReadVector>
+	//				::locked_table> _lockedIndex;
 };

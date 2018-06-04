@@ -275,15 +275,14 @@ void VertexIndex::buildIndex(int minCoverage)
 				  	{return p1.readId < p2.readId;});
 	}
 
-	_lockedIndex = std::make_shared<cuckoohash_map<Kmer, ReadVector>::
-										locked_table>(_kmerIndex.lock_table());
+	//_lockedIndex = std::make_shared<cuckoohash_map<Kmer, ReadVector>::
+	//									locked_table>(_kmerIndex.lock_table());
 }
 
 
 void VertexIndex::clear()
 {
-	_lockedIndex->unlock();
-	//if (_lockedIndex) delete _lockedIndex;
+	//_lockedIndex->unlock();
 
 	for (auto& chunk : _memoryChunks) delete[] chunk;
 	_memoryChunks.clear();

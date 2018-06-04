@@ -476,6 +476,7 @@ void OverlapContainer::ensureTransitivity()
 	{
 		auto& curOvlps = this->unsafeSeqOverlaps(seq);
 		totalOverlaps += curOvlps.size();
+		std::vector<OverlapRange> ovlpsToAdd;
 		for (auto& curOvlp : curOvlps)
 		{
 			auto& extOvlps = this->unsafeSeqOverlaps(curOvlp.extId);
@@ -497,16 +498,19 @@ void OverlapContainer::ensureTransitivity()
 				}
 				if (!found)
 				{
-					extOvlps.push_back(curOvlp.reverse());
+					ovlpsToAdd.push_back(curOvlp.reverse());
 				}
 			}
 			else
 			{
-				extOvlps.push_back(curOvlp.reverse());
+				ovlpsToAdd.push_back(curOvlp.reverse());
 			}
 		}
+		for (auto& ovlp : ovlpsToAdd)
+		{
+			this->unsafeSeqOverlaps(ovlp.curId).push_back(ovlp);
+		}
 	}
-	//Logger::get().debug() << "Total overlaps: " << totalOverlaps;
 }
 
 
