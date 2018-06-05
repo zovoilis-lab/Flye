@@ -148,7 +148,7 @@ void ReadAligner::alignReads()
 									(int)Config::get("maximum_jump"),
 									(int)Config::get("max_separation"),
 									/*no overhang*/ 0, /*all overlaps*/ 0,
-									/*keep alignment*/ false);
+									/*keep alignment*/ false, 0.15);
 	OverlapContainer readsOverlaps(readsOverlapper, _readSeqs, 
 								   /*onlyMax*/ false);
 

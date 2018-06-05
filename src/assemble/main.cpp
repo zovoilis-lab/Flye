@@ -271,7 +271,8 @@ int main(int argc, char** argv)
 						 (int)Config::get("maximum_jump"), 
 						 Parameters::get().minimumOverlap,
 						 (int)Config::get("maximum_overhang"),
-						 5 * coverage, /*store alignment*/ false);
+						 5 * coverage, /*store alignment*/ false,
+						 0.20);
 	OverlapContainer readOverlaps(ovlp, readsContainer, /*only max*/ true);
 
 	Extender extender(readsContainer, readOverlaps, coverage, 

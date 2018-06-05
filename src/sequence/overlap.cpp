@@ -91,7 +91,6 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 								bool& outSuggestChimeric) const
 {
 	const float MIN_KMER_SURV_RATE = 0.01;	//TODO: put into config
-	//const int MAX_SECONDARY_OVLPS = 100;
 	const int MAX_LOOK_BACK = 50;
 	const int kmerSize = Parameters::get().kmerSize;
 
@@ -105,12 +104,12 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 	outSuggestChimeric = false;
 	int32_t curLen = fastaRec.sequence.length();
 
-	thread_local std::vector<unsigned char> seqHitCount;
+	thread_local static std::vector<uint16_t> seqHitCount;
 	if (seqHitCount.size() != _seqContainer.getMaxSeqId())
 	{
-		seqHitCount = std::vector<unsigned char>(_seqContainer.getMaxSeqId(), 0);
+		seqHitCount = std::vector<uint16_t>(_seqContainer.getMaxSeqId(), 0);
 	}
-	thread_local std::vector<KmerMatch> vecMatches;
+	thread_local static std::vector<KmerMatch> vecMatches;
 
 	std::vector<int32_t> solidPos;
 	for (auto curKmerPos : IterKmers(fastaRec.sequence))
@@ -147,7 +146,8 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 	//auto hashTime = clock();
 	//totalHashTime += double(hashTime - begin) / CLOCKS_PER_SEC;
 
-	thread_local cuckoohash_map<FastaRecord::Id, MatchVecWrapper> seqMatches;
+	thread_local static cuckoohash_map<FastaRecord::Id, 
+									   MatchVecWrapper> seqMatches;
 	for (auto& match : vecMatches)
 	{
 		if (seqHitCount[match.extId.rawId()] < 
@@ -271,7 +271,7 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 			std::vector<std::pair<int32_t, int32_t>> kmerMatches;
 			kmerMatches.reserve(1024);
 			int chainLength = 0;
-			int totalMatch = kmerSize;
+			//int totalMatch = kmerSize;
 			while (pos != -1)
 			{
 				firstMatch = matchesList[pos];
@@ -279,7 +279,7 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 								 matchesList[pos].extPos);
 				++chainLength;
 
-				int32_t prevPos = backtrackTable[pos];
+				/*int32_t prevPos = backtrackTable[pos];
 				if (prevPos != -1)
 				{
 					int32_t curNext = matchesList[pos].curPos;
@@ -290,7 +290,7 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 							std::min(std::min(curNext - curPrev, extNext - extPrev),
 											  kmerSize);
 					totalMatch += matchScore;
-				}
+				}*/
 				if (_keepAlignment)
 				{
 					if (kmerMatches.empty() || 
@@ -326,14 +326,14 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 					if (ovlp.curBegin <= pos && pos <= ovlp.curEnd) ++numCurKmers;
 				}
 				float divSet = std::log((float)numCurKmers / chainLength) / kmerSize;
-				if (divSet < 0.2)
+				if (divSet < _maxDivergence)
 				{
 					extOverlaps.push_back(ovlp);
 				}
 				//fout << divSet << std::endl;
 				//Logger::get().debug() << ovlp.curRange() << " " <<
 				//	" " << (float)totalMatch / ovlp.curRange() << 
-				//	" " << estKmerMatch;
+				//	" " << divSet;
 			}
 		}
 		
@@ -373,46 +373,6 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 					detectedOverlaps.push_back(ovlp);
 				}
 			}
-
-			/*std::vector<std::pair<OverlapRange*, int>> primaryOverlaps;
-			std::vector<OverlapRange*> secondaryOverlaps;
-			for (auto& ovlp : extOverlaps)
-			{
-				std::pair<OverlapRange*, int>* assignedPrimary = nullptr;
-				bool isContained = false;
-				for (auto& prim : primaryOverlaps)
-				{
-					if (ovlp.containedBy(*prim.first))
-					{
-						isContained = true;
-						break;
-					}
-					int32_t intersect = std::min(ovlp.curIntersect(*prim.first),
-												 ovlp.extIntersect(*prim.first));
-					if (intersect > ovlp.curRange() / 2)
-					{
-						assignedPrimary = &prim;
-					}
-				}
-				if (isContained) continue;
-				if (!assignedPrimary) 
-				{
-					primaryOverlaps.emplace_back(&ovlp, 0);
-				}
-				else if (assignedPrimary->second < MAX_SECONDARY_OVLPS)
-				{
-					secondaryOverlaps.push_back(&ovlp);
-					++assignedPrimary->second;
-				}
-			}
-			for (auto& ovlp : primaryOverlaps) 
-			{
-				detectedOverlaps.push_back(*ovlp.first);
-			}
-			for (auto& ovlp : secondaryOverlaps) 
-			{
-				detectedOverlaps.push_back(*ovlp);
-			}*/
 		}
 
 		if (_maxCurOverlaps > 0 &&
