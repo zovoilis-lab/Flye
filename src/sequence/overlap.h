@@ -129,8 +129,8 @@ struct OverlapRange
 	{
 		if (curId != other.curId || extId != other.curId) return false;
 
-		return other.curBegin < curBegin && curEnd < other.curEnd &&
-			   other.extBegin < extBegin && extEnd <= other.extEnd;
+		return other.curBegin <= curBegin && curEnd <= other.curEnd &&
+			   other.extBegin <= extBegin && extEnd <= other.extEnd;
 	}
 
 	int32_t curIntersect(const OverlapRange& other) const
@@ -145,14 +145,14 @@ struct OverlapRange
 			   std::max(extBegin, other.extBegin);
 	}
 
-	bool equals(const OverlapRange& other) const
+	/*bool equals(const OverlapRange& other) const
 	{
 		return other.curId == curId && other.extId == extId &&
 			   other.curBegin == curBegin && other.curEnd == curEnd &&
 			   other.extBegin == extBegin && other.extEnd == extEnd;
-	}
+	}*/
 
-	std::string serialize() const
+	/*std::string serialize() const
 	{
 		std::stringstream ss;
 		ss << curId << " " << curBegin << " " << curEnd << " " 
@@ -166,7 +166,7 @@ struct OverlapRange
 		std::stringstream ss(str);
 		ss >> curId >> curBegin >> curEnd >> leftShift 
 		   >> extId >> extBegin >> extEnd >> rightShift;
-	}
+	}*/
 
 	//current read
 	FastaRecord::Id curId;
