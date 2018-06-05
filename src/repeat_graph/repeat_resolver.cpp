@@ -57,7 +57,8 @@ void RepeatResolver::separatePath(const GraphPath& graphPath,
 
 //Resolves all repeats simulateously through the graph mathcing optimization,
 //Given the reads connecting unique edges (or pairs of edges in the transitions graph)
-int RepeatResolver::resolveConnections(const std::vector<Connection>& connections)
+int RepeatResolver::resolveConnections(const std::vector<Connection>& connections, 
+									   float minSupport)
 {
 	//Constructs transitions graph using the lemon library
 	std::unordered_map<FastaRecord::Id, int> leftCoverage;
@@ -141,7 +142,7 @@ int RepeatResolver::resolveConnections(const std::vector<Connection>& connection
 			<< leftId.signedId() << "\t" << rightId.rc().signedId()
 			<< "\t" << support / 4 << "\t" << confidence;
 
-		if (confidence < (float)Config::get("min_repeat_res_support"))
+		if (confidence < minSupport)
 		{
 			++unresolvedLinks;
 			continue;
@@ -408,12 +409,20 @@ void RepeatResolver::fixLongEdges()
 //no new repeats are resolved
 void RepeatResolver::resolveRepeats()
 {
+	bool perfectIter = true;
 	while (true)
 	{
 		auto connections = this->getConnections();
-		int resolvedConnections = this->resolveConnections(connections);
+
+		float minSupport = perfectIter ? 1.0f : 
+						   Config::get("min_repeat_res_support");
+		int resolvedConnections = 
+			this->resolveConnections(connections, minSupport);
+		perfectIter = !perfectIter;
+
 		this->clearResolvedRepeats();
 		_aligner.updateAlignments();
+
 		if (!resolvedConnections) break;
 		this->findRepeats();
 	}

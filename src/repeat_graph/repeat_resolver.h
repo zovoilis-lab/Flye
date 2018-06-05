@@ -36,7 +36,8 @@ private:
 
 	void clearResolvedRepeats();
 	std::vector<Connection> getConnections();
-	int  resolveConnections(const std::vector<Connection>& conns);
+	int  resolveConnections(const std::vector<Connection>& conns, 
+							float minSupport);
 	void separatePath(const GraphPath& path, SequenceSegment segment,
 					  FastaRecord::Id startId);
 
