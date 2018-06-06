@@ -44,7 +44,8 @@ private:
 
 	struct ReadVector
 	{
-		ReadVector(): capacity(0), size(0), data(nullptr) {}
+		ReadVector(uint32_t capacity = 0, uint32_t size = 0): 
+			capacity(capacity), size(size), data(nullptr) {}
 		uint32_t capacity;
 		uint32_t size;
 		ReadPosition* data;
@@ -123,6 +124,7 @@ public:
 
 	void countKmers(size_t hardThreshold, int genomeSize);
 	void buildIndex(int minCoverage, int maxCoverage);
+	void buildIndexUnevenCoverage(int minCoverage, int maxCoverage);
 	void clear();
 
 	IterHelper iterKmerPos(Kmer kmer) const
