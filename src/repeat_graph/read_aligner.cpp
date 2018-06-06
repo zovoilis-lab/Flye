@@ -23,11 +23,8 @@ std::vector<GraphAlignment>
 	ReadAligner::chainReadAlignments(const SequenceContainer& edgeSeqs,
 								 	 const std::vector<EdgeAlignment>& ovlps) const
 {
-	//static const int32_t MAX_DISCORDANCE = 
-	//	std::max(Config::get("maximum_jump"), Config::get("max_separation"));
 	static const int32_t MAX_JUMP = Config::get("maximum_jump");
-	//static const int32_t ALN_GAP = Config::get("read_align_gap");
-	//static const int32_t PENALTY_WND = Config::get("penalty_window");
+	static const int32_t MAX_READ_OVLP = 50;
 
 	std::list<Chain> activeChains;
 	for (auto& edgeAlignment : ovlps)
@@ -45,17 +42,12 @@ std::vector<GraphAlignment>
 								prevOvlp.extLen - prevOvlp.extEnd;
 
 			if (chain.aln.back()->edge->nodeRight == edgeAlignment.edge->nodeLeft &&
-				MAX_JUMP > readDiff && readDiff > 0 &&
+				MAX_JUMP > readDiff && readDiff > -MAX_READ_OVLP &&
 				MAX_JUMP > graphDiff && graphDiff > 0)
 			{
 				int32_t jumpDiv = abs(readDiff - graphDiff);
 				int32_t gapCost = jumpDiv ? 0.01f * Parameters::get().kmerSize *
 													jumpDiv + std::log2(jumpDiv) : 0;
-				//int32_t gapScore = -(readDiff - ALN_GAP) / PENALTY_WND;
-				//if (readDiff < ALN_GAP) gapScore = 1;
-				//if (chain.aln.back()->segment.end != 
-				//	edgeAlignment.segment.start) gapScore -= 10;
-				//int32_t ovlpScore = !edgeAlignment.edge->isLooped() ? nextOvlp.score : 10;
 				int32_t score = chain.score + nextOvlp.score - gapCost;
 				if (score > maxScore)
 				{
@@ -164,10 +156,11 @@ void ReadAligner::alignReads()
 	}
 	std::mutex indexMutex;
 	int numAligned = 0;
+	int alignedInFull = 0;
 	int64_t alignedLength = 0;
 	std::function<void(const FastaRecord::Id&)> alignRead = 
 	[this, &indexMutex, &numAligned, &readsOverlaps, 
-		&idToSegment, &pathsContainer, &alignedLength] 
+		&idToSegment, &pathsContainer, &alignedLength, &alignedInFull] 
 	(const FastaRecord::Id& seqId)
 	{
 		//bool suggestChimeric = false;
@@ -187,6 +180,7 @@ void ReadAligner::alignReads()
 		if (readChains.empty()) return;
 		indexMutex.lock();
 		++numAligned;
+		if (readChains.size() == 1) ++alignedInFull;
 		for (auto& chain : readChains) 
 		{
 			_readAlignments.push_back(chain);
@@ -226,9 +220,10 @@ void ReadAligner::alignReads()
 		}
 	}*/
 
-	Logger::get().debug() << "Aligned reads: " << numAligned << " / " 
-		<< allQueries.size();
-	Logger::get().info() << "Aligned sequence: " << alignedLength << " / " 
+	Logger::get().debug() << "Total reads : " << allQueries.size();
+	Logger::get().debug() << "Read with aligned parts : " << numAligned;
+	Logger::get().debug() << "Aligned in one piece : " << alignedInFull;
+	Logger::get().info() << "Aligned read sequence: " << alignedLength << " / " 
 		<< totalLength << " (" << (float)alignedLength / totalLength << ")";
 }
 
