@@ -143,11 +143,13 @@ namespace
 
 void VertexIndex::buildIndexUnevenCoverage(int minCoverage, int maxCoverage)
 {
+	static const float SELECT_RATE = 0.20;
+
 	if (_outputProgress) Logger::get().info() << "Filling index table";
 	
 	_kmerIndex.reserve(10000000);
 	std::function<void(const FastaRecord::Id&)> indexUpdate = 
-	[this, maxCoverage] (const FastaRecord::Id& readId)
+	[this, minCoverage, maxCoverage] (const FastaRecord::Id& readId)
 	{
 		if (!readId.strand()) return;
 
@@ -168,7 +170,7 @@ void VertexIndex::buildIndexUnevenCoverage(int minCoverage, int maxCoverage)
 				topKmers.push({kmerPos.kmer, (size_t)kmerPos.position, 
 							   _kmerCounts[kmerPos.kmer]});
 				if ((int)topKmers.size() > 
-					_seqContainer.seqLen(readId) / 5) topKmers.pop();
+					SELECT_RATE * _seqContainer.seqLen(readId)) topKmers.pop();
 			}
 		}
 
@@ -176,7 +178,9 @@ void VertexIndex::buildIndexUnevenCoverage(int minCoverage, int maxCoverage)
 		{
 			KmerPosition kmerPos(topKmers.top().kmer, topKmers.top().position);
 			topKmers.pop();
-			if ((int)_kmerCounts[kmerPos.kmer] > maxCoverage) continue;
+
+			size_t freq = _kmerCounts.find(kmerPos.kmer);
+			if (freq < minCoverage || freq > maxCoverage) continue;
 
 			FastaRecord::Id targetRead = readId;
 			bool revCmp = kmerPos.kmer.standardForm();
@@ -187,7 +191,6 @@ void VertexIndex::buildIndexUnevenCoverage(int minCoverage, int maxCoverage)
 										Parameters::get().kmerSize;
 				targetRead = targetRead.rc();
 			}
-
 
 			_kmerIndex.upsert(kmerPos.kmer, 
 				[targetRead, &kmerPos](ReadVector& rv)
@@ -277,7 +280,7 @@ void VertexIndex::buildIndex(int minCoverage, int maxCoverage)
 	//	<< " wasted space: " << wasted;
 
 	std::function<void(const FastaRecord::Id&)> indexUpdate = 
-	[this, maxCoverage] (const FastaRecord::Id& readId)
+	[this] (const FastaRecord::Id& readId)
 	{
 		if (!readId.strand()) return;
 
@@ -300,10 +303,10 @@ void VertexIndex::buildIndex(int minCoverage, int maxCoverage)
 				targetRead = targetRead.rc();
 			}
 
-
 			_kmerIndex.update_fn(kmerPos.kmer, 
 				[targetRead, &kmerPos](ReadVector& rv)
 				{
+
 					rv.data[rv.size] = ReadPosition(targetRead, 
 													kmerPos.position);
 					++rv.size;
@@ -317,14 +320,6 @@ void VertexIndex::buildIndex(int minCoverage, int maxCoverage)
 	}
 	processInParallel(allReads, indexUpdate, 
 					  Parameters::get().numThreads, _outputProgress);
-	
-	size_t totalEntries = 0;
-	for (auto kmerRec : _kmerIndex.lock_table())
-	{
-		totalEntries += kmerRec.second.size;
-	}
-	Logger::get().debug() << "Selected kmers: " << _kmerIndex.size();
-	Logger::get().debug() << "Index size: " << totalEntries;
 }
 
 
