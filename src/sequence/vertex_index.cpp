@@ -179,7 +179,7 @@ void VertexIndex::buildIndexUnevenCoverage(int minCoverage, int maxCoverage)
 			KmerPosition kmerPos(topKmers.top().kmer, topKmers.top().position);
 			topKmers.pop();
 
-			size_t freq = _kmerCounts.find(kmerPos.kmer);
+			int freq = _kmerCounts.find(kmerPos.kmer);
 			if (freq < minCoverage || freq > maxCoverage) continue;
 
 			FastaRecord::Id targetRead = readId;
