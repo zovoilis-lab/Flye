@@ -268,7 +268,8 @@ int main(int argc, char** argv)
 		minKmerCov = estimator.minKmerCount();
 	}
 
-	vertexIndex.buildIndex(minKmerCov, maxKmerCov);
+	//vertexIndex.buildIndex(minKmerCov, maxKmerCov);
+	vertexIndex.buildIndexUnevenCoverage(/*min coverage*/ 2, maxKmerCov);
 
 	OverlapDetector ovlp(readsContainer, vertexIndex,
 						 (int)Config::get("maximum_jump"), 

@@ -9,22 +9,28 @@
 #include <iostream>
 #include <iomanip>
 #include <vector>
+#include <limits>
 
 typedef int64_t AlnScoreType;
 
 class SubstitutionMatrix 
 {
 public:
-
 	SubstitutionMatrix(const std::string& path);
-	AlnScoreType getScore(char v, char w) const;
-
+	AlnScoreType getScore(char v, char w) const
+	{
+		return _matrix[(size_t)v * MAX_CHAR + (size_t)w];
+	}
+	
 private:
 	void loadMatrix(const std::string& path);
+	void setScore(char v, char w, AlnScoreType score)
+	{
+		_matrix[(size_t)v * MAX_CHAR + (size_t)w] = score;
+	}
 
-	const int X_SIZE = 5;
-	const int Y_SIZE = 5;
-	std::vector<std::vector<AlnScoreType>> _matrix;
+	const size_t MAX_CHAR = std::numeric_limits<char>::max();
+	std::vector<AlnScoreType> _matrix;
 };
 
 class HopoMatrix

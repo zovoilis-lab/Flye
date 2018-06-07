@@ -5,31 +5,32 @@
 #include <cstdlib>
 #include <stdexcept>
 #include <cassert>
+#include <vector>
 
 template <class T>
 class Matrix
 {
 public:
-	Matrix(): _matrix(nullptr), _rows(0), _cols(0) {}
+	Matrix(): _rows(0), _cols(0), _data(nullptr) {}
 	Matrix(const Matrix& other):
 		Matrix(other._rows, other._cols)
 	{
 		for (size_t i = 0; i < _rows; ++i)
 			for (size_t j = 0; j < _cols; ++j)
-				_matrix[i][j] = other._matrix[i][j];
+				this->at(i, j) = other.at(i, j);
 	}
 	Matrix(Matrix&& other):
 		Matrix()
 	{
 		std::swap(_cols, other._cols);
 		std::swap(_rows, other._rows);
-		std::swap(_matrix, other._matrix);
+		std::swap(_data, other._data);
 	}
 	Matrix& operator=(Matrix && other)
 	{
 		std::swap(_cols, other._cols);
 		std::swap(_rows, other._rows);
-		std::swap(_matrix, other._matrix);
+		std::swap(_data, other._data);
 		return *this;
 	}
 	Matrix& operator=(const Matrix& other)
@@ -37,41 +38,30 @@ public:
 		Matrix temp(other);
 		std::swap(_cols, temp._cols);
 		std::swap(_rows, temp._rows);
-		std::swap(_matrix, temp._matrix);
+		std::swap(_data, temp._data);
 		return *this;
 	}
 
 	Matrix(size_t rows, size_t cols, T val = 0):
 		_rows(rows), _cols(cols)
 	{
-		_matrix = new T*[rows];
-		if (!rows)
+		if (!rows || !cols)
 			throw std::runtime_error("Zero matrix dimension");
-
-		_matrix[0] = new T[rows * cols];
-		 for (size_t i = 1; i < rows; ++i)
-			_matrix[i] = _matrix[0] + i * cols;
-
-		for (size_t i = 0; i < _rows; ++i)
-			for (size_t j = 0; j < _cols; ++j)
-				_matrix[i][j] = val;
+		_data = new T[rows * cols];
+		for (size_t i = 0; i < rows * cols; ++i) _data[i] = val;
 	}
 	~Matrix()
 	{
-		if (_matrix)
-		{
-			delete[] _matrix[0];
-			delete[] _matrix;
-		}
+		if (_data) delete[] _data;
 	}
 
-	T& at(size_t row, size_t col) {return _matrix[row][col];}
-	const T& at(size_t row, size_t col) const {return _matrix[row][col];}
+	T& at(size_t row, size_t col) {return _data[row * _cols + col];}
+	const T& at(size_t row, size_t col) const {return _data[row * _cols + col];}
 	size_t nrows() const {return _rows;}
 	size_t ncols() const {return _cols;}
 
 private:
-	T** _matrix;
 	size_t _rows;
 	size_t _cols;
+	T* _data;
 };
