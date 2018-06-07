@@ -94,7 +94,7 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 	const int MAX_LOOK_BACK = 50;
 	const int kmerSize = Parameters::get().kmerSize;
 
-	//static std::ofstream fout("../kmers.txt");
+	static std::ofstream fout("../kmers.txt");
 
 	//static float totalDpTime = 0;
 	//static float totalKmerTime = 0;
@@ -325,15 +325,16 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 				{
 					if (ovlp.curBegin <= pos && pos <= ovlp.curEnd) ++numCurKmers;
 				}
-				float divSet = std::log((float)numCurKmers / chainLength) / kmerSize;
+				float kmerMatch = std::min(1.0f, (float)chainLength * 
+									_vertexIndex.getSampleRate() / numCurKmers);
+				float divSet = std::log(1 / kmerMatch) / kmerSize;
 				if (divSet < _maxDivergence)
 				{
 					extOverlaps.push_back(ovlp);
 				}
-				//fout << divSet << std::endl;
+				fout << divSet << std::endl;
 				//Logger::get().debug() << ovlp.curRange() << " " <<
-				//	" " << (float)totalMatch / ovlp.curRange() << 
-				//	" " << divSet;
+				//	" " << kmerMatch << " " << divSet;
 			}
 		}
 		
