@@ -192,21 +192,28 @@ void VertexIndex::buildIndexUnevenCoverage(int minCoverage, int maxCoverage)
 				targetRead = targetRead.rc();
 			}
 
+			//in case kmer not in index yet, creates a new vector
+			//with a single element in it
 			_kmerIndex.upsert(kmerPos.kmer, 
 				[targetRead, &kmerPos](ReadVector& rv)
 				{
 					if (rv.size == rv.capacity)
 					{
-						ReadPosition* newBuffer = new ReadPosition[10 + rv.capacity * 2];
-						for (size_t i = 0; i < rv.size; ++i) newBuffer[i] = rv.data[i];
+						const size_t newSize = 
+							std::max(4, (int)rv.capacity * 3 / 2);
+						ReadPosition* newBuffer = new ReadPosition[newSize];
+						for (size_t i = 0; i < rv.size; ++i) 
+						{
+							newBuffer[i] = rv.data[i];
+						}
 						if (rv.data) delete rv.data;
 						rv.data = newBuffer;
-						rv.capacity = 10 + rv.capacity * 2;
+						rv.capacity = newSize;
 					}
 					rv.data[rv.size] = ReadPosition(targetRead, 
 													kmerPos.position);
 					++rv.size;
-				}, ReadVector());
+				}, ReadPosition(targetRead, kmerPos.position));
 		}
 	};
 	std::vector<FastaRecord::Id> allReads;

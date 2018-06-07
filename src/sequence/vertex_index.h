@@ -46,6 +46,12 @@ private:
 	{
 		ReadVector(uint32_t capacity = 0, uint32_t size = 0): 
 			capacity(capacity), size(size), data(nullptr) {}
+		ReadVector(const ReadPosition& pos):	//construct a vector with single element
+			capacity(1), size(1)
+		{
+			data = new ReadPosition[1];
+			data[0] = pos;
+		}
 		uint32_t capacity;
 		uint32_t size;
 		ReadPosition* data;
