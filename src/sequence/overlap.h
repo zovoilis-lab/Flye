@@ -232,37 +232,58 @@ public:
 		_onlyMax(onlyMax)
 	{}
 
-	typedef std::unordered_map<FastaRecord::Id, 
-					   std::vector<OverlapRange>> OverlapIndex;
+	struct IndexVecWrapper
+	{
+		IndexVecWrapper(): 
+			fwdOverlaps(new std::vector<OverlapRange>), 
+			revOverlaps(new std::vector<OverlapRange>), 
+			cached(false),
+			suggestChimeric(false)
+		{}
+		IndexVecWrapper(const FastaRecord::Id);
+		std::shared_ptr<std::vector<OverlapRange>> fwdOverlaps;
+		std::shared_ptr<std::vector<OverlapRange>> revOverlaps;
+		bool cached;
+		bool suggestChimeric;
+	};
+	typedef cuckoohash_map<FastaRecord::Id, IndexVecWrapper> OverlapIndex;
 
-	//void saveOverlaps(const std::string& filename);
-	//void loadOverlaps(const std::string& filename);
+	//This conteiner is designed to find overlaps in parallel
+	//and store them dynamically. The first two functions
+	//are therefore thread-safe
 
-	void findAllOverlaps();
-	std::vector<OverlapRange> seqOverlaps(FastaRecord::Id readId,
-										  bool& outSuggestChimeric) const;
-	std::vector<OverlapRange> lazySeqOverlaps(FastaRecord::Id readId);
-	const OverlapIndex& getOverlapIndex() const {return _overlapIndex;}
+	//Finds overlaps and stores them, so the next call with the same
+	//readId is simply referencing to the computed overlaps.
+	const std::vector<OverlapRange>& lazySeqOverlaps(FastaRecord::Id readId);
 
-	void buildIntervalTree();
-	std::vector<Interval<OverlapRange*>> 
-		getOverlaps(FastaRecord::Id seqId, int32_t start, int32_t end) const;
+	//Checks if read has self-overlaps (for chimera detection)
 	bool hasSelfOverlaps(FastaRecord::Id seqId);
 
+	//The functions below are NOT thread safe.
+	//Do not mix them with any other functions
+
+	//For all stored overlaps (A to B) ensure that
+	//the reverse (B to A) overlap also exists.
+	void ensureTransitivity();
+
+	//Computes and stores all-vs-all overlaps
+	void findAllOverlaps();
+	void buildIntervalTree();
+	std::vector<Interval<OverlapRange*>> 
+		getCoveringOverlaps(FastaRecord::Id seqId, int32_t start, 
+							int32_t end) const;
+
 private:
-	void storeOverlaps(const std::vector<OverlapRange>& overlaps, 
-					   FastaRecord::Id seqId);
+	std::vector<OverlapRange>& unsafeSeqOverlaps(FastaRecord::Id);
+	//std::vector<OverlapRange>  seqOverlaps(FastaRecord::Id readId,
+	//									   bool& outSuggestChimeric) const;
 	void filterOverlaps();
 
 	const OverlapDetector& _ovlpDetect;
 	const SequenceContainer& _queryContainer;
 	const bool _onlyMax;
 
-	std::mutex _indexMutex;
 	OverlapIndex _overlapIndex;
-	std::unordered_set<FastaRecord::Id> _cached;
-	std::unordered_set<FastaRecord::Id> _suggestedChimeras;
-
 	std::unordered_map<FastaRecord::Id, 
 					   IntervalTree<OverlapRange*>> _ovlpTree;
 };
