@@ -195,6 +195,8 @@ void MultiplicityInferer::removeUnsupportedConnections()
 		}
 	}
 
+	GraphProcessor proc(_graph, _asmSeqs, _readSeqs);
+	proc.trimTips();
 	_aligner.updateAlignments();
 }
 
