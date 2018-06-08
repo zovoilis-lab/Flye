@@ -70,11 +70,11 @@ public:
 
 	void simplify();
 	void fixChimericJunctions();
+	void trimTips();
 	std::vector<UnbranchingPath> getUnbranchingPaths() const;
 	std::vector<UnbranchingPath> getEdgesPaths() const;
 
 private:
-	void trimTips();
 	void condenceEdges();
 	void collapseBulges();
 
