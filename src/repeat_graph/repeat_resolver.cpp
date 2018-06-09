@@ -355,7 +355,7 @@ void RepeatResolver::findRepeats()
 	//now, check for this structure >-<, in case read alignments were not enough
 	for (auto& path : sortedPaths)
 	{
-		if (path->path.front()->repetitive || path->isLoop()) continue;
+		if (path->path.front()->repetitive || path->isLooped()) continue;
 		if (path->path.front()->nodeLeft->outEdges.size() > 1 ||
 			path->path.back()->nodeRight->inEdges.size() > 1) continue;
 
