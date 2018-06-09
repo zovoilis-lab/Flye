@@ -46,9 +46,19 @@ struct UnbranchingPath
 		return contentsStr;
 	}
 
-	bool isLoop() const
+	bool isLooped() const
 	{
 		return path.front()->nodeLeft == path.back()->nodeRight;
+	}
+
+	GraphNode*& nodeLeft()
+	{
+		return path.front()->nodeLeft;
+	}
+
+	GraphNode*& nodeRight()
+	{
+		return path.back()->nodeRight;
 	}
 
 	GraphPath path;
