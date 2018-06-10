@@ -73,12 +73,75 @@ void RepeatGraph::build()
 	asmOverlaps.findAllOverlaps();
 	asmOverlaps.buildIntervalTree();
 
+	this->filterContainedContigs(asmOverlaps);
 	this->getGluepoints(asmOverlaps);
 	this->collapseTandems();
 	this->initializeEdges(asmOverlaps);
 	//this->markChimericEdges();
 }
 
+
+void RepeatGraph::filterContainedContigs(OverlapContainer& ovlps)
+{
+	const int WINDOW = 100;
+	const int TIP_THRESHOLD = Config::get("tip_length_threshold") / WINDOW;
+	const float CONTAINED_RATIO = 0.95;
+
+	int filteredLength = 0;
+	for (auto& seq : _asmSeqs.iterSeqs())
+	{
+		if (!seq.id.strand()) continue;
+
+		std::unordered_map<FastaRecord::Id, 
+						   std::vector<const OverlapRange*>> byExtSeq;
+		for (auto& ovlp : ovlps.lazySeqOverlaps(seq.id))
+		{
+			byExtSeq[ovlp.extId].push_back(&ovlp);
+		}
+
+		std::vector<char> coverageWindows(seq.sequence.length() / WINDOW,
+										  false);
+		float maxRate = 0;
+		for (auto& extSeq : byExtSeq)
+		{
+			for (auto& ovlp : extSeq.second)
+			{
+				for (int i = ovlp->curBegin / WINDOW; 
+					 i < ovlp->curEnd / WINDOW; ++i)
+				{
+					coverageWindows[i] = true;
+				}
+			}
+
+			int leftTip = 0;
+			while (!coverageWindows[leftTip] && 
+				   leftTip < (int)coverageWindows.size() &&
+				   leftTip < TIP_THRESHOLD) ++leftTip;
+			int rightTip = coverageWindows.size() - 1;
+			while (!coverageWindows[rightTip] && rightTip > leftTip + 1 &&
+				   (int)coverageWindows.size() - rightTip < TIP_THRESHOLD) --rightTip;
+
+			int numCovered = 0;
+			int totalWindows = 0;
+			for (int i = leftTip; i < rightTip; ++i)
+			{
+				if (coverageWindows[i]) ++numCovered;
+				++totalWindows;
+			}
+			float coveredRate = (float)numCovered / totalWindows;
+			maxRate = std::max(coveredRate, maxRate);
+		}
+		if (maxRate > CONTAINED_RATIO)
+		{
+			_filteredSeqs.insert(seq.id);
+			_filteredSeqs.insert(seq.id.rc());
+			filteredLength += seq.sequence.length();
+		}
+	}
+
+	Logger::get().debug() << "Filtered " << _filteredSeqs.size() / 2 
+		<< " contained seqs of total length " << filteredLength;
+}
 
 void RepeatGraph::getGluepoints(OverlapContainer& asmOverlaps)
 {
@@ -92,6 +155,7 @@ void RepeatGraph::getGluepoints(OverlapContainer& asmOverlaps)
 	std::unordered_map<FastaRecord::Id, 
 					   std::vector<SetPoint2d*>> endpoints;
 
+
 	//first, extract endpoints from all overlaps.
 	//each point has X and Y coordinates (curSeq and extSeq)
 	//for (auto& seqOvlps : asmOverlaps.getOverlapIndex())
@@ -99,6 +163,9 @@ void RepeatGraph::getGluepoints(OverlapContainer& asmOverlaps)
 	{
 		for (auto& ovlp : asmOverlaps.lazySeqOverlaps(seq.id))
 		{
+			if (_filteredSeqs.count(ovlp.curId) ||
+				_filteredSeqs.count(ovlp.extId)) continue;
+
 			endpoints[ovlp.curId]
 				.push_back(new SetPoint2d(Point2d(ovlp.curId, ovlp.curBegin,
 										  ovlp.extId, ovlp.extBegin)));
@@ -327,8 +394,10 @@ void RepeatGraph::getGluepoints(OverlapContainer& asmOverlaps)
 	for (auto& seq : _asmSeqs.iterSeqs())
 	{
 		if (!seq.id.strand()) continue;
+		if (_filteredSeqs.count(seq.id)) continue;
 		auto& seqPoints = _gluePoints[seq.id];
 		auto& complPoints = _gluePoints[seq.id.rc()];
+
 		if (seqPoints.empty() || seqPoints.front().position > MAX_TIP)
 		{
 			seqPoints.emplace(seqPoints.begin(), pointId++, 
