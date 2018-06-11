@@ -252,17 +252,17 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 						maxId = j;
 						noImprovement = 0;
 					}
-					/*else
+					else
 					{
-					}*/
+						if (++noImprovement > MAX_LOOK_BACK) break;
+					}
 				}
-				if (++noImprovement > MAX_LOOK_BACK) break;
 				if (extNext - extPrev > _maxJump) break;
 				//if (curNext - curPrev > _maxJump) break;
 			}
 
 			scoreTable[i] = std::max(maxScore, kmerSize);
-			if (maxScore > 0)
+			if (maxScore > kmerSize)
 			{
 				backtrackTable[i] = maxId;
 			}
