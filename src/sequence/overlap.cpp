@@ -251,6 +251,8 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 						maxScore = nextScore;
 						maxId = j;
 						noImprovement = 0;
+
+						if (jumpDiv == 0 && curNext - curPrev < kmerSize) break;
 					}
 					else
 					{
