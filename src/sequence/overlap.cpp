@@ -148,10 +148,29 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 	auto hashTime = clock();
 	totalHashTime += double(hashTime - begin) / CLOCKS_PER_SEC;
 
+	size_t maxExtSeq = seqHitCount.size() - 1;
+	size_t selectedExtSeqs = 0;
+	if (_maxCurOverlaps > 0)
+	{
+		for (size_t i = 0; i < seqHitCount.size(); ++i)
+		{
+			if (seqHitCount[i] >= MIN_KMER_SURV_RATE * _minOverlap)
+			{
+				++selectedExtSeqs;
+				if ((int)selectedExtSeqs > 2 * _maxCurOverlaps)
+				{
+					maxExtSeq = i;
+					break;
+				}
+			}
+		}
+	}
+
 	thread_local static cuckoohash_map<FastaRecord::Id, 
 									   MatchVecWrapper> seqMatches;
 	for (auto& match : vecMatches)
 	{
+		if (match.extId.rawId() > maxExtSeq) continue;
 		if (seqHitCount[match.extId.rawId()] < 
 			MIN_KMER_SURV_RATE * _minOverlap) continue;
 
@@ -161,8 +180,6 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 				  v->push_back(match);
 			  }, 
 			  match, seqHitCount[match.extId.rawId()]);	//if key was not found
-		//MatchVecWrapper w = seqMatches[match.extId];
-		//assert(w.v != 0);
 	}
 	
   	clock_t end = clock();
@@ -402,6 +419,14 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 			detectedOverlaps.size() > (size_t)_maxCurOverlaps) break;
 	}
 
+	/*Logger::get().debug() << "---------";
+	Logger::get().debug() << " " << vecMatches.size() << " "
+		<< seqMatches.size() << " " << uniqueCandidates
+		<< " " << detectedOverlaps.size();
+	Logger::get().debug() << "hash: " << totalHashTime << " k-mer: "
+		<< totalKmerTime << " dp: " << totalDpTime
+		<< " dpLoop: " << totalDpLoop << " backLoop: " << totalBackLoop;*/
+
 	seqHitCount.assign(seqHitCount.size(), 0);
 	vecMatches.clear();
 	seqMatches.clear();
@@ -409,13 +434,6 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 	clock_t ff = clock();
 	double es = double(ff - end) / CLOCKS_PER_SEC;
 	totalDpTime += es;
-
-	/*Logger::get().debug() << "---------";
-	Logger::get().debug() << " " << vecMatches.size() << " " 
-		<< uniqueCandidates << " " << detectedOverlaps.size();
-	Logger::get().debug() << "hash: " << totalHashTime << " k-mer: " 
-		<< totalKmerTime << " dp: " << totalDpTime
-		<< " dpLoop: " << totalDpLoop << " backLoop: " << totalBackLoop; */
 
 	return detectedOverlaps;
 }
