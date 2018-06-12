@@ -72,7 +72,7 @@ void RepeatGraph::build()
 	asmOverlaps.findAllOverlaps();
 	asmOverlaps.buildIntervalTree();
 
-	this->filterContainedContigs(asmOverlaps);
+	//this->filterContainedContigs(asmOverlaps);
 	this->getGluepoints(asmOverlaps);
 	this->collapseTandems();
 	this->initializeEdges(asmOverlaps);
