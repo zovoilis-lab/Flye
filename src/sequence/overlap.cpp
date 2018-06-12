@@ -87,7 +87,6 @@ namespace
 //might be used in parallel
 std::vector<OverlapRange> 
 OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec, 
-								bool uniqueExtensions,
 								bool& outSuggestChimeric) const
 {
 	const float MIN_KMER_SURV_RATE = 0.01;	//TODO: put into config
@@ -376,7 +375,7 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 		}
 		
 		//selecting the best
-		if (uniqueExtensions)
+		if (_onlyMaxExt)
 		{
 			OverlapRange* maxOvlp = nullptr;
 			for (auto& ovlp : extOverlaps)
@@ -465,7 +464,7 @@ const std::vector<OverlapRange>&
 	//do it for forward strand to be distinct
 	bool suggestChimeric;
 	const FastaRecord& record = _queryContainer.getRecord(readId);
-	auto overlaps = _ovlpDetect.getSeqOverlaps(record, _onlyMax, suggestChimeric);
+	auto overlaps = _ovlpDetect.getSeqOverlaps(record, suggestChimeric);
 
 	std::vector<OverlapRange> revOverlaps;
 	revOverlaps.reserve(overlaps.size());
@@ -488,7 +487,7 @@ const std::vector<OverlapRange>&
 	return !flipped ? *wrapper.fwdOverlaps : *wrapper.revOverlaps;
 }
 
-void OverlapContainer::ensureTransitivity()
+void OverlapContainer::ensureTransitivity(bool onlyMaxExt)
 {
 	Logger::get().debug() << "Computing transitive closure for overlaps";
 	
@@ -509,7 +508,7 @@ void OverlapContainer::ensureTransitivity()
 		{
 			auto& extOvlps = this->unsafeSeqOverlaps(curOvlp.extId);
 
-			if (_onlyMax)
+			if (onlyMaxExt)
 			{
 				bool found = false;
 				for (auto& extOvlp : extOvlps)
@@ -559,7 +558,7 @@ void OverlapContainer::findAllOverlaps()
 	};
 	processInParallel(allQueries, indexUpdate, 
 					  Parameters::get().numThreads, true);
-	this->ensureTransitivity();
+	this->ensureTransitivity(false);
 
 	int numOverlaps = 0;
 	for (auto& seqOvlps : _overlapIndex.lock_table()) 

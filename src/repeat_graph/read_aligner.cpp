@@ -138,12 +138,11 @@ void ReadAligner::alignReads()
 	pathsIndex.setRepeatCutoff(/*min freq*/ 1);
 	OverlapDetector readsOverlapper(pathsContainer, pathsIndex, 
 									(int)Config::get("maximum_jump"),
-									(int)Config::get("max_separation"),
-									/*no overhang*/ 0, /*all overlaps*/ 0,
-									/*keep alignment*/ false,
+									(int)Config::get("max_separation") - 100,
+									/*no overhang*/ 0, /*max overlaps*/ 0,
+									/*keep alignment*/ false, /*only max*/ false,
 									(float)Config::get("read_align_ovlp_ident"));
-	OverlapContainer readsOverlaps(readsOverlapper, _readSeqs, 
-								   /*onlyMax*/ false);
+	OverlapContainer readsOverlaps(readsOverlapper, _readSeqs);
 
 	std::vector<FastaRecord::Id> allQueries;
 	int64_t totalLength = 0;

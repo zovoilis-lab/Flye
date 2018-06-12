@@ -271,9 +271,11 @@ int main(int argc, char** argv)
 						 (int)Config::get("maximum_jump"), 
 						 Parameters::get().minimumOverlap,
 						 (int)Config::get("maximum_overhang"),
-						 5 * coverage, /*store alignment*/ false,
+						 /*max ovlp*/ 5 * coverage, 
+						 /*store alignment*/ false,
+						 /*only max*/ true,
 						 (float)Config::get("assemble_ovlp_ident"));
-	OverlapContainer readOverlaps(ovlp, readsContainer, /*only max*/ true);
+	OverlapContainer readOverlaps(ovlp, readsContainer);
 
 	Extender extender(readsContainer, readOverlaps, coverage, 
 					  estimator.genomeSizeEstimate());

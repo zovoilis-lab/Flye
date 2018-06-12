@@ -82,40 +82,34 @@ struct OverlapRange
 
 	int32_t project(int32_t curPos) const
 	{
+		if (curPos <= curBegin) return extBegin;
+		if (curPos >= curEnd) return extEnd;
+
 		if (kmerMatches.empty())
 		{
 			float lengthRatio = (float)this->extRange() / this->curRange();
-			int32_t projectedPos = extBegin + 
+			int32_t projectedPos = extBegin +
 							float(curPos - curBegin) * lengthRatio;
 			return std::max(extBegin, std::min(projectedPos, extEnd));
 		}
 		else
 		{
-			auto cmpFirst = [] (const std::pair<int32_t, int32_t>& pair, 
+			auto cmpFirst = [] (const std::pair<int32_t, int32_t>& pair,
 							  	int32_t value)
 								{return pair.first < value;};
-			size_t i = std::lower_bound(kmerMatches.begin(), kmerMatches.end(), 
+			size_t i = std::lower_bound(kmerMatches.begin(), kmerMatches.end(),
 										curPos, cmpFirst) - kmerMatches.begin();
+			assert(i > 0 && i < kmerMatches.size());
 
-			if (i >= kmerMatches.size() - 1) 
-			{
-				return kmerMatches.back().second;
-			}
-			else
-			{
-				int32_t curInt = kmerMatches[i + 1].first - 
-								 kmerMatches[i].first;
-				int32_t extInt = kmerMatches[i + 1].second - 
-								 kmerMatches[i].second;
-				float lengthRatio = (float)extInt / curInt;
-				int32_t projectedPos = kmerMatches[i].second + 
-								float(curPos - kmerMatches[i].first) * lengthRatio;
-				return std::max(kmerMatches[i].second, 
-								std::min(projectedPos, kmerMatches[i + 1].second));
-			}
-
-			//Logger::get().debug() << curPos - curBegin << " " << iter->second - extBegin <<
-			//	" " << curPos << " " << curBegin << " " << curEnd << " " << kmerMatches.size();
+			int32_t curInt = kmerMatches[i].first -
+							 kmerMatches[i - 1].first;
+			int32_t extInt = kmerMatches[i].second -
+							 kmerMatches[i - 1].second;
+			float lengthRatio = (float)extInt / curInt;
+			int32_t projectedPos = kmerMatches[i - 1].second +
+							float(curPos - kmerMatches[i - 1].first) * lengthRatio;
+			return std::max(kmerMatches[i - 1].second,
+							std::min(projectedPos, kmerMatches[i].second));
 		}
 	}
 
@@ -193,7 +187,7 @@ public:
 	OverlapDetector(const SequenceContainer& seqContainer,
 					const VertexIndex& vertexIndex,
 					int maxJump, int minOverlap, int maxOverhang,
-					int maxCurOverlaps, bool keepAlignment,
+					int maxCurOverlaps, bool keepAlignment, bool onlyMaxExt,
 					float maxDivergence):
 		_maxJump(maxJump),
 		_minOverlap(minOverlap),
@@ -201,6 +195,7 @@ public:
 		_maxCurOverlaps(maxCurOverlaps),
 		_checkOverhang(maxOverhang > 0),
 		_keepAlignment(keepAlignment),
+		_onlyMaxExt(onlyMaxExt),
 		_maxDivergence(maxDivergence),
 		_vertexIndex(vertexIndex),
 		_seqContainer(seqContainer),
@@ -213,20 +208,19 @@ public:
 private:
 	std::vector<OverlapRange> 
 	getSeqOverlaps(const FastaRecord& fastaRec, 
-				   bool uniqueExtensions,
 				   bool& outSuggestChiemeric) const;
-
-	enum JumpRes {J_END, J_INCONS, J_CLOSE, J_FAR};
 
 	bool    overlapTest(const OverlapRange& ovlp, bool& outSuggestChimeric) const;
 	
-	const int _maxJump;
-	const int _minOverlap;
-	const int _maxOverhang;
-	const int _maxCurOverlaps;
-	const bool _checkOverhang;
-	const bool _keepAlignment;
+	const int   _maxJump;
+	const int   _minOverlap;
+	const int   _maxOverhang;
+	const int   _maxCurOverlaps;
+	const bool  _checkOverhang;
+	const bool  _keepAlignment;
+	const bool  _onlyMaxExt;
 	const float _maxDivergence;
+	const int   _ovlpFlank = 100;
 
 	const VertexIndex& _vertexIndex;
 	const SequenceContainer& _seqContainer;
@@ -240,11 +234,9 @@ class OverlapContainer
 {
 public:
 	OverlapContainer(const OverlapDetector& ovlpDetect,
-					 const SequenceContainer& queryContainer,
-					 bool onlyMax):
+					 const SequenceContainer& queryContainer):
 		_ovlpDetect(ovlpDetect),
-		_queryContainer(queryContainer),
-		_onlyMax(onlyMax)
+		_queryContainer(queryContainer)
 	{}
 
 	struct IndexVecWrapper
@@ -279,7 +271,7 @@ public:
 
 	//For all stored overlaps (A to B) ensure that
 	//the reverse (B to A) overlap also exists.
-	void ensureTransitivity();
+	void ensureTransitivity(bool onlyMaxExt);
 
 	//Computes and stores all-vs-all overlaps
 	void findAllOverlaps();
@@ -296,7 +288,6 @@ private:
 
 	const OverlapDetector& _ovlpDetect;
 	const SequenceContainer& _queryContainer;
-	const bool _onlyMax;
 
 	OverlapIndex _overlapIndex;
 	std::unordered_map<FastaRecord::Id, 

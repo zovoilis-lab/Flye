@@ -66,10 +66,10 @@ void RepeatGraph::build()
 								  (int)Config::get("maximum_jump"), 
 								  Parameters::get().minimumOverlap,
 								  /*no overhang*/ 0, /*all overlaps*/ 0,
-								  /*keep alignment*/ true,
+								  /*keep alignment*/ true, /*only max*/ false,
 								  (float)Config::get("repeat_graph_ovlp_ident"));
 
-	OverlapContainer asmOverlaps(asmOverlapper, _asmSeqs, /*only max*/ false);
+	OverlapContainer asmOverlaps(asmOverlapper, _asmSeqs);
 	asmOverlaps.findAllOverlaps();
 	asmOverlaps.buildIntervalTree();
 
