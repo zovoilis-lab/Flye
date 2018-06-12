@@ -196,14 +196,102 @@ void MultiplicityInferer::removeUnsupportedConnections()
 		}
 	}
 
-	//GraphProcessor proc(_graph, _asmSeqs, _readSeqs);
-	//proc.trimTips();
+	GraphProcessor proc(_graph, _asmSeqs, _readSeqs);
+	proc.trimTips();
 	_aligner.updateAlignments();
 }
 
-void MultiplicityInferer::separateHaplotypes()
+//collapse loops (that also could be viewed as
+//bubbles with one branch of length 0)
+void MultiplicityInferer::collapseHeterozygousLoops()
 {
-	const float MAX_VARIATION = 0.25;
+	const float COV_MULT = 1.5;
+
+	GraphProcessor proc(_graph, _asmSeqs, _readSeqs);
+	auto unbranchingPaths = proc.getUnbranchingPaths();
+
+	std::unordered_set<FastaRecord::Id> toUnroll;
+	std::unordered_set<FastaRecord::Id> toRemove;
+	for (auto& loop : unbranchingPaths)
+	{
+		if (!loop.isLooped()) continue;
+
+		GraphNode* node = loop.nodeLeft();
+		if (node->inEdges.size() != 2 ||
+			node->outEdges.size() != 2) continue;
+
+		UnbranchingPath* entrancePath = nullptr;
+		UnbranchingPath* exitPath = nullptr;
+		for (auto& cand : unbranchingPaths)
+		{
+			if (cand.nodeRight() == node &&
+				loop.id != cand.id) entrancePath = &cand;
+			if (cand.nodeLeft() == node &&
+				loop.id != cand.id) exitPath = &cand;
+		}
+
+		if (entrancePath->isLooped()) continue;
+		if (entrancePath->id == exitPath->id.rc()) continue;
+
+		//loop coverage should be roughly equal or less
+		if (loop.meanCoverage > COV_MULT * entrancePath->meanCoverage ||
+			loop.meanCoverage > COV_MULT * entrancePath->meanCoverage) continue;
+
+		//loop should not be longer than other branches
+		if (loop.length > entrancePath->length ||
+			loop.length > exitPath->length) continue;
+
+		if (loop.meanCoverage < 
+			(entrancePath->meanCoverage + exitPath->meanCoverage) / 4)
+		{
+			toRemove.insert(loop.id);
+		}
+		else
+		{
+			toUnroll.insert(loop.id.rc());
+		}
+	}
+
+	for (auto& path : unbranchingPaths)
+	{
+		if (toUnroll.count(path.id))
+		{
+			GraphNode* newNode = _graph.addNode();
+			size_t id = path.nodeLeft()->inEdges[0] == path.path.front();
+			GraphEdge* prevEdge = path.nodeLeft()->inEdges[id];
+
+			vecRemove(path.nodeLeft()->outEdges, path.path.front());
+			vecRemove(path.nodeLeft()->inEdges, prevEdge);
+			path.nodeLeft() = newNode;
+			newNode->outEdges.push_back(path.path.front());
+			prevEdge->nodeRight = newNode;
+			newNode->inEdges.push_back(prevEdge);
+		}
+		if (toRemove.count(path.id))
+		{
+			GraphNode* newLeft = _graph.addNode();
+			GraphNode* newRight = _graph.addNode();
+
+			vecRemove(path.nodeLeft()->outEdges, path.path.front());
+			vecRemove(path.nodeLeft()->inEdges, path.path.back());
+			path.nodeLeft() = newLeft;
+			newRight->inEdges.push_back(path.path.back());
+			path.nodeRight() = newRight;
+			newLeft->outEdges.push_back(path.path.front());
+		}
+	}
+
+	Logger::get().debug() << "Unrolled " << toUnroll.size() / 2
+		<< " heterozygous loops";
+	Logger::get().debug() << "Removed " << toRemove.size() / 2
+		<< " heterozygous loops";
+	_aligner.updateAlignments();
+}
+
+void MultiplicityInferer::collapseHeterozygousBulges()
+{
+	const float MAX_COV_VAR = 0.20;
+	const float MAX_LEN_VAR = 0.50;
 
 	GraphProcessor proc(_graph, _asmSeqs, _readSeqs);
 	auto unbranchingPaths = proc.getUnbranchingPaths();
@@ -213,47 +301,59 @@ void MultiplicityInferer::separateHaplotypes()
 	{
 		if (path.isLooped()) continue;
 
-		std::vector<UnbranchingPath*> parallelPaths;
+		std::vector<UnbranchingPath*> twoPaths;
 		for (auto& candEdge : unbranchingPaths)
 		{
 			if (candEdge.nodeLeft() == path.nodeLeft() &&
 				candEdge.nodeRight() == path.nodeRight()) 
 			{
-				parallelPaths.push_back(&candEdge);
+				twoPaths.push_back(&candEdge);
 			}
 		}
 
-		if (parallelPaths.size() != 2) continue;
-		if (parallelPaths[0]->id == parallelPaths[1]->id.rc()) continue;
-		if (toSeparate.count(parallelPaths[0]->id) || 
-			toSeparate.count(parallelPaths[1]->id)) continue;
-		if (parallelPaths[0]->nodeLeft()->inEdges.size() != 1 ||
-			parallelPaths[0]->nodeRight()->outEdges.size() != 1) continue;
+		//making sure the structure is ok
+		if (twoPaths.size() != 2) continue;
+		if (twoPaths[0]->id == twoPaths[1]->id.rc()) continue;
+		if (toSeparate.count(twoPaths[0]->id) || 
+			toSeparate.count(twoPaths[1]->id)) continue;
+		if (twoPaths[0]->nodeLeft()->inEdges.size() != 1 ||
+			twoPaths[0]->nodeRight()->outEdges.size() != 1) continue;
 
-		GraphEdge* entranceEdge = parallelPaths[0]->nodeLeft()->inEdges.front();
-		GraphEdge* exitEdge = parallelPaths[0]->nodeRight()->outEdges.front();
-
-		float covSum = parallelPaths[0]->meanCoverage + 
-					   parallelPaths[1]->meanCoverage;
-		
-		float entranceDiff = fabsf(covSum - entranceEdge->meanCoverage) / covSum;
-		float exitDiff = fabsf(covSum - exitEdge->meanCoverage) / covSum;
-		if (entranceDiff > MAX_VARIATION || exitDiff > MAX_VARIATION) continue;
-
-		//Logger::get().debug() << "Var: " << entranceDiff << " " << exitDiff;
-
-		if (parallelPaths[0]->meanCoverage < parallelPaths[1]->meanCoverage)
+		UnbranchingPath* entrancePath = nullptr;
+		UnbranchingPath* exitPath = nullptr;
+		for (auto& cand : unbranchingPaths)
 		{
-			toSeparate.insert(parallelPaths[0]->id);
-			toSeparate.insert(parallelPaths[0]->id.rc());
+			if (cand.nodeRight() == 
+				twoPaths[0]->nodeLeft()) entrancePath = &cand;
+			if (cand.nodeLeft() == twoPaths[0]->nodeRight()) exitPath = &cand;
+		}
+
+		//coverage requirement: sum over two branches roughly equals to
+		//exit and entrance coverage
+		float covSum = twoPaths[0]->meanCoverage + twoPaths[1]->meanCoverage;
+		float entranceDiff = fabsf(covSum - entrancePath->meanCoverage) / covSum;
+		float exitDiff = fabsf(covSum - exitPath->meanCoverage) / covSum;
+		if (entranceDiff > MAX_COV_VAR || exitDiff > MAX_COV_VAR) continue;
+
+		//length requirement: branches have roughly the same length
+		//and are significantly shorter than entrance/exits
+		if (abs(twoPaths[0]->length - twoPaths[1]->length) >
+			MAX_LEN_VAR * std::min(twoPaths[0]->length, 
+					 			   twoPaths[1]->length)) continue;
+		float bubbleSize = (twoPaths[0]->length + twoPaths[1]->length) / 2;
+		if (bubbleSize > entrancePath->length ||
+			bubbleSize > exitPath->length) continue;
+
+		if (twoPaths[0]->meanCoverage < twoPaths[1]->meanCoverage)
+		{
+			toSeparate.insert(twoPaths[0]->id);
+			toSeparate.insert(twoPaths[0]->id.rc());
 		}
 		else
 		{
-			toSeparate.insert(parallelPaths[1]->id);
-			toSeparate.insert(parallelPaths[1]->id.rc());
+			toSeparate.insert(twoPaths[1]->id);
+			toSeparate.insert(twoPaths[1]->id.rc());
 		}
-		//if (parallelEdges[0]->length() > Constants::trustedEdgeLength || 
-		//	parallelEdges[1]->length() > Constants::trustedEdgeLength) continue;
 	}
 
 	for (auto& path : unbranchingPaths)
@@ -266,9 +366,12 @@ void MultiplicityInferer::separateHaplotypes()
 			vecRemove(path.nodeRight()->inEdges, path.path.back());
 			path.nodeLeft() = newLeft;
 			path.nodeRight() = newRight;
-			path.nodeLeft()->outEdges.push_back(path.path.front());
-			path.nodeRight()->inEdges.push_back(path.path.back());
+			newLeft->outEdges.push_back(path.path.front());
+			newRight->inEdges.push_back(path.path.back());
 		}
 	}
-	Logger::get().debug() << "Separated " << toSeparate.size() / 2 << " haplotypes";
+
+	Logger::get().debug() << "Popped " << toSeparate.size() / 2 
+		<< " heterozygous bulges";
+	_aligner.updateAlignments();
 }
