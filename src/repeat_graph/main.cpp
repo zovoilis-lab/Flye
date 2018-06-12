@@ -240,7 +240,10 @@ int main(int argc, char** argv)
 	multInf.estimateCoverage();
 	multInf.removeUnsupportedEdges();
 	multInf.removeUnsupportedConnections();
-	//multInf.separateHaplotypes();
+
+	//for diploid genomes, turned off by default
+	//multInf.collapseHeterozygousLoops();
+	//multInf.collapseHeterozygousBulges();
 
 	Logger::get().info() << "Resolving repeats";
 	RepeatResolver resolver(rg, seqAssembly, seqReads, aligner, multInf);
