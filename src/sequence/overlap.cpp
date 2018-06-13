@@ -22,19 +22,19 @@
 bool OverlapDetector::overlapTest(const OverlapRange& ovlp,
 								  bool& outSuggestChimeric) const
 {
-	static const float OVLP_DIVERGENCE = Config::get("overlap_divergence_rate");
+	//static const float OVLP_DIVERGENCE = Config::get("overlap_divergence_rate");
 	if (ovlp.curRange() < _minOverlap || 
 		ovlp.extRange() < _minOverlap) 
 	{
 		return false;
 	}
 
-	float lengthDiff = abs(ovlp.curRange() - ovlp.extRange());
+	/*float lengthDiff = abs(ovlp.curRange() - ovlp.extRange());
 	float meanLength = (ovlp.curRange() + ovlp.extRange()) / 2.0f;
 	if (lengthDiff > meanLength * OVLP_DIVERGENCE)
 	{
 		return false;
-	}
+	}*/
 
 	if (ovlp.curId == ovlp.extId.rc()) outSuggestChimeric = true;
 	if (_checkOverhang)
@@ -223,8 +223,6 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 		//chain matiching positions with DP
 		std::vector<int32_t> scoreTable(matchesList.size(), 0);
 		std::vector<int32_t> backtrackTable(matchesList.size(), -1);
-		//int32_t skipCurPos = 0;
-		//int32_t skipCurId = 0;
 
 		//sort wrt to reference coordinates
 		std::sort(matchesList.begin(), matchesList.end(),
@@ -240,13 +238,6 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 			int32_t extNext = matchesList[i].extPos;
 			int32_t noImprovement = 0;
 
-			/*if (curNext != skipCurPos)
-			{
-				skipCurPos = curNext;
-				skipCurId = i - 1;
-			}*/
-
-			//for (int32_t j = skipCurId; j >= 0; --j)
 			for (int32_t j = i - 1; j >= 0; --j)
 			{
 				int32_t curPrev = matchesList[j].curPos;
