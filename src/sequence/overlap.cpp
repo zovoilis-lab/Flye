@@ -435,6 +435,15 @@ bool OverlapContainer::hasSelfOverlaps(FastaRecord::Id readId)
 	return _overlapIndex.find(readId).suggestChimeric;
 }
 
+
+std::vector<OverlapRange> 
+	OverlapContainer::quickSeqOverlaps(FastaRecord::Id readId) const
+{
+	bool suggestChimeric;
+	const FastaRecord& record = _queryContainer.getRecord(readId);
+	return _ovlpDetect.getSeqOverlaps(record, suggestChimeric);
+}
+
 const std::vector<OverlapRange>&
 	OverlapContainer::lazySeqOverlaps(FastaRecord::Id readId)
 {

@@ -268,6 +268,9 @@ public:
 
 	//The functions below are NOT thread safe.
 	//Do not mix them with any other functions
+	
+	//finds and returns overlaps - no caching is done	
+	std::vector<OverlapRange> quickSeqOverlaps(FastaRecord::Id readId) const;
 
 	//For all stored overlaps (A to B) ensure that
 	//the reverse (B to A) overlap also exists.

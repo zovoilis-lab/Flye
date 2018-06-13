@@ -148,6 +148,7 @@ void ReadAligner::alignReads()
 	int64_t totalLength = 0;
 	for (auto& read : _readSeqs.iterSeqs())
 	{
+		if (!read.id.strand()) continue;
 		if (read.sequence.length() > (size_t)Parameters::get().minimumOverlap)
 		{
 			totalLength += read.sequence.length();
@@ -163,9 +164,7 @@ void ReadAligner::alignReads()
 		&idToSegment, &pathsContainer, &alignedLength, &alignedInFull] 
 	(const FastaRecord::Id& seqId)
 	{
-		//bool suggestChimeric = false;
-		//auto overlaps = readsOverlaps.seqOverlaps(seqId, suggestChimeric);
-		auto& overlaps = readsOverlaps.lazySeqOverlaps(seqId);
+		auto overlaps = readsOverlaps.quickSeqOverlaps(seqId);
 		std::vector<EdgeAlignment> alignments;
 		for (auto& ovlp : overlaps)
 		{
@@ -177,6 +176,18 @@ void ReadAligner::alignReads()
 			{return e1.overlap.curBegin < e2.overlap.curBegin;});
 		auto readChains = this->chainReadAlignments(pathsContainer, alignments);
 
+		std::vector<GraphAlignment> complChains(readChains);
+		for (auto& chain : complChains)
+		{
+			for (auto& aln : chain)
+			{
+				aln.edge = _graph.complementEdge(aln.edge);
+				aln.segment = aln.segment.complement();
+				aln.overlap = aln.overlap.complement();
+			}
+			std::reverse(chain.begin(), chain.end());
+		}
+
 		if (readChains.empty()) return;
 		indexMutex.lock();
 		++numAligned;
@@ -186,6 +197,10 @@ void ReadAligner::alignReads()
 			_readAlignments.push_back(chain);
 			alignedLength += chain.back().overlap.curEnd - 
 							 chain.front().overlap.curBegin;
+		}
+		for (auto& chain : complChains)
+		{
+			_readAlignments.push_back(chain);
 		}
 		indexMutex.unlock();
 	};
