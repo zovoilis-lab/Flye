@@ -498,7 +498,7 @@ def main():
 
     args.log_file = os.path.join(args.out_dir, "flye.log")
     _enable_logging(args.log_file, args.debug,
-                    overwrite=not args.resume and not args.resume_from)
+                    overwrite=False)
 
     _set_kmer_size(args)
     _set_read_attributes(args)

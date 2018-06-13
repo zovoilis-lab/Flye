@@ -278,6 +278,7 @@ void Extender::assembleContigs(bool addSingletons)
 	{
 		allReads.push_back(seq.id);
 	}
+	std::random_shuffle(allReads.begin(), allReads.end());
 	processInParallel(allReads, threadWorker,
 					  Parameters::get().numThreads, true);
 	_ovlpContainer.ensureTransitivity(/*only max*/ true);
