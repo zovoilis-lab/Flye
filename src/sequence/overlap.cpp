@@ -224,10 +224,13 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 		std::vector<int32_t> scoreTable(matchesList.size(), 0);
 		std::vector<int32_t> backtrackTable(matchesList.size(), -1);
 
-		//sort wrt to reference coordinates
-		std::sort(matchesList.begin(), matchesList.end(),
-				  [](const KmerMatch& k1, const KmerMatch& k2)
-				  {return k1.extPos < k2.extPos;});
+		bool extSorted = extLen > curLen;
+		if (extSorted)
+		{
+			std::sort(matchesList.begin(), matchesList.end(),
+					  [](const KmerMatch& k1, const KmerMatch& k2)
+					  {return k1.extPos < k2.extPos;});
+		}
 
   		clock_t dpBegin = clock();
 		for (int32_t i = 1; i < (int32_t)scoreTable.size(); ++i)
@@ -266,8 +269,8 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 						if (++noImprovement > MAX_LOOK_BACK) break;
 					}
 				}
-				if (extNext - extPrev > _maxJump) break;
-				//if (curNext - curPrev > _maxJump) break;
+				if (extSorted && extNext - extPrev > _maxJump) break;
+				if (!extSorted && curNext - curPrev > _maxJump) break;
 			}
 
 			scoreTable[i] = std::max(maxScore, kmerSize);
@@ -413,6 +416,8 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 	Logger::get().debug() << " " << vecMatches.size() << " "
 		<< seqMatches.size() << " " << uniqueCandidates
 		<< " " << detectedOverlaps.size();
+	Logger::get().debug() << "Repeat intensity: "
+		<< vecMatches.size() / (solidPos.size() + 1);
 	Logger::get().debug() << "hash: " << totalHashTime << " k-mer: "
 		<< totalKmerTime << " dp: " << totalDpTime
 		<< " dpLoop: " << totalDpLoop << " backLoop: " << totalBackLoop;*/
