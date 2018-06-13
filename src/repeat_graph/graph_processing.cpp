@@ -13,12 +13,12 @@
 //all other simplification procedures
 void GraphProcessor::simplify()
 {
-	this->trimTips();
+	//this->trimTips();
 	this->condenceEdges();
 	this->fixChimericJunctions();
 	this->collapseBulges();
 	this->condenceEdges();
-	this->trimTips();
+	//this->trimTips();
 }
 
 //finds and removes graph structures that
