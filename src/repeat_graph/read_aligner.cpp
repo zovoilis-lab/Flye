@@ -107,6 +107,9 @@ std::vector<GraphAlignment>
 
 void ReadAligner::alignReads()
 {
+	static const int MIN_EDGE_OVLP = (int)Config::get("max_separation");
+	static const int EDGE_FLANK = 100;
+
 	//create database
 	std::unordered_map<FastaRecord::Id, 
 					   std::pair<GraphEdge*, SequenceSegment>> idToSegment;
@@ -138,7 +141,7 @@ void ReadAligner::alignReads()
 	pathsIndex.setRepeatCutoff(/*min freq*/ 1);
 	OverlapDetector readsOverlapper(pathsContainer, pathsIndex, 
 									(int)Config::get("maximum_jump"),
-									(int)Config::get("max_separation") - 100,
+									MIN_EDGE_OVLP - EDGE_FLANK,
 									/*no overhang*/ 0, /*max overlaps*/ 0,
 									/*keep alignment*/ false, /*only max*/ false,
 									(float)Config::get("read_align_ovlp_ident"));
@@ -168,8 +171,15 @@ void ReadAligner::alignReads()
 		std::vector<EdgeAlignment> alignments;
 		for (auto& ovlp : overlaps)
 		{
-			alignments.push_back({ovlp, idToSegment[ovlp.extId].first,
-								  idToSegment[ovlp.extId].second});
+			//because edges might be as short as max_separation,
+			//we set minimum alignment threshold to a bit shorter value.
+			//However, apply the actual threshold for longer edges now.
+			if (ovlp.extLen < MIN_EDGE_OVLP + EDGE_FLANK ||
+				std::min(ovlp.curRange(), ovlp.extRange()) > MIN_EDGE_OVLP)
+			{
+				alignments.push_back({ovlp, idToSegment[ovlp.extId].first,
+									  idToSegment[ovlp.extId].second});
+			}
 		}
 		std::sort(alignments.begin(), alignments.end(),
 		  [](const EdgeAlignment& e1, const EdgeAlignment& e2)

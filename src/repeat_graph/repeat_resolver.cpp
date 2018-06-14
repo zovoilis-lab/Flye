@@ -219,7 +219,7 @@ void RepeatResolver::findRepeats()
 		if (!path.id.strand()) continue;
 
 		//mark paths with high coverage as repetitive
-		if (path.meanCoverage > _multInf.getUniqueCovThreshold() * 2)
+		if (path.meanCoverage > _multInf.getUniqueCovThreshold())
 		{
 			markRepetitive(&path);
 			markRepetitive(complPath(&path));
@@ -390,7 +390,7 @@ void RepeatResolver::fixLongEdges()
 		if (!path.path.front()->selfComplement &&
 			path.path.front()->repetitive &&
 			path.length > (int)Config::get("unique_edge_length") &&
-			(float)path.meanCoverage < 1.5 * _multInf.getMeanCoverage())
+			(float)path.meanCoverage < _multInf.getUniqueCovThreshold())
 		{
 			for (auto& edge : path.path)
 			{
