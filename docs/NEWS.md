@@ -1,3 +1,8 @@
+Flye 2.3.4 (19 May 2018)
+========================
+* A fix for assemblies with low reads count
+* Polishing of large genomes is now 2-3x faster and requires less memory
+
 Flye 2.3.3 (27 Mar 2018)
 ========================
 * Automatic selection of minimum overlap parameter based on read length
