@@ -11,11 +11,7 @@ void DinucleotideFixer::fixBubble(Bubble& bubble) const
 						     const std::vector<std::string>& branches)
 	{
 		Alignment align(branches.size(), _subsMatrix);
-		AlnScoreType score = 0;
-		for (size_t i = 0; i < branches.size(); ++i) 
-		{
-			score += align.globalAlignment(candidate, branches[i], i);
-		}
+		AlnScoreType score = align.globalAlignment(candidate, branches);
 		return score;
 	};
 

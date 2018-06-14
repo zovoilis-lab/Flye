@@ -45,10 +45,30 @@ bool SequenceContainer::isFasta(const std::string& fileName)
 	throw ParseException("Can't identify input file type");
 }
 
+FastaRecord::Id SequenceContainer::addSequence(const FastaRecord& seqRec)
+{
+	if (!_offsetInitialized)
+	{
+		_offsetInitialized = true;
+		_seqIdOffest = g_nextSeqId;
+	}
+	FastaRecord::Id newId(g_nextSeqId);
+	if (_seqIndex.size() != g_nextSeqId - _seqIdOffest) 
+	{
+		throw std::runtime_error("something wrong with sequence ids!");
+	}
+	g_nextSeqId += 2;
+
+	_seqIndex.emplace_back(seqRec.sequence, "+" + seqRec.description, 
+						   newId);
+	_seqIndex.emplace_back(seqRec.sequence.complement(), 
+						   "-" + seqRec.description, newId.rc());
+	return _seqIndex.back().id.rc();
+}
+
 void SequenceContainer::loadFromFile(const std::string& fileName)
 {
 	std::vector<FastaRecord> records;
-
 	if (this->isFasta(fileName))
 	{
 		this->readFasta(records, fileName);
@@ -57,31 +77,15 @@ void SequenceContainer::loadFromFile(const std::string& fileName)
 	{
 		this->readFastq(records, fileName);
 	}
-
-	records.reserve(records.size() * 2);
-	std::vector<FastaRecord> complements;
-	for (auto &record : records)
-	{
-		std::string header = "-" + record.description;
-		record.description = "+" + record.description;
-		DnaSequence revComplement = record.sequence.complement();
-		complements.emplace_back(revComplement, header, record.id.rc());
-	}
-	for (auto& rec : complements)
-	{
-		records.push_back(std::move(rec));
-	}
 	
 	//shuffling input reads
 	std::vector<size_t> indicesPerm(records.size());
 	for (size_t i = 0; i < indicesPerm.size(); ++i) indicesPerm[i] = i;
 	std::random_shuffle(indicesPerm.begin(), indicesPerm.end());
-	//
 
-	_seqIndex.reserve(_seqIndex.size() + records.size());
 	for (size_t i : indicesPerm)
 	{
-		_seqIndex[records[i].id] = std::move(records[i]);
+		this->addSequence(records[i]);
 	}
 }
 
@@ -92,8 +96,8 @@ int SequenceContainer::computeNxStat(float fraction) const
 	int64_t totalLengh = 0;
 	for (auto& read : _seqIndex) 
 	{
-		readLengths.push_back(read.second.sequence.length());
-		totalLengh += read.second.sequence.length();
+		readLengths.push_back(read.sequence.length());
+		totalLengh += read.sequence.length();
 	}
 	std::sort(readLengths.begin(), readLengths.end(),
 			  [](int32_t a, int32_t b) {return a > b;});
@@ -113,20 +117,14 @@ int SequenceContainer::computeNxStat(float fraction) const
 }
 
 
+//adds sequence ad it's complement
 const FastaRecord& 
 	SequenceContainer::addSequence(const DnaSequence& sequence, 
 								   const std::string& description)
 {
-	FastaRecord::Id newId = FastaRecord::Id(g_nextSeqId);
-	FastaRecord fwdRecord(sequence, "+" + description, newId);
-	_seqIndex[fwdRecord.id] = std::move(fwdRecord);
-
-	FastaRecord revRecord(sequence.complement(), "-" + description, 
-						  newId.rc());
-	_seqIndex[revRecord.id] = std::move(revRecord);
-
-	g_nextSeqId += 2;
-	return _seqIndex[newId];
+	auto newId = this->addSequence({sequence, description, 
+								   FastaRecord::ID_NONE});
+	return _seqIndex[newId._id - _seqIdOffest];
 }
 
 size_t SequenceContainer::readFasta(std::vector<FastaRecord>& record, 
@@ -174,8 +172,7 @@ size_t SequenceContainer::readFasta(std::vector<FastaRecord>& record,
 
 					sequence.shrink_to_fit();
 					record.emplace_back(DnaSequence(sequence), header, 
-										FastaRecord::Id(g_nextSeqId));
-					g_nextSeqId += 2;
+										FastaRecord::ID_NONE);
 					sequence.clear();
 					header.clear();
 				}
@@ -198,8 +195,7 @@ size_t SequenceContainer::readFasta(std::vector<FastaRecord>& record,
 			throw ParseException("Fasta fromat error");
 		}
 		record.emplace_back(DnaSequence(sequence), header, 
-							FastaRecord::Id(g_nextSeqId));
-		g_nextSeqId += 2;
+							FastaRecord::ID_NONE);
 
 	}
 	catch (ParseException& e)
@@ -267,8 +263,7 @@ size_t SequenceContainer::readFastq(std::vector<FastaRecord>& record,
 			{
 				this->validateSequence(nextLine);
 				record.emplace_back(DnaSequence(nextLine), header, 
-									FastaRecord::Id(g_nextSeqId));
-				g_nextSeqId += 2;
+									FastaRecord::ID_NONE);
 			}
 			else if (stateCounter == 2)
 			{

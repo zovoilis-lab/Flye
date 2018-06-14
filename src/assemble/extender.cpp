@@ -277,7 +277,7 @@ void Extender::assembleContigs(bool addSingletons)
 
 		Logger::get().debug() << "Inner: " << 
 			_innerReads.size() << " covered: " << coveredReads.size()
-			<< " total: "<< _readsContainer.getIndex().size();
+			<< " total: "<< _readsContainer.iterSeqs().size();
 		
 		_readLists.push_back(std::move(exInfo));
 		return true;
@@ -289,27 +289,29 @@ void Extender::assembleContigs(bool addSingletons)
 		processRead(readId);
 	};
 	std::vector<FastaRecord::Id> allReads;
-	for (auto& hashPair : _readsContainer.getIndex())
+	for (auto& seq : _readsContainer.iterSeqs())
 	{
-		allReads.push_back(hashPair.first);
+		allReads.push_back(seq.id);
 	}
+	std::random_shuffle(allReads.begin(), allReads.end());
 	processInParallel(allReads, threadWorker,
 					  Parameters::get().numThreads, true);
+	_ovlpContainer.ensureTransitivity(/*only max*/ true);
 
 	if (addSingletons)
 	{
 		int singletonsAdded = 0;
 		std::unordered_set<FastaRecord::Id> coveredLocal;
-		for (auto& indexPair : _readsContainer.getIndex())
+		for (auto& seq : _readsContainer.iterSeqs())
 		{
-			if (!indexPair.first.strand()) continue;
+			if (!seq.id.strand()) continue;
 			
-			if (!_innerReads.contains(indexPair.first) && 
-				!coveredLocal.count(indexPair.first) &&
-				_readsContainer.seqLen(indexPair.first) > 
+			if (!_innerReads.contains(seq.id) && 
+				!coveredLocal.count(seq.id) &&
+				_readsContainer.seqLen(seq.id) > 
 					Parameters::get().minimumOverlap)
 			{
-				for (auto& ovlp : _ovlpContainer.lazySeqOverlaps(indexPair.first))
+				for (auto& ovlp : _ovlpContainer.lazySeqOverlaps(seq.id))
 				{
 					if (!this->checkOverhangs(ovlp)) continue;
 
@@ -320,7 +322,7 @@ void Extender::assembleContigs(bool addSingletons)
 					}
 				}
 				ExtensionInfo path;
-				path.reads.push_back(indexPair.first);
+				path.reads.push_back(seq.id);
 				_readLists.push_back(path);
 				++singletonsAdded;
 			}

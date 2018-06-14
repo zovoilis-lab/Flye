@@ -13,12 +13,12 @@
 //all other simplification procedures
 void GraphProcessor::simplify()
 {
-	this->trimTips();
+	//this->trimTips();
 	this->condenceEdges();
 	this->fixChimericJunctions();
 	this->collapseBulges();
 	this->condenceEdges();
-	this->trimTips();
+	//this->trimTips();
 }
 
 //finds and removes graph structures that
@@ -244,6 +244,7 @@ void GraphProcessor::condenceEdges()
 	for (auto& unbranchingPath : toCollapse)
 	{
 		if (!unbranchingPath.id.strand()) continue;
+		if (unbranchingPath.path.size() == 1) continue;
 
 		GraphPath complPath = _graph.complementPath(unbranchingPath.path);
 		auto newEdges = collapseEdges(unbranchingPath.path);
@@ -369,12 +370,12 @@ std::vector<UnbranchingPath> GraphProcessor::getUnbranchingPaths() const
 		bool repetitive = traversed.front()->isRepetitive() || 
 						  traversed.back()->isRepetitive();
 
-		int contigLength = 0;
+		int64_t contigLength = 0;
 		int64_t sumCov = 0;
 		for (auto& edge : traversed) 
 		{
 			contigLength += edge->length();
-			sumCov += edge->meanCoverage * edge->length();
+			sumCov += (int64_t)edge->meanCoverage * (int64_t)edge->length();
 		}
 		int meanCoverage = contigLength ? sumCov / contigLength : 0;
 

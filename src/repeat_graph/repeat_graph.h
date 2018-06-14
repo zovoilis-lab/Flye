@@ -315,7 +315,8 @@ private:
 		int32_t end;
 	};
 
-	void getGluepoints(const OverlapContainer& ovlps);
+	void filterContainedContigs(OverlapContainer& ovlps);
+	void getGluepoints(OverlapContainer& ovlps);
 	void initializeEdges(const OverlapContainer& asmOverlaps);
 	void collapseTandems();
 	void logEdges();
@@ -330,5 +331,5 @@ private:
 	std::unordered_set<GraphNode*> _graphNodes;
 	std::unordered_set<GraphEdge*> _graphEdges;
 	std::unordered_map<FastaRecord::Id, GraphEdge*> _idToEdge;
-
+	std::unordered_set<FastaRecord::Id> _filteredSeqs;
 };

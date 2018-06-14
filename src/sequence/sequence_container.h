@@ -17,7 +17,7 @@ struct FastaRecord
 	{
 	public:
 		Id(): _id(std::numeric_limits<uint32_t>::max()) {}
-		Id(uint32_t id): _id(id) {}
+		explicit Id(uint32_t id): _id(id) {}
 
 		bool operator==(const Id& other) const
 			{return _id == other._id;}
@@ -52,6 +52,15 @@ struct FastaRecord
 			id._id = std::stoi(buffer);
 			return stream;
 		}
+
+		bool operator < (const FastaRecord::Id& other) const
+		{
+			return _id < other._id;
+		}
+
+		uint32_t rawId() const {return _id;};
+
+		friend class SequenceContainer;
 
 	private:
 		uint32_t _id;
@@ -132,50 +141,59 @@ public:
 		{}
 	};
 
-	typedef std::unordered_map<FastaRecord::Id, 
-							   FastaRecord> SequenceIndex;
+	typedef std::vector<FastaRecord> SequenceIndex;
 
-	SequenceContainer() {}
+	SequenceContainer():
+		_offsetInitialized(false) {}
 
 	void loadFromFile(const std::string& filename);
 	static void writeFasta(const std::vector<FastaRecord>& records,
 						   const std::string& fileName);
+	static size_t getMaxSeqId() {return g_nextSeqId;}
 	const FastaRecord&  addSequence(const DnaSequence& sequence, 
 									const std::string& description);
 
-	const SequenceIndex& getIndex() const
+	const SequenceIndex& iterSeqs() const
 	{
 		return _seqIndex;
 	}
+	const FastaRecord& getRecord(FastaRecord::Id seqId) const
+	{
+		assert(_seqIndex[seqId._id - _seqIdOffest].id == seqId);
+		return _seqIndex[seqId._id - _seqIdOffest];
+	}
 	const DnaSequence& getSeq(FastaRecord::Id readId) const
 	{
-		return _seqIndex.at(readId).sequence;
+		assert(_seqIndex[readId._id - _seqIdOffest].id == readId);
+		return _seqIndex[readId._id - _seqIdOffest].sequence;
 	}
 	int32_t seqLen(FastaRecord::Id readId) const
 	{
-		return _seqIndex.at(readId).sequence.length();
+		assert(_seqIndex[readId._id - _seqIdOffest].id == readId);
+		return _seqIndex[readId._id - _seqIdOffest].sequence.length();
 	}
 	std::string seqName(FastaRecord::Id readId) const
 	{
-		return _seqIndex.at(readId).description;
+		assert(_seqIndex[readId._id - _seqIdOffest].id == readId);
+		return _seqIndex[readId._id - _seqIdOffest].description;
 	}
 	int computeNxStat(float fraction) const;
 
 private:
+	FastaRecord::Id addSequence(const FastaRecord& sequence);
+
 	size_t readFasta(std::vector<FastaRecord>& record, 
 				     const std::string& fileName);
 	size_t readFastq(std::vector<FastaRecord>& record, 
 				     const std::string& fileName);
-	bool isFasta(const std::string& fileName);
+	bool   isFasta(const std::string& fileName);
 
-	/*size_t 	getSequences(std::vector<FastaRecord>& record, 
-						 const std::string& fileName);
-	size_t 	getSequencesWithComplements(std::vector<FastaRecord>& record, 
-										const std::string& fileName);*/
 	void 	validateSequence(std::string& sequence);
 	void 	validateHeader(std::string& header);
 
 	SequenceIndex _seqIndex;
+	size_t _seqIdOffest;
+	bool   _offsetInitialized;
 	static size_t g_nextSeqId;
 };
 

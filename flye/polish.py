@@ -35,9 +35,11 @@ def check_binaries():
     try:
         devnull = open(os.devnull, "w")
         subprocess.check_call([POLISH_BIN, "-h"], stderr=devnull)
-    except (subprocess.CalledProcessError, OSError) as e:
+    except subprocess.CalledProcessError as e:
         if e.returncode == -9:
             logger.error("Looks like the system ran out of memory")
+        raise PolishException(str(e))
+    except OSError as e:
         raise PolishException(str(e))
 
 
@@ -68,9 +70,11 @@ def _run_polish_bin(bubbles_in, subs_matrix, hopo_matrix,
                hopo_matrix, consensus_out]
     try:
         subprocess.check_call(cmdline)
-    except (subprocess.CalledProcessError, OSError) as e:
+    except subprocess.CalledProcessError as e:
         if e.returncode == -9:
             logger.error("Looks like the system ran out of memory")
+        raise PolishException(str(e))
+    except OSError as e:
         raise PolishException(str(e))
 
 

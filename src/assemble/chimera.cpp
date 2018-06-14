@@ -19,45 +19,48 @@ bool ChimeraDetector::isChimeric(FastaRecord::Id readId)
 	{
 		bool result = this->testReadByCoverage(readId) ||
 					  _ovlpContainer.hasSelfOverlaps(readId); //typical PacBio pattern
-		_chimeras[readId] = result;
-		_chimeras[readId.rc()] = result;
+		_chimeras.insert(readId, result);
+		_chimeras.insert(readId.rc(), result);
 	}
-	return _chimeras[readId];
+	return _chimeras.find(readId);
 }
 
 void ChimeraDetector::estimateGlobalCoverage()
 {
 	Logger::get().debug() << "Estimating overlap coverage";
 
-	const int NUM_SAMPLES = 1000;
-	const int sampleRate = _seqContainer.getIndex().size() / NUM_SAMPLES;
-	static const int minCoverage = _inputCoverage / 
-					(int)Config::get("max_coverage_drop_rate") + 1;
-	static const int maxCoverage = _inputCoverage * 
-					(int)Config::get("max_coverage_drop_rate");
-	static const int flankSize = 0;
+	int numSamples = std::min(1000, (int)_seqContainer.iterSeqs().size());
+	int sampleRate = (int)_seqContainer.iterSeqs().size() / numSamples;
+	//int minCoverage = _inputCoverage / 
+	//				(int)Config::get("max_coverage_drop_rate") + 1;
+	//int maxCoverage = _inputCoverage * 
+	//				(int)Config::get("max_coverage_drop_rate");
+	int flankSize = 0;
 
 	std::unordered_map<int32_t, int32_t> readHist;
+	std::vector<int32_t> covList;
+	
+	//std::ofstream fout("../cov_hist.txt");
 
-	for (auto& seq : _seqContainer.getIndex())
+	int64_t sum = 0;
+	int64_t num = 0;
+	for (auto& seq : _seqContainer.iterSeqs())
 	{
 		if (rand() % sampleRate) continue;
-		auto coverage = this->getReadCoverage(seq.first);
+		auto coverage = this->getReadCoverage(seq.id);
 		bool nonZero = false;
 		for (auto c : coverage) nonZero |= (c != 0);
 		if (!nonZero) continue;
 
-
-		//int64_t sum = 0;
-		//int64_t num = 0;
 		for (size_t i = flankSize; i < coverage.size() - flankSize; ++i)
 		{
-			if (minCoverage < coverage[i] && coverage[i] < maxCoverage)
+			//if (minCoverage < coverage[i] && coverage[i] < maxCoverage)
 			{
 				//fout << coverage[i] << std::endl;
 				++readHist[coverage[i]];
-				//sum += coverage[i];
-				//++num;
+				sum += coverage[i];
+				++num;
+				covList.push_back(coverage[i]);
 			}
 		}
 		//fout << _ovlpContainer.lazySeqOverlaps(seq.first).size() << std::endl;
@@ -75,8 +78,6 @@ void ChimeraDetector::estimateGlobalCoverage()
 			++readHist[sum / num];
 			++sampleNum;
 		}*/
-
-		//if (sampleNum >= NUM_SAMPLES) break;
 	}
 
 	if (readHist.empty())
@@ -84,19 +85,26 @@ void ChimeraDetector::estimateGlobalCoverage()
 		Logger::get().warning() << "No overlaps found!";
 		_overlapCoverage = 0;
 	}
-
-	int32_t maxCount = 0;
-	int32_t peakCoverage = 0;
-	for (auto& histIt : readHist)
+	else
 	{
-		if (histIt.second > maxCount)
+		/*int32_t maxCount = 0;
+		int32_t peakCoverage = 0;
+		for (auto& histIt : readHist)
 		{
-			maxCount = histIt.second;
-			peakCoverage = histIt.first;
-		}
+			if (histIt.second > maxCount)
+			{
+				maxCount = histIt.second;
+				peakCoverage = histIt.first;
+			}
+		}*/
+		//_overlapCoverage = peakCoverage;
+		//_overlapCoverage = sum / (num + 1);
+		_overlapCoverage = median(covList);
 	}
-	_overlapCoverage = peakCoverage;
+
+
 	Logger::get().info() << "Overlap-based coverage: " << _overlapCoverage;
+	//exit(1);
 }
 
 std::vector<int32_t> ChimeraDetector::getReadCoverage(FastaRecord::Id readId) const

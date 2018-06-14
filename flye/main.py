@@ -498,16 +498,16 @@ def main():
 
     args.log_file = os.path.join(args.out_dir, "flye.log")
     _enable_logging(args.log_file, args.debug,
-                    overwrite=not args.resume and not args.resume_from)
-
-    aln.check_binaries()
-    pol.check_binaries()
-    asm.check_binaries()
+                    overwrite=False)
 
     _set_kmer_size(args)
     _set_read_attributes(args)
 
     try:
+        aln.check_binaries()
+        pol.check_binaries()
+        asm.check_binaries()
+        repeat.check_binaries()
         _run(args)
     except (aln.AlignmentException, pol.PolishException,
             asm.AssembleException, repeat.RepeatException,

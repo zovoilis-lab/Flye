@@ -46,17 +46,27 @@ struct UnbranchingPath
 		return contentsStr;
 	}
 
-	bool isLoop() const
+	bool isLooped() const
 	{
 		return path.front()->nodeLeft == path.back()->nodeRight;
+	}
+
+	GraphNode*& nodeLeft()
+	{
+		return path.front()->nodeLeft;
+	}
+
+	GraphNode*& nodeRight()
+	{
+		return path.back()->nodeRight;
 	}
 
 	GraphPath path;
 	FastaRecord::Id id;
 	bool circular;
 	bool repetitive;
-	int  length;
-	int  meanCoverage;
+	int32_t length;
+	int32_t meanCoverage;
 };
 
 //A class for basic repeat graph processing
@@ -70,11 +80,11 @@ public:
 
 	void simplify();
 	void fixChimericJunctions();
+	void trimTips();
 	std::vector<UnbranchingPath> getUnbranchingPaths() const;
 	std::vector<UnbranchingPath> getEdgesPaths() const;
 
 private:
-	void trimTips();
 	void condenceEdges();
 	void collapseBulges();
 

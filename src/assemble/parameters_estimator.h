@@ -4,6 +4,7 @@
 
 #include "../sequence/vertex_index.h"
 #include "../sequence/sequence_container.h"
+#include <limits>
 
 class ParametersEstimator
 {
@@ -12,10 +13,11 @@ public:
 						const VertexIndex& vertexIndex, size_t genomeSize):
 		_vertexIndex(vertexIndex), 
 		_seqContainer(seqContainer),
-		_genomeSize(genomeSize)
+		_genomeSize(genomeSize),
+		_minKmerCount(std::numeric_limits<size_t>::max())
 	{}
 
-	void    estimateMinKmerCount(int upperCutoff);
+	void    estimateMinKmerCount();
 	size_t  genomeSizeEstimate();
 	size_t 	minKmerCount() {return _minKmerCount;}
 private:
