@@ -128,10 +128,10 @@ void MultiplicityInferer::removeUnsupportedConnections()
 	for (auto& readPath : _aligner.getAlignments())
 	{
 		if (readPath.size() < 2) continue;
-		int overhang = std::max(readPath.front().overlap.curBegin,
-								readPath.back().overlap.curLen - 
-									readPath.back().overlap.curEnd);
-		if (overhang > (int)Config::get("maximum_overhang")) continue;
+		//int overhang = std::max(readPath.front().overlap.curBegin,
+		//						readPath.back().overlap.curLen - 
+		//							readPath.back().overlap.curEnd);
+		//if (overhang > (int)Config::get("maximum_overhang")) continue;
 
 		for (size_t i = 0; i < readPath.size() - 1; ++i)
 		{
