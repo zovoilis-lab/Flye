@@ -270,7 +270,7 @@ int main(int argc, char** argv)
 	OverlapDetector ovlp(readsContainer, vertexIndex,
 						 (int)Config::get("maximum_jump"), 
 						 Parameters::get().minimumOverlap,
-						 /* no voerhang*/ 0,
+						 /* no overhang*/ 0,
 						 /*max ovlp*/ 5 * coverage, 
 						 /*store alignment*/ false,
 						 /*only max*/ true,

@@ -88,8 +88,8 @@ Extender::ExtensionInfo Extender::extendContig(FastaRecord::Id startRead)
 			if(leftExtendsStart(ovlp.extId)) continue;
 
 			//try to find a good one
-			if (this->checkOverhangs(ovlp, /*checkExt*/ true) &&
-				!_chimDetector.isChimeric(ovlp.extId) &&
+			if (!_chimDetector.isChimeric(ovlp.extId) &&
+				this->checkOverhangs(ovlp, /*checkExt*/ true) &&
 				!this->isRightRepeat(ovlp.extId.rc()) &&
 				this->countRightExtensions(ovlp.extId) > minExtensions)
 			{
@@ -183,16 +183,18 @@ void Extender::assembleContigs(bool addSingletons)
 		int numInnerOvlp = 0;
 		for (auto& ovlp : _ovlpContainer.lazySeqOverlaps(startRead))
 		{
-			if (!this->checkOverhangs(ovlp)) continue;
-			if (_innerReads.contains(ovlp.extId)) ++numInnerOvlp;
+			if (this->checkOverhangs(ovlp) &&
+				_innerReads.contains(ovlp.extId)) ++numInnerOvlp;
 			//if (ovlp.extId == startRead || 
 			//	ovlp.extId.rc() == startRead) return true;
 		}
 		if (numInnerOvlp > 0) return true;
 
+		//only start from read that don't need trimming
 		static const int MAX_OVERHANG = Config::get("maximum_overhang");
 		if (_chimDetector.getLeftTrim(startRead) > MAX_OVERHANG ||
 			_chimDetector.getLeftTrim(startRead) > MAX_OVERHANG) return true;
+
 		if (_chimDetector.isChimeric(startRead) ||
 			this->isRightRepeat(startRead) ||
 			this->isRightRepeat(startRead.rc())) return true;
@@ -370,8 +372,8 @@ int Extender::countRightExtensions(FastaRecord::Id readId) const
 	int count = 0;
 	for (auto& ovlp : _ovlpContainer.lazySeqOverlaps(readId))
 	{
-		if (!this->checkOverhangs(ovlp)) continue;
-		if (this->extendsRight(ovlp)) ++count;
+		if (this->checkOverhangs(ovlp) &&
+			this->extendsRight(ovlp)) ++count;
 	}
 	return count;
 }
@@ -385,15 +387,25 @@ bool Extender::isRightRepeat(FastaRecord::Id readId) const
 bool Extender::checkOverhangs(const OverlapRange& ovlp, bool checkExt) const
 {
 	static const int MAX_OVERHANG = Config::get("maximum_overhang");
+	/*if (std::min(ovlp.curBegin, ovlp.extBegin) > MAX_OVERHANG) 
+	{
+		return false;
+	}
+	if (std::min(ovlp.curLen - ovlp.curEnd, 
+				 ovlp.extLen - ovlp.extEnd) > MAX_OVERHANG)
+	{
+		return false;
+	}
+	return true;*/
 
-	int curLeftTrim = _chimDetector.getLeftTrim(ovlp.curId);
-	int curRightTrim = _chimDetector.getRightTrim(ovlp.curId);
+	int curLeftTrim = _chimDetector.getLeftTrim(ovlp.curId) + MAX_OVERHANG;
+	int curRightTrim = _chimDetector.getRightTrim(ovlp.curId) + MAX_OVERHANG;
 	int extLeftTrim = MAX_OVERHANG;
 	int extRightTrim = MAX_OVERHANG;
 	if (checkExt)
 	{
-		extLeftTrim = _chimDetector.getLeftTrim(ovlp.extId);
-		extRightTrim = _chimDetector.getRightTrim(ovlp.extId);
+		extLeftTrim += _chimDetector.getLeftTrim(ovlp.extId);
+		extRightTrim += _chimDetector.getRightTrim(ovlp.extId);
 	}
 
 	if (ovlp.curBegin > curLeftTrim && 

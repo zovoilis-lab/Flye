@@ -40,8 +40,6 @@ void ChimeraDetector::estimateGlobalCoverage()
 	std::unordered_map<int32_t, int32_t> readHist;
 	std::vector<int32_t> covList;
 	
-	//std::ofstream fout("../cov_hist.txt");
-
 	int64_t sum = 0;
 	int64_t num = 0;
 	for (auto& seq : _seqContainer.iterSeqs())
@@ -54,30 +52,11 @@ void ChimeraDetector::estimateGlobalCoverage()
 
 		for (size_t i = flankSize; i < coverage.size() - flankSize; ++i)
 		{
-			//if (minCoverage < coverage[i] && coverage[i] < maxCoverage)
-			{
-				//fout << coverage[i] << std::endl;
-				++readHist[coverage[i]];
-				sum += coverage[i];
-				++num;
-				covList.push_back(coverage[i]);
-			}
+			++readHist[coverage[i]];
+			sum += coverage[i];
+			++num;
+			covList.push_back(coverage[i]);
 		}
-		//fout << _ovlpContainer.lazySeqOverlaps(seq.first).size() << std::endl;
-
-		/*std::string covStr;
-		for (int cov : coverage)
-		{
-			covStr += std::to_string(cov) + " ";
-		}
-		Logger::get().debug() << "\t" << covStr;*/
-		//++sampleNum;
-		
-		/*if (num)
-		{
-			++readHist[sum / num];
-			++sampleNum;
-		}*/
 	}
 
 	if (readHist.empty())
@@ -87,24 +66,10 @@ void ChimeraDetector::estimateGlobalCoverage()
 	}
 	else
 	{
-		/*int32_t maxCount = 0;
-		int32_t peakCoverage = 0;
-		for (auto& histIt : readHist)
-		{
-			if (histIt.second > maxCount)
-			{
-				maxCount = histIt.second;
-				peakCoverage = histIt.first;
-			}
-		}*/
-		//_overlapCoverage = peakCoverage;
-		//_overlapCoverage = sum / (num + 1);
 		_overlapCoverage = median(covList);
 	}
 
-
 	Logger::get().info() << "Overlap-based coverage: " << _overlapCoverage;
-	//exit(1);
 }
 
 std::vector<int32_t> ChimeraDetector::getReadCoverage(FastaRecord::Id readId) const
@@ -138,10 +103,12 @@ std::vector<int32_t> ChimeraDetector::getReadCoverage(FastaRecord::Id readId) co
 
 int ChimeraDetector::getLeftTrim(const std::vector<int32_t>& coverage) const
 {
+	static const int MAX_DROP_RATE = Config::get("max_coverage_drop_rate");
+
 	int64_t sumCov = 0;
 	for (auto c: coverage) sumCov += c;
 	int32_t meanCov = !coverage.empty() ? sumCov / coverage.size() : 0;
-	int32_t threshold = meanCov / 2;
+	int32_t threshold = std::max(2, meanCov / MAX_DROP_RATE);
 	
 	size_t pos = 0;
 	for (pos = 0; pos < coverage.size(); ++pos)
@@ -154,10 +121,12 @@ int ChimeraDetector::getLeftTrim(const std::vector<int32_t>& coverage) const
 
 int ChimeraDetector::getRightTrim(const std::vector<int32_t>& coverage) const
 {
+	static const int MAX_DROP_RATE = Config::get("max_coverage_drop_rate");
+
 	int64_t sumCov = 0;
 	for (auto c: coverage) sumCov += c;
 	int32_t meanCov = !coverage.empty() ? sumCov / coverage.size() : 0;
-	int32_t threshold = meanCov / 2;
+	int32_t threshold = std::max(2, meanCov / MAX_DROP_RATE);
 	
 	size_t pos = 0;
 	for (pos = 0; pos < coverage.size(); ++pos)
@@ -182,9 +151,8 @@ int ChimeraDetector::getLeftTrim(FastaRecord::Id readId) const
 
 bool ChimeraDetector::testReadByCoverage(FastaRecord::Id readId)
 {
-	const int HARD_MIN_COV = 2;
 	auto coverage = this->getReadCoverage(readId);
-	//const float MAX_DROP_RATE = Config::get("max_coverage_drop_rate");
+	static const int MAX_DROP_RATE = Config::get("max_coverage_drop_rate");
 
 	/*std::string covStr;
 	for (int cov : coverage)
@@ -195,32 +163,16 @@ bool ChimeraDetector::testReadByCoverage(FastaRecord::Id readId)
 	Logger::get().debug() << "Left trim: " << this->getLeftTrim(coverage);
 	Logger::get().debug() << "Right trim: " << this->getRightTrim(coverage);*/
 	
-	int64_t sumCov = 0;
-	for (auto c: coverage) sumCov += c;
-	int32_t meanCov = !coverage.empty() ? sumCov / coverage.size() : 0;
-	int32_t threshold = std::max(HARD_MIN_COV, 
-								 std::min(_overlapCoverage, meanCov) / 
-								 	(int)Config::get("max_coverage_drop_rate"));
+	//const int HARD_MIN_COV = 2;
+	int32_t threshold = std::max(2, _overlapCoverage / MAX_DROP_RATE);
 
-	//for (auto cov : coverage)
 	size_t leftFlank = this->getLeftTrim(coverage) / 
 						(int)Config::get("chimera_window");
 	size_t rightFlank = this->getRightTrim(coverage) / 
 						(int)Config::get("chimera_window");
 	for (size_t i = leftFlank; i < coverage.size() - rightFlank; ++i)
 	{
-		//if (coverage[i] == 0) return true;
-
-		if (coverage[i] < threshold) 
-		{
-			/*std::string covStr;
-			for (int cov : coverage)
-			{
-				covStr += std::to_string(cov) + " ";
-			}
-			Logger::get().debug() << "\t" << _seqContainer.seqName(readId) << "\t" << covStr;*/
-			return true;
-		}
+		if (coverage[i] < threshold) return true;
 	}
 
 	return false;
