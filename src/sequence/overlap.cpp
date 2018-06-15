@@ -93,7 +93,7 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 	const int MAX_LOOK_BACK = 50;
 	const int kmerSize = Parameters::get().kmerSize;
 
-	//static std::ofstream fout("../kmers.txt");
+	static std::ofstream fout("../kmers.txt");
 
 	static float totalDpTime = 0;
 	static float totalKmerTime = 0;
@@ -350,9 +350,28 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 				{
 					if (ovlp.curBegin <= pos && pos <= ovlp.curEnd) ++numCurKmers;
 				}
-				float kmerMatch = std::min(1.0f, (float)chainLength * 
+				float kmerMatch = std::min(1.0f, (float)chainLength *
 									_vertexIndex.getSampleRate() / numCurKmers);
 				float divSet = std::log(1 / kmerMatch) / kmerSize;
+
+				static thread_local cuckoohash_map<Kmer, char> curKmers;
+				static thread_local cuckoohash_map<Kmer, char> sharedKmers;
+				for (auto curKmerPos : IterKmers(fastaRec.sequence, ovlp.curBegin,
+										 		 ovlp.curRange()))
+				{
+					curKmers.insert(curKmerPos.kmer, true);
+				}
+				for (auto extKmerPos : IterKmers(_seqContainer.getSeq(ovlp.extId),
+										 		 ovlp.extBegin, ovlp.extRange()))
+				{
+					if (curKmers.contains(extKmerPos.kmer))
+						sharedKmers.insert(extKmerPos.kmer);
+				}
+				float kmerDiv = (float)sharedKmers.size() / curKmers.size();
+				float seqDiv = std::log(1 / kmerDiv) / kmerSize;
+				curKmers.clear();
+				sharedKmers.clear();
+				
 				if (divSet < _maxDivergence)
 				{
 					std::reverse(kmerMatches.begin(), kmerMatches.end());
@@ -362,9 +381,10 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 
 					extOverlaps.push_back(ovlp);
 				}
-				//fout << divSet << std::endl;
+				fout << seqDiv << std::endl;
 				//Logger::get().debug() << ovlp.curRange() << " " <<
-				//	" " << kmerMatch << " " << divSet;
+				//	" " << kmerMatch << " " << jaccardIndex << " "
+				//	<< divSet << " " << kmerDiv;
 			}
 		}
 		
