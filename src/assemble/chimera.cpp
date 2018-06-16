@@ -103,7 +103,6 @@ void ChimeraDetector::estimateGlobalCoverage()
 
 
 	Logger::get().info() << "Overlap-based coverage: " << _overlapCoverage;
-	exit(1);
 }
 
 std::vector<int32_t> ChimeraDetector::getReadCoverage(FastaRecord::Id readId)
