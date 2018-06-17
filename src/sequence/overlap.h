@@ -121,7 +121,7 @@ struct OverlapRange
 
 	bool containedBy(const OverlapRange& other) const
 	{
-		if (curId != other.curId || extId != other.curId) return false;
+		if (curId != other.curId || extId != other.extId) return false;
 
 		return other.curBegin <= curBegin && curEnd <= other.curEnd &&
 			   other.extBegin <= extBegin && extEnd <= other.extEnd;

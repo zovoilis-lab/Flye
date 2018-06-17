@@ -376,17 +376,18 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 		else
 		{
 			//sort by decreasing score
-			//std::sort(extOverlaps.begin(), extOverlaps.end(),
-			//		  [](const OverlapRange& r1, const OverlapRange& r2)
-			//		  {return r1.score > r2.score;});
+			std::sort(extOverlaps.begin(), extOverlaps.end(),
+					  [](const OverlapRange& r1, const OverlapRange& r2)
+					  {return r1.score > r2.score;});
 			
+			std::vector<OverlapRange*> primary;
 			for (auto& ovlp : extOverlaps)
 			{
 				ovlpCandidates.push_back(ovlp);
-				/*bool isContained = false;
-				for (auto& prim : detectedOverlaps)
+				bool isContained = false;
+				for (auto& prim : primary)
 				{
-					if (ovlp.containedBy(prim))
+					if (ovlp.containedBy(*prim))
 					{
 						isContained = true;
 						break;
@@ -394,9 +395,10 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 				}
 				if (!isContained)
 				{
-					detectedOverlaps.push_back(ovlp);
-				}*/
+					primary.push_back(&ovlp);
+				}
 			}
+			for (auto& ovlp : primary) detectedOverlaps.push_back(*ovlp);
 		}
 
 		//computing divergence
