@@ -36,6 +36,10 @@ public:
 		z = (z ^ (z >> 27)) * 0x94D049BB133111EBULL;
 		return z ^ (z >> 31);
 	}
+	bool operator< (const Kmer& other)
+	{
+		return _representation < other._representation;
+	}
 
 private:
 	KmerRepr _representation;

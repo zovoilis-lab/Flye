@@ -401,6 +401,7 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 		//computing divergence
 		for (auto& ovlp : ovlpCandidates)
 		{
+			int rate = std::max(1, ovlp.curRange() / 5000);
 			if (extKmers.empty())
 			{
 				for (auto extKmerPos : IterKmers(_seqContainer
@@ -409,24 +410,36 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 					extKmers.push_back(extKmerPos.kmer);
 				}
 			}
-			std::unordered_set<Kmer> curOvlpKmers;
-			curOvlpKmers.reserve(ovlp.curRange());
-			std::unordered_set<Kmer> sharedOvlpKmers;
-			sharedOvlpKmers.reserve(ovlp.curRange());
+			static thread_local std::vector<Kmer> curOvlpKmers;
+			static thread_local std::vector<Kmer> extOvlpKmers;
+			static thread_local std::vector<Kmer> intersect;
 
-			for (int i = ovlp.curBegin; i < ovlp.curEnd; ++i)
+			for (int i = ovlp.curBegin; i < ovlp.curEnd - kmerSize; i += rate)
 			{
-				curOvlpKmers.insert(curKmers[i]);
+				curOvlpKmers.push_back(curKmers[i]);
 			}
-			for (int i = ovlp.extBegin; i < ovlp.extEnd; ++i)
+			for (int i = ovlp.extBegin; i < ovlp.extEnd - kmerSize; i += rate)
 			{
-				if (curOvlpKmers.count(extKmers[i])) 
-					sharedOvlpKmers.insert(extKmers[i]);
+				extOvlpKmers.push_back(extKmers[i]);
 			}
+			std::sort(curOvlpKmers.begin(), curOvlpKmers.end());
+			std::sort(extOvlpKmers.begin(), extOvlpKmers.end());
+			std::set_intersection(curOvlpKmers.begin(), curOvlpKmers.end(),
+								  extOvlpKmers.begin(), extOvlpKmers.end(),
+								  std::back_inserter(intersect));
 
-			float kmerDiv = (float)sharedOvlpKmers.size() / curOvlpKmers.size();
+			size_t uniqueCur = 1;
+			for (size_t i = 0; i < curOvlpKmers.size() - 1; ++i)
+			{
+				if (curOvlpKmers[i] != curOvlpKmers[i + 1]) ++uniqueCur;
+			}
+			float kmerDiv = (float)intersect.size() * rate / uniqueCur;
 			float seqDiv = std::log(1 / kmerDiv) / kmerSize;
-			//fout << seqDiv << std::endl;
+			curOvlpKmers.clear();
+			extOvlpKmers.clear();
+			intersect.clear();
+
+			//fout << ovlp.curRange() << " " << seqDiv << std::endl;
 
 			if (seqDiv < _maxDivergence) detectedOverlaps.push_back(ovlp);
 		}
