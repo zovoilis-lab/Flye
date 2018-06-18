@@ -89,7 +89,7 @@ void MultiplicityInferer::estimateCoverage()
 	if (!edgesCoverage.empty())
 	{
 		const float MULT = 1.75f;	//at least 1.75x of mean coverage
-		_uniqueCovThreshold = MULT * q75(edgesCoverage);
+		_uniqueCovThreshold = MULT * quantile(edgesCoverage, 75);
 	}
 	Logger::get().debug() << "Unique coverage threshold " << _uniqueCovThreshold;
 }

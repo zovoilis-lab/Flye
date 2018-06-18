@@ -6,6 +6,7 @@
 #include <iostream>
 #include <unordered_set>
 #include <unordered_map>
+#include <iomanip>
 
 #include "../common/config.h"
 #include "../common/logger.h"
@@ -38,6 +39,7 @@ void ChimeraDetector::estimateGlobalCoverage()
 
 	std::unordered_map<int32_t, int32_t> readHist;
 	std::vector<int32_t> covList;
+	std::vector<float> ovlpDivergence;
 	
 	//std::ofstream fout("../cov_hist.txt");
 
@@ -53,30 +55,19 @@ void ChimeraDetector::estimateGlobalCoverage()
 
 		for (size_t i = flankSize; i < coverage.size() - flankSize; ++i)
 		{
-			//if (minCoverage < coverage[i] && coverage[i] < maxCoverage)
 			{
-				//fout << coverage[i] << std::endl;
 				++readHist[coverage[i]];
 				sum += coverage[i];
 				++num;
 				covList.push_back(coverage[i]);
 			}
 		}
-		//fout << _ovlpContainer.lazySeqOverlaps(seq.first).size() << std::endl;
 
-		/*std::string covStr;
-		for (int cov : coverage)
+		//getting divergence
+		for (auto& ovlp : _ovlpContainer.lazySeqOverlaps(seq.id)) 
 		{
-			covStr += std::to_string(cov) + " ";
+			ovlpDivergence.push_back(ovlp.seqDivergence);
 		}
-		Logger::get().debug() << "\t" << covStr;*/
-		//++sampleNum;
-		
-		/*if (num)
-		{
-			++readHist[sum / num];
-			++sampleNum;
-		}*/
 	}
 
 	if (readHist.empty())
@@ -86,23 +77,14 @@ void ChimeraDetector::estimateGlobalCoverage()
 	}
 	else
 	{
-		/*int32_t maxCount = 0;
-		int32_t peakCoverage = 0;
-		for (auto& histIt : readHist)
-		{
-			if (histIt.second > maxCount)
-			{
-				maxCount = histIt.second;
-				peakCoverage = histIt.first;
-			}
-		}*/
-		//_overlapCoverage = peakCoverage;
-		//_overlapCoverage = sum / (num + 1);
 		_overlapCoverage = median(covList);
 	}
 
-
 	Logger::get().info() << "Overlap-based coverage: " << _overlapCoverage;
+	Logger::get().info() << "Median read-read divergence: "
+		<< std::setprecision(2)
+		<< median(ovlpDivergence) << " (Q10 = " << quantile(ovlpDivergence, 10)
+		<< ", Q90 = " << quantile(ovlpDivergence, 90) << ")";
 }
 
 std::vector<int32_t> ChimeraDetector::getReadCoverage(FastaRecord::Id readId)

@@ -5,6 +5,7 @@
 #include "read_aligner.h"
 #include "../common/parallel.h"
 #include <cmath>
+#include <iomanip>
 
 namespace
 {
@@ -162,8 +163,11 @@ void ReadAligner::alignReads()
 	int numAligned = 0;
 	int alignedInFull = 0;
 	int64_t alignedLength = 0;
+	std::vector<float> ovlpDiv;
+
+
 	std::function<void(const FastaRecord::Id&)> alignRead = 
-	[this, &indexMutex, &numAligned, &readsOverlaps, 
+	[this, &indexMutex, &numAligned, &readsOverlaps, &ovlpDiv,
 		&idToSegment, &pathsContainer, &alignedLength, &alignedInFull] 
 	(const FastaRecord::Id& seqId)
 	{
@@ -179,6 +183,11 @@ void ReadAligner::alignReads()
 			{
 				alignments.push_back({ovlp, idToSegment[ovlp.extId].first,
 									  idToSegment[ovlp.extId].second});
+			}
+
+			if (ovlp.curRange() > Parameters::get().minimumOverlap)
+			{
+				ovlpDiv.push_back(ovlp.seqDivergence);
 			}
 		}
 		std::sort(alignments.begin(), alignments.end(),
@@ -250,6 +259,10 @@ void ReadAligner::alignReads()
 	Logger::get().debug() << "Aligned in one piece : " << alignedInFull;
 	Logger::get().info() << "Aligned read sequence: " << alignedLength << " / " 
 		<< totalLength << " (" << (float)alignedLength / totalLength << ")";
+	Logger::get().info() << "Median read-graph divergence: "
+		<< std::setprecision(2)
+		<< median(ovlpDiv) << " (Q10 = " << quantile(ovlpDiv, 10)
+		<< ", Q90 = " << quantile(ovlpDiv, 90) << ")";
 }
 
 //updates alignments with respect to the new graph

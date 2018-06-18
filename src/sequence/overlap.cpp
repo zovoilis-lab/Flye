@@ -441,6 +441,7 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 
 			//fout << ovlp.curRange() << " " << seqDiv << std::endl;
 
+			ovlp.seqDivergence = seqDiv;
 			if (seqDiv < _maxDivergence) detectedOverlaps.push_back(ovlp);
 		}
 

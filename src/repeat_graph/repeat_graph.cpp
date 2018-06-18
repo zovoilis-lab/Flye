@@ -73,6 +73,19 @@ void RepeatGraph::build()
 	asmOverlaps.findAllOverlaps();
 	asmOverlaps.buildIntervalTree();
 
+	std::vector<float> ovlpDiv;
+	for (auto& seq : _asmSeqs.iterSeqs())
+	{
+		for (auto& ovlp : asmOverlaps.lazySeqOverlaps(seq.id))
+		{
+			ovlpDiv.push_back(ovlp.seqDivergence);
+		}
+	}
+	Logger::get().info() << "Median contig-contig divergence: "
+		<< std::setprecision(2)
+		<< median(ovlpDiv) << " (Q10 = " << quantile(ovlpDiv, 10)
+		<< ", Q90 = " << quantile(ovlpDiv, 90) << ")";
+
 	//this->filterContainedContigs(asmOverlaps);
 	this->getGluepoints(asmOverlaps);
 	this->collapseTandems();
@@ -81,7 +94,7 @@ void RepeatGraph::build()
 }
 
 
-void RepeatGraph::filterContainedContigs(OverlapContainer& ovlps)
+/*void RepeatGraph::filterContainedContigs(OverlapContainer& ovlps)
 {
 	const int WINDOW = 100;
 	const int TIP_THRESHOLD = Config::get("tip_length_threshold") / WINDOW;
@@ -141,7 +154,7 @@ void RepeatGraph::filterContainedContigs(OverlapContainer& ovlps)
 
 	Logger::get().debug() << "Filtered " << _filteredSeqs.size() / 2 
 		<< " contained seqs of total length " << filteredLength;
-}
+}*/
 
 void RepeatGraph::getGluepoints(OverlapContainer& asmOverlaps)
 {
@@ -163,8 +176,8 @@ void RepeatGraph::getGluepoints(OverlapContainer& asmOverlaps)
 	{
 		for (auto& ovlp : asmOverlaps.lazySeqOverlaps(seq.id))
 		{
-			if (_filteredSeqs.count(ovlp.curId) ||
-				_filteredSeqs.count(ovlp.extId)) continue;
+			//if (_filteredSeqs.count(ovlp.curId) ||
+			//	_filteredSeqs.count(ovlp.extId)) continue;
 
 			endpoints[ovlp.curId]
 				.push_back(new SetPoint2d(Point2d(ovlp.curId, ovlp.curBegin,
@@ -394,7 +407,7 @@ void RepeatGraph::getGluepoints(OverlapContainer& asmOverlaps)
 	for (auto& seq : _asmSeqs.iterSeqs())
 	{
 		if (!seq.id.strand()) continue;
-		if (_filteredSeqs.count(seq.id)) continue;
+		//if (_filteredSeqs.count(seq.id)) continue;
 		auto& seqPoints = _gluePoints[seq.id];
 		auto& complPoints = _gluePoints[seq.id.rc()];
 
