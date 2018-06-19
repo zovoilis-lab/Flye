@@ -185,10 +185,6 @@ void ReadAligner::alignReads()
 									  idToSegment[ovlp.extId].second});
 			}
 
-			if (ovlp.curRange() > Parameters::get().minimumOverlap)
-			{
-				ovlpDiv.push_back(ovlp.seqDivergence);
-			}
 		}
 		std::sort(alignments.begin(), alignments.end(),
 		  [](const EdgeAlignment& e1, const EdgeAlignment& e2)
@@ -208,7 +204,16 @@ void ReadAligner::alignReads()
 		}
 
 		if (readChains.empty()) return;
+
+		/////synchronized part
 		indexMutex.lock();
+		for (auto& ovlp : overlaps)
+		{
+			if (ovlp.curRange() > Parameters::get().minimumOverlap)
+			{
+				ovlpDiv.push_back(ovlp.seqDivergence);
+			}
+		}
 		++numAligned;
 		if (readChains.size() == 1) ++alignedInFull;
 		for (auto& chain : readChains) 
@@ -222,6 +227,7 @@ void ReadAligner::alignReads()
 			_readAlignments.push_back(chain);
 		}
 		indexMutex.unlock();
+		/////
 	};
 
 	processInParallel(allQueries, alignRead, 
