@@ -4,6 +4,8 @@
 
 #include "read_aligner.h"
 #include "../common/parallel.h"
+#include <cmath>
+#include <iomanip>
 
 namespace
 {
@@ -22,12 +24,8 @@ std::vector<GraphAlignment>
 	ReadAligner::chainReadAlignments(const SequenceContainer& edgeSeqs,
 								 	 const std::vector<EdgeAlignment>& ovlps) const
 {
-	static const int32_t MAX_DISCORDANCE = 
-		std::max(Config::get("maximum_jump") / Config::get("jump_divergence_rate"),
-				 Config::get("max_separation"));
 	static const int32_t MAX_JUMP = Config::get("maximum_jump");
-	static const int32_t ALN_GAP = Config::get("read_align_gap");
-	static const int32_t PENALTY_WND = Config::get("penalty_window");
+	static const int32_t MAX_READ_OVLP = 50;
 
 	std::list<Chain> activeChains;
 	for (auto& edgeAlignment : ovlps)
@@ -45,16 +43,13 @@ std::vector<GraphAlignment>
 								prevOvlp.extLen - prevOvlp.extEnd;
 
 			if (chain.aln.back()->edge->nodeRight == edgeAlignment.edge->nodeLeft &&
-				MAX_JUMP > readDiff && readDiff > 0 &&
-				MAX_JUMP > graphDiff && graphDiff > 0  &&
-				abs(readDiff - graphDiff) < MAX_DISCORDANCE)
+				MAX_JUMP > readDiff && readDiff > -MAX_READ_OVLP &&
+				MAX_JUMP > graphDiff && graphDiff > 0)
 			{
-				int32_t gapScore = -(readDiff - ALN_GAP) / PENALTY_WND;
-				if (readDiff < ALN_GAP) gapScore = 1;
-				//if (chain.aln.back()->segment.end != 
-				//	edgeAlignment.segment.start) gapScore -= 10;
-				//int32_t ovlpScore = !edgeAlignment.edge->isLooped() ? nextOvlp.score : 10;
-				int32_t score = chain.score + nextOvlp.score + gapScore;
+				int32_t jumpDiv = abs(readDiff - graphDiff);
+				int32_t gapCost = jumpDiv ? 0.01f * Parameters::get().kmerSize *
+													jumpDiv + std::log2(jumpDiv) : 0;
+				int32_t score = chain.score + nextOvlp.score - gapCost;
 				if (score > maxScore)
 				{
 					maxScore = score;
@@ -113,6 +108,9 @@ std::vector<GraphAlignment>
 
 void ReadAligner::alignReads()
 {
+	static const int MIN_EDGE_OVLP = (int)Config::get("max_separation");
+	static const int EDGE_FLANK = 100;
+
 	//create database
 	std::unordered_map<FastaRecord::Id, 
 					   std::pair<GraphEdge*, SequenceSegment>> idToSegment;
@@ -139,59 +137,89 @@ void ReadAligner::alignReads()
 	//index it and align reads
 	VertexIndex pathsIndex(pathsContainer, 
 						   (int)Config::get("read_align_kmer_sample"));
-	pathsIndex.countKmers(1, /* genome size*/ 0);
-	pathsIndex.buildIndex(1, (int)Config::get("read_align_max_kmer"));
+	pathsIndex.countKmers(/*min freq*/ 1, /* genome size*/ 0);
+	pathsIndex.buildIndex(/*min freq*/ 1);
+	pathsIndex.setRepeatCutoff(/*min freq*/ 1);
 	OverlapDetector readsOverlapper(pathsContainer, pathsIndex, 
 									(int)Config::get("maximum_jump"),
-									(int)Config::get("max_separation"),
-									/*no overhang*/0,
-									(int)Config::get("read_align_gap"),
-									/*keep alignment*/ false);
-
-	OverlapContainer readsOverlaps(readsOverlapper, _readSeqs, 
-								   /*onlyMax*/ false);
+									MIN_EDGE_OVLP - EDGE_FLANK,
+									/*no overhang*/ 0, /*max overlaps*/ 0,
+									/*keep alignment*/ false, /*only max*/ false,
+									(float)Config::get("read_align_ovlp_ident"));
+	OverlapContainer readsOverlaps(readsOverlapper, _readSeqs);
 
 	std::vector<FastaRecord::Id> allQueries;
 	int64_t totalLength = 0;
-	for (auto& readId : _readSeqs.getIndex())
+	for (auto& read : _readSeqs.iterSeqs())
 	{
-		//if (_readSeqs.seqLen(readId.first) > Constants::maxSeparation)
-		if (_readSeqs.seqLen(readId.first) > Parameters::get().minimumOverlap)
+		if (!read.id.strand()) continue;
+		if (read.sequence.length() > (size_t)Parameters::get().minimumOverlap)
 		{
-			totalLength += _readSeqs.seqLen(readId.first);
-			allQueries.push_back(readId.first);
+			totalLength += read.sequence.length();
+			allQueries.push_back(read.id);
 		}
 	}
 	std::mutex indexMutex;
 	int numAligned = 0;
+	int alignedInFull = 0;
 	int64_t alignedLength = 0;
+	std::vector<float> ovlpDiv;
+
+
 	std::function<void(const FastaRecord::Id&)> alignRead = 
-	[this, &indexMutex, &numAligned, &readsOverlaps, 
-		&idToSegment, &pathsContainer, &alignedLength] 
+	[this, &indexMutex, &numAligned, &readsOverlaps, &ovlpDiv,
+		&idToSegment, &pathsContainer, &alignedLength, &alignedInFull] 
 	(const FastaRecord::Id& seqId)
 	{
-		//bool suggestChimeric = false;
-		//auto overlaps = readsOverlaps.seqOverlaps(seqId, suggestChimeric);
-		auto& overlaps = readsOverlaps.lazySeqOverlaps(seqId);
+		auto overlaps = readsOverlaps.quickSeqOverlaps(seqId);
 		std::vector<EdgeAlignment> alignments;
 		for (auto& ovlp : overlaps)
 		{
-			alignments.push_back({ovlp, idToSegment[ovlp.extId].first,
-								  idToSegment[ovlp.extId].second});
+			//because edges might be as short as max_separation,
+			//we set minimum alignment threshold to a bit shorter value.
+			//However, apply the actual threshold for longer edges now.
+			if (ovlp.extLen < MIN_EDGE_OVLP + EDGE_FLANK ||
+				std::min(ovlp.curRange(), ovlp.extRange()) > MIN_EDGE_OVLP)
+			{
+				alignments.push_back({ovlp, idToSegment[ovlp.extId].first,
+									  idToSegment[ovlp.extId].second});
+			}
+
+			if (ovlp.curRange() > Parameters::get().minimumOverlap)
+			{
+				ovlpDiv.push_back(ovlp.seqDivergence);
+			}
 		}
 		std::sort(alignments.begin(), alignments.end(),
 		  [](const EdgeAlignment& e1, const EdgeAlignment& e2)
 			{return e1.overlap.curBegin < e2.overlap.curBegin;});
 		auto readChains = this->chainReadAlignments(pathsContainer, alignments);
 
+		std::vector<GraphAlignment> complChains(readChains);
+		for (auto& chain : complChains)
+		{
+			for (auto& aln : chain)
+			{
+				aln.edge = _graph.complementEdge(aln.edge);
+				aln.segment = aln.segment.complement();
+				aln.overlap = aln.overlap.complement();
+			}
+			std::reverse(chain.begin(), chain.end());
+		}
+
 		if (readChains.empty()) return;
 		indexMutex.lock();
 		++numAligned;
+		if (readChains.size() == 1) ++alignedInFull;
 		for (auto& chain : readChains) 
 		{
 			_readAlignments.push_back(chain);
 			alignedLength += chain.back().overlap.curEnd - 
 							 chain.front().overlap.curBegin;
+		}
+		for (auto& chain : complChains)
+		{
+			_readAlignments.push_back(chain);
 		}
 		indexMutex.unlock();
 	};
@@ -226,10 +254,15 @@ void ReadAligner::alignReads()
 		}
 	}*/
 
-	Logger::get().debug() << "Aligned reads: " << numAligned << " / " 
-		<< allQueries.size();
-	Logger::get().info() << "Aligned sequence: " << alignedLength << " / " 
+	Logger::get().debug() << "Total reads : " << allQueries.size();
+	Logger::get().debug() << "Read with aligned parts : " << numAligned;
+	Logger::get().debug() << "Aligned in one piece : " << alignedInFull;
+	Logger::get().info() << "Aligned read sequence: " << alignedLength << " / " 
 		<< totalLength << " (" << (float)alignedLength / totalLength << ")";
+	Logger::get().info() << "Median read-graph divergence: "
+		<< std::setprecision(2)
+		<< median(ovlpDiv) << " (Q10 = " << quantile(ovlpDiv, 10)
+		<< ", Q90 = " << quantile(ovlpDiv, 90) << ")";
 }
 
 //updates alignments with respect to the new graph

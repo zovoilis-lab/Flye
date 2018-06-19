@@ -57,7 +57,8 @@ void RepeatResolver::separatePath(const GraphPath& graphPath,
 
 //Resolves all repeats simulateously through the graph mathcing optimization,
 //Given the reads connecting unique edges (or pairs of edges in the transitions graph)
-int RepeatResolver::resolveConnections(const std::vector<Connection>& connections)
+int RepeatResolver::resolveConnections(const std::vector<Connection>& connections, 
+									   float minSupport)
 {
 	//Constructs transitions graph using the lemon library
 	std::unordered_map<FastaRecord::Id, int> leftCoverage;
@@ -141,7 +142,7 @@ int RepeatResolver::resolveConnections(const std::vector<Connection>& connection
 			<< leftId.signedId() << "\t" << rightId.rc().signedId()
 			<< "\t" << support / 4 << "\t" << confidence;
 
-		if (confidence < (float)Config::get("min_repeat_res_support"))
+		if (confidence < minSupport)
 		{
 			++unresolvedLinks;
 			continue;
@@ -218,7 +219,7 @@ void RepeatResolver::findRepeats()
 		if (!path.id.strand()) continue;
 
 		//mark paths with high coverage as repetitive
-		if (path.meanCoverage > _multInf.getUniqueCovThreshold() * 2 &&
+		if (path.meanCoverage > _multInf.getUniqueCovThreshold() &&
 			path.length < (int)Config::get("unique_edge_length"))
 		{
 			markRepetitive(&path);
@@ -266,10 +267,10 @@ void RepeatResolver::findRepeats()
 	for (auto& readPath : _aligner.getAlignments())
 	{
 		if (readPath.size() < 2) continue;
-		int overhang = std::max(readPath.front().overlap.curBegin,
-								readPath.back().overlap.curLen - 
-									readPath.back().overlap.curEnd);
-		if (overhang > (int)Config::get("maximum_overhang")) continue;
+		//int overhang = std::max(readPath.front().overlap.curBegin,
+		//						readPath.back().overlap.curLen - 
+		//							readPath.back().overlap.curEnd);
+		//if (overhang > (int)Config::get("maximum_overhang")) continue;
 
 		for (size_t i = 0; i < readPath.size() - 1; ++i)
 		{
@@ -390,7 +391,7 @@ void RepeatResolver::fixLongEdges()
 		if (!path.path.front()->selfComplement &&
 			path.path.front()->repetitive &&
 			path.length > (int)Config::get("unique_edge_length") &&
-			(float)path.meanCoverage < 1.5 * _multInf.getMeanCoverage())
+			(float)path.meanCoverage < _multInf.getUniqueCovThreshold())
 		{
 			for (auto& edge : path.path)
 			{
@@ -409,13 +410,21 @@ void RepeatResolver::fixLongEdges()
 //no new repeats are resolved
 void RepeatResolver::resolveRepeats()
 {
+	bool perfectIter = true;
 	while (true)
 	{
 		auto connections = this->getConnections();
-		int resolvedConnections = this->resolveConnections(connections);
+
+		float minSupport = perfectIter ? 1.0f : 
+						   Config::get("min_repeat_res_support");
+		int resolvedConnections = 
+			this->resolveConnections(connections, minSupport);
+		perfectIter = !perfectIter;
+
 		this->clearResolvedRepeats();
 		_aligner.updateAlignments();
-		if (!resolvedConnections) break;
+
+		if (!resolvedConnections && !perfectIter) break;
 		this->findRepeats();
 	}
 

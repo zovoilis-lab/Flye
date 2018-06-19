@@ -4,6 +4,7 @@
 
 #include "contig_extender.h"
 #include "output_generator.h"
+#include <cmath>
 
 void ContigExtender::generateUnbranchingPaths()
 {
@@ -282,8 +283,8 @@ void ContigExtender::outputStatsTable(const std::string& filename)
 		}
 		pathStr.pop_back();
 
-		int estMult = std::max(1.0f, roundf((float)ctg.graphEdges.meanCoverage / 
-											  _meanCoverage));
+		int estMult = std::max(1.0f, std::round((float)ctg.graphEdges.meanCoverage / 
+											    _meanCoverage));
 
 		std::string telomereStr;
 		bool telLeft = (ctg.graphEdges.path.front()->nodeLeft->isTelomere());

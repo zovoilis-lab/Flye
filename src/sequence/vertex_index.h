@@ -26,7 +26,8 @@ public:
 		this->clear();
 	}
 	VertexIndex(const SequenceContainer& seqContainer, int sampleRate):
-		_seqContainer(seqContainer), _outputProgress(false), _sampleRate(sampleRate)
+		_seqContainer(seqContainer), _outputProgress(false), 
+		_sampleRate(sampleRate), _repetitiveFrequency(0)
 	{}
 
 	VertexIndex(const VertexIndex&) = delete;
@@ -127,23 +128,39 @@ public:
 		const SequenceContainer& seqContainer;
 	};
 
-
 	void countKmers(size_t hardThreshold, int genomeSize);
-	void buildIndex(int minCoverage, int maxCoverage);
-	void buildIndexUnevenCoverage(int minCoverage, int maxCoverage);
+	void setRepeatCutoff(int minCoverage);
+	void buildIndex(int minCoverage);
+	void buildIndexUnevenCoverage(int minCoverage);
 	void clear();
 
 	IterHelper iterKmerPos(Kmer kmer) const
 	{
 		bool revComp = kmer.standardForm();
-		return IterHelper(_kmerIndex[kmer], revComp,
+		return IterHelper(_kmerIndex.find(kmer), revComp,
 						  _seqContainer);
+		//return IterHelper(_lockedIndex->at(kmer), revComp,
+		//				  _seqContainer);
 	}
+
+	/*struct KmerPosRange
+	{
+		ReadPosition* begin;
+		ReadPosition* end;
+		bool rc;
+	};
+	KmerPosRange iterKmerPos(Kmer kmer) const
+	{
+		bool revCmp = kmer.standardForm();
+		auto rv = _kmerIndex.find(kmer);
+		return {rv.data, rv.data + rv.size, revCmp};
+	}*/
 
 	bool isSolid(Kmer kmer) const
 	{
 		kmer.standardForm();
 		return _kmerIndex.contains(kmer);
+		//return _lockedIndex->count(kmer);
 	}
 
 	void outputProgress(bool set) 
@@ -162,12 +179,16 @@ private:
 	void addFastaSequence(const FastaRecord& fastaRecord);
 
 	const SequenceContainer& _seqContainer;
-	KmerDistribution _kmerDistribution;
-	bool _outputProgress;
+	KmerDistribution 		 _kmerDistribution;
+	bool    _outputProgress;
 	int32_t _sampleRate;
+	size_t  _repetitiveFrequency;
 
 	const size_t INDEX_CHUNK = 32 * 1024 * 1024 / sizeof(ReadPosition);
-	std::vector<ReadPosition*> _memoryChunks;
+	std::vector<ReadPosition*> 		 _memoryChunks;
+
 	cuckoohash_map<Kmer, ReadVector> _kmerIndex;
-	cuckoohash_map<Kmer, size_t> _kmerCounts;
+	cuckoohash_map<Kmer, size_t> 	 _kmerCounts;
+	//std::shared_ptr<cuckoohash_map<Kmer, ReadVector>
+	//				::locked_table> _lockedIndex;
 };

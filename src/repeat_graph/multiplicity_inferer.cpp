@@ -6,6 +6,7 @@
 #include "graph_processing.h"
 #include "../common/disjoint_set.h"
 #include "../common/utils.h"
+#include <cmath>
 
 
 //Estimates the mean coverage and assingns edges multiplicity accordingly
@@ -66,8 +67,8 @@ void MultiplicityInferer::estimateCoverage()
 						 	 median(wndCoverage[complEdge])) / 2;
 
 		float minMult = (!edge->isTip()) ? 1 : 0;
-		int estMult = std::max(minMult, 
-							   roundf((float)medianCov / _meanCoverage));
+		int estMult = std::max(minMult, std::round((float)medianCov / 
+													_meanCoverage));
 		if (estMult == 1)
 		{
 			edgesCoverage.push_back(medianCov);
@@ -84,7 +85,12 @@ void MultiplicityInferer::estimateCoverage()
 		edge->meanCoverage = medianCov;
 	}
 
-	_uniqueCovThreshold = !edgesCoverage.empty() ? q75(edgesCoverage) : 1;
+	_uniqueCovThreshold = 2;
+	if (!edgesCoverage.empty())
+	{
+		const float MULT = 1.75f;	//at least 1.75x of mean coverage
+		_uniqueCovThreshold = MULT * quantile(edgesCoverage, 75);
+	}
 	Logger::get().debug() << "Unique coverage threshold " << _uniqueCovThreshold;
 }
 
@@ -127,10 +133,10 @@ void MultiplicityInferer::removeUnsupportedConnections()
 	for (auto& readPath : _aligner.getAlignments())
 	{
 		if (readPath.size() < 2) continue;
-		int overhang = std::max(readPath.front().overlap.curBegin,
-								readPath.back().overlap.curLen - 
-									readPath.back().overlap.curEnd);
-		if (overhang > (int)Config::get("maximum_overhang")) continue;
+		//int overhang = std::max(readPath.front().overlap.curBegin,
+		//						readPath.back().overlap.curLen - 
+		//							readPath.back().overlap.curEnd);
+		//if (overhang > (int)Config::get("maximum_overhang")) continue;
 
 		for (size_t i = 0; i < readPath.size() - 1; ++i)
 		{

@@ -104,6 +104,8 @@ def _contig_profile(alignment, platform, genome_len):
         #if aln.err_rate > max_aln_err: continue
         aln_errors.append(aln.err_rate)
 
+        #after gap shifting it is possible that
+        #two gaps are aligned against each other
         qry_seq = shift_gaps(aln.trg_seq, aln.qry_seq)
         trg_seq = shift_gaps(qry_seq, aln.trg_seq)
 
@@ -115,7 +117,7 @@ def _contig_profile(alignment, platform, genome_len):
                 trg_pos -= genome_len
 
             prof_elem = profile[trg_pos]
-            if trg_nuc == "-":
+            if trg_nuc == "-" and qry_nuc != "-":
                 prof_elem.insertions[aln.qry_id] += qry_nuc
             else:
                 prof_elem.nucl = trg_nuc
