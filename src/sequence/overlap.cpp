@@ -433,7 +433,12 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 			{
 				if (curOvlpKmers[i] != curOvlpKmers[i + 1]) ++uniqueCur;
 			}
-			float kmerDiv = (float)intersect.size() * rate / uniqueCur;
+			size_t uniqueInt = 1;
+			for (size_t i = 0; i < intersect.size() - 1; ++i)
+			{
+				if (intersect[i] != intersect[i + 1]) ++uniqueInt;
+			}
+			float kmerDiv = (float)uniqueInt * rate / uniqueCur;
 			float seqDiv = std::log(1 / kmerDiv) / kmerSize;
 			curOvlpKmers.clear();
 			extOvlpKmers.clear();
