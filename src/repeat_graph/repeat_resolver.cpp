@@ -27,16 +27,14 @@ void RepeatResolver::separatePath(const GraphPath& graphPath,
 	vecRemove(graphPath.front()->nodeRight->inEdges, graphPath.front());
 	graphPath.front()->nodeRight = leftNode;
 	leftNode->inEdges.push_back(graphPath.front());
-	//int32_t pathCoverage = (graphPath.front()->meanCoverage +
-	//					    graphPath.back()->meanCoverage) / 2;
+	int32_t pathCoverage = (graphPath.front()->meanCoverage +
+						    graphPath.back()->meanCoverage) / 2;
 
 	//repetitive edges in the middle
 	for (size_t i = 1; i < graphPath.size() - 1; ++i)
 	{
 		graphPath[i]->resolved = true;
-		//--graphPath[i]->multiplicity;
-		//graphPath[i]->meanCoverage = 
-		//	std::max(graphPath[i]->meanCoverage - pathCoverage, 0);
+		graphPath[i]->substractedCoverage += pathCoverage;
 	}
 
 	GraphNode* rightNode = leftNode;
@@ -46,7 +44,7 @@ void RepeatResolver::separatePath(const GraphPath& graphPath,
 		GraphEdge* newEdge = _graph.addEdge(GraphEdge(leftNode, rightNode,
 													  newId));
 		newEdge->seqSegments.push_back(readSegment);
-		newEdge->meanCoverage = _multInf.getMeanCoverage();
+		newEdge->meanCoverage = pathCoverage;
 	}
 
 	//last edge
@@ -403,6 +401,13 @@ void RepeatResolver::fixLongEdges()
 				<< path.meanCoverage;
 		}
 	}
+
+	//apply coverage substractions that were made during repeat resolution
+	for (auto& edge : _graph.iterEdges())
+	{
+		edge->meanCoverage = std::max(0, (int)edge->meanCoverage - 
+										 (int)edge->substractedCoverage);
+	}
 }
 
 //Iterates repeat detection and resolution until
@@ -503,7 +508,7 @@ std::vector<RepeatResolver::Connection>
 //cleans up the graph after repeat resolution
 void RepeatResolver::clearResolvedRepeats()
 {
-	const int MIN_LOOP = Parameters::get().minimumOverlap;
+	//const int MIN_LOOP = Parameters::get().minimumOverlap;
 	auto nextEdge = [](GraphNode* node)
 	{
 		for (auto edge : node->outEdges)
@@ -529,8 +534,7 @@ void RepeatResolver::clearResolvedRepeats()
 			bool resolved = true;
 			for (auto& edge : node->outEdges) 
 			{
-				if (!shouldRemove(edge) &&
-					edge->length() > MIN_LOOP) resolved = false;
+				if (!shouldRemove(edge)) resolved = false;
 			}
 
 			if (resolved) toRemove.insert(node);

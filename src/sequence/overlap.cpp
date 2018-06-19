@@ -22,19 +22,19 @@
 bool OverlapDetector::overlapTest(const OverlapRange& ovlp,
 								  bool& outSuggestChimeric) const
 {
-	//static const float OVLP_DIVERGENCE = Config::get("overlap_divergence_rate");
 	if (ovlp.curRange() < _minOverlap || 
 		ovlp.extRange() < _minOverlap) 
 	{
 		return false;
 	}
 
-	/*float lengthDiff = abs(ovlp.curRange() - ovlp.extRange());
-	float meanLength = (ovlp.curRange() + ovlp.extRange()) / 2.0f;
-	if (lengthDiff > meanLength * OVLP_DIVERGENCE)
+	static const float OVLP_DIV = 0.5;
+	float lengthDiff = abs(ovlp.curRange() - ovlp.extRange());
+	//float meanLength = (ovlp.curRange() + ovlp.extRange()) / 2.0f;
+	if (lengthDiff > OVLP_DIV * std::min(ovlp.curRange(), ovlp.extRange()))
 	{
 		return false;
-	}*/
+	}
 
 	if (ovlp.curId == ovlp.extId.rc()) outSuggestChimeric = true;
 	if (_checkOverhang)
