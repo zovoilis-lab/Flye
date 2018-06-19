@@ -403,10 +403,14 @@ void RepeatResolver::fixLongEdges()
 	}
 
 	//apply coverage substractions that were made during repeat resolution
-	for (auto& edge : _graph.iterEdges())
+	for (auto& path : unbranchingPaths)
 	{
-		edge->meanCoverage = std::max(0, (int)edge->meanCoverage - 
-										 (int)edge->substractedCoverage);
+		if (path.isLooped()) continue;
+		for (auto& edge : path.path)
+		{
+			edge->meanCoverage = std::max(0, (int)edge->meanCoverage - 
+											 (int)edge->substractedCoverage);
+		}
 	}
 }
 
