@@ -79,32 +79,33 @@ Extender::ExtensionInfo Extender::extendContig(FastaRecord::Id startRead)
 			}
 		}*/
 
-		FastaRecord::Id bestSuspicious = FastaRecord::ID_NONE;
+		OverlapRange* maxExtension = nullptr;
 		for (auto& ovlp : extensions)
 		{
 			if(leftExtendsStart(ovlp.extId)) continue;
 
 			//try to find a good one
 			if (!_chimDetector.isChimeric(ovlp.extId) &&
-				!this->isRightRepeat(ovlp.extId) &&
+				//!this->isRightRepeat(ovlp.extId) &&
 				this->countRightExtensions(ovlp.extId) > minExtensions)
 			{
 				foundExtension = true;
 				currentRead = ovlp.extId;
 				break;
 			}
-			//or not so good
-			else if(bestSuspicious == FastaRecord::ID_NONE)
+
+			if (!maxExtension || maxExtension->rightShift < ovlp.rightShift)
 			{
-				bestSuspicious = ovlp.extId;
+				maxExtension = &ovlp;
 			}
 		}
 
-		if (!foundExtension && bestSuspicious != FastaRecord::ID_NONE)
+		//in case of suspicious extension make the farthest jump possible
+		if (!foundExtension && maxExtension)
 		{
 			++exInfo.numSuspicious;
 			foundExtension = true;
-			currentRead = bestSuspicious;
+			currentRead = maxExtension->extId;
 		}
 
 		bool overlapsVisited = _innerReads.contains(currentRead);

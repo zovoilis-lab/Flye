@@ -138,11 +138,11 @@ bool ChimeraDetector::testReadByCoverage(FastaRecord::Id readId)
 	}
 
 	//chimera detection based self-overlaps (typical PacBio pattern)
-	if (_ovlpContainer.hasSelfOverlaps(readId))
+	/*if (_ovlpContainer.hasSelfOverlaps(readId))
 	{
 		//Logger::get().info() << "Self-ovlp!";
 		return true;
-	}
+	}*/
 
 	return false;
 }
