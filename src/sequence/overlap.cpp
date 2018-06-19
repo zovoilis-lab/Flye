@@ -429,14 +429,14 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 								  std::back_inserter(intersect));
 
 			size_t uniqueCur = 1;
-			for (size_t i = 0; i < curOvlpKmers.size() - 1; ++i)
+			for (size_t i = 1; i < curOvlpKmers.size(); ++i)
 			{
-				if (curOvlpKmers[i] != curOvlpKmers[i + 1]) ++uniqueCur;
+				if (curOvlpKmers[i - 1] != curOvlpKmers[i]) ++uniqueCur;
 			}
 			size_t uniqueInt = 1;
-			for (size_t i = 0; i < intersect.size() - 1; ++i)
+			for (size_t i = 1; i < intersect.size(); ++i)
 			{
-				if (intersect[i] != intersect[i + 1]) ++uniqueInt;
+				if (intersect[i - 1] != intersect[i]) ++uniqueInt;
 			}
 			float kmerDiv = (float)uniqueInt * rate / uniqueCur;
 			float seqDiv = std::log(1 / kmerDiv) / kmerSize;
