@@ -444,9 +444,18 @@ void RepeatGraph::collapseTandems()
 {
 	std::unordered_map<size_t, std::unordered_set<size_t>> tandemLefts;
 	std::unordered_map<size_t, std::unordered_set<size_t>> tandemRights;
-	//std::unordered_map<size_t, int> gluepointMult;
-	//std::unordered_set<size_t> tandems;
 	std::unordered_set<size_t> bigTandems;
+
+	std::unordered_map<size_t, size_t> complPoints;
+	for (auto& seqPoints : _gluePoints)
+	{
+		auto& complSeq = _gluePoints[seqPoints.first.rc()];
+		for (size_t i = 0; i < seqPoints.second.size(); ++i)
+		{
+			complPoints[seqPoints.second[i].pointId] =
+				complSeq[seqPoints.second.size() - i - 1].pointId;
+		}
+	}
 
 	for (auto& seqPoints : _gluePoints)
 	{
@@ -464,8 +473,6 @@ void RepeatGraph::collapseTandems()
 			if (rightId - leftId > 1)
 			{
 				size_t tandemId = seqPoints.second[leftId].pointId;
-				//++gluepointMult[tandemId];
-				//tandems.insert(tandemId);
 				if (seqPoints.second[rightId - 1].position - 
 						seqPoints.second[leftId].position > 
 						Parameters::get().minimumOverlap)
@@ -514,6 +521,7 @@ void RepeatGraph::collapseTandems()
 			}
 
 			size_t tandemId = seqPoints.second[leftId].pointId;
+			size_t complId = complPoints[tandemId];
 			if (rightId - leftId == 1 || bigTandems.count(tandemId))
 			{
 				for (size_t i = leftId; i < rightId; ++i)
@@ -523,8 +531,11 @@ void RepeatGraph::collapseTandems()
 			}
 			else	//see if we can collapse this tandem repeat
 			{
-				bool leftDetemined = tandemLefts[tandemId].size() == 1;
-				bool rightDetemined = tandemRights[tandemId].size() == 1;
+				//making sure graph remains symmetric
+				bool leftDetemined = tandemLefts[tandemId].size() == 1 &&
+									 tandemRights[complId].size() == 1;
+				bool rightDetemined = tandemRights[tandemId].size() == 1 &&
+									  tandemLefts[complId].size() == 1;
 				if (!leftDetemined && !rightDetemined)
 				{
 					for (size_t i = leftId; i < rightId; ++i)
