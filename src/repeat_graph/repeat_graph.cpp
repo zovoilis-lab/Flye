@@ -427,6 +427,9 @@ void RepeatGraph::getGluepoints(OverlapContainer& asmOverlaps)
 		{
 			addConsensusPoint(currentGroup);
 		}
+	}
+	for (auto& seqGluepoints : tempGluepoints)
+	{
 		for (auto& gp : seqGluepoints.second) delete gp;
 	}
 
