@@ -321,9 +321,11 @@ void RepeatGraph::getGluepoints(OverlapContainer& asmOverlaps)
 			size_t i = std::lower_bound(seqGluepoints.begin(), 
 										seqGluepoints.end(),
 										clustPt.pos, cmp) - seqGluepoints.begin();
-			size_t ci = std::lower_bound(complGluepoints.begin(), 
+			auto cmp2 = [] (int32_t pos, const SetPoint1d* gp)
+								{return pos < gp->data.pos;};
+			size_t ci = std::upper_bound(complGluepoints.begin(), 
 										 complGluepoints.end(),
-										 complPt.pos, cmp) - complGluepoints.begin();
+										 complPt.pos, cmp2) - complGluepoints.begin();
 			if (!seqGluepoints.empty())
 			{
 				if (i > 0 && 
@@ -331,7 +333,7 @@ void RepeatGraph::getGluepoints(OverlapContainer& asmOverlaps)
 				{
 					toMerge.push_back(seqGluepoints[i - 1]);
 				}
-				if (i < seqGluepoints.size() - 1 && 
+				if (i < seqGluepoints.size() && 
 					seqGluepoints[i]->data.pos - clustPt.pos < _maxSeparation)
 				{
 					toMerge.push_back(seqGluepoints[i]);
@@ -428,10 +430,6 @@ void RepeatGraph::getGluepoints(OverlapContainer& asmOverlaps)
 			addConsensusPoint(currentGroup);
 		}
 	}
-	for (auto& seqGluepoints : tempGluepoints)
-	{
-		for (auto& gp : seqGluepoints.second) delete gp;
-	}
 
 	//add flanking points, if needed
 	const int MAX_TIP = Parameters::get().minimumOverlap;
@@ -463,6 +461,10 @@ void RepeatGraph::getGluepoints(OverlapContainer& asmOverlaps)
 	Logger::get().debug() << "Created " << numGluepoints << " gluepoints";
 
 	//free memory
+	for (auto& seqGluepoints : tempGluepoints)
+	{
+		for (auto& gp : seqGluepoints.second) delete gp;
+	}
 	for (auto& seqEndpoints : endpoints)
 	{
 		for (auto ep : seqEndpoints.second) delete ep;
