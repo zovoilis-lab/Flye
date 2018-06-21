@@ -653,7 +653,7 @@ void OverlapContainer::filterOverlaps()
 	{
 		auto& overlaps = this->unsafeSeqOverlaps(seqId);
 		
-		std::vector<SetNode<OverlapRange*>*> overlapSets;
+		SetVec<OverlapRange*> overlapSets;
 		for (auto& ovlp : overlaps) 
 		{
 			overlapSets.push_back(new SetNode<OverlapRange*>(&ovlp));
@@ -675,26 +675,21 @@ void OverlapContainer::filterOverlaps()
 				}
 			}
 		}
-		std::unordered_map<SetNode<OverlapRange*>*, 
-						   std::vector<OverlapRange>> clusters;
-		for (auto& ovlp: overlapSets) 
-		{
-			clusters[findSet(ovlp)].push_back(*ovlp->data);
-		}
-		overlaps.clear();
+		auto clusters = groupBySet(overlapSets);
+		std::vector<OverlapRange> newOvlps;
 		for (auto& cluster : clusters)
 		{
 			OverlapRange* maxOvlp = nullptr;
 			for (auto& ovlp : cluster.second)
 			{
-				if (!maxOvlp || ovlp.score > maxOvlp->score)
+				if (!maxOvlp || ovlp->score > maxOvlp->score)
 				{
-					maxOvlp = &ovlp;
+					maxOvlp = ovlp;
 				}
 			}
-			overlaps.push_back(*maxOvlp);
+			newOvlps.push_back(*maxOvlp);
 		}
-		for (auto& ovlpNode : overlapSets) delete ovlpNode;
+		overlaps = std::move(newOvlps);
 
 		std::sort(overlaps.begin(), overlaps.end(), 
 				  [](const OverlapRange& o1, const OverlapRange& o2)

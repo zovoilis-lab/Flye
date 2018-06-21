@@ -37,30 +37,6 @@ namespace
 		int32_t pos;
 	};
 
-	template <typename T>
-	std::unordered_map<SetNode<T>*, std::vector<T>> 
-		groupBySet(const std::vector<SetNode<T>*>& sets)
-	{
-		std::unordered_map<SetNode<T>*, std::vector<T>> groups;
-		for (auto& setNode : sets)
-		{
-			groups[findSet(setNode)].push_back(setNode->data);
-		}
-		return groups;
-	}
-
-	//vector that stores the set nodes and automatically deletes
-	//them in the end.
-	//does not have virtual table - do not use polymorphism!
-	template <typename T>
-	class SetVec : public std::vector<SetNode<T>*>
-	{
-	public:
-		~SetVec()
-		{
-			for (auto& x : *this) delete x;
-		}
-	};
 }
 
 bool GraphEdge::isTip() const
