@@ -596,29 +596,34 @@ void RepeatGraph::initializeEdges(const OverlapContainer& asmOverlaps)
 		if (usedPairs.count(nodePairSeqs.first)) continue;
 		usedPairs.insert(complEdges[nodePairSeqs.first]);
 
-		//index overlaps that cover each segment
 		SetVec<SequenceSegment*> segmentSets;
-		std::unordered_map<std::pair<SequenceSegment*, FastaRecord::Id>,
-						   std::vector<OverlapRange*>, pairhash> segOvlpIndex;
 		for (auto& seg : nodePairSeqs.second) 
 		{
 			segmentSets.push_back(new SetNode<SequenceSegment*>(&seg));
-			for (auto& interval : asmOverlaps
-						.getCoveringOverlaps(seg.seqId, seg.start,
-											 seg.end))
-			{
-				int32_t intersect = segIntersect(seg, interval.value->curBegin,
-												 interval.value->curEnd);
-				if (intersect > _maxSeparation)
-				{
-					segOvlpIndex[std::make_pair(&seg, interval.value->extId)]
-						.push_back(interval.value);
-				}
-			}
 		}
+
+		if (segmentSets.size() > 1000)
+		{
+			Logger::get().debug() << "Processing " << segmentSets.size();
+		}
+
 		//cluster segments based on their overlaps
 		for (auto& setOne : segmentSets)
 		{
+			std::vector<OverlapRange*> intervals;
+			for (auto& interval : asmOverlaps
+						.getCoveringOverlaps(setOne->data->seqId, 
+											 setOne->data->start,
+											 setOne->data->end))
+			{
+				int32_t intersectOne = segIntersect(*setOne->data, 
+													interval.value->curBegin,
+												 	interval.value->curEnd);
+				if (intersectOne > _maxSeparation)
+				{
+					intervals.push_back(interval.value);
+				}
+			}
 			for (auto& setTwo : segmentSets)
 			{
 				if (findSet(setOne) == findSet(setTwo)) continue;
@@ -631,12 +636,12 @@ void RepeatGraph::initializeEdges(const OverlapContainer& asmOverlaps)
 					std::swap(segOne, segTwo);
 				}
 
-				for (auto& ovlp : 
-						segOvlpIndex[std::make_pair(segOne, segTwo->seqId)])
+				for (auto& ovlp : intervals)
 				{
 					int32_t intersectTwo = 
 						segIntersect(*segTwo, ovlp->extBegin, ovlp->extEnd);
-					if (intersectTwo > _maxSeparation)
+					if (ovlp->extId == setTwo->data->seqId &&
+						intersectTwo > _maxSeparation)
 					{
 						unionSet(setOne, setTwo);
 						break;
@@ -645,6 +650,11 @@ void RepeatGraph::initializeEdges(const OverlapContainer& asmOverlaps)
 			}
 		}
 		auto edgeClusters = groupBySet(segmentSets);
+
+		if (segmentSets.size() > 1000)
+		{
+			Logger::get().debug() << "Done";
+		}
 
 		//add edge foe each cluster
 		std::vector<SequenceSegment> usedSegments;
