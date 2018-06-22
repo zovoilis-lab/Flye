@@ -384,14 +384,14 @@ void RepeatGraph::getGluepoints(OverlapContainer& asmOverlaps)
 	}
 
 	//ensure coordinates are symmetric
-	for (auto& seq : _asmSeqs.getIndex())
+	for (auto& seq : _asmSeqs.iterSeqs())
 	{
-		if (!seq.first.strand()) continue;
+		if (!seq.id.strand()) continue;
 		//if (_filteredSeqs.count(seq.id)) continue;
-		auto& seqPoints = _gluePoints[seq.first];
-		auto& complPoints = _gluePoints[seq.first.rc()];
+		auto& seqPoints = _gluePoints[seq.id];
+		auto& complPoints = _gluePoints[seq.id.rc()];
 
-		int32_t seqLen = _asmSeqs.seqLen(seq.first);
+		int32_t seqLen = _asmSeqs.seqLen(seq.id);
 		for (size_t i = 0; i < seqPoints.size(); ++i)
 		{
 			complPoints[seqPoints.size() - i - 1].position = 
