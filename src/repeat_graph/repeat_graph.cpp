@@ -607,6 +607,9 @@ void RepeatGraph::initializeEdges(const OverlapContainer& asmOverlaps)
 			Logger::get().debug() << "Processing " << segmentSets.size();
 		}
 
+		int numComparisons = 0;
+		int numFails = 0;
+
 		//cluster segments based on their overlaps
 		for (auto& setOne : segmentSets)
 		{
@@ -628,25 +631,22 @@ void RepeatGraph::initializeEdges(const OverlapContainer& asmOverlaps)
 			{
 				if (findSet(setOne) == findSet(setTwo)) continue;
 
-				SequenceSegment* segOne = setOne->data;
-				SequenceSegment* segTwo = setTwo->data;
-				if (_asmSeqs.seqLen(segOne->seqId) > 
-					_asmSeqs.seqLen(segTwo->seqId)) 
-				{
-					std::swap(segOne, segTwo);
-				}
+				++numComparisons;
 
+				bool matched = false;
 				for (auto& ovlp : intervals)
 				{
 					int32_t intersectTwo = 
-						segIntersect(*segTwo, ovlp->extBegin, ovlp->extEnd);
+						segIntersect(*setTwo->data, ovlp->extBegin, ovlp->extEnd);
 					if (ovlp->extId == setTwo->data->seqId &&
 						intersectTwo > _maxSeparation)
 					{
 						unionSet(setOne, setTwo);
+						matched = true;
 						break;
 					}
 				}
+				if (!matched) ++numFails;
 			}
 		}
 		auto edgeClusters = groupBySet(segmentSets);
@@ -654,6 +654,10 @@ void RepeatGraph::initializeEdges(const OverlapContainer& asmOverlaps)
 		if (segmentSets.size() > 1000)
 		{
 			Logger::get().debug() << "Done";
+			Logger::get().debug() << "Fragments: " << segmentSets.size()
+				<< " clusters: " << edgeClusters.size()
+				<< " comparisons: " << numComparisons
+				<< " fails: " << numFails;
 		}
 
 		//add edge foe each cluster
