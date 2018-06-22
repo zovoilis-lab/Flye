@@ -285,7 +285,6 @@ void RepeatGraph::getGluepoints(OverlapContainer& asmOverlaps)
 					 complements[toMerge[i + 1]]);
 		}
 	}
-	Logger::get().debug() << "Projections done";
 
 	//Generating final gluepoints, we might need additionally
 	//group clusters that are too close
@@ -581,8 +580,6 @@ void RepeatGraph::initializeEdges(const OverlapContainer& asmOverlaps)
 		}
 	}
 
-	Logger::get().debug() << "Started pairwise comparisons";
-
 	auto segIntersect = [] (const SequenceSegment& s, int32_t intBegin, 
 							int32_t intEnd)
 	{
@@ -612,14 +609,6 @@ void RepeatGraph::initializeEdges(const OverlapContainer& asmOverlaps)
 					  [](const SetSegment* s1, const SetSegment* s2)
 					  {return s1->data->start < s2->data->start;});
 		}
-
-		if (segmentSets.size() > 1000)
-		{
-			Logger::get().debug() << "Processing " << segmentSets.size();
-		}
-
-		int numComparisons = 0;
-		int numFails = 0;
 
 		//cluster segments based on their overlaps
 		for (auto& setOne : segmentSets)
@@ -651,45 +640,14 @@ void RepeatGraph::initializeEdges(const OverlapContainer& asmOverlaps)
 					if (intersectTwo > _maxSeparation)
 					{
 						unionSet(setOne, *startRange);
-						//matched = true;
 					}
 
 				}
 			}
-			/*for (auto& setTwo : segmentSets)
-			{
-				if (findSet(setOne) == findSet(setTwo)) continue;
-
-				++numComparisons;
-
-				bool matched = false;
-				for (auto& ovlp : intervals)
-				{
-					int32_t intersectTwo = 
-						segIntersect(*setTwo->data, ovlp->extBegin, ovlp->extEnd);
-					if (ovlp->extId == setTwo->data->seqId &&
-						intersectTwo > _maxSeparation)
-					{
-						unionSet(setOne, setTwo);
-						matched = true;
-						break;
-					}
-				}
-				if (!matched) ++numFails;
-			}*/
 		}
 		auto edgeClusters = groupBySet(segmentSets);
 
-		if (segmentSets.size() > 1000)
-		{
-			Logger::get().debug() << "Done";
-			Logger::get().debug() << "Fragments: " << segmentSets.size()
-				<< " clusters: " << edgeClusters.size()
-				<< " comparisons: " << numComparisons
-				<< " fails: " << numFails;
-		}
-
-		//add edge foe each cluster
+		//add edge for each cluster
 		std::vector<SequenceSegment> usedSegments;
 		for (auto& edgeClust : edgeClusters)
 		{
