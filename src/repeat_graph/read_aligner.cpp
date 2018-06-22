@@ -143,7 +143,7 @@ void ReadAligner::alignReads()
 	OverlapDetector readsOverlapper(pathsContainer, pathsIndex, 
 									(int)Config::get("maximum_jump"),
 									MIN_EDGE_OVLP - EDGE_FLANK,
-									/*no overhang*/ 0, /*max overlaps*/ 100,
+									/*no overhang*/ 0, /*max overlaps*/ 500,
 									/*keep alignment*/ false, /*only max*/ false,
 									(float)Config::get("read_align_ovlp_ident"));
 	OverlapContainer readsOverlaps(readsOverlapper, _readSeqs);
