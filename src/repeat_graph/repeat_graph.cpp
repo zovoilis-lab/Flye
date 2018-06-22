@@ -383,6 +383,23 @@ void RepeatGraph::getGluepoints(OverlapContainer& asmOverlaps)
 							  	seq.id.rc(), 0);
 		}
 	}
+
+	//ensure coordinates are symmetric
+	for (auto& seq : _asmSeqs.getIndex())
+	{
+		if (!seq.first.strand()) continue;
+		//if (_filteredSeqs.count(seq.id)) continue;
+		auto& seqPoints = _gluePoints[seq.first];
+		auto& complPoints = _gluePoints[seq.first.rc()];
+
+		int32_t seqLen = _asmSeqs.seqLen(seq.first);
+		for (size_t i = 0; i < seqPoints.size(); ++i)
+		{
+			complPoints[seqPoints.size() - i - 1].position = 
+				seqLen - seqPoints[i].position - 1;
+		}
+	}
+
 	int numGluepoints = 0;
 	for (auto& seqRec : _gluePoints) numGluepoints += seqRec.second.size();
 	Logger::get().debug() << "Created " << numGluepoints << " gluepoints";
@@ -396,16 +413,17 @@ void RepeatGraph::collapseTandems()
 	std::unordered_map<size_t, std::unordered_set<size_t>> tandemRights;
 	std::unordered_set<size_t> bigTandems;
 
-	std::unordered_map<size_t, size_t> complPoints;
+	/*std::unordered_map<size_t, size_t> complPoints;
 	for (auto& seqPoints : _gluePoints)
 	{
 		auto& complSeq = _gluePoints[seqPoints.first.rc()];
+		if (seqPoints.second.size() != complSeq.size()) throw std::runtime_error("AAA");
 		for (size_t i = 0; i < seqPoints.second.size(); ++i)
 		{
 			complPoints[seqPoints.second[i].pointId] =
 				complSeq[seqPoints.second.size() - i - 1].pointId;
 		}
-	}
+	}*/
 
 	for (auto& seqPoints : _gluePoints)
 	{
@@ -428,6 +446,7 @@ void RepeatGraph::collapseTandems()
 						Parameters::get().minimumOverlap)
 				{
 					bigTandems.insert(tandemId);
+					//bigTandems.insert(complPoints[tandemId]);
 				}
 
 				if (rightId < seqPoints.second.size())
@@ -471,7 +490,7 @@ void RepeatGraph::collapseTandems()
 			}
 
 			size_t tandemId = seqPoints.second[leftId].pointId;
-			size_t complId = complPoints[tandemId];
+			//size_t complId = complPoints[tandemId];
 			if (rightId - leftId == 1 || bigTandems.count(tandemId))
 			{
 				for (size_t i = leftId; i < rightId; ++i)
@@ -482,10 +501,10 @@ void RepeatGraph::collapseTandems()
 			else	//see if we can collapse this tandem repeat
 			{
 				//making sure graph remains symmetric
-				bool leftDetemined = tandemLefts[tandemId].size() == 1 &&
-									 tandemRights[complId].size() == 1;
-				bool rightDetemined = tandemRights[tandemId].size() == 1 &&
-									  tandemLefts[complId].size() == 1;
+				bool leftDetemined = tandemLefts[tandemId].size() == 1;
+									 //tandemRights[complId].size() == 1;
+				bool rightDetemined = tandemRights[tandemId].size() == 1;
+									  //tandemLefts[complId].size() == 1;
 				if (!leftDetemined && !rightDetemined)
 				{
 					for (size_t i = leftId; i < rightId; ++i)
