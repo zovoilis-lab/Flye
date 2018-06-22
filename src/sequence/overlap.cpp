@@ -150,29 +150,34 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 	auto hashTime = clock();
 	totalHashTime += double(hashTime - begin) / CLOCKS_PER_SEC;
 
-	size_t maxExtSeq = seqHitCount.size() - 1;
-	size_t selectedExtSeqs = 0;
+	//if there is a limit on the number of sequences to consider,
+	//sort by the decreasing number of k-mer hits and filter
+	//some out if needed
 	if (_maxCurOverlaps > 0)
 	{
+		static thread_local std::vector<std::pair<size_t, uint16_t>> topSeqs;
 		for (size_t i = 0; i < seqHitCount.size(); ++i)
 		{
 			if (seqHitCount[i] >= MIN_KMER_SURV_RATE * _minOverlap)
 			{
-				++selectedExtSeqs;
-				if ((int)selectedExtSeqs > 2 * _maxCurOverlaps)
-				{
-					maxExtSeq = i;
-					break;
-				}
+				topSeqs.emplace_back(i, seqHitCount[i]);
 			}
 		}
+		std::sort(topSeqs.begin(), topSeqs.end(),
+				  [](const std::pair<size_t, uint16_t> p1, 
+					 const std::pair<size_t, uint16_t>& p2) 
+					 {return p1.second > p2.second;});
+		for (size_t i = (size_t)_maxCurOverlaps; i < topSeqs.size(); ++i)
+		{
+			seqHitCount[topSeqs[i].first] = 0;
+		}
+		topSeqs.clear();
 	}
 
 	thread_local static cuckoohash_map<FastaRecord::Id, 
 									   MatchVecWrapper> seqMatches;
 	for (auto& match : vecMatches)
 	{
-		if (match.extId.rawId() > maxExtSeq) continue;
 		if (seqHitCount[match.extId.rawId()] < 
 			MIN_KMER_SURV_RATE * _minOverlap) continue;
 
@@ -452,8 +457,8 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 
 		totalBackLoop += double(clock() - dpEnd) / CLOCKS_PER_SEC;
 
-		if (_maxCurOverlaps > 0 &&
-			detectedOverlaps.size() > (size_t)_maxCurOverlaps) break;
+		//if (_maxCurOverlaps > 0 &&
+		//	detectedOverlaps.size() > (size_t)_maxCurOverlaps) break;
 	}
 
 	/*Logger::get().debug() << "---------";
