@@ -178,22 +178,26 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 		}
 	}
 
-	thread_local static cuckoohash_map<FastaRecord::Id, 
-									   MatchVecWrapper> seqMatches;
-	seqMatches.clear();
-
-	for (auto& match : vecMatches)
+	//leave only the filtered matches
+	size_t insPoint = 0;
+	for (size_t i = 0; i < vecMatches.size(); ++i)
 	{
-		if (seqHitCount[match.extId.rawId()] < 
-			MIN_KMER_SURV_RATE * _minOverlap) continue;
-		
-		//if key was not found, this will initialize a new vector 
-		//with given capacity
-		seqMatches.upsert(match.extId,
-			  [&match](MatchVecWrapper& v)
-			  {v->push_back(match);},
-			  match, /*capacity*/ 2 * seqHitCount[match.extId.rawId()]);
+		if (seqHitCount[vecMatches[i].extId.rawId()] >= 
+			MIN_KMER_SURV_RATE * _minOverlap)
+		{
+			if (insPoint < i)
+			{
+				vecMatches[insPoint] = vecMatches[i];
+			}
+			++insPoint;
+		}
 	}
+	vecMatches.resize(insPoint);
+
+	//group by extId
+	std::stable_sort(vecMatches.begin(), vecMatches.end(),
+			  		 [](const KmerMatch& k1, const KmerMatch& k2)
+			  		 {return k1.extId < k2.extId;});
 	
   	clock_t end = clock();
   	double elapsed_secs = double(end - hashTime) / CLOCKS_PER_SEC;
@@ -201,10 +205,22 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 
 	std::vector<OverlapRange> detectedOverlaps;
 	int uniqueCandidates = 0;
-	for (auto& seqVec : seqMatches.lock_table())
+	//for (auto& seqVec : seqMatches.lock_table())
+	size_t extRangeBegin = 0;
+	size_t extRangeEnd = 0;
+	while(true)
 	{
-		std::vector<KmerMatch>& matchesList = *seqVec.second;
-		int32_t extLen = _seqContainer.seqLen(seqVec.first);
+		extRangeBegin = extRangeEnd;
+		while (extRangeEnd < vecMatches.size() &&
+			   vecMatches[extRangeBegin].extId == 
+			   vecMatches[extRangeEnd].extId) ++extRangeEnd;
+		if (extRangeEnd == vecMatches.size()) break;
+
+		//std::vector<KmerMatch>& matchesList = *seqVec.second;
+		std::vector<KmerMatch> matchesList(vecMatches.begin() + extRangeBegin,
+										   vecMatches.begin() + extRangeEnd);
+		FastaRecord::Id extId = vecMatches[extRangeBegin].extId;
+		int32_t extLen = _seqContainer.seqLen(extId);
 
 		//pre-filtering
 		int32_t minCur = matchesList.front().curPos;
@@ -416,7 +432,7 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 			if (extKmers.empty())
 			{
 				for (auto extKmerPos : IterKmers(_seqContainer
-												 .getSeq(seqVec.first)))
+												 .getSeq(extId)))
 				{
 					extKmers.push_back(extKmerPos.kmer);
 				}
