@@ -105,12 +105,9 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 	outSuggestChimeric = false;
 	int32_t curLen = fastaRec.sequence.length();
 
-	thread_local static std::vector<uint16_t> seqHitCount;
-	if (seqHitCount.size() != _seqContainer.getMaxSeqId())
-	{
-		seqHitCount = std::vector<uint16_t>(_seqContainer.getMaxSeqId(), 0);
-	}
-	seqHitCount.assign(seqHitCount.size(), 0);
+	static thread_local cuckoohash_map<FastaRecord::Id, uint16_t> seqHitCount;
+	seqHitCount.clear();
+	auto lockedHitCount = seqHitCount.lock_table();
 
 	thread_local static std::vector<KmerMatch> vecMatches;
 	vecMatches.clear();
@@ -137,10 +134,10 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 			if (prevSeqId != extReadPos.readId &&
 				prevSeqId != extReadPos.readId.rc())
 			{
-				if (seqHitCount[extReadPos.readId.rawId()] <
+				if (lockedHitCount[extReadPos.readId] <
 					std::numeric_limits<unsigned char>::max())
 				{
-					++seqHitCount[extReadPos.readId.rawId()];
+					++lockedHitCount[extReadPos.readId];
 				}
 			}
 			prevSeqId = extReadPos.readId;
@@ -158,23 +155,24 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 	//some out if needed
 	if (_maxCurOverlaps > 0)
 	{
-		static thread_local std::vector<std::pair<size_t, uint16_t>> topSeqs;
+		static thread_local std::vector<std::pair<FastaRecord::Id, 
+												  uint16_t>> topSeqs;
 		topSeqs.clear();
 
-		for (size_t i = 0; i < seqHitCount.size(); ++i)
+		for (auto seqCount : lockedHitCount)
 		{
-			if (seqHitCount[i] >= MIN_KMER_SURV_RATE * _minOverlap)
+			if (seqCount.second >= MIN_KMER_SURV_RATE * _minOverlap)
 			{
-				topSeqs.emplace_back(i, seqHitCount[i]);
+				topSeqs.emplace_back(seqCount.first, seqCount.second);
 			}
 		}
 		std::sort(topSeqs.begin(), topSeqs.end(),
-				  [](const std::pair<size_t, uint16_t> p1, 
-					 const std::pair<size_t, uint16_t>& p2) 
+				  [](const std::pair<FastaRecord::Id, uint16_t> p1, 
+					 const std::pair<FastaRecord::Id, uint16_t>& p2) 
 					 {return p1.second > p2.second;});
 		for (size_t i = (size_t)_maxCurOverlaps; i < topSeqs.size(); ++i)
 		{
-			seqHitCount[topSeqs[i].first] = 0;
+			lockedHitCount[topSeqs[i].first] = 0;
 		}
 	}
 
@@ -182,7 +180,7 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 	size_t insPoint = 0;
 	for (size_t i = 0; i < vecMatches.size(); ++i)
 	{
-		if (seqHitCount[vecMatches[i].extId.rawId()] >= 
+		if (lockedHitCount[vecMatches[i].extId] >= 
 			MIN_KMER_SURV_RATE * _minOverlap)
 		{
 			if (insPoint < i)
