@@ -47,7 +47,7 @@ private:
 	ExtensionInfo extendContig(FastaRecord::Id startingRead);
 	int   countRightExtensions(FastaRecord::Id readId) const;
 	bool  extendsRight(const OverlapRange& ovlp) const;
-	bool  isRightRepeat(FastaRecord::Id readId) const;
+	//bool  isRightRepeat(FastaRecord::Id readId) const;
 	void  convertToContigs();
 
 	const SequenceContainer& _readsContainer;

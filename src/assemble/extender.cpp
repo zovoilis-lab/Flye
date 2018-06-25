@@ -22,7 +22,7 @@ Extender::ExtensionInfo Extender::extendContig(FastaRecord::Id startRead)
 
 	bool rightExtension = true;
 	FastaRecord::Id currentRead = startRead;
-	std::vector<int> numOverlaps;
+	std::vector<int> numExtensions;
 	ExtensionInfo exInfo;
 	exInfo.reads.push_back(startRead);
 	exInfo.assembledLength = _readsContainer.seqLen(startRead);
@@ -42,15 +42,15 @@ Extender::ExtensionInfo Extender::extendContig(FastaRecord::Id startRead)
 
 	while(true)
 	{
-		auto overlaps = _ovlpContainer.lazySeqOverlaps(currentRead);
+		auto& overlaps = _ovlpContainer.lazySeqOverlaps(currentRead);
 		std::vector<OverlapRange> extensions;
-		int innerOverlaps = 0;
+		//int innerOverlaps = 0;
 		for (auto& ovlp : overlaps)
 		{
-			if (_innerReads.contains(ovlp.extId)) ++innerOverlaps;
+			//if (_innerReads.contains(ovlp.extId)) ++innerOverlaps;
 			if (this->extendsRight(ovlp)) extensions.push_back(ovlp);
 		}
-		numOverlaps.push_back(extensions.size());
+		numExtensions.push_back(extensions.size());
 
 		//sort from longes to shortest overlap
 		std::sort(extensions.begin(), extensions.end(), 
@@ -90,6 +90,7 @@ Extender::ExtensionInfo Extender::extendContig(FastaRecord::Id startRead)
 				this->countRightExtensions(ovlp.extId) > minExtensions)
 			{
 				foundExtension = true;
+				exInfo.assembledLength += ovlp.rightShift;
 				currentRead = ovlp.extId;
 				break;
 			}
@@ -99,11 +100,11 @@ Extender::ExtensionInfo Extender::extendContig(FastaRecord::Id startRead)
 				maxExtension = &ovlp;
 			}
 		}
-
 		//in case of suspicious extension make the farthest jump possible
 		if (!foundExtension && maxExtension)
 		{
 			++exInfo.numSuspicious;
+			exInfo.assembledLength += maxExtension->rightShift;
 			foundExtension = true;
 			currentRead = maxExtension->extId;
 		}
@@ -111,14 +112,6 @@ Extender::ExtensionInfo Extender::extendContig(FastaRecord::Id startRead)
 		bool overlapsVisited = _innerReads.contains(currentRead);
 		if (foundExtension) 
 		{
-			for (auto& ovlp : extensions)
-			{
-				if (ovlp.extId == currentRead)
-				{
-					exInfo.assembledLength += ovlp.rightShift;
-					break;
-				}
-			}
 			exInfo.reads.push_back(currentRead);
 			overlapsVisited |= currentReads.count(currentRead);
 		}
@@ -155,9 +148,9 @@ Extender::ExtensionInfo Extender::extendContig(FastaRecord::Id startRead)
 		currentReads.insert(currentRead.rc());
 	}
 
-	int64_t meanOvlps = 0;
-	for (int num : numOverlaps) meanOvlps += num;
-	exInfo.meanOverlaps = meanOvlps / numOverlaps.size();
+	//int64_t meanOvlps = 0;
+	//for (int num : numOverlaps) meanOvlps += num;
+	exInfo.meanOverlaps = median(numExtensions);
 
 	return exInfo;
 }
@@ -186,9 +179,10 @@ void Extender::assembleContigs(bool addSingletons)
 		}
 		if (numInnerOvlp > 0) return true;
 
+		int maxExtensions = _chimDetector.getOverlapCoverage() * 10;
 		if (_chimDetector.isChimeric(startRead) ||
-			this->isRightRepeat(startRead) ||
-			this->isRightRepeat(startRead.rc())) return true;
+			this->countRightExtensions(startRead) > maxExtensions ||
+			this->countRightExtensions(startRead.rc()) > maxExtensions) return true;
 		
 		//Good to go!
 		ExtensionInfo exInfo = this->extendContig(startRead);
@@ -232,8 +226,9 @@ void Extender::assembleContigs(bool addSingletons)
 		for (auto& readId : exInfo.reads)
 		{
 			//repetitive read - will bring to many "off-target" reads
-			if (this->isRightRepeat(readId) ||
-				this->isRightRepeat(readId.rc())) continue;
+			int maxExtensions = exInfo.meanOverlaps * 2;
+			if (this->countRightExtensions(readId) > maxExtensions||
+				this->countRightExtensions(readId.rc()) > maxExtensions) continue;
 
 			//so each read is covered from the left and right
 			for (auto& ovlp : _ovlpContainer.lazySeqOverlaps(readId))
@@ -359,11 +354,11 @@ int Extender::countRightExtensions(FastaRecord::Id readId) const
 	return count;
 }
 
-bool Extender::isRightRepeat(FastaRecord::Id readId) const
+/*bool Extender::isRightRepeat(FastaRecord::Id readId) const
 {
 	int maxExtensions = _chimDetector.getOverlapCoverage() * 10;
 	return this->countRightExtensions(readId) >= maxExtensions;
-}
+}*/
 
 bool Extender::extendsRight(const OverlapRange& ovlp) const
 {
