@@ -2,6 +2,9 @@
 //This file is a part of Ragout program.
 //Released under the BSD license (see LICENSE file)
 
+#include <vector>
+#include <unordered_map>
+
 template <class T>
 struct SetNode
 {
@@ -46,3 +49,30 @@ void unionSet(SetNode<T>* node1, SetNode<T>* node2)
 		}
 	}
 }
+
+template <typename T>
+std::unordered_map<SetNode<T>*, std::vector<T>> 
+	groupBySet(const std::vector<SetNode<T>*>& sets)
+{
+	std::unordered_map<SetNode<T>*, std::vector<T>> groups;
+	for (auto& setNode : sets)
+	{
+		groups[findSet(setNode)].push_back(setNode->data);
+	}
+	return groups;
+}
+
+//Vector that stores the set nodes and automatically deletes
+//them in the end. Does not have virtual table - do not use polymorphism!
+//All set elements should be pushed before any set operations are
+//applied (like union) - do not modify the vector afterwards
+template <typename T>
+class SetVec : public std::vector<SetNode<T>*>
+{
+public:
+	~SetVec()
+	{
+		for (auto& x : *this) delete x;
+	}
+};
+
