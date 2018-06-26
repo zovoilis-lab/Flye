@@ -144,12 +144,12 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 	vecMatches.clear();
 	curKmers.clear();
 
+	//count kmer hits
 	for (auto curKmerPos : IterKmers(fastaRec.sequence))
 	{
 		curKmers.push_back(curKmerPos.kmer);
 		if (!_vertexIndex.isSolid(curKmerPos.kmer)) continue;
 
-		//solidPos.push_back(curKmerPos.position);
 		FastaRecord::Id prevSeqId = FastaRecord::ID_NONE;
 		for (const auto& extReadPos : _vertexIndex.iterKmerPos(curKmerPos.kmer))
 		{
@@ -170,10 +170,6 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 				}
 			}
 			prevSeqId = extReadPos.readId;
-
-			vecMatches.emplace_back(curKmerPos.position, 
-									extReadPos.position,
-									extReadPos.readId);
 		}
 	}
 	//auto hashTime = clock();
@@ -185,7 +181,6 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 	if (_maxCurOverlaps > 0)
 	{
 		topSeqs.clear();
-
 		for (auto seqCount : lockedHitCount)
 		{
 			if (seqCount.second >= MIN_KMER_SURV_RATE * _minOverlap)
@@ -203,22 +198,25 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 		}
 	}
 
-	//leave only the filtered matches
-	size_t insPoint = 0;
-	for (size_t i = 0; i < vecMatches.size(); ++i)
+	//finally full the vector matches
+	for (auto curKmerPos : IterKmers(fastaRec.sequence))
 	{
-		if (lockedHitCount[vecMatches[i].extId] >= 
-			MIN_KMER_SURV_RATE * _minOverlap)
+		if (!_vertexIndex.isSolid(curKmerPos.kmer)) continue;
+		for (const auto& extReadPos : _vertexIndex.iterKmerPos(curKmerPos.kmer))
 		{
-			if (insPoint < i)
+			//no trivial matches
+			if ((extReadPos.readId == fastaRec.id &&
+				extReadPos.position == curKmerPos.position)) continue;
+
+			if (lockedHitCount[extReadPos.readId] >= 
+				MIN_KMER_SURV_RATE * _minOverlap)
 			{
-				vecMatches[insPoint] = vecMatches[i];
+				vecMatches.emplace_back(curKmerPos.position, 
+										extReadPos.position,
+										extReadPos.readId);
 			}
-			++insPoint;
 		}
 	}
-	vecMatches.resize(insPoint);
-
 	//group by extId
 	std::stable_sort(vecMatches.begin(), vecMatches.end(),
 			  		 [](const KmerMatch& k1, const KmerMatch& k2)
