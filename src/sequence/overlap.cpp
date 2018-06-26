@@ -10,6 +10,8 @@
 #include <ctime>
 #include <queue>
 #include <cmath>
+#include <chrono>
+#include <ctime>
 
 #include "overlap.h"
 #include "../common/config.h"
@@ -67,7 +69,7 @@ namespace
 		FastaRecord::Id extId;
 	};
 
-	struct MatchVecWrapper
+	/*struct MatchVecWrapper
 	{
 		MatchVecWrapper(){}
 		MatchVecWrapper(const KmerMatch& match, size_t capacity):
@@ -79,7 +81,7 @@ namespace
 		std::shared_ptr<std::vector<KmerMatch>> v;
 		std::vector<KmerMatch>* operator->() {return v.get();}
 		std::vector<KmerMatch>& operator*() {return *v;}
-	};
+	};*/
 }
 
 
@@ -93,6 +95,7 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 	const int MAX_LOOK_BACK = 50;
 	const int kmerSize = Parameters::get().kmerSize;
 
+
 	//static std::ofstream fout("../kmers.txt");
 
 	//static float totalDpTime = 0;
@@ -102,24 +105,27 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 	//static float totalBackLoop = 0;
 	//clock_t begin = clock();
 
-	outSuggestChimeric = false;
-	int32_t curLen = fastaRec.sequence.length();
-
+	//cache memory-intensive containers as
+	//many parallel memory allocations slow us down significantly
 	static thread_local cuckoohash_map<FastaRecord::Id, uint16_t> seqHitCount;
 	auto lockedHitCount = seqHitCount.lock_table();
 	thread_local static std::vector<KmerMatch> vecMatches;
-	thread_local static std::vector<Kmer> curKmers;
-
-	static thread_local std::vector<Kmer> curOvlpKmers;
-	static thread_local std::vector<Kmer> extOvlpKmers;
-	static thread_local std::vector<Kmer> intersect;
-
-	static thread_local 
-		std::vector<std::pair<FastaRecord::Id, uint16_t>> topSeqs;
-
 	static thread_local std::vector<KmerMatch> matchesList;
 	static thread_local std::vector<int32_t> scoreTable;
 	static thread_local std::vector<int32_t> backtrackTable;
+
+	//although once in a while shrink allocated memory size
+	static thread_local auto prevClenup = std::chrono::system_clock::now();
+	if ((std::chrono::system_clock::now() - prevClenup) > 
+		std::chrono::seconds(60))
+	{
+		Logger::get().debug() << "Cache cleanup!";
+		prevClenup = std::chrono::system_clock::now();
+		vecMatches.reserve(vecMatches.size());
+		matchesList.resize(matchesList.size());
+		scoreTable.resize(scoreTable.size());
+		backtrackTable.resize(backtrackTable.size());
+	}
 
 	static clock_t prevTime = clock();	//intentionally shared
 	clock_t timeNow = clock();
@@ -129,11 +135,6 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 		Logger::get().debug() << "----------";
 		Logger::get().debug() << "seqHitCount: " << lockedHitCount.size() << " " << lockedHitCount.capacity();
 		Logger::get().debug() << "vecMatches: " << vecMatches.size() << " " << vecMatches.capacity();
-		Logger::get().debug() << "curKmers: " << curKmers.size() << " " << curKmers.capacity();
-		Logger::get().debug() << "curOvlpKmers: " << curOvlpKmers.size() << " " << curOvlpKmers.capacity();
-		Logger::get().debug() << "extOvlpKmers: " << extOvlpKmers.size() << " " << extOvlpKmers.capacity();
-		Logger::get().debug() << "intersect: " << intersect.size() << " " << intersect.capacity();
-		Logger::get().debug() << "topSeqs: " << topSeqs.size() << " " << topSeqs.capacity();
 		Logger::get().debug() << "matchesList: " << matchesList.size() << " " << matchesList.capacity();
 		Logger::get().debug() << "scoreTable: " << scoreTable.size() << " " << scoreTable.capacity();
 		Logger::get().debug() << "backtrackTable: " << backtrackTable.size() << " " << backtrackTable.capacity();
@@ -142,7 +143,11 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 
 	lockedHitCount.clear();
 	vecMatches.clear();
-	curKmers.clear();
+
+	outSuggestChimeric = false;
+	int32_t curLen = fastaRec.sequence.length();
+	std::vector<Kmer> curKmers;
+	curKmers.reserve(curLen);
 
 	//count kmer hits
 	for (auto curKmerPos : IterKmers(fastaRec.sequence))
@@ -180,7 +185,8 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 	//some out if needed
 	if (_maxCurOverlaps > 0)
 	{
-		topSeqs.clear();
+		std::vector<std::pair<FastaRecord::Id, uint16_t>> topSeqs;
+		topSeqs.reserve(lockedHitCount.size());
 		for (auto seqCount : lockedHitCount)
 		{
 			if (seqCount.second >= MIN_KMER_SURV_RATE * _minOverlap)
@@ -445,11 +451,8 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 		for (auto& ovlp : ovlpCandidates)
 		{
 			int rate = std::max(1, ovlp.curRange() / 5000);
-
-			curOvlpKmers.clear();
-			extOvlpKmers.clear();
-			intersect.clear();
-			
+			std::vector<Kmer> extOvlpKmers;
+			extOvlpKmers.reserve(ovlp.extRange());
 			for (auto extKmerPos : IterKmers(_seqContainer.getSeq(extId),
 											 ovlp.extBegin, 
 											 ovlp.extRange() - kmerSize))
@@ -459,12 +462,17 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 					extOvlpKmers.push_back(extKmerPos.kmer);
 				}
 			}
+			std::vector<Kmer> curOvlpKmers;
+			curOvlpKmers.reserve(ovlp.curRange());
 			for (int i = ovlp.curBegin; i < ovlp.curEnd - kmerSize; i += rate)
 			{
 				curOvlpKmers.push_back(curKmers[i]);
 			}
+
 			std::sort(curOvlpKmers.begin(), curOvlpKmers.end());
 			std::sort(extOvlpKmers.begin(), extOvlpKmers.end());
+			std::vector<Kmer> intersect;
+			intersect.reserve(curOvlpKmers.size());
 			std::set_intersection(curOvlpKmers.begin(), curOvlpKmers.end(),
 								  extOvlpKmers.begin(), extOvlpKmers.end(),
 								  std::back_inserter(intersect));
