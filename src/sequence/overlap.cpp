@@ -119,12 +119,11 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 	if ((std::chrono::system_clock::now() - prevClenup) > 
 		std::chrono::seconds(60))
 	{
-		Logger::get().debug() << "Cache cleanup!";
 		prevClenup = std::chrono::system_clock::now();
-		vecMatches.reserve(vecMatches.size());
-		matchesList.resize(matchesList.size());
-		scoreTable.resize(scoreTable.size());
-		backtrackTable.resize(backtrackTable.size());
+		vecMatches.shrink_to_fit();
+		matchesList.shrink_to_fit();
+		scoreTable.shrink_to_fit();
+		backtrackTable.shrink_to_fit();
 	}
 
 	static clock_t prevTime = clock();	//intentionally shared
