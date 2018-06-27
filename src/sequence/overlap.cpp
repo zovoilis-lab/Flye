@@ -523,47 +523,7 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 		//computing divergence
 		for (auto& ovlp : ovlpCandidates)
 		{
-			/*int rate = std::max(1, ovlp.curRange() / 5000);
-			std::vector<Kmer> extOvlpKmers;
-			extOvlpKmers.reserve(ovlp.extRange());
-			for (auto extKmerPos : IterKmers(_seqContainer.getSeq(extId),
-											 ovlp.extBegin, 
-											 ovlp.extRange() - kmerSize))
-			{
-				if (extKmerPos.position % rate == 0)
-				{
-					extOvlpKmers.push_back(extKmerPos.kmer);
-				}
-			}
-			std::vector<Kmer> curOvlpKmers;
-			curOvlpKmers.reserve(ovlp.curRange());
-			for (int i = ovlp.curBegin; i < ovlp.curEnd - kmerSize; i += rate)
-			{
-				curOvlpKmers.push_back(curKmers[i]);
-			}
-
-			std::sort(curOvlpKmers.begin(), curOvlpKmers.end());
-			std::sort(extOvlpKmers.begin(), extOvlpKmers.end());
-			std::vector<Kmer> intersect;
-			intersect.reserve(curOvlpKmers.size());
-			std::set_intersection(curOvlpKmers.begin(), curOvlpKmers.end(),
-								  extOvlpKmers.begin(), extOvlpKmers.end(),
-								  std::back_inserter(intersect));
-
-			size_t uniqueCur = 1;
-			for (size_t i = 1; i < curOvlpKmers.size(); ++i)
-			{
-				if (curOvlpKmers[i - 1] != curOvlpKmers[i]) ++uniqueCur;
-			}
-			size_t uniqueInt = 1;
-			for (size_t i = 1; i < intersect.size(); ++i)
-			{
-				if (intersect[i - 1] != intersect[i]) ++uniqueInt;
-			}
-			float kmerDiv = (float)uniqueInt * rate / uniqueCur;
-			float seqDiv = std::log(1 / kmerDiv) / kmerSize;*/
 			float seqDiv = ovlp.seqDivergence;
-
 			float alnDiff = kswAlign(fastaRec.sequence
 										.substr(ovlp.curBegin, ovlp.curRange()),
 									 _seqContainer.getSeq(extId)
