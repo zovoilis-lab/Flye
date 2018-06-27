@@ -7,6 +7,7 @@
 #include <unordered_set>
 #include <unordered_map>
 #include <iomanip>
+#include <cmath>
 
 #include "../common/config.h"
 #include "../common/logger.h"
@@ -135,8 +136,8 @@ bool ChimeraDetector::testReadByCoverage(FastaRecord::Id readId)
 		maxCov = std::max(maxCov, cov);
 	}
 	//int meanCov = sumCov ? sumCov / coverage.size() : 0;
-	int threshold = round((float)std::min(_overlapCoverage, maxCov) /
-						  MAX_DROP_RATE);
+	int threshold = std::round((float)std::min(_overlapCoverage, maxCov) /
+						  	   MAX_DROP_RATE);
 
 	for (auto cov : coverage)
 	{
