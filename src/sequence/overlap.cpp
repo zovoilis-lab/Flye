@@ -206,7 +206,7 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 	const int MAX_LOOK_BACK = 50;
 	const int kmerSize = Parameters::get().kmerSize;
 
-	static std::ofstream fout("../kmers.txt");
+	//static std::ofstream fout("../kmers.txt");
 
 	//static float totalDpTime = 0;
 	//static float totalKmerTime = 0;
@@ -532,7 +532,7 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 		}
 
 		//benchmarking divergence
-		for (auto& ovlp : extOverlaps)
+		/*for (auto& ovlp : extOverlaps)
 		{
 			float seqDiv = ovlp.seqDivergence;
 			float alnDiff = kswAlign(fastaRec.sequence
@@ -541,7 +541,7 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 									 	.substr(ovlp.extBegin, ovlp.extRange()),
 									 1, -2, 2, 1, false);
 			fout << seqDiv << " " << alnDiff << std::endl;
-			/*if (alnDiff - seqDiv > 0.1)
+			if (alnDiff - seqDiv > 0.1)
 			{
 				kswAlign(fastaRec.sequence
 							.substr(ovlp.curBegin, ovlp.curRange()),
@@ -549,8 +549,8 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 							.substr(ovlp.extBegin, ovlp.extRange()),
 						 1, -2, 2, 1, true);
 
-			}*/
-		}
+			}
+		}*/
 		
 		//selecting the best
 		if (_onlyMaxExt)
