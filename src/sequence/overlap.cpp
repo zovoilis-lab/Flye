@@ -25,7 +25,8 @@
 namespace
 {
 	float kswAlign(const DnaSequence& seqT, const DnaSequence seqQ,
-				   int matchScore, int misScore, int gapOpen, int gapExtend)
+				   int matchScore, int misScore, int gapOpen, int gapExtend,
+				   bool showAlignment)
 	{
 		std::vector<uint8_t> tseq(seqT.length());
 		for (size_t i = 0; i < (size_t)seqT.length(); ++i)
@@ -62,12 +63,16 @@ namespace
 					  END_BONUS, FLAG, &ez);
 		
 		//decode CIGAR
-		/*std::string strQ;
-		for (auto x : qseq) strQ += "ACGT"[x];
+		
+		std::string strQ;
 		std::string strT;
-		for (auto x : tseq) strT += "ACGT"[x];
 		std::string alnQry;
-		std::string alnTrg;*/
+		std::string alnTrg;
+		if (showAlignment)
+		{
+			for (auto x : qseq) strQ += "ACGT"[x];
+			for (auto x : tseq) strT += "ACGT"[x];
+		}
 
 		size_t posQry = 0;
 		size_t posTrg = 0;
@@ -85,27 +90,58 @@ namespace
 				{
 					if (tseq[posTrg + i] == qseq[posQry + i]) ++matches;
 				}
-                //alnQry += strQ.substr(posQry, size);
-                //alnTrg += strT.substr(posTrg, size);
+				if (showAlignment)
+				{
+					alnQry += strQ.substr(posQry, size);
+					alnTrg += strT.substr(posTrg, size);
+				}
 				posQry += size;
 				posTrg += size;
 			}
             else if (op == 'I')
 			{
-                //alnQry += strQ.substr(posQry, size);
-                //alnTrg += std::string(size, '-');
+				if (showAlignment)
+				{
+					alnQry += strQ.substr(posQry, size);
+					alnTrg += std::string(size, '-');
+				}
                 posQry += size;
 			}
             else //D
 			{
-                //alnQry += std::string(size, '-');
-               	//alnTrg += strT.substr(posTrg, size);
+				if (showAlignment)
+				{
+					alnQry += std::string(size, '-');
+					alnTrg += strT.substr(posTrg, size);
+				}
 				posTrg += size;
 			}
 		}
         float errRate = 1 - float(matches) / alnLength;
-
 		free(ez.cigar);
+
+		if (showAlignment)
+		{
+			for (size_t chunk = 0; chunk <= alnQry.size() / 100; ++chunk)
+			{
+				for (size_t i = chunk * 100; 
+					 i < std::min((chunk + 1) * 100, alnQry.size()); ++i)
+				{
+					std::cout << alnQry[i];
+				}
+				std::cout << "\n";
+				for (size_t i = chunk * 100; 
+					 i < std::min((chunk + 1) * 100, alnQry.size()); ++i)
+				{
+					std::cout << alnTrg[i];
+				}
+				//std::cout << alnQry;
+				std::cout << "\n\n";
+				//std::cout << std::endl;
+			}
+			std::cout << "\n----------------\n" << std::endl;
+		}
+
 		return errRate;
 	}
 }
@@ -405,9 +441,17 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 		std::vector<int32_t> shifts;
 		std::vector<std::pair<int32_t, int32_t>> kmerMatches;
 
+		
 		for (int32_t chainStart = backtrackTable.size() - 1; 
 			 chainStart > 0; --chainStart)
 		{
+			//always start from a local maximum
+			while (chainStart > 0 && 
+				   scoreTable[chainStart - 1] > scoreTable[chainStart]) 
+			{
+				--chainStart;
+			}
+
 			if (backtrackTable[chainStart] == -1) continue;
 
 			int32_t pos = chainStart;
@@ -475,14 +519,40 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 				}
 
 				float kmerDiv = (float)chainLength / seedPos;
-				ovlp.seqDivergence = std::log(1 / kmerDiv) / kmerSize;
+				float matchDiv = std::log(1 / kmerDiv) / kmerSize;
+				float gapDiv = (float)abs(ovlp.extRange() - ovlp.curRange()) /
+							   std::max(ovlp.extRange(), ovlp.curRange());
+				ovlp.seqDivergence = matchDiv + gapDiv;
 
-				extOverlaps.push_back(ovlp);
+				if (ovlp.seqDivergence < _maxDivergence)
+				{
+					extOverlaps.push_back(ovlp);
+				}
 			}
+		}
+
+		//benchmarking divergence
+		for (auto& ovlp : extOverlaps)
+		{
+			float seqDiv = ovlp.seqDivergence;
+			float alnDiff = kswAlign(fastaRec.sequence
+										.substr(ovlp.curBegin, ovlp.curRange()),
+									 _seqContainer.getSeq(extId)
+									 	.substr(ovlp.extBegin, ovlp.extRange()),
+									 1, -2, 2, 1, false);
+			fout << seqDiv << " " << alnDiff << std::endl;
+			/*if (alnDiff - seqDiv > 0.1)
+			{
+				kswAlign(fastaRec.sequence
+							.substr(ovlp.curBegin, ovlp.curRange()),
+						 _seqContainer.getSeq(extId)
+							.substr(ovlp.extBegin, ovlp.extRange()),
+						 1, -2, 2, 1, true);
+
+			}*/
 		}
 		
 		//selecting the best
-		std::vector<OverlapRange> ovlpCandidates;
 		if (_onlyMaxExt)
 		{
 			OverlapRange* maxOvlp = nullptr;
@@ -493,10 +563,11 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 					maxOvlp = &ovlp;
 				}
 			}
-			if (maxOvlp) ovlpCandidates.push_back(*maxOvlp);
+			if (maxOvlp) detectedOverlaps.push_back(*maxOvlp);
 		}
 		else
 		{
+			std::vector<OverlapRange> primOverlaps;
 			//sort by decreasing score
 			std::sort(extOverlaps.begin(), extOverlaps.end(),
 					  [](const OverlapRange& r1, const OverlapRange& r2)
@@ -505,9 +576,9 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 			for (auto& ovlp : extOverlaps)
 			{
 				bool isContained = false;
-				for (auto& prim : ovlpCandidates)
+				for (auto& prim : primOverlaps)
 				{
-					if (ovlp.containedBy(prim))
+					if (ovlp.containedBy(prim) && prim.score > ovlp.score)
 					{
 						isContained = true;
 						break;
@@ -515,26 +586,14 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 				}
 				if (!isContained)
 				{
-					ovlpCandidates.push_back(ovlp);
+					primOverlaps.push_back(ovlp);
 				}
 			}
+			for (auto& ovlp : primOverlaps)
+			{
+				detectedOverlaps.push_back(ovlp);
+			}
 		}
-
-		//computing divergence
-		for (auto& ovlp : ovlpCandidates)
-		{
-			float seqDiv = ovlp.seqDivergence;
-			float alnDiff = kswAlign(fastaRec.sequence
-										.substr(ovlp.curBegin, ovlp.curRange()),
-									 _seqContainer.getSeq(extId)
-									 	.substr(ovlp.extBegin, ovlp.extRange()),
-									 1, -2, 2, 1);
-			fout << seqDiv << " " << alnDiff << std::endl;
-
-			ovlp.seqDivergence = seqDiv;
-			if (seqDiv < _maxDivergence) detectedOverlaps.push_back(ovlp);
-		}
-
 		//totalBackLoop += double(clock() - dpEnd) / CLOCKS_PER_SEC;
 	}
 
