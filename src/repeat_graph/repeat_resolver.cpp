@@ -418,13 +418,13 @@ void RepeatResolver::fixLongEdges()
 //no new repeats are resolved
 void RepeatResolver::resolveRepeats()
 {
-	bool perfectIter = true;
+	//make the first iteration resolve only high-confidence connections
+	bool perfectIter = true;	
 	while (true)
 	{
-		auto connections = this->getConnections();
-
 		float minSupport = perfectIter ? 1.0f : 
 						   Config::get("min_repeat_res_support");
+		auto connections = this->getConnections();
 		int resolvedConnections = 
 			this->resolveConnections(connections, minSupport);
 
@@ -432,8 +432,8 @@ void RepeatResolver::resolveRepeats()
 		_aligner.updateAlignments();
 
 		if (!resolvedConnections && !perfectIter) break;
-		perfectIter = !perfectIter;
 		this->findRepeats();
+		perfectIter = false;
 	}
 
 	GraphProcessor proc(_graph, _asmSeqs, _readSeqs);
