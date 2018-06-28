@@ -247,20 +247,20 @@ class JobPolishing(Job):
                         contig_lengths[ctg_id], coverage_stats[ctg_id]))
 
 
-class JobResolveRepeats(Job):
+class JobTrestle(Job):
     def __init__(self, args, work_dir, log_file):
-        super(JobResolveRepeats, self).__init__()
+        super(JobTrestle, self).__init__()
 
         self.args = args
-        self.resolve_dir = os.path.join(work_dir, "4-resolve")
+        self.resolve_dir = os.path.join(work_dir, "4-trestle")
         self.log_file = log_file
         self.max_iter = 10
         self.buffer_count = 0
         self.min_edge_cov = 10
         self.min_bridge_count = 5
-        self.min_bridge_diff = 3
+        self.min_bridge_diff = 5
 
-        self.name = "resolve"
+        self.name = "trestle"
         self.out_files["reps"] = os.path.join(self.resolve_dir, 
                                               "resolved_repeats.fasta")
         self.out_files["summary"] = os.path.join(self.resolve_dir, 
@@ -270,7 +270,7 @@ class JobResolveRepeats(Job):
         if not os.path.isdir(self.resolve_dir):
             os.mkdir(self.resolve_dir)
             
-        logger.info("Resolving unbridged repeats")
+        logger.info("Running Trestle: resolving unbridged repeats")
         
         #1. Process repeats from graph - each repeat should have its own folder
         logger.info("0.Generating repeat directories and files")
@@ -282,6 +282,7 @@ class JobResolveRepeats(Job):
         repeat_label = "repeat_{0}"
         orient_labels = ["forward", "reverse"]
         side_labels = ["in", "out"]
+        all_resolved_reps_dict = {}
         
         repeat_list, repeat_edges, all_edge_headers = rr.process_repeats(
                                           self.args.reads, 
@@ -346,6 +347,7 @@ class JobResolveRepeats(Job):
                 
                 logger.info("finding tentative divergence positions")
                 template_info = aln.get_contigs_info(polished_template)
+                template_len = template_info[str(rep)].length
                 div.find_divergence(alignment_file, polished_template, 
                                     template_info, frequency_path, position_path, 
                                     summary_path, config.vals["min_aln_rate"], 
@@ -366,10 +368,12 @@ class JobResolveRepeats(Job):
                                              "Polishing.Consensus.{0}.{1}.{2}")
                 polished_consensus = {}
                 cons_vs_cons = os.path.join(orient_dir, 
-                                          "consensus.{0}.{1}.{2}.vs.consensus.{0}.{1}.{2}.minimap.sam")
+                                          "consensus.{0}.{1}.{2}.vs.consensus.{3}.{4}.{5}.minimap.sam")
                 side_stats = os.path.join(orient_dir, "{0}_stats.txt")                     
                 integrated_stats = os.path.join(orient_dir, "integrated_stats.txt")
-                int_confirmed_path = os.path.join(orient_dir, "integrated_confirmed_positions.txt")
+                int_confirmed_path = os.path.join(orient_dir, "integrated_confirmed_positions.{0}.{1}.txt")
+                resolved_rep_name = "".join(["resolved_repeat_{0}".format(rep),".{0}.fasta"])
+                resolved_rep_path = os.path.join(orient_dir, resolved_rep_name)
                 """"""
                 test_pos = os.path.join(orient_dir, "test_pos.{0}.{1}.txt")
                 num_test = 10
@@ -386,10 +390,11 @@ class JobResolveRepeats(Job):
                                         self.min_edge_cov, position_path,
                                         partitioning.format(zero_it, side), 
                                         prev_partitionings[side], 
-                                        template_info[str(rep)].length, 
+                                        template_len, 
                                         side_stats.format(side))
                 rr.init_int_stats(rep, repeat_edges, zero_it, position_path, 
-                                  partitioning, template_info[str(rep)].length, integrated_stats)
+                                  partitioning, repeat_reads, template_len, 
+                                  integrated_stats)
                 logger.info("c.iterative procedure")
                 for it in range(1, self.max_iter+1):
                     both_break = True
@@ -397,7 +402,7 @@ class JobResolveRepeats(Job):
                         if edge_below_cov[side] or dup_part[side]:
                             continue
                         else:
-                            logger.info("iteration {0}, {1}".format(it, side))
+                            logger.info("iteration {0}, '{1}'".format(it, side))
                             both_break = False
                         #4a. Call consensus on partitioned reads
                         for edge_id in sorted(repeat_edges[rep][side]):
@@ -410,7 +415,7 @@ class JobResolveRepeats(Job):
                                         partitioning.format(it-1, side), 
                                         curr_reads)
                             curr_extended = polished_extended[(side, edge_id)]
-                            logger.info("polishing {0} {1} reads".format(side, edge_id))
+                            logger.info("polishing '{0} {1}' reads".format(side, edge_id))
                             pol_con_job = JobPolishing(self.args, 
                                        orient_dir,
                                        self.log_file, 
@@ -436,7 +441,7 @@ class JobResolveRepeats(Job):
                                                orient_dir, 
                                                self.args.platform, 
                                                read_al_file)
-                        logger.info("partitioning {0} reads".format(side))
+                        logger.info("partitioning '{0}' reads".format(side))
                         rr.partition_reads(repeat_edges[rep][side], it, side, 
                                            position_path, cons_align, 
                                            polished_template, read_align, 
@@ -470,11 +475,13 @@ class JobResolveRepeats(Job):
                         side_it[side] = it
                     rr.update_int_stats(rep, repeat_edges, side_it, cons_align, 
                                         polished_template, 
+                                        template_len,
                                         config.vals["min_aln_rate"], 
-                                        confirmed_pos_path, partitioning, 
-                                        integrated_stats)
+                                        confirmed_pos_path, int_confirmed_path, 
+                                        partitioning, integrated_stats)
                     if both_break:
                         break
+                logger.info("writing stats files")
                 for side in side_labels:
                     rr.finalize_side_stats(repeat_edges[rep][side], side_it[side], 
                                            side, cons_align, polished_template, 
@@ -485,8 +492,20 @@ class JobResolveRepeats(Job):
                                         self.max_iter, edge_below_cov[side],
                                         dup_part[side], 
                                         side_stats.format(side))
-                #rr.finalize_int_stats()min_bridge_count and min_bridge_diff
-
+                bridged, repeat_seqs = rr.finalize_int_stats(rep, repeat_edges, side_it, 
+                                                cons_align, polished_template, 
+                                                template_len, 
+                                                config.vals["min_aln_rate"], 
+                                                cons_vs_cons, 
+                                                polished_consensus, 
+                                                int_confirmed_path, 
+                                                partitioning, 
+                                                self.min_bridge_count, 
+                                                self.min_bridge_diff, 
+                                                integrated_stats, 
+                                                resolved_rep_path)
+                all_resolved_reps_dict.update(repeat_seqs)
+        fp.write_fasta_dict(all_resolved_reps_dict, self.out_files["reps"])
 
 def _create_job_list(args, work_dir, log_file):
     """
@@ -495,7 +514,7 @@ def _create_job_list(args, work_dir, log_file):
     jobs = []
 
     #Resolve Unbridged Repeats
-    jobs.append(JobResolveRepeats(args, work_dir, log_file))
+    jobs.append(JobTrestle(args, work_dir, log_file))
         
     """
         
