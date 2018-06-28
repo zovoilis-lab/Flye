@@ -142,12 +142,12 @@ size_t SequenceContainer::readFasta(std::vector<FastaRecord>& record,
 	int lineNo = 1;
 	std::string header; 
 	std::string sequence;
+	std::string nextLine;
 	try
 	{
 		while(!gzeof(fd))
 		{
 			//get a new line
-			std::string nextLine;
 			for (;;)
 			{
 				char* read = gzgets(fd, rawBuffer, BUF_SIZE);
@@ -170,7 +170,6 @@ size_t SequenceContainer::readFasta(std::vector<FastaRecord>& record,
 				{
 					if (sequence.empty()) throw ParseException("empty sequence");
 
-					sequence.shrink_to_fit();
 					record.emplace_back(DnaSequence(sequence), header, 
 										FastaRecord::ID_NONE);
 					sequence.clear();
@@ -187,6 +186,7 @@ size_t SequenceContainer::readFasta(std::vector<FastaRecord>& record,
 			}
 
 			++lineNo;
+			nextLine.clear();
 		}
 		
 		if (sequence.empty()) throw ParseException("empty sequence");
@@ -227,12 +227,12 @@ size_t SequenceContainer::readFastq(std::vector<FastaRecord>& record,
 	int lineNo = 1;
 	int stateCounter = 0;
 	std::string header; 
+	std::string nextLine;
 	try
 	{
 		while (!gzeof(fd))
 		{
 			//get a new line
-			std::string nextLine;
 			for (;;)
 			{
 				char* read = gzgets(fd, rawBuffer, BUF_SIZE);
@@ -271,6 +271,7 @@ size_t SequenceContainer::readFastq(std::vector<FastaRecord>& record,
 			}
 			stateCounter = (stateCounter + 1) % 4;
 			++lineNo;
+			nextLine.clear();
 		}
 	}
 	catch (ParseException& e)
@@ -308,7 +309,7 @@ void SequenceContainer::validateSequence(std::string& sequence)
 	const std::string VALID_CHARS = "ACGT";
 	for (size_t i = 0; i < sequence.length(); ++i)
 	{
-		if (VALID_CHARS.find(toupper(sequence[i])) == std::string::npos) 
+		if (DnaSequence::dnaToId(sequence[i]) == -1U)
 		{
 			sequence[i] = VALID_CHARS[rand() % 4];
 		}
