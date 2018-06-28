@@ -427,12 +427,12 @@ void RepeatResolver::resolveRepeats()
 						   Config::get("min_repeat_res_support");
 		int resolvedConnections = 
 			this->resolveConnections(connections, minSupport);
-		perfectIter = !perfectIter;
 
 		this->clearResolvedRepeats();
 		_aligner.updateAlignments();
 
 		if (!resolvedConnections && !perfectIter) break;
+		perfectIter = !perfectIter;
 		this->findRepeats();
 	}
 
