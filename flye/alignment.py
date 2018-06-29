@@ -73,21 +73,26 @@ class SynchronizedSamReader(object):
         qry_start = 0
         qry_pos = 0
 
-        first = True
+        left_hard = True
+        left_soft = True
         hard_clipped_left = 0
         hard_clipped_right = 0
+        soft_clipped_left = 0
+        soft_clipped_right = 0
         for token in self.cigar_parser.findall(cigar_str):
             size, op = int(token[:-1]), token[-1]
             if op == "H":
-                if first:
+                if left_hard:
                     qry_start += size
                     hard_clipped_left += size
                 else:
                     hard_clipped_right += size
             elif op == "S":
                 qry_pos += size
-                if first:
-                    qry_start += size
+                if left_soft:
+                    soft_clipped_left += size
+                else:
+                    soft_clipped_right += size
             elif op == "M":
                 qry_seq.append(read_str[qry_pos : qry_pos + size].upper())
                 trg_seq.append(ctg_str[trg_pos : trg_pos + size].upper())
@@ -103,7 +108,9 @@ class SynchronizedSamReader(object):
                 trg_pos += size
             else:
                 raise AlignmentException("Unsupported CIGAR operation: " + op)
-            first = False
+            left_hard = False
+            if op != "H":
+                left_soft = False
 
         trg_seq = "".join(trg_seq)
         qry_seq = "".join(qry_seq)
@@ -116,6 +123,8 @@ class SynchronizedSamReader(object):
         trg_end = trg_pos
         qry_end = qry_pos + hard_clipped_left
         qry_len = qry_end + hard_clipped_right
+        qry_start += soft_clipped_left
+        qry_end -= soft_clipped_right
 
         return (trg_start, trg_end, len(ctg_str), trg_seq,
                 qry_start, qry_end, qry_len, qry_seq, err_rate)
