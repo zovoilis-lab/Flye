@@ -379,6 +379,13 @@ def _read_partitioning_file(partitioning_file):
                 part_list.append(tuple(tokens))
     return part_list
 
+def find_coverage(frequency_file):
+    header, freqs = div.read_frequency_path(frequency_file)
+    cov_ind = header.index("Cov")
+    all_covs = [f[cov_ind] for f in freqs]
+    print min(all_covs), np.mean(all_covs), max(all_covs)
+    return np.mean(all_covs)
+
 def write_edge_reads(it, side, edge_id, all_reads, partitioning, out_file):
     all_reads_dict = fp.read_fasta_dict(all_reads)
     part_list = _read_partitioning_file(partitioning)
@@ -750,8 +757,8 @@ def init_side_stats(rep, side, repeat_edges, args, buffer_count, max_iter,
         f.write("{0:25}\t{1}\n".format("max_iter:", max_iter))
         f.write("{0:25}\t{1}\n".format("min_edge_cov:", min_edge_cov))
         f.write("\n")
-        f.write("The following numbers are calculated based on moving \n\
-                 into the repeat from the {0} direction\n".format(side))
+        f.write("The following numbers are calculated based on moving ")
+        f.write("into the repeat from the '{0}' direction\n\n".format(side))
         f.write("{0:25}\t{1}\n".format("Divergent Positions:", len(pos)))
         f.write("{0:25}\t{1}\n".format("Total Starting Reads:", 
                                        sum(edge_reads.values())))
@@ -812,7 +819,7 @@ def finalize_side_stats(edges, it, side, cons_align_path, template, min_aln_rate
                  stats_file):
     with open(stats_file, "a") as f:
         f.write("\n\n")
-        f.write("{0:26}\t{1}\n".format("Final Iter:", it))
+        f.write("{0:26}\t{1}\n\n".format("Final Iter:", it))
         f.write("Iteration terminated because:\n")
         if it == max_iter:
             f.write("Max iter reached\n")
@@ -849,8 +856,9 @@ def finalize_side_stats(edges, it, side, cons_align_path, template, min_aln_rate
                     cons_align[0][0].trg_start, 
                     _get_aln_end(cons_align[0][0].trg_start, cons_align[0][0].trg_seq), 
                     cons_align[0][0].trg_len))
-        f.write("(End of positions considered)\n")
-        f.write("{0:26}\t{1}\n\n".format(limit_label, limit_ind))
+        f.write("\n")
+        f.write("{0:26}\t{1}\n".format(limit_label, limit_ind))
+        f.write("(End of positions considered)\n\n")
         #Write out alignment indices for edges vs edges
         edge_pairs = sorted(combinations(edges, 2))
         for edge_one, edge_two in edge_pairs:
@@ -921,7 +929,7 @@ def finalize_side_stats(edges, it, side, cons_align_path, template, min_aln_rate
         f.write("\n")
 
 def init_int_stats(rep, repeat_edges, zero_it, position_path, partitioning, 
-                   all_reads_file, template_info, int_stats_file):
+                   all_reads_file, template_len, cov, int_stats_file):
     #Count edge reads
     side_reads = {}
     total_reads = 0
@@ -954,20 +962,21 @@ def init_int_stats(rep, repeat_edges, zero_it, position_path, partitioning,
     #Write to file
     with open(int_stats_file, 'w') as f:
         f.write("{0:16}\t{1}\n".format("Repeat:", rep))
-        f.write("{0:16}\t{1}\n".format("Template Length:", template_info))
+        f.write("{0:16}\t{1}\n".format("Template Length:", template_len))
+        f.write("{0:16}\t{1:.2f}\n".format("Avg Coverage:", cov))
         f.write("{0:16}\t{1}\n".format("# All Reads:", total_reads))
         f.write("{0:16}\t{1}\n\n".format("All Reads N50:", all_reads_n50))
         edge_headers = ["Side", "Edge", "# Reads"]
-        spaced_edge_header = map("{:8}".format, edge_headers)
+        spaced_edge_header = map("{:5}".format, edge_headers)
         f.write("\t".join(spaced_edge_header))
         f.write("\n")
         for side in sorted(repeat_edges[rep]):
             for edge_id in sorted(repeat_edges[rep][side]):
                 edge_values = [side, edge_id, side_reads[side][edge_id]]
-                spaced_values = map("{:8}".format, edge_values)
+                spaced_values = map("{:6}".format, edge_values)
                 f.write("\t".join(spaced_values))
                 f.write("\n")
-        f.write("{0:20}\t{1}\n".format("Internal", internal_reads))
+        f.write("{0:16}\t{1}\n".format("Internal", internal_reads))
         f.write("\n\n")
         f.write("\t".join(spaced_header))
         f.write("\n")
@@ -1047,6 +1056,7 @@ def finalize_int_stats(rep, repeat_edges, side_it, cons_align_path, template,
                        resolved_seq_file):
     #Resolved repeat seqs to be returned, NOT written
     resolved_repeats = {}
+    summ_vals = []
     with open(int_stats_file, "a") as f:
         f.write("\n\n")
         for side in sorted(repeat_edges[rep]):
@@ -1088,6 +1098,7 @@ def finalize_int_stats(rep, repeat_edges, side_it, cons_align_path, template,
         f.write("{0:26}\t{1}\n".format("Max Confirmed Pos Gap:", 
                                               max_position_gap))
         f.write("\n\n")
+        summ_vals.extend([len(int_confirmed), max_position_gap])
         #Write bridging reads
         side_headers_dict = {}
         all_headers = set()
@@ -1139,14 +1150,21 @@ def finalize_int_stats(rep, repeat_edges, side_it, cons_align_path, template,
             sorted_combos[0][0] - sorted_combos[1][0] >= min_bridge_diff):
             bridged = True
             bridged_edges = all_combos[sorted_combos[0][1]]
+        best_combo = sorted_combos[0][1]
+        best_support = sorted_combos[0][0]
+        best_against = best_support
+        for support, ind in sorted_combos[1:]:
+            best_against -= support
+        second_combo = sorted_combos[1][1]
+        second_support = sorted_combos[1][0]
         if bridged:
             f.write("BRIDGED\n")
-            f.write("Bridging Combo: {0}\n".format(sorted_combos[0][1]))
+            f.write("Bridging Combo: {0}\n".format(best_combo))
             br_ct_str = "{0} (min_bridge_count)".format(min_bridge_count)
             br_diff_str = "{0} + {1} (Combo {2} + min_bridge_diff)".format(
-                sorted_combos[1][0], min_bridge_diff, sorted_combos[1][1])
+                second_combo, min_bridge_diff, second_support)
             f.write("Support = {0}\t> {1}\n{2:12}\t> {3}\n".format(
-                sorted_combos[0][0], br_ct_str, "", br_diff_str))
+                best_support, br_ct_str, "", br_diff_str))
             f.write("Resolution:\n")
             for edge_pair in sorted(bridged_edges):
                 f.write("{0[0]} {0[1]:2}  {1:3} {2[0]} {2[1]}\n".format(
@@ -1156,9 +1174,10 @@ def finalize_int_stats(rep, repeat_edges, side_it, cons_align_path, template,
             f.write("\n\n")
         else:
             f.write("UNBRIDGED\n")
-            f.write("Best combo {0}\n".format(sorted_combos[0][1]))
+            f.write("Best combo {0}\n".format(best_combo))
             f.write("{0}\t{1}\n".format("min_bridge_count", min_bridge_count))
             f.write("{0}\t{1}\n\n\n".format("min_bridge_diff", min_bridge_diff))
+        summ_vals.extend([bridged, best_support, best_against])
         #If not bridged, find in/gap/out lengths and divergence rates
         if not bridged:
             #Write median in, out, and gap lengths
@@ -1211,6 +1230,7 @@ def finalize_int_stats(rep, repeat_edges, side_it, cons_align_path, template,
                 resolved_repeats[header] = ""
                 seq_dict = {header:""}
                 fp.write_fasta_dict(seq_dict, resolved_seq_file.format(i))
+            summ_vals.extend([""])
         #If bridged, find overlap and construct repeat copy sequences
         else:
             #Find end of repeat as min/max of in/out cons_vs_cons alignments
@@ -1247,6 +1267,7 @@ def finalize_int_stats(rep, repeat_edges, side_it, cons_align_path, template,
                             edge_limits[(side, edge_two)] = two_end
             #For each edge_pair, find starting and ending indices of
             #in, out, and template sequences to construct sequences
+            summ_resolution = []
             for i, edge_pair in enumerate(sorted(bridged_edges)):
                 f.write("Repeat Copy {0}\n".format(i))
                 f.write("{0[0]} {0[1]:2}  {1:3} {2[0]} {2[1]}\n".format(
@@ -1278,8 +1299,8 @@ def finalize_int_stats(rep, repeat_edges, side_it, cons_align_path, template,
                 out_start = out_align.qry_start
                 f.write("Alignment Indices:\n")
                 f.write("{0:10}\t{1:5} - {2:5}\n".format("in", in_start, in_end))
-                f.write("{0:10}\t{1:5} - {2:5}\n".format("Template", temp_start, temp_end))
-                f.write("{0:10}\t{1:5} - {2:5}\n\n".format("out", out_start, out_end))
+                #f.write("{0:10}\t{1:5} - {2:5}\n".format("Template", temp_start, temp_end))
+                f.write("{0:10}\t{1:5} - {2:5}\n".format("out", out_start, out_end))
                 #Report gap/overlap length
                 gap_len = temp_end - temp_start
                 if gap_len >= 0:
@@ -1300,16 +1321,17 @@ def finalize_int_stats(rep, repeat_edges, side_it, cons_align_path, template,
                     else:
                         out_aln_ind = out_trg_aln[temp_start]
                         new_out_start = out_start + out_aln_qry[out_aln_ind]
-                    _check_overlap(
+                    """_check_overlap(
                             consensuses[(side_it["in"], "in", in_edge)], 
                             template,
                             consensuses[(side_it["out"], "out", out_edge)], 
                             -gap_len, in_start, in_end, temp_start, temp_end, out_start, out_end,
                             new_out_start, in_align.qry_seq, in_align.trg_seq, out_align.qry_seq, out_align.trg_seq, out_trg_aln, out_aln_trg, out_qry_aln, out_aln_qry, _get_aln_end(out_align.trg_start, out_align.trg_seq), _get_aln_end(out_align.qry_start, out_align.qry_seq), in_align, out_align)
-
+                    """
                     f.write("Adjusted Alignment Indices:\n")
                     f.write("{0:10}\t{1:5} - {2:5}\n".format("in", in_start, in_end))
-                    f.write("{0:10}\t{1:5} - {2:5}\n".format("Template", temp_start, new_temp_end))
+                    if temp_start != new_temp_end:
+                        f.write("{0:10}\t{1:5} - {2:5}\n".format("Template", temp_start, new_temp_end))
                     f.write("{0:10}\t{1:5} - {2:5}\n\n\n".format("out", new_out_start, out_end))
                     temp_end = new_temp_end
                     out_start = new_out_start
@@ -1335,7 +1357,37 @@ def finalize_int_stats(rep, repeat_edges, side_it, cons_align_path, template,
                 resolved_repeats[header] = copy_seq
                 seq_dict = {header:copy_seq}
                 fp.write_fasta_dict(seq_dict, resolved_seq_file.format(i))
-    return bridged, resolved_repeats
+                in_str = "".join(["in", str(in_edge)])
+                out_str = "".join(["out", str(out_edge)])
+                summ_resolution.append("|".join([in_str, out_str]))
+            summ_vals.extend(["+".join(summ_resolution)])
+    return bridged, resolved_repeats, summ_vals
+
+def int_stats_postscript(rep, repeat_edges, integrated_stats, min_aln_rate, 
+                         resolved_rep_path, res_vs_res):
+    divs = []
+    with open(integrated_stats, "a") as f:
+        res_inds = range(len(repeat_edges[rep]["in"]))
+        f.write("Resolved Repeat Sequence Alignments\n")
+        for res_one, res_two in sorted(combinations(res_inds, 2)):
+            res_align = _read_alignment(res_vs_res.format(res_one, res_two), 
+                                        resolved_rep_path.format(res_two), 
+                                        min_aln_rate)
+            f.write("Copy {0}|Copy {1}\n".format(res_one, res_two))
+            f.write("{0}{1}{2:16}\t{3:5}-{4:5} of {5:5}\n".format("Copy ", res_one, ":", 
+                    res_align[0][0].qry_start, 
+                    _get_aln_end(res_align[0][0].qry_start, res_align[0][0].qry_seq), 
+                    res_align[0][0].qry_len))
+            f.write("{0}{1}{2:16}\t{3:5}-{4:5} of {5:5}\n".format("Copy ", res_two, ":",   
+                    res_align[0][0].trg_start, 
+                    _get_aln_end(res_align[0][0].trg_start, res_align[0][0].trg_seq), 
+                    res_align[0][0].trg_len))
+            div_rate = _calculate_divergence(res_align[0][0].qry_seq, 
+                                             res_align[0][0].trg_seq)
+            divs.append(div_rate)
+            f.write("{0:26}\t{1:.4f}\n".format("Divergence Rate:", div_rate))
+        f.write("\n")
+    return np.mean(divs)
         
 def _get_partitioning_info(part_list, edges):
     edge_reads = {edge:0 for edge in edges}
@@ -1533,3 +1585,25 @@ def _construct_repeat_copy(in_file, temp_file, out_file, in_start, in_end,
                    temp_seq[temp_start:temp_end], 
                    out_seq[out_start:out_end]])
     return seq
+
+def init_summary(summary_file):
+    with open(summary_file, "w") as f:
+        summ_header_labels = ["Repeat", "Template", "Cov", "# Confirmed Pos", 
+                              "Max Pos Gap", "Bridged?", "Support", "Against", 
+                              "Avg Div", "Resolution"]
+        spaced_header = map("{:13}".format, summ_header_labels)
+        f.write("\t".join(spaced_header))
+        f.write("\n")
+
+def update_summary(rep, template_len, avg_cov, summ_vals, avg_div, summary_file):
+    (confirmed_pos, max_pos_gap, bridged, 
+     support, against, resolution) = tuple(summ_vals)
+    summ_out = [rep, template_len, avg_cov, confirmed_pos, max_pos_gap, 
+                bridged, support, against, avg_div, resolution]
+    summ_out[2] = "{:.4}".format(summ_out[2])
+    summ_out[5] = str(summ_out[5])
+    summ_out[8] = "{:.4}".format(summ_out[8])
+    spaced_summ = map("{:13}".format, map(str, summ_out))
+    with open(summary_file, "a") as f:
+        f.write("\t".join(spaced_summ))
+        f.write("\n")

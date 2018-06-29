@@ -264,7 +264,7 @@ class JobTrestle(Job):
         self.out_files["reps"] = os.path.join(self.resolve_dir, 
                                               "resolved_repeats.fasta")
         self.out_files["summary"] = os.path.join(self.resolve_dir, 
-                                              "resolve_summary.txt")
+                                              "trestle_summary.txt")
         
     def run(self):
         if not os.path.isdir(self.resolve_dir):
@@ -283,6 +283,7 @@ class JobTrestle(Job):
         orient_labels = ["forward", "reverse"]
         side_labels = ["in", "out"]
         all_resolved_reps_dict = {}
+        rr.init_summary(self.out_files["summary"])
         
         repeat_list, repeat_edges, all_edge_headers = rr.process_repeats(
                                           self.args.reads, 
@@ -354,6 +355,7 @@ class JobTrestle(Job):
                                     self.args.platform, self.args.threads,
                                     self.args.sub_thresh, self.args.del_thresh,
                                     self.args.ins_thresh) 
+                avg_cov = rr.find_coverage(frequency_path)
                 
                 #4. Begin iterations
                 partitioning = os.path.join(orient_dir, "partitioning.{0}.{1}.txt")
@@ -372,8 +374,12 @@ class JobTrestle(Job):
                 side_stats = os.path.join(orient_dir, "{0}_stats.txt")                     
                 integrated_stats = os.path.join(orient_dir, "integrated_stats.txt")
                 int_confirmed_path = os.path.join(orient_dir, "integrated_confirmed_positions.{0}.{1}.txt")
-                resolved_rep_name = "".join(["resolved_repeat_{0}".format(rep),".{0}.fasta"])
+                resolved_rep_name = "".join(["resolved_repeat_{0}".format(rep), 
+                                             ".copy.{0}.fasta"])
                 resolved_rep_path = os.path.join(orient_dir, resolved_rep_name)
+                res_vs_res_name = "".join(["resolved_repeat_{0}".format(rep), 
+                                           ".copy.{0}.vs.{1}.minimap.sam"])
+                res_vs_res = os.path.join(orient_dir, res_vs_res_name)
                 """"""
                 test_pos = os.path.join(orient_dir, "test_pos.{0}.{1}.txt")
                 num_test = 10
@@ -394,7 +400,7 @@ class JobTrestle(Job):
                                         side_stats.format(side))
                 rr.init_int_stats(rep, repeat_edges, zero_it, position_path, 
                                   partitioning, repeat_reads, template_len, 
-                                  integrated_stats)
+                                  avg_cov, integrated_stats)
                 logger.info("c.iterative procedure")
                 for it in range(1, self.max_iter+1):
                     both_break = True
@@ -492,7 +498,8 @@ class JobTrestle(Job):
                                         self.max_iter, edge_below_cov[side],
                                         dup_part[side], 
                                         side_stats.format(side))
-                bridged, repeat_seqs = rr.finalize_int_stats(rep, repeat_edges, side_it, 
+                bridged, repeat_seqs, summ_vals = rr.finalize_int_stats(rep, 
+                                                repeat_edges, side_it, 
                                                 cons_align, polished_template, 
                                                 template_len, 
                                                 config.vals["min_aln_rate"], 
@@ -504,7 +511,25 @@ class JobTrestle(Job):
                                                 self.min_bridge_diff, 
                                                 integrated_stats, 
                                                 resolved_rep_path)
+                avg_div = 0.0
+                if bridged:
+                    res_inds = range(len(repeat_edges[rep]["in"]))
+                    for res_one, res_two in sorted(combinations(res_inds, 2)):
+                        aln.make_alignment(resolved_rep_path.format(res_two), 
+                                           [resolved_rep_path.format(res_one)], 
+                                           self.args.threads, 
+                                           orient_dir, 
+                                           self.args.platform, 
+                                           res_vs_res.format(res_one, res_two))
+                    avg_div = rr.int_stats_postscript(rep, repeat_edges, 
+                                            integrated_stats, 
+                                            config.vals["min_aln_rate"], 
+                                            resolved_rep_path, 
+                                            res_vs_res)
                 all_resolved_reps_dict.update(repeat_seqs)
+                rr.update_summary(rep, template_len, avg_cov, 
+                                  summ_vals, avg_div, 
+                                  self.out_files["summary"])
         fp.write_fasta_dict(all_resolved_reps_dict, self.out_files["reps"])
 
 def _create_job_list(args, work_dir, log_file):

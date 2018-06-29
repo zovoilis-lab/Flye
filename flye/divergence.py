@@ -181,11 +181,11 @@ def find_divergence(alignment_path, contigs_path, contigs_info,
         pos_header = "".join(["Called_{0}_positions_".format(len(positions)), 
                               "with_thresholds_sub_{0}".format(sub_thresh), 
                               "_del_{0}_ins{1}".format(del_thresh, ins_thresh)])
-        write_positions(positions_path, pos_header, positions)
+        _write_positions(positions_path, pos_header, positions)
         
         window_len = 1000
         sum_header = "Tentative Divergent Position Summary"
-        write_div_summary(div_sum_path, sum_header, positions, total_called, 
+        _write_div_summary(div_sum_path, sum_header, positions, total_called, 
                           len(ctg_profile), window_len)
         
         total_aln_errors.extend(aln_errors)
@@ -215,14 +215,30 @@ def _write_frequency_path(frequency_path, ctg_profile, sub_thresh,
             positions, total_called = _call_position(index, counts, positions, 
                         total_called, sub_thresh, del_thresh, ins_thresh)
     return positions, total_called
-    
-def write_positions(positions_path, pos_header, positions):
+
+def read_frequency_path(frequency_path):
+    header = []
+    freqs = []
+    int_inds = [0,1,3,5,7,9]
+    with open(frequency_path, "r") as f:
+        for i,line in enumerate(f):
+            line = line.strip()
+            if i == 0:
+                header = line.split("\t")
+            else:
+                vals = line.split("\t")
+                for j in int_inds:
+                    vals[j] = int(vals[j])
+                freqs.append(vals)
+    return header, freqs
+
+def _write_positions(positions_path, pos_header, positions):
     with open(positions_path, 'w') as f:
         f.write(">{0}\n".format(pos_header))
         f.write(",".join(map(str, sorted(positions.keys()))))
         f.write("\n")
 
-def write_div_summary(div_sum_path, sum_header, positions, total_called, 
+def _write_div_summary(div_sum_path, sum_header, positions, total_called, 
                       seq_len, window_len):
     pos_list = sorted(positions.keys())
     av_div = 0.0
@@ -297,14 +313,15 @@ def read_positions(positions_file):
     """
     Reads positions file into list
     """
-    header = None
+    #header = None
     positions = []
     try:
         with open(positions_file, "r") as f:
             for line_id, line in enumerate(f):
                 line = line.strip()
                 if line.startswith(">"):
-                    header = line[1:]
+                    pass
+                    #header = line[1:]
                 elif line:
                     pos_parts = line.split(",")
                     for p in pos_parts:
