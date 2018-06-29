@@ -195,6 +195,22 @@ namespace
 	};
 }
 
+namespace
+{
+	static const char LogTable256[256] = {
+		#define LT(n) n, n, n, n, n, n, n, n, n, n, n, n, n, n, n, n
+		-1, 0, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3,
+		LT(4), LT(5), LT(5), LT(6), LT(6), LT(6), LT(6),
+		LT(7), LT(7), LT(7), LT(7), LT(7), LT(7), LT(7), LT(7)
+	};
+
+	static inline int ilog2_32(uint32_t v)
+	{
+		uint32_t t, tt;
+		if ((tt = v>>16)) return (t = tt>>8) ? 24 + LogTable256[t] : 16 + LogTable256[tt];
+		return (t = v>>8) ? 8 + LogTable256[t] : LogTable256[v];
+	}
+}
 
 //This implementation was inspired by Hen Li's minimap2 paper
 //might be used in parallel
@@ -408,7 +424,7 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 					int32_t jumpDiv = abs((curNext - curPrev) - 
 										  (extNext - extPrev));
 					int32_t gapCost = jumpDiv ? 
-							0.01f * kmerSize * jumpDiv + std::log2(jumpDiv) : 0;
+							kmerSize * jumpDiv / 100 + ilog2_32(jumpDiv) : 0;
 					int32_t nextScore = scoreTable[j] + matchScore - gapCost;
 					if (nextScore > maxScore)
 					{
