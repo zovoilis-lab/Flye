@@ -284,25 +284,33 @@ def _write_div_summary(div_sum_path, sum_header, positions, total_called,
     with open(div_sum_path, 'w') as f:
         f.write("{0}\n\n".format(sum_header))
         
-        f.write("Sequence Length:\t{0}\n".format(seq_len))
-        f.write("Total Positions:\t{0}\n".format(len(positions)))
-        f.write("Average Divergence:\t{:.4f}\n\n".format(av_div))
+        f.write("{0:33}\t{1}\n".format("Sequence Length:", seq_len))
+        f.write("{0:33}\t{1}\n".format("Total Positions:", len(positions)))
+        f.write("{0:33}\t{1:.4f}\n\n".format("Average Divergence:", av_div))
         
-        f.write("Total Substitution Positions:\t{t[sub]}\n".format(t=total_called))
-        f.write("Total Deletion Positions:\t{t[del]}\n".format(t=total_called))
-        f.write("Total Insertion Positions:\t{t[ins]}\n".format(t=total_called))
-        f.write("Total Positions:\t{t[total]}\n".format(t=total_called))
+        f.write("{0:33}\t{t[sub]}\n".format("Total Substitution Positions:", 
+                                            t=total_called))
+        f.write("{0:33}\t{t[del]}\n".format("Total Deletion Positions:", 
+                                            t=total_called))
+        f.write("{0:33}\t{t[ins]}\n".format("Total Insertion Positions:", 
+                                            t=total_called))
+        f.write("{0:33}\t{t[total]}\n".format("Total Positions:", 
+                                              t=total_called))
         mixed_count = (total_called['sub'] + total_called['del'] + 
                     total_called['ins']) - total_called['total']
-        f.write("Mixed Positions:\t{0}\n\n".format(mixed_count))
+        f.write("{0:33}\t{1}\n\n".format("Mixed Positions:", mixed_count))
         
-        f.write('Mean Position Gap:\t%.2f\n' % mean_position_gap)
-        f.write('Max Position Gap:\t%d\n\n' % max_position_gap)
+        f.write("{0:33}\t{1:.2f}\n".format("Mean Position Gap:", 
+                                           mean_position_gap))
+        f.write("{0:33}\t{1}\n".format("Max Position Gap:", max_position_gap))
         
-        f.write('Window Length\t%d\n' % window_len)
-        f.write('Mean Window Divergence:\t%.5f\n' % mean_window_div)
-        f.write('Median Window Divergence:\t%.5f\n' % median_window_div)
-        f.write('Min Window Divergence:\t%.5f\n\n' % min_window_div)
+        f.write("{0:33}\t{1}\n".format("Window Length:", window_len))
+        f.write("{0:33}\t{1:.5f}\n".format("Mean Window Divergence:", 
+                                           mean_window_div))
+        f.write("{0:33}\t{1:.5f}\n".format("Median Window Divergence:", 
+                                           median_window_div))
+        f.write("{0:33}\t{1:.5f}\n".format("Min Window Divergence:", 
+                                           min_window_div))
     
     
 
