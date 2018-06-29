@@ -1385,7 +1385,7 @@ def int_stats_postscript(rep, repeat_edges, integrated_stats, min_aln_rate,
             div_rate = _calculate_divergence(res_align[0][0].qry_seq, 
                                              res_align[0][0].trg_seq)
             divs.append(div_rate)
-            f.write("{0:26}\t{1:.4f}\n".format("Divergence Rate:", div_rate))
+            f.write("{0:22}\t{1:.4f}\n".format("Divergence Rate:", div_rate))
         f.write("\n")
     return np.mean(divs)
         
