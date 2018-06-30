@@ -493,9 +493,9 @@ def _evaluate_positions(positions, cons_aligns, pos_test, test_pos, side):
                                       orig_aln.trg_start, orig_aln.trg_end)
     
     min_start_edge = min([alns[e].trg_start for e in alns])
-    max_end_edge = max([_get_aln_end(alns[e].trg_start, alns[e].trg_seq) for e in alns])
+    max_end_edge = max([alns[e].trg_end for e in alns])
     #end indices for conservatively defining confirmed positions
-    min_end_edge = min([_get_aln_end(alns[e].trg_start, alns[e].trg_seq) for e in alns])
+    min_end_edge = min([alns[e].trg_end for e in alns])
     max_start_edge = max([alns[e].trg_start for e in alns])
     
     for trg_ind in range(min_start_edge, max_end_edge):
@@ -506,7 +506,7 @@ def _evaluate_positions(positions, cons_aligns, pos_test, test_pos, side):
                 aln.curr_qry_ind = aln.qry_start
                 aln.in_alignment = True
             
-            if aln.trg_start > trg_ind or _get_aln_end(aln.trg_start, aln.trg_seq) <= trg_ind:
+            if aln.trg_start > trg_ind or aln.trg_end <= trg_ind:
                 aln.in_alignment = False
             
             if aln.in_alignment:
@@ -634,11 +634,14 @@ def _classify_reads(read_aligns, consensus_pos, part_file,
     #list of (read_id, status, edge_id, top_score, total_score, header)
     partitioning = []
     
-    read_scores = {}
-    
+    read_scores = {}    
     for edge_id in read_aligns:
         for aln in read_aligns[edge_id][0]:
             read_header = aln.qry_id
+            cons_header = aln.trg_id
+            #Unmapped segments will not be scored
+            if cons_header == "*":
+                continue
             if read_header not in read_scores:
                 read_scores[read_header] = {}
             read_scores[read_header][edge_id] = 0
@@ -646,7 +649,7 @@ def _classify_reads(read_aligns, consensus_pos, part_file,
             positions = consensus_pos[edge_id]
             trg_aln, aln_trg = _index_mapping(aln.trg_seq)
             for pos in positions:
-                if pos >= aln.trg_start and pos < _get_aln_end(aln.trg_start, aln.trg_seq):
+                if pos >= aln.trg_start and pos < aln.trg_end:
                     pos_minus_start = pos - aln.trg_start
                     aln_ind = trg_aln[pos_minus_start]
                     if aln.qry_seq[aln_ind] == aln.trg_seq[aln_ind]:
@@ -660,7 +663,6 @@ def _classify_reads(read_aligns, consensus_pos, part_file,
                             f.write("trg_seq:\t{0}\n".format(aln.trg_seq[aln_ind]))
                             f.write("around qry_seq:\t{0}\n".format(aln.qry_seq[aln_ind-5:aln_ind+5]))
                             f.write("around trg_seq:\t{0}\n".format(aln.trg_seq[aln_ind-5:aln_ind+5]))
-    
     #Iterate through all read_headers so partitioning will be a complete set
     for read_header in headers_to_id:
         read_id = headers_to_id[read_header]
@@ -672,27 +674,26 @@ def _classify_reads(read_aligns, consensus_pos, part_file,
             for edge_id in read_scores[read_header]:
                 edge_score = read_scores[read_header][edge_id]
                 #print edge_id, edge_score, top_score
-                if edge_score > top_score:
+                if edge_score - buffer_count > top_score:
                     top_edge = edge_id
                     top_score = edge_score
-                    total_score += edge_score
                     tie_bool = False
-                elif edge_score == top_score:
+                elif edge_score - buffer_count <= top_score and edge_score >= top_score:
+                    top_score = edge_score
                     tie_bool = True
-                    total_score += edge_score
-                else:
-                    total_score += edge_score
+                total_score += edge_score
             
-            if tie_bool:
+            if total_score == 0:
+                status_label = "None"
+                edge_label = "NA"
+            elif tie_bool:
                 status_label = "Tied"
                 edge_label = "NA"
-                partitioning.append((read_id, status_label, edge_label, 
-                                    top_score, total_score, read_header))
             else:
                 status_label = "Partitioned"
                 edge_label = str(top_edge)
-                partitioning.append((read_id, status_label, edge_label, 
-                                    top_score, total_score, read_header))
+            partitioning.append((read_id, status_label, edge_label, 
+                                 top_score, total_score, read_header))
         else:
             status_label = "None"
             edge_label = "NA"
@@ -714,8 +715,7 @@ def _index_mapping(aln):
             al_inds.append(i)
     return al_inds, gen_inds
 
-def init_side_stats(rep, side, repeat_edges, min_overlap, sub_thresh, 
-                    del_thresh, ins_thresh, extend_len, buffer_count, max_iter, 
+def init_side_stats(rep, side, repeat_edges, args, buffer_count, max_iter, 
                      min_edge_cov, position_path, partitioning, 
                      prev_parts, template_len, stats_file):
     pos = div.read_positions(position_path)
@@ -749,11 +749,11 @@ def init_side_stats(rep, side, repeat_edges, min_overlap, sub_thresh,
         f.write("\n")
         f.write("{0:25}\t{1}\n\n".format("Template Length:", template_len))
         f.write("Initial Option Values\n")
-        f.write("{0:25}\t{1}\n".format("min_overlap:", min_overlap))
-        f.write("{0:25}\t{1}\n".format("sub_thresh:", sub_thresh))
-        f.write("{0:25}\t{1}\n".format("del_thresh:", del_thresh))
-        f.write("{0:25}\t{1}\n".format("ins_thresh:", ins_thresh))
-        f.write("{0:25}\t{1}\n".format("extend_len:", extend_len))
+        f.write("{0:25}\t{1}\n".format("min_overlap:", args.min_overlap))
+        f.write("{0:25}\t{1}\n".format("sub_thresh:", args.sub_thresh))
+        f.write("{0:25}\t{1}\n".format("del_thresh:", args.del_thresh))
+        f.write("{0:25}\t{1}\n".format("ins_thresh:", args.ins_thresh))
+        f.write("{0:25}\t{1}\n".format("extend_len:", args.extend_len))
         f.write("{0:25}\t{1}\n".format("buffer_count:", buffer_count))
         f.write("{0:25}\t{1}\n".format("max_iter:", max_iter))
         f.write("{0:25}\t{1}\n".format("min_edge_cov:", min_edge_cov))
@@ -787,7 +787,7 @@ def update_side_stats(edges, it, side, cons_align_path, template,
         if side == "in":
             rep_len = cons_align[0][0].qry_len - cons_align[0][0].qry_start
         elif side == "out":
-            rep_len = _get_aln_end(cons_align[0][0].qry_start, cons_align[0][0].qry_seq)
+            rep_len = cons_align[0][0].qry_end
         stats_out.extend([str(rep_len)])
     confirmed, rejected, pos = _read_confirmed_positions(confirmed_pos_path)
     stats_out.extend([str(len(confirmed)), str(len(rejected))])
@@ -841,7 +841,7 @@ def finalize_side_stats(edges, it, side, cons_align_path, template, min_aln_rate
                                      template, 
                                      min_aln_rate)
             trg_start = cons_align[0][0].trg_start
-            trg_end = _get_aln_end(cons_align[0][0].trg_start, cons_align[0][0].trg_seq)
+            trg_end = cons_align[0][0].trg_end
             if limit_ind is None or ((side == "in" and trg_end < limit_ind) or
                                      (side == "out" and trg_start >= limit_ind)):
                 if side == "in":
@@ -851,11 +851,11 @@ def finalize_side_stats(edges, it, side, cons_align_path, template, min_aln_rate
             f.write("Edge {0}|Template Alignment\n".format(edge_id))
             f.write("{0}{1}{2:20}\t{3:5}-{4:5} of {5:5}\n".format("Edge ", edge_id, ":", 
                     cons_align[0][0].qry_start, 
-                    _get_aln_end(cons_align[0][0].qry_start, cons_align[0][0].qry_seq), 
+                    cons_align[0][0].qry_end, 
                     cons_align[0][0].qry_len))
             f.write("{0:26}\t{1:5}-{2:5} of {3:5}\n".format("Template:",  
                     cons_align[0][0].trg_start, 
-                    _get_aln_end(cons_align[0][0].trg_start, cons_align[0][0].trg_seq), 
+                    cons_align[0][0].trg_end, 
                     cons_align[0][0].trg_len))
         f.write("\n")
         f.write("{0:26}\t{1}\n".format(limit_label, limit_ind))
@@ -870,11 +870,11 @@ def finalize_side_stats(edges, it, side, cons_align_path, template, min_aln_rate
             f.write("Edge {0}|Edge {1} Alignment\n".format(edge_one, edge_two))
             f.write("{0}{1}{2:20}\t{3:5}-{4:5} of {5:5}\n".format("Edge ", edge_one, ":", 
                     cons_vs_cons[0][0].qry_start, 
-                    _get_aln_end(cons_align[0][0].qry_start, cons_align[0][0].qry_seq), 
+                    cons_align[0][0].qry_end, 
                     cons_vs_cons[0][0].qry_len))
             f.write("{0}{1}{2:20}\t{3:5}-{4:5} of {5:5}\n".format("Edge ", edge_two, ":", 
                     cons_vs_cons[0][0].trg_start, 
-                    _get_aln_end(cons_align[0][0].trg_start, cons_align[0][0].trg_seq), 
+                    cons_align[0][0].trg_end, 
                     cons_vs_cons[0][0].trg_len))
             div_rate = _calculate_divergence(cons_vs_cons[0][0].qry_seq, 
                                              cons_vs_cons[0][0].trg_seq)
@@ -977,7 +977,7 @@ def init_int_stats(rep, repeat_edges, zero_it, position_path, partitioning,
                 spaced_values = map("{:6}".format, edge_values)
                 f.write("\t".join(spaced_values))
                 f.write("\n")
-        f.write("{0:11}\t{1}\n".format("Internal", internal_reads))
+        f.write("{0:16}\t{1}\n".format("Internal", internal_reads))
         f.write("\n\n")
         f.write("\t".join(spaced_header))
         f.write("\n")
@@ -1001,7 +1001,7 @@ def update_int_stats(rep, repeat_edges, side_it, cons_align_path, template,
                                          template, 
                                          min_aln_rate)
             if side == "in":
-                trg_limits.append(_get_aln_end(cons_align[0][0].trg_start, cons_align[0][0].trg_seq))
+                trg_limits.append(cons_align[0][0].trg_end)
             elif side == "out":
                 trg_limits.append(template_len - cons_align[0][0].trg_start)
         medians[side] = _get_median(trg_limits)
@@ -1193,7 +1193,7 @@ def finalize_int_stats(rep, repeat_edges, side_it, cons_align_path, template,
                             template, 
                             min_aln_rate)
                     if side == "in":
-                        trg_limits.append(_get_aln_end(cons_align[0][0].trg_start, cons_align[0][0].trg_seq))
+                        trg_limits.append(cons_align[0][0].trg_end)
                     elif side == "out":
                         trg_limits.append(template_len - cons_align[0][0].trg_start)
                 side_lens[side] = _get_median(trg_limits)
@@ -1245,9 +1245,9 @@ def finalize_int_stats(rep, repeat_edges, side_it, cons_align_path, template,
                             consensuses[(side_it[side], side, edge_two)], 
                             min_aln_rate)
                     one_start = cons_vs_cons[0][0].qry_start
-                    one_end = _get_aln_end(cons_vs_cons[0][0].qry_start, cons_vs_cons[0][0].qry_seq)
+                    one_end = cons_vs_cons[0][0].qry_end
                     two_start = cons_vs_cons[0][0].trg_start
-                    two_end = _get_aln_end(cons_vs_cons[0][0].trg_start, cons_vs_cons[0][0].trg_seq)
+                    two_end = cons_vs_cons[0][0].trg_end
                     if side == "in":
                         if (side, edge_one) not in edge_limits:
                             edge_limits[(side, edge_one)] = one_start
@@ -1294,8 +1294,8 @@ def finalize_int_stats(rep, repeat_edges, side_it, cons_align_path, template,
                         in_align = cons_align[0][0]
                     elif side == "out":
                         out_align = cons_align[0][0]
-                in_end = _get_aln_end(in_align.qry_start, in_align.qry_seq)
-                temp_start = _get_aln_end(in_align.trg_start, in_align.trg_seq)
+                in_end = in_align.qry_end
+                temp_start = in_align.trg_end
                 temp_end = out_align.trg_start
                 out_start = out_align.qry_start
                 f.write("Alignment Indices:\n")
@@ -1317,8 +1317,8 @@ def finalize_int_stats(rep, repeat_edges, side_it, cons_align_path, template,
                     
                     in_edge = edge_pair[0][1]
                     out_edge = edge_pair[1][1]
-                    if temp_start >= _get_aln_end(out_align.trg_start, out_align.trg_seq):
-                        new_out_start = _get_aln_end(out_align.qry_start, out_align.qry_seq)
+                    if temp_start >= out_align.trg_end:
+                        new_out_start = out_align.qry_end
                     else:
                         out_aln_ind = out_trg_aln[temp_start]
                         new_out_start = out_start + out_aln_qry[out_aln_ind]
@@ -1327,7 +1327,7 @@ def finalize_int_stats(rep, repeat_edges, side_it, cons_align_path, template,
                             template,
                             consensuses[(side_it["out"], "out", out_edge)], 
                             -gap_len, in_start, in_end, temp_start, temp_end, out_start, out_end,
-                            new_out_start, in_align.qry_seq, in_align.trg_seq, out_align.qry_seq, out_align.trg_seq, out_trg_aln, out_aln_trg, out_qry_aln, out_aln_qry, _get_aln_end(out_align.trg_start, out_align.trg_seq), _get_aln_end(out_align.qry_start, out_align.qry_seq), in_align, out_align)
+                            new_out_start, in_align.qry_seq, in_align.trg_seq, out_align.qry_seq, out_align.trg_seq, out_trg_aln, out_aln_trg, out_qry_aln, out_aln_qry, out_align.trg_end, out_align.qry_end, in_align, out_align)
                     """
                     f.write("Adjusted Alignment Indices:\n")
                     f.write("{0:10}\t{1:5} - {2:5}\n".format("in", in_start, in_end))
@@ -1377,11 +1377,11 @@ def int_stats_postscript(rep, repeat_edges, integrated_stats, min_aln_rate,
             f.write("Copy {0}|Copy {1}\n".format(res_one, res_two))
             f.write("{0}{1}{2:16}\t{3:5}-{4:5} of {5:5}\n".format("Copy ", res_one, ":", 
                     res_align[0][0].qry_start, 
-                    _get_aln_end(res_align[0][0].qry_start, res_align[0][0].qry_seq), 
+                    res_align[0][0].qry_end, 
                     res_align[0][0].qry_len))
             f.write("{0}{1}{2:16}\t{3:5}-{4:5} of {5:5}\n".format("Copy ", res_two, ":",   
                     res_align[0][0].trg_start, 
-                    _get_aln_end(res_align[0][0].trg_start, res_align[0][0].trg_seq), 
+                    res_align[0][0].trg_end, 
                     res_align[0][0].trg_len))
             div_rate = _calculate_divergence(res_align[0][0].qry_seq, 
                                              res_align[0][0].trg_seq)
