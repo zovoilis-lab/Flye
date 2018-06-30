@@ -255,7 +255,7 @@ class JobTrestle(Job):
         self.resolve_dir = os.path.join(work_dir, "4-trestle")
         self.log_file = log_file
         self.max_iter = 10
-        self.buffer_count = 0
+        self.buffer_count = 3
         self.min_edge_cov = 10
         self.min_bridge_count = 5
         self.min_bridge_diff = 5
