@@ -95,7 +95,8 @@ class JobAssembly(Job):
                      self.args.asm_config)
         if os.path.getsize(self.assembly_filename) == 0:
             raise asm.AssembleException("No contigs were assembled - "
-                                        "are you using corrected input instead of raw?")
+                                        "please check if the read type and genome "
+                                        "size parameters are correct")
 
 
 class JobRepeat(Job):
@@ -116,6 +117,12 @@ class JobRepeat(Job):
                                                         "scaffolds_links.txt")
         self.out_files["assembly_graph"] = assembly_graph
         self.out_files["stats"] = contigs_stats
+        
+        #Adding repeats_dump.txt and graph_final.fasta to out_files
+        repeats_dump = os.path.join(self.repeat_dir, "repeats_dump.txt")
+        graph_final = os.path.join(self.repeat_dir, "graph_final.fasta")
+        self.out_files["repeats_dump"] = repeats_dump
+        self.out_files["graph_final"] = graph_final
 
     def run(self):
         if not os.path.isdir(self.repeat_dir):
@@ -223,7 +230,6 @@ class JobPolishing(Job):
                                alignment_file)
 
             logger.info("Separating alignment into bubbles")
-            
             contigs_info = aln.get_contigs_info(prev_assembly)
             bubbles_file = os.path.join(self.polishing_dir,
                                         "bubbles_{0}.fasta".format(i + 1))
@@ -248,27 +254,35 @@ class JobPolishing(Job):
 
 
 class JobTrestle(Job):
-    def __init__(self, args, work_dir, log_file):
+    def __init__(self, args, work_dir, log_file, repeats_dump, graph_edges):
         super(JobTrestle, self).__init__()
 
         self.args = args
-        self.resolve_dir = os.path.join(work_dir, "4-trestle")
+        self.trestle_dir = os.path.join(work_dir, "4-trestle")
         self.log_file = log_file
+        self.repeats_dump = repeats_dump
+        self.graph_edges = graph_edges
         self.max_iter = 10
         self.buffer_count = 0
         self.min_edge_cov = 10
         self.min_bridge_count = 5
         self.min_bridge_diff = 5
+        self.min_mult = 2
+        self.max_mult = 3
+        self.extend_len = 10000
+        self.sub_thresh = 0.1
+        self.del_thresh = 0.2
+        self.ins_thresh = 0.3
 
         self.name = "trestle"
-        self.out_files["reps"] = os.path.join(self.resolve_dir, 
+        self.out_files["reps"] = os.path.join(self.trestle_dir, 
                                               "resolved_repeats.fasta")
-        self.out_files["summary"] = os.path.join(self.resolve_dir, 
+        self.out_files["summary"] = os.path.join(self.trestle_dir, 
                                               "trestle_summary.txt")
         
     def run(self):
-        if not os.path.isdir(self.resolve_dir):
-            os.mkdir(self.resolve_dir)
+        if not os.path.isdir(self.trestle_dir):
+            os.mkdir(self.trestle_dir)
             
         logger.info("Running Trestle: resolving unbridged repeats")
         
@@ -287,23 +301,23 @@ class JobTrestle(Job):
         
         repeat_list, repeat_edges, all_edge_headers = rr.process_repeats(
                                           self.args.reads, 
-                                          self.args.repeats_dump, 
-                                          self.args.graph_edges, 
-                                          self.resolve_dir, 
+                                          self.repeats_dump, 
+                                          self.graph_edges, 
+                                          self.trestle_dir, 
                                           template_name,
                                           extended_name,
                                           repeat_reads_name, 
                                           init_part_name, 
                                           repeat_label,
                                           orient_labels,
-                                          self.args.min_mult, 
-                                          self.args.max_mult,
-                                          self.args.extend_len)
+                                          self.min_mult, 
+                                          self.max_mult,
+                                          self.extend_len)
         
         logger.info("{0} repeats to be resolved".format(len(repeat_list)))
         for rep_id in sorted(repeat_list):
             logger.info("1.Repeat {0}".format(rep_id))
-            repeat_dir = os.path.join(self.resolve_dir, 
+            repeat_dir = os.path.join(self.trestle_dir, 
                                       repeat_label.format(rep_id))
             orient_reps = [rep_id, -rep_id]
             
@@ -353,8 +367,8 @@ class JobTrestle(Job):
                                     template_info, frequency_path, position_path, 
                                     summary_path, config.vals["min_aln_rate"], 
                                     self.args.platform, self.args.threads,
-                                    self.args.sub_thresh, self.args.del_thresh,
-                                    self.args.ins_thresh) 
+                                    self.sub_thresh, self.del_thresh,
+                                    self.ins_thresh) 
                 avg_cov = rr.find_coverage(frequency_path)
                 
                 #4. Begin iterations
@@ -391,7 +405,10 @@ class JobTrestle(Job):
                 #Initialize stats
                 for side in side_labels:
                     edge_below_cov[side] = rr.init_side_stats(
-                                        rep, side, repeat_edges, self.args, 
+                                        rep, side, repeat_edges, 
+                                        self.args.min_overlap, self.sub_thresh, 
+                                        self.del_thresh, self.ins_thresh, 
+                                        self.extend_len, 
                                         self.buffer_count, self.max_iter, 
                                         self.min_edge_cov, position_path,
                                         partitioning.format(zero_it, side), 
@@ -538,27 +555,12 @@ def _create_job_list(args, work_dir, log_file):
     """
     jobs = []
 
-    #Resolve Unbridged Repeats
-    jobs.append(JobTrestle(args, work_dir, log_file))
-        
-    """
-        
-        
-        #3. Iteration 0 starts
-        #Define current partitioning as the set of starting reads
-        #Define the initial template as the precursor sequences of the repeat copies
-        #Align the reads to the template, polish them, and identify starting points
-        #Collect output for this iteration and save it
-        
-        #4. Start Iterations, 1-max_iter
-    
-
     #Assembly job
     jobs.append(JobAssembly(args, work_dir, log_file))
     draft_assembly = jobs[-1].out_files["assembly"]
 
     #Consensus
-    if args.read_type == "raw":
+    if args.read_type != "subasm":
         jobs.append(JobConsensus(args, work_dir, draft_assembly))
         draft_assembly = jobs[-1].out_files["consensus"]
 
@@ -568,19 +570,26 @@ def _create_job_list(args, work_dir, log_file):
     scaffold_links = jobs[-1].out_files["scaffold_links"]
     graph_file = jobs[-1].out_files["assembly_graph"]
     repeat_stats = jobs[-1].out_files["stats"]
+    repeats_dump = jobs[-1].out_files["repeats_dump"]
+    graph_final = jobs[-1].out_files["graph_final"]
 
     #Polishing
     contigs_file = raw_contigs
     polished_stats = None
     if args.num_iters > 0:
-        jobs.append(JobPolishing(args, work_dir, log_file, raw_contigs))
+        polish_dir = "3-polishing"
+        jobs.append(JobPolishing(args, work_dir, log_file, args.reads, 
+                                 raw_contigs, polish_dir))
         contigs_file = jobs[-1].out_files["contigs"]
         polished_stats = jobs[-1].out_files["stats"]
-
+    
+    #Trestle: Resolve Unbridged Repeats
+    jobs.append(JobTrestle(args, work_dir, log_file, repeats_dump, graph_final))
+    
     #Report results
     jobs.append(JobFinalize(args, work_dir, log_file, contigs_file,
                             graph_file, repeat_stats, polished_stats,
-                            scaffold_links))"""
+                            scaffold_links))
 
     return jobs
 
@@ -595,19 +604,21 @@ def _set_kmer_size(args):
         args.genome_size = human2bytes(args.genome_size.upper())
 
     logger.debug("Genome size: {0}".format(args.genome_size))
-    args.kmer_size = config.vals["small_kmer"]
-    if args.genome_size > config.vals["big_genome"]:
-        args.kmer_size = config.vals["big_kmer"]
-    logger.debug("Chosen k-mer size: {0}".format(args.kmer_size))
+    #args.kmer_size = config.vals["small_kmer"]
+    #if args.genome_size > config.vals["big_genome"]:
+    #    args.kmer_size = config.vals["big_kmer"]
+    #logger.debug("Chosen k-mer size: {0}".format(args.kmer_size))
 
 
 def _set_read_attributes(args):
     root = os.path.dirname(__file__)
     if args.read_type == "raw":
         args.asm_config = os.path.join(root, "resource", config.vals["raw_cfg"])
-    elif args.read_type in ["corrected", "subassemblies"]:
+    elif args.read_type == "corrected":
         args.asm_config = os.path.join(root, "resource",
                                        config.vals["corrected_cfg"])
+    elif args.read_type == "subasm":
+        args.asm_config = os.path.join(root, "resource", config.vals["subasm_cfg"])
 
 
 def _run(args):
@@ -620,9 +631,6 @@ def _run(args):
     for read_file in args.reads:
         if not os.path.exists(read_file):
             raise ResumeException("Can't open " + read_file)
-
-    if args.max_mult < args.min_mult:
-        raise ResumeException("Max-mult cannot be greater than min-mult")
 
     save_file = os.path.join(args.out_dir, "flye.save")
     jobs = _create_job_list(args, args.out_dir, args.log_file)
@@ -706,10 +714,9 @@ def _epilog():
 def _version():
     repo_root = os.path.dirname((os.path.dirname(__file__)))
     try:
-        git_label = subprocess.check_output(["git", "-C", repo_root,
-                                            "describe", "--tags"],
+        git_label = subprocess.check_output(["git", "-C", repo_root, "describe"],
                                             stderr=open(os.devnull, "w"))
-        commit_id = git_label.strip("\n").split("-", 1)[-1]
+        commit_id = git_label.strip("\n").rsplit("-", 1)[-1]
         return __version__ + "-" + commit_id
     except (subprocess.CalledProcessError, OSError):
         pass
@@ -731,35 +738,29 @@ def main():
          formatter_class=argparse.RawDescriptionHelpFormatter,
          usage=_usage(), epilog=_epilog())
 
-    """Repeat Resolutions inputs
-    -repeats_dump
-    -graph_final.fasta
-    -all_reads for whole genome
-    """
-    parser.add_argument("-r", "--read_files", dest="read_files",
-                        metavar="read_files", required=True,
-                        help="reads file for the entire assembly")
-    parser.add_argument("-d", "--repeats-dump", dest="repeats_dump",
-                        metavar="repeats", required=True,
-                        help="repeats_dump file from Flye assembly")
-    parser.add_argument("-g", "--graph-edges", dest="graph_edges",
-                        metavar="graph", required=True,
-                        help="graph_final.fasta file from Flye assembly")
+    read_group = parser.add_mutually_exclusive_group(required=True)
+    read_group.add_argument("--pacbio-raw", dest="pacbio_raw",
+                        default=None, metavar="path", nargs="+",
+                        help="PacBio raw reads")
+    read_group.add_argument("--pacbio-corr", dest="pacbio_corrected",
+                        default=None, metavar="path", nargs="+",
+                        help="PacBio corrected reads")
+    read_group.add_argument("--nano-raw", dest="nano_raw", nargs="+",
+                        default=None, metavar="path",
+                        help="ONT raw reads")
+    read_group.add_argument("--nano-corr", dest="nano_corrected", nargs="+",
+                        default=None, metavar="path",
+                        help="ONT corrected reads")
+    read_group.add_argument("--subassemblies", dest="subassemblies", nargs="+",
+                        default=None, metavar="path",
+                        help="high-quality contig-like input")
+
+    parser.add_argument("-g", "--genome-size", dest="genome_size",
+                        metavar="size", required=True,
+                        help="estimated genome size (for example, 5m or 2.6g)")
     parser.add_argument("-o", "--out-dir", dest="out_dir",
                         default=None, required=True,
                         metavar="path", help="Output directory")
-    parser.add_argument("-u", "--min-mult", dest="min_mult",
-                        type=lambda v: check_int_range(v, 2, 100),
-                        default=2, metavar="int", help="minimum multiplicity "
-                        "to attempt to resolve")
-    parser.add_argument("-x", "--max-mult", dest="max_mult",
-                        type=lambda v: check_int_range(v, 2, 100),
-                        default=2, metavar="int", help="maximum multiplicity "
-                        "to attempt to resolve")
-    parser.add_argument("-e", "--extend-len", dest="extend_len",
-                        type=lambda v: check_int_range(v, 10, 100000),
-                        default=10000, metavar="int", help="length to extend "
-                        "into repeat-adjacent edges")
 
     parser.add_argument("-t", "--threads", dest="threads",
                         type=lambda v: check_int_range(v, 1, 128),
@@ -771,17 +772,8 @@ def main():
                         "(default: 1)", metavar="int")
     parser.add_argument("-m", "--min-overlap", dest="min_overlap", metavar="int",
                         type=lambda v: check_int_range(v, 1000, 10000),
-                        default=5000, help="minimum overlap between reads "
-                        "(default: 5000)")
-    parser.add_argument("-s", "--sub_thresh", dest="sub_thresh", metavar="float",
-                        default=0.1, help="threshold for substitution calls "
-                        "(default: 0.1)")
-    parser.add_argument("-l", "--del_thresh", dest="del_thresh", metavar="float",
-                        default=0.2, help="threshold for deletion calls "
-                        "(default: 0.2)")
-    parser.add_argument("-n", "--ins_thresh", dest="ins_thresh", metavar="float",
-                        default=0.3, help="threshold for insertion calls "
-                        "(default: 0.3)")
+                        default=None, help="minimum overlap between reads "
+                        "(default: auto)")
 
     parser.add_argument("--resume", action="store_true",
                         dest="resume", default=False,
@@ -791,25 +783,13 @@ def main():
     #parser.add_argument("--kmer-size", dest="kmer_size",
     #                    type=lambda v: check_int_range(v, 11, 31, require_odd=True),
     #                    default=None, help="kmer size (default: auto)")
-    #parser.add_argument("--min-coverage", dest="min_kmer_count",
-    #                    type=lambda v: check_int_range(v, 1, 1000),
-    #                    default=None, help="minimum kmer coverage "
-    #                    "(default: auto)")
-    #parser.add_argument("--max-coverage", dest="max_kmer_count",
-    #                    type=lambda v: check_int_range(v, 1, 1000),
-    #                    default=None, help="maximum kmer coverage "
-    #                    "(default: auto)")
     parser.add_argument("--debug", action="store_true",
                         dest="debug", default=False,
                         help="enable debug output")
     parser.add_argument("-v", "--version", action="version", version=_version())
     args = parser.parse_args()
 
-    args.reads = [args.read_files]
-    args.platform = "pacbio"
-    args.read_type = "raw"
-    
-    """if args.pacbio_raw:
+    if args.pacbio_raw:
         args.reads = args.pacbio_raw
         args.platform = "pacbio"
         args.read_type = "raw"
@@ -827,9 +807,9 @@ def main():
         args.read_type = "corrected"
     if args.subassemblies:
         args.reads = args.subassemblies
-        args.platform = "pacbio"
-        args.read_type = "subassemblies"
-    """
+        args.platform = "subasm"
+        args.read_type = "subasm"
+
     if not os.path.isdir(args.out_dir):
         os.mkdir(args.out_dir)
     args.out_dir = os.path.abspath(args.out_dir)
@@ -842,14 +822,14 @@ def main():
     pol.check_binaries()
     asm.check_binaries()
 
-    #_set_kmer_size(args)
-    #_set_read_attributes(args)
+    _set_kmer_size(args)
+    _set_read_attributes(args)
 
     try:
         _run(args)
     except (aln.AlignmentException, pol.PolishException,
             asm.AssembleException, repeat.RepeatException,
-            rr.ProcessingException, ResumeException) as e:
+            ResumeException) as e:
         logger.error(e)
         return 1
 

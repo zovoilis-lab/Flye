@@ -714,7 +714,8 @@ def _index_mapping(aln):
             al_inds.append(i)
     return al_inds, gen_inds
 
-def init_side_stats(rep, side, repeat_edges, args, buffer_count, max_iter, 
+def init_side_stats(rep, side, repeat_edges, min_overlap, sub_thresh, 
+                    del_thresh, ins_thresh, extend_len, buffer_count, max_iter, 
                      min_edge_cov, position_path, partitioning, 
                      prev_parts, template_len, stats_file):
     pos = div.read_positions(position_path)
@@ -748,11 +749,11 @@ def init_side_stats(rep, side, repeat_edges, args, buffer_count, max_iter,
         f.write("\n")
         f.write("{0:25}\t{1}\n\n".format("Template Length:", template_len))
         f.write("Initial Option Values\n")
-        f.write("{0:25}\t{1}\n".format("min_overlap:", args.min_overlap))
-        f.write("{0:25}\t{1}\n".format("sub_thresh:", args.sub_thresh))
-        f.write("{0:25}\t{1}\n".format("del_thresh:", args.del_thresh))
-        f.write("{0:25}\t{1}\n".format("ins_thresh:", args.ins_thresh))
-        f.write("{0:25}\t{1}\n".format("extend_len:", args.extend_len))
+        f.write("{0:25}\t{1}\n".format("min_overlap:", min_overlap))
+        f.write("{0:25}\t{1}\n".format("sub_thresh:", sub_thresh))
+        f.write("{0:25}\t{1}\n".format("del_thresh:", del_thresh))
+        f.write("{0:25}\t{1}\n".format("ins_thresh:", ins_thresh))
+        f.write("{0:25}\t{1}\n".format("extend_len:", extend_len))
         f.write("{0:25}\t{1}\n".format("buffer_count:", buffer_count))
         f.write("{0:25}\t{1}\n".format("max_iter:", max_iter))
         f.write("{0:25}\t{1}\n".format("min_edge_cov:", min_edge_cov))
@@ -976,7 +977,7 @@ def init_int_stats(rep, repeat_edges, zero_it, position_path, partitioning,
                 spaced_values = map("{:6}".format, edge_values)
                 f.write("\t".join(spaced_values))
                 f.write("\n")
-        f.write("{0:16}\t{1}\n".format("Internal", internal_reads))
+        f.write("{0:11}\t{1}\n".format("Internal", internal_reads))
         f.write("\n\n")
         f.write("\t".join(spaced_header))
         f.write("\n")
@@ -1385,7 +1386,7 @@ def int_stats_postscript(rep, repeat_edges, integrated_stats, min_aln_rate,
             div_rate = _calculate_divergence(res_align[0][0].qry_seq, 
                                              res_align[0][0].trg_seq)
             divs.append(div_rate)
-            f.write("{0:22}\t{1:.4f}\n".format("Divergence Rate:", div_rate))
+            f.write("{0:26}\t{1:.4f}\n".format("Divergence Rate:", div_rate))
         f.write("\n")
     return np.mean(divs)
         
