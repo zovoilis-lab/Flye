@@ -3,12 +3,10 @@
 //Released under the BSD license (see LICENSE file)
 
 #include <iostream>
-#include <getopt.h>
 #include <signal.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <cmath>
-
 #include <execinfo.h>
 
 #include "../sequence/vertex_index.h"
@@ -21,6 +19,8 @@
 #include "parameters_estimator.h"
 #include "../common/logger.h"
 #include "../common/utils.h"
+
+#include <getopt.h>
 
 bool parseArgs(int argc, char** argv, std::string& readsFasta, 
 			   std::string& outAssembly, std::string& logFile, size_t& genomeSize,
