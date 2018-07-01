@@ -410,9 +410,9 @@ def partition_reads(edges, it, side, position_path, cons_align_path,
                     confirmed_pos_path, part_file, 
                     headers_to_id, min_aln_rate, buffer_count,
                     pos_test, num_test):
-    pos = div.read_positions(position_path)
+    pos_headers, pos = div.read_positions(position_path)
     """"""
-    test_pos = pos[:num_test]
+    test_pos = pos["total"][:num_test]
     with open(pos_test, 'w') as f:
         f.write("Test positions ({0})\n".format(num_test))
         f.write("{0}\n\n".format(test_pos))
@@ -478,11 +478,10 @@ class EdgeAlignment:
         self.curr_trg_nuc = ""
         self.curr_ins_nuc = ""
 
-def _evaluate_positions(positions, cons_aligns, pos_test, test_pos, side):
+def _evaluate_positions(pos, cons_aligns, pos_test, test_pos, side):
     #Includes insertions!
-    pos = set(positions)
-    confirmed_pos = []
-    rejected_pos = []
+    confirmed_pos = {"total":[], "sub":[], "ins":[], "del":[]}
+    rejected_pos = {"total":[], "sub":[], "ins":[], "del":[]}
     consensus_pos = {e:[] for e in cons_aligns}    
     
     alns = {}
@@ -519,7 +518,7 @@ def _evaluate_positions(positions, cons_aligns, pos_test, test_pos, side):
                 aln.curr_trg_nuc = aln.trg_seq[aln.curr_aln_ind]
                 
         
-        if trg_ind in pos:
+        if trg_ind in pos["total"]:
             if ((side == "in" and trg_ind < min_end_edge) or
                 (side == "out" and trg_ind >= max_start_edge)):
                 """"""
@@ -527,7 +526,8 @@ def _evaluate_positions(positions, cons_aligns, pos_test, test_pos, side):
                     with open(pos_test, "a") as f:
                         f.write("Pos {0}:\n".format(trg_ind))
                 ins_confirmed = False
-                qry_confirmed = False
+                del_confirmed = False
+                sub_confirmed = False
                 qry_nuc = ""
                 trg_nuc = ""
                 for edge_id in alns:
@@ -548,7 +548,10 @@ def _evaluate_positions(positions, cons_aligns, pos_test, test_pos, side):
                                     f.write("ins_confirmed, cons_pos:\t{0}\n".format(aln.curr_qry_ind-1))
                             
                         if qry_nuc and qry_nuc != aln.curr_qry_nuc:
-                            qry_confirmed = True
+                            if qry_nuc == "-":
+                                del_confirmed = True
+                            else:
+                                sub_confirmed = True
                         else:
                             qry_nuc = aln.curr_qry_nuc
                         if trg_nuc and trg_nuc != aln.curr_trg_nuc:
@@ -567,11 +570,12 @@ def _evaluate_positions(positions, cons_aligns, pos_test, test_pos, side):
                                 f.write("around trg_seq:\t{0}\n".format(aln.trg_seq[aln.curr_aln_ind-5:aln.curr_aln_ind+5]))
                                 f.write("current trg_nuc:\t{0}\n".format(trg_nuc))
                                 f.write("current ins_confirmed:\t{0}\n".format(ins_confirmed))
-                                f.write("current qry_confirmed:\t{0}\n\n".format(qry_confirmed))
-                if ins_confirmed or qry_confirmed:
-                    confirmed_pos.append(trg_ind)
+                                f.write("current del_confirmed:\t{0}\n".format(del_confirmed))
+                                f.write("current sub_confirmed:\t{0}\n\n".format(sub_confirmed))
+                if ins_confirmed or del_confirmed or sub_confirmed:
+                    confirmed_pos["total"].append(trg_ind)
                     #Add positions to consensuses for only substitutions/deletions
-                    if qry_confirmed:
+                    if del_confirmed or sub_confirmed:
                         """"""
                         if trg_ind in test_pos:
                             with open(pos_test, "a") as f:
@@ -584,8 +588,29 @@ def _evaluate_positions(positions, cons_aligns, pos_test, test_pos, side):
                                 if trg_ind in test_pos:
                                     with open(pos_test, "a") as f:
                                         f.write("Edge {0}, cons_pos:\t{1}\n".format(edge_id, aln.curr_qry_ind))
+                    if trg_ind in pos["ins"]:
+                        if ins_confirmed:
+                            confirmed_pos["ins"].append(trg_ind)
+                        else:
+                            rejected_pos["ins"].append(trg_ind)
+                    if trg_ind in pos["del"]:
+                        if del_confirmed:
+                            confirmed_pos["del"].append(trg_ind)
+                        else:
+                            rejected_pos["del"].append(trg_ind)
+                    if trg_ind in pos["sub"]:
+                        if sub_confirmed:
+                            confirmed_pos["sub"].append(trg_ind)
+                        else:
+                            rejected_pos["sub"].append(trg_ind)
                 else:
-                    rejected_pos.append(trg_ind)
+                    rejected_pos["total"].append(trg_ind)
+                    if trg_ind in pos["ins"]:
+                        rejected_pos["ins"].append(trg_ind)
+                    if trg_ind in pos["del"]:
+                        rejected_pos["del"].append(trg_ind)
+                    if trg_ind in pos["sub"]:
+                        rejected_pos["sub"].append(trg_ind)
         
         for edge_id in alns:
             aln = alns[edge_id]
@@ -600,29 +625,74 @@ def _evaluate_positions(positions, cons_aligns, pos_test, test_pos, side):
 
 def _write_confirmed_positions(confirmed, rejected, pos, out_file):
     with open(out_file, 'w') as f:
-        f.write(">Confirmed_{0}_positions\n".format(len(confirmed)))
-        f.write(",".join(map(str, sorted(confirmed))))
+        f.write(">Confirmed_total_positions_{0}\n".format(len(confirmed["total"])))
+        f.write(",".join(map(str, sorted(confirmed["total"]))))
         f.write("\n")
-        f.write(">Rejected_{0}_positions\n".format(len(rejected)))
-        f.write(",".join(map(str, sorted(rejected))))
+        f.write(">Confirmed_sub_positions_{0}\n".format(len(confirmed["sub"])))
+        f.write(",".join(map(str, sorted(confirmed["sub"]))))
         f.write("\n")
-        f.write(">{0}_tentative_positions\n".format(len(pos)))
-        f.write(",".join(map(str, sorted(pos))))
+        f.write(">Confirmed_del_positions_{0}\n".format(len(confirmed["del"])))
+        f.write(",".join(map(str, sorted(confirmed["del"]))))
+        f.write("\n")
+        f.write(">Confirmed_ins_positions_{0}\n".format(len(confirmed["ins"])))
+        f.write(",".join(map(str, sorted(confirmed["ins"]))))
+        f.write("\n")
+        f.write(">Rejected_total_positions_{0}\n".format(len(rejected["total"])))
+        f.write(",".join(map(str, sorted(rejected["total"]))))
+        f.write("\n")
+        f.write(">Rejected_sub_positions_{0}\n".format(len(rejected["sub"])))
+        f.write(",".join(map(str, sorted(rejected["sub"]))))
+        f.write("\n")
+        f.write(">Rejected_del_positions_{0}\n".format(len(rejected["del"])))
+        f.write(",".join(map(str, sorted(rejected["del"]))))
+        f.write("\n")
+        f.write(">Rejected_ins_positions_{0}\n".format(len(rejected["ins"])))
+        f.write(",".join(map(str, sorted(rejected["ins"]))))
+        f.write("\n")
+        f.write(">Tentative_total_positions_{0}\n".format(len(pos["total"])))
+        f.write(",".join(map(str, sorted(pos["total"]))))
+        f.write("\n")
+        f.write(">Tentative_sub_positions_{0}\n".format(len(pos["sub"])))
+        f.write(",".join(map(str, sorted(pos["sub"]))))
+        f.write("\n")
+        f.write(">Tentative_del_positions_{0}\n".format(len(pos["del"])))
+        f.write(",".join(map(str, sorted(pos["del"]))))
+        f.write("\n")
+        f.write(">Tentative_ins_positions_{0}\n".format(len(pos["ins"])))
+        f.write(",".join(map(str, sorted(pos["ins"]))))
         f.write("\n")
 
 def _read_confirmed_positions(confirmed_file):
-    confirmed = []
-    rejected = []
-    pos = []
+    confirmed = {"total":[], "sub":[], "ins":[], "del":[]}
+    rejected = {"total":[], "sub":[], "ins":[], "del":[]}
+    pos = {"total":[], "sub":[], "ins":[], "del":[]}
     with open(confirmed_file, "r") as f:
         for i, line in enumerate(f):
             line = line.strip()
-            if i == 1:
-                confirmed = map(int, line.split(","))
-            if i == 3:
-                rejected = map(int, line.split(","))
-            if i == 5:
-                pos = map(int, line.split(","))
+            if i == 1 and line:
+                confirmed["total"] = map(int, line.split(","))
+            elif i == 3 and line:
+                confirmed["sub"] = map(int, line.split(","))
+            elif i == 5 and line:
+                confirmed["del"] = map(int, line.split(","))
+            elif i == 7 and line:
+                confirmed["ins"] = map(int, line.split(","))
+            elif i == 9 and line:
+                rejected["total"] = map(int, line.split(","))
+            elif i == 11 and line:
+                rejected["sub"] = map(int, line.split(","))
+            elif i == 13 and line:
+                rejected["del"] = map(int, line.split(","))
+            elif i == 15 and line:
+                rejected["ins"] = map(int, line.split(","))
+            elif i == 17 and line:
+                pos["total"] = map(int, line.split(","))
+            elif i == 19 and line:
+                pos["sub"] = map(int, line.split(","))
+            elif i == 21 and line:
+                pos["del"] = map(int, line.split(","))
+            elif i == 23 and line:
+                pos["ins"] = map(int, line.split(","))
     return confirmed, rejected, pos
                 
 
@@ -718,7 +788,7 @@ def _index_mapping(aln):
 def init_side_stats(rep, side, repeat_edges, args, buffer_count, max_iter, 
                      min_edge_cov, position_path, partitioning, 
                      prev_parts, template_len, stats_file):
-    pos = div.read_positions(position_path)
+    pos_headers, pos = div.read_positions(position_path)
     #Count partitioned reads
     edge_below_cov = False
     part_list = _read_partitioning_file(partitioning)
@@ -760,7 +830,12 @@ def init_side_stats(rep, side, repeat_edges, args, buffer_count, max_iter,
         f.write("\n")
         f.write("The following numbers are calculated based on moving ")
         f.write("into the repeat from the '{0}' direction\n\n".format(side))
-        f.write("{0:25}\t{1}\n".format("Divergent Positions:", len(pos)))
+        f.write("{0}\n".format("Divergent Positions:"))
+        f.write("{0:25}\t{1}\n".format("Total", len(pos["total"])))
+        f.write("{0:25}\t{1}\n".format("Substitutions", len(pos["sub"])))
+        f.write("{0:25}\t{1}\n".format("Deletions", len(pos["del"])))
+        f.write("{0:25}\t{1}\n".format("Insertions", len(pos["ins"])))
+        f.write("\n")
         f.write("{0:25}\t{1}\n".format("Total Starting Reads:", 
                                        sum(edge_reads.values())))
         for edge in sorted(repeat_edges[rep][side]):
@@ -790,7 +865,7 @@ def update_side_stats(edges, it, side, cons_align_path, template,
             rep_len = cons_align[0][0].qry_end
         stats_out.extend([str(rep_len)])
     confirmed, rejected, pos = _read_confirmed_positions(confirmed_pos_path)
-    stats_out.extend([str(len(confirmed)), str(len(rejected))])
+    stats_out.extend([str(len(confirmed["total"])), str(len(rejected["total"]))])
     edge_below_cov = False
     dup_part = False
     part_list = _read_partitioning_file(partitioning)
@@ -882,23 +957,74 @@ def finalize_side_stats(edges, it, side, cons_align_path, template, min_aln_rate
         f.write("\n")
         #Write overall position stats
         confirmed, rejected, pos = _read_confirmed_positions(confirmed_pos_path)
-        remaining = len(pos) - (len(confirmed) + len(rejected))
+        remaining_total = len(pos["total"]) - (len(confirmed["total"]) + 
+                                               len(rejected["total"]))
+        remaining_sub = len(pos["sub"]) - (len(confirmed["sub"]) + 
+                                               len(rejected["sub"]))
+        remaining_del = len(pos["del"]) - (len(confirmed["del"]) + 
+                                               len(rejected["del"]))
+        remaining_ins = len(pos["ins"]) - (len(confirmed["ins"]) + 
+                                               len(rejected["ins"]))                                       
         if side == "in":
+            largest_pos = -1
+            if confirmed["total"]:
+                largest_pos = max(confirmed["total"])
             f.write("{0:26}\t{1}\n".format("Largest Confirmed Position:", 
-                                           max(confirmed)))
+                                           largest_pos))
         elif side == "out":
+            smallest_pos = -1
+            if confirmed["total"]:
+                smallest_pos = min(confirmed["total"])
             f.write("{0:26}\t{1}\n".format("Smallest Confirmed Position:", 
-                                           min(confirmed)))
+                                           smallest_pos))
         f.write("{0:26}\t{1}/{2} = {3:.3f}\n".format("Total Confirmed Positions:", 
-                                              len(confirmed), len(pos), 
-                                              len(confirmed)/float(len(pos))))
+                                              len(confirmed["total"]), 
+                                              len(pos["total"]), 
+                                              len(confirmed["total"]) / float(len(pos["total"]))))
         f.write("{0:26}\t{1}/{2} = {3:.3f}\n".format("Total Rejected Positions:", 
-                                              len(rejected), len(pos), 
-                                              len(rejected)/float(len(pos))))
+                                              len(rejected["total"]), 
+                                              len(pos["total"]), 
+                                              len(rejected["total"]) / float(len(pos["total"]))))
         f.write("{0:26}\t{1}/{2} = {3:.3f}\n".format("Total Remaining Positions:", 
-                                              remaining, len(pos), 
-                                              remaining/float(len(pos))))
+                                              remaining_total, len(pos["total"]), 
+                                              remaining_total/float(len(pos["total"]))))
         f.write("\n")
+        f.write("{0:26}\t{1}/{2} = {3:.3f}\n".format("Confirmed Sub Positions:", 
+                                              len(confirmed["sub"]), 
+                                              len(pos["sub"]), 
+                                              len(confirmed["sub"]) / float(len(pos["sub"]))))
+        f.write("{0:26}\t{1}/{2} = {3:.3f}\n".format("Rejected Sub Positions:", 
+                                              len(rejected["sub"]), 
+                                              len(pos["sub"]), 
+                                              len(rejected["sub"]) / float(len(pos["sub"]))))
+        f.write("{0:26}\t{1}/{2} = {3:.3f}\n".format("Remaining Sub Positions:", 
+                                              remaining_sub, len(pos["sub"]), 
+                                              remaining_sub/float(len(pos["sub"]))))
+        f.write("\n")
+        f.write("{0:26}\t{1}/{2} = {3:.3f}\n".format("Confirmed Del Positions:", 
+                                              len(confirmed["del"]), 
+                                              len(pos["del"]), 
+                                              len(confirmed["del"]) / float(len(pos["del"]))))
+        f.write("{0:26}\t{1}/{2} = {3:.3f}\n".format("Rejected Del Positions:", 
+                                              len(rejected["del"]), 
+                                              len(pos["del"]), 
+                                              len(rejected["del"]) / float(len(pos["del"]))))
+        f.write("{0:26}\t{1}/{2} = {3:.3f}\n".format("Remaining Del Positions:", 
+                                              remaining_del, len(pos["del"]), 
+                                              remaining_del/float(len(pos["del"]))))
+        f.write("\n")
+        f.write("{0:26}\t{1}/{2} = {3:.3f}\n".format("Confirmed Ins Positions:", 
+                                              len(confirmed["ins"]), 
+                                              len(pos["ins"]), 
+                                              len(confirmed["ins"]) / float(len(pos["ins"]))))
+        f.write("{0:26}\t{1}/{2} = {3:.3f}\n".format("Rejected Ins Positions:", 
+                                              len(rejected["ins"]), 
+                                              len(pos["ins"]), 
+                                              len(rejected["ins"]) / float(len(pos["ins"]))))
+        f.write("{0:26}\t{1}/{2} = {3:.3f}\n".format("Remaining Ins Positions:", 
+                                              remaining_ins, len(pos["ins"]), 
+                                              remaining_ins/float(len(pos["ins"]))))
+        f.write("\n\n")
         #Write overall partitioning stats
         part_list = _read_partitioning_file(partitioning)
         edge_reads = {edge:0 for edge in edges}
@@ -1015,7 +1141,8 @@ def update_int_stats(rep, repeat_edges, side_it, cons_align_path, template,
     _write_confirmed_positions(int_confirmed, int_rejected, pos, 
                                int_confirmed_path.format(side_it["in"], 
                                                          side_it["out"]))
-    stats_out.extend([str(len(int_confirmed)), str(len(int_rejected))])
+    stats_out.extend([str(len(int_confirmed["total"])), 
+                      str(len(int_rejected["total"]))])
     #Get bridging reads for each pair of in/out edges
     side_headers_dict = {}
     all_headers = set()
@@ -1067,31 +1194,76 @@ def finalize_int_stats(rep, repeat_edges, side_it, cons_align_path, template,
         #Overall confirmed and rejected positions
         int_confirmed, int_rejected, pos = _read_confirmed_positions(
                 int_confirmed_path.format(side_it["in"], side_it["out"]))
-        remaining = len(pos) - (len(int_confirmed) + len(int_rejected))
+        remaining_total = len(pos["total"]) - (len(int_confirmed["total"]) + 
+                                               len(int_rejected["total"]))
+        remaining_sub = len(pos["sub"]) - (len(int_confirmed["sub"]) + 
+                                               len(int_rejected["sub"]))
+        remaining_del = len(pos["del"]) - (len(int_confirmed["del"]) + 
+                                               len(int_rejected["del"]))
+        remaining_ins = len(pos["ins"]) - (len(int_confirmed["ins"]) + 
+                                               len(int_rejected["ins"]))
         f.write("{0:26}\t{1}/{2} = {3:.3f}\n".format("Total Confirmed Positions:", 
-                                              len(int_confirmed), len(pos), 
-                                              len(int_confirmed)/float(len(pos))))
+                                              len(int_confirmed["total"]), 
+                                              len(pos["total"]), 
+                                              len(int_confirmed["total"]) / float(len(pos["total"]))))
         f.write("{0:26}\t{1}/{2} = {3:.3f}\n".format("Total Rejected Positions:", 
-                                              len(int_rejected), len(pos), 
-                                              len(int_rejected)/float(len(pos))))
+                                              len(int_rejected["total"]), 
+                                              len(pos["total"]), 
+                                              len(int_rejected["total"]) / float(len(pos["total"]))))
         f.write("{0:26}\t{1}/{2} = {3:.3f}\n".format("Total Remaining Positions:", 
-                                              remaining, len(pos), 
-                                              remaining/float(len(pos))))
+                                              remaining_total, len(pos["total"]), 
+                                              remaining_total/float(len(pos["total"]))))
         f.write("\n")
+        f.write("{0:26}\t{1}/{2} = {3:.3f}\n".format("Confirmed Sub Positions:", 
+                                              len(int_confirmed["sub"]), 
+                                              len(pos["sub"]), 
+                                              len(int_confirmed["sub"]) / float(len(pos["sub"]))))
+        f.write("{0:26}\t{1}/{2} = {3:.3f}\n".format("Rejected Sub Positions:", 
+                                              len(int_rejected["sub"]), 
+                                              len(pos["sub"]), 
+                                              len(int_rejected["sub"]) / float(len(pos["sub"]))))
+        f.write("{0:26}\t{1}/{2} = {3:.3f}\n".format("Remaining Sub Positions:", 
+                                              remaining_sub, len(pos["sub"]), 
+                                              remaining_sub/float(len(pos["sub"]))))
+        f.write("\n")
+        f.write("{0:26}\t{1}/{2} = {3:.3f}\n".format("Confirmed Del Positions:", 
+                                              len(int_confirmed["del"]), 
+                                              len(pos["del"]), 
+                                              len(int_confirmed["del"]) / float(len(pos["del"]))))
+        f.write("{0:26}\t{1}/{2} = {3:.3f}\n".format("Rejected Del Positions:", 
+                                              len(int_rejected["del"]), 
+                                              len(pos["del"]), 
+                                              len(int_rejected["del"]) / float(len(pos["del"]))))
+        f.write("{0:26}\t{1}/{2} = {3:.3f}\n".format("Remaining Del Positions:", 
+                                              remaining_del, len(pos["del"]), 
+                                              remaining_del/float(len(pos["del"]))))
+        f.write("\n")
+        f.write("{0:26}\t{1}/{2} = {3:.3f}\n".format("Confirmed Ins Positions:", 
+                                              len(int_confirmed["ins"]), 
+                                              len(pos["ins"]), 
+                                              len(int_confirmed["ins"]) / float(len(pos["ins"]))))
+        f.write("{0:26}\t{1}/{2} = {3:.3f}\n".format("Rejected Ins Positions:", 
+                                              len(int_rejected["ins"]), 
+                                              len(pos["ins"]), 
+                                              len(int_rejected["ins"]) / float(len(pos["ins"]))))
+        f.write("{0:26}\t{1}/{2} = {3:.3f}\n".format("Remaining Ins Positions:", 
+                                              remaining_ins, len(pos["ins"]), 
+                                              remaining_ins/float(len(pos["ins"]))))
+        f.write("\n\n")
         #Basic stats for confirmed positions
         av_div = 0.0
         if template_len != 0:
-            av_div = len(int_confirmed) / float(template_len)
-        position_gaps = [0 for x in range(len(int_confirmed)+1)]
+            av_div = len(int_confirmed["total"]) / float(template_len)
+        position_gaps = [0 for x in range(len(int_confirmed["total"])+1)]
         curr_pos = 0
-        for i,p in enumerate(int_confirmed):
+        for i,p in enumerate(int_confirmed["total"]):
             position_gaps[i] = p-curr_pos
             curr_pos = p
         position_gaps[-1] = template_len-curr_pos
         mean_position_gap = np.mean(position_gaps)
         max_position_gap = max(position_gaps)
         f.write("{0:26}\t{1}\n".format("Template Length:", template_len))
-        f.write("{0:26}\t{1}\n".format("# Confirmed Positions:", len(int_confirmed)))
+        f.write("{0:26}\t{1}\n".format("# Confirmed Positions:", len(int_confirmed["total"])))
         f.write("{0:26}\t{1:.4f}\n".format("Confirmed Pos Avg Divergence:", 
                                               av_div))
         f.write("{0:26}\t{1:.2f}\n".format("Mean Confirmed Pos Gap:", 
@@ -1099,7 +1271,7 @@ def finalize_int_stats(rep, repeat_edges, side_it, cons_align_path, template,
         f.write("{0:26}\t{1}\n".format("Max Confirmed Pos Gap:", 
                                               max_position_gap))
         f.write("\n\n")
-        summ_vals.extend([len(int_confirmed), max_position_gap])
+        summ_vals.extend([len(int_confirmed["total"]), max_position_gap])
         #Write bridging reads
         side_headers_dict = {}
         all_headers = set()
@@ -1153,9 +1325,9 @@ def finalize_int_stats(rep, repeat_edges, side_it, cons_align_path, template,
             bridged_edges = all_combos[sorted_combos[0][1]]
         best_combo = sorted_combos[0][1]
         best_support = sorted_combos[0][0]
-        best_against = best_support
+        best_against = 0
         for support, ind in sorted_combos[1:]:
-            best_against -= support
+            best_against += support
         second_combo = sorted_combos[1][1]
         second_support = sorted_combos[1][0]
         if bridged:
@@ -1483,18 +1655,15 @@ def _integrate_confirmed_pos(in_confirmed_path, out_confirmed_path):
     in_conf, in_rej, in_pos = _read_confirmed_positions(in_confirmed_path)
     out_conf, out_rej, out_pos = _read_confirmed_positions(out_confirmed_path)
     
-    in_conf_set = set(in_conf)
-    in_rej_set = set(in_rej)
-    out_conf_set = set(out_conf)
-    out_rej_set = set(out_rej)
-    integrated_confirmed = []
-    integrated_rejected = []
+    integrated_confirmed = {"total":[], "sub":[], "ins":[], "del":[]}
+    integrated_rejected = {"total":[], "sub":[], "ins":[], "del":[]}
     
-    for pos in sorted(in_pos):
-        if pos in in_conf_set or pos in out_conf_set:
-            integrated_confirmed.append(pos)
-        elif pos in in_rej_set or pos in out_rej_set:
-            integrated_rejected.append(pos)
+    for pos in sorted(in_pos["total"]):
+        for pos_type in in_conf:
+            if pos in in_conf[pos_type] or pos in out_conf[pos_type]:
+                integrated_confirmed[pos_type].append(pos)
+            elif pos in in_rej[pos_type] or pos in out_rej[pos_type]:
+                integrated_rejected[pos_type].append(pos)
     return integrated_confirmed, integrated_rejected, in_pos
 
 def _get_combos(in_list, out_list):

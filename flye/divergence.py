@@ -113,24 +113,23 @@ def _count_freqs(elem):
                             'del_base':del_key, 'del_ct':del_ct, 
                             'ins_base':max_ins_key, 'ins_ct':max_ins_ct}
 
-def _call_position(ind, counts, pos, called, sub_thresh, del_thresh, ins_thresh):
+def _call_position(ind, counts, pos, sub_thresh, del_thresh, ins_thresh):
     over_thresh = False
     if counts['cov']:
         if counts['sub_ct'] / float(counts['cov']) >= sub_thresh:
-            called['sub'] += 1
+            pos['sub'].append(ind)
             over_thresh = True
         if counts['del_ct'] / float(counts['cov']) >= del_thresh:
-            called['del'] += 1
+            pos['del'].append(ind)
             over_thresh = True
         if counts['ins_ct'] / float(counts['cov']) >= ins_thresh:
-            called['ins'] += 1
+            pos['ins'].append(ind)
             over_thresh = True
         
         if over_thresh:
-            called['total'] += 1
-            pos[ind] = counts
+            pos['total'].append(ind)
         
-    return pos, called
+    return pos
 
 def find_divergence(alignment_path, contigs_path, contigs_info, 
                     frequency_path, positions_path, div_sum_path, 
@@ -168,40 +167,39 @@ def find_divergence(alignment_path, contigs_path, contigs_info,
     if not error_queue.empty():
         raise error_queue.get()
 
-    out_positions = []
     total_aln_errors = []
     while not results_queue.empty():
         ctg_id, ctg_profile, aln_errors = results_queue.get()
         
-        positions, total_called = _write_frequency_path(frequency_path, 
-                                                        ctg_profile,
-                                                        sub_thresh, 
-                                                        del_thresh, 
-                                                        ins_thresh)
-        pos_header = "".join(["Called_{0}_positions_".format(len(positions)), 
+        positions = _write_frequency_path(frequency_path, ctg_profile, 
+                                          sub_thresh, del_thresh, ins_thresh)
+        total_header = "".join(["Total_positions_{0}_".format(len(positions["total"])), 
                               "with_thresholds_sub_{0}".format(sub_thresh), 
-                              "_del_{0}_ins{1}".format(del_thresh, ins_thresh)])
-        _write_positions(positions_path, pos_header, positions)
+                              "_del_{0}_ins_{1}".format(del_thresh, ins_thresh)])
+        sub_header = "".join(["Sub_positions_{0}_".format(len(positions["sub"])), 
+                              "with_threshold_sub_{0}".format(sub_thresh)])
+        del_header = "".join(["Del_positions_{0}_".format(len(positions["del"])), 
+                              "with_threshold_del_{0}".format(del_thresh)])
+        ins_header = "".join(["Ins_positions_{0}_".format(len(positions["ins"])), 
+                              "with_threshold_ins_{0}".format(ins_thresh)])
+        _write_positions(positions_path, positions, total_header, 
+                         sub_header, del_header, ins_header)
         
         window_len = 1000
         sum_header = "Tentative Divergent Position Summary"
-        _write_div_summary(div_sum_path, sum_header, positions, total_called, 
+        _write_div_summary(div_sum_path, sum_header, positions, 
                           len(ctg_profile), window_len)
         
+        logger.debug("Total positions: {0}".format(len(positions["total"])))
         total_aln_errors.extend(aln_errors)
-        if len(positions) > 0:
-            out_positions.extend(positions)
             
     mean_aln_error = float(sum(total_aln_errors)) / (len(total_aln_errors) + 1)
-    logger.debug("Total positions: {0}".format(len(out_positions)))
     logger.debug("Alignment error rate: {0}".format(mean_aln_error))
 
 def _write_frequency_path(frequency_path, ctg_profile, sub_thresh, 
                           del_thresh, ins_thresh):
-    #The set of called positions
-    positions = {}
-    #The total number of positions called for each category
-    total_called = {'total':0, 'sub':0, 'del':0, 'ins':0}
+    #The set of called positions for each category
+    positions = {"total":[], "sub":[], "del":[], "ins":[]}
     with open(frequency_path, 'w') as f:
         f.write("Index\tCov\tMatch\tCount\tSub\tCount\tDel\tCount\tIns\tCount\n")
         for index, elem in enumerate(ctg_profile):
@@ -212,9 +210,9 @@ def _write_frequency_path(frequency_path, ctg_profile, sub_thresh,
             
             #Adds this element to positions if it passes any threshold
             #and updates total_called appropriately
-            positions, total_called = _call_position(index, counts, positions, 
-                        total_called, sub_thresh, del_thresh, ins_thresh)
-    return positions, total_called
+            positions = _call_position(index, counts, positions, 
+                                       sub_thresh, del_thresh, ins_thresh)
+    return positions
 
 def read_frequency_path(frequency_path):
     header = []
@@ -232,20 +230,30 @@ def read_frequency_path(frequency_path):
                 freqs.append(vals)
     return header, freqs
 
-def _write_positions(positions_path, pos_header, positions):
+def _write_positions(positions_path, positions, total_header, sub_header, 
+                     del_header, ins_header):
     with open(positions_path, 'w') as f:
-        f.write(">{0}\n".format(pos_header))
-        f.write(",".join(map(str, sorted(positions.keys()))))
+        f.write(">{0}\n".format(total_header))
+        f.write(",".join(map(str, sorted(positions["total"]))))
+        f.write("\n")
+        f.write(">{0}\n".format(sub_header))
+        f.write(",".join(map(str, sorted(positions["sub"]))))
+        f.write("\n")
+        f.write(">{0}\n".format(del_header))
+        f.write(",".join(map(str, sorted(positions["del"]))))
+        f.write("\n")
+        f.write(">{0}\n".format(ins_header))
+        f.write(",".join(map(str, sorted(positions["ins"]))))
         f.write("\n")
 
-def _write_div_summary(div_sum_path, sum_header, positions, total_called, 
+def _write_div_summary(div_sum_path, sum_header, positions, 
                       seq_len, window_len):
-    pos_list = sorted(positions.keys())
+    pos_list = sorted(positions["total"])
     av_div = 0.0
     if seq_len != 0:
-        av_div = len(positions) / float(seq_len)
+        av_div = len(pos_list) / float(seq_len)
     
-    position_gaps = [0 for x in range(len(positions)+1)]
+    position_gaps = [0 for x in range(len(pos_list)+1)]
     curr_pos = 0
     for i,p in enumerate(pos_list):
         position_gaps[i] = p-curr_pos
@@ -288,16 +296,16 @@ def _write_div_summary(div_sum_path, sum_header, positions, total_called,
         f.write("{0:33}\t{1}\n".format("Total Positions:", len(positions)))
         f.write("{0:33}\t{1:.4f}\n\n".format("Average Divergence:", av_div))
         
-        f.write("{0:33}\t{t[sub]}\n".format("Total Substitution Positions:", 
-                                            t=total_called))
-        f.write("{0:33}\t{t[del]}\n".format("Total Deletion Positions:", 
-                                            t=total_called))
-        f.write("{0:33}\t{t[ins]}\n".format("Total Insertion Positions:", 
-                                            t=total_called))
-        f.write("{0:33}\t{t[total]}\n".format("Total Positions:", 
-                                              t=total_called))
-        mixed_count = (total_called['sub'] + total_called['del'] + 
-                    total_called['ins']) - total_called['total']
+        f.write("{0:33}\t{1}\n".format("Total Substitution Positions:", 
+                                            len(positions["sub"])))
+        f.write("{0:33}\t{1}\n".format("Total Deletion Positions:", 
+                                            len(positions["del"])))
+        f.write("{0:33}\t{1}\n".format("Total Insertion Positions:", 
+                                            len(positions["ins"])))
+        f.write("{0:33}\t{1}\n".format("Total Positions:", 
+                                              len(positions["total"])))
+        mixed_count = (len(positions["sub"]) + len(positions["del"]) + 
+                    len(positions["ins"])) - len(positions["total"])
         f.write("{0:33}\t{1}\n\n".format("Mixed Positions:", mixed_count))
         
         f.write("{0:33}\t{1:.2f}\n".format("Mean Position Gap:", 
@@ -321,20 +329,34 @@ def read_positions(positions_file):
     """
     Reads positions file into list
     """
-    #header = None
-    positions = []
+    headers = {"total":"", "sub":"", "ins":"", "del":""}
+    positions = {"total":[], "sub":[], "ins":[], "del":[]}
     try:
         with open(positions_file, "r") as f:
             for line_id, line in enumerate(f):
                 line = line.strip()
-                if line.startswith(">"):
-                    pass
-                    #header = line[1:]
-                elif line:
+                if line_id == 0 and line.startswith(">") and line:
+                    headers["total"] = line[1:]
+                elif line_id == 1 and line:
                     pos_parts = line.split(",")
-                    for p in pos_parts:
-                        if p.strip():
-                            positions = map(int, pos_parts)
+                    positions["total"] = map(int, pos_parts)
+                elif line_id == 2 and line.startswith(">") and line:
+                    headers["sub"] = line[1:]
+                elif line_id == 3 and line:
+                    pos_parts = line.split(",")
+                    positions["sub"] = map(int, pos_parts)
+                elif line_id == 4 and line.startswith(">") and line:
+                    headers["del"] = line[1:]
+                elif line_id == 5 and line:
+                    pos_parts = line.split(",")
+                    positions["del"] = map(int, pos_parts)
+                elif line_id == 6 and line.startswith(">") and line:
+                    headers["ins"] = line[1:]
+                elif line_id == 7 and line:
+                    pos_parts = line.split(",")
+                    positions["ins"] = map(int, pos_parts)
+                elif line:
+                    raise PositionIOError("Not a valid positions file")
     except IOError as e:
         raise PositionIOError(e)
-    return positions
+    return headers, positions
