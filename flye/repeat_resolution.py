@@ -383,7 +383,7 @@ def find_coverage(frequency_file):
     header, freqs = div.read_frequency_path(frequency_file)
     cov_ind = header.index("Cov")
     all_covs = [f[cov_ind] for f in freqs]
-    print min(all_covs), np.mean(all_covs), max(all_covs)
+    #print min(all_covs), np.mean(all_covs), max(all_covs)
     return np.mean(all_covs)
 
 def write_edge_reads(it, side, edge_id, all_reads, partitioning, out_file):
@@ -977,53 +977,81 @@ def finalize_side_stats(edges, it, side, cons_align_path, template, min_aln_rate
                 smallest_pos = min(confirmed["total"])
             f.write("{0:26}\t{1}\n".format("Smallest Confirmed Position:", 
                                            smallest_pos))
+        confirmed_frac = 0.0
+        rejected_frac = 0.0
+        remaining_frac = 0.0
+        if len(pos["total"]) != 0:
+            confirmed_frac = len(confirmed["total"]) / float(len(pos["total"]))
+            rejected_frac = len(rejected["total"]) / float(len(pos["total"]))
+            remaining_frac = remaining_total / float(len(pos["total"]))
         f.write("{0:26}\t{1}/{2} = {3:.3f}\n".format("Total Confirmed Positions:", 
                                               len(confirmed["total"]), 
                                               len(pos["total"]), 
-                                              len(confirmed["total"]) / float(len(pos["total"]))))
+                                              confirmed_frac))
         f.write("{0:26}\t{1}/{2} = {3:.3f}\n".format("Total Rejected Positions:", 
                                               len(rejected["total"]), 
                                               len(pos["total"]), 
-                                              len(rejected["total"]) / float(len(pos["total"]))))
+                                              rejected_frac))
         f.write("{0:26}\t{1}/{2} = {3:.3f}\n".format("Total Remaining Positions:", 
                                               remaining_total, len(pos["total"]), 
-                                              remaining_total/float(len(pos["total"]))))
+                                              remaining_frac))
         f.write("\n")
+        confirmed_frac = 0.0
+        rejected_frac = 0.0
+        remaining_frac = 0.0
+        if len(pos["sub"]) != 0:
+            confirmed_frac = len(confirmed["sub"]) / float(len(pos["sub"]))
+            rejected_frac = len(rejected["sub"]) / float(len(pos["sub"]))
+            remaining_frac = remaining_sub / float(len(pos["sub"]))
         f.write("{0:26}\t{1}/{2} = {3:.3f}\n".format("Confirmed Sub Positions:", 
                                               len(confirmed["sub"]), 
                                               len(pos["sub"]), 
-                                              len(confirmed["sub"]) / float(len(pos["sub"]))))
+                                              confirmed_frac))
         f.write("{0:26}\t{1}/{2} = {3:.3f}\n".format("Rejected Sub Positions:", 
                                               len(rejected["sub"]), 
                                               len(pos["sub"]), 
-                                              len(rejected["sub"]) / float(len(pos["sub"]))))
+                                              rejected_frac))
         f.write("{0:26}\t{1}/{2} = {3:.3f}\n".format("Remaining Sub Positions:", 
                                               remaining_sub, len(pos["sub"]), 
-                                              remaining_sub/float(len(pos["sub"]))))
+                                              remaining_frac))
         f.write("\n")
+        confirmed_frac = 0.0
+        rejected_frac = 0.0
+        remaining_frac = 0.0
+        if len(pos["del"]) != 0:
+            confirmed_frac = len(confirmed["del"]) / float(len(pos["del"]))
+            rejected_frac = len(rejected["del"]) / float(len(pos["del"]))
+            remaining_frac = remaining_del / float(len(pos["del"]))
         f.write("{0:26}\t{1}/{2} = {3:.3f}\n".format("Confirmed Del Positions:", 
                                               len(confirmed["del"]), 
                                               len(pos["del"]), 
-                                              len(confirmed["del"]) / float(len(pos["del"]))))
+                                              confirmed_frac))
         f.write("{0:26}\t{1}/{2} = {3:.3f}\n".format("Rejected Del Positions:", 
                                               len(rejected["del"]), 
                                               len(pos["del"]), 
-                                              len(rejected["del"]) / float(len(pos["del"]))))
+                                              rejected_frac))
         f.write("{0:26}\t{1}/{2} = {3:.3f}\n".format("Remaining Del Positions:", 
                                               remaining_del, len(pos["del"]), 
-                                              remaining_del/float(len(pos["del"]))))
+                                              remaining_frac))
         f.write("\n")
+        confirmed_frac = 0.0
+        rejected_frac = 0.0
+        remaining_frac = 0.0
+        if len(pos["ins"]) != 0:
+            confirmed_frac = len(confirmed["ins"]) / float(len(pos["ins"]))
+            rejected_frac = len(rejected["ins"]) / float(len(pos["ins"]))
+            remaining_frac = remaining_ins / float(len(pos["ins"]))
         f.write("{0:26}\t{1}/{2} = {3:.3f}\n".format("Confirmed Ins Positions:", 
                                               len(confirmed["ins"]), 
                                               len(pos["ins"]), 
-                                              len(confirmed["ins"]) / float(len(pos["ins"]))))
+                                              confirmed_frac))
         f.write("{0:26}\t{1}/{2} = {3:.3f}\n".format("Rejected Ins Positions:", 
                                               len(rejected["ins"]), 
                                               len(pos["ins"]), 
-                                              len(rejected["ins"]) / float(len(pos["ins"]))))
+                                              rejected_frac))
         f.write("{0:26}\t{1}/{2} = {3:.3f}\n".format("Remaining Ins Positions:", 
                                               remaining_ins, len(pos["ins"]), 
-                                              remaining_ins/float(len(pos["ins"]))))
+                                              remaining_frac))
         f.write("\n\n")
         #Write overall partitioning stats
         part_list = _read_partitioning_file(partitioning)
@@ -1202,53 +1230,81 @@ def finalize_int_stats(rep, repeat_edges, side_it, cons_align_path, template,
                                                len(int_rejected["del"]))
         remaining_ins = len(pos["ins"]) - (len(int_confirmed["ins"]) + 
                                                len(int_rejected["ins"]))
+        confirmed_total_frac = 0.0
+        rejected_total_frac = 0.0
+        remaining_total_frac = 0.0
+        if len(pos["total"]) != 0:
+            confirmed_total_frac = len(int_confirmed["total"]) / float(len(pos["total"]))
+            rejected_total_frac = len(int_rejected["total"]) / float(len(pos["total"]))
+            remaining_total_frac = remaining_total / float(len(pos["total"]))
+        confirmed_sub_frac = 0.0
+        rejected_sub_frac = 0.0
+        remaining_sub_frac = 0.0
+        if len(pos["sub"]) != 0:
+            confirmed_sub_frac = len(int_confirmed["sub"]) / float(len(pos["sub"]))
+            rejected_sub_frac = len(int_rejected["sub"]) / float(len(pos["sub"]))
+            remaining_sub_frac = remaining_sub / float(len(pos["sub"]))
+        confirmed_del_frac = 0.0
+        rejected_del_frac = 0.0
+        remaining_del_frac = 0.0
+        if len(pos["del"]) != 0:
+            confirmed_del_frac = len(int_confirmed["del"]) / float(len(pos["del"]))
+            rejected_del_frac = len(int_rejected["del"]) / float(len(pos["del"]))
+            remaining_del_frac = remaining_del / float(len(pos["del"]))
+        confirmed_ins_frac = 0.0
+        rejected_ins_frac = 0.0
+        remaining_ins_frac = 0.0
+        if len(pos["ins"]) != 0:
+            confirmed_ins_frac = len(int_confirmed["ins"]) / float(len(pos["ins"]))
+            rejected_ins_frac = len(int_rejected["ins"]) / float(len(pos["ins"]))
+            remaining_ins_frac = remaining_ins / float(len(pos["ins"]))
         f.write("{0:26}\t{1}/{2} = {3:.3f}\n".format("Total Confirmed Positions:", 
                                               len(int_confirmed["total"]), 
                                               len(pos["total"]), 
-                                              len(int_confirmed["total"]) / float(len(pos["total"]))))
+                                              confirmed_total_frac))
         f.write("{0:26}\t{1}/{2} = {3:.3f}\n".format("Total Rejected Positions:", 
                                               len(int_rejected["total"]), 
                                               len(pos["total"]), 
-                                              len(int_rejected["total"]) / float(len(pos["total"]))))
+                                              rejected_total_frac))
         f.write("{0:26}\t{1}/{2} = {3:.3f}\n".format("Total Remaining Positions:", 
                                               remaining_total, len(pos["total"]), 
-                                              remaining_total/float(len(pos["total"]))))
+                                              remaining_total_frac))
         f.write("\n")
         f.write("{0:26}\t{1}/{2} = {3:.3f}\n".format("Confirmed Sub Positions:", 
                                               len(int_confirmed["sub"]), 
                                               len(pos["sub"]), 
-                                              len(int_confirmed["sub"]) / float(len(pos["sub"]))))
+                                              confirmed_sub_frac))
         f.write("{0:26}\t{1}/{2} = {3:.3f}\n".format("Rejected Sub Positions:", 
                                               len(int_rejected["sub"]), 
                                               len(pos["sub"]), 
-                                              len(int_rejected["sub"]) / float(len(pos["sub"]))))
+                                              rejected_sub_frac))
         f.write("{0:26}\t{1}/{2} = {3:.3f}\n".format("Remaining Sub Positions:", 
                                               remaining_sub, len(pos["sub"]), 
-                                              remaining_sub/float(len(pos["sub"]))))
+                                              remaining_sub_frac))
         f.write("\n")
         f.write("{0:26}\t{1}/{2} = {3:.3f}\n".format("Confirmed Del Positions:", 
                                               len(int_confirmed["del"]), 
                                               len(pos["del"]), 
-                                              len(int_confirmed["del"]) / float(len(pos["del"]))))
+                                              confirmed_del_frac))
         f.write("{0:26}\t{1}/{2} = {3:.3f}\n".format("Rejected Del Positions:", 
                                               len(int_rejected["del"]), 
                                               len(pos["del"]), 
-                                              len(int_rejected["del"]) / float(len(pos["del"]))))
+                                              rejected_del_frac))
         f.write("{0:26}\t{1}/{2} = {3:.3f}\n".format("Remaining Del Positions:", 
                                               remaining_del, len(pos["del"]), 
-                                              remaining_del/float(len(pos["del"]))))
+                                              remaining_del_frac))
         f.write("\n")
         f.write("{0:26}\t{1}/{2} = {3:.3f}\n".format("Confirmed Ins Positions:", 
                                               len(int_confirmed["ins"]), 
                                               len(pos["ins"]), 
-                                              len(int_confirmed["ins"]) / float(len(pos["ins"]))))
+                                              confirmed_ins_frac))
         f.write("{0:26}\t{1}/{2} = {3:.3f}\n".format("Rejected Ins Positions:", 
                                               len(int_rejected["ins"]), 
                                               len(pos["ins"]), 
-                                              len(int_rejected["ins"]) / float(len(pos["ins"]))))
+                                              rejected_ins_frac))
         f.write("{0:26}\t{1}/{2} = {3:.3f}\n".format("Remaining Ins Positions:", 
                                               remaining_ins, len(pos["ins"]), 
-                                              remaining_ins/float(len(pos["ins"]))))
+                                              remaining_ins_frac))
         f.write("\n\n")
         #Basic stats for confirmed positions
         av_div = 0.0
