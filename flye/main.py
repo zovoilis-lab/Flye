@@ -353,7 +353,8 @@ class JobTrestle(Job):
                                     template_info, frequency_path, position_path, 
                                     summary_path, config.vals["min_aln_rate"], 
                                     self.args.platform, self.args.threads,
-                                    self.args.sub_thresh, self.args.del_thresh,
+                                    self.args.sub_thresh, 
+                                    self.args.del_thresh,
                                     self.args.ins_thresh) 
                 avg_cov = rr.find_coverage(frequency_path)
                 
@@ -774,12 +775,15 @@ def main():
                         default=5000, help="minimum overlap between reads "
                         "(default: 5000)")
     parser.add_argument("-s", "--sub_thresh", dest="sub_thresh", metavar="float",
+                        type=float,
                         default=0.1, help="threshold for substitution calls "
                         "(default: 0.1)")
     parser.add_argument("-l", "--del_thresh", dest="del_thresh", metavar="float",
+                        type=float, 
                         default=0.2, help="threshold for deletion calls "
                         "(default: 0.2)")
     parser.add_argument("-n", "--ins_thresh", dest="ins_thresh", metavar="float",
+                        type=float, 
                         default=0.3, help="threshold for insertion calls "
                         "(default: 0.3)")
 

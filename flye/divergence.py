@@ -138,6 +138,7 @@ def find_divergence(alignment_path, contigs_path, contigs_info,
     """
     Main function: takes in an alignment and finds the divergent positions
     """
+    print "sub_thresh", sub_thresh, type(sub_thresh)
     aln_reader = SynchronizedSamReader(alignment_path,
                                        fp.read_fasta_dict(contigs_path),
                                        min_aln_rate)
