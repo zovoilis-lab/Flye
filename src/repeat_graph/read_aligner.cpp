@@ -47,8 +47,7 @@ std::vector<GraphAlignment>
 				MAX_JUMP > graphDiff && graphDiff > 0)
 			{
 				int32_t jumpDiv = abs(readDiff - graphDiff);
-				int32_t gapCost = jumpDiv ? 0.01f * Parameters::get().kmerSize *
-													jumpDiv + std::log2(jumpDiv) : 0;
+				int32_t gapCost = jumpDiv ? std::log2(jumpDiv) : 0;
 				int32_t score = chain.score + nextOvlp.score - gapCost;
 				if (score > maxScore)
 				{

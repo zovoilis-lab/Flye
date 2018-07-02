@@ -115,6 +115,7 @@ void MultiplicityInferer::removeUnsupportedEdges()
 			{
 				edgesRemove.insert(edge);
 				edgesRemove.insert(_graph.complementEdge(edge));
+				Logger::get().debug() << "Low coverage: " << edge->edgeId.signedId();
 			}
 		}
 	}
