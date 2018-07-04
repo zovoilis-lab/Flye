@@ -242,8 +242,8 @@ void Extender::assembleContigs(bool addSingletons)
 				coveredReads.insert(ovlp.extId.rc(), true);
 
 				//contained inside the other read - probably repetitive
-				if (ovlp.leftShift > MAX_JUMP &&
-					ovlp.rightShift < -MAX_JUMP) continue;
+				//if (ovlp.leftShift > MAX_JUMP &&
+				//	ovlp.rightShift < -MAX_JUMP) continue;
 
 				if (ovlp.leftShift > MAX_JUMP)
 				{
