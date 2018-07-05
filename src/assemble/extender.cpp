@@ -225,6 +225,11 @@ void Extender::assembleContigs(bool addSingletons)
 		std::unordered_set<FastaRecord::Id> leftExtended;
 		for (auto& readId : exInfo.reads)
 		{
+			coveredReads.insert(readId, true);
+			coveredReads.insert(readId.rc(), true);
+			_innerReads.insert(readId, true);
+			_innerReads.insert(readId.rc(), true);
+
 			//repetitive read - will bring to many "off-target" reads
 			int maxExtensions = exInfo.meanOverlaps * 2;
 			if (this->countRightExtensions(readId) > maxExtensions||
@@ -234,10 +239,11 @@ void Extender::assembleContigs(bool addSingletons)
 			for (auto& ovlp : _ovlpContainer.lazySeqOverlaps(readId))
 			{
 				coveredReads.insert(ovlp.extId, true);
+				coveredReads.insert(ovlp.extId.rc(), true);
 
 				//contained inside the other read - probably repetitive
-				if (ovlp.leftShift > MAX_JUMP &&
-					ovlp.rightShift < -MAX_JUMP) continue;
+				//if (ovlp.leftShift > MAX_JUMP &&
+				//	ovlp.rightShift < -MAX_JUMP) continue;
 
 				if (ovlp.leftShift > MAX_JUMP)
 				{
@@ -253,7 +259,11 @@ void Extender::assembleContigs(bool addSingletons)
 		}
 		for (auto& read : rightExtended)
 		{
-			if (leftExtended.count(read)) _innerReads.insert(read, true);
+			if (leftExtended.count(read)) 
+			{
+				_innerReads.insert(read, true);
+				_innerReads.insert(read.rc(), true);
+			}
 		}
 
 		Logger::get().debug() << "Inner: " << 

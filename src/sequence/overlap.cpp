@@ -350,14 +350,12 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 	//int uniqueCandidates = 0;
 	size_t extRangeBegin = 0;
 	size_t extRangeEnd = 0;
-	while(true)
+	while(extRangeEnd < vecMatches.size())
 	{
 		extRangeBegin = extRangeEnd;
 		while (extRangeEnd < vecMatches.size() &&
 			   vecMatches[extRangeBegin].extId == 
 			   vecMatches[extRangeEnd].extId) ++extRangeEnd;
-		if (extRangeEnd == vecMatches.size()) break;
-
 		matchesList.assign(vecMatches.begin() + extRangeBegin,
 						   vecMatches.begin() + extRangeEnd);
 		FastaRecord::Id extId = vecMatches[extRangeBegin].extId;
@@ -456,7 +454,6 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 		std::vector<OverlapRange> extOverlaps;
 		std::vector<int32_t> shifts;
 		std::vector<std::pair<int32_t, int32_t>> kmerMatches;
-
 		
 		for (int32_t chainStart = backtrackTable.size() - 1; 
 			 chainStart > 0; --chainStart)
