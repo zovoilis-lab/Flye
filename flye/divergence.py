@@ -11,6 +11,7 @@ from itertools import izip
 import multiprocessing
 import signal
 import numpy as np
+import os.path
 
 from flye.alignment import shift_gaps, SynchronizedSamReader
 import flye.fasta_parser as fp
@@ -138,7 +139,28 @@ def find_divergence(alignment_path, contigs_path, contigs_info,
     """
     Main function: takes in an alignment and finds the divergent positions
     """
-    print "sub_thresh", sub_thresh, type(sub_thresh)
+    if not os.path.isfile(alignment_path) or not os.path.isfile(contigs_path):
+        ctg_profile = []
+        positions = _write_frequency_path(frequency_path, ctg_profile, 
+                                          sub_thresh, del_thresh, ins_thresh)
+        total_header = "".join(["Total_positions_{0}_".format(len(positions["total"])), 
+                              "with_thresholds_sub_{0}".format(sub_thresh), 
+                              "_del_{0}_ins_{1}".format(del_thresh, ins_thresh)])
+        sub_header = "".join(["Sub_positions_{0}_".format(len(positions["sub"])), 
+                              "with_threshold_sub_{0}".format(sub_thresh)])
+        del_header = "".join(["Del_positions_{0}_".format(len(positions["del"])), 
+                              "with_threshold_del_{0}".format(del_thresh)])
+        ins_header = "".join(["Ins_positions_{0}_".format(len(positions["ins"])), 
+                              "with_threshold_ins_{0}".format(ins_thresh)])
+        _write_positions(positions_path, positions, total_header, 
+                         sub_header, del_header, ins_header)
+        
+        window_len = 1000
+        sum_header = "Tentative Divergent Position Summary"
+        _write_div_summary(div_sum_path, sum_header, positions, 
+                          len(ctg_profile), window_len)
+        return
+        
     aln_reader = SynchronizedSamReader(alignment_path,
                                        fp.read_fasta_dict(contigs_path),
                                        min_aln_rate)

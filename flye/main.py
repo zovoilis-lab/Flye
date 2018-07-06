@@ -259,6 +259,8 @@ class JobTrestle(Job):
         self.min_edge_cov = 10
         self.min_bridge_count = 5
         self.min_bridge_diff = 5
+        self.cons_aln_rate = 0.01
+        #self.cons_aln_rate = config.vals["min_aln_rate"]
 
         self.name = "trestle"
         self.out_files["reps"] = os.path.join(self.resolve_dir, 
@@ -298,7 +300,7 @@ class JobTrestle(Job):
                                           orient_labels,
                                           self.args.min_mult, 
                                           self.args.max_mult,
-                                          self.args.extend_len)
+                                          self.args.flanking_len)
         
         logger.info("{0} repeats to be resolved".format(len(repeat_list)))
         for rep_id in sorted(repeat_list):
@@ -312,6 +314,7 @@ class JobTrestle(Job):
                 template = os.path.join(orient_dir, template_name)
                 extended = os.path.join(orient_dir, extended_name)
                 repeat_reads = os.path.join(orient_dir, repeat_reads_name)
+                term_bool = {s:False for s in side_labels}
                 
                 #2. Polish template and extended templates
                 logger.info("a.polishing templates")
@@ -321,6 +324,9 @@ class JobTrestle(Job):
                                             template, pol_temp_dir)
                 pol_temp_job.run()
                 polished_template = pol_temp_job.out_files["contigs"]
+                if not os.path.isfile(polished_template):
+                    for side in side_labels:
+                        term_bool[side] = True
                 
                 pol_ext_dir = "Polishing.Extended.{0}.{1}"
                 polished_extended = {}
@@ -333,22 +339,26 @@ class JobTrestle(Job):
                         pol_ext_job.run()
                         pol_output = pol_ext_job.out_files["contigs"]
                         polished_extended[(side, edge_id)] = pol_output
+                        if not os.path.isfile(pol_output):
+                            term_bool[side] = True
                 
                 #3. Find divergent positions
                 logger.info("b.estimating divergence")
                 frequency_path = os.path.join(orient_dir, "divergence_frequencies.txt")
                 position_path = os.path.join(orient_dir, "tentative_positions.txt")
                 summary_path = os.path.join(orient_dir, "divergence_summary.txt")
-        
+                
                 logger.info("running Minimap2")
                 alignment_file = os.path.join(orient_dir, "reads.vs.template.minimap.sam")
-                aln.make_alignment(polished_template, [repeat_reads], 
-                           self.args.threads, orient_dir, 
-                           self.args.platform, alignment_file)
+                template_len = 0.0
+                if os.path.isfile(polished_template):
+                    aln.make_alignment(polished_template, [repeat_reads], 
+                               self.args.threads, orient_dir, 
+                               self.args.platform, alignment_file)
+                    template_info = aln.get_contigs_info(polished_template)
+                    template_len = template_info[str(rep)].length
                 
                 logger.info("finding tentative divergence positions")
-                template_info = aln.get_contigs_info(polished_template)
-                template_len = template_info[str(rep)].length
                 div.find_divergence(alignment_file, polished_template, 
                                     template_info, frequency_path, position_path, 
                                     summary_path, config.vals["min_aln_rate"], 
@@ -394,7 +404,8 @@ class JobTrestle(Job):
                     edge_below_cov[side] = rr.init_side_stats(
                                         rep, side, repeat_edges, self.args, 
                                         self.buffer_count, self.max_iter, 
-                                        self.min_edge_cov, position_path,
+                                        self.min_edge_cov, self.cons_aln_rate, 
+                                        position_path,
                                         partitioning.format(zero_it, side), 
                                         prev_partitionings[side], 
                                         template_len, 
@@ -406,7 +417,7 @@ class JobTrestle(Job):
                 for it in range(1, self.max_iter+1):
                     both_break = True
                     for side in side_labels:
-                        if edge_below_cov[side] or dup_part[side]:
+                        if edge_below_cov[side] or dup_part[side] or term_bool[side]:
                             continue
                         else:
                             logger.info("iteration {0}, '{1}'".format(it, side))
@@ -434,34 +445,40 @@ class JobTrestle(Job):
                             polished_consensus[(it, side, edge_id)] = pol_con_out
                         #4b. Partition reads using divergent positions
                         for edge_id in sorted(repeat_edges[rep][side]):
-                            cons_al_file = cons_align.format(it, side, edge_id)
-                            aln.make_alignment(polished_template, 
-                                               [polished_consensus[(it, side, edge_id)]], 
-                                                self.args.threads, 
-                                                orient_dir, 
-                                                self.args.platform, 
-                                                cons_al_file)
-                            read_al_file = read_align.format(it, side, edge_id)
-                            aln.make_alignment(polished_consensus[(it, side, edge_id)], 
-                                               [repeat_reads], 
-                                               self.args.threads, 
-                                               orient_dir, 
-                                               self.args.platform, 
-                                               read_al_file)
+                            if os.path.isfile(polished_consensus[(it, side, edge_id)]):
+                                cons_al_file = cons_align.format(it, side, edge_id)
+                                aln.make_alignment(polished_template, 
+                                                   [polished_consensus[(it, side, edge_id)]], 
+                                                    self.args.threads, 
+                                                    orient_dir, 
+                                                    self.args.platform, 
+                                                    cons_al_file)
+                                read_al_file = read_align.format(it, side, edge_id)
+                                aln.make_alignment(polished_consensus[(it, side, edge_id)], 
+                                                   [repeat_reads], 
+                                                   self.args.threads, 
+                                                   orient_dir, 
+                                                   self.args.platform, 
+                                                   read_al_file)
+                            else:
+                                term_bool[side] = True
                         logger.info("partitioning '{0}' reads".format(side))
                         rr.partition_reads(repeat_edges[rep][side], it, side, 
                                            position_path, cons_align, 
                                            polished_template, read_align, 
                                            polished_consensus, 
-                                           confirmed_pos_path.format(it, side), 
-                                           partitioning.format(it, side), 
+                                           confirmed_pos_path, 
+                                           partitioning, 
                                            all_edge_headers[rep], 
-                                           config.vals["min_aln_rate"],
+                                           self.cons_aln_rate,
                                            self.buffer_count,
                                            test_pos.format(it, side), num_test)
                         #4c. Write stats file for current iteration
                         edge_pairs = sorted(combinations(repeat_edges[rep][side], 2))
                         for edge_one, edge_two in edge_pairs:
+                            if (not os.path.isfile(polished_consensus[(it, side, edge_one)]) or
+                                not os.path.isfile(polished_consensus[(it, side, edge_two)])):
+                                continue
                             cons_cons_file = cons_vs_cons.format(it, side, edge_one, 
                                                                  it, side, edge_two)
                             aln.make_alignment(polished_consensus[(it, side, edge_two)], 
@@ -473,7 +490,7 @@ class JobTrestle(Job):
                         edge_below_cov[side], dup_part[side] = rr.update_side_stats(
                                             repeat_edges[rep][side], it, side, 
                                             cons_align, polished_template, 
-                                            config.vals["min_aln_rate"], 
+                                            self.cons_aln_rate, 
                                             confirmed_pos_path.format(it, side), 
                                             partitioning.format(it, side), 
                                             self.min_edge_cov, 
@@ -483,7 +500,7 @@ class JobTrestle(Job):
                     rr.update_int_stats(rep, repeat_edges, side_it, cons_align, 
                                         polished_template, 
                                         template_len,
-                                        config.vals["min_aln_rate"], 
+                                        self.cons_aln_rate, 
                                         confirmed_pos_path, int_confirmed_path, 
                                         partitioning, integrated_stats)
                     if both_break:
@@ -492,18 +509,18 @@ class JobTrestle(Job):
                 for side in side_labels:
                     rr.finalize_side_stats(repeat_edges[rep][side], side_it[side], 
                                            side, cons_align, polished_template, 
-                                        config.vals["min_aln_rate"], 
+                                        self.cons_aln_rate, 
                                         cons_vs_cons, polished_consensus, 
                                         confirmed_pos_path.format(side_it[side], side), 
                                         partitioning.format(side_it[side], side), 
                                         self.max_iter, edge_below_cov[side],
-                                        dup_part[side], 
+                                        dup_part[side], term_bool[side], 
                                         side_stats.format(side))
                 bridged, repeat_seqs, summ_vals = rr.finalize_int_stats(rep, 
                                                 repeat_edges, side_it, 
                                                 cons_align, polished_template, 
                                                 template_len, 
-                                                config.vals["min_aln_rate"], 
+                                                self.cons_aln_rate, 
                                                 cons_vs_cons, 
                                                 polished_consensus, 
                                                 int_confirmed_path, 
@@ -516,15 +533,17 @@ class JobTrestle(Job):
                 if bridged:
                     res_inds = range(len(repeat_edges[rep]["in"]))
                     for res_one, res_two in sorted(combinations(res_inds, 2)):
-                        aln.make_alignment(resolved_rep_path.format(res_two), 
-                                           [resolved_rep_path.format(res_one)], 
-                                           self.args.threads, 
-                                           orient_dir, 
-                                           self.args.platform, 
-                                           res_vs_res.format(res_one, res_two))
+                        if (os.path.isfile(resolved_rep_path.format(res_one)) and
+                            os.path.isfile(resolved_rep_path.format(res_two))):
+                            aln.make_alignment(resolved_rep_path.format(res_two), 
+                                               [resolved_rep_path.format(res_one)], 
+                                               self.args.threads, 
+                                               orient_dir, 
+                                               self.args.platform, 
+                                               res_vs_res.format(res_one, res_two))
                     avg_div = rr.int_stats_postscript(rep, repeat_edges, 
                                             integrated_stats, 
-                                            config.vals["min_aln_rate"], 
+                                            self.cons_aln_rate, 
                                             resolved_rep_path, 
                                             res_vs_res)
                 all_resolved_reps_dict.update(repeat_seqs)
@@ -757,7 +776,7 @@ def main():
                         type=lambda v: check_int_range(v, 2, 100),
                         default=2, metavar="int", help="maximum multiplicity "
                         "to attempt to resolve")
-    parser.add_argument("-e", "--extend-len", dest="extend_len",
+    parser.add_argument("-f", "--flanking-len", dest="flanking_len",
                         type=lambda v: check_int_range(v, 10, 100000),
                         default=10000, metavar="int", help="length to extend "
                         "into repeat-adjacent edges")
