@@ -179,10 +179,13 @@ void Extender::assembleContigs(bool addSingletons)
 		}
 		if (numInnerOvlp > 0) return true;
 
-		int maxExtensions = _chimDetector.getOverlapCoverage() * 10;
+		int maxStartExt = _chimDetector.getOverlapCoverage() * 10;
+		int minStartExt = std::max(1, _chimDetector.getOverlapCoverage() / 50);
+		int extLeft = this->countRightExtensions(startRead.rc());
+		int extRight = this->countRightExtensions(startRead);
 		if (_chimDetector.isChimeric(startRead) ||
-			this->countRightExtensions(startRead) > maxExtensions ||
-			this->countRightExtensions(startRead.rc()) > maxExtensions) return true;
+			std::max(extLeft, extRight) > maxStartExt ||
+			std::min(extLeft, extRight) < minStartExt) return true;
 		
 		//Good to go!
 		ExtensionInfo exInfo = this->extendContig(startRead);
