@@ -28,6 +28,7 @@ public:
 template<typename T>
 T quantile(const std::vector<T>& vec, int percent)
 {
+	if (vec.empty()) return 0;
 	//NOTE: there's a bug in libstdc++ nth_element, 
 	//that sometimes leads to a segfault. This is why
 	//we have this inefficient impleemntation here
