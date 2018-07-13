@@ -531,7 +531,8 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 						pos <= ovlp.curEnd - kmerSize) ++seedPos;
 				}
 
-				float kmerDiv = (float)chainLength / seedPos;
+				float kmerDiv = std::min((float)chainLength * _vertexIndex.getSampleRate()
+									 / seedPos, 1.0f);
 				float matchDiv = std::log(1 / kmerDiv) / kmerSize;
 				float gapDiv = (float)abs(ovlp.extRange() - ovlp.curRange()) /
 							   std::max(ovlp.extRange(), ovlp.curRange());
