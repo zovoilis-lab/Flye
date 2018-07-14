@@ -136,29 +136,29 @@ void VertexIndex::countKmers(size_t hardThreshold, int genomeSize)
 void VertexIndex::setRepeatCutoff(int minCoverage)
 {
 	size_t totalKmers = 0;
-	for (auto mapPair = this->getKmerHist().rbegin();
-		 mapPair != this->getKmerHist().rend(); ++mapPair)
+	size_t uniqueKmers = 0;
+	for (auto mapPair = this->getKmerHist().begin();
+		 mapPair != this->getKmerHist().end(); ++mapPair)
 	{
 		if (minCoverage <= (int)mapPair->first)
 		{
-			totalKmers += mapPair->second;
+			totalKmers += mapPair->second * mapPair->first;
+			uniqueKmers += mapPair->second;
 		}
 	}
-	size_t repeatKmerCount = (float)Config::get("repeat_kmer_rate") * totalKmers;
-	//Logger::get().debug() << "Target number of repetetive k-mers: " 
-	//	<< repeatKmerCount;
+	float meanFrequency = (float)totalKmers / (uniqueKmers + 1);
+	_repetitiveFrequency = (float)Config::get("repeat_kmer_rate") * meanFrequency;
 	
 	size_t repetitiveKmers = 0;
 	for (auto mapPair = this->getKmerHist().rbegin();
 		 mapPair != this->getKmerHist().rend(); ++mapPair)
 	{
-		if (repetitiveKmers < repeatKmerCount)
+		if (mapPair->second > _repetitiveFrequency)
 		{
 			repetitiveKmers += mapPair->second;
 		}
 		else
 		{
-			_repetitiveFrequency = mapPair->first;
 			break;
 		}
 	}
