@@ -7,6 +7,7 @@
 #include <signal.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <cmath>
 
 #include <execinfo.h>
 
@@ -170,7 +171,7 @@ int chooseMinOverlap(const SequenceContainer& seqReads)
 	//choose minimum overlap as reads N90
 	const float NX_FRAC = 0.90f;
 	const int GRADE = 1000;
-	int estMinOvlp = round((float)seqReads.computeNxStat(NX_FRAC) / GRADE) * GRADE;
+	int estMinOvlp = std::round((float)seqReads.computeNxStat(NX_FRAC) / GRADE) * GRADE;
 	return std::min(std::max((int)Config::get("low_minimum_overlap"), 
 							 estMinOvlp),
 					(int)Config::get("high_minimum_overlap"));
@@ -239,9 +240,9 @@ int main(int argc, char** argv)
 	Logger::get().info() << "Selected minimum overlap " << minOverlap;
 
 	int64_t sumLength = 0;
-	for (auto& seqId : readsContainer.getIndex())
+	for (auto& seq : readsContainer.iterSeqs())
 	{
-		sumLength += seqId.second.sequence.length();
+		sumLength += seq.sequence.length();
 	}
 	int coverage = sumLength / 2 / genomeSize;
 	Logger::get().info() << "Expected read coverage: " << coverage;
@@ -251,10 +252,6 @@ int main(int argc, char** argv)
 			<< ", the assembly is not guaranteed to be optimal in this setting."
 			<< " Are you sure that the genome size was entered correctly?";
 	}
-	if (maxKmerCov == -1)
-	{
-		maxKmerCov = (int)Config::get("repeat_coverage_rate") * coverage;
-	}
 
 	Logger::get().info() << "Generating solid k-mer index";
 	size_t hardThreshold = std::min(5, std::max(2, 
@@ -262,21 +259,23 @@ int main(int argc, char** argv)
 	vertexIndex.countKmers(hardThreshold, genomeSize);
 
 	ParametersEstimator estimator(readsContainer, vertexIndex, genomeSize);
-	estimator.estimateMinKmerCount(maxKmerCov);
+	estimator.estimateMinKmerCount();
 	if (minKmerCov == -1)
 	{
 		minKmerCov = estimator.minKmerCount();
 	}
-
-	vertexIndex.buildIndex(minKmerCov, maxKmerCov);
+	vertexIndex.setRepeatCutoff(minKmerCov);
+	vertexIndex.buildIndex(minKmerCov);
 
 	OverlapDetector ovlp(readsContainer, vertexIndex,
 						 (int)Config::get("maximum_jump"), 
 						 Parameters::get().minimumOverlap,
 						 (int)Config::get("maximum_overhang"),
-						 (int)Config::get("assemble_gap"),
-						 /*store alignment*/ false);
-	OverlapContainer readOverlaps(ovlp, readsContainer, /*only max*/ true);
+						 /*max ovlp*/ 5 * coverage, 
+						 /*store alignment*/ false,
+						 /*only max*/ true,
+						 (float)Config::get("assemble_ovlp_ident"));
+	OverlapContainer readOverlaps(ovlp, readsContainer);
 
 	Extender extender(readsContainer, readOverlaps, coverage, 
 					  estimator.genomeSizeEstimate());

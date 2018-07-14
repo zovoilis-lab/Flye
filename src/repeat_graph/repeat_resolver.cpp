@@ -27,16 +27,14 @@ void RepeatResolver::separatePath(const GraphPath& graphPath,
 	vecRemove(graphPath.front()->nodeRight->inEdges, graphPath.front());
 	graphPath.front()->nodeRight = leftNode;
 	leftNode->inEdges.push_back(graphPath.front());
-	//int32_t pathCoverage = (graphPath.front()->meanCoverage +
-	//					    graphPath.back()->meanCoverage) / 2;
+	int32_t pathCoverage = (graphPath.front()->meanCoverage +
+						    graphPath.back()->meanCoverage) / 2;
 
 	//repetitive edges in the middle
 	for (size_t i = 1; i < graphPath.size() - 1; ++i)
 	{
 		graphPath[i]->resolved = true;
-		//--graphPath[i]->multiplicity;
-		//graphPath[i]->meanCoverage = 
-		//	std::max(graphPath[i]->meanCoverage - pathCoverage, 0);
+		graphPath[i]->substractedCoverage += pathCoverage;
 	}
 
 	GraphNode* rightNode = leftNode;
@@ -46,7 +44,7 @@ void RepeatResolver::separatePath(const GraphPath& graphPath,
 		GraphEdge* newEdge = _graph.addEdge(GraphEdge(leftNode, rightNode,
 													  newId));
 		newEdge->seqSegments.push_back(readSegment);
-		newEdge->meanCoverage = _multInf.getMeanCoverage();
+		newEdge->meanCoverage = pathCoverage;
 	}
 
 	//last edge
@@ -57,7 +55,8 @@ void RepeatResolver::separatePath(const GraphPath& graphPath,
 
 //Resolves all repeats simulateously through the graph mathcing optimization,
 //Given the reads connecting unique edges (or pairs of edges in the transitions graph)
-int RepeatResolver::resolveConnections(const std::vector<Connection>& connections)
+int RepeatResolver::resolveConnections(const std::vector<Connection>& connections, 
+									   float minSupport)
 {
 	//Constructs transitions graph using the lemon library
 	std::unordered_map<FastaRecord::Id, int> leftCoverage;
@@ -141,7 +140,7 @@ int RepeatResolver::resolveConnections(const std::vector<Connection>& connection
 			<< leftId.signedId() << "\t" << rightId.rc().signedId()
 			<< "\t" << support / 4 << "\t" << confidence;
 
-		if (confidence < (float)Config::get("min_repeat_res_support"))
+		if (confidence < minSupport)
 		{
 			++unresolvedLinks;
 			continue;
@@ -218,7 +217,7 @@ void RepeatResolver::findRepeats()
 		if (!path.id.strand()) continue;
 
 		//mark paths with high coverage as repetitive
-		if (path.meanCoverage > _multInf.getUniqueCovThreshold() * 2)
+		if (path.meanCoverage > _multInf.getUniqueCovThreshold())
 		{
 			markRepetitive(&path);
 			markRepetitive(complPath(&path));
@@ -265,10 +264,10 @@ void RepeatResolver::findRepeats()
 	for (auto& readPath : _aligner.getAlignments())
 	{
 		if (readPath.size() < 2) continue;
-		int overhang = std::max(readPath.front().overlap.curBegin,
-								readPath.back().overlap.curLen - 
-									readPath.back().overlap.curEnd);
-		if (overhang > (int)Config::get("maximum_overhang")) continue;
+		//int overhang = std::max(readPath.front().overlap.curBegin,
+		//						readPath.back().overlap.curLen - 
+		//							readPath.back().overlap.curEnd);
+		//if (overhang > (int)Config::get("maximum_overhang")) continue;
 
 		for (size_t i = 0; i < readPath.size() - 1; ++i)
 		{
@@ -355,7 +354,7 @@ void RepeatResolver::findRepeats()
 	//now, check for this structure >-<, in case read alignments were not enough
 	for (auto& path : sortedPaths)
 	{
-		if (path->path.front()->repetitive || path->isLoop()) continue;
+		if (path->path.front()->repetitive || path->isLooped()) continue;
 		if (path->path.front()->nodeLeft->outEdges.size() > 1 ||
 			path->path.back()->nodeRight->inEdges.size() > 1) continue;
 
@@ -389,7 +388,7 @@ void RepeatResolver::fixLongEdges()
 		if (!path.path.front()->selfComplement &&
 			path.path.front()->repetitive &&
 			path.length > (int)Config::get("unique_edge_length") &&
-			(float)path.meanCoverage < 1.5 * _multInf.getMeanCoverage())
+			(float)path.meanCoverage < _multInf.getUniqueCovThreshold())
 		{
 			for (auto& edge : path.path)
 			{
@@ -402,20 +401,39 @@ void RepeatResolver::fixLongEdges()
 				<< path.meanCoverage;
 		}
 	}
+
+	//apply coverage substractions that were made during repeat resolution
+	for (auto& path : unbranchingPaths)
+	{
+		if (path.isLooped()) continue;
+		for (auto& edge : path.path)
+		{
+			edge->meanCoverage = std::max(0, (int)edge->meanCoverage - 
+											 (int)edge->substractedCoverage);
+		}
+	}
 }
 
 //Iterates repeat detection and resolution until
 //no new repeats are resolved
 void RepeatResolver::resolveRepeats()
 {
+	//make the first iteration resolve only high-confidence connections
+	bool perfectIter = true;	
 	while (true)
 	{
+		float minSupport = perfectIter ? 1.0f : 
+						   Config::get("min_repeat_res_support");
 		auto connections = this->getConnections();
-		int resolvedConnections = this->resolveConnections(connections);
+		int resolvedConnections = 
+			this->resolveConnections(connections, minSupport);
+
 		this->clearResolvedRepeats();
 		_aligner.updateAlignments();
-		if (!resolvedConnections) break;
+
+		if (!resolvedConnections && !perfectIter) break;
 		this->findRepeats();
+		perfectIter = false;
 	}
 
 	GraphProcessor proc(_graph, _asmSeqs, _readSeqs);
@@ -494,7 +512,7 @@ std::vector<RepeatResolver::Connection>
 //cleans up the graph after repeat resolution
 void RepeatResolver::clearResolvedRepeats()
 {
-	const int MIN_LOOP = Parameters::get().minimumOverlap;
+	//const int MIN_LOOP = Parameters::get().minimumOverlap;
 	auto nextEdge = [](GraphNode* node)
 	{
 		for (auto edge : node->outEdges)
@@ -520,8 +538,7 @@ void RepeatResolver::clearResolvedRepeats()
 			bool resolved = true;
 			for (auto& edge : node->outEdges) 
 			{
-				if (!shouldRemove(edge) &&
-					edge->length() > MIN_LOOP) resolved = false;
+				if (!shouldRemove(edge)) resolved = false;
 			}
 
 			if (resolved) toRemove.insert(node);

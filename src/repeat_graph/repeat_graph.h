@@ -53,7 +53,8 @@ struct GraphEdge
 			  FastaRecord::Id edgeId = FastaRecord::ID_NONE):
 		nodeLeft(nodeLeft), nodeRight(nodeRight), 
 		edgeId(edgeId), repetitive(false), 
-		selfComplement(false), resolved(false), meanCoverage(0) {}
+		selfComplement(false), resolved(false), 
+		meanCoverage(0), substractedCoverage(0) {}
 
 	bool isRepetitive() const 
 		{return repetitive;}
@@ -95,6 +96,7 @@ struct GraphEdge
 	bool selfComplement;
 	bool resolved;
 	int  meanCoverage;
+	int  substractedCoverage;
 };
 
 struct GraphNode
@@ -315,7 +317,8 @@ private:
 		int32_t end;
 	};
 
-	void getGluepoints(const OverlapContainer& ovlps);
+	//void filterContainedContigs(OverlapContainer& ovlps);
+	void getGluepoints(OverlapContainer& ovlps);
 	void initializeEdges(const OverlapContainer& asmOverlaps);
 	void collapseTandems();
 	void logEdges();
@@ -330,5 +333,5 @@ private:
 	std::unordered_set<GraphNode*> _graphNodes;
 	std::unordered_set<GraphEdge*> _graphEdges;
 	std::unordered_map<FastaRecord::Id, GraphEdge*> _idToEdge;
-
+	//std::unordered_set<FastaRecord::Id> _filteredSeqs;
 };

@@ -136,9 +136,6 @@ public:
 	DnaSequence substr(size_t start, size_t length) const;
 	std::string str() const;	
 
-private:
-	static std::vector<size_t> _dnaTable;
-
 	static size_t dnaToId(char c)
 	{
 		return _dnaTable[(size_t)c];
@@ -149,6 +146,9 @@ private:
 		static char table[] = {'A', 'C', 'G', 'T'};
 		return table[id];
 	}
+
+private:
+	static std::vector<size_t> _dnaTable;
 
 	struct TableFiller
 	{

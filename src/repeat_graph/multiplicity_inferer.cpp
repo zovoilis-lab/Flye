@@ -6,6 +6,7 @@
 #include "graph_processing.h"
 #include "../common/disjoint_set.h"
 #include "../common/utils.h"
+#include <cmath>
 
 
 //Estimates the mean coverage and assingns edges multiplicity accordingly
@@ -66,8 +67,8 @@ void MultiplicityInferer::estimateCoverage()
 						 	 median(wndCoverage[complEdge])) / 2;
 
 		float minMult = (!edge->isTip()) ? 1 : 0;
-		int estMult = std::max(minMult, 
-							   roundf((float)medianCov / _meanCoverage));
+		int estMult = std::max(minMult, std::round((float)medianCov / 
+													_meanCoverage));
 		if (estMult == 1)
 		{
 			edgesCoverage.push_back(medianCov);
@@ -84,7 +85,12 @@ void MultiplicityInferer::estimateCoverage()
 		edge->meanCoverage = medianCov;
 	}
 
-	_uniqueCovThreshold = !edgesCoverage.empty() ? q75(edgesCoverage) : 1;
+	_uniqueCovThreshold = 2;
+	if (!edgesCoverage.empty())
+	{
+		const float MULT = 1.75f;	//at least 1.75x of mean coverage
+		_uniqueCovThreshold = MULT * quantile(edgesCoverage, 75);
+	}
 	Logger::get().debug() << "Unique coverage threshold " << _uniqueCovThreshold;
 }
 
@@ -127,10 +133,10 @@ void MultiplicityInferer::removeUnsupportedConnections()
 	for (auto& readPath : _aligner.getAlignments())
 	{
 		if (readPath.size() < 2) continue;
-		int overhang = std::max(readPath.front().overlap.curBegin,
-								readPath.back().overlap.curLen - 
-									readPath.back().overlap.curEnd);
-		if (overhang > (int)Config::get("maximum_overhang")) continue;
+		//int overhang = std::max(readPath.front().overlap.curBegin,
+		//						readPath.back().overlap.curLen - 
+		//							readPath.back().overlap.curEnd);
+		//if (overhang > (int)Config::get("maximum_overhang")) continue;
 
 		for (size_t i = 0; i < readPath.size() - 1; ++i)
 		{
@@ -163,12 +169,13 @@ void MultiplicityInferer::removeUnsupportedConnections()
 		edge->nodeLeft->outEdges.push_back(edge);
 	};
 
-	int32_t coverageThreshold = this->getMeanCoverage() / 
-								Config::get("graph_cov_drop_rate");
 	for (auto& edge : _graph.iterEdges())
 	{
 		if (!edge->edgeId.strand() || edge->isLooped()) continue;
 		GraphEdge* complEdge = _graph.complementEdge(edge);
+
+		int32_t coverageThreshold = edge->meanCoverage / 
+								Config::get("graph_cov_drop_rate");
 
 		//Logger::get().debug() << "Adjacencies: " << edge->edgeId.signedId() << " "
 		//	<< leftConnections[edge] / 2 << " " << rightConnections[edge] / 2;
@@ -195,57 +202,79 @@ void MultiplicityInferer::removeUnsupportedConnections()
 		}
 	}
 
+	//GraphProcessor proc(_graph, _asmSeqs, _readSeqs);
+	//proc.trimTips();
 	_aligner.updateAlignments();
 }
 
 void MultiplicityInferer::separateHaplotypes()
 {
-	std::unordered_set<GraphEdge*> toSeparate;
-	for (auto& edge : _graph.iterEdges())
-	{
-		if (edge->isLooped()) continue;
+	const float MAX_VARIATION = 0.25;
 
-		std::vector<GraphEdge*> parallelEdges;
-		for (auto& parEdge : edge->nodeLeft->outEdges)
+	GraphProcessor proc(_graph, _asmSeqs, _readSeqs);
+	auto unbranchingPaths = proc.getUnbranchingPaths();
+
+	std::unordered_set<FastaRecord::Id> toSeparate;
+	for (auto& path : unbranchingPaths)
+	{
+		if (path.isLooped()) continue;
+
+		std::vector<UnbranchingPath*> parallelPaths;
+		for (auto& candEdge : unbranchingPaths)
 		{
-			if (parEdge->nodeRight == edge->nodeRight) 
+			if (candEdge.nodeLeft() == path.nodeLeft() &&
+				candEdge.nodeRight() == path.nodeRight()) 
 			{
-				parallelEdges.push_back(parEdge);
+				parallelPaths.push_back(&candEdge);
 			}
 		}
 
-		if (parallelEdges.size() != 2) continue;
-		if (parallelEdges[0]->edgeId == parallelEdges[1]->edgeId.rc()) continue;
-		if (toSeparate.count(parallelEdges[0]) || 
-			toSeparate.count(parallelEdges[1])) continue;
-		float covSum = parallelEdges[0]->meanCoverage + 
-					   parallelEdges[1]->meanCoverage;
-		if (covSum / this->getMeanCoverage() > 1.25) continue;
+		if (parallelPaths.size() != 2) continue;
+		if (parallelPaths[0]->id == parallelPaths[1]->id.rc()) continue;
+		if (toSeparate.count(parallelPaths[0]->id) || 
+			toSeparate.count(parallelPaths[1]->id)) continue;
+		if (parallelPaths[0]->nodeLeft()->inEdges.size() != 1 ||
+			parallelPaths[0]->nodeRight()->outEdges.size() != 1) continue;
 
-		if (parallelEdges[0]->meanCoverage < parallelEdges[1]->meanCoverage)
+		GraphEdge* entranceEdge = parallelPaths[0]->nodeLeft()->inEdges.front();
+		GraphEdge* exitEdge = parallelPaths[0]->nodeRight()->outEdges.front();
+
+		float covSum = parallelPaths[0]->meanCoverage + 
+					   parallelPaths[1]->meanCoverage;
+		
+		float entranceDiff = fabsf(covSum - entranceEdge->meanCoverage) / covSum;
+		float exitDiff = fabsf(covSum - exitEdge->meanCoverage) / covSum;
+		if (entranceDiff > MAX_VARIATION || exitDiff > MAX_VARIATION) continue;
+
+		//Logger::get().debug() << "Var: " << entranceDiff << " " << exitDiff;
+
+		if (parallelPaths[0]->meanCoverage < parallelPaths[1]->meanCoverage)
 		{
-			toSeparate.insert(parallelEdges[0]);
-			toSeparate.insert(_graph.complementEdge(parallelEdges[0]));
+			toSeparate.insert(parallelPaths[0]->id);
+			toSeparate.insert(parallelPaths[0]->id.rc());
 		}
 		else
 		{
-			toSeparate.insert(parallelEdges[1]);
-			toSeparate.insert(_graph.complementEdge(parallelEdges[1]));
+			toSeparate.insert(parallelPaths[1]->id);
+			toSeparate.insert(parallelPaths[1]->id.rc());
 		}
 		//if (parallelEdges[0]->length() > Constants::trustedEdgeLength || 
 		//	parallelEdges[1]->length() > Constants::trustedEdgeLength) continue;
 	}
 
-	for (auto& edge : toSeparate)
+	for (auto& path : unbranchingPaths)
 	{
-		GraphNode* newLeft = _graph.addNode();
-		GraphNode* newRight = _graph.addNode();
-		vecRemove(edge->nodeLeft->outEdges, edge);
-		vecRemove(edge->nodeRight->inEdges, edge);
-		edge->nodeLeft = newLeft;
-		edge->nodeRight = newRight;
-		edge->nodeLeft->outEdges.push_back(edge);
-		edge->nodeRight->inEdges.push_back(edge);
+		if (toSeparate.count(path.id))
+		{
+			GraphNode* newLeft = _graph.addNode();
+			GraphNode* newRight = _graph.addNode();
+			vecRemove(path.nodeLeft()->outEdges, path.path.front());
+			vecRemove(path.nodeRight()->inEdges, path.path.back());
+			path.nodeLeft() = newLeft;
+			path.nodeRight() = newRight;
+			path.nodeLeft()->outEdges.push_back(path.path.front());
+			path.nodeRight()->inEdges.push_back(path.path.back());
+		}
 	}
 	Logger::get().debug() << "Separated " << toSeparate.size() / 2 << " haplotypes";
 }

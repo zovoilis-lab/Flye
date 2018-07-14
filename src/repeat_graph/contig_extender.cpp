@@ -4,6 +4,7 @@
 
 #include "contig_extender.h"
 #include "output_generator.h"
+#include <cmath>
 
 void ContigExtender::generateUnbranchingPaths()
 {
@@ -124,7 +125,7 @@ void ContigExtender::generateContigs(bool graphContinue)
 
 		//generate extension sequence
 		std::string extendedSeq;
-		if (lastIncomplete && graphContinue && !lastUpath->isLoop())
+		if (lastIncomplete && graphContinue && !lastUpath->isLooped())
 		{
 			upathAln.pop_back();
 		}
@@ -136,7 +137,7 @@ void ContigExtender::generateContigs(bool graphContinue)
 			extendedSeq = _readSeqs.getSeq(readId)
 				.substr(readStart, readEnd - readStart).str();
 		}
-		if (lastIncomplete && graphContinue && !lastUpath->isLoop())
+		if (lastIncomplete && graphContinue && !lastUpath->isLooped())
 		{
 			extendedSeq += upathsSeqs[lastUpath]->sequence.str();
 		}
@@ -146,7 +147,7 @@ void ContigExtender::generateContigs(bool graphContinue)
 		{
 			for (auto& edgeAln : ualn.aln) extendedPath.push_back(edgeAln.edge);
 		}
-		if (lastIncomplete && graphContinue && !lastUpath->isLoop())
+		if (lastIncomplete && graphContinue && !lastUpath->isLooped())
 		{
 			for (auto& edge : lastUpath->path) extendedPath.push_back(edge);
 		}
@@ -282,8 +283,8 @@ void ContigExtender::outputStatsTable(const std::string& filename)
 		}
 		pathStr.pop_back();
 
-		int estMult = std::max(1.0f, roundf((float)ctg.graphEdges.meanCoverage / 
-											  _meanCoverage));
+		int estMult = std::max(1.0f, std::round((float)ctg.graphEdges.meanCoverage / 
+											    _meanCoverage));
 
 		std::string telomereStr;
 		bool telLeft = (ctg.graphEdges.path.front()->nodeLeft->isTelomere());
