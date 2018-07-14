@@ -111,11 +111,12 @@ void MultiplicityInferer::removeUnsupportedEdges()
 
 		if (path.meanCoverage <= coverageThreshold)
 		{
+			Logger::get().debug() << "Low coverage: " 
+				<< path.edgesStr() << " " << path.meanCoverage;
 			for (auto& edge : path.path)
 			{
 				edgesRemove.insert(edge);
 				edgesRemove.insert(_graph.complementEdge(edge));
-				Logger::get().debug() << "Low coverage: " << edge->edgeId.signedId();
 			}
 		}
 	}
