@@ -24,7 +24,7 @@ public:
 		_progress(genomeSize)
 	{}
 
-	void assembleContigs(bool addSingletons);
+	void assembleContigs();
 	const std::vector<ContigPath>& getContigPaths() const
 		{return _contigPaths;}
 

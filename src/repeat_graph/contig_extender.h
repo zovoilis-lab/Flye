@@ -22,7 +22,7 @@ public:
 		_meanCoverage(meanCoverage) {}
 
 	void generateUnbranchingPaths();
-	void generateContigs(bool graphContinue);
+	void generateContigs();
 	void outputContigs(const std::string& filename);
 	void outputStatsTable(const std::string& filename);
 	void outputScaffoldConnections(const std::string& filename);

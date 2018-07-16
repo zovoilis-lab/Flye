@@ -156,7 +156,7 @@ Extender::ExtensionInfo Extender::extendContig(FastaRecord::Id startRead)
 }
 
 
-void Extender::assembleContigs(bool addSingletons)
+void Extender::assembleContigs()
 {
 	static const int MAX_JUMP = Config::get("maximum_jump");
 	Logger::get().info() << "Extending reads";
@@ -289,6 +289,7 @@ void Extender::assembleContigs(bool addSingletons)
 					  Parameters::get().numThreads, true);
 	_ovlpContainer.ensureTransitivity(/*only max*/ true);
 
+	bool addSingletons = (bool)Config::get("add_unassembled_reads");
 	if (addSingletons)
 	{
 		int singletonsAdded = 0;
