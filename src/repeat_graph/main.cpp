@@ -235,8 +235,8 @@ int main(int argc, char** argv)
 	multInf.removeUnsupportedConnections();
 
 	//for diploid genomes, turned off by default
-	//multInf.collapseHeterozygousLoops();
-	//multInf.collapseHeterozygousBulges();
+	multInf.collapseHeterozygousLoops();
+	multInf.collapseHeterozygousBulges();
 
 	Logger::get().info() << "Resolving repeats";
 	RepeatResolver resolver(rg, seqAssembly, seqReads, aligner, multInf);
