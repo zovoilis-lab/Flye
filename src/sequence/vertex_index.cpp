@@ -153,18 +153,17 @@ void VertexIndex::setRepeatCutoff(int minCoverage)
 	for (auto mapPair = this->getKmerHist().rbegin();
 		 mapPair != this->getKmerHist().rend(); ++mapPair)
 	{
-		if (mapPair->second > _repetitiveFrequency)
+		if (mapPair->first > _repetitiveFrequency)
 		{
 			repetitiveKmers += mapPair->second;
 		}
-		else
-		{
-			break;
-		}
 	}
-	Logger::get().debug() << "Repetetive k-mer frequency: " << _repetitiveFrequency;
+	float filteredRate = (float)repetitiveKmers / uniqueKmers;
+	Logger::get().debug() << "Repetetive k-mer frequency: " 
+						  << _repetitiveFrequency;
 	Logger::get().debug() << "Filtered " << repetitiveKmers 
-						  << " repetitive kmers";
+						  << " repetitive kmers (" <<
+						  filteredRate << ")";
 }
 
 

@@ -84,7 +84,8 @@ void ChimeraDetector::estimateGlobalCoverage()
 	Logger::get().info() << "Median read-read divergence: "
 		<< std::setprecision(2)
 		<< median(ovlpDivergence) << " (Q10 = " << quantile(ovlpDivergence, 10)
-		<< ", Q90 = " << quantile(ovlpDivergence, 90) << ")";
+		<< ", Q90 = " << quantile(ovlpDivergence, 90) << ")" 
+		<< std::setprecision(2);
 }
 
 std::vector<int32_t> ChimeraDetector::getReadCoverage(FastaRecord::Id readId)

@@ -33,15 +33,16 @@ private:
 	{
 		ExtensionInfo(): leftTip(false), rightTip(false),
 			numSuspicious(0), meanOverlaps(0), stepsToTurn(0),
-			assembledLength(0) {}
+			assembledLength(0), singleton(false) {}
 
 		std::vector<FastaRecord::Id> reads;
 		bool leftTip;
 		bool rightTip;
-		int numSuspicious;
-		int meanOverlaps;
-		int stepsToTurn;
-		int assembledLength;
+		int  numSuspicious;
+		int  meanOverlaps;
+		int  stepsToTurn;
+		int  assembledLength;
+		bool singleton;
 	};
 
 	ExtensionInfo extendContig(FastaRecord::Id startingRead);
