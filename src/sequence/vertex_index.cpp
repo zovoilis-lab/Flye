@@ -133,6 +133,18 @@ void VertexIndex::countKmers(size_t hardThreshold, int genomeSize)
 	delete[] preCounters;
 }
 
+namespace
+{
+	template <class T>
+	size_t getFreq(T& histIter)
+		{return histIter->first;};
+
+	template <class T>
+	size_t getCount(T& histIter)
+		{return histIter->second;};
+
+}
+
 void VertexIndex::setRepeatCutoff(int minCoverage)
 {
 	size_t totalKmers = 0;
@@ -140,10 +152,10 @@ void VertexIndex::setRepeatCutoff(int minCoverage)
 	for (auto mapPair = this->getKmerHist().begin();
 		 mapPair != this->getKmerHist().end(); ++mapPair)
 	{
-		if (minCoverage <= (int)mapPair->first)
+		if (minCoverage <= (int)getFreq(mapPair))
 		{
-			totalKmers += mapPair->second * mapPair->first;
-			uniqueKmers += mapPair->second;
+			totalKmers += getCount(mapPair) * getFreq(mapPair);
+			uniqueKmers += getCount(mapPair);
 		}
 	}
 	float meanFrequency = (float)totalKmers / (uniqueKmers + 1);
@@ -153,9 +165,9 @@ void VertexIndex::setRepeatCutoff(int minCoverage)
 	for (auto mapPair = this->getKmerHist().rbegin();
 		 mapPair != this->getKmerHist().rend(); ++mapPair)
 	{
-		if (mapPair->first > _repetitiveFrequency)
+		if (getFreq(mapPair) > _repetitiveFrequency)
 		{
-			repetitiveKmers += mapPair->second;
+			repetitiveKmers += getCount(mapPair);
 		}
 	}
 	float filteredRate = (float)repetitiveKmers / uniqueKmers;
