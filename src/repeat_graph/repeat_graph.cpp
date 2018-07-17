@@ -662,8 +662,7 @@ void RepeatGraph::initializeEdges(const OverlapContainer& asmOverlaps)
 					int32_t projIntersect =
 						segIntersect(*(*startRange)->data, projStart, projEnd);
 
-					if (projIntersect > setOne->data->length() / 2 &&
-						projIntersect > (*startRange)->data->length() / 2)
+					if (projIntersect > (*startRange)->data->length() / 2)
 					{
 						unionSet(setOne, *startRange);
 					}
