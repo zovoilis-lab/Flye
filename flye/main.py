@@ -418,7 +418,7 @@ class JobTrestle(Job):
                                         rep, side, repeat_edges, 
                                         self.args.min_overlap, self.sub_thresh, 
                                         self.del_thresh, self.ins_thresh, 
-                                        self.extend_len, 
+                                        self.flanking_len, 
                                         self.buffer_count, self.max_iter, 
                                         self.min_edge_cov, self.cons_aln_rate, 
                                         position_path,

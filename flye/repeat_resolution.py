@@ -806,7 +806,8 @@ def _index_mapping(aln):
             al_inds.append(i)
     return al_inds, gen_inds
 
-def init_side_stats(rep, side, repeat_edges, args, buffer_count, max_iter, 
+def init_side_stats(rep, side, repeat_edges, min_overlap, sub_thresh, 
+                    del_thresh, ins_thresh, flanking_len, buffer_count, max_iter, 
                      min_edge_cov, cons_aln_rate, position_path, partitioning, 
                      prev_parts, template_len, stats_file):
     pos_headers, pos = div.read_positions(position_path)
@@ -840,11 +841,11 @@ def init_side_stats(rep, side, repeat_edges, args, buffer_count, max_iter,
         f.write("\n")
         f.write("{0:25}\t{1}\n\n".format("Template Length:", template_len))
         f.write("Initial Option Values\n")
-        f.write("{0:25}\t{1}\n".format("min_overlap:", args.min_overlap))
-        f.write("{0:25}\t{1}\n".format("sub_thresh:", args.sub_thresh))
-        f.write("{0:25}\t{1}\n".format("del_thresh:", args.del_thresh))
-        f.write("{0:25}\t{1}\n".format("ins_thresh:", args.ins_thresh))
-        f.write("{0:25}\t{1}\n".format("flanking_len:", args.flanking_len))
+        f.write("{0:25}\t{1}\n".format("min_overlap:", min_overlap))
+        f.write("{0:25}\t{1}\n".format("sub_thresh:", sub_thresh))
+        f.write("{0:25}\t{1}\n".format("del_thresh:", del_thresh))
+        f.write("{0:25}\t{1}\n".format("ins_thresh:", ins_thresh))
+        f.write("{0:25}\t{1}\n".format("flanking_len:", flanking_len))
         f.write("{0:25}\t{1}\n".format("buffer_count:", buffer_count))
         f.write("{0:25}\t{1}\n".format("max_iter:", max_iter))
         f.write("{0:25}\t{1}\n".format("min_edge_cov:", min_edge_cov))
