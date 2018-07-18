@@ -114,5 +114,6 @@ def human2bytes(s):
             raise ValueError("can't interpret %r" % init)
     prefix = {sset[0]:1}
     for i, s in enumerate(sset[1:]):
-        prefix[s] = 1 << (i+1)*10
+        #prefix[s] = 1 << (i+1)*10
+        prefix[s] = 10 ** ((i + 1) * 3)
     return int(num * prefix[letter])
