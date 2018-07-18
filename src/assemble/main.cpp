@@ -25,8 +25,7 @@
 bool parseArgs(int argc, char** argv, std::string& readsFasta, 
 			   std::string& outAssembly, std::string& logFile, size_t& genomeSize,
 			   int& minKmer, int& maxKmer, bool& debug,
-			   size_t& numThreads, int& minOverlap, std::string& configPath,
-			   bool& singletonReads)
+			   size_t& numThreads, int& minOverlap, std::string& configPath)
 {
 	auto printUsage = [argv]()
 	{
@@ -47,8 +46,6 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 				  << "[default = auto] \n"
 				  << "\t-v min_overlap\tminimum overlap between reads "
 				  << "[default = 5000] \n"
-				  << "\t-s \t\tadd singleton reads "
-				  << "[default = false] \n"
 				  << "\t-d \t\tenable debug output "
 				  << "[default = false] \n"
 				  << "\t-l log_file\toutput log to file "
@@ -62,7 +59,6 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 	maxKmer = -1;
 	numThreads = 1;
 	debug = false;
-	singletonReads = false;
 	minOverlap = -1;
 
 	const char optString[] = "m:x:l:t:v:hds";
@@ -91,9 +87,6 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 			break;
 		case 'd':
 			debug = true;
-			break;
-		case 's':
-			singletonReads = true;
 			break;
 		case 'h':
 			printUsage();
@@ -190,7 +183,6 @@ int main(int argc, char** argv)
 	size_t genomeSize = 0;
 	int minOverlap = -1;
 	bool debugging = false;
-	bool singletonReads = false;
 	size_t numThreads = 1;
 	std::string readsFasta;
 	std::string outAssembly;
@@ -199,7 +191,7 @@ int main(int argc, char** argv)
 
 	if (!parseArgs(argc, argv, readsFasta, outAssembly, logFile, genomeSize,
 				   minKmerCov, maxKmerCov, debugging, numThreads,
-				   minOverlap, configPath, singletonReads)) return 1;
+				   minOverlap, configPath)) return 1;
 
 	Logger::get().setDebugging(debugging);
 	if (!logFile.empty()) Logger::get().setOutputFile(logFile);
@@ -281,7 +273,7 @@ int main(int argc, char** argv)
 
 	Extender extender(readsContainer, readOverlaps, coverage, 
 					  estimator.genomeSizeEstimate());
-	extender.assembleContigs(singletonReads);
+	extender.assembleContigs();
 	vertexIndex.clear();
 
 	ConsensusGenerator consGen;

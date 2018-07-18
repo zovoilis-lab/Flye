@@ -267,7 +267,8 @@ void ReadAligner::alignReads()
 	Logger::get().info() << "Median read-graph divergence: "
 		<< std::setprecision(2)
 		<< median(ovlpDiv) << " (Q10 = " << quantile(ovlpDiv, 10)
-		<< ", Q90 = " << quantile(ovlpDiv, 90) << ")";
+		<< ", Q90 = " << quantile(ovlpDiv, 90) << ")"
+		<< std::setprecision(6);
 }
 
 //updates alignments with respect to the new graph

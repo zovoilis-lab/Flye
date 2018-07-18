@@ -22,6 +22,7 @@
 #include "../common/parallel.h"
 #include "../common/disjoint_set.h"
 
+/*
 namespace
 {
 	float kswAlign(const DnaSequence& seqT, const DnaSequence seqQ,
@@ -144,7 +145,7 @@ namespace
 
 		return errRate;
 	}
-}
+}*/
 
 //Check if it is a proper overlap
 bool OverlapDetector::overlapTest(const OverlapRange& ovlp,
@@ -156,6 +157,9 @@ bool OverlapDetector::overlapTest(const OverlapRange& ovlp,
 		return false;
 	}
 
+	//filter overlaps that way to divergent in length.
+	//theoretically, they should not pass sequence divergence filter,
+	//but just in case
 	static const float OVLP_DIV = 0.5;
 	float lengthDiff = abs(ovlp.curRange() - ovlp.extRange());
 	if (lengthDiff > OVLP_DIV * std::min(ovlp.curRange(), ovlp.extRange()))
@@ -193,10 +197,7 @@ namespace
 		int32_t extPos;
 		FastaRecord::Id extId;
 	};
-}
 
-namespace
-{
 	static const char LogTable256[256] = {
 		#define LT(n) n, n, n, n, n, n, n, n, n, n, n, n, n, n, n, n
 		-1, 0, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3,
@@ -218,9 +219,9 @@ std::vector<OverlapRange>
 OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec, 
 								bool& outSuggestChimeric) const
 {
-	const float MIN_KMER_SURV_RATE = 0.01;	//TODO: put into config
 	const int MAX_LOOK_BACK = 50;
 	const int kmerSize = Parameters::get().kmerSize;
+	const float minKmerSruvivalRate = std::exp(-_maxDivergence * kmerSize);
 
 	//static std::ofstream fout("../kmers.txt");
 
@@ -303,7 +304,7 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 		topSeqs.reserve(lockedHitCount.size());
 		for (auto seqCount : lockedHitCount)
 		{
-			if (seqCount.second >= MIN_KMER_SURV_RATE * _minOverlap)
+			if (seqCount.second >= minKmerSruvivalRate * _minOverlap)
 			{
 				topSeqs.emplace_back(seqCount.first, seqCount.second);
 			}
@@ -329,7 +330,7 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 				extReadPos.position == curKmerPos.position)) continue;
 
 			if (lockedHitCount[extReadPos.readId] >= 
-				MIN_KMER_SURV_RATE * _minOverlap)
+				minKmerSruvivalRate * _minOverlap)
 			{
 				vecMatches.emplace_back(curKmerPos.position, 
 										extReadPos.position,
@@ -531,7 +532,8 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 						pos <= ovlp.curEnd - kmerSize) ++seedPos;
 				}
 
-				float kmerDiv = (float)chainLength / seedPos;
+				float kmerDiv = std::min((float)chainLength * _vertexIndex.getSampleRate()
+									 / seedPos, 1.0f);
 				float matchDiv = std::log(1 / kmerDiv) / kmerSize;
 				float gapDiv = (float)abs(ovlp.extRange() - ovlp.curRange()) /
 							   std::max(ovlp.extRange(), ovlp.curRange());

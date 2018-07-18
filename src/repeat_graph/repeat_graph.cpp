@@ -85,7 +85,8 @@ void RepeatGraph::build()
 	Logger::get().info() << "Median contig-contig divergence: "
 		<< std::setprecision(2)
 		<< median(ovlpDiv) << " (Q10 = " << quantile(ovlpDiv, 10)
-		<< ", Q90 = " << quantile(ovlpDiv, 90) << ")";
+		<< ", Q90 = " << quantile(ovlpDiv, 90) << ")"
+		<< std::setprecision(6);
 
 	this->getGluepoints(asmOverlaps);
 	this->collapseTandems();
@@ -640,7 +641,7 @@ void RepeatGraph::initializeEdges(const OverlapContainer& asmOverlaps)
 				auto& ovlp = *interval.value;
 				int32_t intersectOne = 
 					segIntersect(*setOne->data, ovlp.curBegin, ovlp.curEnd);
-				if (intersectOne < _maxSeparation) continue;
+				if (intersectOne < setOne->data->length() / 2) continue;
 
 				auto& ss = segmentIndex[ovlp.extId];
 				auto cmpBegin = [] (const SetSegment* s, int32_t pos)
@@ -654,9 +655,14 @@ void RepeatGraph::initializeEdges(const OverlapContainer& asmOverlaps)
 				if (endRange != ss.end()) ++endRange;
 				for (;startRange != endRange; ++startRange)
 				{
-					int32_t intersectTwo = 
-						segIntersect(*(*startRange)->data, ovlp.extBegin, ovlp.extEnd);
-					if (intersectTwo > _maxSeparation)
+					//projecting the interval endpoints
+					//(overlap might be covering the actual segment)
+					int32_t projStart = ovlp.project(setOne->data->start);
+					int32_t projEnd = ovlp.project(setOne->data->end);
+					int32_t projIntersect =
+						segIntersect(*(*startRange)->data, projStart, projEnd);
+
+					if (projIntersect > (*startRange)->data->length() / 2)
 					{
 						unionSet(setOne, *startRange);
 					}

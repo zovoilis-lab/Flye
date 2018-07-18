@@ -156,7 +156,7 @@ Extender::ExtensionInfo Extender::extendContig(FastaRecord::Id startRead)
 }
 
 
-void Extender::assembleContigs(bool addSingletons)
+void Extender::assembleContigs()
 {
 	static const int MAX_JUMP = Config::get("maximum_jump");
 	Logger::get().info() << "Extending reads";
@@ -292,29 +292,40 @@ void Extender::assembleContigs(bool addSingletons)
 					  Parameters::get().numThreads, true);
 	_ovlpContainer.ensureTransitivity(/*only max*/ true);
 
+	bool addSingletons = (bool)Config::get("add_unassembled_reads");
 	if (addSingletons)
 	{
-		int singletonsAdded = 0;
-		std::unordered_set<FastaRecord::Id> coveredLocal;
+		std::vector<FastaRecord::Id> sortedByLength;
 		for (auto& seq : _readsContainer.iterSeqs())
 		{
-			if (!seq.id.strand()) continue;
-			
-			if (!_innerReads.contains(seq.id) && 
-				!coveredLocal.count(seq.id) &&
-				_readsContainer.seqLen(seq.id) > 
-					Parameters::get().minimumOverlap)
+			if (seq.id.strand() && !_innerReads.contains(seq.id) &&
+				_readsContainer.seqLen(seq.id) > Parameters::get().minimumOverlap)
 			{
-				for (auto& ovlp : _ovlpContainer.lazySeqOverlaps(seq.id))
+				sortedByLength.push_back(seq.id);
+			}
+		}
+		std::sort(sortedByLength.begin(), sortedByLength.end(),
+				  [this](FastaRecord::Id idOne, FastaRecord::Id idTwo)
+				  	{return _readsContainer.seqLen(idOne) > 
+							_readsContainer.seqLen(idTwo);});
+
+		int singletonsAdded = 0;
+		std::unordered_set<FastaRecord::Id> coveredLocal;
+		for (auto readId : sortedByLength)
+		{
+			if (!coveredLocal.count(readId))
+			{
+				for (auto& ovlp : _ovlpContainer.lazySeqOverlaps(readId))
 				{
-					if (abs(ovlp.leftShift) < Parameters::get().minimumOverlap &&
-						abs(ovlp.rightShift) < Parameters::get().minimumOverlap)
+					if (ovlp.leftShift >= 0 && ovlp.rightShift <= 0)
 					{
 						coveredLocal.insert(ovlp.extId);
+						coveredLocal.insert(ovlp.extId.rc());
 					}
 				}
 				ExtensionInfo path;
-				path.reads.push_back(seq.id);
+				path.singleton = true;
+				path.reads.push_back(readId);
 				_readLists.push_back(path);
 				++singletonsAdded;
 			}
@@ -331,7 +342,14 @@ void Extender::convertToContigs()
 	for (auto& exInfo : _readLists)
 	{
 		ContigPath path;
-		path.name = "contig_" + std::to_string(_contigPaths.size() + 1);
+		if (!exInfo.singleton)
+		{
+			path.name = "contig_" + std::to_string(_contigPaths.size() + 1);
+		}
+		else
+		{
+			path.name = "read_" + std::to_string(_contigPaths.size() + 1);
+		}
 
 		for (size_t i = 0; i < exInfo.reads.size() - 1; ++i)
 		{

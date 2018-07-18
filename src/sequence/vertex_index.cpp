@@ -183,7 +183,7 @@ void VertexIndex::buildIndexUnevenCoverage(int minCoverage)
 			topKmers.pop();
 
 			int freq = _kmerCounts.find(kmerPos.kmer);
-			if (freq < minCoverage || freq > _repetitiveFrequency) continue;
+			if (freq < minCoverage || freq > (int)_repetitiveFrequency) continue;
 
 			FastaRecord::Id targetRead = readId;
 			bool revCmp = kmerPos.kmer.standardForm();
@@ -236,38 +236,49 @@ void VertexIndex::buildIndexUnevenCoverage(int minCoverage)
 	Logger::get().debug() << "Index size: " << totalEntries;
 }
 
+namespace
+{
+	template <class T>
+	size_t getFreq(T& histIter)
+		{return histIter->first;};
+
+	template <class T>
+	size_t getCount(T& histIter)
+		{return histIter->second;};
+
+}
+
 void VertexIndex::setRepeatCutoff(int minCoverage)
 {
 	size_t totalKmers = 0;
-	for (auto mapPair = this->getKmerHist().rbegin();
-		 mapPair != this->getKmerHist().rend(); ++mapPair)
+	size_t uniqueKmers = 0;
+	for (auto mapPair = this->getKmerHist().begin();
+		 mapPair != this->getKmerHist().end(); ++mapPair)
 	{
-		if (minCoverage <= (int)mapPair->first)
+		if (minCoverage <= (int)getFreq(mapPair))
 		{
-			totalKmers += mapPair->second;
+			totalKmers += getCount(mapPair) * getFreq(mapPair);
+			uniqueKmers += getCount(mapPair);
 		}
 	}
-	size_t repeatKmerCount = (float)Config::get("repeat_kmer_rate") * totalKmers;
-	//Logger::get().debug() << "Target number of repetetive k-mers: " 
-	//	<< repeatKmerCount;
+	float meanFrequency = (float)totalKmers / (uniqueKmers + 1);
+	_repetitiveFrequency = (float)Config::get("repeat_kmer_rate") * meanFrequency;
 	
 	size_t repetitiveKmers = 0;
 	for (auto mapPair = this->getKmerHist().rbegin();
 		 mapPair != this->getKmerHist().rend(); ++mapPair)
 	{
-		if (repetitiveKmers < repeatKmerCount)
+		if (getFreq(mapPair) > _repetitiveFrequency)
 		{
-			repetitiveKmers += mapPair->second;
-		}
-		else
-		{
-			_repetitiveFrequency = mapPair->first;
-			break;
+			repetitiveKmers += getCount(mapPair);
 		}
 	}
-	Logger::get().debug() << "Repetetive k-mer frequency: " << _repetitiveFrequency;
+	float filteredRate = (float)repetitiveKmers / uniqueKmers;
+	Logger::get().debug() << "Repetetive k-mer frequency: " 
+						  << _repetitiveFrequency;
 	Logger::get().debug() << "Filtered " << repetitiveKmers 
-						  << " repetitive kmers";
+						  << " repetitive kmers (" <<
+						  filteredRate << ")";
 }
 
 void VertexIndex::buildIndex(int minCoverage)
