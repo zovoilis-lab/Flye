@@ -39,7 +39,6 @@ void ChimeraDetector::estimateGlobalCoverage()
 
 	std::unordered_map<int32_t, int32_t> readHist;
 	std::vector<int32_t> covList;
-	std::vector<float> ovlpDivergence;
 	
 	//std::ofstream fout("../cov_hist.txt");
 
@@ -62,12 +61,6 @@ void ChimeraDetector::estimateGlobalCoverage()
 				covList.push_back(coverage[i]);
 			}
 		}
-
-		//getting divergence
-		for (auto& ovlp : _ovlpContainer.lazySeqOverlaps(seq.id)) 
-		{
-			ovlpDivergence.push_back(ovlp.seqDivergence);
-		}
 	}
 
 	if (readHist.empty())
@@ -81,11 +74,6 @@ void ChimeraDetector::estimateGlobalCoverage()
 	}
 
 	Logger::get().info() << "Overlap-based coverage: " << _overlapCoverage;
-	Logger::get().info() << "Median read-read divergence: "
-		<< std::setprecision(2)
-		<< median(ovlpDivergence) << " (Q10 = " << quantile(ovlpDivergence, 10)
-		<< ", Q90 = " << quantile(ovlpDivergence, 90) << ")" 
-		<< std::setprecision(2);
 }
 
 std::vector<int32_t> ChimeraDetector::getReadCoverage(FastaRecord::Id readId)

@@ -73,20 +73,7 @@ void RepeatGraph::build()
 	OverlapContainer asmOverlaps(asmOverlapper, _asmSeqs);
 	asmOverlaps.findAllOverlaps();
 	asmOverlaps.buildIntervalTree();
-
-	std::vector<float> ovlpDiv;
-	for (auto& seq : _asmSeqs.iterSeqs())
-	{
-		for (auto& ovlp : asmOverlaps.lazySeqOverlaps(seq.id))
-		{
-			ovlpDiv.push_back(ovlp.seqDivergence);
-		}
-	}
-	Logger::get().info() << "Median contig-contig divergence: "
-		<< std::setprecision(2)
-		<< median(ovlpDiv) << " (Q10 = " << quantile(ovlpDiv, 10)
-		<< ", Q90 = " << quantile(ovlpDiv, 90) << ")"
-		<< std::setprecision(6);
+	asmOverlaps.overlapDivergenceStats();
 
 	this->getGluepoints(asmOverlaps);
 	this->collapseTandems();

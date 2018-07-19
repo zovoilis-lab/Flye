@@ -182,6 +182,33 @@ struct OverlapRange
 	std::vector<std::pair<int32_t, int32_t>> kmerMatches;
 };
 
+struct OvlpDivStats
+{
+	static const size_t MAX_STATS = 1000000;
+	OvlpDivStats(): vecSize(0) {}
+	
+	void add(float val)
+	{
+		size_t expected = 0;
+		while(true)
+		{
+			expected = vecSize;
+			if (expected == MAX_STATS) 
+			{
+				return;
+			}
+			if (vecSize.compare_exchange_weak(expected, expected + 1))
+			{
+				break;
+			}
+		}
+		divVec[expected] = val;
+	}
+
+	std::array<float, MAX_STATS>  divVec;
+	std::atomic<size_t> vecSize;
+};
+
 class OverlapDetector
 {
 public:
@@ -209,7 +236,8 @@ public:
 private:
 	std::vector<OverlapRange> 
 	getSeqOverlaps(const FastaRecord& fastaRec, 
-				   bool& outSuggestChiemeric) const;
+				   bool& outSuggestChiemeric,
+				   OvlpDivStats& divergenceStats) const;
 
 	bool    overlapTest(const OverlapRange& ovlp, bool& outSuggestChimeric) const;
 	
@@ -267,15 +295,18 @@ public:
 	//Checks if read has self-overlaps (for chimera detection)
 	bool hasSelfOverlaps(FastaRecord::Id seqId);
 
+	//finds and returns overlaps - no caching is done	
+	std::vector<OverlapRange> quickSeqOverlaps(FastaRecord::Id readId);
+
 	//The functions below are NOT thread safe.
 	//Do not mix them with any other functions
-	
-	//finds and returns overlaps - no caching is done	
-	std::vector<OverlapRange> quickSeqOverlaps(FastaRecord::Id readId) const;
 
 	//For all stored overlaps (A to B) ensure that
 	//the reverse (B to A) overlap also exists.
 	void ensureTransitivity(bool onlyMaxExt);
+
+	//outputs statistics about overlaping sequence divergence
+	void overlapDivergenceStats();
 
 	//Computes and stores all-vs-all overlaps
 	void findAllOverlaps();
@@ -290,9 +321,10 @@ private:
 	//									   bool& outSuggestChimeric) const;
 	void filterOverlaps();
 
-	const OverlapDetector& _ovlpDetect;
+	const OverlapDetector&   _ovlpDetect;
 	const SequenceContainer& _queryContainer;
 
+	OvlpDivStats _divergenceStats;
 	OverlapIndex _overlapIndex;
 	std::unordered_map<FastaRecord::Id, 
 					   IntervalTree<OverlapRange*>> _ovlpTree;

@@ -13,6 +13,7 @@
 #include <chrono>
 #include <ctime>
 #include <cstring>
+#include <iomanip>
 
 #include "ksw2.h"
 
@@ -217,7 +218,8 @@ namespace
 //might be used in parallel
 std::vector<OverlapRange> 
 OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec, 
-								bool& outSuggestChimeric) const
+								bool& outSuggestChimeric,
+								OvlpDivStats& divStats) const
 {
 	const int MAX_LOOK_BACK = 50;
 	const int kmerSize = Parameters::get().kmerSize;
@@ -539,6 +541,7 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 							   std::max(ovlp.extRange(), ovlp.curRange());
 				ovlp.seqDivergence = matchDiv + gapDiv;
 
+				divStats.add(ovlp.seqDivergence);
 				if (ovlp.seqDivergence < _maxDivergence)
 				{
 					extOverlaps.push_back(ovlp);
@@ -639,11 +642,12 @@ bool OverlapContainer::hasSelfOverlaps(FastaRecord::Id readId)
 
 
 std::vector<OverlapRange> 
-	OverlapContainer::quickSeqOverlaps(FastaRecord::Id readId) const
+	OverlapContainer::quickSeqOverlaps(FastaRecord::Id readId)
 {
 	bool suggestChimeric;
 	const FastaRecord& record = _queryContainer.getRecord(readId);
-	return _ovlpDetect.getSeqOverlaps(record, suggestChimeric);
+	return _ovlpDetect.getSeqOverlaps(record, suggestChimeric, 
+									  _divergenceStats);
 }
 
 const std::vector<OverlapRange>&
@@ -666,7 +670,8 @@ const std::vector<OverlapRange>&
 	//do it for forward strand to be distinct
 	bool suggestChimeric;
 	const FastaRecord& record = _queryContainer.getRecord(readId);
-	auto overlaps = _ovlpDetect.getSeqOverlaps(record, suggestChimeric);
+	auto overlaps = _ovlpDetect.getSeqOverlaps(record, suggestChimeric, 
+											   _divergenceStats);
 
 	std::vector<OverlapRange> revOverlaps;
 	revOverlaps.reserve(overlaps.size());
@@ -851,6 +856,20 @@ void OverlapContainer::filterOverlaps()
 	};
 	processInParallel(seqIds, filterParallel, 
 					  Parameters::get().numThreads, false);
+}
+
+
+void OverlapContainer::overlapDivergenceStats()
+{
+	std::vector<float> ovlpDivergence(_divergenceStats.divVec.begin(),
+									  _divergenceStats.divVec.begin() + 
+									  		_divergenceStats.vecSize);
+	Logger::get().info() << "Sequence divergence stats: Q10 = "
+		<< std::setprecision(2)
+		<< quantile(ovlpDivergence, 10) << ", Q50 = " 
+		<< quantile(ovlpDivergence, 50)
+		<< ", Q90 = " << quantile(ovlpDivergence, 90)
+		<< std::setprecision(6);
 }
 
 
