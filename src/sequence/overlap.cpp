@@ -541,34 +541,35 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 							   std::max(ovlp.extRange(), ovlp.curRange());
 				ovlp.seqDivergence = matchDiv + gapDiv;
 
-				divStats.add(ovlp.seqDivergence);
+				if (ovlp.curRange() > Parameters::get().minimumOverlap)
+				{
+					//double check because reads are 
+					//aligned with the reduced overlap size
+					divStats.add(ovlp.seqDivergence);
+				}
 				if (ovlp.seqDivergence < _maxDivergence)
 				{
 					extOverlaps.push_back(ovlp);
 				}
+
+				//benchmarking divergence
+				/*float alnDiff = kswAlign(fastaRec.sequence
+											.substr(ovlp.curBegin, ovlp.curRange()),
+										 _seqContainer.getSeq(extId)
+											.substr(ovlp.extBegin, ovlp.extRange()),
+										 1, -2, 2, 1, false);
+				fout << ovlp.seqDivergence << " " << alnDiff << std::endl;
+				if (alnDiff - ovlp.seqDivergence > 0.2)
+				{
+					kswAlign(fastaRec.sequence
+								.substr(ovlp.curBegin, ovlp.curRange()),
+							 _seqContainer.getSeq(extId)
+								.substr(ovlp.extBegin, ovlp.extRange()),
+							 1, -2, 2, 1, true);
+
+				}*/
 			}
 		}
-
-		//benchmarking divergence
-		/*for (auto& ovlp : extOverlaps)
-		{
-			float seqDiv = ovlp.seqDivergence;
-			float alnDiff = kswAlign(fastaRec.sequence
-										.substr(ovlp.curBegin, ovlp.curRange()),
-									 _seqContainer.getSeq(extId)
-									 	.substr(ovlp.extBegin, ovlp.extRange()),
-									 1, -2, 2, 1, false);
-			fout << seqDiv << " " << alnDiff << std::endl;
-			if (alnDiff - seqDiv > 0.1)
-			{
-				kswAlign(fastaRec.sequence
-							.substr(ovlp.curBegin, ovlp.curRange()),
-						 _seqContainer.getSeq(extId)
-							.substr(ovlp.extBegin, ovlp.extRange()),
-						 1, -2, 2, 1, true);
-
-			}
-		}*/
 		
 		//selecting the best
 		if (_onlyMaxExt)
@@ -864,11 +865,11 @@ void OverlapContainer::overlapDivergenceStats()
 	std::vector<float> ovlpDivergence(_divergenceStats.divVec.begin(),
 									  _divergenceStats.divVec.begin() + 
 									  		_divergenceStats.vecSize);
-	Logger::get().info() << "Sequence divergence stats: Q10 = "
+	Logger::get().info() << "Sequence divergence stats: Q25 = "
 		<< std::setprecision(2)
-		<< quantile(ovlpDivergence, 10) << ", Q50 = " 
+		<< quantile(ovlpDivergence, 25) << ", Q50 = " 
 		<< quantile(ovlpDivergence, 50)
-		<< ", Q90 = " << quantile(ovlpDivergence, 90)
+		<< ", Q75 = " << quantile(ovlpDivergence, 75)
 		<< std::setprecision(6);
 }
 
