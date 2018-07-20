@@ -161,6 +161,7 @@ void Extender::assembleContigs()
 	static const int MAX_JUMP = Config::get("maximum_jump");
 	Logger::get().info() << "Extending reads";
 	_chimDetector.estimateGlobalCoverage();
+	_ovlpContainer.overlapDivergenceStats();
 	_innerReads.clear();
 	cuckoohash_map<FastaRecord::Id, size_t> coveredReads;
 	
