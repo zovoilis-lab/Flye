@@ -348,6 +348,9 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
   	//clock_t end = clock();
   	//double elapsed_secs = double(end - hashTime) / CLOCKS_PER_SEC;
 	//totalKmerTime += elapsed_secs;
+	
+	const int STAT_WND = 100000;
+	std::vector<OverlapRange> divStatWindows(curLen / STAT_WND + 1);
 
 	std::vector<OverlapRange> detectedOverlaps;
 	//int uniqueCandidates = 0;
@@ -541,15 +544,16 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 							   std::max(ovlp.extRange(), ovlp.curRange());
 				ovlp.seqDivergence = matchDiv + gapDiv;
 
-				if (ovlp.curRange() > Parameters::get().minimumOverlap)
-				{
-					//double check because reads are 
-					//aligned with the reduced overlap size
-					divStats.add(ovlp.seqDivergence);
-				}
 				if (ovlp.seqDivergence < _maxDivergence)
 				{
 					extOverlaps.push_back(ovlp);
+				}
+
+				//collecting overlap statistics
+				size_t wnd = ovlp.curBegin / STAT_WND;
+				if (ovlp.curRange() > divStatWindows[wnd].curRange())
+				{
+					divStatWindows[wnd] = ovlp;
 				}
 
 				//benchmarking divergence
@@ -557,9 +561,10 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 											.substr(ovlp.curBegin, ovlp.curRange()),
 										 _seqContainer.getSeq(extId)
 											.substr(ovlp.extBegin, ovlp.extRange()),
-										 1, -2, 2, 1, false);
-				fout << ovlp.seqDivergence << " " << alnDiff << std::endl;
-				if (alnDiff - ovlp.seqDivergence > 0.2)
+										 1, -2, 2, 1, false);*/
+				//fout << ovlp.curId << " " << ovlp.extId << " " << ovlp.curRange() 
+				//	<< " " << ovlp.seqDivergence << std::endl;
+				/*if (alnDiff - ovlp.seqDivergence > 0.2)
 				{
 					kswAlign(fastaRec.sequence
 								.substr(ovlp.curBegin, ovlp.curRange()),
@@ -614,6 +619,14 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 			}
 		}
 		//totalBackLoop += double(clock() - dpEnd) / CLOCKS_PER_SEC;
+	}
+
+	for (auto ovlp : divStatWindows)
+	{
+		if (ovlp.curRange() > 0)
+		{
+			divStats.add(ovlp.seqDivergence);
+		}
 	}
 
 	/*Logger::get().debug() << "---------";
