@@ -537,12 +537,13 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 						pos <= ovlp.curEnd - kmerSize) ++seedPos;
 				}
 
-				float kmerDiv = std::min((float)chainLength * _vertexIndex.getSampleRate()
-									 / seedPos, 1.0f);
+				int mult = std::pow(_vertexIndex.getSampleRate(), 2);
+				float kmerDiv = std::min((float)chainLength * 
+										  mult / ovlp.curRange(), 1.0f);
 				float matchDiv = std::log(1 / kmerDiv) / kmerSize;
-				float gapDiv = (float)abs(ovlp.extRange() - ovlp.curRange()) /
-							   std::max(ovlp.extRange(), ovlp.curRange());
-				ovlp.seqDivergence = matchDiv + gapDiv;
+				float extGap = std::max(ovlp.extRange() - 
+										ovlp.curRange(), 0) / ovlp.curRange();
+				ovlp.seqDivergence = matchDiv + extGap;
 
 				if (ovlp.seqDivergence < _maxDivergence)
 				{
@@ -562,8 +563,9 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 										 _seqContainer.getSeq(extId)
 											.substr(ovlp.extBegin, ovlp.extRange()),
 										 1, -2, 2, 1, false);*/
-				//fout << ovlp.curId << " " << ovlp.extId << " " << ovlp.curRange() 
-				//	<< " " << ovlp.seqDivergence << std::endl;
+				//float stat = (float)totalMatch / ovlp.curRange();
+				//fout << alnDiff << " " << ovlp.seqDivergence << std::endl;
+				//fout << alnDiff << " " << std::log(1.0f / (stat)) / 5 << std::endl;
 				/*if (alnDiff - ovlp.seqDivergence > 0.2)
 				{
 					kswAlign(fastaRec.sequence
