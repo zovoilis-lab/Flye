@@ -222,7 +222,8 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 {
 	const int MAX_LOOK_BACK = 50;
 	const int kmerSize = Parameters::get().kmerSize;
-	const float minKmerSruvivalRate = std::exp(-_maxDivergence * kmerSize);
+	//const float minKmerSruvivalRate = std::exp(-_maxDivergence * kmerSize);
+	const float minKmerSruvivalRate = 0.01;
 
 	//static std::ofstream fout("../kmers.txt");
 
