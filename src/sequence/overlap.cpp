@@ -23,7 +23,7 @@
 #include "../common/parallel.h"
 #include "../common/disjoint_set.h"
 
-namespace
+/*namespace
 {
 	float kswAlign(const DnaSequence& seqT, const DnaSequence seqQ,
 				   int matchScore, int misScore, int gapOpen, int gapExtend,
@@ -145,7 +145,7 @@ namespace
 
 		return errRate;
 	}
-}
+}*/
 
 //Check if it is a proper overlap
 bool OverlapDetector::overlapTest(const OverlapRange& ovlp,
@@ -532,7 +532,7 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 				ovlp.rightShift = extLen - curLen + ovlp.leftShift;
 
 				//size_t seedPos = 0;
-				int32_t solidPositions = 0;
+				/*int32_t solidPositions = 0;
 				int32_t prevKmerPos = 0;
 				for (auto pos : curSolidPos)
 				{
@@ -542,7 +542,7 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 						solidPositions += std::min(pos - prevKmerPos, kmerSize);
 						prevKmerPos = pos;
 					}
-				}
+				}*/
 
 				//int mult = std::pow(_vertexIndex.getSampleRate(), 2);
 				//float kmerMatch = std::min((float)chainLength *  mult / 
@@ -934,7 +934,9 @@ void OverlapContainer::overlapDivergenceStats()
 	}
 	histString += "    " + footer + "\n";
 
-	Logger::get().info() << "Sequence divergence distribution: \n" << histString
+	Logger::get().info() << "Median mapping divergence: " 
+		<< quantile(ovlpDivergence, 50); 
+	Logger::get().debug() << "Sequence divergence distribution: \n" << histString
 		<< "\n    Q25 = " << std::setprecision(2)
 		<< quantile(ovlpDivergence, 25) << ", Q50 = " 
 		<< quantile(ovlpDivergence, 50)
