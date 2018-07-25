@@ -23,8 +23,7 @@
 #include "../common/parallel.h"
 #include "../common/disjoint_set.h"
 
-/*
-namespace
+/*namespace
 {
 	float kswAlign(const DnaSequence& seqT, const DnaSequence seqQ,
 				   int matchScore, int misScore, int gapOpen, int gapExtend,
@@ -223,7 +222,8 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 {
 	const int MAX_LOOK_BACK = 50;
 	const int kmerSize = Parameters::get().kmerSize;
-	const float minKmerSruvivalRate = std::exp(-_maxDivergence * kmerSize);
+	//const float minKmerSruvivalRate = std::exp(-_maxDivergence * kmerSize);
+	const float minKmerSruvivalRate = 0.01;
 
 	//static std::ofstream fout("../kmers.txt");
 
@@ -349,7 +349,7 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
   	//double elapsed_secs = double(end - hashTime) / CLOCKS_PER_SEC;
 	//totalKmerTime += elapsed_secs;
 	
-	const int STAT_WND = 100000;
+	const int STAT_WND = 10000;
 	std::vector<OverlapRange> divStatWindows(curLen / STAT_WND + 1);
 
 	std::vector<OverlapRange> detectedOverlaps;
@@ -499,6 +499,7 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 							std::min(std::min(curNext - curPrev, extNext - extPrev),
 											  kmerSize);
 					totalMatch += matchScore;
+
 				}*/
 				if (_keepAlignment)
 				{
@@ -530,19 +531,32 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 				ovlp.leftShift = median(shifts);
 				ovlp.rightShift = extLen - curLen + ovlp.leftShift;
 
-				size_t seedPos = 0;
+				//size_t seedPos = 0;
+				/*int32_t solidPositions = 0;
+				int32_t prevKmerPos = 0;
 				for (auto pos : curSolidPos)
 				{
-					if (ovlp.curBegin <= pos && 
-						pos <= ovlp.curEnd - kmerSize) ++seedPos;
-				}
+					if (ovlp.curBegin <= pos &&
+						pos <= ovlp.curEnd - kmerSize)
+					{
+						solidPositions += std::min(pos - prevKmerPos, kmerSize);
+						prevKmerPos = pos;
+					}
+				}*/
 
-				float kmerDiv = std::min((float)chainLength * _vertexIndex.getSampleRate()
-									 / seedPos, 1.0f);
-				float matchDiv = std::log(1 / kmerDiv) / kmerSize;
-				float gapDiv = (float)abs(ovlp.extRange() - ovlp.curRange()) /
-							   std::max(ovlp.extRange(), ovlp.curRange());
-				ovlp.seqDivergence = matchDiv + gapDiv;
+				//int mult = std::pow(_vertexIndex.getSampleRate(), 2);
+				//float kmerMatch = std::min((float)chainLength *  mult / 
+				//						 std::min(ovlp.curRange(), ovlp.extRange()),
+				//						 1.0f);
+				//float kmerDiv = std::min((float)chainLength * 
+				//						  mult / seedPos, 1.0f);
+				//float matchDiv = std::log(1 / kmerMatch) / kmerSize;
+				//float gapDiv = (float)abs(ovlp.extRange() - ovlp.curRange()) / 
+				//				std::max(ovlp.curRange(), ovlp.extRange());
+				
+				//ovlp.seqDivergence = matchDiv;
+				ovlp.seqDivergence = std::log((float)ovlp.curRange() / 
+											  ovlp.score) / kmerSize;
 
 				if (ovlp.seqDivergence < _maxDivergence)
 				{
@@ -561,10 +575,9 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 											.substr(ovlp.curBegin, ovlp.curRange()),
 										 _seqContainer.getSeq(extId)
 											.substr(ovlp.extBegin, ovlp.extRange()),
-										 1, -2, 2, 1, false);*/
-				//fout << ovlp.curId << " " << ovlp.extId << " " << ovlp.curRange() 
-				//	<< " " << ovlp.seqDivergence << std::endl;
-				/*if (alnDiff - ovlp.seqDivergence > 0.2)
+										 1, -2, 2, 1, false);
+				fout << alnDiff << " " << ovlp.seqDivergence << std::endl;*/
+				/*if (0.05 < ovlp.seqDivergence && ovlp.seqDivergence < 0.20)
 				{
 					kswAlign(fastaRec.sequence
 								.substr(ovlp.curBegin, ovlp.curRange()),
@@ -878,11 +891,56 @@ void OverlapContainer::overlapDivergenceStats()
 	std::vector<float> ovlpDivergence(_divergenceStats.divVec.begin(),
 									  _divergenceStats.divVec.begin() + 
 									  		_divergenceStats.vecSize);
-	Logger::get().info() << "Sequence divergence stats: Q25 = "
-		<< std::setprecision(2)
+	const int HIST_LENGTH = 100;
+	const int HIST_HEIGHT = 20;
+	const float HIST_MIN = 0;
+	const float HIST_MAX = 0.5;
+	const float mult = HIST_LENGTH / (HIST_MAX * 100);
+	std::vector<int> histogram(HIST_LENGTH, 0);
+	for (float d : ovlpDivergence)
+	{
+		if (HIST_MIN <= d && d < HIST_MAX) 
+		{
+			++histogram[int(d * mult * 100)];
+		}
+	}
+	int histMax = 1;
+	for (int freq : histogram) histMax = std::max(histMax, freq);
+
+	std::string histString = "\n";
+	for (int height = HIST_HEIGHT - 1; height >= 0; --height)
+	{
+		histString += "    |";
+		for (int i = 0; i < HIST_LENGTH; ++i)
+		{
+			if ((float)histogram[i] / histMax > (float)height / HIST_HEIGHT)
+			{
+				histString += '*';
+			}
+			else
+			{
+				histString += ' ';
+			}
+		}
+		histString += '\n';
+	}
+	histString += "    " + std::string(HIST_LENGTH,  '-') + "\n";
+	std::string footer(HIST_LENGTH, ' ');
+	for (int i = 0; i < 10; ++i)
+	{
+		size_t startPos = i * HIST_LENGTH / 10;
+		auto s = std::to_string(i * 5) + "%";
+		for (size_t j = 0; j < s.size(); ++j) footer[j + startPos] = s[j];
+	}
+	histString += "    " + footer + "\n";
+
+	Logger::get().info() << "Median mapping divergence: " 
+		<< quantile(ovlpDivergence, 50); 
+	Logger::get().debug() << "Sequence divergence distribution: \n" << histString
+		<< "\n    Q25 = " << std::setprecision(2)
 		<< quantile(ovlpDivergence, 25) << ", Q50 = " 
 		<< quantile(ovlpDivergence, 50)
-		<< ", Q75 = " << quantile(ovlpDivergence, 75)
+		<< ", Q75 = " << quantile(ovlpDivergence, 75) << "\n"
 		<< std::setprecision(6);
 }
 
