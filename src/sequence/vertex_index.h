@@ -154,6 +154,12 @@ public:
 		//return _lockedIndex->count(kmer);
 	}
 
+	bool isRepetitive(Kmer kmer) const
+	{
+		kmer.standardForm();
+		return _repetitiveKmers.contains(kmer);
+	}
+
 	void outputProgress(bool set) 
 	{
 		_outputProgress = set;
@@ -180,6 +186,7 @@ private:
 
 	cuckoohash_map<Kmer, ReadVector> _kmerIndex;
 	cuckoohash_map<Kmer, size_t> 	 _kmerCounts;
+	cuckoohash_map<Kmer, char> 	 	 _repetitiveKmers;
 	//std::shared_ptr<cuckoohash_map<Kmer, ReadVector>
 	//				::locked_table> _lockedIndex;
 };

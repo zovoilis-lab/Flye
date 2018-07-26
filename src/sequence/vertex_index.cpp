@@ -213,6 +213,10 @@ void VertexIndex::buildIndex(int minCoverage)
 			ReadVector rv{(uint32_t)kmer.second, 0, nullptr};
 			_kmerIndex.insert(kmer.first, rv);
 		}
+		if (kmer.second > _repetitiveFrequency)
+		{
+			_repetitiveKmers.insert(kmer.first, true);
+		}
 	}
 	_kmerCounts.clear();
 	_kmerCounts.reserve(0);
