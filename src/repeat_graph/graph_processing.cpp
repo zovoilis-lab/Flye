@@ -14,8 +14,8 @@
 void GraphProcessor::simplify()
 {
 	//this->trimTips();
-	this->condenceEdges();
 	this->fixChimericJunctions();
+	this->condenceEdges();
 	this->collapseBulges();
 	this->condenceEdges();
 	//this->trimTips();
