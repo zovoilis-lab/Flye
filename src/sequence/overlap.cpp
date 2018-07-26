@@ -532,7 +532,7 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 				ovlp.rightShift = extLen - curLen + ovlp.leftShift;
 
 				//size_t seedPos = 0;
-				/*int32_t solidPositions = 0;
+				int32_t solidPositions = 0;
 				int32_t prevKmerPos = 0;
 				for (auto pos : curSolidPos)
 				{
@@ -542,7 +542,7 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 						solidPositions += std::min(pos - prevKmerPos, kmerSize);
 						prevKmerPos = pos;
 					}
-				}*/
+				}
 
 				//int mult = std::pow(_vertexIndex.getSampleRate(), 2);
 				//float kmerMatch = std::min((float)chainLength *  mult / 
@@ -555,7 +555,7 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 				//				std::max(ovlp.curRange(), ovlp.extRange());
 				
 				//ovlp.seqDivergence = matchDiv;
-				ovlp.seqDivergence = std::log((float)ovlp.curRange() / 
+				ovlp.seqDivergence = std::log((float)solidPositions / 
 											  ovlp.score) / kmerSize;
 
 				if (ovlp.seqDivergence < _maxDivergence)
