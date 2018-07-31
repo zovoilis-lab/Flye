@@ -528,8 +528,13 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 
 			if (this->overlapTest(ovlp, outSuggestChimeric))
 			{
-				std::reverse(kmerMatches.begin(), kmerMatches.end());
-				ovlp.kmerMatches = kmerMatches;
+				if (_keepAlignment)
+				{
+					kmerMatches.emplace_back(ovlp.curBegin, ovlp.extBegin);
+					std::reverse(kmerMatches.begin(), kmerMatches.end());
+					kmerMatches.emplace_back(ovlp.curEnd, ovlp.extEnd);
+					ovlp.kmerMatches = kmerMatches;
+				}
 				ovlp.leftShift = median(shifts);
 				ovlp.rightShift = extLen - curLen + ovlp.leftShift;
 
@@ -948,7 +953,7 @@ void OverlapContainer::overlapDivergenceStats()
 	}
 	histString += "    " + footer + "\n";
 
-	Logger::get().info() << "Median mapping divergence: " 
+	Logger::get().info() << "Median overlap divergence: " 
 		<< quantile(ovlpDivergence, 50); 
 	Logger::get().debug() << "Sequence divergence distribution: \n" << histString
 		<< "\n    Q25 = " << std::setprecision(2)
