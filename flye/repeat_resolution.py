@@ -1651,8 +1651,8 @@ def finalize_int_stats(rep, repeat_edges, side_it, cons_align_path, template,
                     else:
                         if temp_start < len(out_trg_aln):
                             out_aln_ind = out_trg_aln[temp_start]
-                        if out_aln_ind < len(out_aln_qry):
-                            new_out_start = out_start + out_aln_qry[out_aln_ind]
+                            if out_aln_ind < len(out_aln_qry):
+                                new_out_start = out_start + out_aln_qry[out_aln_ind]
                     """_check_overlap(
                             consensuses[(side_it["in"], "in", in_edge)], 
                             template,
