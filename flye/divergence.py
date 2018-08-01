@@ -316,7 +316,6 @@ def _write_div_summary(div_sum_path, sum_header, positions,
         f.write("{0}\n\n".format(sum_header))
         
         f.write("{0:33}\t{1}\n".format("Sequence Length:", seq_len))
-        f.write("{0:33}\t{1}\n".format("Total Positions:", len(positions)))
         f.write("{0:33}\t{1:.4f}\n\n".format("Average Divergence:", av_div))
         
         f.write("{0:33}\t{1}\n".format("Total Substitution Positions:", 

@@ -1263,7 +1263,7 @@ def update_int_stats(rep, repeat_edges, side_it, cons_align_path, template,
 def finalize_int_stats(rep, repeat_edges, side_it, cons_align_path, template, 
                        template_len, cons_aln_rate, cons_vs_cons_path, 
                        consensuses, int_confirmed_path, partitioning, 
-                       min_bridge_count, min_bridge_diff, int_stats_file, 
+                       min_bridge_count, min_bridge_factor, int_stats_file, 
                        resolved_seq_file):
     #Resolved repeat seqs to be returned, NOT written
     resolved_repeats = {}
@@ -1431,7 +1431,7 @@ def finalize_int_stats(rep, repeat_edges, side_it, cons_align_path, template,
         combo_inds = zip(combo_support, range(len(combo_support)))
         sorted_combos = sorted(combo_inds, reverse=True)
         if (sorted_combos[0][0] >= min_bridge_count and 
-            sorted_combos[0][0] - sorted_combos[1][0] >= min_bridge_diff):
+            sorted_combos[0][0] >= sorted_combos[1][0] * min_bridge_factor):
             bridged = True
             bridged_edges = all_combos[sorted_combos[0][1]]
         best_combo = sorted_combos[0][1]
@@ -1445,8 +1445,8 @@ def finalize_int_stats(rep, repeat_edges, side_it, cons_align_path, template,
             f.write("BRIDGED\n")
             f.write("Bridging Combo: {0}\n".format(best_combo))
             br_ct_str = "{0} (min_bridge_count)".format(min_bridge_count)
-            br_diff_str = "{0} + {1} (Combo {2} + min_bridge_diff)".format(
-                second_combo, min_bridge_diff, second_support)
+            br_diff_str = "{0} * {1} (Combo {2} * min_bridge_factor)".format(
+                second_combo, min_bridge_factor, second_support)
             f.write("Support = {0}\t> {1}\n{2:12}\t> {3}\n".format(
                 best_support, br_ct_str, "", br_diff_str))
             f.write("Resolution:\n")
@@ -1460,7 +1460,7 @@ def finalize_int_stats(rep, repeat_edges, side_it, cons_align_path, template,
             f.write("UNBRIDGED\n")
             f.write("Best combo {0}\n".format(best_combo))
             f.write("{0:20}\t{1}\n".format("min_bridge_count", min_bridge_count))
-            f.write("{0:20}\t{1}\n\n\n".format("min_bridge_diff", min_bridge_diff))
+            f.write("{0:20}\t{1}\n\n\n".format("min_bridge_factor", min_bridge_factor))
         summ_vals.extend([bridged, best_support, best_against])
         #If not bridged, find in/gap/out lengths and divergence rates
         if not bridged:

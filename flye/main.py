@@ -266,7 +266,7 @@ class JobTrestle(Job):
         self.buffer_count = 3
         self.min_edge_cov = 10
         self.min_bridge_count = 5
-        self.min_bridge_diff = 5
+        self.min_bridge_factor = 2
         self.min_mult = 2
         self.max_mult = 3
         self.flanking_len = 10000
@@ -542,7 +542,7 @@ class JobTrestle(Job):
                                                 int_confirmed_path, 
                                                 partitioning, 
                                                 self.min_bridge_count, 
-                                                self.min_bridge_diff, 
+                                                self.min_bridge_factor, 
                                                 integrated_stats, 
                                                 resolved_rep_path)
                 avg_div = 0.0
