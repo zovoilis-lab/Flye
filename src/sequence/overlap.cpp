@@ -844,7 +844,7 @@ std::vector<OverlapRange>&
 //TODO: potentially might become non-symmetric after filtering
 void OverlapContainer::filterOverlaps()
 {
-	const int MAX_ENDS_DIFF = 100;
+	static const int MAX_ENDS_DIFF = Parameters::get().kmerSize;
 
 	std::vector<FastaRecord::Id> seqIds;
 	for (auto& seq : _queryContainer.iterSeqs())

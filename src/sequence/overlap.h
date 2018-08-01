@@ -99,7 +99,10 @@ struct OverlapRange
 								{return pair.first < value;};
 			size_t i = std::lower_bound(kmerMatches.begin(), kmerMatches.end(),
 										curPos, cmpFirst) - kmerMatches.begin();
-			assert(i > 0 && i < kmerMatches.size());
+			if(i == 0 || i == kmerMatches.size()) 
+			{
+				throw std::runtime_error("Error in overlap projection");
+			}
 
 			int32_t curInt = kmerMatches[i].first -
 							 kmerMatches[i - 1].first;
