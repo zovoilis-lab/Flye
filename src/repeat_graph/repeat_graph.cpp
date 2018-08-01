@@ -651,14 +651,15 @@ void RepeatGraph::initializeEdges(const OverlapContainer& asmOverlaps)
 					int32_t projIntersect =
 						segIntersect(*(*startRange)->data, projStart, projEnd);
 
-					int32_t fstLen = setOne->data->length();
-					int32_t sndLen = (*startRange)->data->length();
-					float lenDiv = (float)std::max(fstLen, sndLen) / 
-									std::min(fstLen, sndLen);
+					//int32_t fstLen = setOne->data->length();
+					//int32_t sndLen = (*startRange)->data->length();
+					//float lenDiv = (float)std::max(fstLen, sndLen) / 
+					//				std::min(fstLen, sndLen);
 					//TODO: we should be able to lower this threshold in the future
 					//with the improved handling of tanem repeat edges
-					const int MAX_DIV = 5;	
-					if (projIntersect > sndLen / 2 && lenDiv < MAX_DIV)
+					//const int MAX_DIV = 5;	
+					//if (projIntersect > sndLen / 2 && lenDiv < MAX_DIV)
+					if (projIntersect > (*startRange)->data->length() / 2)
 					{
 						unionSet(setOne, *startRange);
 					}
