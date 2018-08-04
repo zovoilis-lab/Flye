@@ -628,7 +628,7 @@ void RepeatGraph::initializeEdges(const OverlapContainer& asmOverlaps)
 				auto& ovlp = *interval.value;
 				int32_t intersectOne = 
 					segIntersect(*setOne->data, ovlp.curBegin, ovlp.curEnd);
-				if (intersectOne < setOne->data->length() / 2) continue;
+				if (intersectOne < _maxSeparation) continue;
 
 				auto& ss = segmentIndex[ovlp.extId];
 				auto cmpBegin = [] (const SetSegment* s, int32_t pos)
@@ -646,10 +646,12 @@ void RepeatGraph::initializeEdges(const OverlapContainer& asmOverlaps)
 
 					//projecting the interval endpoints
 					//(overlap might be covering the actual segment)
-					int32_t projStart = ovlp.project(setOne->data->start);
-					int32_t projEnd = ovlp.project(setOne->data->end);
-					int32_t projIntersect =
-						segIntersect(*(*startRange)->data, projStart, projEnd);
+					//int32_t projStart = ovlp.project(setOne->data->start);
+					//int32_t projEnd = ovlp.project(setOne->data->end);
+					//int32_t projIntersect =
+					//	segIntersect(*(*startRange)->data, projStart, projEnd);
+					int32_t projTwo = segIntersect(*(*startRange)->data, 
+												   ovlp.extBegin, ovlp.extEnd);
 
 					//int32_t fstLen = setOne->data->length();
 					//int32_t sndLen = (*startRange)->data->length();
@@ -657,9 +659,8 @@ void RepeatGraph::initializeEdges(const OverlapContainer& asmOverlaps)
 					//				std::min(fstLen, sndLen);
 					//TODO: we should be able to lower this threshold in the future
 					//with the improved handling of tanem repeat edges
-					//const int MAX_DIV = 5;	
-					//if (projIntersect > sndLen / 2 && lenDiv < MAX_DIV)
-					if (projIntersect > (*startRange)->data->length() / 2)
+					//const int MAX_DIV = 5;
+					if (projTwo > _maxSeparation)
 					{
 						unionSet(setOne, *startRange);
 					}
