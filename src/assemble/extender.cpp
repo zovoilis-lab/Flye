@@ -23,6 +23,7 @@ Extender::ExtensionInfo Extender::extendContig(FastaRecord::Id startRead)
 	bool rightExtension = true;
 	FastaRecord::Id currentRead = startRead;
 	std::vector<int> numExtensions;
+	std::vector<int> overlapSizes;
 	ExtensionInfo exInfo;
 	exInfo.reads.push_back(startRead);
 	exInfo.assembledLength = _readsContainer.seqLen(startRead);
@@ -86,10 +87,10 @@ Extender::ExtensionInfo Extender::extendContig(FastaRecord::Id startRead)
 
 			//try to find a good one
 			if (!_chimDetector.isChimeric(ovlp.extId) &&
-				//!this->isRightRepeat(ovlp.extId) &&
 				this->countRightExtensions(ovlp.extId) > minExtensions)
 			{
 				foundExtension = true;
+				maxExtension = &ovlp;
 				exInfo.assembledLength += ovlp.rightShift;
 				currentRead = ovlp.extId;
 				break;
@@ -113,6 +114,7 @@ Extender::ExtensionInfo Extender::extendContig(FastaRecord::Id startRead)
 		if (foundExtension) 
 		{
 			exInfo.reads.push_back(currentRead);
+			overlapSizes.push_back(maxExtension->curRange());
 			overlapsVisited |= currentReads.count(currentRead);
 		}
 		else
@@ -148,9 +150,16 @@ Extender::ExtensionInfo Extender::extendContig(FastaRecord::Id startRead)
 		currentReads.insert(currentRead.rc());
 	}
 
-	//int64_t meanOvlps = 0;
-	//for (int num : numOverlaps) meanOvlps += num;
-	exInfo.meanOverlaps = median(numExtensions);
+	if (!numExtensions.empty())
+	{
+		exInfo.meanOverlaps = median(numExtensions);
+	}
+	if (!overlapSizes.empty())
+	{
+		exInfo.avgOverlapSize = median(overlapSizes);
+		exInfo.minOverlapSize = *std::min_element(overlapSizes.begin(), 
+												  overlapSizes.end());
+	}
 
 	return exInfo;
 }
@@ -218,6 +227,8 @@ void Extender::assembleContigs()
 			<< " rightTip: " << exInfo.rightTip
 			<< "\n\tSuspicios: " << exInfo.numSuspicious
 			<< "\n\tMean extensions: " << exInfo.meanOverlaps
+			<< "\n\tAvg overlap len: " << exInfo.avgOverlapSize
+			<< "\n\tMin overlap len: " << exInfo.minOverlapSize
 			<< "\n\tInner reads: " << innerCount
 			<< "\n\tLength: " << exInfo.assembledLength;
 		
