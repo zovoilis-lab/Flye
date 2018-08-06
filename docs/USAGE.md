@@ -56,7 +56,7 @@ Input reads could be in FASTA or FASTQ format, uncompressed
 or compressed with gz. Currenlty, raw and corrected reads
 from PacBio and ONT are supported. The expected error rates are
 <30% for raw and <2% for corrected reads. Additionally,
---subassemblies option performs a consensus assembly of multiple
+```--subassemblies``` option performs a consensus assembly of multiple
 sets of high-quality contigs. You may specify multiple
 fles with reads (separated by spaces). Mixing different read
 types is not yet supported.
@@ -121,7 +121,7 @@ While Flye was designed for assembly of raw reads (and this is the recommended o
 it also supports error-corrected PacBio/ONT reads as input (use the correpsonding option).
 The parameters are optimized for error rates <2%. If you are getting highly 
 fragmented assembly - most likely error rates in your reads are higher. In this case,
-consider to assemble using the raw reads option instead.
+consider to assemble using the raw reads instead.
 
 ### Consensus of multiple input contig sets
 
