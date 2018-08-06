@@ -103,5 +103,6 @@ Yu Lin, Jeffrey Yuan, Mikhail Kolmogorov, Max W Shen, Mark Chaisson and Pavel Pe
 
 Contacts
 --------
-Please report any problems directly to the github issue tracker.
-Also, you can send feedback to fenderglass@gmail.com
+Please report any problems to the github issue tracker (at http://github.com/fenderglass/Flye).
+If possible, please include "flye.log" file from the output directory
+for faster feedback. Alternatively, you can write directly to fenderglass@gmail.com.

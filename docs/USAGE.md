@@ -96,45 +96,38 @@ The dataset was originally released by the
 
 ## <a name="inputdata"></a> Supported Input Data
 
-Input reads could be in FASTA or FASTQ format, uncompressed
-or compressed with gz. Currenlty, raw and corrected reads
-from PacBio and ONT are supported. Additionally, ```--subassemblies```
-option does a consensus assembly of high-quality input contigs.
-You may specify multiple fles with reads (separated by spaces).
-Mixing different read types is not yet supported.
-
-
 ### PacBio data
 
-Flye was tested on the P6-C4 chemistry data with error rates 11-15%.
-Typically, a bacterial WGS project with 20x-30x+ coverage can be assembled 
+Flye was tested on raw PacBio reads (P5C3 and P6C4) with error rate ~15%.
+Typically, a bacterial WGS project with 40x coverage can be assembled 
 into a single, structurally concordant contig for each chromosome. However, to get the best 
 nucleotide-level quaity, you might need deeper coverage. For a 50x E. coli dataset,
-Flye makes roughly 30 errors (single nucleotide insertions/deletions). 
+Flye makes roughly 30 single nucleotide insertions/deletions.
 
-If the coverage of the bacterial dataset is significantly higher than 100x, you
-might consider decreasing the coverage by filtering out shorter reads - this
-should reduce the running time and memory footprint without affecting the quality. 
-However, for some complicated genomes (such as those enriched with mosaic tandem repeats),
-incorporating all available reads may be preferred for obtaining a more accurate structural assembly.
-
+Note that Flye treats each PacBio subread separately and does not take
+advantage of the PacBio CСS technology (if applies). If you have CСS PacBio data,
+consider to call read consensus using the official tools and
+run Flye in error-corrected mode on the resulting sequences.
 
 ### Oxford Nanopore Technologies data
 
-We performed our benchmarks with ONT 2D pass reads with error rates 13-19%.
-Due to the increased error rate, you might need deeper coverage 
-to get a complete chromosome assembly (60x as in the E. coli example above). For low coverage datasets
-(<30x) or datasets with shorter read length you might need to adjust some parameters
-(as described below) to get complete chromosomes. Due to the biased error pattern, 
-per-nucleotide accuracy is usually lower for ONT data than with PacBio data, especially in homopolymer regions.
+We performed our benchmarks with raw ONT reads (R7-R9) with error rate ~15%.
+Due to the biased error pattern, per-nucleotide accuracy is usually lower for 
+ONT data than with PacBio data, especially in homopolymer regions.
+
+### Error-corrected reads input
+
+While Flye was designed for assembly of raw reads (and this is the recommended option),
+it also supports error-corrected PacBio/ONT reads as input (use the correpsonding option).
+The parameters are optimized for error rates <2%. If you are getting highly 
+fragmented assembly - most likely error rates in your reads are higher. In this case,
+consider to assemble using the raw reads option instead.
 
 ### Consensus of multiple input contig sets
 
 ```--subassemblies``` input mode generates a consensus of multiple high quality contig assemblies
 (such as produced by different short read assemblers). The expected error rate
-is similar to the one in corrected PacBio or ONT reads. When using this option,
-consider decresing the minimum overlap parameter (for example, 1000 instead of 5000).
-You might also want to skip the polishing stage with ```--iterations 0``` argument
+is similar <1%. You might want to skip the polishing stage with ```--iterations 0``` argument
 (however, it might still be helpful).
 
 
@@ -160,11 +153,13 @@ supported (e.g. 5m or 2.6g)
 ### Minimum overlap length
 
 This sets a minimum overlap length for two reads to be considered overlapping.
-Since the algorithm is based on approximate overlaps (without computing exact alignment), 
-we require relatively long overlaps (5000 by default) - which is suitable for the most datasets
-with realtively good read length and coverage. However, you may decrease this parameter for better contiguity
-on low-coverage datasets or datasets with shorter mean read length (such as produced with older
-PacBio chemistry).
+In the latest Flye versions, this parameter is chosen automatically
+based on the read length distribution and does not require manual setting.
+Typical value is 3k-5k for raw reads and 1k-2k for error-corrected reads.
+Intuitively, we want to set this parameter as high as possible, so the
+repeat graph is less tangled. However, higher values might lead to assembly gaps.
+In some *rare* cases (for example in case of biased read length distribution)
+it makes sense to set this parameter manualy.
 
 ### Number of polishing iterations
 
@@ -174,7 +169,7 @@ is polished into a high quality sequence. By default, Flye runs one polishing
 iteration. The number could be increased, which might correct a small number of additional
 errors (due to improvements on how reads may align to the corrected assembly; 
 especially for ONT datasets). If the parameter is set to 0, the polishing will
-not be performed (in case you want to use an external polisher).
+not be performed.
 
 ### Resuming existing jobs
 
