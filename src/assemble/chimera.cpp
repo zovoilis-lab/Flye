@@ -18,7 +18,8 @@ bool ChimeraDetector::isChimeric(FastaRecord::Id readId)
 {
 	if (!_chimeras.contains(readId))
 	{
-		bool result = this->testReadByCoverage(readId);
+		bool result = this->testReadByCoverage(readId) ||
+					  _ovlpContainer.hasSelfOverlaps(readId);
 		_chimeras.insert(readId, result);
 		_chimeras.insert(readId.rc(), result);
 	}
@@ -125,13 +126,6 @@ bool ChimeraDetector::testReadByCoverage(FastaRecord::Id readId)
 			return true;
 		}
 	}
-
-	//chimera detection based self-overlaps (typical PacBio pattern)
-	/*if (_ovlpContainer.hasSelfOverlaps(readId))
-	{
-		//Logger::get().info() << "Self-ovlp!";
-		return true;
-	}*/
 
 	return false;
 }
