@@ -52,6 +52,20 @@ Table of Contents
       --debug               enable debug output
       -v, --version         show program's version number and exit
 
+Input reads could be in FASTA or FASTQ format, uncompressed
+or compressed with gz. Currenlty, raw and corrected reads
+from PacBio and ONT are supported. The expected error rates are
+<30% for raw and <2% for corrected reads. Additionally,
+--subassemblies option performs a consensus assembly of multiple
+sets of high-quality contigs. You may specify multiple
+fles with reads (separated by spaces). Mixing different read
+types is not yet supported.
+
+You must provide an estimate of the genome size as input,
+which is used for solid k-mers selection. The estimate could
+be rough (e.g. withing 0.5x-2x range) and does not affect
+the other assembly stages. Standard size modificators are
+supported (e.g. 5m or 2.6g)
 
 
 ## <a name="examples"></a> Examples
