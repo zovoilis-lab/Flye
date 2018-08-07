@@ -58,7 +58,7 @@ from PacBio and ONT are supported. The expected error rates are
 <30% for raw and <2% for corrected reads. Additionally,
 ```--subassemblies``` option performs a consensus assembly of multiple
 sets of high-quality contigs. You may specify multiple
-fles with reads (separated by spaces). Mixing different read
+files with reads (separated by spaces). Mixing different read
 types is not yet supported.
 
 You must provide an estimate of the genome size as input,
@@ -117,8 +117,8 @@ ONT data than with PacBio data, especially in homopolymer regions.
 
 ### Error-corrected reads input
 
-While Flye was designed for assembly of raw reads (and this is the recommended option),
-it also supports error-corrected PacBio/ONT reads as input (use the correpsonding option).
+While Flye was designed for assembly of raw reads (and this is the recommended way),
+it also supports error-corrected PacBio/ONT reads as input (use the ```corr``` option).
 The parameters are optimized for error rates <2%. If you are getting highly 
 fragmented assembly - most likely error rates in your reads are higher. In this case,
 consider to assemble using the raw reads instead.
@@ -171,10 +171,15 @@ errors (due to improvements on how reads may align to the corrected assembly;
 especially for ONT datasets). If the parameter is set to 0, the polishing will
 not be performed.
 
-### Resuming existing jobs
+### Starting from a particular assembly stage
 
-Use --resume to resume a previous run of the assembler that may have terminated
-prematurely. The assembly will continue from the last previously completed step.
+Use ```--resume``` to resume a previous run of the assembler that may have terminated
+prematurely (using the same output directory). 
+The assembly will continue from the last previously completed step.
+
+You might also resume from a particular stage with ```--resume-from stage_name```,
+where ```stage_name``` is a choice of ```assembly, consensus, repeat, polishing```.
+For example, you might supply different sets of reads for different stages.
 
 ## <a name="graph"></a> Assembly graph
 
@@ -256,16 +261,16 @@ for more detailed information. The assembly pipeline is organized as follows:
 
 * Kmer counting / erroneous kmer pre-filtering
 * Solid kmer selection (kmers with sufficient frequency, which are unlikely to be erroneous)
-* Finding read overlaps based on the A-Bruijn graph
-* Detection of chimeric sequences
-* Contig assembly by read extension
+* Contig extension. The algorithm starts from a single read and extends it
+  with a next overlapping read (overlaps are dynamically detected using the selected
+  solid k-mers).
 
-The resulting contig assembly is now simply a concatenation of read parts 
-and is error-prone. Flye then aligns the reads on the draft contigs using minimap2 and
-calls a rough consensus. Afterwards, the algorithm performs additional repeat analysis
-as follows:
+Note that we do not attempt to resolve repeats at this stage, thus
+the reconstructed contigs might contain misassemblies. 
+Flye then aligns the reads on these draft contigs using minimap2 and
+calls a consensus. Afterwards, Flye performs repeat analysis as follows:
 
-* Repeat graph is reconstructed from the assembled sequence
+* Repeat graph is constructed from the (possibly misassembled) contigs
 * In this graph all repeats longer than minimum overlap are collapsed
 * The algorithm resolves repeats using the read information and graph structure
 * The unbranching paths in the graph are output as contigs

@@ -386,7 +386,7 @@ def _epilog():
             "<30% for raw and <2% for corrected reads. Additionally,\n"
             "--subassemblies option performs a consensus assembly of multiple\n"
             "sets of high-quality contigs. You may specify multiple\n"
-            "fles with reads (separated by spaces). Mixing different read\n"
+            "files with reads (separated by spaces). Mixing different read\n"
             "types is not yet supported.\n\n"
             "You must provide an estimate of the genome size as input,\n"
             "which is used for solid k-mers selection. The estimate could\n"

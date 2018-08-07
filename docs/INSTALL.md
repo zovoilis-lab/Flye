@@ -6,6 +6,16 @@ Availability
 
 Flye is available for Linux and MacOS platforms.
 
+Bioconda Releases
+-----------------
+
+You can get the latest stable release through Bioconda:
+
+    conda install flye
+
+Alternatively, you can get a release verson from the github "releases" page
+
+
 Requirements
 ------------
 
@@ -13,10 +23,11 @@ Requirements
 * GNU make
 * Python 2.7
 * Git
-* Basic OS development headers (zlib, etc.)
+* Core OS development headers (zlib, etc)
 
-Get the latest version (recommended)
-------------------------------------
+
+Get the latest source version
+-----------------------------
 
 To get and compile the latest git version, run:
 
@@ -24,7 +35,6 @@ To get and compile the latest git version, run:
 	cd Flye
     python setup.py build
 
-Alternatively, you can get a release verson from the "releases" page.
 
 After building, Flye could be invoked with the following command:
 
