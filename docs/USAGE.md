@@ -155,7 +155,7 @@ supported (e.g. 5m or 2.6g)
 This sets a minimum overlap length for two reads to be considered overlapping.
 In the latest Flye versions, this parameter is chosen automatically
 based on the read length distribution and does not require manual setting.
-Typical value is 3k-5k for raw reads and 1k-2k for error-corrected reads.
+Typical value is 3k-5k (and down to 1k for datasets with shorter read length).
 Intuitively, we want to set this parameter as high as possible, so the
 repeat graph is less tangled. However, higher values might lead to assembly gaps.
 In some *rare* cases (for example in case of biased read length distribution)
