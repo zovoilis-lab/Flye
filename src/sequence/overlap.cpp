@@ -268,18 +268,19 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 
 	outSuggestChimeric = false;
 	int32_t curLen = fastaRec.sequence.length();
-	std::vector<int32_t> curSolidPos;
 	std::vector<int32_t> curFilteredPos;
 
 	//count kmer hits
 	for (auto curKmerPos : IterKmers(fastaRec.sequence))
 	{
-		if (_vertexIndex.isRepetitive(curKmerPos.kmer))
+		if (!_vertexIndex.isSolid(curKmerPos.kmer)) continue;
+		if (_vertexIndex.isRepetitive(curKmerPos.kmer) &&
+			curKmerPos.position >= _vertexIndex.getFlankRepeatSize() &&
+			curKmerPos.position < curLen - _vertexIndex.getFlankRepeatSize())
 		{
 			curFilteredPos.push_back(curKmerPos.position);
+			continue;
 		}
-		if (!_vertexIndex.isSolid(curKmerPos.kmer)) continue;
-		curSolidPos.push_back(curKmerPos.position);
 
 		FastaRecord::Id prevSeqId = FastaRecord::ID_NONE;
 		for (const auto& extReadPos : _vertexIndex.iterKmerPos(curKmerPos.kmer))
@@ -334,6 +335,10 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 	for (auto curKmerPos : IterKmers(fastaRec.sequence))
 	{
 		if (!_vertexIndex.isSolid(curKmerPos.kmer)) continue;
+		if (_vertexIndex.isRepetitive(curKmerPos.kmer) &&
+			curKmerPos.position >= _vertexIndex.getFlankRepeatSize() &&
+			curKmerPos.position < curLen - _vertexIndex.getFlankRepeatSize()) continue;
+
 		for (const auto& extReadPos : _vertexIndex.iterKmerPos(curKmerPos.kmer))
 		{
 			//no trivial matches

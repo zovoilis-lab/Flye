@@ -221,7 +221,8 @@ int main(int argc, char** argv)
 		return 1;
 	}
 	VertexIndex vertexIndex(readsContainer, 
-							(int)Config::get("assemble_kmer_sample"));
+							(int)Config::get("assemble_kmer_sample"),
+							 /*flanking repeat*/ 0);
 	vertexIndex.outputProgress(true);
 
 	Logger::get().info() << "Reads N50/90: " << readsContainer.computeNxStat(0.50) <<

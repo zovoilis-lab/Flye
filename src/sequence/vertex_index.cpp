@@ -191,8 +191,7 @@ void VertexIndex::buildIndex(int minCoverage)
 	size_t solidKmers = 0;
 	for (auto& kmer : _kmerCounts.lock_table())
 	{
-		if ((size_t)minCoverage <= kmer.second && 
-			kmer.second <= _repetitiveFrequency)
+		if ((size_t)minCoverage <= kmer.second)
 		{
 			kmerEntries += kmer.second;
 			++solidKmers;
@@ -207,8 +206,7 @@ void VertexIndex::buildIndex(int minCoverage)
 	_kmerIndex.reserve(solidKmers);
 	for (auto& kmer : _kmerCounts.lock_table())
 	{
-		if ((size_t)minCoverage <= kmer.second && 
-			kmer.second <= _repetitiveFrequency)
+		if ((size_t)minCoverage <= kmer.second)
 		{
 			ReadVector rv{(uint32_t)kmer.second, 0, nullptr};
 			_kmerIndex.insert(kmer.first, rv);
@@ -246,6 +244,7 @@ void VertexIndex::buildIndex(int minCoverage)
 		if (!readId.strand()) return;
 
 		int32_t nextKmerPos = _sampleRate;
+		int32_t seqLen = _seqContainer.seqLen(readId);
 		for (auto kmerPos : IterKmers(_seqContainer.getSeq(readId)))
 		{
 			if (_sampleRate > 1) //subsampling
@@ -265,8 +264,11 @@ void VertexIndex::buildIndex(int minCoverage)
 				targetRead = targetRead.rc();
 			}
 
-			//update_fn does not update if the key is not in the table
-			//e.g. if the k-mer is not solid!
+			//filter out repetitive kmers (but allow some on sequence ends)
+			if (_repetitiveKmers.contains(kmerPos.kmer) &&
+				kmerPos.position >= _flankRepeatSize &&
+				kmerPos.position < seqLen - _flankRepeatSize) continue;
+
 			_kmerIndex.update_fn(kmerPos.kmer, 
 				[targetRead, &kmerPos](ReadVector& rv)
 				{
@@ -292,16 +294,11 @@ void VertexIndex::buildIndex(int minCoverage)
 				  [](const ReadPosition& p1, const ReadPosition& p2)
 				  	{return p1.readId < p2.readId;});
 	}
-
-	//_lockedIndex = std::make_shared<cuckoohash_map<Kmer, ReadVector>::
-	//									locked_table>(_kmerIndex.lock_table());
 }
 
 
 void VertexIndex::clear()
 {
-	//_lockedIndex->unlock();
-
 	for (auto& chunk : _memoryChunks) delete[] chunk;
 	_memoryChunks.clear();
 

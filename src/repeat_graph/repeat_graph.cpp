@@ -58,7 +58,10 @@ std::unordered_set<GraphEdge*> GraphEdge::adjacentEdges()
 void RepeatGraph::build()
 {
 	//getting overlaps
-	VertexIndex asmIndex(_asmSeqs, (int)Config::get("repeat_graph_kmer_sample"));
+	int maxFlankingRepeat = Parameters::get().minimumOverlap +
+							(int)Config::get("maximum_overhang");
+	VertexIndex asmIndex(_asmSeqs, (int)Config::get("repeat_graph_kmer_sample"),
+						 maxFlankingRepeat);
 	asmIndex.countKmers(/*min freq*/ 1, /*genome size*/ 0);
 	asmIndex.setRepeatCutoff(/*min freq*/ 1);
 	asmIndex.buildIndex(/*min freq*/ 2);

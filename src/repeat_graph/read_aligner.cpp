@@ -136,7 +136,8 @@ void ReadAligner::alignReads()
 
 	//index it and align reads
 	VertexIndex pathsIndex(pathsContainer, 
-						   (int)Config::get("read_align_kmer_sample"));
+						   (int)Config::get("read_align_kmer_sample"),
+						   /*flanking repeat*/ 0);
 	pathsIndex.countKmers(/*min freq*/ 1, /* genome size*/ 0);
 	pathsIndex.setRepeatCutoff(/*min freq*/ 1);
 	pathsIndex.buildIndex(/*min freq*/ 1);
