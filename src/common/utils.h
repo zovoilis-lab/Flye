@@ -24,33 +24,27 @@ public:
 	}
 };
 
+
 template<typename T>
-T median(std::vector<T>& vec)
+T quantile(const std::vector<T>& vec, int percent)
 {
-	std::sort(vec.begin(), vec.end());
+	if (vec.empty()) return 0;
 	//NOTE: there's a bug in libstdc++ nth_element, 
-	//that sometimes leads to a segfault
+	//that sometimes leads to a segfault. This is why
+	//we have this inefficient impleemntation here
 	//std::nth_element(vec.begin(), vec.begin() + vec.size() / 2, 
 	//				 vec.end());
-	if (vec.size() % 2 == 1)
-	{
-		return vec[vec.size() / 2];
-	}
-	else
-	{
-		return (vec[vec.size() / 2 - 1] + vec[vec.size() / 2]) / 2;
-	}
+	auto sortedVec = vec;
+	std::sort(sortedVec.begin(), sortedVec.end());
+	size_t targetId = std::min(vec.size() * (size_t)percent / 100, 
+							   vec.size() - 1);
+	return sortedVec[targetId];
 }
 
 template<typename T>
-T q75(std::vector<T>& vec)
+T median(const std::vector<T>& vec)
 {
-	std::sort(vec.begin(), vec.end());
-	//NOTE: there's a bug in libstdc++ nth_element, 
-	//that sometimes leads to a segfault
-	//std::nth_element(vec.begin(), vec.begin() + vec.size() / 2, 
-	//				 vec.end());
-	return vec[vec.size() * 3 / 4];
+	return quantile(vec, 50);
 }
 
 inline std::vector<std::string> 

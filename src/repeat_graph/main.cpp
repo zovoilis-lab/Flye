@@ -3,11 +3,10 @@
 //Released under the BSD license (see LICENSE file)
 
 #include <iostream>
-#include <getopt.h>
 #include <signal.h>
 #include <stdlib.h>
 #include <unistd.h>
-
+#include <cmath>
 #include <execinfo.h>
 
 #include "../sequence/vertex_index.h"
@@ -21,6 +20,8 @@
 #include "repeat_resolver.h"
 #include "output_generator.h"
 #include "contig_extender.h"
+
+#include <getopt.h>
 
 bool parseArgs(int argc, char** argv, std::string& readsFasta, 
 			   std::string& outFolder, std::string& logFile, 
@@ -161,7 +162,7 @@ int chooseMinOverlap(const SequenceContainer& seqReads)
 	//choose minimum overlap as reads N90
 	const float NX_FRAC = 0.90f;
 	const int GRADE = 1000;
-	int estMinOvlp = round((float)seqReads.computeNxStat(NX_FRAC) / GRADE) * GRADE;
+	int estMinOvlp = std::round((float)seqReads.computeNxStat(NX_FRAC) / GRADE) * GRADE;
 	return std::min(std::max((int)Config::get("low_minimum_overlap"), 
 							 estMinOvlp),
 					(int)Config::get("high_minimum_overlap"));
@@ -239,7 +240,10 @@ int main(int argc, char** argv)
 	multInf.estimateCoverage();
 	multInf.removeUnsupportedEdges();
 	multInf.removeUnsupportedConnections();
-	multInf.separateHaplotypes();
+
+	//for diploid genomes, turned off by default
+	//multInf.collapseHeterozygousLoops();
+	//multInf.collapseHeterozygousBulges();
 
 	Logger::get().info() << "Resolving repeats";
 	RepeatResolver resolver(rg, seqAssembly, seqReads, aligner, multInf);

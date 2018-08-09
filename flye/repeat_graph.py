@@ -27,9 +27,11 @@ def check_binaries():
     try:
         devnull = open(os.devnull, "w")
         subprocess.check_call([REPEAT_BIN, "-h"], stderr=devnull)
-    except (subprocess.CalledProcessError, OSError) as e:
+    except subprocess.CalledProcessError as e:
         if e.returncode == -9:
             logger.error("Looks like the system ran out of memory")
+        raise RepeatException(str(e))
+    except OSError as e:
         raise RepeatException(str(e))
 
 
@@ -53,4 +55,4 @@ def analyse_repeats(args, input_assembly, out_folder, log_file, config_file):
             logger.error("Looks like the system ran out of memory")
         raise RepeatException(str(e))
     except OSError as e:
-        raise AssembleException(str(e))
+        raise RepeatException(str(e))

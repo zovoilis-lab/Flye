@@ -36,6 +36,10 @@ public:
 		z = (z ^ (z >> 27)) * 0x94D049BB133111EBULL;
 		return z ^ (z >> 31);
 	}
+	bool operator< (const Kmer& other)
+	{
+		return _representation < other._representation;
+	}
 
 private:
 	KmerRepr _representation;
@@ -83,8 +87,9 @@ protected:
 class IterKmers
 {
 public:
-	IterKmers(const DnaSequence& sequence):
-		_sequence(sequence)
+	IterKmers(const DnaSequence& sequence, size_t start = 0,
+			  size_t length = std::string::npos):
+		_sequence(sequence), _start(start), _length(length)
 	{}
 
 	KmerIterator begin();
@@ -92,4 +97,6 @@ public:
 
 private:
 	const DnaSequence& _sequence;
+	const size_t _start;
+	const size_t _length;
 };

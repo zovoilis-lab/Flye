@@ -13,12 +13,12 @@
 //all other simplification procedures
 void GraphProcessor::simplify()
 {
-	this->trimTips();
+	//this->trimTips();
 	this->condenceEdges();
 	this->fixChimericJunctions();
 	this->collapseBulges();
 	this->condenceEdges();
-	this->trimTips();
+	//this->trimTips();
 }
 
 //finds and removes graph structures that
@@ -244,6 +244,7 @@ void GraphProcessor::condenceEdges()
 	for (auto& unbranchingPath : toCollapse)
 	{
 		if (!unbranchingPath.id.strand()) continue;
+		if (unbranchingPath.path.size() == 1) continue;
 
 		GraphPath complPath = _graph.complementPath(unbranchingPath.path);
 		auto newEdges = collapseEdges(unbranchingPath.path);

@@ -14,7 +14,6 @@ import argparse
 import json
 import shutil
 import subprocess
-from itertools import combinations
 
 import flye.alignment as aln
 import flye.bubbles as bbl
@@ -27,8 +26,7 @@ import flye.scaffolder as scf
 from flye.__version__ import __version__
 import flye.config as config
 from flye.bytes2human import human2bytes
-import flye.divergence as div
-import flye.repeat_resolution as rr
+import flye.trestle.trestle as tres
 
 logger = logging.getLogger()
 
@@ -95,7 +93,8 @@ class JobAssembly(Job):
                      self.args.asm_config)
         if os.path.getsize(self.assembly_filename) == 0:
             raise asm.AssembleException("No contigs were assembled - "
-                                        "are you using corrected input instead of raw?")
+                                        "please check if the read type and genome "
+                                        "size parameters are correct")
 
 
 class JobRepeat(Job):
@@ -116,6 +115,12 @@ class JobRepeat(Job):
                                                         "scaffolds_links.txt")
         self.out_files["assembly_graph"] = assembly_graph
         self.out_files["stats"] = contigs_stats
+        
+        #Adding repeats_dump.txt and graph_final.fasta to out_files
+        repeats_dump = os.path.join(self.repeat_dir, "repeats_dump.txt")
+        graph_final = os.path.join(self.repeat_dir, "graph_final.fasta")
+        self.out_files["repeats_dump"] = repeats_dump
+        self.out_files["graph_final"] = graph_final
 
     def run(self):
         if not os.path.isdir(self.repeat_dir):
@@ -187,16 +192,13 @@ class JobConsensus(Job):
 
 
 class JobPolishing(Job):
-    #CHANGED SO THAT READS ARE NOT IN ARGS
-    #Also changed the directory to an input
-    def __init__(self, args, work_dir, log_file, reads, in_contigs, polish_dir):
+    def __init__(self, args, work_dir, log_file, in_contigs):
         super(JobPolishing, self).__init__()
 
         self.args = args
         self.log_file = log_file
         self.in_contigs = in_contigs
-        self.reads = reads
-        self.polishing_dir = os.path.join(work_dir, polish_dir)
+        self.polishing_dir = os.path.join(work_dir, "3-polishing")
 
         self.name = "polishing"
         final_contigs = os.path.join(self.polishing_dir,
@@ -218,12 +220,11 @@ class JobPolishing(Job):
             alignment_file = os.path.join(self.polishing_dir,
                                           "minimap_{0}.sam".format(i + 1))
             logger.info("Running Minimap2")
-            aln.make_alignment(prev_assembly, self.reads, self.args.threads,
+            aln.make_alignment(prev_assembly, self.args.reads, self.args.threads,
                                self.polishing_dir, self.args.platform,
                                alignment_file)
 
             logger.info("Separating alignment into bubbles")
-            
             contigs_info = aln.get_contigs_info(prev_assembly)
             bubbles_file = os.path.join(self.polishing_dir,
                                         "bubbles_{0}.fasta".format(i + 1))
@@ -252,305 +253,23 @@ class JobTrestle(Job):
         super(JobTrestle, self).__init__()
 
         self.args = args
-        self.resolve_dir = os.path.join(work_dir, "4-trestle")
+        self.trestle_dir = os.path.join(work_dir, "4-trestle")
         self.log_file = log_file
-        self.max_iter = 10
-        self.buffer_count = 3
-        self.min_edge_cov = 10
-        self.min_bridge_count = 5
-        self.min_bridge_factor = 2
-        self.cons_aln_rate = 0.01
-        #self.cons_aln_rate = config.vals["min_aln_rate"]
-
         self.name = "trestle"
-        self.out_files["reps"] = os.path.join(self.resolve_dir, 
+        self.out_files["reps"] = os.path.join(self.trestle_dir, 
                                               "resolved_repeats.fasta")
-        self.out_files["summary"] = os.path.join(self.resolve_dir, 
+        self.out_files["summary"] = os.path.join(self.trestle_dir, 
                                               "trestle_summary.txt")
         
     def run(self):
-        if not os.path.isdir(self.resolve_dir):
-            os.mkdir(self.resolve_dir)
+        if not os.path.isdir(self.trestle_dir):
+            os.mkdir(self.trestle_dir)
             
         logger.info("Running Trestle: resolving unbridged repeats")
-        
-        #1. Process repeats from graph - each repeat should have its own folder
-        logger.info("0.Generating repeat directories and files")
-        
-        template_name = "template.fasta"
-        extended_name = "extended_templates.{0}.{1}.fasta"
-        repeat_reads_name = "repeat_reads.fasta"
-        init_part_name = "partitioning.0.{0}.txt"
-        repeat_label = "repeat_{0}"
-        orient_labels = ["forward", "reverse"]
-        side_labels = ["in", "out"]
-        all_resolved_reps_dict = {}
-        rr.init_summary(self.out_files["summary"])
-        
-        repeat_list, repeat_edges, all_edge_headers = rr.process_repeats(
-                                          self.args.reads, 
-                                          self.args.repeats_dump, 
-                                          self.args.graph_edges, 
-                                          self.resolve_dir, 
-                                          template_name,
-                                          extended_name,
-                                          repeat_reads_name, 
-                                          init_part_name, 
-                                          repeat_label,
-                                          orient_labels,
-                                          self.args.min_mult, 
-                                          self.args.max_mult,
-                                          self.args.flanking_len)
-        
-        logger.info("{0} repeats to be resolved".format(len(repeat_list)))
-        for rep_id in sorted(repeat_list):
-            logger.info("1.Repeat {0}".format(rep_id))
-            repeat_dir = os.path.join(self.resolve_dir, 
-                                      repeat_label.format(rep_id))
-            orient_reps = [rep_id, -rep_id]
-            
-            for orientation, rep in zip(orient_labels, orient_reps):
-                orient_dir = os.path.join(repeat_dir, orientation)
-                template = os.path.join(orient_dir, template_name)
-                extended = os.path.join(orient_dir, extended_name)
-                repeat_reads = os.path.join(orient_dir, repeat_reads_name)
-                term_bool = {s:False for s in side_labels}
-                
-                #2. Polish template and extended templates
-                logger.info("a.polishing templates")
-                pol_temp_dir = "Polishing.Template"
-                pol_temp_job = JobPolishing(self.args, orient_dir, 
-                                            self.log_file, [repeat_reads], 
-                                            template, pol_temp_dir)
-                pol_temp_job.run()
-                polished_template = pol_temp_job.out_files["contigs"]
-                if not os.path.isfile(polished_template):
-                    for side in side_labels:
-                        term_bool[side] = True
-                
-                pol_ext_dir = "Polishing.Extended.{0}.{1}"
-                polished_extended = {}
-                for side in side_labels:
-                    for edge_id in repeat_edges[rep][side]:
-                        pol_ext_job = JobPolishing(self.args, orient_dir, 
-                                           self.log_file, [repeat_reads], 
-                                           extended.format(side, edge_id), 
-                                           pol_ext_dir.format(side, edge_id))
-                        pol_ext_job.run()
-                        pol_output = pol_ext_job.out_files["contigs"]
-                        polished_extended[(side, edge_id)] = pol_output
-                        if not os.path.isfile(pol_output):
-                            term_bool[side] = True
-                
-                #3. Find divergent positions
-                logger.info("b.estimating divergence")
-                frequency_path = os.path.join(orient_dir, "divergence_frequencies.txt")
-                position_path = os.path.join(orient_dir, "tentative_positions.txt")
-                summary_path = os.path.join(orient_dir, "divergence_summary.txt")
-                
-                logger.info("running Minimap2")
-                alignment_file = os.path.join(orient_dir, "reads.vs.template.minimap.sam")
-                template_len = 0.0
-                if os.path.isfile(polished_template):
-                    aln.make_alignment(polished_template, [repeat_reads], 
-                               self.args.threads, orient_dir, 
-                               self.args.platform, alignment_file)
-                    template_info = aln.get_contigs_info(polished_template)
-                    template_len = template_info[str(rep)].length
-                
-                logger.info("finding tentative divergence positions")
-                div.find_divergence(alignment_file, polished_template, 
-                                    template_info, frequency_path, position_path, 
-                                    summary_path, config.vals["min_aln_rate"], 
-                                    self.args.platform, self.args.threads,
-                                    self.args.sub_thresh, 
-                                    self.args.del_thresh,
-                                    self.args.ins_thresh) 
-                avg_cov = rr.find_coverage(frequency_path)
-                
-                #4. Begin iterations
-                partitioning = os.path.join(orient_dir, "partitioning.{0}.{1}.txt")
-                           
-                cons_align = os.path.join(orient_dir, 
-                                          "consensus.{0}.{1}.{2}.vs.template.minimap.sam")
-                read_align = os.path.join(orient_dir, 
-                                          "reads.vs.consensus.{0}.{1}.{2}.minimap.sam")
-                confirmed_pos_path = os.path.join(orient_dir, "confirmed_positions.{0}.{1}.txt")
-                edge_reads = os.path.join(orient_dir, "edge_reads.{0}.{1}.{2}.fasta")
-                polishing_dir = os.path.join(orient_dir, 
-                                             "Polishing.Consensus.{0}.{1}.{2}")
-                polished_consensus = {}
-                cons_vs_cons = os.path.join(orient_dir, 
-                                          "consensus.{0}.{1}.{2}.vs.consensus.{3}.{4}.{5}.minimap.sam")
-                side_stats = os.path.join(orient_dir, "{0}_stats.txt")                     
-                integrated_stats = os.path.join(orient_dir, "integrated_stats.txt")
-                int_confirmed_path = os.path.join(orient_dir, "integrated_confirmed_positions.{0}.{1}.txt")
-                resolved_rep_name = "".join(["resolved_repeat_{0}".format(rep), 
-                                             ".copy.{0}.fasta"])
-                resolved_rep_path = os.path.join(orient_dir, resolved_rep_name)
-                res_vs_res_name = "".join(["resolved_repeat_{0}".format(rep), 
-                                           ".copy.{0}.vs.{1}.minimap.sam"])
-                res_vs_res = os.path.join(orient_dir, res_vs_res_name)
-                """"""
-                test_pos = os.path.join(orient_dir, "test_pos.{0}.{1}.txt")
-                num_test = 10
-                zero_it = 0
-                side_it = {s:0 for s in side_labels}
-                edge_below_cov = {s:False for s in side_labels}
-                dup_part = {s:False for s in side_labels}
-                prev_partitionings = {s:set() for s in side_labels}
-                #Initialize stats
-                for side in side_labels:
-                    edge_below_cov[side] = rr.init_side_stats(
-                                        rep, side, repeat_edges, self.args, 
-                                        self.buffer_count, self.max_iter, 
-                                        self.min_edge_cov, self.cons_aln_rate, 
-                                        position_path,
-                                        partitioning.format(zero_it, side), 
-                                        prev_partitionings[side], 
-                                        template_len, 
-                                        side_stats.format(side))
-                rr.init_int_stats(rep, repeat_edges, zero_it, position_path, 
-                                  partitioning, repeat_reads, template_len, 
-                                  avg_cov, integrated_stats)
-                logger.info("c.iterative procedure")
-                for it in range(1, self.max_iter+1):
-                    both_break = True
-                    for side in side_labels:
-                        if edge_below_cov[side] or dup_part[side] or term_bool[side]:
-                            continue
-                        else:
-                            logger.info("iteration {0}, '{1}'".format(it, side))
-                            both_break = False
-                        #4a. Call consensus on partitioned reads
-                        for edge_id in sorted(repeat_edges[rep][side]):
-                            pol_con_dir = polishing_dir.format(
-                                        it, side, edge_id)
-                            curr_reads = edge_reads.format(it, side, edge_id)
-                            rr.write_edge_reads(
-                                        it, side, edge_id,
-                                        repeat_reads, 
-                                        partitioning.format(it-1, side), 
-                                        curr_reads)
-                            curr_extended = polished_extended[(side, edge_id)]
-                            logger.info("polishing '{0} {1}' reads".format(side, edge_id))
-                            pol_con_job = JobPolishing(self.args, 
-                                       orient_dir,
-                                       self.log_file, 
-                                       [curr_reads], 
-                                       curr_extended,
-                                       pol_con_dir)
-                            pol_con_job.run()
-                            pol_con_out = pol_con_job.out_files["contigs"]
-                            polished_consensus[(it, side, edge_id)] = pol_con_out
-                        #4b. Partition reads using divergent positions
-                        for edge_id in sorted(repeat_edges[rep][side]):
-                            if os.path.isfile(polished_consensus[(it, side, edge_id)]):
-                                cons_al_file = cons_align.format(it, side, edge_id)
-                                aln.make_alignment(polished_template, 
-                                                   [polished_consensus[(it, side, edge_id)]], 
-                                                    self.args.threads, 
-                                                    orient_dir, 
-                                                    self.args.platform, 
-                                                    cons_al_file)
-                                read_al_file = read_align.format(it, side, edge_id)
-                                aln.make_alignment(polished_consensus[(it, side, edge_id)], 
-                                                   [repeat_reads], 
-                                                   self.args.threads, 
-                                                   orient_dir, 
-                                                   self.args.platform, 
-                                                   read_al_file)
-                            else:
-                                term_bool[side] = True
-                        logger.info("partitioning '{0}' reads".format(side))
-                        rr.partition_reads(repeat_edges[rep][side], it, side, 
-                                           position_path, cons_align, 
-                                           polished_template, read_align, 
-                                           polished_consensus, 
-                                           confirmed_pos_path, 
-                                           partitioning, 
-                                           all_edge_headers[rep], 
-                                           self.cons_aln_rate,
-                                           self.buffer_count,
-                                           test_pos.format(it, side), num_test)
-                        #4c. Write stats file for current iteration
-                        edge_pairs = sorted(combinations(repeat_edges[rep][side], 2))
-                        for edge_one, edge_two in edge_pairs:
-                            if (not os.path.isfile(polished_consensus[(it, side, edge_one)]) or
-                                not os.path.isfile(polished_consensus[(it, side, edge_two)])):
-                                continue
-                            cons_cons_file = cons_vs_cons.format(it, side, edge_one, 
-                                                                 it, side, edge_two)
-                            aln.make_alignment(polished_consensus[(it, side, edge_two)], 
-                                               [polished_consensus[(it, side, edge_one)]], 
-                                                self.args.threads, 
-                                                orient_dir, 
-                                                self.args.platform, 
-                                                cons_cons_file)
-                        edge_below_cov[side], dup_part[side] = rr.update_side_stats(
-                                            repeat_edges[rep][side], it, side, 
-                                            cons_align, polished_template, 
-                                            self.cons_aln_rate, 
-                                            confirmed_pos_path.format(it, side), 
-                                            partitioning.format(it, side), 
-                                            self.min_edge_cov, 
-                                            prev_partitionings[side], 
-                                            side_stats.format(side))
-                        side_it[side] = it
-                    rr.update_int_stats(rep, repeat_edges, side_it, cons_align, 
-                                        polished_template, 
-                                        template_len,
-                                        self.cons_aln_rate, 
-                                        confirmed_pos_path, int_confirmed_path, 
-                                        partitioning, integrated_stats)
-                    if both_break:
-                        break
-                logger.info("writing stats files")
-                for side in side_labels:
-                    rr.finalize_side_stats(repeat_edges[rep][side], side_it[side], 
-                                           side, cons_align, polished_template, 
-                                        self.cons_aln_rate, 
-                                        cons_vs_cons, polished_consensus, 
-                                        confirmed_pos_path.format(side_it[side], side), 
-                                        partitioning.format(side_it[side], side), 
-                                        self.max_iter, edge_below_cov[side],
-                                        dup_part[side], term_bool[side], 
-                                        side_stats.format(side))
-                bridged, repeat_seqs, summ_vals = rr.finalize_int_stats(rep, 
-                                                repeat_edges, side_it, 
-                                                cons_align, polished_template, 
-                                                template_len, 
-                                                self.cons_aln_rate, 
-                                                cons_vs_cons, 
-                                                polished_consensus, 
-                                                int_confirmed_path, 
-                                                partitioning, 
-                                                self.min_bridge_count, 
-                                                self.min_bridge_factor, 
-                                                integrated_stats, 
-                                                resolved_rep_path)
-                avg_div = 0.0
-                if bridged:
-                    res_inds = range(len(repeat_edges[rep]["in"]))
-                    for res_one, res_two in sorted(combinations(res_inds, 2)):
-                        if (os.path.isfile(resolved_rep_path.format(res_one)) and
-                            os.path.isfile(resolved_rep_path.format(res_two))):
-                            aln.make_alignment(resolved_rep_path.format(res_two), 
-                                               [resolved_rep_path.format(res_one)], 
-                                               self.args.threads, 
-                                               orient_dir, 
-                                               self.args.platform, 
-                                               res_vs_res.format(res_one, res_two))
-                    avg_div = rr.int_stats_postscript(rep, repeat_edges, 
-                                            integrated_stats, 
-                                            self.cons_aln_rate, 
-                                            resolved_rep_path, 
-                                            res_vs_res)
-                all_resolved_reps_dict.update(repeat_seqs)
-                rr.update_summary(rep, template_len, avg_cov, 
-                                  summ_vals, avg_div, 
-                                  self.out_files["summary"])
-        fp.write_fasta_dict(all_resolved_reps_dict, self.out_files["reps"])
+        resolved_repeats_dict = tres.resolve_repeats(self.args, 
+                                                     self.trestle_dir, 
+                                                     self.out_files["summary"])
+        fp.write_fasta_dict(resolved_repeats_dict, self.out_files["reps"])
 
 def _create_job_list(args, work_dir, log_file):
     """
@@ -560,25 +279,14 @@ def _create_job_list(args, work_dir, log_file):
 
     #Resolve Unbridged Repeats
     jobs.append(JobTrestle(args, work_dir, log_file))
-        
-    """
-        
-        
-        #3. Iteration 0 starts
-        #Define current partitioning as the set of starting reads
-        #Define the initial template as the precursor sequences of the repeat copies
-        #Align the reads to the template, polish them, and identify starting points
-        #Collect output for this iteration and save it
-        
-        #4. Start Iterations, 1-max_iter
     
-
+    """
     #Assembly job
     jobs.append(JobAssembly(args, work_dir, log_file))
     draft_assembly = jobs[-1].out_files["assembly"]
 
     #Consensus
-    if args.read_type == "raw":
+    if args.read_type != "subasm":
         jobs.append(JobConsensus(args, work_dir, draft_assembly))
         draft_assembly = jobs[-1].out_files["consensus"]
 
@@ -588,6 +296,8 @@ def _create_job_list(args, work_dir, log_file):
     scaffold_links = jobs[-1].out_files["scaffold_links"]
     graph_file = jobs[-1].out_files["assembly_graph"]
     repeat_stats = jobs[-1].out_files["stats"]
+    repeats_dump = jobs[-1].out_files["repeats_dump"]
+    graph_final = jobs[-1].out_files["graph_final"]
 
     #Polishing
     contigs_file = raw_contigs
@@ -596,11 +306,15 @@ def _create_job_list(args, work_dir, log_file):
         jobs.append(JobPolishing(args, work_dir, log_file, raw_contigs))
         contigs_file = jobs[-1].out_files["contigs"]
         polished_stats = jobs[-1].out_files["stats"]
-
+    
+    #Trestle: Resolve Unbridged Repeats
+    jobs.append(JobTrestle(args, work_dir, log_file, repeats_dump, graph_final))
+    
     #Report results
     jobs.append(JobFinalize(args, work_dir, log_file, contigs_file,
                             graph_file, repeat_stats, polished_stats,
-                            scaffold_links))"""
+                            scaffold_links))
+    """
 
     return jobs
 
@@ -615,19 +329,21 @@ def _set_kmer_size(args):
         args.genome_size = human2bytes(args.genome_size.upper())
 
     logger.debug("Genome size: {0}".format(args.genome_size))
-    args.kmer_size = config.vals["small_kmer"]
-    if args.genome_size > config.vals["big_genome"]:
-        args.kmer_size = config.vals["big_kmer"]
-    logger.debug("Chosen k-mer size: {0}".format(args.kmer_size))
+    #args.kmer_size = config.vals["small_kmer"]
+    #if args.genome_size > config.vals["big_genome"]:
+    #    args.kmer_size = config.vals["big_kmer"]
+    #logger.debug("Chosen k-mer size: {0}".format(args.kmer_size))
 
 
 def _set_read_attributes(args):
     root = os.path.dirname(__file__)
     if args.read_type == "raw":
         args.asm_config = os.path.join(root, "resource", config.vals["raw_cfg"])
-    elif args.read_type in ["corrected", "subassemblies"]:
+    elif args.read_type == "corrected":
         args.asm_config = os.path.join(root, "resource",
                                        config.vals["corrected_cfg"])
+    elif args.read_type == "subasm":
+        args.asm_config = os.path.join(root, "resource", config.vals["subasm_cfg"])
 
 
 def _run(args):
@@ -640,9 +356,6 @@ def _run(args):
     for read_file in args.reads:
         if not os.path.exists(read_file):
             raise ResumeException("Can't open " + read_file)
-
-    if args.max_mult < args.min_mult:
-        raise ResumeException("Max-mult cannot be greater than min-mult")
 
     save_file = os.path.join(args.out_dir, "flye.save")
     jobs = _create_job_list(args, args.out_dir, args.log_file)
@@ -726,10 +439,9 @@ def _epilog():
 def _version():
     repo_root = os.path.dirname((os.path.dirname(__file__)))
     try:
-        git_label = subprocess.check_output(["git", "-C", repo_root,
-                                            "describe", "--tags"],
+        git_label = subprocess.check_output(["git", "-C", repo_root, "describe"],
                                             stderr=open(os.devnull, "w"))
-        commit_id = git_label.strip("\n").split("-", 1)[-1]
+        commit_id = git_label.strip("\n").rsplit("-", 1)[-1]
         return __version__ + "-" + commit_id
     except (subprocess.CalledProcessError, OSError):
         pass
@@ -768,18 +480,6 @@ def main():
     parser.add_argument("-o", "--out-dir", dest="out_dir",
                         default=None, required=True,
                         metavar="path", help="Output directory")
-    parser.add_argument("-u", "--min-mult", dest="min_mult",
-                        type=lambda v: check_int_range(v, 2, 100),
-                        default=2, metavar="int", help="minimum multiplicity "
-                        "to attempt to resolve")
-    parser.add_argument("-x", "--max-mult", dest="max_mult",
-                        type=lambda v: check_int_range(v, 2, 100),
-                        default=2, metavar="int", help="maximum multiplicity "
-                        "to attempt to resolve")
-    parser.add_argument("-f", "--flanking-len", dest="flanking_len",
-                        type=lambda v: check_int_range(v, 10, 100000),
-                        default=10000, metavar="int", help="length to extend "
-                        "into repeat-adjacent edges")
 
     parser.add_argument("-t", "--threads", dest="threads",
                         type=lambda v: check_int_range(v, 1, 128),
@@ -791,20 +491,8 @@ def main():
                         "(default: 1)", metavar="int")
     parser.add_argument("-m", "--min-overlap", dest="min_overlap", metavar="int",
                         type=lambda v: check_int_range(v, 1000, 10000),
-                        default=5000, help="minimum overlap between reads "
-                        "(default: 5000)")
-    parser.add_argument("-s", "--sub_thresh", dest="sub_thresh", metavar="float",
-                        type=float,
-                        default=0.1, help="threshold for substitution calls "
-                        "(default: 0.1)")
-    parser.add_argument("-l", "--del_thresh", dest="del_thresh", metavar="float",
-                        type=float, 
-                        default=0.2, help="threshold for deletion calls "
-                        "(default: 0.2)")
-    parser.add_argument("-n", "--ins_thresh", dest="ins_thresh", metavar="float",
-                        type=float, 
-                        default=0.3, help="threshold for insertion calls "
-                        "(default: 0.3)")
+                        default=None, help="minimum overlap between reads "
+                        "(default: auto)")
 
     parser.add_argument("--resume", action="store_true",
                         dest="resume", default=False,
@@ -814,25 +502,18 @@ def main():
     #parser.add_argument("--kmer-size", dest="kmer_size",
     #                    type=lambda v: check_int_range(v, 11, 31, require_odd=True),
     #                    default=None, help="kmer size (default: auto)")
-    #parser.add_argument("--min-coverage", dest="min_kmer_count",
-    #                    type=lambda v: check_int_range(v, 1, 1000),
-    #                    default=None, help="minimum kmer coverage "
-    #                    "(default: auto)")
-    #parser.add_argument("--max-coverage", dest="max_kmer_count",
-    #                    type=lambda v: check_int_range(v, 1, 1000),
-    #                    default=None, help="maximum kmer coverage "
-    #                    "(default: auto)")
     parser.add_argument("--debug", action="store_true",
                         dest="debug", default=False,
                         help="enable debug output")
     parser.add_argument("-v", "--version", action="version", version=_version())
     args = parser.parse_args()
-
+    
     args.reads = [args.read_files]
     args.platform = "pacbio"
     args.read_type = "raw"
     
-    """if args.pacbio_raw:
+    """
+    if args.pacbio_raw:
         args.reads = args.pacbio_raw
         args.platform = "pacbio"
         args.read_type = "raw"
@@ -850,8 +531,8 @@ def main():
         args.read_type = "corrected"
     if args.subassemblies:
         args.reads = args.subassemblies
-        args.platform = "pacbio"
-        args.read_type = "subassemblies"
+        args.platform = "subasm"
+        args.read_type = "subasm"
     """
     if not os.path.isdir(args.out_dir):
         os.mkdir(args.out_dir)
@@ -859,20 +540,20 @@ def main():
 
     args.log_file = os.path.join(args.out_dir, "flye.log")
     _enable_logging(args.log_file, args.debug,
-                    overwrite=not args.resume and not args.resume_from)
-
-    aln.check_binaries()
-    pol.check_binaries()
-    asm.check_binaries()
+                    overwrite=False)
 
     #_set_kmer_size(args)
     #_set_read_attributes(args)
 
     try:
+        aln.check_binaries()
+        pol.check_binaries()
+        asm.check_binaries()
+        repeat.check_binaries()
         _run(args)
     except (aln.AlignmentException, pol.PolishException,
             asm.AssembleException, repeat.RepeatException,
-            rr.ProcessingException, ResumeException) as e:
+            ResumeException) as e:
         logger.error(e)
         return 1
 

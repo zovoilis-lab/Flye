@@ -206,12 +206,12 @@ ConsensusGenerator::AlignmentsMap
 		const int bandWidth = abs((int)leftSeq.length() - 
 								  (int)rightSeq.length()) + 
 								  		Config::get("maximum_jump");
-		if (abs((int)leftSeq.length() - (int)rightSeq.length()) >
+		/*if (abs((int)leftSeq.length() - (int)rightSeq.length()) >
 			std::min((int)leftSeq.length(), (int)rightSeq.length()))
 		{
 			Logger::get().warning() << "Aligning sequence that are too "
 				<< " different - something is terribly wrong!";
-		}
+		}*/
 
 		std::string alignedLeft;
 		std::string alignedRight;
