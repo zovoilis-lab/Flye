@@ -241,6 +241,16 @@ class JobPolishing(Job):
                         contig_lengths[ctg_id], coverage_stats[ctg_id]))
 
 
+class JobShortPlasmidsAssembly(Job):
+    def __init__(self, args, work_dir, log_file, alignment_file):
+        super(JobShortPlasmidsAssembly, self).__init__()
+
+        self.args = args
+        self.work_dir = work_dir
+        self.log_file = log_file
+        self.alignment_file = alignment_file
+
+
 def _create_job_list(args, work_dir, log_file):
     """
     Build pipeline as a list of consecutive jobs
