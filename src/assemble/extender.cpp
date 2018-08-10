@@ -23,6 +23,7 @@ Extender::ExtensionInfo Extender::extendContig(FastaRecord::Id startRead)
 	bool rightExtension = true;
 	FastaRecord::Id currentRead = startRead;
 	std::vector<int> numExtensions;
+	std::vector<int> overlapSizes;
 	ExtensionInfo exInfo;
 	exInfo.reads.push_back(startRead);
 	exInfo.assembledLength = _readsContainer.seqLen(startRead);
@@ -86,10 +87,10 @@ Extender::ExtensionInfo Extender::extendContig(FastaRecord::Id startRead)
 
 			//try to find a good one
 			if (!_chimDetector.isChimeric(ovlp.extId) &&
-				//!this->isRightRepeat(ovlp.extId) &&
 				this->countRightExtensions(ovlp.extId) > minExtensions)
 			{
 				foundExtension = true;
+				maxExtension = &ovlp;
 				exInfo.assembledLength += ovlp.rightShift;
 				currentRead = ovlp.extId;
 				break;
@@ -113,6 +114,7 @@ Extender::ExtensionInfo Extender::extendContig(FastaRecord::Id startRead)
 		if (foundExtension) 
 		{
 			exInfo.reads.push_back(currentRead);
+			overlapSizes.push_back(maxExtension->curRange());
 			overlapsVisited |= currentReads.count(currentRead);
 		}
 		else
@@ -148,19 +150,27 @@ Extender::ExtensionInfo Extender::extendContig(FastaRecord::Id startRead)
 		currentReads.insert(currentRead.rc());
 	}
 
-	//int64_t meanOvlps = 0;
-	//for (int num : numOverlaps) meanOvlps += num;
-	exInfo.meanOverlaps = median(numExtensions);
+	if (!numExtensions.empty())
+	{
+		exInfo.meanOverlaps = median(numExtensions);
+	}
+	if (!overlapSizes.empty())
+	{
+		exInfo.avgOverlapSize = median(overlapSizes);
+		exInfo.minOverlapSize = *std::min_element(overlapSizes.begin(), 
+												  overlapSizes.end());
+	}
 
 	return exInfo;
 }
 
 
-void Extender::assembleContigs(bool addSingletons)
+void Extender::assembleContigs()
 {
 	static const int MAX_JUMP = Config::get("maximum_jump");
 	Logger::get().info() << "Extending reads";
 	_chimDetector.estimateGlobalCoverage();
+	_ovlpContainer.overlapDivergenceStats();
 	_innerReads.clear();
 	cuckoohash_map<FastaRecord::Id, size_t> coveredReads;
 	
@@ -217,6 +227,8 @@ void Extender::assembleContigs(bool addSingletons)
 			<< " rightTip: " << exInfo.rightTip
 			<< "\n\tSuspicios: " << exInfo.numSuspicious
 			<< "\n\tMean extensions: " << exInfo.meanOverlaps
+			<< "\n\tAvg overlap len: " << exInfo.avgOverlapSize
+			<< "\n\tMin overlap len: " << exInfo.minOverlapSize
 			<< "\n\tInner reads: " << innerCount
 			<< "\n\tLength: " << exInfo.assembledLength;
 		
@@ -289,29 +301,40 @@ void Extender::assembleContigs(bool addSingletons)
 					  Parameters::get().numThreads, true);
 	_ovlpContainer.ensureTransitivity(/*only max*/ true);
 
+	bool addSingletons = (bool)Config::get("add_unassembled_reads");
 	if (addSingletons)
 	{
-		int singletonsAdded = 0;
-		std::unordered_set<FastaRecord::Id> coveredLocal;
+		std::vector<FastaRecord::Id> sortedByLength;
 		for (auto& seq : _readsContainer.iterSeqs())
 		{
-			if (!seq.id.strand()) continue;
-			
-			if (!_innerReads.contains(seq.id) && 
-				!coveredLocal.count(seq.id) &&
-				_readsContainer.seqLen(seq.id) > 
-					Parameters::get().minimumOverlap)
+			if (seq.id.strand() && !_innerReads.contains(seq.id) &&
+				_readsContainer.seqLen(seq.id) > Parameters::get().minimumOverlap)
 			{
-				for (auto& ovlp : _ovlpContainer.lazySeqOverlaps(seq.id))
+				sortedByLength.push_back(seq.id);
+			}
+		}
+		std::sort(sortedByLength.begin(), sortedByLength.end(),
+				  [this](FastaRecord::Id idOne, FastaRecord::Id idTwo)
+				  	{return _readsContainer.seqLen(idOne) > 
+							_readsContainer.seqLen(idTwo);});
+
+		int singletonsAdded = 0;
+		std::unordered_set<FastaRecord::Id> coveredLocal;
+		for (auto readId : sortedByLength)
+		{
+			if (!coveredLocal.count(readId))
+			{
+				for (auto& ovlp : _ovlpContainer.lazySeqOverlaps(readId))
 				{
-					if (abs(ovlp.leftShift) < Parameters::get().minimumOverlap &&
-						abs(ovlp.rightShift) < Parameters::get().minimumOverlap)
+					if (ovlp.leftShift >= 0 && ovlp.rightShift <= 0)
 					{
 						coveredLocal.insert(ovlp.extId);
+						coveredLocal.insert(ovlp.extId.rc());
 					}
 				}
 				ExtensionInfo path;
-				path.reads.push_back(seq.id);
+				path.singleton = true;
+				path.reads.push_back(readId);
 				_readLists.push_back(path);
 				++singletonsAdded;
 			}
@@ -328,7 +351,14 @@ void Extender::convertToContigs()
 	for (auto& exInfo : _readLists)
 	{
 		ContigPath path;
-		path.name = "contig_" + std::to_string(_contigPaths.size() + 1);
+		if (!exInfo.singleton)
+		{
+			path.name = "contig_" + std::to_string(_contigPaths.size() + 1);
+		}
+		else
+		{
+			path.name = "read_" + std::to_string(_contigPaths.size() + 1);
+		}
 
 		for (size_t i = 0; i < exInfo.reads.size() - 1; ++i)
 		{

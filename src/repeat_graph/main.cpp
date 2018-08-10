@@ -27,7 +27,7 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 			   std::string& outFolder, std::string& logFile, 
 			   std::string& inAssembly, int& kmerSize,
 			   int& minOverlap, bool& debug, size_t& numThreads, 
-			   std::string& configPath, bool& graphContinue, size_t& genomeSize)
+			   std::string& configPath, size_t& genomeSize)
 {
 	auto printUsage = [argv]()
 	{
@@ -44,8 +44,6 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 				  //<< "\t-k kmer_size\tk-mer size [default = 15] \n"
 				  << "\t-v min_overlap\tminimum overlap between reads "
 				  << "[default = 5000] \n"
-				  << "\t-g \t\tcontinue contigs using graph structure "
-				  << "[default = false] \n"
 				  << "\t-d \t\tenable debug output "
 				  << "[default = false] \n"
 				  << "\t-l log_file\toutput log to file "
@@ -56,11 +54,10 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 
 	numThreads = 1;
 	debug = false;
-	graphContinue = false;
 	minOverlap = -1;
 	//kmerSize = -1;
 
-	const char optString[] = "l:t:v:hdg";
+	const char optString[] = "l:t:v:hd";
 	int opt = 0;
 	while ((opt = getopt(argc, argv, optString)) != -1)
 	{
@@ -80,9 +77,6 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 			break;
 		case 'd':
 			debug = true;
-			break;
-		case 'g':
-			graphContinue = true;
 			break;
 		case 'h':
 			printUsage();
@@ -176,7 +170,6 @@ int main(int argc, char** argv)
 	#endif
 
 	bool debugging = false;
-	bool graphContinue = false;
 	size_t numThreads = 1;
 	int kmerSize = -1;
 	int minOverlap = -1;
@@ -188,7 +181,7 @@ int main(int argc, char** argv)
 	std::string configPath;
 	if (!parseArgs(argc, argv, readsFasta, outFolder, logFile, inAssembly,
 				   kmerSize, minOverlap, debugging, 
-				   numThreads, configPath, graphContinue, genomeSize))  return 1;
+				   numThreads, configPath, genomeSize))  return 1;
 	
 	Logger::get().setDebugging(debugging);
 	if (!logFile.empty()) Logger::get().setOutputFile(logFile);
@@ -242,8 +235,8 @@ int main(int argc, char** argv)
 	multInf.removeUnsupportedConnections();
 
 	//for diploid genomes, turned off by default
-	//multInf.collapseHeterozygousLoops();
-	//multInf.collapseHeterozygousBulges();
+	multInf.collapseHeterozygousLoops();
+	multInf.collapseHeterozygousBulges();
 
 	Logger::get().info() << "Resolving repeats";
 	RepeatResolver resolver(rg, seqAssembly, seqReads, aligner, multInf);
@@ -262,7 +255,7 @@ int main(int argc, char** argv)
 	ContigExtender extender(rg, aligner, seqAssembly, seqReads, 
 							multInf.getMeanCoverage());
 	extender.generateUnbranchingPaths();
-	extender.generateContigs(graphContinue);
+	extender.generateContigs();
 	extender.outputContigs(outFolder + "/graph_paths.fasta");
 	extender.outputStatsTable(outFolder + "/contigs_stats.txt");
 	extender.outputScaffoldConnections(outFolder + "/scaffolds_links.txt");

@@ -1,3 +1,11 @@
+Flye 2.3.5 (7 August 2018)
+==========================
+* New solid kmer alignment implementation with improved specificity
+* Better corrected reads support
+* Minimum overlap is now selected within a wider range for better support of datasets with shorter read length
+* Assembly of large (human size) genomes is now faster
+* Various bugfixes and stability improvements
+
 Flye 2.3.4 (19 May 2018)
 ========================
 * A fix for assemblies with low reads count

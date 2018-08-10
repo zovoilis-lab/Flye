@@ -18,7 +18,8 @@ bool ChimeraDetector::isChimeric(FastaRecord::Id readId)
 {
 	if (!_chimeras.contains(readId))
 	{
-		bool result = this->testReadByCoverage(readId);
+		bool result = this->testReadByCoverage(readId) ||
+					  _ovlpContainer.hasSelfOverlaps(readId);
 		_chimeras.insert(readId, result);
 		_chimeras.insert(readId.rc(), result);
 	}
@@ -39,7 +40,6 @@ void ChimeraDetector::estimateGlobalCoverage()
 
 	std::unordered_map<int32_t, int32_t> readHist;
 	std::vector<int32_t> covList;
-	std::vector<float> ovlpDivergence;
 	
 	//std::ofstream fout("../cov_hist.txt");
 
@@ -62,12 +62,6 @@ void ChimeraDetector::estimateGlobalCoverage()
 				covList.push_back(coverage[i]);
 			}
 		}
-
-		//getting divergence
-		for (auto& ovlp : _ovlpContainer.lazySeqOverlaps(seq.id)) 
-		{
-			ovlpDivergence.push_back(ovlp.seqDivergence);
-		}
 	}
 
 	if (readHist.empty())
@@ -81,10 +75,6 @@ void ChimeraDetector::estimateGlobalCoverage()
 	}
 
 	Logger::get().info() << "Overlap-based coverage: " << _overlapCoverage;
-	Logger::get().info() << "Median read-read divergence: "
-		<< std::setprecision(2)
-		<< median(ovlpDivergence) << " (Q10 = " << quantile(ovlpDivergence, 10)
-		<< ", Q90 = " << quantile(ovlpDivergence, 90) << ")";
 }
 
 std::vector<int32_t> ChimeraDetector::getReadCoverage(FastaRecord::Id readId)
@@ -136,13 +126,6 @@ bool ChimeraDetector::testReadByCoverage(FastaRecord::Id readId)
 			return true;
 		}
 	}
-
-	//chimera detection based self-overlaps (typical PacBio pattern)
-	/*if (_ovlpContainer.hasSelfOverlaps(readId))
-	{
-		//Logger::get().info() << "Self-ovlp!";
-		return true;
-	}*/
 
 	return false;
 }

@@ -13,6 +13,7 @@
 #include <chrono>
 #include <ctime>
 #include <cstring>
+#include <iomanip>
 
 #include "ksw2.h"
 
@@ -22,7 +23,7 @@
 #include "../common/parallel.h"
 #include "../common/disjoint_set.h"
 
-namespace
+/*namespace
 {
 	float kswAlign(const DnaSequence& seqT, const DnaSequence seqQ,
 				   int matchScore, int misScore, int gapOpen, int gapExtend,
@@ -144,7 +145,7 @@ namespace
 
 		return errRate;
 	}
-}
+}*/
 
 //Check if it is a proper overlap
 bool OverlapDetector::overlapTest(const OverlapRange& ovlp,
@@ -156,6 +157,9 @@ bool OverlapDetector::overlapTest(const OverlapRange& ovlp,
 		return false;
 	}
 
+	//filter overlaps that way to divergent in length.
+	//theoretically, they should not pass sequence divergence filter,
+	//but just in case
 	static const float OVLP_DIV = 0.5;
 	float lengthDiff = abs(ovlp.curRange() - ovlp.extRange());
 	if (lengthDiff > OVLP_DIV * std::min(ovlp.curRange(), ovlp.extRange()))
@@ -163,7 +167,14 @@ bool OverlapDetector::overlapTest(const OverlapRange& ovlp,
 		return false;
 	}
 
-	if (ovlp.curId == ovlp.extId.rc()) outSuggestChimeric = true;
+	if (ovlp.curId == ovlp.extId.rc()) 
+	{
+		int32_t projEnd = ovlp.extLen - ovlp.extEnd - 1;
+		if (abs(ovlp.curEnd - projEnd) < _maxJump)
+		{
+			outSuggestChimeric = true;
+		}
+	}
 	if (_checkOverhang)
 	{
 		if (std::min(ovlp.curBegin, ovlp.extBegin) > 
@@ -193,10 +204,7 @@ namespace
 		int32_t extPos;
 		FastaRecord::Id extId;
 	};
-}
 
-namespace
-{
 	static const char LogTable256[256] = {
 		#define LT(n) n, n, n, n, n, n, n, n, n, n, n, n, n, n, n, n
 		-1, 0, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3,
@@ -216,11 +224,13 @@ namespace
 //might be used in parallel
 std::vector<OverlapRange> 
 OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec, 
-								bool& outSuggestChimeric) const
+								bool& outSuggestChimeric,
+								OvlpDivStats& divStats) const
 {
-	const float MIN_KMER_SURV_RATE = 0.01;	//TODO: put into config
 	const int MAX_LOOK_BACK = 50;
 	const int kmerSize = Parameters::get().kmerSize;
+	//const float minKmerSruvivalRate = std::exp(-_maxDivergence * kmerSize);
+	const float minKmerSruvivalRate = 0.01;
 
 	//static std::ofstream fout("../kmers.txt");
 
@@ -258,16 +268,19 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 
 	outSuggestChimeric = false;
 	int32_t curLen = fastaRec.sequence.length();
-	std::vector<Kmer> curKmers;
-	std::vector<int32_t> curSolidPos;
-	curKmers.reserve(curLen);
+	std::vector<int32_t> curFilteredPos;
 
 	//count kmer hits
 	for (auto curKmerPos : IterKmers(fastaRec.sequence))
 	{
-		curKmers.push_back(curKmerPos.kmer);
 		if (!_vertexIndex.isSolid(curKmerPos.kmer)) continue;
-		curSolidPos.push_back(curKmerPos.position);
+		if (_vertexIndex.isRepetitive(curKmerPos.kmer) &&
+			curKmerPos.position >= _vertexIndex.getFlankRepeatSize() &&
+			curKmerPos.position < curLen - _vertexIndex.getFlankRepeatSize())
+		{
+			curFilteredPos.push_back(curKmerPos.position);
+			continue;
+		}
 
 		FastaRecord::Id prevSeqId = FastaRecord::ID_NONE;
 		for (const auto& extReadPos : _vertexIndex.iterKmerPos(curKmerPos.kmer))
@@ -303,7 +316,7 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 		topSeqs.reserve(lockedHitCount.size());
 		for (auto seqCount : lockedHitCount)
 		{
-			if (seqCount.second >= MIN_KMER_SURV_RATE * _minOverlap)
+			if (seqCount.second >= minKmerSruvivalRate * _minOverlap)
 			{
 				topSeqs.emplace_back(seqCount.first, seqCount.second);
 			}
@@ -322,6 +335,10 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 	for (auto curKmerPos : IterKmers(fastaRec.sequence))
 	{
 		if (!_vertexIndex.isSolid(curKmerPos.kmer)) continue;
+		if (_vertexIndex.isRepetitive(curKmerPos.kmer) &&
+			curKmerPos.position >= _vertexIndex.getFlankRepeatSize() &&
+			curKmerPos.position < curLen - _vertexIndex.getFlankRepeatSize()) continue;
+
 		for (const auto& extReadPos : _vertexIndex.iterKmerPos(curKmerPos.kmer))
 		{
 			//no trivial matches
@@ -329,7 +346,7 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 				extReadPos.position == curKmerPos.position)) continue;
 
 			if (lockedHitCount[extReadPos.readId] >= 
-				MIN_KMER_SURV_RATE * _minOverlap)
+				minKmerSruvivalRate * _minOverlap)
 			{
 				vecMatches.emplace_back(curKmerPos.position, 
 										extReadPos.position,
@@ -345,9 +362,11 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
   	//clock_t end = clock();
   	//double elapsed_secs = double(end - hashTime) / CLOCKS_PER_SEC;
 	//totalKmerTime += elapsed_secs;
+	
+	const int STAT_WND = 10000;
+	std::vector<OverlapRange> divStatWindows(curLen / STAT_WND + 1);
 
 	std::vector<OverlapRange> detectedOverlaps;
-	//int uniqueCandidates = 0;
 	size_t extRangeBegin = 0;
 	size_t extRangeEnd = 0;
 	while(extRangeEnd < vecMatches.size())
@@ -366,17 +385,10 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 		int32_t maxCur = matchesList.back().curPos;
 		int32_t minExt = std::numeric_limits<int32_t>::max();
 		int32_t maxExt = std::numeric_limits<int32_t>::min();
-		//int32_t uniquePos = 0;
-		//int32_t prevPos = -1;
 		for (auto& match : matchesList)
 		{
 			minExt = std::min(minExt, match.extPos);
 			maxExt = std::max(maxExt, match.extPos);
-			/*if (match.curPos != prevPos)
-			{
-				prevPos = match.curPos;
-				++uniquePos;
-			}*/
 		}
 		if (maxCur - minCur < _minOverlap || 
 			maxExt - minExt < _minOverlap) continue;
@@ -493,6 +505,7 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 							std::min(std::min(curNext - curPrev, extNext - extPrev),
 											  kmerSize);
 					totalMatch += matchScore;
+
 				}*/
 				if (_keepAlignment)
 				{
@@ -519,52 +532,60 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 
 			if (this->overlapTest(ovlp, outSuggestChimeric))
 			{
-				std::reverse(kmerMatches.begin(), kmerMatches.end());
-				ovlp.kmerMatches = kmerMatches;
+				if (_keepAlignment)
+				{
+					kmerMatches.emplace_back(ovlp.curBegin, ovlp.extBegin);
+					std::reverse(kmerMatches.begin(), kmerMatches.end());
+					kmerMatches.emplace_back(ovlp.curEnd, ovlp.extEnd);
+					ovlp.kmerMatches = kmerMatches;
+				}
 				ovlp.leftShift = median(shifts);
 				ovlp.rightShift = extLen - curLen + ovlp.leftShift;
 
-				size_t seedPos = 0;
-				for (auto pos : curSolidPos)
+				int32_t filteredPositions = 0;
+				for (auto pos : curFilteredPos)
 				{
-					if (ovlp.curBegin <= pos && 
-						pos <= ovlp.curEnd - kmerSize) ++seedPos;
+					if (ovlp.curBegin <= pos &&
+						pos <= ovlp.curEnd - kmerSize)
+					{
+						filteredPositions += 1;
+					}
 				}
 
-				float kmerDiv = std::min((float)chainLength * _vertexIndex.getSampleRate()
-									 / seedPos, 1.0f);
-				float matchDiv = std::log(1 / kmerDiv) / kmerSize;
-				float gapDiv = (float)abs(ovlp.extRange() - ovlp.curRange()) /
-							   std::max(ovlp.extRange(), ovlp.curRange());
-				ovlp.seqDivergence = matchDiv + gapDiv;
+				int32_t normalizedLength = ovlp.curRange() - filteredPositions;
+				ovlp.seqDivergence = std::log((float)normalizedLength / 
+											  ovlp.score) / kmerSize;
 
 				if (ovlp.seqDivergence < _maxDivergence)
 				{
 					extOverlaps.push_back(ovlp);
 				}
+
+				//collecting overlap statistics
+				size_t wnd = ovlp.curBegin / STAT_WND;
+				if (ovlp.curRange() > divStatWindows[wnd].curRange())
+				{
+					divStatWindows[wnd] = ovlp;
+				}
+
+				//benchmarking divergence
+				/*float alnDiff = kswAlign(fastaRec.sequence
+											.substr(ovlp.curBegin, ovlp.curRange()),
+										 _seqContainer.getSeq(extId)
+											.substr(ovlp.extBegin, ovlp.extRange()),
+										 1, -2, 2, 1, false);
+				fout << alnDiff << " " << ovlp.seqDivergence << std::endl;*/
+				/*if (0.05 < ovlp.seqDivergence && ovlp.seqDivergence < 0.20)
+				{
+					kswAlign(fastaRec.sequence
+								.substr(ovlp.curBegin, ovlp.curRange()),
+							 _seqContainer.getSeq(extId)
+								.substr(ovlp.extBegin, ovlp.extRange()),
+							 1, -2, 2, 1, true);
+
+				}*/
 			}
 		}
-
-		//benchmarking divergence
-		/*for (auto& ovlp : extOverlaps)
-		{
-			float seqDiv = ovlp.seqDivergence;
-			float alnDiff = kswAlign(fastaRec.sequence
-										.substr(ovlp.curBegin, ovlp.curRange()),
-									 _seqContainer.getSeq(extId)
-									 	.substr(ovlp.extBegin, ovlp.extRange()),
-									 1, -2, 2, 1, false);
-			fout << seqDiv << " " << alnDiff << std::endl;
-			if (alnDiff - seqDiv > 0.1)
-			{
-				kswAlign(fastaRec.sequence
-							.substr(ovlp.curBegin, ovlp.curRange()),
-						 _seqContainer.getSeq(extId)
-							.substr(ovlp.extBegin, ovlp.extRange()),
-						 1, -2, 2, 1, true);
-
-			}
-		}*/
 		
 		//selecting the best
 		if (_onlyMaxExt)
@@ -611,6 +632,14 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 		//totalBackLoop += double(clock() - dpEnd) / CLOCKS_PER_SEC;
 	}
 
+	for (auto ovlp : divStatWindows)
+	{
+		if (ovlp.curRange() > 0)
+		{
+			divStats.add(ovlp.seqDivergence);
+		}
+	}
+
 	/*Logger::get().debug() << "---------";
 	Logger::get().debug() << " " << vecMatches.size() << " "
 		<< seqMatches.size() << " " << uniqueCandidates
@@ -638,11 +667,12 @@ bool OverlapContainer::hasSelfOverlaps(FastaRecord::Id readId)
 
 
 std::vector<OverlapRange> 
-	OverlapContainer::quickSeqOverlaps(FastaRecord::Id readId) const
+	OverlapContainer::quickSeqOverlaps(FastaRecord::Id readId)
 {
 	bool suggestChimeric;
 	const FastaRecord& record = _queryContainer.getRecord(readId);
-	return _ovlpDetect.getSeqOverlaps(record, suggestChimeric);
+	return _ovlpDetect.getSeqOverlaps(record, suggestChimeric, 
+									  _divergenceStats);
 }
 
 const std::vector<OverlapRange>&
@@ -665,7 +695,8 @@ const std::vector<OverlapRange>&
 	//do it for forward strand to be distinct
 	bool suggestChimeric;
 	const FastaRecord& record = _queryContainer.getRecord(readId);
-	auto overlaps = _ovlpDetect.getSeqOverlaps(record, suggestChimeric);
+	auto overlaps = _ovlpDetect.getSeqOverlaps(record, suggestChimeric, 
+											   _divergenceStats);
 
 	std::vector<OverlapRange> revOverlaps;
 	revOverlaps.reserve(overlaps.size());
@@ -792,7 +823,7 @@ std::vector<OverlapRange>&
 //TODO: potentially might become non-symmetric after filtering
 void OverlapContainer::filterOverlaps()
 {
-	const int MAX_ENDS_DIFF = 100;
+	static const int MAX_ENDS_DIFF = Parameters::get().kmerSize;
 
 	std::vector<FastaRecord::Id> seqIds;
 	for (auto& seq : _queryContainer.iterSeqs())
@@ -850,6 +881,65 @@ void OverlapContainer::filterOverlaps()
 	};
 	processInParallel(seqIds, filterParallel, 
 					  Parameters::get().numThreads, false);
+}
+
+
+void OverlapContainer::overlapDivergenceStats()
+{
+	std::vector<float> ovlpDivergence(_divergenceStats.divVec.begin(),
+									  _divergenceStats.divVec.begin() + 
+									  		_divergenceStats.vecSize);
+	const int HIST_LENGTH = 100;
+	const int HIST_HEIGHT = 20;
+	const float HIST_MIN = 0;
+	const float HIST_MAX = 0.5;
+	const float mult = HIST_LENGTH / (HIST_MAX * 100);
+	std::vector<int> histogram(HIST_LENGTH, 0);
+	for (float d : ovlpDivergence)
+	{
+		if (HIST_MIN <= d && d < HIST_MAX) 
+		{
+			++histogram[int(d * mult * 100)];
+		}
+	}
+	int histMax = 1;
+	for (int freq : histogram) histMax = std::max(histMax, freq);
+
+	std::string histString = "\n";
+	for (int height = HIST_HEIGHT - 1; height >= 0; --height)
+	{
+		histString += "    |";
+		for (int i = 0; i < HIST_LENGTH; ++i)
+		{
+			if ((float)histogram[i] / histMax > (float)height / HIST_HEIGHT)
+			{
+				histString += '*';
+			}
+			else
+			{
+				histString += ' ';
+			}
+		}
+		histString += '\n';
+	}
+	histString += "    " + std::string(HIST_LENGTH,  '-') + "\n";
+	std::string footer(HIST_LENGTH, ' ');
+	for (int i = 0; i < 10; ++i)
+	{
+		size_t startPos = i * HIST_LENGTH / 10;
+		auto s = std::to_string(i * 5) + "%";
+		for (size_t j = 0; j < s.size(); ++j) footer[j + startPos] = s[j];
+	}
+	histString += "    " + footer + "\n";
+
+	Logger::get().info() << "Median overlap divergence: " 
+		<< quantile(ovlpDivergence, 50); 
+	Logger::get().debug() << "Sequence divergence distribution: \n" << histString
+		<< "\n    Q25 = " << std::setprecision(2)
+		<< quantile(ovlpDivergence, 25) << ", Q50 = " 
+		<< quantile(ovlpDivergence, 50)
+		<< ", Q75 = " << quantile(ovlpDivergence, 75) << "\n"
+		<< std::setprecision(6);
 }
 
 

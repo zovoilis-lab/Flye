@@ -24,7 +24,7 @@ public:
 		_progress(genomeSize)
 	{}
 
-	void assembleContigs(bool addSingletons);
+	void assembleContigs();
 	const std::vector<ContigPath>& getContigPaths() const
 		{return _contigPaths;}
 
@@ -33,15 +33,19 @@ private:
 	{
 		ExtensionInfo(): leftTip(false), rightTip(false),
 			numSuspicious(0), meanOverlaps(0), stepsToTurn(0),
-			assembledLength(0) {}
+			assembledLength(0), singleton(false),
+			avgOverlapSize(0), minOverlapSize(0) {}
 
 		std::vector<FastaRecord::Id> reads;
 		bool leftTip;
 		bool rightTip;
-		int numSuspicious;
-		int meanOverlaps;
-		int stepsToTurn;
-		int assembledLength;
+		int  numSuspicious;
+		int  meanOverlaps;
+		int  stepsToTurn;
+		int  assembledLength;
+		bool singleton;
+		int  avgOverlapSize;
+		int  minOverlapSize;
 	};
 
 	ExtensionInfo extendContig(FastaRecord::Id startingRead);

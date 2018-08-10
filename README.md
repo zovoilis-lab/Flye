@@ -1,7 +1,9 @@
 Flye assembler (successor of ABruijn)
 =====================================
 
-### Version: 2.3.4
+[![BioConda Install](https://img.shields.io/conda/dn/bioconda/flye.svg?style=flag&label=BioConda%20install)](https://anaconda.org/bioconda/flye)
+
+### Version: 2.3.5
 
 Flye is a de novo assembler for long and noisy reads, such as
 those produced by PacBio and Oxford Nanopore Technologies.
@@ -103,5 +105,6 @@ Yu Lin, Jeffrey Yuan, Mikhail Kolmogorov, Max W Shen, Mark Chaisson and Pavel Pe
 
 Contacts
 --------
-Please report any problems directly to the github issue tracker.
-Also, you can send feedback to fenderglass@gmail.com
+Please report any problems to the github issue tracker (at http://github.com/fenderglass/Flye).
+If possible, please include "flye.log" file from the output directory
+for faster feedback. Alternatively, you can write directly to fenderglass@gmail.com.

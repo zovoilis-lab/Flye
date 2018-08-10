@@ -109,6 +109,7 @@ void ReadAligner::alignReads()
 {
 	static const int MIN_EDGE_OVLP = (int)Config::get("max_separation");
 	static const int EDGE_FLANK = 100;
+	static const int MAX_OVLP_COUNT = 500;
 
 	//create database
 	std::unordered_map<FastaRecord::Id, 
@@ -135,14 +136,15 @@ void ReadAligner::alignReads()
 
 	//index it and align reads
 	VertexIndex pathsIndex(pathsContainer, 
-						   (int)Config::get("read_align_kmer_sample"));
+						   (int)Config::get("read_align_kmer_sample"),
+						   /*flanking repeat*/ 0);
 	pathsIndex.countKmers(/*min freq*/ 1, /* genome size*/ 0);
 	pathsIndex.setRepeatCutoff(/*min freq*/ 1);
 	pathsIndex.buildIndex(/*min freq*/ 1);
 	OverlapDetector readsOverlapper(pathsContainer, pathsIndex, 
 									(int)Config::get("maximum_jump"),
 									MIN_EDGE_OVLP - EDGE_FLANK,
-									/*no overhang*/ 0, /*max overlaps*/ 500,
+									/*no overhang*/ 0, MAX_OVLP_COUNT,
 									/*keep alignment*/ false, /*only max*/ false,
 									(float)Config::get("read_align_ovlp_ident"));
 	OverlapContainer readsOverlaps(readsOverlapper, _readSeqs);
@@ -162,11 +164,9 @@ void ReadAligner::alignReads()
 	int numAligned = 0;
 	int alignedInFull = 0;
 	int64_t alignedLength = 0;
-	std::vector<float> ovlpDiv;
-
 
 	std::function<void(const FastaRecord::Id&)> alignRead = 
-	[this, &indexMutex, &numAligned, &readsOverlaps, &ovlpDiv,
+	[this, &indexMutex, &numAligned, &readsOverlaps,
 		&idToSegment, &pathsContainer, &alignedLength, &alignedInFull] 
 	(const FastaRecord::Id& seqId)
 	{
@@ -206,13 +206,6 @@ void ReadAligner::alignReads()
 
 		/////synchronized part
 		indexMutex.lock();
-		for (auto& ovlp : overlaps)
-		{
-			if (ovlp.curRange() > Parameters::get().minimumOverlap)
-			{
-				ovlpDiv.push_back(ovlp.seqDivergence);
-			}
-		}
 		++numAligned;
 		if (readChains.size() == 1) ++alignedInFull;
 		for (auto& chain : readChains) 
@@ -264,10 +257,7 @@ void ReadAligner::alignReads()
 	Logger::get().debug() << "Aligned in one piece : " << alignedInFull;
 	Logger::get().info() << "Aligned read sequence: " << alignedLength << " / " 
 		<< totalLength << " (" << (float)alignedLength / totalLength << ")";
-	Logger::get().info() << "Median read-graph divergence: "
-		<< std::setprecision(2)
-		<< median(ovlpDiv) << " (Q10 = " << quantile(ovlpDiv, 10)
-		<< ", Q90 = " << quantile(ovlpDiv, 90) << ")";
+	readsOverlaps.overlapDivergenceStats();
 }
 
 //updates alignments with respect to the new graph

@@ -24,7 +24,7 @@ class MakeBuild(DistutilsBuild):
             subprocess.check_call(['make'])
         except subprocess.CalledProcessError as e:
             print ("Compilation error: ", e)
-            return
+            sys.exit(1)
         DistutilsBuild.run(self)
 
 setup(name='flye',

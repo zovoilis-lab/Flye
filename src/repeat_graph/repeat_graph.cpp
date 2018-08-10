@@ -58,10 +58,13 @@ std::unordered_set<GraphEdge*> GraphEdge::adjacentEdges()
 void RepeatGraph::build()
 {
 	//getting overlaps
-	VertexIndex asmIndex(_asmSeqs, (int)Config::get("repeat_graph_kmer_sample"));
+	int maxFlankingRepeat = Parameters::get().minimumOverlap +
+							(int)Config::get("maximum_overhang");
+	VertexIndex asmIndex(_asmSeqs, (int)Config::get("repeat_graph_kmer_sample"),
+						 maxFlankingRepeat);
 	asmIndex.countKmers(/*min freq*/ 1, /*genome size*/ 0);
 	asmIndex.setRepeatCutoff(/*min freq*/ 1);
-	asmIndex.buildIndex(/*min freq*/ 1);
+	asmIndex.buildIndex(/*min freq*/ 2);
 
 	OverlapDetector asmOverlapper(_asmSeqs, asmIndex, 
 								  (int)Config::get("maximum_jump"), 
@@ -73,19 +76,7 @@ void RepeatGraph::build()
 	OverlapContainer asmOverlaps(asmOverlapper, _asmSeqs);
 	asmOverlaps.findAllOverlaps();
 	asmOverlaps.buildIntervalTree();
-
-	std::vector<float> ovlpDiv;
-	for (auto& seq : _asmSeqs.iterSeqs())
-	{
-		for (auto& ovlp : asmOverlaps.lazySeqOverlaps(seq.id))
-		{
-			ovlpDiv.push_back(ovlp.seqDivergence);
-		}
-	}
-	Logger::get().info() << "Median contig-contig divergence: "
-		<< std::setprecision(2)
-		<< median(ovlpDiv) << " (Q10 = " << quantile(ovlpDiv, 10)
-		<< ", Q90 = " << quantile(ovlpDiv, 90) << ")";
+	asmOverlaps.overlapDivergenceStats();
 
 	this->getGluepoints(asmOverlaps);
 	this->collapseTandems();
@@ -654,9 +645,25 @@ void RepeatGraph::initializeEdges(const OverlapContainer& asmOverlaps)
 				if (endRange != ss.end()) ++endRange;
 				for (;startRange != endRange; ++startRange)
 				{
-					int32_t intersectTwo = 
-						segIntersect(*(*startRange)->data, ovlp.extBegin, ovlp.extEnd);
-					if (intersectTwo > _maxSeparation)
+					if (findSet(setOne) == findSet(*startRange)) continue;
+
+					//projecting the interval endpoints
+					//(overlap might be covering the actual segment)
+					//int32_t projStart = ovlp.project(setOne->data->start);
+					//int32_t projEnd = ovlp.project(setOne->data->end);
+					//int32_t projIntersect =
+					//	segIntersect(*(*startRange)->data, projStart, projEnd);
+					int32_t projTwo = segIntersect(*(*startRange)->data, 
+												   ovlp.extBegin, ovlp.extEnd);
+
+					//int32_t fstLen = setOne->data->length();
+					//int32_t sndLen = (*startRange)->data->length();
+					//float lenDiv = (float)std::max(fstLen, sndLen) / 
+					//				std::min(fstLen, sndLen);
+					//TODO: we should be able to lower this threshold in the future
+					//with the improved handling of tanem repeat edges
+					//const int MAX_DIV = 5;
+					if (projTwo > _maxSeparation)
 					{
 						unionSet(setOne, *startRange);
 					}
@@ -705,7 +712,6 @@ void RepeatGraph::initializeEdges(const OverlapContainer& asmOverlaps)
 			_nextEdgeId += 2;
 		}
 	}
-
 	this->logEdges();
 }
 
