@@ -39,14 +39,15 @@ def _run_polishing(args, reads, seqs, polish_dir):
         contigs_info = flye_aln.get_contigs_info(prev_template)
         bubbles_file = os.path.join(polish_dir,
                                     "bubbles_{0}.fasta".format(i + 1))
-        coverage_stats = \
+        coverage_stats, err_rate = \
             bbl.make_bubbles(alignment_file, contigs_info, prev_template,
                              args.platform, args.threads, MIN_ALN_RATE, 
                              bubbles_file)
         polished_file = os.path.join(polish_dir,
                                      "polished_{0}.fasta".format(i + 1))
         contig_lengths = pol.polish(bubbles_file, args.threads, args.platform, 
-                                    polish_dir, i + 1, polished_file)
+                                    polish_dir, i + 1, polished_file,
+                                    output_progress=False)
         prev_template = polished_file
         
     with open(polished_stats, "w") as f:
@@ -56,6 +57,7 @@ def _run_polishing(args, reads, seqs, polish_dir):
                     contig_lengths[ctg_id], coverage_stats[ctg_id]))
     
     return polished_seqs
+
 
 def resolve_repeats(args, trestle_dir, repeats_dump, graph_edges, summ_file):
     SUB_THRESH = trestle_config.vals["sub_thresh"]
@@ -97,16 +99,16 @@ def resolve_repeats(args, trestle_dir, repeats_dump, graph_edges, summ_file):
     init_summary(summ_file)
     
     #1. Process repeats from graph - generates a folder for each repeat
-    logger.info("0.Finding unbridged repeats")
+    logger.debug("Finding unbridged repeats")
     process_outputs = process_repeats(args.reads, repeats_dump, graph_edges, 
                                       trestle_dir, repeat_label, orient_labels, 
                                       template_name, extended_name, 
                                       repeat_reads_name, partitioning_name, 
                                       side_labels, zero_it)
     repeat_list, repeat_edges, all_edge_headers = process_outputs
-    logger.info("{0} repeats to be resolved".format(len(repeat_list)))
+    logger.info("Repeats to be resolved: {0}".format(len(repeat_list)))
     for rep_id in sorted(repeat_list):
-        logger.info("1.Repeat {0}".format(rep_id))
+        logger.info("Resolving repeat '{0}'".format(rep_id))
         repeat_dir = os.path.join(trestle_dir, 
                                   repeat_label.format(rep_id))
         orient_reps = [rep_id, -rep_id]
@@ -119,7 +121,7 @@ def resolve_repeats(args, trestle_dir, repeats_dump, graph_edges, summ_file):
             term_bool = {s:False for s in side_labels}
             
             #2. Polish template and extended templates
-            logger.info("a.polishing templates")
+            logger.debug("Polishing templates")
             pol_temp_dir = os.path.join(orient_dir, pol_temp_name)
             polished_template = _run_polishing(args, [repeat_reads], template, 
                                                pol_temp_dir)
@@ -140,12 +142,12 @@ def resolve_repeats(args, trestle_dir, repeats_dump, graph_edges, summ_file):
                         term_bool[side] = True
             
             #3. Find divergent positions
-            logger.info("b.estimating divergence")
+            logger.debug("Estimating divergence")
             frequency_path = os.path.join(orient_dir, div_freq_name)
             position_path = os.path.join(orient_dir, div_pos_name)
             summary_path = os.path.join(orient_dir, div_summ_name)
             
-            logger.info("running Minimap2")
+            #logger.info("running Minimap2")
             alignment_file = os.path.join(orient_dir, reads_template_aln_name)
             template_len = 0.0
             if os.path.isfile(polished_template):
@@ -155,7 +157,7 @@ def resolve_repeats(args, trestle_dir, repeats_dump, graph_edges, summ_file):
                 template_info = flye_aln.get_contigs_info(polished_template)
                 template_len = template_info[str(rep)].length
             
-            logger.info("finding tentative divergence positions")
+            logger.debug("Finding tentative divergence positions")
             div.find_divergence(alignment_file, polished_template, 
                                 template_info, frequency_path, position_path, 
                                 summary_path, config.vals["min_aln_rate"], 
@@ -199,7 +201,7 @@ def resolve_repeats(args, trestle_dir, repeats_dump, graph_edges, summ_file):
                            partitioning, repeat_reads, template_len, 
                            avg_cov, integrated_stats)
             #5. Start iterations
-            logger.info("c.iterative procedure")
+            logger.debug("Iterative procedure")
             for it in range(1, MAX_ITER + 1):
                 both_break = True
                 for side in side_labels:
@@ -207,7 +209,7 @@ def resolve_repeats(args, trestle_dir, repeats_dump, graph_edges, summ_file):
                         term_bool[side]):
                         continue
                     else:
-                        logger.info("iteration {0}, '{1}'".format(it, side))
+                        logger.debug("iteration {0}, '{1}'".format(it, side))
                         both_break = False
                     #5a. Call consensus on partitioned reads
                     for edge_id in sorted(repeat_edges[rep][side]):
@@ -221,7 +223,7 @@ def resolve_repeats(args, trestle_dir, repeats_dump, graph_edges, summ_file):
                                     curr_reads)
                         curr_extended = polished_extended[(side, edge_id)]
                         pol_reads_str = "polishing '{0} {1}' reads"
-                        logger.info(pol_reads_str.format(side, edge_id))
+                        logger.debug(pol_reads_str.format(side, edge_id))
                         pol_con_out = _run_polishing(args, [curr_reads], 
                                                 curr_extended, 
                                                 pol_con_dir)
@@ -241,7 +243,7 @@ def resolve_repeats(args, trestle_dir, repeats_dump, graph_edges, summ_file):
                                                args.platform, read_al_file)
                         else:
                             term_bool[side] = True
-                    logger.info("partitioning '{0}' reads".format(side))
+                    logger.debug("partitioning '{0}' reads".format(side))
                     partition_reads(repeat_edges[rep][side], it, side, 
                                        position_path, cons_align, 
                                        polished_template, read_align, 
@@ -285,7 +287,7 @@ def resolve_repeats(args, trestle_dir, repeats_dump, graph_edges, summ_file):
                 if both_break:
                     break
             #6. Finalize stats files
-            logger.info("writing stats files")
+            logger.debug("Writing stats files")
             for side in side_labels:
                 finalize_side_stats(repeat_edges[rep][side], side_it[side], 
                                     side, cons_align, polished_template, 
@@ -307,7 +309,7 @@ def resolve_repeats(args, trestle_dir, repeats_dump, graph_edges, summ_file):
                                                    resolved_rep_path)
             bridged, repeat_seqs, summ_vals = final_int_outputs
             #7. Generate summary and resolved repeat file
-            logger.info("generating summary and resolved repeat file")
+            logger.debug("Generating summary and resolved repeat file")
             avg_div = 0.0
             if bridged:
                 res_inds = range(len(repeat_edges[rep]["in"]))

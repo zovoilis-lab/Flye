@@ -228,17 +228,19 @@ class JobPolishing(Job):
             contigs_info = aln.get_contigs_info(prev_assembly)
             bubbles_file = os.path.join(self.polishing_dir,
                                         "bubbles_{0}.fasta".format(i + 1))
-            coverage_stats = \
+            coverage_stats, err_rate = \
                 bbl.make_bubbles(alignment_file, contigs_info, prev_assembly,
                                  self.args.platform, self.args.threads,
                                  config.vals["min_aln_rate"], bubbles_file)
+            logger.info("Alignment error rate: {0}".format(err_rate))
 
             logger.info("Correcting bubbles")
             polished_file = os.path.join(self.polishing_dir,
                                          "polished_{0}.fasta".format(i + 1))
             contig_lengths = pol.polish(bubbles_file, self.args.threads,
                                         self.args.platform, self.polishing_dir,
-                                        i + 1, polished_file)
+                                        i + 1, polished_file,
+                                        output_progress=True)
             prev_assembly = polished_file
 
         with open(self.out_files["stats"], "w") as f:
@@ -257,24 +259,25 @@ class JobTrestle(Job):
         self.log_file = log_file
         self.repeats_dump = repeats_dump
         self.graph_edges = graph_edges
-        
+
         self.name = "trestle"
-        self.out_files["reps"] = os.path.join(self.trestle_dir, 
+        self.out_files["reps"] = os.path.join(self.trestle_dir,
                                               "resolved_repeats.fasta")
-        self.out_files["summary"] = os.path.join(self.trestle_dir, 
+        self.out_files["summary"] = os.path.join(self.trestle_dir,
                                               "trestle_summary.txt")
-        
+
     def run(self):
         if not os.path.isdir(self.trestle_dir):
             os.mkdir(self.trestle_dir)
-            
+
         logger.info("Running Trestle: resolving unbridged repeats")
-        resolved_repeats_dict = tres.resolve_repeats(self.args, 
-                                                     self.trestle_dir, 
-                                                     self.repeats_dump, 
-                                                     self.graph_edges, 
+        resolved_repeats_dict = tres.resolve_repeats(self.args,
+                                                     self.trestle_dir,
+                                                     self.repeats_dump,
+                                                     self.graph_edges,
                                                      self.out_files["summary"])
         fp.write_fasta_dict(resolved_repeats_dict, self.out_files["reps"])
+
 
 def _create_job_list(args, work_dir, log_file):
     """
@@ -307,10 +310,10 @@ def _create_job_list(args, work_dir, log_file):
         jobs.append(JobPolishing(args, work_dir, log_file, raw_contigs))
         contigs_file = jobs[-1].out_files["contigs"]
         polished_stats = jobs[-1].out_files["stats"]
-    
+
     #Trestle: Resolve Unbridged Repeats
     jobs.append(JobTrestle(args, work_dir, log_file, repeats_dump, graph_final))
-    
+
     #Report results
     jobs.append(JobFinalize(args, work_dir, log_file, contigs_file,
                             graph_file, repeat_stats, polished_stats,
@@ -352,7 +355,7 @@ def _run(args):
     """
     logger.info("Running Flye " + _version())
     logger.debug("Cmd: {0}".format(" ".join(sys.argv)))
-    
+
     for read_file in args.reads:
         if not os.path.exists(read_file):
             raise ResumeException("Can't open " + read_file)

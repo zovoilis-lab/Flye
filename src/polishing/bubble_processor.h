@@ -23,7 +23,8 @@ class BubbleProcessor
 {
 public:
 	BubbleProcessor(const std::string& subsMatPath,
-					const std::string& hopoMatrixPath);
+					const std::string& hopoMatrixPath,
+					bool  showProgress);
 	void polishAll(const std::string& inBubbles, const std::string& outConsensus,
 				   int numThreads);
 	void enableVerboseOutput(const std::string& filename);
@@ -50,4 +51,5 @@ private:
 	std::ofstream			  _consensusFile;
 	std::ofstream			  _logFile;
 	bool					  _verbose;
+	bool 					  _showProgress;
 };

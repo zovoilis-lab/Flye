@@ -43,7 +43,8 @@ def check_binaries():
         raise PolishException(str(e))
 
 
-def polish(bubbles_file, num_proc, err_mode, work_dir, iter_id, out_polished):
+def polish(bubbles_file, num_proc, err_mode, work_dir, iter_id, out_polished,
+           output_progress):
     _ROOT = os.path.dirname(__file__)
 
     subs_matrix = os.path.join(_ROOT, "resource",
@@ -54,7 +55,7 @@ def polish(bubbles_file, num_proc, err_mode, work_dir, iter_id, out_polished):
     consensus_out = os.path.join(work_dir, "consensus_{0}.fasta"
                                                 .format(iter_id))
     _run_polish_bin(bubbles_file, subs_matrix, hopo_matrix,
-                    consensus_out, num_proc)
+                    consensus_out, num_proc, output_progress)
     polished_fasta, polished_lengths = _compose_sequence([consensus_out])
     fp.write_fasta_dict(polished_fasta, out_polished)
 
@@ -62,12 +63,15 @@ def polish(bubbles_file, num_proc, err_mode, work_dir, iter_id, out_polished):
 
 
 def _run_polish_bin(bubbles_in, subs_matrix, hopo_matrix,
-                    consensus_out, num_threads):
+                    consensus_out, num_threads, output_progress):
     """
     Invokes polishing binary
     """
     cmdline = [POLISH_BIN, "-t", str(num_threads), bubbles_in, subs_matrix,
                hopo_matrix, consensus_out]
+    if not output_progress:
+        cmdline.append("-q")
+
     try:
         subprocess.check_call(cmdline)
     except subprocess.CalledProcessError as e:
