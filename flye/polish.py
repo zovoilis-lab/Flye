@@ -67,10 +67,11 @@ def _run_polish_bin(bubbles_in, subs_matrix, hopo_matrix,
     """
     Invokes polishing binary
     """
-    cmdline = [POLISH_BIN, "-t", str(num_threads), bubbles_in, subs_matrix,
-               hopo_matrix, consensus_out]
+    cmdline = [POLISH_BIN, "-t", str(num_threads)]
     if not output_progress:
         cmdline.append("-q")
+    cmdline.extend([bubbles_in, subs_matrix,
+                    hopo_matrix, consensus_out])
 
     try:
         subprocess.check_call(cmdline)
