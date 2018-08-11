@@ -167,7 +167,7 @@ Extender::ExtensionInfo Extender::extendContig(FastaRecord::Id startRead)
 
 void Extender::assembleContigs()
 {
-	static const int MAX_JUMP = Config::get("maximum_jump");
+	//static const int MAX_JUMP = Config::get("maximum_jump");
 	Logger::get().info() << "Extending reads";
 	_chimDetector.estimateGlobalCoverage();
 	_ovlpContainer.overlapDivergenceStats();
@@ -244,6 +244,7 @@ void Extender::assembleContigs()
 		//update inner read index
 		std::unordered_set<FastaRecord::Id> rightExtended;
 		std::unordered_set<FastaRecord::Id> leftExtended;
+		std::vector<OverlapRange> allOverlaps;
 		for (auto& readId : exInfo.reads)
 		{
 			coveredReads.insert(readId, true);
@@ -259,6 +260,7 @@ void Extender::assembleContigs()
 			//so each read is covered from the left and right
 			for (auto& ovlp : _ovlpContainer.lazySeqOverlaps(readId))
 			{
+				allOverlaps.push_back(ovlp);
 				coveredReads.insert(ovlp.extId, true);
 				coveredReads.insert(ovlp.extId.rc(), true);
 
@@ -266,7 +268,7 @@ void Extender::assembleContigs()
 				//if (ovlp.leftShift > MAX_JUMP &&
 				//	ovlp.rightShift < -MAX_JUMP) continue;
 
-				if (ovlp.leftShift > MAX_JUMP)
+				/*if (ovlp.leftShift > MAX_JUMP)
 				{
 					leftExtended.insert(ovlp.extId);
 					rightExtended.insert(ovlp.extId.rc());
@@ -275,17 +277,22 @@ void Extender::assembleContigs()
 				{
 					rightExtended.insert(ovlp.extId);
 					leftExtended.insert(ovlp.extId.rc());
-				}
+				}*/
 			}
 		}
-		for (auto& read : rightExtended)
+		for (auto read : this->getInnerReads(allOverlaps))
+		{
+			_innerReads.insert(read, true);
+			_innerReads.insert(read.rc(), true);
+		}
+		/*for (auto& read : rightExtended)
 		{
 			if (leftExtended.count(read)) 
 			{
 				_innerReads.insert(read, true);
 				_innerReads.insert(read.rc(), true);
 			}
-		}
+		}*/
 
 		Logger::get().debug() << "Inner: " << 
 			_innerReads.size() << " covered: " << coveredReads.size()
@@ -353,6 +360,70 @@ void Extender::assembleContigs()
 
 	this->convertToContigs();
 	Logger::get().info() << "Assembled " << _contigPaths.size() << " draft contigs";
+}
+
+
+std::vector<FastaRecord::Id> 
+	Extender::getInnerReads(const std::vector<OverlapRange>& ovlps)
+{
+	static const int WINDOW = Config::get("chimera_window");
+	static const int OVERHANG = Config::get("maximum_overhang");
+
+	std::unordered_map<FastaRecord::Id, 
+					   std::vector<int32_t>> readsCoverage;
+	for (auto& ovlp: ovlps)
+	{
+		auto& coverage = readsCoverage[ovlp.extId];
+		if (coverage.empty())
+		{
+			int numWindows = _readsContainer.seqLen(ovlp.extId) / WINDOW;
+			if (!numWindows) throw std::runtime_error("wrong read length");
+			coverage.assign(numWindows, 0);
+		}
+
+		for (int pos = ovlp.extBegin / WINDOW + 1; 
+			 pos < ovlp.extEnd / WINDOW; ++pos)
+		{
+			++coverage[pos];
+		}
+	}
+
+	std::vector<FastaRecord::Id> innerReads;
+	for (auto rc : readsCoverage)
+	{
+		int leftZeros = 0;
+		for (size_t i = 0; i < rc.second.size(); ++i)
+		{
+			if (rc.second[i] != 0) break;
+			++leftZeros;
+		}
+		int rightZeros = 0;
+		for (size_t i = 0; i < rc.second.size(); ++i)
+		{
+			if (rc.second[rc.second.size() - i - 1] != 0) break;
+			++rightZeros;
+		}
+		bool middleZero = false;
+		for (size_t i = leftZeros + 1; i < rc.second.size() - rightZeros; ++i)
+		{
+			if (rc.second[i] == 0) middleZero = true;
+		}
+
+		if (!middleZero && leftZeros < OVERHANG / WINDOW && 
+			rightZeros < OVERHANG / WINDOW) innerReads.push_back(rc.first);
+
+		/*if (middleZero)
+		{
+			std::string covStr;
+			for (int cov : rc.second)
+			{
+				covStr += std::to_string(cov) + " ";
+			}
+			Logger::get().debug() << covStr;
+		}*/
+	}
+
+	return innerReads;
 }
 
 void Extender::convertToContigs()
