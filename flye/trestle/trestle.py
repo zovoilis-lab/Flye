@@ -136,7 +136,7 @@ def resolve_repeats(args, trestle_dir, repeats_dump, graph_edges, summ_file):
                     pol_ext_dir = os.path.join(orient_dir, pol_ext_name)
                     pol_output = _run_polishing(args, [repeat_reads], 
                                                 extended.format(side, edge_id), 
-                                                pol_ext_dir)                    
+                                                pol_ext_dir.format(side, edge_id))                    
                     polished_extended[(side, edge_id)] = pol_output
                     if not os.path.isfile(pol_output):
                         term_bool[side] = True
