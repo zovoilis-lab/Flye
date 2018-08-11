@@ -483,10 +483,11 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 			KmerMatch lastMatch = matchesList[pos];
 			KmerMatch firstMatch = lastMatch;
 
-			int chainLength = 0;
+			int32_t chainLength = 0;
+			int32_t chainEnd = 0;
 			shifts.clear();
 			kmerMatches.clear();
-			//int totalMatch = kmerSize;
+			//int32_t totalMatch = kmerSize;
 			while (pos != -1)
 			{
 				firstMatch = matchesList[pos];
@@ -520,6 +521,10 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 
 				int32_t newPos = backtrackTable[pos];
 				backtrackTable[pos] = -1;
+				if (newPos == -1)
+				{
+					chainEnd = pos;
+				}
 				pos = newPos;
 			}
 
@@ -528,7 +533,8 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 							  curLen, extLen);
 			ovlp.curEnd = lastMatch.curPos + kmerSize - 1;
 			ovlp.extEnd = lastMatch.extPos + kmerSize - 1;
-			ovlp.score = scoreTable[chainStart];
+			ovlp.score = scoreTable[chainStart] - scoreTable[chainEnd] + 
+						 kmerSize - 1;
 
 			if (this->overlapTest(ovlp, outSuggestChimeric))
 			{
@@ -543,16 +549,31 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 				ovlp.rightShift = extLen - curLen + ovlp.leftShift;
 
 				int32_t filteredPositions = 0;
+				//int32_t curInterval = 0;
+				//int32_t prevPos = 0;
 				for (auto pos : curFilteredPos)
 				{
-					if (ovlp.curBegin <= pos &&
-						pos <= ovlp.curEnd - kmerSize)
+					if (pos < ovlp.curBegin) continue;
+					if (pos > ovlp.curEnd) break;
+					++filteredPositions;
+
+					/*if (pos - prevPos == 1)
 					{
-						filteredPositions += 1;
+						++curInterval;
 					}
+					else
+					{
+						if (curInterval > kmerSize) 
+						{
+							filteredPositions += curInterval - kmerSize;
+						}
+						curInterval = 0;
+					}
+					prevPos = pos;*/
 				}
 
-				int32_t normalizedLength = ovlp.curRange() - filteredPositions;
+				int32_t normalizedLength = 
+					std::max(ovlp.curRange() - filteredPositions, ovlp.score);
 				ovlp.seqDivergence = std::log((float)normalizedLength / 
 											  ovlp.score) / kmerSize;
 

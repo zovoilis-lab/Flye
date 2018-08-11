@@ -265,9 +265,9 @@ void VertexIndex::buildIndex(int minCoverage)
 			}
 
 			//filter out repetitive kmers (but allow some on sequence ends)
-			if (_repetitiveKmers.contains(kmerPos.kmer) &&
+			/*if (_repetitiveKmers.contains(kmerPos.kmer) &&
 				kmerPos.position >= _flankRepeatSize &&
-				kmerPos.position < seqLen - _flankRepeatSize) continue;
+				kmerPos.position < seqLen - _flankRepeatSize) continue;*/
 
 			_kmerIndex.update_fn(kmerPos.kmer, 
 				[targetRead, &kmerPos](ReadVector& rv)
