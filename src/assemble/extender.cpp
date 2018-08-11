@@ -174,11 +174,19 @@ void Extender::assembleContigs()
 	_innerReads.clear();
 	cuckoohash_map<FastaRecord::Id, size_t> coveredReads;
 	
+	int totalReads = 0;
+	for (auto& read : _readsContainer.iterSeqs())
+	{
+		if ((int)read.sequence.length() > 
+			Parameters::get().minimumOverlap) ++totalReads;
+	}
+	
 	std::mutex indexMutex;
-	auto processRead = [this, &indexMutex, &coveredReads] 
+	auto processRead = [this, &indexMutex, &coveredReads, totalReads] 
 		(FastaRecord::Id startRead)
 	{
-		if (coveredReads.contains(startRead)) return true;
+		//if (coveredReads.contains(startRead)) return true;
+		if (_innerReads.contains(startRead)) return true;
 
 		int numInnerOvlp = 0;
 		for (auto& ovlp : _ovlpContainer.lazySeqOverlaps(startRead))
@@ -203,9 +211,10 @@ void Extender::assembleContigs()
 		std::lock_guard<std::mutex> guard(indexMutex);
 		
 		int innerCount = 0;
-		for (auto& readId : exInfo.reads)
+		//do not count dirst and last reads - they are inner by defalut
+		for (size_t i = 1; i < exInfo.reads.size() - 1; ++i)
 		{
-			if (_innerReads.contains(readId)) ++innerCount;
+			if (_innerReads.contains(exInfo.reads[i])) ++innerCount;
 		}
 		int innerThreshold = std::min((int)Config::get("max_inner_reads"),
 									  int((float)Config::get("max_inner_fraction") * 
@@ -280,7 +289,7 @@ void Extender::assembleContigs()
 
 		Logger::get().debug() << "Inner: " << 
 			_innerReads.size() << " covered: " << coveredReads.size()
-			<< " total: "<< _readsContainer.iterSeqs().size();
+			<< " total: "<< totalReads;
 		
 		_readLists.push_back(std::move(exInfo));
 		return true;
