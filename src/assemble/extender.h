@@ -53,6 +53,8 @@ private:
 	bool  extendsRight(const OverlapRange& ovlp) const;
 	//bool  isRightRepeat(FastaRecord::Id readId) const;
 	void  convertToContigs();
+	std::vector<FastaRecord::Id> 
+		getInnerReads(const std::vector<OverlapRange>& ovlps);
 
 	const SequenceContainer& _readsContainer;
 	OverlapContainer& _ovlpContainer;

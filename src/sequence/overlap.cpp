@@ -268,18 +268,24 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 
 	outSuggestChimeric = false;
 	int32_t curLen = fastaRec.sequence.length();
-	std::vector<int32_t> curSolidPos;
 	std::vector<int32_t> curFilteredPos;
 
 	//count kmer hits
 	for (auto curKmerPos : IterKmers(fastaRec.sequence))
 	{
+		if (!_vertexIndex.isSolid(curKmerPos.kmer)) continue;
 		if (_vertexIndex.isRepetitive(curKmerPos.kmer))
 		{
 			curFilteredPos.push_back(curKmerPos.position);
+			continue;
 		}
-		if (!_vertexIndex.isSolid(curKmerPos.kmer)) continue;
-		curSolidPos.push_back(curKmerPos.position);
+		/*if (_vertexIndex.isRepetitive(curKmerPos.kmer) &&
+			curKmerPos.position >= _vertexIndex.getFlankRepeatSize() &&
+			curKmerPos.position < curLen - _vertexIndex.getFlankRepeatSize())
+		{
+			curFilteredPos.push_back(curKmerPos.position);
+			continue;
+		}*/
 
 		FastaRecord::Id prevSeqId = FastaRecord::ID_NONE;
 		for (const auto& extReadPos : _vertexIndex.iterKmerPos(curKmerPos.kmer))
@@ -334,6 +340,11 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 	for (auto curKmerPos : IterKmers(fastaRec.sequence))
 	{
 		if (!_vertexIndex.isSolid(curKmerPos.kmer)) continue;
+		if (_vertexIndex.isRepetitive(curKmerPos.kmer)) continue;
+		//if (_vertexIndex.isRepetitive(curKmerPos.kmer) &&
+		//	curKmerPos.position >= _vertexIndex.getFlankRepeatSize() &&
+		//	curKmerPos.position < curLen - _vertexIndex.getFlankRepeatSize()) continue;
+
 		for (const auto& extReadPos : _vertexIndex.iterKmerPos(curKmerPos.kmer))
 		{
 			//no trivial matches
@@ -478,10 +489,11 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 			KmerMatch lastMatch = matchesList[pos];
 			KmerMatch firstMatch = lastMatch;
 
-			int chainLength = 0;
+			int32_t chainLength = 0;
+			int32_t chainEnd = 0;
 			shifts.clear();
 			kmerMatches.clear();
-			//int totalMatch = kmerSize;
+			//int32_t totalMatch = kmerSize;
 			while (pos != -1)
 			{
 				firstMatch = matchesList[pos];
@@ -515,6 +527,10 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 
 				int32_t newPos = backtrackTable[pos];
 				backtrackTable[pos] = -1;
+				if (newPos == -1)
+				{
+					chainEnd = pos;
+				}
 				pos = newPos;
 			}
 
@@ -523,7 +539,8 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 							  curLen, extLen);
 			ovlp.curEnd = lastMatch.curPos + kmerSize - 1;
 			ovlp.extEnd = lastMatch.extPos + kmerSize - 1;
-			ovlp.score = scoreTable[chainStart];
+			ovlp.score = scoreTable[chainStart] - scoreTable[chainEnd] + 
+						 kmerSize - 1;
 
 			if (this->overlapTest(ovlp, outSuggestChimeric))
 			{
@@ -538,20 +555,44 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 				ovlp.rightShift = extLen - curLen + ovlp.leftShift;
 
 				int32_t filteredPositions = 0;
+				//int32_t curInterval = 0;
+				//int32_t prevPos = 0;
 				for (auto pos : curFilteredPos)
 				{
-					if (ovlp.curBegin <= pos &&
-						pos <= ovlp.curEnd - kmerSize)
+					if (pos < ovlp.curBegin) continue;
+					if (pos > ovlp.curEnd) break;
+					++filteredPositions;
+
+					/*if (pos - prevPos == 1)
 					{
-						filteredPositions += 1;
+						++curInterval;
 					}
+					else
+					{
+						if (curInterval > kmerSize) 
+						{
+							filteredPositions += curInterval - kmerSize;
+						}
+						curInterval = 0;
+					}
+					prevPos = pos;*/
 				}
 
-				int32_t normalizedLength = ovlp.curRange() - filteredPositions;
+				int32_t normalizedLength = 
+					std::max(ovlp.curRange() - filteredPositions, ovlp.score);
 				ovlp.seqDivergence = std::log((float)normalizedLength / 
 											  ovlp.score) / kmerSize;
 
-				if (ovlp.seqDivergence < _maxDivergence)
+				float divThreshold = _maxDivergence;
+				if (ovlp.curBegin < _maxJump || curLen - ovlp.curEnd < _maxJump)
+				{
+					divThreshold += _badEndAdjustment;
+				}
+				if (ovlp.extBegin < _maxJump || extLen - ovlp.extEnd < _maxJump)
+				{
+					divThreshold += _badEndAdjustment;
+				}
+				if (ovlp.seqDivergence < divThreshold)
 				{
 					extOverlaps.push_back(ovlp);
 				}

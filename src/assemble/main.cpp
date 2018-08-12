@@ -268,7 +268,8 @@ int main(int argc, char** argv)
 						 /*max ovlp*/ 5 * coverage, 
 						 /*store alignment*/ false,
 						 /*only max*/ true,
-						 (float)Config::get("assemble_ovlp_ident"));
+						 (float)Config::get("assemble_ovlp_ident"), 
+						 /* bad end adjustment*/ 0.0f);
 	OverlapContainer readOverlaps(ovlp, readsContainer);
 
 	Extender extender(readsContainer, readOverlaps, coverage, 
