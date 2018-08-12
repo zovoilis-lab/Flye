@@ -274,13 +274,18 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 	for (auto curKmerPos : IterKmers(fastaRec.sequence))
 	{
 		if (!_vertexIndex.isSolid(curKmerPos.kmer)) continue;
-		if (_vertexIndex.isRepetitive(curKmerPos.kmer) &&
+		if (_vertexIndex.isRepetitive(curKmerPos.kmer))
+		{
+			curFilteredPos.push_back(curKmerPos.position);
+			continue;
+		}
+		/*if (_vertexIndex.isRepetitive(curKmerPos.kmer) &&
 			curKmerPos.position >= _vertexIndex.getFlankRepeatSize() &&
 			curKmerPos.position < curLen - _vertexIndex.getFlankRepeatSize())
 		{
 			curFilteredPos.push_back(curKmerPos.position);
 			continue;
-		}
+		}*/
 
 		FastaRecord::Id prevSeqId = FastaRecord::ID_NONE;
 		for (const auto& extReadPos : _vertexIndex.iterKmerPos(curKmerPos.kmer))
@@ -335,9 +340,10 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 	for (auto curKmerPos : IterKmers(fastaRec.sequence))
 	{
 		if (!_vertexIndex.isSolid(curKmerPos.kmer)) continue;
-		if (_vertexIndex.isRepetitive(curKmerPos.kmer) &&
-			curKmerPos.position >= _vertexIndex.getFlankRepeatSize() &&
-			curKmerPos.position < curLen - _vertexIndex.getFlankRepeatSize()) continue;
+		if (_vertexIndex.isRepetitive(curKmerPos.kmer)) continue;
+		//if (_vertexIndex.isRepetitive(curKmerPos.kmer) &&
+		//	curKmerPos.position >= _vertexIndex.getFlankRepeatSize() &&
+		//	curKmerPos.position < curLen - _vertexIndex.getFlankRepeatSize()) continue;
 
 		for (const auto& extReadPos : _vertexIndex.iterKmerPos(curKmerPos.kmer))
 		{
@@ -577,7 +583,16 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 				ovlp.seqDivergence = std::log((float)normalizedLength / 
 											  ovlp.score) / kmerSize;
 
-				if (ovlp.seqDivergence < _maxDivergence)
+				float divThreshold = _maxDivergence;
+				if (ovlp.curBegin < _maxJump || curLen - ovlp.curEnd < _maxJump)
+				{
+					divThreshold += _badEndAdjustment;
+				}
+				if (ovlp.extBegin < _maxJump || extLen - ovlp.extEnd < _maxJump)
+				{
+					divThreshold += _badEndAdjustment;
+				}
+				if (ovlp.seqDivergence < divThreshold)
 				{
 					extOverlaps.push_back(ovlp);
 				}

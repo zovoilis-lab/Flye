@@ -221,8 +221,7 @@ int main(int argc, char** argv)
 		return 1;
 	}
 	VertexIndex vertexIndex(readsContainer, 
-							(int)Config::get("assemble_kmer_sample"),
-							 /*flanking repeat*/ 0);
+							(int)Config::get("assemble_kmer_sample"));
 	vertexIndex.outputProgress(true);
 
 	Logger::get().info() << "Reads N50/90: " << readsContainer.computeNxStat(0.50) <<
@@ -267,7 +266,8 @@ int main(int argc, char** argv)
 						 /*max ovlp*/ 5 * coverage, 
 						 /*store alignment*/ false,
 						 /*only max*/ true,
-						 (float)Config::get("assemble_ovlp_ident"));
+						 (float)Config::get("assemble_ovlp_ident"), 
+						 /* bad end adjustment*/ 0.0f);
 	OverlapContainer readOverlaps(ovlp, readsContainer);
 
 	Extender extender(readsContainer, readOverlaps, coverage, 

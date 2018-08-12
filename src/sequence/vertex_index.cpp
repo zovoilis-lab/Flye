@@ -244,7 +244,7 @@ void VertexIndex::buildIndex(int minCoverage)
 		if (!readId.strand()) return;
 
 		int32_t nextKmerPos = _sampleRate;
-		int32_t seqLen = _seqContainer.seqLen(readId);
+		//int32_t seqLen = _seqContainer.seqLen(readId);
 		for (auto kmerPos : IterKmers(_seqContainer.getSeq(readId)))
 		{
 			if (_sampleRate > 1) //subsampling

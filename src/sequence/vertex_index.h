@@ -25,11 +25,10 @@ public:
 	{
 		this->clear();
 	}
-	VertexIndex(const SequenceContainer& seqContainer, int sampleRate,
-				int flankRepeatSize):
+	VertexIndex(const SequenceContainer& seqContainer, int sampleRate):
 		_seqContainer(seqContainer), _outputProgress(false), 
-		_sampleRate(sampleRate), _repetitiveFrequency(0),
-		_flankRepeatSize(flankRepeatSize)
+		_sampleRate(sampleRate), _repetitiveFrequency(0)
+		//_flankRepeatSize(flankRepeatSize)
 	{}
 
 	VertexIndex(const VertexIndex&) = delete;
@@ -158,7 +157,7 @@ public:
 
 	int getSampleRate() const {return _sampleRate;}
 
-	int getFlankRepeatSize() const {return _flankRepeatSize;}
+	//int getFlankRepeatSize() const {return _flankRepeatSize;}
 
 private:
 	void addFastaSequence(const FastaRecord& fastaRecord);
@@ -168,7 +167,7 @@ private:
 	bool    _outputProgress;
 	int32_t _sampleRate;
 	size_t  _repetitiveFrequency;
-	int32_t _flankRepeatSize;
+	//int32_t _flankRepeatSize;
 
 	const size_t INDEX_CHUNK = 32 * 1024 * 1024 / sizeof(ReadPosition);
 	std::vector<ReadPosition*> 		 _memoryChunks;

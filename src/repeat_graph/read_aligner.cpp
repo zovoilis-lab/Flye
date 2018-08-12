@@ -136,8 +136,7 @@ void ReadAligner::alignReads()
 
 	//index it and align reads
 	VertexIndex pathsIndex(pathsContainer, 
-						   (int)Config::get("read_align_kmer_sample"),
-						   /*flanking repeat*/ 0);
+						   (int)Config::get("read_align_kmer_sample"));
 	pathsIndex.countKmers(/*min freq*/ 1, /* genome size*/ 0);
 	pathsIndex.setRepeatCutoff(/*min freq*/ 1);
 	pathsIndex.buildIndex(/*min freq*/ 1);
@@ -146,7 +145,8 @@ void ReadAligner::alignReads()
 									MIN_EDGE_OVLP - EDGE_FLANK,
 									/*no overhang*/ 0, MAX_OVLP_COUNT,
 									/*keep alignment*/ false, /*only max*/ false,
-									(float)Config::get("read_align_ovlp_ident"));
+									(float)Config::get("read_align_ovlp_ident"),
+									/* bad end adjust*/ 0.0f);
 	OverlapContainer readsOverlaps(readsOverlapper, _readSeqs);
 
 	std::vector<FastaRecord::Id> allQueries;
