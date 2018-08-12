@@ -195,15 +195,14 @@ class SynchronizedSamReader(object):
             qry_start, qry_end, qry_len, qry_seq, err_rate) = \
                     self.parse_cigar(cigar_str, read_str, read_contig, ctg_pos)
 
-            if float(qry_end - qry_start) / qry_len < self.min_aln_rate:
-                continue
-
-            aln = Alignment(read_id, read_contig, qry_start,
-                            qry_end, "-" if is_reversed else "+",
-                            qry_len, trg_start, trg_end, "+", trg_len,
-                            qry_seq, trg_seq, err_rate)
-
-            alignments.append(aln)
+            OVERHANG = 100
+            if (float(qry_end - qry_start) / qry_len > self.min_aln_rate or
+                    trg_start < OVERHANG or trg_len - trg_end < OVERHANG):
+                aln = Alignment(read_id, read_contig, qry_start,
+                                qry_end, "-" if is_reversed else "+",
+                                qry_len, trg_start, trg_end, "+", trg_len,
+                                qry_seq, trg_seq, err_rate)
+                alignments.append(aln)
 
         return parsed_contig, alignments
 
