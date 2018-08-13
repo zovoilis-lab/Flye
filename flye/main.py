@@ -260,7 +260,7 @@ class JobShortPlasmidsAssembly(Job):
                              self.args.threads, self.alignment_out)
         alignment_rates = plasmids.calc_alignment_rates(self.alignment_out)
 
-        with open(os.path.join(work_dir, 'alignment_rates.txt'), 'w') as f:
+        with open(os.path.join(self.work_dir, 'alignment_rates.txt'), 'w') as f:
             for read, contigs in alignment_rates.items():
                 f.write(read + '\n')
                 for contig, aln_rate in contigs.items():
