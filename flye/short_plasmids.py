@@ -2,6 +2,8 @@ import os
 import logging
 import subprocess
 
+import flye.fasta_parser as fp
+
 
 logger = logging.getLogger()
 MINIMAP_BIN = "flye-minimap2"
@@ -32,7 +34,7 @@ class Segment:
 
 
 def unite_segments(segments):
-    segments.sort(key= lambda segment: segment.begin)
+    segments.sort(key=lambda segment: segment.begin)
     united_segments = [segments[0]]
 
     for i in xrange(1, len(segments)):
@@ -52,7 +54,7 @@ def calc_alignment_rate(hit, mapping_segments):
     for segment in united_segments:
         query_coverage += segment.end - segment.begin
 
-    return round(float(query_coverage) / hit.query_length, 4)
+    return round(float(query_coverage) / hit.query_length, 5)
 
 
 def calc_alignment_rates(paf_alignment):
@@ -86,6 +88,20 @@ def calc_alignment_rates(paf_alignment):
 
     return alignment_rates
 
+
+def find_unmapped_reads(alignment_rates, reads_files, aln_rate_threshold):
+    unmapped_reads = dict()
+
+    for file in reads_files:
+        fasta_dict = fp.read_fasta_dict(file)
+
+        for read, sequence in fasta_dict.items():
+            aln_rate = alignment_rates.get(read)
+
+            if aln_rate is None or aln_rate < aln_rate_threshold:
+                unmapped_reads[read] = sequence
+
+    return unmapped_reads
 
 
 def run_minimap(preset, contigs_file, reads_files, num_proc, out_file):
