@@ -32,7 +32,7 @@ class Segment:
 
 
 def unite_segments(segments):
-    segments.sort(key=segment: segment.begin)
+    segments.sort(key= lambda segment: segment.begin)
     united_segments = [segments[0]]
 
     for i in xrange(1, len(segments)):
