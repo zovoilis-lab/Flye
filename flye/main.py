@@ -27,6 +27,8 @@ from flye.__version__ import __version__
 import flye.config as config
 from flye.bytes2human import human2bytes
 
+from flye.alignment import SynchronizedSamReader
+
 logger = logging.getLogger()
 
 class ResumeException(Exception):
@@ -242,18 +244,35 @@ class JobPolishing(Job):
 
 
 class JobShortPlasmidsAssembly(Job):
-    def __init__(self, args=None, work_dir=None, log_file=None, alignment_file=None):
+    def __init__(self, args=None, work_dir=None):
         super(JobShortPlasmidsAssembly, self).__init__()
 
         self.args = args
         self.work_dir = work_dir
-        self.log_file = log_file
-        self.alignment_file = alignment_file
-
         self.name = "short_plasmids_assembly"
+
+        sam_alignment = os.path.join(work_dir, '1-consensus/minimap.sam')
+        reference_fasta = os.path.join(work_dir, '1-consensus/consensus.fasta')
+
+        self.sam_alignment = sam_alignment
+        self.reference_fasta = reference_fasta
 
     def run(self):
         print('In JobShortPlasmidsAssembly run')
+
+        aln_reader = SynchronizedSamReader(self.sam_alignment, 
+                                           self.reference_fasta, 0.5)
+
+        aln_reader.init_reading()
+
+        print('Reading sam file')
+
+        while not aln_reader.is_eof():
+            ctg_id, ctg_aln = aln_reader.get_chunk()
+            if ctg_id is None:
+                break
+
+        print('Done!')
 
 
 def _create_job_list(args, work_dir, log_file):
@@ -261,8 +280,7 @@ def _create_job_list(args, work_dir, log_file):
     Build pipeline as a list of consecutive jobs
     """
     jobs = []
-
-    jobs.append(JobShortPlasmidsAssembly())
+    jobs.append(JobShortPlasmidsAssembly(args, work_dir))
 
     #Assembly job
     #jobs.append(JobAssembly(args, work_dir, log_file))
