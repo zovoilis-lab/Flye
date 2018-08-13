@@ -96,10 +96,19 @@ def find_unmapped_reads(alignment_rates, reads_files, aln_rate_threshold):
         fasta_dict = fp.read_fasta_dict(file)
 
         for read, sequence in fasta_dict.items():
-            aln_rate = alignment_rates.get(read)
+            contigs = alignment_rates.get(read)
 
-            if aln_rate is None or aln_rate < aln_rate_threshold:
+            if contigs is None:
                 unmapped_reads[read] = sequence
+            else:
+                is_unmapped = True
+                for contig, aln_rate in contigs.items():
+                    if aln_rate >= aln_rate_threshold:
+                        is_unmapped = False
+                        
+                if is_unmapped:
+                    unmapped_reads[read] = sequence
+
 
     return unmapped_reads
 
