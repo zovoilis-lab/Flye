@@ -261,7 +261,8 @@ class JobShortPlasmidsAssembly(Job):
         print('In JobShortPlasmidsAssembly run')
 
         aln_reader = SynchronizedSamReader(self.sam_alignment, 
-                                           self.reference_fasta, 0.5)
+                                           fp.read_fasta_dict(self.reference_fasta), 
+                                           0.5)
 
         aln_reader.init_reading()
 
