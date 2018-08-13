@@ -244,13 +244,14 @@ class JobPolishing(Job):
 
 
 class JobShortPlasmidsAssembly(Job):
-    def __init__(self, args=None, work_dir=None, contigs_path):
+    def __init__(self, args, work_dir):
         super(JobShortPlasmidsAssembly, self).__init__()
 
         self.args = args
         self.work_dir = os.path.join(work_dir, '0-assembly')
-        self.contigs_path = os.path.join(work_dir, draft_assembly.fasta)
-        self.alignment_out = os.path.join(work_dir, reads_to_contigs_alignment.paf)
+        self.contigs_path = os.path.join(self.work_dir, 'draft_assembly.fasta')
+        self.alignment_out = os.path.join(self.work_dir,
+                                          'reads_to_contigs_alignment.paf')
 
         self.name = "short_plasmids_assembly"
 
