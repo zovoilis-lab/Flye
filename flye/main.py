@@ -261,7 +261,7 @@ class JobShortPlasmidsAssembly(Job):
         print('In JobShortPlasmidsAssembly run')
         print('Finding unmapped reads')
 
-        plasmids.find_unmapped_reads(sam_alignment, reference_fasta, 
+        plasmids.find_unmapped_reads(self.sam_alignment, self.reference_fasta, 
                                      self.args.threads, 0.5)
 
         print('Done!')
