@@ -244,27 +244,19 @@ class JobPolishing(Job):
 
 
 class JobShortPlasmidsAssembly(Job):
-    def __init__(self, args=None, work_dir=None):
+    def __init__(self, args=None, work_dir=None, contigs_path):
         super(JobShortPlasmidsAssembly, self).__init__()
 
         self.args = args
-        self.work_dir = work_dir
+        self.work_dir = os.path.join(work_dir, '0-assembly')
+        self.contigs_path = os.path.join(work_dir, draft_assembly.fasta)
+        self.alignment_out = os.path.join(work_dir, reads_to_contigs_alignment.paf)
+
         self.name = "short_plasmids_assembly"
 
-        sam_alignment = os.path.join(work_dir, '1-consensus/minimap.sam')
-        reference_fasta = os.path.join(work_dir, '0-assembly/draft_assembly.fasta')
-
-        self.sam_alignment = sam_alignment
-        self.reference_fasta = reference_fasta
-
     def run(self):
-        print('In JobShortPlasmidsAssembly run')
-        print('Finding unmapped reads')
-
-        plasmids.find_unmapped_reads(self.sam_alignment, self.reference_fasta, 
-                                     self.args.threads, 0.5)
-
-        print('Done!')
+        plasmids.run_minimap('map-pb', self.contigs_path, self.args.reads, 
+                             self.args.threads, self.alignment_out)
 
 
 def _create_job_list(args, work_dir, log_file):
