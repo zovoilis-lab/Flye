@@ -252,7 +252,7 @@ class JobShortPlasmidsAssembly(Job):
         self.name = "short_plasmids_assembly"
 
         sam_alignment = os.path.join(work_dir, '1-consensus/minimap.sam')
-        reference_fasta = os.path.join(work_dir, '1-consensus/consensus.fasta')
+        reference_fasta = os.path.join(work_dir, '0-assembly/draft_assembly.fasta')
 
         self.sam_alignment = sam_alignment
         self.reference_fasta = reference_fasta
