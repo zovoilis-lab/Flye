@@ -258,7 +258,13 @@ class JobShortPlasmidsAssembly(Job):
     def run(self):
         plasmids.run_minimap('map-pb', self.contigs_path, self.args.reads, 
                              self.args.threads, self.alignment_out)
-        plasmids.calc_alignment_rates(self.alignment_out, self.alignment_out + '_sorted.paf')
+        alignment_rates = plasmids.calc_alignment_rates(self.alignment_out)
+
+        with open(os.path.join(work_dir, 'alignment_rates.txt'), 'w') as f:
+            for read, contigs in alignment_rates.items():
+                f.write(read + '\n')
+                for contig, aln_rate in contigs.items():
+                    f.write(contig + '\t' + str(aln_rate) + '\n')
 
 
 def _create_job_list(args, work_dir, log_file):

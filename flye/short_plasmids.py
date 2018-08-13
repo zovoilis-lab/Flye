@@ -25,7 +25,37 @@ class Hit:
         self.target_end = int(hit[8])
 
 
-def calc_alignment_rates(paf_alignment, paf_alignment_sorted):
+class Segment:
+    def __init__(self, begin, end):
+        self.begin = begin
+        self.end = end
+
+
+def unite_segments(segments):
+    segments.sort(key=segment: segment.begin)
+    united_segments = [segments[0]]
+
+    for i in xrange(1, len(segments)):
+        if segments[i].begin <= united_segments[-1].end:
+            if segments[i].end > united_segments[-1].end:
+                united_segments[-1].end = segments[i].end
+        else:
+            united_segments.append(segments[i])
+
+    return united_segments
+
+
+def calc_alignment_rate(hit, mapping_segments):
+    query_coverage = 0
+    united_segments = unite_segments(mapping_segments)
+
+    for segment in united_segments:
+        query_coverage += segment.end - segment.begin
+
+    return round(float(query_coverage) / hit.query_length, 4)
+
+
+def calc_alignment_rates(paf_alignment):
     hits = []
 
     with open(paf_alignment) as f:
@@ -34,9 +64,27 @@ def calc_alignment_rates(paf_alignment, paf_alignment_sorted):
 
     hits.sort(key=lambda hit: (hit.query, hit.target))
 
-    with open(paf_alignment_sorted, 'w') as f:
-        for hit in hits:
-            f.write(hit.query + ' ' + hit.target + '\n')
+    alignment_rates = dict()
+    current_hit = None
+    mapping_segments = []
+
+    for hit in hits:
+        if current_hit is None or current_hit.query != hit.query \
+                               or current_hit.target != hit.target:
+            if current_hit is not None:
+                aln_rate = calc_alignment_rate(current_hit, mapping_segments)
+
+                if current_hit.query not in alignment_rates:
+                    alignment_rates[current_hit.query] = dict()
+
+                alignment_rates[current_hit.query][current_hit.target] = aln_rate
+
+            current_hit = hit
+            mapping_segments = []
+
+        mapping_segments.append(Segment(hit.query_start, hit.query_end))
+
+    return alignment_rates
 
 
 
