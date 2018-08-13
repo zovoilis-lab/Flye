@@ -21,44 +21,6 @@ import flye.trestle.trestle_config as trestle_config
 
 logger = logging.getLogger()
 
-def _run_polishing(args, reads, seqs, polish_dir):
-    MIN_ALN_RATE = config.vals["min_aln_rate"]
-    if not os.path.isdir(polish_dir):
-        os.mkdir(polish_dir)
-    polished_seqs = os.path.join(polish_dir, 
-                                 "polished_{0}.fasta".format(args.num_iters))
-    polished_stats = os.path.join(polish_dir, "contigs_stats.txt")
-    
-    prev_template = seqs
-    contig_lengths = None
-    for i in xrange(args.num_iters):
-        alignment_file = os.path.join(polish_dir,
-                                      "minimap_{0}.sam".format(i + 1))
-        flye_aln.make_alignment(prev_template, reads, args.threads,
-                               polish_dir, args.platform, alignment_file)
-        contigs_info = flye_aln.get_contigs_info(prev_template)
-        bubbles_file = os.path.join(polish_dir,
-                                    "bubbles_{0}.fasta".format(i + 1))
-        coverage_stats, err_rate = \
-            bbl.make_bubbles(alignment_file, contigs_info, prev_template,
-                             args.platform, args.threads, MIN_ALN_RATE, 
-                             bubbles_file)
-        polished_file = os.path.join(polish_dir,
-                                     "polished_{0}.fasta".format(i + 1))
-        contig_lengths = pol.polish(bubbles_file, args.threads, args.platform, 
-                                    polish_dir, i + 1, polished_file,
-                                    output_progress=False)
-        prev_template = polished_file
-        
-    with open(polished_stats, "w") as f:
-        f.write("seq_name\tlength\tcoverage\n")
-        for ctg_id in contig_lengths:
-            f.write("{0}\t{1}\t{2}\n".format(ctg_id,
-                    contig_lengths[ctg_id], coverage_stats[ctg_id]))
-    
-    return polished_seqs
-
-
 def resolve_repeats(args, trestle_dir, repeats_dump, graph_edges, summ_file):
     SUB_THRESH = trestle_config.vals["sub_thresh"]
     DEL_THRESH = trestle_config.vals["del_thresh"]
@@ -71,7 +33,7 @@ def resolve_repeats(args, trestle_dir, repeats_dump, graph_edges, summ_file):
     side_labels = ["in", "out"]
     pol_temp_name = "Polishing.Template"
     pol_ext_name = "Polishing.Extended.{0}.{1}"
-    pol_cons_name = "Polishing.Consensus.{0}.{1}.{2}"
+    pol_cons_dir_name = "Polishing.Consensus.{0}.{1}.{2}"
     template_name = "template.fasta"
     extended_name = "extended_templates.{0}.{1}.fasta"
     repeat_reads_name = "repeat_reads.fasta"
@@ -79,6 +41,8 @@ def resolve_repeats(args, trestle_dir, repeats_dump, graph_edges, summ_file):
     div_freq_name = "divergence_frequencies.txt"
     div_pos_name = "divergent_positions.txt"
     div_summ_name = "divergence_summary.txt"
+    pol_cons_name = "polished_consensus.{0}.{1}"
+    overext_aln_name = "overext.{0}.{1}.{2}.vs.template.minimap.sam"
     reads_template_aln_name = "reads.vs.template.minimap.sam"
     cons_template_aln_name = "consensus.{0}.{1}.{2}.vs.template.minimap.sam"
     reads_cons_aln_name = "reads.vs.consensus.{0}.{1}.{2}.minimap.sam"
@@ -171,7 +135,9 @@ def resolve_repeats(args, trestle_dir, repeats_dump, graph_edges, summ_file):
             read_align = os.path.join(orient_dir, reads_cons_aln_name)
             confirmed_pos_path = os.path.join(orient_dir, confirmed_pos_name)
             edge_reads = os.path.join(orient_dir, edge_reads_name)
-            polishing_dir = os.path.join(orient_dir, pol_cons_name)
+            polishing_dir = os.path.join(orient_dir, pol_cons_dir_name)
+            polished_cons = os.path.join(orient_dir, pol_cons_name)
+            overext_aln_path = os.path.join(orient_dir, overext_aln_name)
             cons_vs_cons = os.path.join(orient_dir, cons_vs_cons_name)
             side_stats = os.path.join(orient_dir, side_stats_name)
             integrated_stats = os.path.join(orient_dir, int_stats_name)
@@ -183,7 +149,7 @@ def resolve_repeats(args, trestle_dir, repeats_dump, graph_edges, summ_file):
             test_pos = os.path.join(orient_dir, test_pos_name)
             num_test = 10
             
-            polished_consensus = {}
+            overext_consensus = {}
             side_it = {s:0 for s in side_labels}
             edge_below_cov = {s:False for s in side_labels}
             dup_part = {s:False for s in side_labels}
@@ -227,10 +193,26 @@ def resolve_repeats(args, trestle_dir, repeats_dump, graph_edges, summ_file):
                         pol_con_out = _run_polishing(args, [curr_reads], 
                                                 curr_extended, 
                                                 pol_con_dir)
-                        polished_consensus[(it, side, edge_id)] = pol_con_out
+                        overext_consensus[(it, side, edge_id)] = pol_con_out
+                    #5a+. Add to consensus sequences
+                    for edge_id in sorted(repeat_edges[rep][side]):
+                        curr_overext = overext_consensus[(it, side, edge_id)]
+                        if os.path.isfile(curr_overext):
+                            overext_aln = overext_aln_path.format(it, side, 
+                                                                  edge_id)
+                            flye_aln.make_alignment(polished_template, 
+                                                    [curr_overext],
+                                                    args.threads, orient_dir,
+                                                    args.platform, overext_aln)
+                            _add_to_consensus(polished_cons.format(side, 
+                                                                   edge_id), 
+                                              curr_overext, polished_template, 
+                                              overext_aln, it, edge_id)
+                        else:
+                            term_bool[side] = True
                     #5b. Partition reads using divergent positions
                     for edge_id in sorted(repeat_edges[rep][side]):
-                        curr_cons = polished_consensus[(it, side, edge_id)]
+                        curr_cons = polished_cons.format(side, edge_id)
                         if os.path.isfile(curr_cons):
                             cons_al_file = cons_align.format(it, side, edge_id)
                             flye_aln.make_alignment(polished_template, 
@@ -247,7 +229,7 @@ def resolve_repeats(args, trestle_dir, repeats_dump, graph_edges, summ_file):
                     partition_reads(repeat_edges[rep][side], it, side, 
                                        position_path, cons_align, 
                                        polished_template, read_align, 
-                                       polished_consensus, 
+                                       polished_cons,
                                        confirmed_pos_path, 
                                        partitioning, 
                                        all_edge_headers[rep], 
@@ -256,8 +238,8 @@ def resolve_repeats(args, trestle_dir, repeats_dump, graph_edges, summ_file):
                     edge_pairs = sorted(combinations(repeat_edges[rep][side], 
                                                      2))
                     for edge_one, edge_two in edge_pairs:
-                        cons_one = polished_consensus[(it, side, edge_one)]
-                        cons_two = polished_consensus[(it, side, edge_two)]
+                        cons_one = polished_cons.format(side, edge_one)
+                        cons_two = polished_cons.format(side, edge_two)
                         if (not os.path.isfile(cons_one) or 
                             not os.path.isfile(cons_two)):
                             continue
@@ -291,7 +273,7 @@ def resolve_repeats(args, trestle_dir, repeats_dump, graph_edges, summ_file):
             for side in side_labels:
                 finalize_side_stats(repeat_edges[rep][side], side_it[side], 
                                     side, cons_align, polished_template, 
-                                    cons_vs_cons, polished_consensus, 
+                                    cons_vs_cons, polished_cons, 
                                     confirmed_pos_path.format(side_it[side], 
                                                               side), 
                                     partitioning.format(side_it[side], side), 
@@ -302,7 +284,7 @@ def resolve_repeats(args, trestle_dir, repeats_dump, graph_edges, summ_file):
                                                    cons_align, 
                                                    polished_template, 
                                                    template_len, cons_vs_cons, 
-                                                   polished_consensus, 
+                                                   polished_cons, 
                                                    int_confirmed_path, 
                                                    partitioning, 
                                                    integrated_stats, 
@@ -736,6 +718,90 @@ def write_edge_reads(it, side, edge_id, all_reads, partitioning, out_file):
     if edge_reads and edge_reads.values()[0]:
         fp.write_fasta_dict(edge_reads, out_file)
 
+#Polishing Functions
+
+def _run_polishing(args, reads, seqs, polish_dir):
+    MIN_ALN_RATE = config.vals["min_aln_rate"]
+    if not os.path.isdir(polish_dir):
+        os.mkdir(polish_dir)
+    polished_seqs = os.path.join(polish_dir, 
+                                 "polished_{0}.fasta".format(args.num_iters))
+    polished_stats = os.path.join(polish_dir, "contigs_stats.txt")
+    
+    prev_template = seqs
+    contig_lengths = None
+    for i in xrange(args.num_iters):
+        alignment_file = os.path.join(polish_dir,
+                                      "minimap_{0}.sam".format(i + 1))
+        flye_aln.make_alignment(prev_template, reads, args.threads,
+                               polish_dir, args.platform, alignment_file)
+        contigs_info = flye_aln.get_contigs_info(prev_template)
+        bubbles_file = os.path.join(polish_dir,
+                                    "bubbles_{0}.fasta".format(i + 1))
+        coverage_stats, err_rate = \
+            bbl.make_bubbles(alignment_file, contigs_info, prev_template,
+                             args.platform, args.threads, MIN_ALN_RATE, 
+                             bubbles_file)
+        polished_file = os.path.join(polish_dir,
+                                     "polished_{0}.fasta".format(i + 1))
+        contig_lengths = pol.polish(bubbles_file, args.threads, args.platform, 
+                                    polish_dir, i + 1, polished_file,
+                                    output_progress=False)
+        prev_template = polished_file
+        
+    with open(polished_stats, "w") as f:
+        f.write("seq_name\tlength\tcoverage\n")
+        for ctg_id in contig_lengths:
+            f.write("{0}\t{1}\t{2}\n".format(ctg_id,
+                    contig_lengths[ctg_id], coverage_stats[ctg_id]))
+    
+    return polished_seqs
+
+def _add_to_consensus(polished_cons, overext_cons, template, 
+                      overext_aln_file, it, edge_id):
+    CONS_ALN_RATE = trestle_config.vals["cons_aln_rate"]
+    EXTEND_LEN = trestle_config.vals["extend_len"]
+    polished_dict = {}
+    polished_seq = []
+    polished_header = "edge_{0}_polished_consensus".format(edge_id)
+    if it > 1 and os.path.isfile(polished_cons):
+        prev_dict = fp.read_fasta_dict(polished_cons)
+        prev_header, prev_seq = prev_dict.items()[0]
+        polished_header = prev_header
+        polished_seq.append(prev_seq)
+    
+    skip_bool = False
+    overext_aln = []
+    if not os.path.isfile(overext_aln_file):
+        skip_bool = True
+    else:
+        overext_aln = _read_alignment(overext_aln_file, template, 
+                                      CONS_ALN_RATE)
+    if not overext_aln or not overext_aln[0]:
+        logger.debut("No overext alignment")
+        skip_bool = True
+    if not skip_bool:
+        extend_start = EXTEND_LEN*(it-1)
+        extend_end = EXTEND_LEN*it
+        trg_aln, aln_trg = _index_mapping(overext_aln[0][0].trg_seq)
+        
+        if extend_end > overext_aln[0][0].trg_end:
+            extend_end = overext_aln[0][0].trg_end
+        
+        if extend_start <= overext_aln[0][0].trg_start:
+            polished_header += "|it_{0}_template_{1}_{2}".format(
+                                            it, extend_start, extend_end)
+            ext_st_minus_st = extend_start - overext_aln[0][0].trg_start
+            ext_end_minus_st = extend_end - overext_aln[0][0].trg_start
+            aln_st_ind = trg_aln[ext_st_minus_st]
+            aln_end_ind = trg_aln[ext_end_minus_st]
+            extend_aln_seq = overext_aln[0][0].qry_seq[aln_st_ind:aln_end_ind]
+            extend_seq = extend_aln_seq.translate(None, "-")
+            polished_seq.append(extend_seq)
+    
+    polished_dict[polished_header] = "".join(polished_seq)
+    fp.write_fasta_dict(polished_dict, polished_cons)
+
 #Partition Reads Functions
 
 def partition_reads(edges, it, side, position_path, cons_align_path, 
@@ -792,7 +858,7 @@ def partition_reads(edges, it, side, position_path, cons_align_path,
             read_aligns[edge_id] = _read_alignment(
                                         read_align_path.format(it, side, 
                                                                edge_id), 
-                                        consensuses[(it, side, edge_id)], 
+                                        consensuses.format(side, edge_id), 
                                         CONS_ALN_RATE)
         if (not read_aligns or 
                 not read_aligns[edge_id] or 
@@ -1385,8 +1451,8 @@ def finalize_side_stats(edges, it, side, cons_align_path, template,
                 cons_vs_cons = _read_alignment(cons_vs_cons_path.format(
                                                     it, side, edge_one, 
                                                     it, side, edge_two), 
-                                               consensuses[(it, side, 
-                                                            edge_two)], 
+                                               consensuses.format(side, 
+                                                                  edge_two), 
                                                CONS_ALN_RATE)
             if cons_vs_cons and cons_vs_cons[0]:
                 qry_start = cons_vs_cons[0][0].qry_start
@@ -1811,7 +1877,7 @@ def finalize_int_stats(rep, repeat_edges, side_it, cons_align_path, template,
                     if os.path.isfile(cons_cons_file):
                         cons_vs_cons = _read_alignment(
                                 cons_cons_file, 
-                                consensuses[(side_it[side], side, edge_two)], 
+                                consensuses.format(side, edge_two), 
                                 CONS_ALN_RATE)
                         if cons_vs_cons and cons_vs_cons[0]:
                             edge_rate = _calculate_divergence(
@@ -1856,7 +1922,7 @@ def finalize_int_stats(rep, repeat_edges, side_it, cons_align_path, template,
                     if os.path.isfile(cons_cons_file):
                         cons_vs_cons = _read_alignment(
                             cons_cons_file, 
-                            consensuses[(side_it[side], side, edge_two)], 
+                            consensuses.format(side, edge_two), 
                             CONS_ALN_RATE)
                     if cons_vs_cons and cons_vs_cons[0]:
                         one_start = cons_vs_cons[0][0].qry_start
@@ -1974,9 +2040,9 @@ def finalize_int_stats(rep, repeat_edges, side_it, cons_align_path, template,
                                 new_out_start = (out_start + 
                                                  out_aln_qry[out_aln_ind])
                     """_check_overlap(
-                            consensuses[(side_it["in"], "in", in_edge)], 
+                            consensuses.format("in", in_edge), 
                             template,
-                            consensuses[(side_it["out"], "out", out_edge)], 
+                            consensuses.format("out", out_edge), 
                             -gap_len, in_start, in_end, temp_start, temp_end, 
                             out_start, out_end,
                             new_out_start, in_align.qry_seq, in_align.trg_seq, 
@@ -2012,9 +2078,9 @@ def finalize_int_stats(rep, repeat_edges, side_it, cons_align_path, template,
                                                                  out_start, 
                                                                  out_end)])
                 copy_seq = _construct_repeat_copy(
-                        consensuses[(side_it["in"], "in", in_edge)], 
+                        consensuses.format("in", in_edge), 
                         template,
-                        consensuses[(side_it["out"], "out", out_edge)], 
+                        consensuses.format("out", out_edge), 
                         in_start, in_end, 
                         temp_start, temp_end, 
                         out_start, out_end)
