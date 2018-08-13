@@ -74,7 +74,6 @@ class SynchronizedSamReader(object):
         qry_pos = 0
 
         left_hard = True
-        
         left_soft = True
         hard_clipped_left = 0
         hard_clipped_right = 0

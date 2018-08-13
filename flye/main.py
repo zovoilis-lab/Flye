@@ -23,11 +23,11 @@ import flye.assemble as asm
 import flye.repeat_graph as repeat
 import flye.consensus as cons
 import flye.scaffolder as scf
+import flye.short_plasmids as plasmids
 from flye.__version__ import __version__
 import flye.config as config
 from flye.bytes2human import human2bytes
 
-from flye.alignment import SynchronizedSamReader
 
 logger = logging.getLogger()
 
@@ -259,19 +259,10 @@ class JobShortPlasmidsAssembly(Job):
 
     def run(self):
         print('In JobShortPlasmidsAssembly run')
+        print('Finding unmapped reads')
 
-        aln_reader = SynchronizedSamReader(self.sam_alignment, 
-                                           fp.read_fasta_dict(self.reference_fasta), 
-                                           0.5)
-
-        aln_reader.init_reading()
-
-        print('Reading sam file')
-
-        while not aln_reader.is_eof():
-            ctg_id, ctg_aln = aln_reader.get_chunk()
-            if ctg_id is None:
-                break
+        plasmids.find_unmapped_reads(sam_alignment, reference_fasta, 
+                                     self.args.threads, 0.5)
 
         print('Done!')
 
