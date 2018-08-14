@@ -4,7 +4,6 @@ import subprocess
 
 import flye.fasta_parser as fp
 
-
 logger = logging.getLogger()
 MINIMAP_BIN = "flye-minimap2"
 
@@ -105,10 +104,9 @@ def find_unmapped_reads(alignment_rates, reads_files, aln_rate_threshold):
                 for contig, aln_rate in contigs.items():
                     if aln_rate >= aln_rate_threshold:
                         is_unmapped = False
-                        
+
                 if is_unmapped:
                     unmapped_reads[read] = sequence
-
 
     return unmapped_reads
 
@@ -129,4 +127,3 @@ def run_minimap(preset, contigs_file, reads_files, num_proc, out_file):
         if e.returncode == -9:
             logger.error("Looks like the system ran out of memory")
         raise ShortPlasmidsAssemblyException(str(e))
-
