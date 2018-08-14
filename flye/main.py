@@ -258,7 +258,7 @@ class JobShortPlasmidsAssembly(Job):
         reads_alignment = os.path.join(self.work_dir,
                                        'contigs_all_vs_all_alignment.paf')
 
-        if not os.path.exists(reads_alignment):
+        if not os.path.isfile(reads_alignment):
             logger.debug('Finding all-vs-all alignment for reads')
             plasmids.run_minimap('map-pb', self.contigs_path, self.args.reads,
                                  self.args.threads, reads_alignment)
@@ -281,7 +281,7 @@ class JobShortPlasmidsAssembly(Job):
 
         unmapped_reads_alignment = os.path.join(self.work_dir,
                                                 'unmapped_reads_all_vs_all.paf')
-        if not os.path.exists(unmapped_reads_alignment):
+        if not os.path.isfile(unmapped_reads_alignment):
             logger.debug('Finding all-vs-all alignment for unmapped reads')
             plasmids.run_minimap('ava-pb', unmapped_reads_path,
                                  [unmapped_reads_path], self.args.threads,
@@ -298,7 +298,7 @@ class JobShortPlasmidsAssembly(Job):
         trimmed_reads_alignment = os.path.join(self.work_dir,
                                                'trimmed_reads_all_vs_all.paf')
 
-        if not os.path.exists(trimmed_reads_path):
+        if not os.path.isfile(trimmed_reads_path):
             plasmids.run_minimap('ava-pb', trimmed_reads_path,
                                  [trimmed_reads_path],
                                  self.args.threads, trimmed_reads_alignment)
