@@ -256,7 +256,7 @@ class JobShortPlasmidsAssembly(Job):
         logger.info('Finding short plasmids')
 
         reads_alignment = os.path.join(self.work_dir,
-                                       'contigs_all_vs_all_alignment.paf')
+                                       'reads_all_vs_all_alignment.paf')
 
         if not os.path.isfile(reads_alignment):
             logger.debug('Finding all-vs-all alignment for reads')
@@ -279,8 +279,8 @@ class JobShortPlasmidsAssembly(Job):
                                            'unmapped_reads.fasta')
         fp.write_fasta_dict(unmapped_reads, unmapped_reads_path)
 
-        unmapped_reads_alignment = os.path.join(self.work_dir,
-                                                'unmapped_reads_all_vs_all.paf')
+        unmapped_reads_alignment = os.path.join(
+            self.work_dir, 'unmapped_reads_all_vs_all_alignment.paf')
         if not os.path.isfile(unmapped_reads_alignment):
             logger.debug('Finding all-vs-all alignment for unmapped reads')
             plasmids.run_minimap('ava-pb', unmapped_reads_path,
@@ -295,8 +295,8 @@ class JobShortPlasmidsAssembly(Job):
         trimmed_reads = plasmids.trim_reads(circular_reads, unmapped_reads)
         trimmed_reads_path = os.path.join(self.work_dir, 'trimmed_reads.fasta')
         fp.write_fasta_dict(trimmed_reads, trimmed_reads_path)
-        trimmed_reads_alignment = os.path.join(self.work_dir,
-                                               'trimmed_reads_all_vs_all.paf')
+        trimmed_reads_alignment = os.path.join(
+            self.work_dir, 'trimmed_reads_all_vs_all_alignment.paf')
 
         if not os.path.isfile(trimmed_reads_path):
             plasmids.run_minimap('ava-pb', trimmed_reads_path,
