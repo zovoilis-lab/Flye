@@ -260,7 +260,7 @@ class JobShortPlasmidsAssembly(Job):
                              self.args.threads, self.alignment_out)
         alignment_rates = plasmids.calc_alignment_rates(self.alignment_out)
         unmapped_reads = plasmids.find_unmapped_reads(alignment_rates, self.args.reads, 0.5)
-        fp.write_fasta_dict(unmapped_reads, 'unmapped_reads.fasta')
+        fp.write_fasta_dict(unmapped_reads, os.path.join(self.work_dir, 'unmapped_reads.fasta'))
 
 
 def _create_job_list(args, work_dir, log_file):
