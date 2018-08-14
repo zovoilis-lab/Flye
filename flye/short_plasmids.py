@@ -88,6 +88,33 @@ def calc_alignment_rates(paf_alignment):
     return alignment_rates
 
 
+def represents_circular_read(hit):
+    if hit.query != hit.target:
+        return False
+
+    if not hit.query_start < hit.query_end < hit.target_start < hit.target_end:
+        return False
+
+    max_overhang = 150
+    if not hit.query_start < max_overhang:
+        return False
+
+    if not hit.query_length - hit.query_end < max_overhang:
+        return False
+
+    return True
+
+
+def find_circular_reads(paf_unmapped_reads):
+    circuar_reads = dict()
+
+    with open(paf_unmapped_reads) as f:
+        for raw_hit in f:
+            hit = Hit(raw_hit)
+            if represents_circular_read(hit):
+                pass
+
+
 def find_unmapped_reads(alignment_rates, reads_files, aln_rate_threshold):
     unmapped_reads = dict()
 
