@@ -250,37 +250,66 @@ class JobShortPlasmidsAssembly(Job):
         self.args = args
         self.work_dir = os.path.join(work_dir, '0-assembly')
         self.contigs_path = os.path.join(self.work_dir, 'draft_assembly.fasta')
-        self.alignment_out = os.path.join(self.work_dir,
-                                          'reads_to_contigs_alignment.paf')
-
         self.name = "short_plasmids_assembly"
 
     def run(self):
-        plasmids.run_minimap('map-pb', self.contigs_path, self.args.reads,
-                             self.args.threads, self.alignment_out)
-        alignment_rates = plasmids.calc_alignment_rates(self.alignment_out)
-        unmapped_reads = plasmids.find_unmapped_reads(alignment_rates, self.args.reads, 0.5)
-        unmapped_reads_path = os.path.join(self.work_dir, 'unmapped_reads.fasta')
+        logger.info('Finding short plasmids')
+
+        reads_alignment = os.path.join(self.work_dir,
+                                       'contigs_all_vs_all_alignment.paf')
+
+        if not os.path.exists(reads_alignment):
+            logger.debug('Finding all-vs-all alignment for reads')
+            plasmids.run_minimap('map-pb', self.contigs_path, self.args.reads,
+                                 self.args.threads, reads_alignment)
+
+        logger.debug('Calculating alignment rates')
+        alignment_rates = plasmids.calc_alignment_rates(reads_alignment)
+
+        logger.debug('Finding unmapped reads')
+        unmapped_reads, n_reads = plasmids.find_unmapped_reads(
+            alignment_rates, self.args.reads, aln_rate_threshold=0.5)
+
+        n_unmapped_reads = len(unmapped_reads)
+        unmapped_reads_ratio = round(100 * float(n_unmapped_reads) / n_reads, 2)
+        logger.debug('Found {} unmapped reads ({} %)'.format(
+            n_unmapped_reads, unmapped_reads_ratio))
+
+        unmapped_reads_path = os.path.join(self.work_dir,
+                                           'unmapped_reads.fasta')
         fp.write_fasta_dict(unmapped_reads, unmapped_reads_path)
-        paf_unmapped_reads = os.path.join(self.work_dir, 'unmapped_reads_all_vs_all.paf')
-        plasmids.run_minimap('ava-pb', unmapped_reads_path, [unmapped_reads_path],
-                             self.args.threads, paf_unmapped_reads)
-        circular_reads = plasmids.find_circular_reads(paf_unmapped_reads)
+
+        unmapped_reads_alignment = os.path.join(self.work_dir,
+                                                'unmapped_reads_all_vs_all.paf')
+        if not os.path.exists(unmapped_reads_alignment):
+            logger.debug('Finding all-vs-all alignment for unmapped reads')
+            plasmids.run_minimap('ava-pb', unmapped_reads_path,
+                                 [unmapped_reads_path], self.args.threads,
+                                 unmapped_reads_alignment)
+
+        logger.debug('Finding circular reads')
+        circular_reads = plasmids.find_circular_reads(unmapped_reads_alignment)
+        logger.debug('Found {} circular reads'.format(len(circular_reads)))
+
+        logger.debug('Extracting unique plasmids from circular reads')
         trimmed_reads = plasmids.trim_reads(circular_reads, unmapped_reads)
-
         trimmed_reads_path = os.path.join(self.work_dir, 'trimmed_reads.fasta')
-
         fp.write_fasta_dict(trimmed_reads, trimmed_reads_path)
-        paf_trimmed_reads = os.path.join(self.work_dir, 'trimmed_reads_all_vs_all.paf')
-        plasmids.run_minimap('ava-pb', trimmed_reads_path, [trimmed_reads_path],
-                             self.args.threads, paf_trimmed_reads)
+        trimmed_reads_alignment = os.path.join(self.work_dir,
+                                               'trimmed_reads_all_vs_all.paf')
 
-        unique_plasmids = plasmids.extract_unique_plasmids(paf_trimmed_reads,
-                                                           trimmed_reads_path)
+        if not os.path.exists(trimmed_reads_path):
+            plasmids.run_minimap('ava-pb', trimmed_reads_path,
+                                 [trimmed_reads_path],
+                                 self.args.threads, trimmed_reads_alignment)
 
-        plasmids_fasta = os.path.join(self.work_dir, 'plasmids.fasta')
+        unique_plasmids = plasmids.extract_unique_plasmids(
+            trimmed_reads_alignment, trimmed_reads_path)
 
-        fp.write_fasta_dict(unique_plasmids, plasmids_fasta)
+        logger.info('Found {} short plasmids'.format(len(unique_plasmids)))
+
+        plasmids_out = os.path.join(self.work_dir, 'plasmids.fasta')
+        fp.write_fasta_dict(unique_plasmids, plasmids_out)
 
 
 def _create_job_list(args, work_dir, log_file):

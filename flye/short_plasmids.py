@@ -74,11 +74,10 @@ def calc_alignment_rates(paf_alignment):
 
     for hit in hits:
         if current_hit is None or current_hit.query != hit.query \
-                               or current_hit.target != hit.target:
+                or current_hit.target != hit.target:
             if current_hit is not None:
                 aln_rate = calc_alignment_rate(current_hit.query_length,
                                                mapping_segments)
-
                 if current_hit.query not in alignment_rates:
                     alignment_rates[current_hit.query] = dict()
 
@@ -111,13 +110,12 @@ def represents_circular_read(hit):
 
 def find_unmapped_reads(alignment_rates, reads_files, aln_rate_threshold):
     unmapped_reads = dict()
+    n_reads = 0
 
     for file in reads_files:
         fasta_dict = fp.read_fasta_dict(file)
-
         for read, sequence in fasta_dict.items():
             contigs = alignment_rates.get(read)
-
             if contigs is None:
                 unmapped_reads[read] = sequence
             else:
@@ -129,7 +127,9 @@ def find_unmapped_reads(alignment_rates, reads_files, aln_rate_threshold):
                 if is_unmapped:
                     unmapped_reads[read] = sequence
 
-    return unmapped_reads
+        n_reads += len(fasta_dict)
+
+    return unmapped_reads, n_reads
 
 
 def find_circular_reads(paf_unmapped_reads):
@@ -241,7 +241,6 @@ def extract_unique_plasmids(paf_trimmed_reads, trimmed_reads_fasta):
         groups[connected_components[i]].append(int2read[i])
 
     groups = [group for group in groups if len(group) > 1]
-
     trimmed_reads_dict = fp.read_fasta_dict(trimmed_reads_fasta)
     unique_plasmids = dict()
 
