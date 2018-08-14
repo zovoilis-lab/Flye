@@ -132,18 +132,17 @@ def find_unmapped_reads(alignment_rates, reads_files, aln_rate_threshold):
 
 
 def find_circular_reads(paf_unmapped_reads):
-    circuar_reads = dict()
+    circular_reads = dict()
 
     with open(paf_unmapped_reads) as f:
         for raw_hit in f:
             current_hit = Hit(raw_hit)
             if represents_circular_read(current_hit):
-                hit = circuar_reads.get(current_hit.query)
-                if hit is None or \
-                   current_hit.query_hit_length() > hit.query_hit_length():
-                   circuar_reads[hit.query] = current_hit
+                hit = circular_reads.get(current_hit.query)
+                if hit is None or current_hit.query_hit_length() > hit.query_hit_length():
+                    circular_reads[hit.query] = current_hit
 
-    return circuar_reads
+    return circular_reads
 
 
 def run_minimap(preset, contigs_file, reads_files, num_proc, out_file):
