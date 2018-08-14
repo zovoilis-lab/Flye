@@ -41,7 +41,7 @@ def resolve_repeats(args, trestle_dir, repeats_dump, graph_edges, summ_file):
     div_freq_name = "divergence_frequencies.txt"
     div_pos_name = "divergent_positions.txt"
     div_summ_name = "divergence_summary.txt"
-    pol_cons_name = "polished_consensus.{0}.{1}"
+    pol_cons_name = "polished_consensus.{0}.{1}.fasta"
     overext_aln_name = "overext.{0}.{1}.{2}.vs.template.minimap.sam"
     reads_template_aln_name = "reads.vs.template.minimap.sam"
     cons_template_aln_name = "consensus.{0}.{1}.{2}.vs.template.minimap.sam"
@@ -207,7 +207,7 @@ def resolve_repeats(args, trestle_dir, repeats_dump, graph_edges, summ_file):
                             _add_to_consensus(polished_cons.format(side, 
                                                                    edge_id), 
                                               curr_overext, polished_template, 
-                                              overext_aln, it, edge_id)
+                                              overext_aln, it, side, edge_id)
                         else:
                             term_bool[side] = True
                     #5b. Partition reads using divergent positions
@@ -758,7 +758,7 @@ def _run_polishing(args, reads, seqs, polish_dir):
     return polished_seqs
 
 def _add_to_consensus(polished_cons, overext_cons, template, 
-                      overext_aln_file, it, edge_id):
+                      overext_aln_file, it, side, edge_id):
     CONS_ALN_RATE = trestle_config.vals["cons_aln_rate"]
     EXTEND_LEN = trestle_config.vals["extend_len"]
     polished_dict = {}
@@ -781,24 +781,54 @@ def _add_to_consensus(polished_cons, overext_cons, template,
         logger.debut("No overext alignment")
         skip_bool = True
     if not skip_bool:
-        extend_start = EXTEND_LEN*(it-1)
-        extend_end = EXTEND_LEN*it
+        if side == "in":
+            extend_start = EXTEND_LEN * (it - 1)
+            extend_end = EXTEND_LEN * it
+        elif side == "out":
+            extend_start = overext_aln[0][0].trg_len - (EXTEND_LEN * it)
+            extend_end = overext_aln[0][0].trg_len - (EXTEND_LEN * (it - 1))
         trg_aln, aln_trg = _index_mapping(overext_aln[0][0].trg_seq)
-        
-        if extend_end > overext_aln[0][0].trg_end:
+        qry_aln, aln_qry = _index_mapping(overext_aln[0][0].qry_seq)
+        if side == "in" and extend_end > overext_aln[0][0].trg_end:
             extend_end = overext_aln[0][0].trg_end
+        elif side == "out" and extend_start <= overext_aln[0][0].trg_start:
+            extend_start = overext_aln[0][0].trg_start
         
-        if extend_start <= overext_aln[0][0].trg_start:
-            polished_header += "|it_{0}_template_{1}_{2}".format(
-                                            it, extend_start, extend_end)
+        qry_st = 0
+        qry_end = overext_aln[0][0].qry_len
+        if it == 1 and side == "in":
+            ext_end_minus_st = extend_end - overext_aln[0][0].trg_start
+            if ext_end_minus_st == len(trg_aln):
+                aln_end_ind = trg_aln[-1] + 1
+                qry_end = aln_qry[-1] + 1 + overext_aln[0][0].qry_start
+            else:
+                aln_end_ind = trg_aln[ext_end_minus_st]
+                qry_end = aln_qry[aln_end_ind] + overext_aln[0][0].qry_start
+        elif it == 1 and side =="out":
+            ext_st_minus_st = extend_start - overext_aln[0][0].trg_start
+            aln_st_ind = trg_aln[ext_st_minus_st]
+            qry_st = aln_qry[aln_st_ind] + overext_aln[0][0].qry_start
+        elif ((side == "in" and extend_start >= overext_aln[0][0].trg_start) or 
+              (side == "out" and extend_end <= overext_aln[0][0].trg_end)):
             ext_st_minus_st = extend_start - overext_aln[0][0].trg_start
             ext_end_minus_st = extend_end - overext_aln[0][0].trg_start
             aln_st_ind = trg_aln[ext_st_minus_st]
-            aln_end_ind = trg_aln[ext_end_minus_st]
-            extend_aln_seq = overext_aln[0][0].qry_seq[aln_st_ind:aln_end_ind]
-            extend_seq = extend_aln_seq.translate(None, "-")
-            polished_seq.append(extend_seq)
-    
+            qry_st = aln_qry[aln_st_ind] + overext_aln[0][0].qry_start
+            if ext_end_minus_st == len(trg_aln):
+                aln_end_ind = trg_aln[-1] + 1
+                qry_end = aln_qry[-1] + 1 + overext_aln[0][0].qry_start
+            else:
+                aln_end_ind = trg_aln[ext_end_minus_st]
+                qry_end = aln_qry[aln_end_ind] + overext_aln[0][0].qry_start
+        else:
+            skip_bool = True
+    if not skip_bool:
+        overext_dict = fp.read_fasta_dict(overext_cons)
+        overext_seq = overext_dict.values[0]
+        extend_seq = overext_seq[qry_st:qry_end]
+        polished_seq.append(extend_seq)
+        polished_header += "|it_{0}_template_{1}_{2}".format(
+                                            it, extend_start, extend_end)
     polished_dict[polished_header] = "".join(polished_seq)
     fp.write_fasta_dict(polished_dict, polished_cons)
 
