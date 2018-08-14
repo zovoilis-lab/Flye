@@ -255,16 +255,17 @@ class JobShortPlasmidsAssembly(Job):
     def run(self):
         logger.info('Finding short plasmids')
 
-        reads_alignment = os.path.join(self.work_dir,
-                                       'reads_all_vs_all_alignment.paf')
+        reads_to_contigs_alignment = os.path.join(
+            self.work_dir, 'reads_to_contigs_alignment.paf')
 
-        if not os.path.isfile(reads_alignment):
-            logger.debug('Finding all-vs-all alignment for reads')
+        if not os.path.isfile(reads_to_contigs_alignment):
+            logger.debug('Aligning reads to contigs')
             plasmids.run_minimap('map-pb', self.contigs_path, self.args.reads,
-                                 self.args.threads, reads_alignment)
+                                 self.args.threads, reads_to_contigs_alignment)
 
         logger.debug('Calculating alignment rates')
-        alignment_rates = plasmids.calc_alignment_rates(reads_alignment)
+        alignment_rates = plasmids.calc_alignment_rates(
+            reads_to_contigs_alignment)
 
         logger.debug('Finding unmapped reads')
         unmapped_reads, n_reads = plasmids.find_unmapped_reads(
