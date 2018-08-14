@@ -278,7 +278,9 @@ class JobShortPlasmidsAssembly(Job):
         unique_plasmids = plasmids.extract_unique_plasmids(paf_trimmed_reads,
                                                            trimmed_reads_path)
 
-        fp.write_fasta_dict(unique_plasmids,'plasmids.fasta')
+        plasmids_fasta = os.path.join(self.work_dir, 'plasmids.fasta')
+
+        fp.write_fasta_dict(unique_plasmids, plasmids_fasta)
 
 
 def _create_job_list(args, work_dir, log_file):
