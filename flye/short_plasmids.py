@@ -102,7 +102,7 @@ def represents_circular_read(hit):
     if not hit.query_start < max_overhang:
         return False
 
-    if not hit.query_length - hit.query_end < max_overhang:
+    if not hit.target_length - hit.target_end < max_overhang:
         return False
 
     return True
@@ -140,9 +140,13 @@ def find_circular_reads(paf_unmapped_reads):
             if represents_circular_read(current_hit):
                 hit = circular_reads.get(current_hit.query)
                 if hit is None or current_hit.query_hit_length() > hit.query_hit_length():
-                    circular_reads[hit.query] = current_hit
+                    circular_reads[current_hit.query] = current_hit
 
     return circular_reads
+
+
+def cut_repeat(circular_reads, reads_paths, out_file):
+    pass
 
 
 def run_minimap(preset, contigs_file, reads_files, num_proc, out_file):
