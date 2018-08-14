@@ -271,6 +271,14 @@ class JobShortPlasmidsAssembly(Job):
         trimmed_reads_path = os.path.join(self.work_dir, 'trimmed_reads.fasta')
 
         fp.write_fasta_dict(trimmed_reads, trimmed_reads_path)
+        paf_trimmed_reads = os.path.join(self.work_dir, 'trimmed_reads_all_vs_all.paf')
+        plasmids.run_minimap('ava-pb', trimmed_reads_path, [trimmed_reads_path],
+                             self.args.threads, paf_trimmed_reads)
+
+        unique_plasmids = plasmids.extract_unique_plasmids(paf_trimmed_reads,
+                                                           trimmed_reads_path)
+
+        fp.write_fasta_dict(unique_plasmids,'plasmids.fasta')
 
 
 def _create_job_list(args, work_dir, log_file):

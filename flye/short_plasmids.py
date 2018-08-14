@@ -49,14 +49,14 @@ def unite_segments(segments):
     return united_segments
 
 
-def calc_alignment_rate(hit, mapping_segments):
-    query_coverage = 0
+def calc_alignment_rate(sequence_length, mapping_segments):
+    sequence_coverage = 0
     united_segments = unite_segments(mapping_segments)
 
     for segment in united_segments:
-        query_coverage += segment.end - segment.begin
+        sequence_coverage += segment.end - segment.begin
 
-    return round(float(query_coverage) / hit.query_length, 5)
+    return round(float(sequence_coverage) / sequence_length, 5)
 
 
 def calc_alignment_rates(paf_alignment):
@@ -76,7 +76,8 @@ def calc_alignment_rates(paf_alignment):
         if current_hit is None or current_hit.query != hit.query \
                                or current_hit.target != hit.target:
             if current_hit is not None:
-                aln_rate = calc_alignment_rate(current_hit, mapping_segments)
+                aln_rate = calc_alignment_rate(current_hit.query_length,
+                                               mapping_segments)
 
                 if current_hit.query not in alignment_rates:
                     alignment_rates[current_hit.query] = dict()
@@ -152,9 +153,102 @@ def trim_reads(circular_reads, unmapped_reads):
     for read, sequence in unmapped_reads.items():
         circular_read = circular_reads.get(read)
         if circular_read is not None:
-            trimmed_reads[read] = sequence[:circular_read.target_begin]
+            trimmed_reads[read] = sequence[:circular_read.target_start]
 
     return trimmed_reads
+
+
+def find_connected_components(graph):
+    def dfs(vertex, connected_components_counter):
+        connected_components[vertex] = connected_components_counter
+        used[vertex] = True
+        for neighbour in graph[vertex]:
+            if not used[neighbour]:
+                dfs(neighbour, connected_components_counter)
+
+    n_vertices = len(graph)
+    connected_components = [0 for _ in range(n_vertices)]
+    connected_components_counter = 0
+    used = [0 for _ in range(n_vertices)]
+
+    for i in range(n_vertices):
+        if not used[i]:
+            dfs(i, connected_components_counter)
+            connected_components_counter += 1
+
+    return connected_components, connected_components_counter
+
+
+def extract_unique_plasmids(paf_trimmed_reads, trimmed_reads_fasta):
+    trimmed_reads = set()
+    hits = []
+
+    with open(paf_trimmed_reads) as f:
+        for raw_hit in f:
+            hit = Hit(raw_hit)
+            hits.append(hit)
+            trimmed_reads.add(hit.query)
+            trimmed_reads.add(hit.target)
+
+    trimmed_reads = list(trimmed_reads)
+    n_trimmed_reads = len(trimmed_reads)
+    read2int = dict()
+    int2read = dict()
+
+    for i in range(n_trimmed_reads):
+        read2int[trimmed_reads[i]] = i
+        int2read[i] = trimmed_reads[i]
+
+    similarity_graph = [[] for _ in range(n_trimmed_reads)]
+    hits.sort(key=lambda hit: (hit.query, hit.target))
+
+    current_hit = None
+    query_mapping_segments = []
+    target_mapping_segments = []
+
+    for hit in hits:
+        if hit.query == hit.target:
+            continue
+
+        if current_hit is None or hit.query != current_hit.query or \
+                hit.target != current_hit.target:
+            if current_hit is not None:
+                query_length = current_hit.query_length
+                target_length = current_hit.target_length
+                query_aln_rate = calc_alignment_rate(query_length,
+                                                     query_mapping_segments)
+                target_aln_rate = calc_alignment_rate(target_length,
+                                                      target_mapping_segments)
+
+                if query_aln_rate >= 0.8 and target_aln_rate >= 0.8 and \
+                        abs(query_length - target_length) <= 500:
+                    vertex1 = read2int[current_hit.query]
+                    vertex2 = read2int[current_hit.target]
+                    similarity_graph[vertex1].append(vertex2)
+                    similarity_graph[vertex2].append(vertex1)
+
+            query_mapping_segments = []
+            target_mapping_segments = []
+            current_hit = hit
+
+        query_mapping_segments.append(Segment(hit.query_start, hit.query_end))
+        target_mapping_segments.append(Segment(hit.target_start, hit.target_end))
+
+    connected_components, n_components = find_connected_components(similarity_graph)
+
+    groups = [[] for _ in range(n_components)]
+    for i in range(len(connected_components)):
+        groups[connected_components[i]].append(int2read[i])
+
+    groups = [group for group in groups if len(group) > 1]
+
+    trimmed_reads_dict = fp.read_fasta_dict(trimmed_reads_fasta)
+    unique_plasmids = dict()
+
+    for group in groups:
+        unique_plasmids[group[0]] = trimmed_reads_dict[group[0]]
+
+    return unique_plasmids
 
 
 def run_minimap(preset, contigs_file, reads_files, num_proc, out_file):
