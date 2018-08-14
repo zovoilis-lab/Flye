@@ -147,7 +147,6 @@ void RepeatGraph::getGluepoints(OverlapContainer& asmOverlaps)
 
 	//we will now split each cluster based on it's Y coordinates
 	//and project these subgroups to the corresponding sequences
-	static const int MAX_SEPARATION = Config::get("max_separation");
 	for (auto& clustEndpoints : clusters)
 	{
 		//first, simply add projections for each point from the cluster
@@ -178,8 +177,8 @@ void RepeatGraph::getGluepoints(OverlapContainer& asmOverlaps)
 				.getCoveringOverlaps(clustSeq, clusterXpos - 1, 
 									 clusterXpos + 1))
 		{
-			if (interval.value->curEnd - clusterXpos > MAX_SEPARATION &&
-				clusterXpos - interval.value->curBegin > MAX_SEPARATION)
+			if (interval.value->curEnd - clusterXpos > _maxSeparation &&
+				clusterXpos - interval.value->curBegin > _maxSeparation)
 			{
 				int32_t projectedPos = interval.value->project(clusterXpos);
 				extCoords.push_back(new SetPoint2d(Point2d(clustSeq, clusterXpos,
@@ -321,12 +320,6 @@ void RepeatGraph::getGluepoints(OverlapContainer& asmOverlaps)
 
 	for (auto& seqGluepoints : tempGluepoints)
 	{
-		for (size_t i = 0; i < seqGluepoints.second.size() - 1; ++i)
-		{
-			if (seqGluepoints.second[i]->data.pos > 
-				seqGluepoints.second[i + 1]->data.pos) throw std::runtime_error("AAA");
-		}
-
 		std::vector<SetPoint1d*> currentGroup;
 		for (auto& gp : seqGluepoints.second)
 		{
