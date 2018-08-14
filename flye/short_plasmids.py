@@ -139,7 +139,7 @@ def find_circular_reads(paf_unmapped_reads):
             current_hit = Hit(raw_hit)
             if represents_circular_read(current_hit):
                 hit = circuar_reads.get(current_hit.query)
-                if hit is None or
+                if hit is None or \
                    current_hit.query_hit_length() > hit.query_hit_length():
                    circuar_reads[hit.query] = current_hit
 
