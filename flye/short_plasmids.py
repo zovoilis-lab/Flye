@@ -25,6 +25,9 @@ class Hit:
         self.target_start = int(hit[7])
         self.target_end = int(hit[8])
 
+    def query_hit_length(self):
+        return self.query_end - self.query_start
+
 
 class Segment:
     def __init__(self, begin, end):
@@ -105,16 +108,6 @@ def represents_circular_read(hit):
     return True
 
 
-def find_circular_reads(paf_unmapped_reads):
-    circuar_reads = dict()
-
-    with open(paf_unmapped_reads) as f:
-        for raw_hit in f:
-            hit = Hit(raw_hit)
-            if represents_circular_read(hit):
-                pass
-
-
 def find_unmapped_reads(alignment_rates, reads_files, aln_rate_threshold):
     unmapped_reads = dict()
 
@@ -136,6 +129,21 @@ def find_unmapped_reads(alignment_rates, reads_files, aln_rate_threshold):
                     unmapped_reads[read] = sequence
 
     return unmapped_reads
+
+
+def find_circular_reads(paf_unmapped_reads):
+    circuar_reads = dict()
+
+    with open(paf_unmapped_reads) as f:
+        for raw_hit in f:
+            current_hit = Hit(raw_hit)
+            if represents_circular_read(current_hit):
+                hit = circuar_reads.get(current_hit.query)
+                if hit is None or
+                   current_hit.query_hit_length() > hit.query_hit_length():
+                   circuar_reads[hit.query] = current_hit
+
+    return circuar_reads
 
 
 def run_minimap(preset, contigs_file, reads_files, num_proc, out_file):
