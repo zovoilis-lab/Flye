@@ -824,9 +824,12 @@ def _add_to_consensus(polished_cons, overext_cons, template,
             skip_bool = True
     if not skip_bool:
         overext_dict = fp.read_fasta_dict(overext_cons)
-        overext_seq = overext_dict.values[0]
+        overext_seq = overext_dict.values()[0]
         extend_seq = overext_seq[qry_st:qry_end]
-        polished_seq.append(extend_seq)
+        if side == "in":
+            polished_seq.append(extend_seq)
+        elif side == "out":
+            polished_seq.insert(0, extend_seq)
         polished_header += "|it_{0}_template_{1}_{2}".format(
                                             it, extend_start, extend_end)
     polished_dict[polished_header] = "".join(polished_seq)
