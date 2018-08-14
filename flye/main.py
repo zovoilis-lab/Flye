@@ -268,7 +268,7 @@ class JobShortPlasmidsAssembly(Job):
         circular_reads = plasmids.find_circular_reads(paf_unmapped_reads)
 
         with open(os.path.join(self.work_dir, 'circular_reads.txt'), 'w') as f:
-            for read in circuar_reads:
+            for read in circular_reads:
                 f.write('>' + read + '\n')
 
 def _create_job_list(args, work_dir, log_file):
