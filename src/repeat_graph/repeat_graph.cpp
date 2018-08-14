@@ -616,6 +616,11 @@ void RepeatGraph::initializeEdges(const OverlapContainer& asmOverlaps)
 		//cluster segments based on their overlaps
 		for (auto& setOne : segmentSets)
 		{
+			int fstCoverage = 
+				asmOverlaps.getCoveringOverlaps(setOne->data->seqId, 
+						setOne->data->start + _maxSeparation, 
+						setOne->data->end - _maxSeparation).size();
+
 			for (auto& interval : asmOverlaps
 						.getCoveringOverlaps(setOne->data->seqId, 
 											 setOne->data->start,
@@ -638,29 +643,44 @@ void RepeatGraph::initializeEdges(const OverlapContainer& asmOverlaps)
 				if (endRange != ss.end()) ++endRange;
 				for (;startRange != endRange; ++startRange)
 				{
-					if (findSet(setOne) == findSet(*startRange)) continue;
+					auto* setTwo = *startRange;
+					if (findSet(setOne) == findSet(setTwo)) continue;
 
-					//projecting the interval endpoints
-					//(overlap might be covering the actual segment)
-					//int32_t projStart = ovlp.project(setOne->data->start);
-					//int32_t projEnd = ovlp.project(setOne->data->end);
-					//int32_t projIntersect =
-					//	segIntersect(*(*startRange)->data, projStart, projEnd);
-					int32_t projTwo = segIntersect(*(*startRange)->data, 
-												   ovlp.extBegin, ovlp.extEnd);
+					int sndCoverage = 
+						asmOverlaps.getCoveringOverlaps(setTwo->data->seqId, 
+								setTwo->data->start + _maxSeparation, 
+								setTwo->data->end - _maxSeparation).size();
 
-					//int32_t fstLen = setOne->data->length();
-					//int32_t sndLen = (*startRange)->data->length();
-					//float lenDiv = (float)std::max(fstLen, sndLen) / 
-					//				std::min(fstLen, sndLen);
-					//TODO: we should be able to lower this threshold in the future
-					//with the improved handling of tanem repeat edges
-					//const int MAX_DIV = 5;
-					if (projTwo > _maxSeparation)
+
+					bool aligned = false;
+					if (fstCoverage < 10 && sndCoverage < 10) 
 					{
-						unionSet(setOne, *startRange);
+						//projecting the interval endpoints
+						//(overlap might be covering the actual segment)
+						int32_t projStart = ovlp.project(setOne->data->start);
+						int32_t projEnd = ovlp.project(setOne->data->end);
+						int32_t projIntersect =
+							segIntersect(*setTwo->data, projStart, projEnd);
+
+						int32_t fstLen = setOne->data->length();
+						int32_t sndLen = setTwo->data->length();
+						//float lenDiv = (float)std::max(fstLen, sndLen) / 
+						//				std::min(fstLen, sndLen);
+						if (projIntersect > fstLen / 2 && 
+							projIntersect > sndLen / 2) aligned = true;
+					}
+					//relaxed condition for segments likely to be tandem
+					else
+					{
+						int32_t projTwo = segIntersect(*setTwo->data, 
+												   	   ovlp.extBegin, ovlp.extEnd);
+						if (projTwo > _maxSeparation) aligned = true;
 					}
 
+					if (aligned)
+					{
+						unionSet(setOne, setTwo);
+					}
 				}
 			}
 		}
