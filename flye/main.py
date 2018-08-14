@@ -256,14 +256,11 @@ class JobShortPlasmidsAssembly(Job):
         self.name = "short_plasmids_assembly"
 
     def run(self):
-        plasmids.run_minimap('map-pb', self.contigs_path, self.args.reads, 
+        plasmids.run_minimap('map-pb', self.contigs_path, self.args.reads,
                              self.args.threads, self.alignment_out)
         alignment_rates = plasmids.calc_alignment_rates(self.alignment_out)
         unmapped_reads = plasmids.find_unmapped_reads(alignment_rates, self.args.reads, 0.5)
-
-        with open(os.path.join(self.work_dir, 'unmapped_reads.txt'), 'w') as f:
-            for read, sequence in unmapped_reads.items():
-                f.write('>' + read + '\n')
+        fp.write_fasta_dict(unmapped_reads, 'unmapped_reads.fasta')
 
 
 def _create_job_list(args, work_dir, log_file):
