@@ -191,10 +191,15 @@ void VertexIndex::buildIndex(int minCoverage)
 	size_t solidKmers = 0;
 	for (auto& kmer : _kmerCounts.lock_table())
 	{
-		if ((size_t)minCoverage <= kmer.second)
+		if ((size_t)minCoverage <= kmer.second &&
+			kmer.second < _repetitiveFrequency)
 		{
 			kmerEntries += kmer.second;
 			++solidKmers;
+		}
+		if (kmer.second > _repetitiveFrequency)
+		{
+			_repetitiveKmers.insert(kmer.first, true);
 		}
 	}
 	Logger::get().debug() << "Sampling rate: " << _sampleRate;
@@ -206,14 +211,11 @@ void VertexIndex::buildIndex(int minCoverage)
 	_kmerIndex.reserve(solidKmers);
 	for (auto& kmer : _kmerCounts.lock_table())
 	{
-		if ((size_t)minCoverage <= kmer.second)
+		if ((size_t)minCoverage <= kmer.second &&
+			kmer.second < _repetitiveFrequency)
 		{
 			ReadVector rv{(uint32_t)kmer.second, 0, nullptr};
 			_kmerIndex.insert(kmer.first, rv);
-		}
-		if (kmer.second > _repetitiveFrequency)
-		{
-			_repetitiveKmers.insert(kmer.first, true);
 		}
 	}
 	_kmerCounts.clear();
