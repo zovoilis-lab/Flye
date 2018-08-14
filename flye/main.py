@@ -299,7 +299,7 @@ class JobShortPlasmidsAssembly(Job):
         trimmed_reads_alignment = os.path.join(
             self.work_dir, 'trimmed_reads_all_vs_all_alignment.paf')
 
-        if not os.path.isfile(trimmed_reads_path):
+        if not os.path.isfile(trimmed_reads_alignment):
             plasmids.run_minimap('ava-pb', trimmed_reads_path,
                                  [trimmed_reads_path],
                                  self.args.threads, trimmed_reads_alignment)
