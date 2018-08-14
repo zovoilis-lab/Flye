@@ -266,10 +266,12 @@ class JobShortPlasmidsAssembly(Job):
         plasmids.run_minimap('ava-pb', unmapped_reads_path, [unmapped_reads_path],
                              self.args.threads, paf_unmapped_reads)
         circular_reads = plasmids.find_circular_reads(paf_unmapped_reads)
+        trimmed_reads = plasmids.trim_reads(circular_reads, unmapped_reads)
 
-        with open(os.path.join(self.work_dir, 'circular_reads.txt'), 'w') as f:
-            for read in circular_reads:
-                f.write('>' + read + '\n')
+        trimmed_reads_path = os.path.join(self.work_dir, 'trimmed_reads.fasta')
+
+        fp.write_fasta_dict(trimmed_reads, trimmed_reads_path)
+
 
 def _create_job_list(args, work_dir, log_file):
     """

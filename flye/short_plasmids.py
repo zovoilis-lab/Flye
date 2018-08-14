@@ -139,14 +139,22 @@ def find_circular_reads(paf_unmapped_reads):
             current_hit = Hit(raw_hit)
             if represents_circular_read(current_hit):
                 hit = circular_reads.get(current_hit.query)
-                if hit is None or current_hit.query_hit_length() > hit.query_hit_length():
+                if hit is None or current_hit.query_hit_length() > \
+                        hit.query_hit_length():
                     circular_reads[current_hit.query] = current_hit
 
     return circular_reads
 
 
-def cut_repeat(circular_reads, reads_paths, out_file):
-    pass
+def trim_reads(circular_reads, unmapped_reads):
+    trimmed_reads = dict()
+
+    for read, sequence in unmapped_reads.items():
+        circular_read = circular_reads.get(read)
+        if circular_read is not None:
+            trimmed_reads[read] = sequence[:circular_read.target_begin]
+
+    return trimmed_reads
 
 
 def run_minimap(preset, contigs_file, reads_files, num_proc, out_file):
