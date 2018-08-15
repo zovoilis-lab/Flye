@@ -661,7 +661,7 @@ void RepeatGraph::initializeEdges(const OverlapContainer& asmOverlaps)
 			}
 		}
 		auto edgeClusters = groupBySet(segmentSets);
-		if (edgeClusters.size() > 5)
+		/*if (edgeClusters.size() > 5)
 		{
 			Logger::get().debug() << "Node with " << segmentSets.size() << " segments";
 			Logger::get().debug() << "\tclusters: " << edgeClusters.size();
@@ -698,7 +698,7 @@ void RepeatGraph::initializeEdges(const OverlapContainer& asmOverlaps)
 					Logger::get().debug() << "\t\t\t...";
 				}
 			}
-		}
+		}*/
 
 		//add edge for each cluster
 		std::vector<SequenceSegment> usedSegments;
@@ -739,7 +739,7 @@ void RepeatGraph::initializeEdges(const OverlapContainer& asmOverlaps)
 			_nextEdgeId += 2;
 		}
 	}
-	exit(1);
+	//exit(1);
 	this->logEdges();
 }
 
