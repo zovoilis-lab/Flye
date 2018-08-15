@@ -272,7 +272,7 @@ class JobShortPlasmidsAssembly(Job):
             alignment_rates, self.args.reads, aln_rate_threshold=0.5)
 
         n_unmapped_reads = len(unmapped_reads)
-        unmapped_reads_ratio = round(100 * float(n_unmapped_reads) / n_reads, 2)
+        unmapped_reads_ratio = round(100 * float(n_unmapped_reads) / n_reads, 1)
         logger.debug('Found {} unmapped reads ({} %)'.format(
             n_unmapped_reads, unmapped_reads_ratio))
 
@@ -282,6 +282,7 @@ class JobShortPlasmidsAssembly(Job):
 
         unmapped_reads_alignment = os.path.join(
             self.work_dir, 'unmapped_reads_all_vs_all_alignment.paf')
+
         if not os.path.isfile(unmapped_reads_alignment):
             logger.debug('Finding all-vs-all alignment for unmapped reads')
             plasmids.run_minimap('ava-pb', unmapped_reads_path,
@@ -293,7 +294,8 @@ class JobShortPlasmidsAssembly(Job):
         logger.debug('Found {} circular reads'.format(len(circular_reads)))
 
         logger.debug('Extracting unique plasmids from circular reads')
-        trimmed_reads = plasmids.trim_reads(circular_reads, unmapped_reads)
+        trimmed_reads = plasmids.trim_circular_reads(circular_reads,
+                                                     unmapped_reads)
         trimmed_reads_path = os.path.join(self.work_dir, 'trimmed_reads.fasta')
         fp.write_fasta_dict(trimmed_reads, trimmed_reads_path)
         trimmed_reads_alignment = os.path.join(

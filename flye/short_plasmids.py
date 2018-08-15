@@ -34,6 +34,9 @@ class Segment:
         self.begin = begin
         self.end = end
 
+    def length(self):
+        return self.end - self.begin
+
 
 def unite_segments(segments):
     segments.sort(key=lambda segment: segment.begin)
@@ -54,7 +57,7 @@ def calc_alignment_rate(sequence_length, mapping_segments):
     united_segments = unite_segments(mapping_segments)
 
     for segment in united_segments:
-        sequence_coverage += segment.end - segment.begin
+        sequence_coverage += segment.length()
 
     return round(float(sequence_coverage) / sequence_length, 5)
 
@@ -147,7 +150,7 @@ def find_circular_reads(paf_unmapped_reads):
     return circular_reads
 
 
-def trim_reads(circular_reads, unmapped_reads):
+def trim_circular_reads(circular_reads, unmapped_reads):
     trimmed_reads = dict()
 
     for read, sequence in unmapped_reads.items():
