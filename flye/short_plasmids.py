@@ -180,6 +180,18 @@ def trim_circular_reads(circular_reads, unmapped_reads):
     return trimmed_reads
 
 
+def is_pair_without_overlap(circular_pair):
+    if not circular_pair[1].query_start < circular_pair[1].query_end < \
+           circular_pair[0].query_start < circular_pair[0].query_end:
+        return False
+
+    if not circular_pair[0].target_start < circular_pair[0].target_end < \
+            circular_pair[1].query_start < circular_pair[1].query_end:
+        return False
+
+    return True
+
+
 def find_circular_pairs(paf_unmapped_reads):
     hits = []
 
@@ -202,7 +214,8 @@ def find_circular_pairs(paf_unmapped_reads):
 
         if previous_hit is None or previous_hit.query != hit.query or \
                 previous_hit.target != hit.target:
-            if previous_hit is not None and has_overlap and is_circular:
+            if previous_hit is not None and has_overlap and is_circular and \
+                    is_pair_without_overlap(circular_pair):
                 circular_pairs.append(circular_pair)
 
             circular_pair = [None, None]
