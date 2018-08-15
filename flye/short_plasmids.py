@@ -186,7 +186,7 @@ def is_pair_without_overlap(circular_pair):
         return False
 
     if not circular_pair[0].target_start < circular_pair[0].target_end < \
-            circular_pair[1].query_start < circular_pair[1].query_end:
+            circular_pair[1].target_start < circular_pair[1].target_end:
         return False
 
     return True
