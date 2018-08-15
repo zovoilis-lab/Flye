@@ -86,11 +86,16 @@ void RepeatGraph::build()
 
 void RepeatGraph::getGluepoints(OverlapContainer& asmOverlaps)
 {
-	//Process alignment ends to construct glueing points for the
-	//repeat graph construction.
-	//Note, that there are two kinds of clustering here:
-	//based on X and Y coordinates (position + seqId) of the points,
-	//that might often define different subsets
+	//Convert local alignments to the set of gluing points
+	//that are further used for repeat graph construction.
+	//Note, that there are two steps of clustering here.
+	//First, alignment endpoints are clustered wrt to their
+	//projections within a single contig (X-coordinates). Then
+	//each cluster is further split into subclusters based 
+	//on the 2-nd projection of each clustered point (Y-coordinates).
+	//Each subcluster will thus have a different Y-coordinate,
+	//but they will share their X-coordinate and cluster ID
+	//(this means they will be glued during repeat graph cosntruction)
 	
 	Logger::get().debug() << "Computing gluepoints";
 	typedef SetNode<Point2d> SetPoint2d;
@@ -102,9 +107,6 @@ void RepeatGraph::getGluepoints(OverlapContainer& asmOverlaps)
 	{
 		for (auto& ovlp : asmOverlaps.lazySeqOverlaps(seq.id))
 		{
-			//if (_filteredSeqs.count(ovlp.curId) ||
-			//	_filteredSeqs.count(ovlp.extId)) continue;
-
 			endpoints[ovlp.curId]
 				.push_back(new SetPoint2d(Point2d(ovlp.curId, ovlp.curBegin,
 										  ovlp.extId, ovlp.extBegin)));
@@ -169,8 +171,9 @@ void RepeatGraph::getGluepoints(OverlapContainer& asmOverlaps)
 			extCoords.push_back(new SetPoint2d(ep));
 		}
 		
-		//Important part: we need also add extra projections
-		//for gluepoints that lie within other existing overlaps
+		//Important part: extending set of gluing points
+		//We need also add extra projections
+		//for gluepoints that are inside overlaps
 		//(handles situations with 'repeat hierarchy', when some
 		//repeats are parts of the other bigger repeats)
 		for (auto& interval : asmOverlaps
@@ -205,7 +208,6 @@ void RepeatGraph::getGluepoints(OverlapContainer& asmOverlaps)
 
 		}
 		auto extClusters = groupBySet(extCoords);
-
 		//now, get coordinates for each cluster
 		for (auto& extClust : extClusters)
 		{
@@ -354,12 +356,12 @@ void RepeatGraph::getGluepoints(OverlapContainer& asmOverlaps)
 		}
 	}
 
-	//add flanking points, if needed
+	//add contig end points, if needed
 	const int MAX_TIP = Parameters::get().minimumOverlap;
 	for (auto& seq : _asmSeqs.iterSeqs())
 	{
 		if (!seq.id.strand()) continue;
-		//if (_filteredSeqs.count(seq.id)) continue;
+
 		auto& seqPoints = _gluePoints[seq.id];
 		auto& complPoints = _gluePoints[seq.id.rc()];
 
@@ -380,11 +382,11 @@ void RepeatGraph::getGluepoints(OverlapContainer& asmOverlaps)
 		}
 	}
 
-	//ensure coordinates are symmetric
+	//ensure that coordinates ont forward and reverse contig copies are symmetric
 	for (auto& seq : _asmSeqs.iterSeqs())
 	{
 		if (!seq.id.strand()) continue;
-		//if (_filteredSeqs.count(seq.id)) continue;
+
 		auto& seqPoints = _gluePoints[seq.id];
 		auto& complPoints = _gluePoints[seq.id.rc()];
 
@@ -401,25 +403,13 @@ void RepeatGraph::getGluepoints(OverlapContainer& asmOverlaps)
 	Logger::get().debug() << "Created " << numGluepoints << " gluepoints";
 }
 
-//Cleaning up some messy tandem repeats that are actually
+//Cleaning up some messy "tandem" repeats that are actually
 //artifatcs of the alignment
 void RepeatGraph::collapseTandems()
 {
 	std::unordered_map<size_t, std::unordered_set<size_t>> tandemLefts;
 	std::unordered_map<size_t, std::unordered_set<size_t>> tandemRights;
 	std::unordered_set<size_t> bigTandems;
-
-	/*std::unordered_map<size_t, size_t> complPoints;
-	for (auto& seqPoints : _gluePoints)
-	{
-		auto& complSeq = _gluePoints[seqPoints.first.rc()];
-		if (seqPoints.second.size() != complSeq.size()) throw std::runtime_error("AAA");
-		for (size_t i = 0; i < seqPoints.second.size(); ++i)
-		{
-			complPoints[seqPoints.second[i].pointId] =
-				complSeq[seqPoints.second.size() - i - 1].pointId;
-		}
-	}*/
 
 	for (auto& seqPoints : _gluePoints)
 	{
@@ -671,7 +661,7 @@ void RepeatGraph::initializeEdges(const OverlapContainer& asmOverlaps)
 			}
 		}
 		auto edgeClusters = groupBySet(segmentSets);
-		/*if (edgeClusters.size() > 5)
+		if (edgeClusters.size() > 5)
 		{
 			Logger::get().debug() << "Node with " << segmentSets.size() << " segments";
 			Logger::get().debug() << "\tclusters: " << edgeClusters.size();
@@ -694,7 +684,7 @@ void RepeatGraph::initializeEdges(const OverlapContainer& asmOverlaps)
 							auto& ovlp = *interval.value;
 							int32_t intersectOne = 
 								segIntersect(*s, ovlp.curBegin, ovlp.curEnd);
-							if (intersectOne > 0.75f * ovlp.curRange()) 
+							if (intersectOne > s->length() / 2) 
 								ovlpCovered = "*" + std::to_string(ovlp.extId.rawId());
 						}
 
@@ -708,7 +698,7 @@ void RepeatGraph::initializeEdges(const OverlapContainer& asmOverlaps)
 					Logger::get().debug() << "\t\t\t...";
 				}
 			}
-		}*/
+		}
 
 		//add edge for each cluster
 		std::vector<SequenceSegment> usedSegments;
@@ -749,6 +739,7 @@ void RepeatGraph::initializeEdges(const OverlapContainer& asmOverlaps)
 			_nextEdgeId += 2;
 		}
 	}
+	exit(1);
 	this->logEdges();
 }
 
@@ -792,53 +783,6 @@ void RepeatGraph::logEdges()
 	}
 	Logger::get().debug() << "Total edges: " << _nextEdgeId / 2;
 }
-
-/*
-void RepeatGraph::markChimericEdges()
-{
-	typedef std::pair<SequenceSegment*, GraphEdge*> SegEdgePair;
-	std::unordered_map<FastaRecord::Id, 
-					   std::vector<SegEdgePair>> sequenceEdges;
-	for (auto& edge : this->iterEdges())
-	{
-		for (auto& segment : edge->seqSegments)
-		{
-			sequenceEdges[segment.seqId].push_back({&segment, edge});
-		}
-	}
-	for (auto& seqEdgesPair : sequenceEdges)
-	{
-		std::sort(seqEdgesPair.second.begin(), seqEdgesPair.second.end(),
-				  [](const SegEdgePair& s1, const SegEdgePair& s2)
-				  	{return s1.first->start < s2.first->start;});
-	}
-
-	int extraSelfCompl = 0;
-	for (auto& seqEdgesPair : sequenceEdges)
-	{
-		if (!seqEdgesPair.first.strand()) continue;
-
-		for (size_t i = 1; i < seqEdgesPair.second.size() - 1; ++i)
-		{
-			GraphEdge* leftEdge = seqEdgesPair.second[i - 1].second;
-			GraphEdge* midEdge = seqEdgesPair.second[i].second;
-			GraphEdge* rightEdge = seqEdgesPair.second[i + 1].second;
-
-			if (leftEdge->edgeId == rightEdge->edgeId.rc() &&
-				leftEdge->edgeId != midEdge->edgeId &&
-				rightEdge->edgeId != midEdge->edgeId &&
-				midEdge->seqSegments.size() == 1 &&
-				midEdge->length() < Parameters::get().minimumOverlap)
-			{
-				midEdge->selfComplement = true;
-				this->complementEdge(midEdge)->selfComplement = true;
-				++extraSelfCompl;
-			}
-		}
-	}
-	Logger::get().debug() << "Extra self-complements: " << extraSelfCompl;
-}*/
-
 
 GraphPath RepeatGraph::complementPath(const GraphPath& path) const
 {
