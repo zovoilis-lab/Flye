@@ -168,11 +168,9 @@ def find_circular_reads(paf_unmapped_reads):
 def trim_circular_reads(circular_reads, unmapped_reads):
     trimmed_reads = dict()
 
-    ctr = 0
     for read, hit in circular_reads.items():
         sequence = unmapped_reads[read]
-        trimmed_reads['circular_seq' + str(ctr)] = sequence[:hit.target_start]
-        ctr += 1
+        trimmed_reads[read] = sequence[:hit.target_start]
 
     return trimmed_reads
 
