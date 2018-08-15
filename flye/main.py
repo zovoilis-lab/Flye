@@ -323,7 +323,7 @@ class JobShortPlasmidsAssembly(Job):
                                                      unmapped_reads)
 
         trimmed_pairs_path = os.path.join(self.work_dir, 'trimmed_pairs.fasta')
-        fp.write_fasta_dict(trimmed_pairs, trimmed_reads_path)
+        fp.write_fasta_dict(trimmed_pairs, trimmed_pairs_path)
         trimmed_pairs_alignment = os.path.join(
             self.work_dir, 'trimmed_pairs_all_vs_all_alignment.paf')
 
