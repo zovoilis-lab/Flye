@@ -288,29 +288,42 @@ void RepeatGraph::getGluepoints(OverlapContainer& asmOverlaps)
 		{
 			setToId[findSet(reprPoint)] = pointId++;
 		}
+		int32_t clusterSize = group.back()->data.pos - 
+							  group.front()->data.pos;
 
-		std::vector<int32_t> positions;
-		for (auto& ep : group) 
-		{
-			positions.push_back(ep->data.pos);
-		}
-		int32_t clusterXpos = median(positions);
-
-		bool tandemRepeat = group.back()->data.pos - 
-							group.front()->data.pos > _maxSeparation;
-		
-		if (tandemRepeat)
+		//big cluster corresponding to a tandem repeat - 
+		//split it into many short edges
+		if (clusterSize > _maxSeparation)
 		{
 			_gluePoints[reprPoint->data.seqId]
 				.emplace_back(setToId[findSet(reprPoint)],
 							  reprPoint->data.seqId, group.front()->data.pos);
 
+			int32_t repeats = std::floor(clusterSize / _maxSeparation);
+			int32_t mode = clusterSize / repeats;
+			for (int32_t i = 1; i < repeats; ++i)
+			{
+				int32_t pos = group.front()->data.pos + mode * i;
+				_gluePoints[reprPoint->data.seqId]
+					.emplace_back(setToId[findSet(reprPoint)],
+								  reprPoint->data.seqId, pos);
+
+			}
+
 			_gluePoints[reprPoint->data.seqId]
 				.emplace_back(setToId[findSet(reprPoint)],
 							  reprPoint->data.seqId, group.back()->data.pos);
 		}
+		//"normal" endpoint - just take a consensus
 		else
 		{
+			std::vector<int32_t> positions;
+			for (auto& ep : group) 
+			{
+				positions.push_back(ep->data.pos);
+			}
+			int32_t clusterXpos = median(positions);
+
 			_gluePoints[reprPoint->data.seqId]
 				.emplace_back(setToId[findSet(reprPoint)],
 							  reprPoint->data.seqId, clusterXpos);
@@ -613,14 +626,10 @@ void RepeatGraph::initializeEdges(const OverlapContainer& asmOverlaps)
 					  {return s1->data->start < s2->data->start;});
 		}
 
+
 		//cluster segments based on their overlaps
 		for (auto& setOne : segmentSets)
 		{
-			int fstCoverage = 
-				asmOverlaps.getCoveringOverlaps(setOne->data->seqId, 
-						setOne->data->start + _maxSeparation, 
-						setOne->data->end - _maxSeparation).size();
-
 			for (auto& interval : asmOverlaps
 						.getCoveringOverlaps(setOne->data->seqId, 
 											 setOne->data->start,
@@ -646,38 +655,15 @@ void RepeatGraph::initializeEdges(const OverlapContainer& asmOverlaps)
 					auto* setTwo = *startRange;
 					if (findSet(setOne) == findSet(setTwo)) continue;
 
-					int sndCoverage = 
-						asmOverlaps.getCoveringOverlaps(setTwo->data->seqId, 
-								setTwo->data->start + _maxSeparation, 
-								setTwo->data->end - _maxSeparation).size();
+					//projecting the interval endpoints
+					//(overlap might be covering the actual segment)
+					int32_t projStart = ovlp.project(setOne->data->start);
+					int32_t projEnd = ovlp.project(setOne->data->end);
+					int32_t projIntersect =
+						segIntersect(*setTwo->data, projStart, projEnd);
 
-
-					bool aligned = false;
-					if (fstCoverage < 10 && sndCoverage < 10) 
-					{
-						//projecting the interval endpoints
-						//(overlap might be covering the actual segment)
-						int32_t projStart = ovlp.project(setOne->data->start);
-						int32_t projEnd = ovlp.project(setOne->data->end);
-						int32_t projIntersect =
-							segIntersect(*setTwo->data, projStart, projEnd);
-
-						int32_t fstLen = setOne->data->length();
-						int32_t sndLen = setTwo->data->length();
-						//float lenDiv = (float)std::max(fstLen, sndLen) / 
-						//				std::min(fstLen, sndLen);
-						if (projIntersect > fstLen / 2 && 
-							projIntersect > sndLen / 2) aligned = true;
-					}
-					//relaxed condition for segments likely to be tandem
-					else
-					{
-						int32_t projTwo = segIntersect(*setTwo->data, 
-												   	   ovlp.extBegin, ovlp.extEnd);
-						if (projTwo > _maxSeparation) aligned = true;
-					}
-
-					if (aligned)
+					if (projIntersect > setOne->data->length() / 2 && 
+						projIntersect > setTwo->data->length() / 2)
 					{
 						unionSet(setOne, setTwo);
 					}
@@ -685,6 +671,44 @@ void RepeatGraph::initializeEdges(const OverlapContainer& asmOverlaps)
 			}
 		}
 		auto edgeClusters = groupBySet(segmentSets);
+		/*if (edgeClusters.size() > 5)
+		{
+			Logger::get().debug() << "Node with " << segmentSets.size() << " segments";
+			Logger::get().debug() << "\tclusters: " << edgeClusters.size();
+			for (auto& edgeClust : edgeClusters)
+			{
+				int sumLen = 0;
+				for (auto s : edgeClust.second) sumLen += s->length();
+				Logger::get().debug() << "\t\tcl: " << edgeClust.second.size()
+					<< " " << sumLen / edgeClust.second.size();
+				
+				if (edgeClust.second.size() < 10)
+				{
+					for (auto s : edgeClust.second)
+					{
+						std::string ovlpCovered = " ";
+						for (auto& interval : asmOverlaps
+								.getCoveringOverlaps(s->seqId, 
+											 s->start, s->end))
+						{
+							auto& ovlp = *interval.value;
+							int32_t intersectOne = 
+								segIntersect(*s, ovlp.curBegin, ovlp.curEnd);
+							if (intersectOne > 0.75f * ovlp.curRange()) 
+								ovlpCovered = "*" + std::to_string(ovlp.extId.rawId());
+						}
+
+						Logger::get().debug() << "\t\t\t" << s->seqId 
+							<< " " << s->start << " " << s->length() <<
+							" " << ovlpCovered;
+					}
+				}
+				else
+				{
+					Logger::get().debug() << "\t\t\t...";
+				}
+			}
+		}*/
 
 		//add edge for each cluster
 		std::vector<SequenceSegment> usedSegments;
