@@ -311,7 +311,32 @@ class JobShortPlasmidsAssembly(Job):
 
         logger.info('Found {} short plasmids'.format(len(unique_plasmids)))
 
-        plasmids_out = os.path.join(self.work_dir, 'plasmids.fasta')
+        plasmids_out = os.path.join(self.work_dir, 'plasmids1.fasta')
+        fp.write_fasta_dict(unique_plasmids, plasmids_out)
+
+        logger.debug('Finding circular pairs')
+        circular_pairs = plasmids.find_circular_pairs(unmapped_reads_alignment)
+        logger.debug('Found {} circular pairs'.format(len(circular_pairs)))
+
+        logger.debug('Extracting unique plasmids from circular pairs')
+        trimmed_pairs = plasmids.trim_circular_pairs(circular_pairs,
+                                                     unmapped_reads)
+
+        trimmed_pairs_path = os.path.join(self.work_dir, 'trimmed_pairs.fasta')
+        fp.write_fasta_dict(trimmed_pairs, trimmed_reads_path)
+        trimmed_pairs_alignment = os.path.join(
+            self.work_dir, 'trimmed_pairs_all_vs_all_alignment.paf')
+
+        if not os.path.isfile(trimmed_pairs_alignment):
+            plasmids.run_minimap('ava-pb', trimmed_pairs_path,
+                                 [trimmed_pairs_path], self.args.threads,
+                                 trimmed_pairs_alignment)
+
+        unique_plasmids = plasmids.extract_unique_plasmids(
+            trimmed_pairs_alignment, trimmed_pairs_path)
+
+        logger.info('Found {} short plasmids'.format(len(unique_plasmids)))
+        plasmids_out = os.path.join(self.work_dir, 'plasmids2.fasta')
         fp.write_fasta_dict(unique_plasmids, plasmids_out)
 
 

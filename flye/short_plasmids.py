@@ -28,6 +28,21 @@ class Hit:
     def query_hit_length(self):
         return self.query_end - self.query_start
 
+    def target_hit_length(self):
+        return self.target_end - self.target_start
+
+    def query_left_overhang(self):
+        return self.query_start
+
+    def query_right_overhang(self):
+        return self.query_length - self.query_end
+
+    def target_left_overhang(self):
+        return self.target_start
+
+    def target_right_overhang(self):
+        return self.target_length - self.target_end
+
 
 class Segment:
     def __init__(self, begin, end):
@@ -102,10 +117,10 @@ def represents_circular_read(hit):
         return False
 
     max_overhang = 150
-    if not hit.query_start < max_overhang:
+    if not hit.query_left_overhang() < max_overhang:
         return False
 
-    if not hit.target_length - hit.target_end < max_overhang:
+    if not hit.target_right_overhang() < max_overhang:
         return False
 
     return True
@@ -153,10 +168,70 @@ def find_circular_reads(paf_unmapped_reads):
 def trim_circular_reads(circular_reads, unmapped_reads):
     trimmed_reads = dict()
 
-    for read, sequence in unmapped_reads.items():
-        circular_read = circular_reads.get(read)
-        if circular_read is not None:
-            trimmed_reads[read] = sequence[:circular_read.target_start]
+    ctr = 0
+    for read, hit in circular_reads.items():
+        sequence = unmapped_reads[read]
+        trimmed_reads['circular_seq' + str(ctr)] = sequence[:hit.target_start]
+        ctr += 1
+
+    return trimmed_reads
+
+
+def find_circular_pairs(paf_unmapped_reads):
+    hits = []
+
+    with open(paf_unmapped_reads) as f:
+        for raw_hit in f:
+            hits.append(Hit(raw_hit))
+
+    hits.sort(key=lambda hit: (hit.query, hit.target))
+
+    circular_pairs = []
+    circular_pair = [None, None]
+    previous_hit = None
+    has_overlap = False
+    is_circular = False
+    max_overhang = 300
+
+    for hit in hits:
+        if hit.query == hit.target:
+            continue
+
+        if previous_hit is None or previous_hit.query != hit.query or \
+                previous_hit.target != hit.target:
+            if previous_hit is not None and has_overlap and is_circular:
+                circular_pairs.append(circular_pair)
+
+            circular_pair = [None, None]
+            has_overlap = False
+            is_circular = False
+            previous_hit = hit
+
+        if not has_overlap:
+            if hit.query_right_overhang() < max_overhang and \
+                    hit.target_left_overhang() < max_overhang:
+                has_overlap = True
+                circular_pair[0] = hit
+                continue
+
+        if not is_circular:
+            if hit.query_left_overhang() < max_overhang and \
+                    hit.target_right_overhang() < max_overhang:
+                is_circular = True
+                circular_pair[1] = hit
+
+    return circular_pairs
+
+
+def trim_circular_pairs(circular_pairs, unmapped_reads):
+    trimmed_reads = dict()
+
+    for i, pair in enumerate(circular_pairs):
+        left_sequence = unmapped_reads[pair[0].query]
+        right_sequence = unmapped_reads[pair[0].target]
+        trimmed_sequence = left_sequence[pair[1].query_end:pair[0].query_end]
+        trimmed_sequence += right_sequence[pair[0].target_end:]
+        trimmed_reads['circular_pair' + str(i)] = trimmed_sequence
 
     return trimmed_reads
 
