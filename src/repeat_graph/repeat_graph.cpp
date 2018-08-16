@@ -277,7 +277,6 @@ void RepeatGraph::getGluepoints(OverlapContainer& asmOverlaps)
 					 complements[toMerge[i + 1]]);
 		}
 	}
-
 	
 	//Generating final gluepoints, we might need to additionally
 	//split long clusters into parts (tandem repeats)
@@ -356,10 +355,65 @@ void RepeatGraph::getGluepoints(OverlapContainer& asmOverlaps)
 		}
 	}
 
-	//This time we are making sure that
-	//all glue points are "valid" - make as many interations
-	//as necessary. We kinda did this already, but just in case..
-	while (true)
+	//ensure that coordinates ont forward and reverse contig copies are symmetric
+	for (auto& seq : _asmSeqs.iterSeqs())
+	{
+		if (!seq.id.strand()) continue;
+
+		auto& seqPoints = _gluePoints[seq.id];
+		auto& complPoints = _gluePoints[seq.id.rc()];
+
+		int32_t seqLen = _asmSeqs.seqLen(seq.id);
+		for (size_t i = 0; i < seqPoints.size(); ++i)
+		{
+			complPoints[seqPoints.size() - i - 1].position = 
+				seqLen - seqPoints[i].position - 1;
+		}
+	}
+
+	//This time we are making sure again that
+	//final glue points "valid" - have proper "projections"
+	//against each overlap
+	this->checkGluepointProjections(asmOverlaps);
+
+	//add contig end points, if needed
+	const int MAX_TIP = Parameters::get().minimumOverlap;
+	for (auto& seq : _asmSeqs.iterSeqs())
+	{
+		if (!seq.id.strand()) continue;
+
+		auto& seqPoints = _gluePoints[seq.id];
+		auto& complPoints = _gluePoints[seq.id.rc()];
+
+		if (seqPoints.empty() || seqPoints.front().position > MAX_TIP)
+		{
+			seqPoints.emplace(seqPoints.begin(), pointId++, 
+							  seq.id, 0);
+			complPoints.emplace_back(pointId++, seq.id.rc(),
+							  		 _asmSeqs.seqLen(seq.id) - 1);
+		}
+		if (seqPoints.size() == 1 || 
+			_asmSeqs.seqLen(seq.id) - seqPoints.back().position > MAX_TIP)
+		{
+			seqPoints.emplace_back(pointId++, seq.id, 
+								   _asmSeqs.seqLen(seq.id) - 1);
+			complPoints.emplace(complPoints.begin(), pointId++, 
+							  	seq.id.rc(), 0);
+		}
+	}
+
+	int numGluepoints = 0;
+	for (auto& seqRec : _gluePoints) numGluepoints += seqRec.second.size();
+	Logger::get().debug() << "Created " << numGluepoints << " gluepoints";
+}
+
+//This function ensures that all glue points have 
+//proper projections against each overlap. Make
+//as many iterations as needed
+void RepeatGraph::checkGluepointProjections(const OverlapContainer& asmOverlaps)
+{
+	size_t MAX_ITER = 1000;
+	for (size_t i = 0; i < MAX_ITER; ++i)
 	{
 		std::unordered_map<FastaRecord::Id, 
 						   std::vector<GluePoint>> addedGluepoints;
@@ -392,12 +446,8 @@ void RepeatGraph::getGluepoints(OverlapContainer& asmOverlaps)
 										 		 projectedPos + _maxSeparation, cmp);
 					for (; rBegin != rEnd; ++rBegin)
 					{
-						if (abs((*rBegin).position - projectedPos) <=
-							_maxSeparation) 
-						{
-							isValid = true;
-							break;
-						}
+						if (abs(rBegin->position - projectedPos) <=
+							_maxSeparation) isValid = true;
 					}
 					for (auto& otherPt : addedGluepoints[ovlp.extId])
 					{
@@ -430,55 +480,10 @@ void RepeatGraph::getGluepoints(OverlapContainer& asmOverlaps)
 					  [](const GluePoint& p1, const GluePoint& p2)
 						{return p1.position < p2.position;});
 		}
-		Logger::get().debug() << "Added " << totalAdded << " extra points";
+		Logger::get().debug() << "Added " << totalAdded 
+			<< " gluepoint projections";
 		if (!totalAdded) break;
 	}
-
-	//add contig end points, if needed
-	const int MAX_TIP = Parameters::get().minimumOverlap;
-	for (auto& seq : _asmSeqs.iterSeqs())
-	{
-		if (!seq.id.strand()) continue;
-
-		auto& seqPoints = _gluePoints[seq.id];
-		auto& complPoints = _gluePoints[seq.id.rc()];
-
-		if (seqPoints.empty() || seqPoints.front().position > MAX_TIP)
-		{
-			seqPoints.emplace(seqPoints.begin(), pointId++, 
-							  seq.id, 0);
-			complPoints.emplace_back(pointId++, seq.id.rc(),
-							  		 _asmSeqs.seqLen(seq.id) - 1);
-		}
-		if (seqPoints.size() == 1 || 
-			_asmSeqs.seqLen(seq.id) - seqPoints.back().position > MAX_TIP)
-		{
-			seqPoints.emplace_back(pointId++, seq.id, 
-								   _asmSeqs.seqLen(seq.id) - 1);
-			complPoints.emplace(complPoints.begin(), pointId++, 
-							  	seq.id.rc(), 0);
-		}
-	}
-
-	//ensure that coordinates ont forward and reverse contig copies are symmetric
-	for (auto& seq : _asmSeqs.iterSeqs())
-	{
-		if (!seq.id.strand()) continue;
-
-		auto& seqPoints = _gluePoints[seq.id];
-		auto& complPoints = _gluePoints[seq.id.rc()];
-
-		int32_t seqLen = _asmSeqs.seqLen(seq.id);
-		for (size_t i = 0; i < seqPoints.size(); ++i)
-		{
-			complPoints[seqPoints.size() - i - 1].position = 
-				seqLen - seqPoints[i].position - 1;
-		}
-	}
-
-	int numGluepoints = 0;
-	for (auto& seqRec : _gluePoints) numGluepoints += seqRec.second.size();
-	Logger::get().debug() << "Created " << numGluepoints << " gluepoints";
 }
 
 //Cleaning up some messy "tandem" repeats that are actually
@@ -762,10 +767,14 @@ void RepeatGraph::initializeEdges(const OverlapContainer& asmOverlaps)
 							int32_t intersectOne = 
 								segIntersect(*s, ovlp.curBegin, ovlp.curEnd);
 							if (intersectOne > s->length() / 2) 
-								ovlpCovered = "*" + std::to_string(ovlp.extId.rawId());
+								ovlpCovered = "* "  + _asmSeqs.seqName(ovlp.extId) + " " 
+									+ std::to_string(ovlp.curBegin) + " " +
+									std::to_string(ovlp.curEnd) + " " 
+									+ std::to_string(ovlp.extBegin) + " " +
+									std::to_string(ovlp.extEnd);
 						}
 
-						Logger::get().debug() << "\t\t\t" << s->seqId 
+						Logger::get().debug() << "\t\t\t" << _asmSeqs.seqName(s->seqId)
 							<< " " << s->start << " " << s->length() <<
 							" " << ovlpCovered;
 					}

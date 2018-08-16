@@ -321,6 +321,7 @@ private:
 	void initializeEdges(const OverlapContainer& asmOverlaps);
 	void collapseTandems();
 	void logEdges();
+	void checkGluepointProjections(const OverlapContainer& asmOverlaps);
 	
 	const SequenceContainer& _asmSeqs;
 	const int _maxSeparation = Config::get("max_separation");
