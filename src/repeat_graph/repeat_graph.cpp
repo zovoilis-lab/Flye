@@ -176,16 +176,16 @@ void RepeatGraph::getGluepoints(OverlapContainer& asmOverlaps)
 		//for gluepoints that are inside overlaps
 		//(handles situations with 'repeat hierarchy', when some
 		//repeats are parts of the other bigger repeats)
-		for (auto& interval : asmOverlaps
-				.getCoveringOverlaps(clustSeq, clusterXpos - 1, 
-									 clusterXpos + 1))
+		for (auto& interval : asmOverlaps.getCoveringOverlaps(clustSeq, 
+											 clusterXpos - 1, clusterXpos + 1))
 		{
-			if (interval.value->curEnd - clusterXpos > _maxSeparation &&
-				clusterXpos - interval.value->curBegin > _maxSeparation)
+			auto& ovlp = *interval.value;
+			if (ovlp.curEnd - clusterXpos > _maxSeparation &&
+				clusterXpos - ovlp.curBegin > _maxSeparation)
 			{
-				int32_t projectedPos = interval.value->project(clusterXpos);
+				int32_t projectedPos = ovlp.project(clusterXpos);
 				extCoords.push_back(new SetPoint2d(Point2d(clustSeq, clusterXpos,
-											   	   interval.value->extId, 
+											   	   ovlp.extId, 
 											   	   projectedPos)));
 			}
 		}
@@ -278,8 +278,9 @@ void RepeatGraph::getGluepoints(OverlapContainer& asmOverlaps)
 		}
 	}
 
-	//Generating final gluepoints, we might need additionally
-	//group clusters that are too close
+	
+	//Generating final gluepoints, we might need to additionally
+	//split long clusters into parts (tandem repeats)
 	size_t pointId = 0;
 	std::unordered_map<SetPoint1d*, size_t> setToId;
 	auto addConsensusPoint = [&setToId, this, &pointId]
@@ -294,7 +295,7 @@ void RepeatGraph::getGluepoints(OverlapContainer& asmOverlaps)
 							  group.front()->data.pos;
 
 		//big cluster corresponding to a tandem repeat - 
-		//split it into many short edges
+		//split it into multiple short edges
 		if (clusterSize > _maxSeparation)
 		{
 			_gluePoints[reprPoint->data.seqId]
@@ -332,7 +333,6 @@ void RepeatGraph::getGluepoints(OverlapContainer& asmOverlaps)
 		}
 
 	};
-
 	for (auto& seqGluepoints : tempGluepoints)
 	{
 		std::vector<SetPoint1d*> currentGroup;
@@ -354,6 +354,84 @@ void RepeatGraph::getGluepoints(OverlapContainer& asmOverlaps)
 		{
 			addConsensusPoint(currentGroup);
 		}
+	}
+
+	//This time we are making sure that
+	//all glue points are "valid" - make as many interations
+	//as necessary. We kinda did this already, but just in case..
+	while (true)
+	{
+		std::unordered_map<FastaRecord::Id, 
+						   std::vector<GluePoint>> addedGluepoints;
+		for (auto& gp : _gluePoints)
+		{
+			if (!gp.first.strand()) continue;
+
+			for (size_t i = 0; i < gp.second.size(); ++i)
+			{
+				GluePoint pt = gp.second[i];
+				GluePoint ptCompl = _gluePoints[pt.seqId.rc()][gp.second.size() - i - 1];
+
+				for (auto& interval : asmOverlaps
+						.getCoveringOverlaps(gp.first, pt.position - 1,  
+										   	 pt.position + 1))
+				{
+					auto& ovlp = *interval.value;
+					auto& seqPoints = _gluePoints[ovlp.extId];
+					//if (o.value->curEnd - pt->data.pos <= _maxSeparation &&
+					//	pt->data.pos - o.value->curBegin <= _maxSeparation) continue;
+
+					int32_t projectedPos = ovlp.project(pt.position);
+					bool isValid = false;
+
+					auto cmp = [] (const GluePoint& gp, int32_t pos)
+						{return gp.position < pos;};
+					auto rBegin = std::lower_bound(seqPoints.begin(), seqPoints.end(),
+										 		   projectedPos - _maxSeparation, cmp);
+					auto rEnd = std::lower_bound(seqPoints.begin(), seqPoints.end(),
+										 		 projectedPos + _maxSeparation, cmp);
+					for (; rBegin != rEnd; ++rBegin)
+					{
+						if (abs((*rBegin).position - projectedPos) <=
+							_maxSeparation) 
+						{
+							isValid = true;
+							break;
+						}
+					}
+					for (auto& otherPt : addedGluepoints[ovlp.extId])
+					{
+						if (abs(otherPt.position - projectedPos) <=
+							_maxSeparation) isValid = true;
+					}
+
+					if (!isValid) 
+					{
+						int32_t seqLen = _asmSeqs.seqLen(ovlp.extId);
+						GluePoint newPt(pt.pointId, ovlp.extId, projectedPos);
+						GluePoint newPtCompl(ptCompl.pointId, ovlp.extId.rc(),
+											 seqLen - newPt.position - 1);
+
+						addedGluepoints[newPt.seqId].push_back(newPt);
+						addedGluepoints[newPtCompl.seqId].push_back(newPtCompl);
+					}
+				}
+			}
+		}
+
+		int totalAdded = 0;
+		for (auto& ptVec : addedGluepoints)
+		{
+			totalAdded += ptVec.second.size();
+			std::copy(ptVec.second.begin(), ptVec.second.end(),
+					  std::back_inserter(_gluePoints[ptVec.first]));
+			std::sort(_gluePoints[ptVec.first].begin(), 
+					  _gluePoints[ptVec.first].end(),
+					  [](const GluePoint& p1, const GluePoint& p2)
+						{return p1.position < p2.position;});
+		}
+		Logger::get().debug() << "Added " << totalAdded << " extra points";
+		if (!totalAdded) break;
 	}
 
 	//add contig end points, if needed
@@ -621,9 +699,8 @@ void RepeatGraph::initializeEdges(const OverlapContainer& asmOverlaps)
 		for (auto& setOne : segmentSets)
 		{
 			for (auto& interval : asmOverlaps
-						.getCoveringOverlaps(setOne->data->seqId, 
-											 setOne->data->start,
-											 setOne->data->end))
+					.getCoveringOverlaps(setOne->data->seqId, setOne->data->start,
+										 setOne->data->end))
 			{
 				auto& ovlp = *interval.value;
 				int32_t intersectOne = 
