@@ -309,7 +309,7 @@ class JobShortPlasmidsAssembly(Job):
         unique_plasmids = plasmids.extract_unique_plasmids(
             trimmed_reads_alignment, trimmed_reads_path)
 
-        logger.info('Found {} circular reads'.format(len(unique_plasmids)))
+        logger.info('Found {} unique circular reads'.format(len(unique_plasmids)))
 
         plasmids1_out = os.path.join(self.work_dir, 'plasmids1.fasta')
         fp.write_fasta_dict(unique_plasmids, self.contigs_path)
