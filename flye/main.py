@@ -347,7 +347,7 @@ def _create_job_list(args, work_dir, log_file):
     jobs = []
 
     #Assembly job
-    jobs.append(JobAssembly(args, work_dir, log_file))
+    #jobs.append(JobAssembly(args, work_dir, log_file))
     #draft_assembly = jobs[-1].out_files["assembly"]
 
     #Short Plasmids Assembly
