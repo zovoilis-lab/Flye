@@ -311,8 +311,8 @@ class JobShortPlasmidsAssembly(Job):
 
         logger.info('Found {} short plasmids'.format(len(unique_plasmids)))
 
-        plasmids1_out = os.path.join(self.work_dir, 'plasmids1.fasta')
-        fp.write_fasta_dict(unique_plasmids, plasmids1_out)
+        #plasmids1_out = os.path.join(self.work_dir, 'plasmids1.fasta')
+        fp.write_fasta_dict(unique_plasmids, self.contigs_path)
 
         logger.debug('Finding circular pairs')
         circular_pairs = plasmids.find_circular_pairs(unmapped_reads_alignment)
@@ -336,8 +336,8 @@ class JobShortPlasmidsAssembly(Job):
             trimmed_pairs_alignment, trimmed_pairs_path)
 
         logger.info('Found {} short plasmids'.format(len(unique_plasmids)))
-        plasmids2_out = os.path.join(self.work_dir, 'plasmids2.fasta')
-        fp.write_fasta_dict(unique_plasmids, plasmids2_out)
+        #plasmids2_out = os.path.join(self.work_dir, 'plasmids2.fasta')
+        fp.write_fasta_dict(unique_plasmids, self.contigs_path)
 
 
 def _create_job_list(args, work_dir, log_file):
@@ -345,11 +345,13 @@ def _create_job_list(args, work_dir, log_file):
     Build pipeline as a list of consecutive jobs
     """
     jobs = []
-    jobs.append(JobShortPlasmidsAssembly(args, work_dir))
 
     #Assembly job
-    #jobs.append(JobAssembly(args, work_dir, log_file))
+    jobs.append(JobAssembly(args, work_dir, log_file))
     #draft_assembly = jobs[-1].out_files["assembly"]
+
+    #Short Plasmids Assembly
+    jobs.append(JobShortPlasmidsAssembly(args, work_dir))
 
     #Consensus
     #if args.read_type != "subasm":

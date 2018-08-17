@@ -53,7 +53,7 @@ def write_fasta_dict(fasta_dict, filename):
     """
     Writes dictionary with fasta to file
     """
-    with open(filename, "w") as f:
+    with open(filename, "a") as f:
         for header in sorted(fasta_dict):
             f.write(">{0}\n".format(header))
 
