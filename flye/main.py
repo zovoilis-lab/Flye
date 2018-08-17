@@ -311,8 +311,8 @@ class JobShortPlasmidsAssembly(Job):
 
         logger.info('Found {} short plasmids'.format(len(unique_plasmids)))
 
-        plasmids_out = os.path.join(self.work_dir, 'plasmids1.fasta')
-        fp.write_fasta_dict(unique_plasmids, plasmids_out)
+        plasmids1_out = os.path.join(self.work_dir, 'plasmids1.fasta')
+        fp.write_fasta_dict(unique_plasmids, plasmids1_out)
 
         logger.debug('Finding circular pairs')
         circular_pairs = plasmids.find_circular_pairs(unmapped_reads_alignment)
@@ -336,8 +336,8 @@ class JobShortPlasmidsAssembly(Job):
             trimmed_pairs_alignment, trimmed_pairs_path)
 
         logger.info('Found {} short plasmids'.format(len(unique_plasmids)))
-        plasmids_out = os.path.join(self.work_dir, 'plasmids2.fasta')
-        fp.write_fasta_dict(unique_plasmids, plasmids_out)
+        plasmids2_out = os.path.join(self.work_dir, 'plasmids2.fasta')
+        fp.write_fasta_dict(unique_plasmids, plasmids2_out)
 
 
 def _create_job_list(args, work_dir, log_file):

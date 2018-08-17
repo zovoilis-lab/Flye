@@ -25,11 +25,6 @@ class Hit:
         self.target_start = int(hit[7])
         self.target_end = int(hit[8])
 
-    def __str__(self):
-        return '{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t'.format(
-            self.query, self.query_length, self.query_start, self.query_end,
-            self.target, self.target_length, self.target_start, self.target_end)
-
     def query_hit_length(self):
         return self.query_end - self.query_start
 
@@ -173,9 +168,11 @@ def find_circular_reads(paf_unmapped_reads):
 def trim_circular_reads(circular_reads, unmapped_reads):
     trimmed_reads = dict()
 
+    i = 0
     for read, hit in circular_reads.items():
         sequence = unmapped_reads[read]
-        trimmed_reads[read] = sequence[:hit.target_start]
+        trimmed_reads['circilar_read' + str(i)] = sequence[:hit.target_start]
+        i += 1
 
     return trimmed_reads
 
