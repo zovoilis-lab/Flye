@@ -134,9 +134,6 @@ class SynchronizedSamReader(object):
         Alignment file is expected to be sorted!
         """
 
-        if save_aln_rates:
-            aln_rates_file = open('aln_rates.txt', 'w')
-
         buffer = []
         parsed_contig = None
 
