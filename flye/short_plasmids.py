@@ -171,7 +171,7 @@ def trim_circular_reads(circular_reads, unmapped_reads):
     i = 0
     for read, hit in circular_reads.items():
         sequence = unmapped_reads[read]
-        trimmed_reads['circilar_read' + str(i)] = sequence[:hit.target_start]
+        trimmed_reads['circilar_read' + str(i)] = sequence[:hit.target_start].upper()
         i += 1
 
     return trimmed_reads
@@ -244,7 +244,7 @@ def trim_circular_pairs(circular_pairs, unmapped_reads):
         right_sequence = unmapped_reads[pair[0].target]
         trimmed_sequence = left_sequence[pair[1].query_end:pair[0].query_end]
         trimmed_sequence += right_sequence[pair[0].target_end:]
-        trimmed_reads['circular_pair' + str(i)] = trimmed_sequence
+        trimmed_reads['circular_pair' + str(i)] = trimmed_sequence.upper()
 
     return trimmed_reads
 
