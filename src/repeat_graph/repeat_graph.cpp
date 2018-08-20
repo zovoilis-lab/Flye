@@ -677,6 +677,7 @@ void RepeatGraph::initializeEdges(const OverlapContainer& asmOverlaps)
 	};
 
 	std::unordered_set<NodePair, pairhash> usedPairs;
+	size_t singletonsFiltered = 0;
 	for (auto& nodePairSeqs : parallelSegments)
 	{
 		if (usedPairs.count(nodePairSeqs.first)) continue;
@@ -710,7 +711,7 @@ void RepeatGraph::initializeEdges(const OverlapContainer& asmOverlaps)
 				auto& ovlp = *interval.value;
 				int32_t intersectOne = 
 					segIntersect(*setOne->data, ovlp.curBegin, ovlp.curEnd);
-				if (intersectOne < _maxSeparation) continue;
+				if (intersectOne <= 0) continue;
 
 				auto& ss = segmentIndex[ovlp.extId];
 				auto cmpBegin = [] (const SetSegment* s, int32_t pos)
@@ -727,8 +728,6 @@ void RepeatGraph::initializeEdges(const OverlapContainer& asmOverlaps)
 					auto* setTwo = *startRange;
 					if (findSet(setOne) == findSet(setTwo)) continue;
 
-					//projecting the interval endpoints
-					//(overlap might be covering the actual segment)
 					int32_t projStart = ovlp.project(setOne->data->start);
 					int32_t projEnd = ovlp.project(setOne->data->end);
 					int32_t projIntersect =
@@ -746,38 +745,71 @@ void RepeatGraph::initializeEdges(const OverlapContainer& asmOverlaps)
 		/*if (edgeClusters.size() > 5)
 		{
 			Logger::get().debug() << "Node with " << segmentSets.size() << " segments";
-			Logger::get().debug() << "\tclusters: " << edgeClusters.size();
+			Logger::get().debug() << "clusters: " << edgeClusters.size();
 			for (auto& edgeClust : edgeClusters)
 			{
 				int sumLen = 0;
 				for (auto s : edgeClust.second) sumLen += s->length();
-				Logger::get().debug() << "\t\tcl: " << edgeClust.second.size()
-					<< " " << sumLen / edgeClust.second.size();
+				Logger::get().debug() << "\tcl: " << edgeClust.second.size()
+					<< " " << sumLen / edgeClust.second.size() << " "
+					<< edgeClust.first;
 				
 				if (edgeClust.second.size() < 10)
 				{
 					for (auto s : edgeClust.second)
 					{
-						std::string ovlpCovered = " ";
-						for (auto& interval : asmOverlaps
-								.getCoveringOverlaps(s->seqId, 
-											 s->start, s->end))
-						{
-							auto& ovlp = *interval.value;
-							int32_t intersectOne = 
-								segIntersect(*s, ovlp.curBegin, ovlp.curEnd);
-							if (intersectOne > s->length() / 2) 
-								ovlpCovered = "* "  + _asmSeqs.seqName(ovlp.extId) + " " 
-									+ std::to_string(ovlp.curBegin) + " " +
-									std::to_string(ovlp.curEnd) + " " 
-									+ std::to_string(ovlp.extBegin) + " " +
-									std::to_string(ovlp.extEnd);
-						}
+						Logger::get().debug() << "\t\t" << _asmSeqs.seqName(s->seqId)
+							<< " " << s->start << " " << s->length();
 
-						Logger::get().debug() << "\t\t\t" << _asmSeqs.seqName(s->seqId)
-							<< " " << s->start << " " << s->length() <<
-							" " << ovlpCovered;
+						//////////
+						if (edgeClust.second.size() <= 3)
+						{
+							auto segOne = s;
+							for (auto& interval : asmOverlaps
+									.getCoveringOverlaps(segOne->seqId, segOne->start,
+														 segOne->end))
+							{
+								auto& ovlp = *interval.value;
+								int32_t intersectOne = 
+									segIntersect(*segOne, ovlp.curBegin, ovlp.curEnd);
+								if (intersectOne < segOne->length() / 2) continue;
+
+								auto& ss = segmentIndex[ovlp.extId];
+								auto cmpBegin = [] (const SetSegment* s, int32_t pos)
+													{return s->data->start < pos;};
+								auto cmpEnd = [] (const SetSegment* s, int32_t pos)
+													{return s->data->end < pos;};
+								auto startRange = std::lower_bound(ss.begin(), ss.end(),
+																   ovlp.extBegin, cmpEnd);
+								auto endRange = std::lower_bound(ss.begin(), ss.end(),
+																 ovlp.extEnd, cmpBegin);
+								if (endRange != ss.end()) ++endRange;
+								for (;startRange != endRange; ++startRange)
+								{
+									auto* setTwo = *startRange;
+									if (segOne->start == setTwo->data->start &&
+										segOne->end == setTwo->data->end) continue;
+
+									//projecting the interval endpoints
+									//(overlap might be covering the actual segment)
+									int32_t projStart = ovlp.project(segOne->start);
+									int32_t projEnd = ovlp.project(segOne->end);
+									int32_t projIntersect =
+										segIntersect(*setTwo->data, projStart, projEnd);
+									
+									if (projIntersect > 0)
+									{
+										Logger::get().debug() << "\t\t\t" 
+											<< _asmSeqs.seqName(setTwo->data->seqId) << " "
+											<< setTwo->data->start << " " << setTwo->data->end << " "
+											<< intersectOne << " " 
+											<< projIntersect << " " << findSet(setTwo);
+									}
+								}
+							}
+						}
 					}
+					///////////
 				}
 				else
 				{
@@ -790,6 +822,27 @@ void RepeatGraph::initializeEdges(const OverlapContainer& asmOverlaps)
 		std::vector<SequenceSegment> usedSegments;
 		for (auto& edgeClust : edgeClusters)
 		{
+			//filtering segments that were not glued, but covered by overlaps
+			if (edgeClusters.size() > 1 && edgeClust.second.size() == 1)
+			{
+				auto seg = edgeClust.second.front();
+				bool covered = false;
+				for (auto& interval : asmOverlaps
+						.getCoveringOverlaps(seg->seqId, seg->start,
+										 	 seg->end))
+				{
+					auto& ovlp = *interval.value;
+					int32_t intersect = 
+						segIntersect(*seg, ovlp.curBegin, ovlp.curEnd);
+					if (intersect == seg->length()) covered = true;
+				}
+				if (covered)
+				{
+					++singletonsFiltered;
+					continue;
+				}
+			}
+
 			//in case we have complement edges within the node pair
 			auto& anySegment = *edgeClust.second.front();
 			if (std::find(usedSegments.begin(), usedSegments.end(), anySegment) 
@@ -825,7 +878,8 @@ void RepeatGraph::initializeEdges(const OverlapContainer& asmOverlaps)
 			_nextEdgeId += 2;
 		}
 	}
-	//exit(1);
+	Logger::get().debug() << "Filtered " << singletonsFiltered 
+		<< " singleton segments";
 	this->logEdges();
 }
 
