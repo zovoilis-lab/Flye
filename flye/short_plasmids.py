@@ -169,7 +169,7 @@ def trim_circular_reads(circular_reads, unmapped_reads):
     i = 0
     for read, hit in circular_reads.items():
         sequence = unmapped_reads[read]
-        trimmed_reads['circular_read' + str(i)] = sequence[:hit.target_start].upper()
+        trimmed_reads["circular_read" + str(i)] = sequence[:hit.target_start].upper()
         i += 1
 
     return trimmed_reads
@@ -244,7 +244,7 @@ def trim_circular_pairs(circular_pairs, unmapped_reads):
         right_sequence = unmapped_reads[pair[0].target]
         trimmed_sequence = left_sequence[pair[1].query_end:pair[0].query_end]
         trimmed_sequence += right_sequence[pair[0].target_end:]
-        trimmed_reads['circular_pair' + str(i)] = trimmed_sequence.upper()
+        trimmed_reads["circular_pair" + str(i)] = trimmed_sequence.upper()
 
     return trimmed_reads
 
@@ -357,3 +357,88 @@ def run_minimap(preset, contigs_file, reads_files, num_proc, out_file):
         if e.returncode == -9:
             logger.error("Looks like the system ran out of memory")
         raise ShortPlasmidsAssemblyException(str(e))
+
+
+def find_short_plasmids(args, work_dir, contigs_path):
+    logger.info("Finding short plasmids")
+
+    reads_to_contigs_alignment = os.path.join(
+        work_dir, "reads_to_contigs_alignment.paf")
+
+    if not os.path.isfile(reads_to_contigs_alignment):
+        logger.debug("Aligning reads to contigs")
+        run_minimap("map-pb", contigs_path, args.reads,
+                    args.threads, reads_to_contigs_alignment)
+
+    logger.debug("Calculating alignment rates")
+    alignment_rates = calc_alignment_rates(reads_to_contigs_alignment)
+
+    logger.debug("Finding unmapped reads")
+    unmapped_reads, n_reads = find_unmapped_reads(alignment_rates, args.reads,
+                                                  aln_rate_threshold=0.5)
+
+    n_unmapped_reads = len(unmapped_reads)
+    unmapped_reads_ratio = round(100 * float(n_unmapped_reads) / n_reads, 1)
+    logger.debug("Found {} unmapped reads ({} %)".format(
+        n_unmapped_reads, unmapped_reads_ratio))
+
+    unmapped_reads_path = os.path.join(work_dir, "unmapped_reads.fasta")
+    fp.write_fasta_dict(unmapped_reads, unmapped_reads_path)
+
+    unmapped_reads_alignment = os.path.join(
+        work_dir, "unmapped_reads_all_vs_all_alignment.paf")
+
+    if not os.path.isfile(unmapped_reads_alignment):
+        logger.debug("Finding all-vs-all alignment for unmapped reads")
+        run_minimap("ava-pb", unmapped_reads_path, [unmapped_reads_path],
+                    args.threads, unmapped_reads_alignment)
+
+    logger.debug("Finding circular reads")
+    circular_reads = find_circular_reads(unmapped_reads_alignment)
+    logger.debug("Found {} circular reads".format(len(circular_reads)))
+
+    logger.debug("Extracting unique plasmids from circular reads")
+    trimmed_reads = trim_circular_reads(circular_reads, unmapped_reads)
+
+    trimmed_reads_path = os.path.join(work_dir, "trimmed_reads.fasta")
+    fp.write_fasta_dict(trimmed_reads, trimmed_reads_path)
+    trimmed_reads_alignment = os.path.join(
+        work_dir, "trimmed_reads_all_vs_all_alignment.paf")
+
+    if not os.path.isfile(trimmed_reads_alignment):
+        run_minimap("ava-pb", trimmed_reads_path, [trimmed_reads_path],
+                    args.threads, trimmed_reads_alignment)
+
+    unique_plasmids = extract_unique_plasmids(trimmed_reads_alignment,
+                                              trimmed_reads_path)
+
+    logger.info("Found {} unique circular reads".format(len(unique_plasmids)))
+
+    plasmids1_out = os.path.join(work_dir, "plasmids1.fasta")
+    fp.write_fasta_dict(unique_plasmids, contigs_path)
+    fp.write_fasta_dict(unique_plasmids, plasmids1_out)
+
+    logger.debug("Finding circular pairs")
+    circular_pairs = find_circular_pairs(circular_reads, unmapped_reads_alignment)
+    logger.debug("Found {} unique circular pairs".format(len(circular_pairs)))
+
+    logger.debug("Extracting unique plasmids from circular pairs")
+    trimmed_pairs = trim_circular_pairs(circular_pairs, unmapped_reads)
+
+    trimmed_pairs_path = os.path.join(work_dir, "trimmed_pairs.fasta")
+    fp.write_fasta_dict(trimmed_pairs, trimmed_pairs_path)
+    trimmed_pairs_alignment = os.path.join(
+        work_dir, "trimmed_pairs_all_vs_all_alignment.paf")
+
+    if not os.path.isfile(trimmed_pairs_alignment):
+        run_minimap("ava-pb", trimmed_pairs_path, [trimmed_pairs_path],
+                    args.threads, trimmed_pairs_alignment)
+
+    unique_plasmids = extract_unique_plasmids(trimmed_pairs_alignment,
+                                              trimmed_pairs_path)
+
+    logger.info("Found {} unique circular pairs".format(len(unique_plasmids)))
+
+    plasmids2_out = os.path.join(work_dir, "plasmids2.fasta")
+    fp.write_fasta_dict(unique_plasmids, contigs_path)
+    fp.write_fasta_dict(unique_plasmids, plasmids2_out)
