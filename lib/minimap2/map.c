@@ -11,6 +11,7 @@
 
 struct mm_tbuf_s {
 	void *km;
+	int rep_len, frag_gap;
 };
 
 mm_tbuf_t *mm_tbuf_init(void)
@@ -28,6 +29,11 @@ void mm_tbuf_destroy(mm_tbuf_t *b)
 	free(b);
 }
 
+void *mm_tbuf_get_km(mm_tbuf_t *b)
+{
+	return b->km;
+}
+
 static int mm_dust_minier(void *km, int n, mm128_t *a, int l_seq, const char *seq, int sdust_thres)
 {
 	int n_dreg, j, k, u = 0;
@@ -39,12 +45,12 @@ static int mm_dust_minier(void *km, int n, mm128_t *a, int l_seq, const char *se
 	for (j = k = 0; j < n; ++j) { // squeeze out minimizers that significantly overlap with LCRs
 		int32_t qpos = (uint32_t)a[j].y>>1, span = a[j].x&0xff;
 		int32_t s = qpos - (span - 1), e = s + span;
-		while (u < n_dreg && (uint32_t)dreg[u] <= s) ++u;
-		if (u < n_dreg && dreg[u]>>32 < e) {
+		while (u < n_dreg && (int32_t)dreg[u] <= s) ++u;
+		if (u < n_dreg && (int32_t)(dreg[u]>>32) < e) {
 			int v, l = 0;
-			for (v = u; v < n_dreg && dreg[v]>>32 < e; ++v) { // iterate over LCRs overlapping this minimizer
-				int ss = s > dreg[v]>>32? s : dreg[v]>>32;
-				int ee = e < (uint32_t)dreg[v]? e : (uint32_t)dreg[v];
+			for (v = u; v < n_dreg && (int32_t)(dreg[v]>>32) < e; ++v) { // iterate over LCRs overlapping this minimizer
+				int ss = s > (int32_t)(dreg[v]>>32)? s : dreg[v]>>32;
+				int ee = e < (int32_t)dreg[v]? e : (uint32_t)dreg[v];
 				l += ee - ss;
 			}
 			if (l <= span>>1) a[k++] = a[j]; // keep the minimizer if less than half of it falls in masked region
@@ -56,9 +62,10 @@ static int mm_dust_minier(void *km, int n, mm128_t *a, int l_seq, const char *se
 
 static void collect_minimizers(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int n_segs, const int *qlens, const char **seqs, mm128_v *mv)
 {
-	int i, j, n, sum = 0;
+	int i, n, sum = 0;
 	mv->n = 0;
 	for (i = n = 0; i < n_segs; ++i) {
+		size_t j;
 		mm_sketch(km, seqs[i], qlens[i], mi->w, mi->k, i, mi->flag&MM_I_HPC, mv);
 		for (j = n; j < mv->n; ++j)
 			mv->a[j].y += sum << 1;
@@ -81,12 +88,13 @@ typedef struct {
 
 static mm_match_t *collect_matches(void *km, int *_n_m, int max_occ, const mm_idx_t *mi, const mm128_v *mv, int64_t *n_a, int *rep_len, int *n_mini_pos, uint64_t **mini_pos)
 {
-	int i, rep_st = 0, rep_en = 0, n_m;
+	int rep_st = 0, rep_en = 0, n_m;
+	size_t i;
 	mm_match_t *m;
 	*n_mini_pos = 0;
 	*mini_pos = (uint64_t*)kmalloc(km, mv->n * sizeof(uint64_t));
 	m = (mm_match_t*)kmalloc(km, mv->n * sizeof(mm_match_t));
-	for (i = n_m = 0, *rep_len = 0, *n_a = 0; i < mv->n; ++i) {
+	for (i = 0, n_m = 0, *rep_len = 0, *n_a = 0; i < mv->n; ++i) {
 		const uint64_t *cr;
 		mm128_t *p = &mv->a[i];
 		uint32_t q_pos = (uint32_t)p->y, q_span = p->x & 0xff;
@@ -120,7 +128,7 @@ static inline int skip_seed(int flag, uint64_t r, const mm_match_t *q, const cha
 		const mm_idx_seq_t *s = &mi->seq[r>>32];
 		int cmp;
 		cmp = strcmp(qname, s->name);
-		if ((flag&MM_F_NO_DIAG) && cmp == 0 && s->len == qlen) {
+		if ((flag&MM_F_NO_DIAG) && cmp == 0 && (int)s->len == qlen) {
 			if ((uint32_t)r>>1 == (q->q_pos>>1)) return 1; // avoid the diagnonal anchors
 			if ((r&1) == (q->q_pos&1)) *is_self = 1; // this flag is used to avoid spurious extension on self chain
 		}
@@ -163,19 +171,20 @@ static mm128_t *collect_seed_hits_heap(void *km, const mm_mapopt_t *opt, int max
 		mm128_t *p;
 		uint64_t r = heap->x;
 		int32_t is_self, rpos = (uint32_t)r >> 1;
-		if (skip_seed(opt->flag, r, q, qname, qlen, mi, &is_self)) continue;
-		if ((r&1) == (q->q_pos&1)) { // forward strand
-			p = &a[n_for++];
-			p->x = (r&0xffffffff00000000ULL) | rpos;
-			p->y = (uint64_t)q->q_span << 32 | q->q_pos >> 1;
-		} else { // reverse strand
-			p = &a[(*n_a) - (++n_rev)];
-			p->x = 1ULL<<63 | (r&0xffffffff00000000ULL) | rpos;
-			p->y = (uint64_t)q->q_span << 32 | (qlen - ((q->q_pos>>1) + 1 - q->q_span) - 1);
+		if (!skip_seed(opt->flag, r, q, qname, qlen, mi, &is_self)) {
+			if ((r&1) == (q->q_pos&1)) { // forward strand
+				p = &a[n_for++];
+				p->x = (r&0xffffffff00000000ULL) | rpos;
+				p->y = (uint64_t)q->q_span << 32 | q->q_pos >> 1;
+			} else { // reverse strand
+				p = &a[(*n_a) - (++n_rev)];
+				p->x = 1ULL<<63 | (r&0xffffffff00000000ULL) | rpos;
+				p->y = (uint64_t)q->q_span << 32 | (qlen - ((q->q_pos>>1) + 1 - q->q_span) - 1);
+			}
+			p->y |= (uint64_t)q->seg_id << MM_SEED_SEG_SHIFT;
+			if (q->is_tandem) p->y |= MM_SEED_TANDEM;
+			if (is_self) p->y |= MM_SEED_SELF;
 		}
-		p->y |= (uint64_t)q->seg_id << MM_SEED_SEG_SHIFT;
-		if (q->is_tandem) p->y |= MM_SEED_TANDEM;
-		if (is_self) p->y |= MM_SEED_SELF;
 		// update the heap
 		if ((uint32_t)heap->y < q->n - 1) {
 			++heap[0].y;
@@ -205,7 +214,7 @@ static mm128_t *collect_seed_hits_heap(void *km, const mm_mapopt_t *opt, int max
 static mm128_t *collect_seed_hits(void *km, const mm_mapopt_t *opt, int max_occ, const mm_idx_t *mi, const char *qname, const mm128_v *mv, int qlen, int64_t *n_a, int *rep_len,
 								  int *n_mini_pos, uint64_t **mini_pos)
 {
-	int i, k, n_m;
+	int i, n_m;
 	mm_match_t *m;
 	mm128_t *a;
 	m = collect_matches(km, &n_m, max_occ, mi, mv, n_a, rep_len, n_mini_pos, mini_pos);
@@ -213,6 +222,7 @@ static mm128_t *collect_seed_hits(void *km, const mm_mapopt_t *opt, int max_occ,
 	for (i = 0, *n_a = 0; i < n_m; ++i) {
 		mm_match_t *q = &m[i];
 		const uint64_t *r = q->cr;
+		uint32_t k;
 		for (k = 0; k < q->n; ++k) {
 			int32_t is_self, rpos = (uint32_t)r[k] >> 1;
 			mm128_t *p;
@@ -308,10 +318,10 @@ void mm_map_frag(const mm_idx_t *mi, int n_segs, const int *qlens, const char **
 		if (n_regs0 > 0) { // test if the best chain has all the segments
 			int n_chained_segs = 1, max = 0, max_i = -1, max_off = -1, off = 0;
 			for (i = 0; i < n_regs0; ++i) { // find the best chain
-				if (max < u[i]>>32) max = u[i]>>32, max_i = i, max_off = off;
+				if (max < (int)(u[i]>>32)) max = u[i]>>32, max_i = i, max_off = off;
 				off += (uint32_t)u[i];
 			}
-			for (i = 1; i < (uint32_t)u[max_i]; ++i) // count the number of segments in the best chain
+			for (i = 1; i < (int32_t)u[max_i]; ++i) // count the number of segments in the best chain
 				if ((a[max_off+i].y&MM_SEED_SEG_MASK) != (a[max_off+i-1].y&MM_SEED_SEG_MASK))
 					++n_chained_segs;
 			if (n_chained_segs < n_segs)
@@ -326,6 +336,8 @@ void mm_map_frag(const mm_idx_t *mi, int n_segs, const int *qlens, const char **
 			a = mm_chain_dp(max_chain_gap_ref, max_chain_gap_qry, opt->bw, opt->max_chain_skip, opt->min_cnt, opt->min_chain_score, is_splice, n_segs, n_a, a, &n_regs0, &u, b->km);
 		}
 	}
+	b->frag_gap = max_chain_gap_ref;
+	b->rep_len = rep_len;
 
 	regs0 = mm_gen_regs(b->km, hash, qlen_sum, n_regs0, u, a);
 
@@ -390,13 +402,17 @@ typedef struct {
 	mm_bseq_file_t **fp;
 	const mm_idx_t *mi;
 	kstring_t str;
+
+	int n_parts;
+	uint32_t *rid_shift;
+	FILE *fp_split, **fp_parts;
 } pipeline_t;
 
 typedef struct {
 	const pipeline_t *p;
     int n_seq, n_frag;
 	mm_bseq1_t *seq;
-	int *n_reg, *seg_off, *n_seg;
+	int *n_reg, *seg_off, *n_seg, *rep_len, *frag_gap;
 	mm_reg1_t **reg;
 	mm_tbuf_t **buf;
 } step_t;
@@ -417,10 +433,17 @@ static void worker_for(void *_data, long i, int tid) // kt_for() callback
 		qseqs[j] = s->seq[off + j].seq;
 	}
 	if (s->p->opt->flag & MM_F_INDEPEND_SEG) {
-		for (j = 0; j < s->n_seg[i]; ++j)
+		for (j = 0; j < s->n_seg[i]; ++j) {
 			mm_map_frag(s->p->mi, 1, &qlens[j], &qseqs[j], &s->n_reg[off+j], &s->reg[off+j], b, s->p->opt, s->seq[off+j].name);
+			s->rep_len[off + j] = b->rep_len;
+			s->frag_gap[off + j] = b->frag_gap;
+		}
 	} else {
 		mm_map_frag(s->p->mi, s->n_seg[i], qlens, qseqs, &s->n_reg[off], &s->reg[off], b, s->p->opt, s->seq[off].name);
+		for (j = 0; j < s->n_seg[i]; ++j) {
+			s->rep_len[off + j] = b->rep_len;
+			s->frag_gap[off + j] = b->frag_gap;
+		}
 	}
 	for (j = 0; j < s->n_seg[i]; ++j) // flip the query strand and coordinate to the original read strand
 		if (s->n_seg[i] == 2 && ((j == 0 && (pe_ori>>1&1)) || (j == 1 && (pe_ori&1)))) {
@@ -436,17 +459,75 @@ static void worker_for(void *_data, long i, int tid) // kt_for() callback
 		}
 }
 
+static void merge_hits(step_t *s)
+{
+	int f, i, k0, k, max_seg = 0, *n_reg_part, *rep_len_part, *frag_gap_part, *qlens;
+	void *km;
+	FILE **fp = s->p->fp_parts;
+	const mm_mapopt_t *opt = s->p->opt;
+
+	km = km_init();
+	for (f = 0; f < s->n_frag; ++f)
+		max_seg = max_seg > s->n_seg[f]? max_seg : s->n_seg[f];
+	qlens = CALLOC(int, max_seg + s->p->n_parts * 3);
+	n_reg_part = qlens + max_seg;
+	rep_len_part = n_reg_part + s->p->n_parts;
+	frag_gap_part = rep_len_part + s->p->n_parts;
+	for (f = 0, k = k0 = 0; f < s->n_frag; ++f) {
+		k0 = k;
+		for (i = 0; i < s->n_seg[f]; ++i, ++k) {
+			int j, l, t, rep_len = 0;
+			qlens[i] = s->seq[k].l_seq;
+			for (j = 0, s->n_reg[k] = 0; j < s->p->n_parts; ++j) {
+				mm_err_fread(&n_reg_part[j],    sizeof(int), 1, fp[j]);
+				mm_err_fread(&rep_len_part[j],  sizeof(int), 1, fp[j]);
+				mm_err_fread(&frag_gap_part[j], sizeof(int), 1, fp[j]);
+				s->n_reg[k] += n_reg_part[j];
+				if (rep_len < rep_len_part[j])
+					rep_len = rep_len_part[j];
+			}
+			s->reg[k] = CALLOC(mm_reg1_t, s->n_reg[k]);
+			for (j = 0, l = 0; j < s->p->n_parts; ++j) {
+				for (t = 0; t < n_reg_part[j]; ++t, ++l) {
+					mm_reg1_t *r = &s->reg[k][l];
+					uint32_t capacity;
+					mm_err_fread(r, sizeof(mm_reg1_t), 1, fp[j]);
+					r->rid += s->p->rid_shift[j];
+					if (opt->flag & MM_F_CIGAR) {
+						mm_err_fread(&capacity, 4, 1, fp[j]);
+						r->p = (mm_extra_t*)calloc(capacity, 4);
+						r->p->capacity = capacity;
+						mm_err_fread(r->p, r->p->capacity, 4, fp[j]);
+					}
+				}
+			}
+			mm_hit_sort(km, &s->n_reg[k], s->reg[k]);
+			mm_set_parent(km, opt->mask_level, s->n_reg[k], s->reg[k], opt->a * 2 + opt->b);
+			if (!(opt->flag & MM_F_ALL_CHAINS)) {
+				mm_select_sub(km, opt->pri_ratio, s->p->mi->k*2, opt->best_n, &s->n_reg[k], s->reg[k]);
+				mm_set_sam_pri(s->n_reg[k], s->reg[k]);
+			}
+			mm_set_mapq(km, s->n_reg[k], s->reg[k], opt->min_chain_score, opt->a, rep_len, !!(opt->flag & MM_F_SR));
+		}
+		if (s->n_seg[f] == 2 && opt->pe_ori >= 0 && (opt->flag&MM_F_CIGAR))
+			mm_pair(km, frag_gap_part[0], opt->pe_bonus, opt->a * 2 + opt->b, opt->a, qlens, &s->n_reg[k0], &s->reg[k0]);
+	}
+	free(qlens);
+	km_destroy(km);
+}
+
 static void *worker_pipeline(void *shared, int step, void *in)
 {
 	int i, j, k;
     pipeline_t *p = (pipeline_t*)shared;
     if (step == 0) { // step 0: read sequences
 		int with_qual = (!!(p->opt->flag & MM_F_OUT_SAM) && !(p->opt->flag & MM_F_NO_QUAL));
+		int with_comment = !!(p->opt->flag & MM_F_COPY_COMMENT);
 		int frag_mode = (p->n_fp > 1 || !!(p->opt->flag & MM_F_FRAG_MODE));
         step_t *s;
         s = (step_t*)calloc(1, sizeof(step_t));
-		if (p->n_fp > 1) s->seq = mm_bseq_read_frag(p->n_fp, p->fp, p->mini_batch_size, with_qual, &s->n_seq);
-		else s->seq = mm_bseq_read2(p->fp[0], p->mini_batch_size, with_qual, frag_mode, &s->n_seq);
+		if (p->n_fp > 1) s->seq = mm_bseq_read_frag2(p->n_fp, p->fp, p->mini_batch_size, with_qual, with_comment, &s->n_seq);
+		else s->seq = mm_bseq_read3(p->fp[0], p->mini_batch_size, with_qual, with_comment, frag_mode, &s->n_seq);
 		if (s->seq) {
 			s->p = p;
 			for (i = 0; i < s->n_seq; ++i)
@@ -454,9 +535,11 @@ static void *worker_pipeline(void *shared, int step, void *in)
 			s->buf = (mm_tbuf_t**)calloc(p->n_threads, sizeof(mm_tbuf_t*));
 			for (i = 0; i < p->n_threads; ++i)
 				s->buf[i] = mm_tbuf_init();
-			s->n_reg = (int*)calloc(3 * s->n_seq, sizeof(int));
-			s->seg_off = s->n_reg + s->n_seq; // seg_off and n_seg are allocated together with n_reg
+			s->n_reg = (int*)calloc(5 * s->n_seq, sizeof(int));
+			s->seg_off = s->n_reg + s->n_seq; // seg_off, n_seg, rep_len and frag_gap are allocated together with n_reg
 			s->n_seg = s->seg_off + s->n_seq;
+			s->rep_len = s->n_seg + s->n_seq;
+			s->frag_gap = s->rep_len + s->n_seq;
 			s->reg = (mm_reg1_t**)calloc(s->n_seq, sizeof(mm_reg1_t*));
 			for (i = 1, j = 0; i <= s->n_seq; ++i)
 				if (i == s->n_seq || !frag_mode || !mm_qname_same(s->seq[i-1].name, s->seq[i].name)) {
@@ -467,7 +550,8 @@ static void *worker_pipeline(void *shared, int step, void *in)
 			return s;
 		} else free(s);
     } else if (step == 1) { // step 1: map
-		kt_for(p->n_threads, worker_for, in, ((step_t*)in)->n_frag);
+		if (p->n_parts > 0) merge_hits((step_t*)in);
+		else kt_for(p->n_threads, worker_for, in, ((step_t*)in)->n_frag);
 		return in;
     } else if (step == 2) { // step 2: output
 		void *km = 0;
@@ -480,20 +564,36 @@ static void *worker_pipeline(void *shared, int step, void *in)
 			int seg_st = s->seg_off[k], seg_en = s->seg_off[k] + s->n_seg[k];
 			for (i = seg_st; i < seg_en; ++i) {
 				mm_bseq1_t *t = &s->seq[i];
-				for (j = 0; j < s->n_reg[i]; ++j) {
-					mm_reg1_t *r = &s->reg[i][j];
-					assert(!r->sam_pri || r->id == r->parent);
-					if ((p->opt->flag & MM_F_NO_PRINT_2ND) && r->id != r->parent)
-						continue;
+				if (p->opt->split_prefix && p->n_parts == 0) { // then write to temporary files
+					mm_err_fwrite(&s->n_reg[i],    sizeof(int), 1, p->fp_split);
+					mm_err_fwrite(&s->rep_len[i],  sizeof(int), 1, p->fp_split);
+					mm_err_fwrite(&s->frag_gap[i], sizeof(int), 1, p->fp_split);
+					for (j = 0; j < s->n_reg[i]; ++j) {
+						mm_reg1_t *r = &s->reg[i][j];
+						mm_err_fwrite(r, sizeof(mm_reg1_t), 1, p->fp_split);
+						if (p->opt->flag & MM_F_CIGAR) {
+							mm_err_fwrite(&r->p->capacity, 4, 1, p->fp_split);
+							mm_err_fwrite(r->p, r->p->capacity, 4, p->fp_split);
+						}
+					}
+				} else if (s->n_reg[i] > 0) { // the query has at least one hit
+					for (j = 0; j < s->n_reg[i]; ++j) {
+						mm_reg1_t *r = &s->reg[i][j];
+						assert(!r->sam_pri || r->id == r->parent);
+						if ((p->opt->flag & MM_F_NO_PRINT_2ND) && r->id != r->parent)
+							continue;
+						if (p->opt->flag & MM_F_OUT_SAM)
+							mm_write_sam2(&p->str, mi, t, i - seg_st, j, s->n_seg[k], &s->n_reg[seg_st], (const mm_reg1_t*const*)&s->reg[seg_st], km, p->opt->flag);
+						else
+							mm_write_paf(&p->str, mi, t, r, km, p->opt->flag);
+						mm_err_puts(p->str.s);
+					}
+				} else if (p->opt->flag & (MM_F_OUT_SAM|MM_F_PAF_NO_HIT)) { // output an empty hit, if requested
 					if (p->opt->flag & MM_F_OUT_SAM)
-						mm_write_sam2(&p->str, mi, t, i - seg_st, j, s->n_seg[k], &s->n_reg[seg_st], (const mm_reg1_t*const*)&s->reg[seg_st], km, p->opt->flag);
+						mm_write_sam2(&p->str, mi, t, i - seg_st, -1, s->n_seg[k], &s->n_reg[seg_st], (const mm_reg1_t*const*)&s->reg[seg_st], km, p->opt->flag);
 					else
-						mm_write_paf(&p->str, mi, t, r, km, p->opt->flag);
-					puts(p->str.s);
-				}
-				if (s->n_reg[i] == 0 && (p->opt->flag & MM_F_OUT_SAM)) {
-					mm_write_sam2(&p->str, mi, t, i - seg_st, -1, s->n_seg[k], &s->n_reg[seg_st], (const mm_reg1_t*const*)&s->reg[seg_st], km, p->opt->flag);
-					puts(p->str.s);
+						mm_write_paf(&p->str, mi, t, 0, 0, p->opt->flag);
+					mm_err_puts(p->str.s);
 				}
 			}
 			for (i = seg_st; i < seg_en; ++i) {
@@ -501,9 +601,10 @@ static void *worker_pipeline(void *shared, int step, void *in)
 				free(s->reg[i]);
 				free(s->seq[i].seq); free(s->seq[i].name);
 				if (s->seq[i].qual) free(s->seq[i].qual);
+				if (s->seq[i].comment) free(s->seq[i].comment);
 			}
 		}
-		free(s->reg); free(s->n_reg); free(s->seq); // seg_off and n_seg were allocated with reg; no memory leak here
+		free(s->reg); free(s->n_reg); free(s->seq); // seg_off, n_seg, rep_len and frag_gap were allocated with reg; no memory leak here
 		km_destroy(km);
 		if (mm_verbose >= 3)
 			fprintf(stderr, "[M::%s::%.3f*%.2f] mapped %d sequences\n", __func__, realtime() - mm_realtime0, cputime() / (realtime() - mm_realtime0), s->n_seq);
@@ -512,32 +613,44 @@ static void *worker_pipeline(void *shared, int step, void *in)
     return 0;
 }
 
+static mm_bseq_file_t **open_bseqs(int n, const char **fn)
+{
+	mm_bseq_file_t **fp;
+	int i, j;
+	fp = (mm_bseq_file_t**)calloc(n, sizeof(mm_bseq_file_t*));
+	for (i = 0; i < n; ++i) {
+		if ((fp[i] = mm_bseq_open(fn[i])) == 0) {
+			if (mm_verbose >= 1)
+				fprintf(stderr, "ERROR: failed to open file '%s'\n", fn[i]);
+			for (j = 0; j < i; ++j)
+				mm_bseq_close(fp[j]);
+			free(fp);
+			return 0;
+		}
+	}
+	return fp;
+}
+
 int mm_map_file_frag(const mm_idx_t *idx, int n_segs, const char **fn, const mm_mapopt_t *opt, int n_threads)
 {
-	int i, j, pl_threads;
+	int i, pl_threads;
 	pipeline_t pl;
 	if (n_segs < 1) return -1;
 	memset(&pl, 0, sizeof(pipeline_t));
 	pl.n_fp = n_segs;
-	pl.fp = (mm_bseq_file_t**)calloc(n_segs, sizeof(mm_bseq_file_t*));
-	for (i = 0; i < n_segs; ++i) {
-		pl.fp[i] = mm_bseq_open(fn[i]);
-		if (pl.fp[i] == 0) {
-			if (mm_verbose >= 1)
-				fprintf(stderr, "ERROR: failed to open file '%s'\n", fn[i]);
-			for (j = 0; j < i; ++j)
-				mm_bseq_close(pl.fp[j]);
-			free(pl.fp);
-			return -1;
-		}
-	}
+	pl.fp = open_bseqs(pl.n_fp, fn);
+	if (pl.fp == 0) return -1;
 	pl.opt = opt, pl.mi = idx;
 	pl.n_threads = n_threads > 1? n_threads : 1;
 	pl.mini_batch_size = opt->mini_batch_size;
+	if (opt->split_prefix)
+		pl.fp_split = mm_split_init(opt->split_prefix, idx);
 	pl_threads = n_threads == 1? 1 : (opt->flag&MM_F_2_IO_THREADS)? 3 : 2;
 	kt_pipeline(pl_threads, worker_pipeline, &pl, 3);
+
 	free(pl.str.s);
-	for (i = 0; i < n_segs; ++i)
+	if (pl.fp_split) fclose(pl.fp_split);
+	for (i = 0; i < pl.n_fp; ++i)
 		mm_bseq_close(pl.fp[i]);
 	free(pl.fp);
 	return 0;
@@ -546,4 +659,49 @@ int mm_map_file_frag(const mm_idx_t *idx, int n_segs, const char **fn, const mm_
 int mm_map_file(const mm_idx_t *idx, const char *fn, const mm_mapopt_t *opt, int n_threads)
 {
 	return mm_map_file_frag(idx, 1, &fn, opt, n_threads);
+}
+
+int mm_split_merge(int n_segs, const char **fn, const mm_mapopt_t *opt, int n_split_idx)
+{
+	int i;
+	pipeline_t pl;
+	mm_idx_t *mi;
+	if (n_segs < 1 || n_split_idx < 1) return -1;
+	memset(&pl, 0, sizeof(pipeline_t));
+	pl.n_fp = n_segs;
+	pl.fp = open_bseqs(pl.n_fp, fn);
+	if (pl.fp == 0) return -1;
+	pl.opt = opt;
+	pl.mini_batch_size = opt->mini_batch_size;
+
+	pl.n_parts = n_split_idx;
+	pl.fp_parts  = CALLOC(FILE*, pl.n_parts);
+	pl.rid_shift = CALLOC(uint32_t, pl.n_parts);
+	pl.mi = mi = mm_split_merge_prep(opt->split_prefix, n_split_idx, pl.fp_parts, pl.rid_shift);
+	if (pl.mi == 0) {
+		free(pl.fp_parts);
+		free(pl.rid_shift);
+		return -1;
+	}
+	for (i = n_split_idx - 1; i > 0; --i)
+		pl.rid_shift[i] = pl.rid_shift[i - 1];
+	for (pl.rid_shift[0] = 0, i = 1; i < n_split_idx; ++i)
+		pl.rid_shift[i] += pl.rid_shift[i - 1];
+	if (opt->flag & MM_F_OUT_SAM)
+		for (i = 0; i < (int32_t)pl.mi->n_seq; ++i)
+			printf("@SQ\tSN:%s\tLN:%d\n", pl.mi->seq[i].name, pl.mi->seq[i].len);
+
+	kt_pipeline(2, worker_pipeline, &pl, 3);
+
+	free(pl.str.s);
+	mm_idx_destroy(mi);
+	free(pl.rid_shift);
+	for (i = 0; i < n_split_idx; ++i)
+		fclose(pl.fp_parts[i]);
+	free(pl.fp_parts);
+	for (i = 0; i < pl.n_fp; ++i)
+		mm_bseq_close(pl.fp[i]);
+	free(pl.fp);
+	mm_split_rm_tmp(opt->split_prefix, n_split_idx);
+	return 0;
 }
