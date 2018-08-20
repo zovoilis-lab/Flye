@@ -264,8 +264,7 @@ class JobShortPlasmidsAssembly(Job):
                                  self.args.threads, reads_to_contigs_alignment)
 
         logger.debug('Calculating alignment rates')
-        alignment_rates = plasmids.calc_alignment_rates(
-            reads_to_contigs_alignment)
+        alignment_rates = plasmids.calc_alignment_rates(reads_to_contigs_alignment)
 
         logger.debug('Finding unmapped reads')
         unmapped_reads, n_reads = plasmids.find_unmapped_reads(
@@ -276,8 +275,8 @@ class JobShortPlasmidsAssembly(Job):
         logger.debug('Found {} unmapped reads ({} %)'.format(
             n_unmapped_reads, unmapped_reads_ratio))
 
-        unmapped_reads_path = os.path.join(self.work_dir,
-                                           'unmapped_reads.fasta')
+        unmapped_reads_path = os.path.join(
+            self.work_dir, 'unmapped_reads.fasta')
         fp.write_fasta_dict(unmapped_reads, unmapped_reads_path)
 
         unmapped_reads_alignment = os.path.join(
@@ -294,8 +293,8 @@ class JobShortPlasmidsAssembly(Job):
         logger.debug('Found {} circular reads'.format(len(circular_reads)))
 
         logger.debug('Extracting unique plasmids from circular reads')
-        trimmed_reads = plasmids.trim_circular_reads(circular_reads,
-                                                     unmapped_reads)
+        trimmed_reads = plasmids.trim_circular_reads(circular_reads, unmapped_reads)
+
         trimmed_reads_path = os.path.join(self.work_dir, 'trimmed_reads.fasta')
         fp.write_fasta_dict(trimmed_reads, trimmed_reads_path)
         trimmed_reads_alignment = os.path.join(
@@ -303,8 +302,8 @@ class JobShortPlasmidsAssembly(Job):
 
         if not os.path.isfile(trimmed_reads_alignment):
             plasmids.run_minimap('ava-pb', trimmed_reads_path,
-                                 [trimmed_reads_path],
-                                 self.args.threads, trimmed_reads_alignment)
+                                 [trimmed_reads_path], self.args.threads,
+                                 trimmed_reads_alignment)
 
         unique_plasmids = plasmids.extract_unique_plasmids(
             trimmed_reads_alignment, trimmed_reads_path)
@@ -316,13 +315,11 @@ class JobShortPlasmidsAssembly(Job):
         fp.write_fasta_dict(unique_plasmids, plasmids1_out)
 
         logger.debug('Finding circular pairs')
-        circular_pairs = plasmids.find_circular_pairs(circular_reads,
-                                                      unmapped_reads_alignment)
+        circular_pairs = plasmids.find_circular_pairs(circular_reads,unmapped_reads_alignment)
         logger.debug('Found {} unique circular pairs'.format(len(circular_pairs)))
 
         logger.debug('Extracting unique plasmids from circular pairs')
-        trimmed_pairs = plasmids.trim_circular_pairs(circular_pairs,
-                                                     unmapped_reads)
+        trimmed_pairs = plasmids.trim_circular_pairs(circular_pairs, unmapped_reads)
 
         trimmed_pairs_path = os.path.join(self.work_dir, 'trimmed_pairs.fasta')
         fp.write_fasta_dict(trimmed_pairs, trimmed_pairs_path)

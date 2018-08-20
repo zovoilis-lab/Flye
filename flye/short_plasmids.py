@@ -91,11 +91,10 @@ def calc_alignment_rates(paf_alignment):
     mapping_segments = []
 
     for hit in hits:
-        if current_hit is None or current_hit.query != hit.query \
-                or current_hit.target != hit.target:
+        if current_hit is None or current_hit.query != hit.query or \
+           current_hit.target != hit.target:
             if current_hit is not None:
-                aln_rate = calc_alignment_rate(current_hit.query_length,
-                                               mapping_segments)
+                aln_rate = calc_alignment_rate(current_hit.query_length, mapping_segments)
                 if current_hit.query not in alignment_rates:
                     alignment_rates[current_hit.query] = dict()
 
@@ -109,14 +108,13 @@ def calc_alignment_rates(paf_alignment):
     return alignment_rates
 
 
-def represents_circular_read(hit):
+def represents_circular_read(hit, max_overhang=150):
     if hit.query != hit.target:
         return False
 
     if not hit.query_start < hit.query_end < hit.target_start < hit.target_end:
         return False
 
-    max_overhang = 150
     if not hit.query_left_overhang() < max_overhang:
         return False
 
@@ -150,16 +148,16 @@ def find_unmapped_reads(alignment_rates, reads_files, aln_rate_threshold):
     return unmapped_reads, n_reads
 
 
-def find_circular_reads(paf_unmapped_reads):
+def find_circular_reads(paf_unmapped_reads, max_overhang=150):
     circular_reads = dict()
 
     with open(paf_unmapped_reads) as f:
         for raw_hit in f:
             current_hit = Hit(raw_hit)
-            if represents_circular_read(current_hit):
+            if represents_circular_read(current_hit, max_overhang):
                 hit = circular_reads.get(current_hit.query)
                 if hit is None or current_hit.query_hit_length() > \
-                        hit.query_hit_length():
+                   hit.query_hit_length():
                     circular_reads[current_hit.query] = current_hit
 
     return circular_reads
@@ -171,7 +169,7 @@ def trim_circular_reads(circular_reads, unmapped_reads):
     i = 0
     for read, hit in circular_reads.items():
         sequence = unmapped_reads[read]
-        trimmed_reads['circilar_read' + str(i)] = sequence[:hit.target_start].upper()
+        trimmed_reads['circular_read' + str(i)] = sequence[:hit.target_start].upper()
         i += 1
 
     return trimmed_reads
@@ -183,13 +181,13 @@ def is_pair_without_overlap(circular_pair):
         return False
 
     if not circular_pair[0].target_start < circular_pair[0].target_end < \
-            circular_pair[1].target_start < circular_pair[1].target_end:
+           circular_pair[1].target_start < circular_pair[1].target_end:
         return False
 
     return True
 
 
-def find_circular_pairs(circular_reads, paf_unmapped_reads):
+def find_circular_pairs(circular_reads, paf_unmapped_reads, max_overhang=300):
     hits = []
 
     with open(paf_unmapped_reads) as f:
@@ -203,16 +201,15 @@ def find_circular_pairs(circular_reads, paf_unmapped_reads):
     previous_hit = None
     has_overlap = False
     is_circular = False
-    max_overhang = 300
 
     for hit in hits:
         if hit.query == hit.target:
             continue
 
         if previous_hit is None or previous_hit.query != hit.query or \
-                previous_hit.target != hit.target:
+           previous_hit.target != hit.target:
             if previous_hit is not None and has_overlap and is_circular and \
-                    is_pair_without_overlap(circular_pair):
+               is_pair_without_overlap(circular_pair):
                 query = circular_pair[0].query
                 target = circular_pair[0].target
                 if query not in circular_reads and target not in circular_reads:
@@ -225,14 +222,14 @@ def find_circular_pairs(circular_reads, paf_unmapped_reads):
 
         if not has_overlap:
             if hit.query_right_overhang() < max_overhang and \
-                    hit.target_left_overhang() < max_overhang:
+               hit.target_left_overhang() < max_overhang:
                 has_overlap = True
                 circular_pair[0] = hit
                 continue
 
         if not is_circular:
             if hit.query_left_overhang() < max_overhang and \
-                    hit.target_right_overhang() < max_overhang:
+               hit.target_right_overhang() < max_overhang:
                 is_circular = True
                 circular_pair[1] = hit
 
@@ -273,7 +270,8 @@ def find_connected_components(graph):
     return connected_components, connected_components_counter
 
 
-def extract_unique_plasmids(paf_trimmed_reads, trimmed_reads_fasta):
+def extract_unique_plasmids(paf_trimmed_reads, trimmed_reads_fasta,
+                            aln_rate_threshold=0.8, max_length_difference=500):
     trimmed_reads = set()
     hits = []
 
@@ -305,17 +303,16 @@ def extract_unique_plasmids(paf_trimmed_reads, trimmed_reads_fasta):
             continue
 
         if current_hit is None or hit.query != current_hit.query or \
-                hit.target != current_hit.target:
+           hit.target != current_hit.target:
             if current_hit is not None:
                 query_length = current_hit.query_length
                 target_length = current_hit.target_length
-                query_aln_rate = calc_alignment_rate(query_length,
-                                                     query_mapping_segments)
-                target_aln_rate = calc_alignment_rate(target_length,
-                                                      target_mapping_segments)
+                query_aln_rate = calc_alignment_rate(query_length, query_mapping_segments)
+                target_aln_rate = calc_alignment_rate(target_length, target_mapping_segments)
 
-                if query_aln_rate >= 0.8 and target_aln_rate >= 0.8 and \
-                        abs(query_length - target_length) <= 500:
+                if query_aln_rate >= aln_rate_threshold and \
+                   target_aln_rate >= aln_rate_threshold and \
+                   abs(query_length - target_length) <= max_length_difference:
                     vertex1 = read2int[current_hit.query]
                     vertex2 = read2int[current_hit.target]
                     similarity_graph[vertex1].append(vertex2)
