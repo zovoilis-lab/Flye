@@ -253,8 +253,17 @@ class JobShortPlasmidsAssembly(Job):
         self.name = "short_plasmids_assembly"
 
     def run(self):
-        plasmids.find_short_plasmids(self.args, self.work_dir,
-                                     self.contigs_path)
+        plasmids1, plasmids2 = \
+            plasmids.find_short_plasmids(self.args, self.work_dir,
+                                         self.contigs_path)
+
+        plasmids1_out = os.path.join(self.work_dir, "plasmids1.fasta")
+        plasmids2_out = os.path.join(self.work_dir, "plasmids2.fasta")
+
+        fp.write_fasta_dict(plasmids1, self.contigs_path)
+        fp.write_fasta_dict(plasmids2, self.contigs_path)
+        fp.write_fasta_dict(plasmids1, plasmids1_out)
+        fp.write_fasta_dict(plasmids2, plasmids2_out)
 
 
 def _create_job_list(args, work_dir, log_file):
