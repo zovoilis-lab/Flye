@@ -10,6 +10,7 @@
 #include <map>
 #include <vector>
 #include <iostream>
+#include <cstring>
 
 #include <cuckoohash_map.hh>
 
@@ -35,6 +36,23 @@ public:
 	void operator=(const VertexIndex&) = delete;
 
 private:
+	struct IndexChunk
+	{
+		size_t get() const
+		{
+			return ((size_t)hi << 32) + (size_t)low;
+		}
+		void set(size_t val)
+		{
+			low = val & ((1ULL << 32) - 1);
+			hi = val >> 32;
+		}
+		uint8_t hi;
+		uint32_t low;
+	} __attribute__((packed));
+
+	static const size_t MAX_INDEX = 1ULL << (sizeof(IndexChunk) * 8);
+
 	struct ReadPosition
 	{
 		ReadPosition(FastaRecord::Id readId = FastaRecord::ID_NONE, 
@@ -48,7 +66,7 @@ private:
 	{
 		uint32_t capacity;
 		uint32_t size;
-		ReadPosition* data;
+		IndexChunk* data;
 	};
 
 public:
@@ -74,7 +92,10 @@ public:
 
 		ReadPosition operator*() const
 		{
-			ReadPosition pos = rv.data[index];
+			size_t globPos = rv.data[index].get();
+			auto seqPos = seqContainer.seqPosition(globPos);
+
+			ReadPosition pos(seqPos.seqId, seqPos.position);
 			if (revComp)
 			{
 				pos.readId = pos.readId.rc();
@@ -169,8 +190,8 @@ private:
 	size_t  _repetitiveFrequency;
 	//int32_t _flankRepeatSize;
 
-	const size_t INDEX_CHUNK = 32 * 1024 * 1024 / sizeof(ReadPosition);
-	std::vector<ReadPosition*> 		 _memoryChunks;
+	const size_t MEM_CHUNK = 32 * 1024 * 1024 / sizeof(IndexChunk);
+	std::vector<IndexChunk*> _memoryChunks;
 
 	cuckoohash_map<Kmer, ReadVector> _kmerIndex;
 	cuckoohash_map<Kmer, size_t> 	 _kmerCounts;

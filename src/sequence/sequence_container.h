@@ -141,6 +141,12 @@ public:
 		{}
 	};
 
+	struct SeqPos
+	{
+		FastaRecord::Id seqId;
+		int32_t position;
+	};
+
 	typedef std::vector<FastaRecord> SequenceIndex;
 
 	SequenceContainer():
@@ -179,6 +185,10 @@ public:
 	}
 	int computeNxStat(float fraction) const;
 
+	void   buildPositionIndex();
+	size_t globalPosition(SeqPos sp) const;
+	SeqPos seqPosition(size_t globPos) const;
+
 private:
 	FastaRecord::Id addSequence(const FastaRecord& sequence);
 
@@ -195,5 +205,8 @@ private:
 	size_t _seqIdOffest;
 	bool   _offsetInitialized;
 	static size_t g_nextSeqId;
+
+	std::vector<size_t> _sequenceOffsets;
+	//std::vector<size_t>
 };
 

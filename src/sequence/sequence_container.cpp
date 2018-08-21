@@ -339,3 +339,29 @@ void SequenceContainer::writeFasta(const std::vector<FastaRecord>& records,
 			   contigSeq.size(), fout);
 	}
 }
+
+void SequenceContainer::buildPositionIndex()
+{
+	size_t offset = 0;
+	for (auto& seq : _seqIndex)
+	{
+		_sequenceOffsets.push_back(offset);
+		offset += seq.sequence.length();
+	}
+}
+
+size_t SequenceContainer::globalPosition(SeqPos sp) const
+{
+	return _sequenceOffsets[sp.seqId._id - _seqIdOffest] + sp.position;
+}
+
+SequenceContainer::SeqPos SequenceContainer::seqPosition(size_t globPos) const
+{
+	size_t i = std::upper_bound(_sequenceOffsets.begin(), 
+								_sequenceOffsets.end(),
+								globPos) - _sequenceOffsets.begin();
+
+	FastaRecord::Id seqId(_seqIdOffest + i - 1);
+	int32_t pos = globPos - _sequenceOffsets[i - 1];
+	return {seqId, pos};
+}

@@ -211,6 +211,8 @@ int main(int argc, char** argv)
 		Logger::get().error() << e.what();
 		return 1;
 	}
+	seqReads.buildPositionIndex();
+	seqAssembly.buildPositionIndex();
 
 	if (minOverlap == -1) minOverlap = chooseMinOverlap(seqReads);
 	Parameters::get().minimumOverlap = minOverlap;

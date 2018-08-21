@@ -220,6 +220,7 @@ int main(int argc, char** argv)
 		Logger::get().error() << e.what();
 		return 1;
 	}
+	readsContainer.buildPositionIndex();
 	VertexIndex vertexIndex(readsContainer, 
 							(int)Config::get("assemble_kmer_sample"));
 	vertexIndex.outputProgress(true);

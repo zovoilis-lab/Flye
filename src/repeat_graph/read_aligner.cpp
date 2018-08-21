@@ -132,6 +132,7 @@ void ReadAligner::alignReads()
 										   segment.complement()};
 		}
 	}
+	pathsContainer.buildPositionIndex();
 
 	//index it and align reads
 	VertexIndex pathsIndex(pathsContainer, 
