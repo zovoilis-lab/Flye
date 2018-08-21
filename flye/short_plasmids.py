@@ -393,6 +393,36 @@ def find_short_plasmids(args, work_dir, contigs_path):
         run_minimap("ava-pb", unmapped_reads_path, [unmapped_reads_path],
                     args.threads, unmapped_reads_alignment)
 
+    logger.debug("Finding cicular reads")
+    circular_reads = find_circular_reads(unmapped_reads_alignment)
+
+    logger.debug("Finding circular pairs")
+    circular_pairs = find_circular_pairs(circular_reads, unmapped_reads_alignment)
+
+    logger.debug("Found {} circular reads, {} circular pairs".
+                 format(len(circular_reads), len(circular_pairs)))
+    logger.debug("Extracting unique plasmids")
+
+    circular_reads_trimmed = \
+        trim_circular_reads(circular_reads, unmapped_reads_alignment)
+    circular_pairs_trimmed = \
+        trim_circular_pairs(circular_pairs, unmapped_reads_alignment)
+
+    trimmed_sequences = os.path.join(work_dir, "trimmed_sequences.fasta")
+    fp.write_fasta_dict(circular_reads_trimmed, trimmed_sequences)
+    fp.write_fasta_dict(circular_pairs_trimmed, trimmed_sequences)
+
+    trimmed_sequences_alignment = os.path.join(work_dir, "trimmed_seqs.paf")
+
+    if not os.path.isfile(trimmed_sequences_alignment):
+        run_minimap("ava-pb", trimmed_sequences, [trimmed_sequences],
+                    args.threads, trimmed_sequences_alignment)
+
+    plasmids = extract_unique_plasmids(trimmed_sequences_alignment, trimmed_sequences)
+    logger.info('Found {} unique plasmids'.format(len(plasmids)))
+    return plasmids
+
+    '''
     logger.debug("Finding circular reads")
     circular_reads = find_circular_reads(unmapped_reads_alignment)
     logger.debug("Found {} circular reads".format(len(circular_reads)))
@@ -436,3 +466,4 @@ def find_short_plasmids(args, work_dir, contigs_path):
     logger.debug("Found {} unique plasmids".format(len(unique_plasmids2)))
 
     return unique_plasmids1, unique_plasmids2
+    '''
