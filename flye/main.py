@@ -258,7 +258,7 @@ class JobShortPlasmidsAssembly(Job):
                                          self.contigs_path)
 
         plasmids_out = os.path.join(self.work_dir, "plasmids.fasta")
-        fp.write_fasta_dict(unique_plasmids, self.contigs_path)
+        #fp.write_fasta_dict(unique_plasmids, self.contigs_path)
         fp.write_fasta_dict(unique_plasmids, plasmids_out)
 
 

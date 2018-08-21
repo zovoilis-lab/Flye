@@ -43,6 +43,11 @@ class Hit:
     def target_right_overhang(self):
         return self.target_length - self.target_end
 
+    def __str__(self):
+        return "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}".format(
+            self.query, self.query_length, self.query_start, self.query_end,
+            self.target, self.target_length, self.target_start, self.target_end)
+
 
 class Segment:
     def __init__(self, begin, end):
@@ -221,15 +226,15 @@ def find_circular_pairs(circular_reads, paf_unmapped_reads, max_overhang=300):
             previous_hit = hit
 
         if not has_overlap:
-            if hit.query_right_overhang() < max_overhang and \
-               hit.target_left_overhang() < max_overhang:
+            if hit.query_right_overhang() <= max_overhang and \
+               hit.target_left_overhang() <= max_overhang:
                 has_overlap = True
                 circular_pair[0] = hit
                 continue
 
         if not is_circular:
-            if hit.query_left_overhang() < max_overhang and \
-               hit.target_right_overhang() < max_overhang:
+            if hit.query_left_overhang() <= max_overhang and \
+               hit.target_right_overhang() <= max_overhang:
                 is_circular = True
                 circular_pair[1] = hit
 
@@ -398,6 +403,10 @@ def find_short_plasmids(args, work_dir, contigs_path):
 
     logger.debug("Finding circular pairs")
     circular_pairs = find_circular_pairs(circular_reads, unmapped_reads_alignment)
+
+    with open(os.path.join(work_dir, "circular_pairs.txt"), "w") as f:
+        for circular_pair in circular_pairs:
+            f.write(str(circular_pair[0]) + '\n' + str(circular_pair[1]) + '\n\n')
 
     logger.debug("Found {} circular reads, {} circular pairs".
                  format(len(circular_reads), len(circular_pairs)))
