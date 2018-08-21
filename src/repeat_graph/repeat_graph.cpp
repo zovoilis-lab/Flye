@@ -64,7 +64,7 @@ void RepeatGraph::build()
 	asmIndex.setRepeatCutoff(/*min freq*/ 1);
 	asmIndex.buildIndex(/*min freq*/ 2);
 
-	float badEndAdj = (float)Config::get("repeat_graph_ovlp_ident") / 2; //TODO: add to config
+	float badEndAdj = (float)Config::get("repeat_graph_ovlp_end_adjust");
 	OverlapDetector asmOverlapper(_asmSeqs, asmIndex, 
 								  (int)Config::get("maximum_jump"), 
 								  Parameters::get().minimumOverlap,
