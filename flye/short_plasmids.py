@@ -403,10 +403,8 @@ def find_short_plasmids(args, work_dir, contigs_path):
                  format(len(circular_reads), len(circular_pairs)))
     logger.debug("Extracting unique plasmids")
 
-    circular_reads_trimmed = \
-        trim_circular_reads(circular_reads, unmapped_reads_alignment)
-    circular_pairs_trimmed = \
-        trim_circular_pairs(circular_pairs, unmapped_reads_alignment)
+    circular_reads_trimmed = trim_circular_reads(circular_reads, unmapped_reads)
+    circular_pairs_trimmed = trim_circular_pairs(circular_pairs, unmapped_reads)
 
     trimmed_sequences = os.path.join(work_dir, "trimmed_sequences.fasta")
     fp.write_fasta_dict(circular_reads_trimmed, trimmed_sequences)
