@@ -248,8 +248,8 @@ class JobShortPlasmidsAssembly(Job):
         super(JobShortPlasmidsAssembly, self).__init__()
 
         self.args = args
-        self.work_dir = os.path.join(work_dir, "2-repeat")
-        self.contigs_path = os.path.join(self.work_dir, "graph_paths.fasta")
+        self.work_dir = os.path.join(work_dir, "0-assembly")
+        self.contigs_path = os.path.join(self.work_dir, "draft_assembly.fasta")
         self.name = "short_plasmids_assembly"
 
     def run(self):
@@ -258,7 +258,7 @@ class JobShortPlasmidsAssembly(Job):
                                          self.contigs_path)
 
         plasmids_out = os.path.join(self.work_dir, "plasmids.fasta")
-        #fp.write_fasta_dict(unique_plasmids, self.contigs_path)
+        fp.write_fasta_dict(unique_plasmids, self.contigs_path)
         fp.write_fasta_dict(unique_plasmids, plasmids_out)
 
 
@@ -269,36 +269,36 @@ def _create_job_list(args, work_dir, log_file):
     jobs = []
 
     #Assembly job
-    #jobs.append(JobAssembly(args, work_dir, log_file))
-    #draft_assembly = jobs[-1].out_files["assembly"]
-
-    #Consensus
-    #if args.read_type != "subasm":
-    #    jobs.append(JobConsensus(args, work_dir, draft_assembly))
-    #    draft_assembly = jobs[-1].out_files["consensus"]
-
-    #Repeat analysis
-    #jobs.append(JobRepeat(args, work_dir, log_file, draft_assembly))
-    #raw_contigs = jobs[-1].out_files["contigs"]
-    #scaffold_links = jobs[-1].out_files["scaffold_links"]
-    #graph_file = jobs[-1].out_files["assembly_graph"]
-    #repeat_stats = jobs[-1].out_files["stats"]
+    jobs.append(JobAssembly(args, work_dir, log_file))
+    draft_assembly = jobs[-1].out_files["assembly"]
 
     #Short Plasmids Assembly
     jobs.append(JobShortPlasmidsAssembly(args, work_dir))
 
+    #Consensus
+    if args.read_type != "subasm":
+        jobs.append(JobConsensus(args, work_dir, draft_assembly))
+        draft_assembly = jobs[-1].out_files["consensus"]
+
+    #Repeat analysis
+    jobs.append(JobRepeat(args, work_dir, log_file, draft_assembly))
+    raw_contigs = jobs[-1].out_files["contigs"]
+    scaffold_links = jobs[-1].out_files["scaffold_links"]
+    graph_file = jobs[-1].out_files["assembly_graph"]
+    repeat_stats = jobs[-1].out_files["stats"]
+
     #Polishing
-    #contigs_file = raw_contigs
-    #polished_stats = None
-    #if args.num_iters > 0:
-    #    jobs.append(JobPolishing(args, work_dir, log_file, raw_contigs))
-    #    contigs_file = jobs[-1].out_files["contigs"]
-    #    polished_stats = jobs[-1].out_files["stats"]
+    contigs_file = raw_contigs
+    polished_stats = None
+    if args.num_iters > 0:
+        jobs.append(JobPolishing(args, work_dir, log_file, raw_contigs))
+        contigs_file = jobs[-1].out_files["contigs"]
+        polished_stats = jobs[-1].out_files["stats"]
 
     #Report results
-    #jobs.append(JobFinalize(args, work_dir, log_file, contigs_file,
-    #                        graph_file, repeat_stats, polished_stats,
-    #                        scaffold_links))
+    jobs.append(JobFinalize(args, work_dir, log_file, contigs_file,
+                            graph_file, repeat_stats, polished_stats,
+                            scaffold_links))
 
     return jobs
 
