@@ -53,13 +53,6 @@ void VertexIndex::countKmers(size_t hardThreshold, int genomeSize)
 		int32_t nextKmerPos = _sampleRate;
 		for (auto kmerPos : IterKmers(_seqContainer.getSeq(readId)))
 		{
-			/*size_t globPos = _seqContainer
-				.globalPosition({readId, kmerPos.position});
-			auto seqPos = _seqContainer.seqPosition(globPos);
-
-			std::cout << readId << " " << kmerPos.position << " "
-				<< globPos << " " << seqPos.seqId << " " << seqPos.position << std::endl;*/
-
 			if (_sampleRate > 1) //subsampling
 			{
 				if (--nextKmerPos > 0) continue;
@@ -281,8 +274,8 @@ void VertexIndex::buildIndex(int minCoverage)
 				[targetRead, &kmerPos, this](ReadVector& rv)
 				{
 					size_t globPos = _seqContainer
-							.globalPosition({targetRead, kmerPos.position});
-					if (globPos > MAX_INDEX) throw std::runtime_error("Too much!");
+							.globalPosition(targetRead, kmerPos.position);
+					//if (globPos > MAX_INDEX) throw std::runtime_error("Too much!");
 					rv.data[rv.size].set(globPos);
 					//rv.data[rv.size] = ReadPosition(targetRead, 
 					//								kmerPos.position);

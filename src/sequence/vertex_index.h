@@ -51,7 +51,7 @@ private:
 		uint32_t low;
 	} __attribute__((packed));
 
-	static const size_t MAX_INDEX = 1ULL << (sizeof(IndexChunk) * 8);
+	//static const size_t MAX_INDEX = 1ULL << (sizeof(IndexChunk) * 8);
 
 	struct ReadPosition
 	{
@@ -93,9 +93,11 @@ public:
 		ReadPosition operator*() const
 		{
 			size_t globPos = rv.data[index].get();
-			auto seqPos = seqContainer.seqPosition(globPos);
+			FastaRecord::Id seqId;
+			int32_t position;
+			seqContainer.seqPosition(globPos, seqId, position);
 
-			ReadPosition pos(seqPos.seqId, seqPos.position);
+			ReadPosition pos(seqId, position);
 			if (revComp)
 			{
 				pos.readId = pos.readId.rc();

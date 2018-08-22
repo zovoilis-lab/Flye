@@ -343,25 +343,27 @@ void SequenceContainer::writeFasta(const std::vector<FastaRecord>& records,
 void SequenceContainer::buildPositionIndex()
 {
 	size_t offset = 0;
+	_sequenceOffsets.reserve(_seqIndex.size());
 	for (auto& seq : _seqIndex)
 	{
 		_sequenceOffsets.push_back(offset);
 		offset += seq.sequence.length();
 	}
-}
 
-size_t SequenceContainer::globalPosition(SeqPos sp) const
-{
-	return _sequenceOffsets[sp.seqId._id - _seqIdOffest] + sp.position;
-}
+	_offsetsHint.reserve(offset / CHUNK + 1);
+	for (size_t i = 0; i <= offset / CHUNK; ++i)
+	{
+		size_t idx = std::upper_bound(_sequenceOffsets.begin(), 
+									  _sequenceOffsets.end(),
+									  i * CHUNK) - _sequenceOffsets.begin();
+		_offsetsHint.push_back(idx);
+	}
 
-SequenceContainer::SeqPos SequenceContainer::seqPosition(size_t globPos) const
-{
-	size_t i = std::upper_bound(_sequenceOffsets.begin(), 
-								_sequenceOffsets.end(),
-								globPos) - _sequenceOffsets.begin();
-
-	FastaRecord::Id seqId(_seqIdOffest + i - 1);
-	int32_t pos = globPos - _sequenceOffsets[i - 1];
-	return {seqId, pos};
+	Logger::get().debug() << "Total sequence: " << offset / 2 << " bp";
+	if (offset > MAX_SEQUENCE)
+	{
+		Logger::get().error() << "Maximum sequence limit reached ("
+			<< MAX_SEQUENCE / 2 << ")";
+		throw std::runtime_error("Input overflow");
+	}
 }

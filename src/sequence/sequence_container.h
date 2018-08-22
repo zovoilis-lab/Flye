@@ -141,11 +141,11 @@ public:
 		{}
 	};
 
-	struct SeqPos
+	/*struct SeqPos
 	{
 		FastaRecord::Id seqId;
 		int32_t position;
-	};
+	};*/
 
 	typedef std::vector<FastaRecord> SequenceIndex;
 
@@ -186,8 +186,22 @@ public:
 	int computeNxStat(float fraction) const;
 
 	void   buildPositionIndex();
-	size_t globalPosition(SeqPos sp) const;
-	SeqPos seqPosition(size_t globPos) const;
+
+	size_t globalPosition(FastaRecord::Id seqId, int32_t position) const
+	{
+		return _sequenceOffsets[seqId._id - _seqIdOffest] + position;
+	}
+
+	void seqPosition(size_t globPos, FastaRecord::Id& outSeqId, 
+					 int32_t& outPosition) const
+	{
+		size_t hint = _offsetsHint[globPos / CHUNK];
+		while (hint < _sequenceOffsets.size() &&
+			   _sequenceOffsets[hint] <= globPos) ++hint;
+
+		outSeqId = FastaRecord::Id(_seqIdOffest + hint - 1);
+		outPosition = globPos - _sequenceOffsets[hint - 1];
+	}
 
 private:
 	FastaRecord::Id addSequence(const FastaRecord& sequence);
@@ -206,7 +220,11 @@ private:
 	bool   _offsetInitialized;
 	static size_t g_nextSeqId;
 
+	//global/local position convertions
+	const size_t MAX_SEQUENCE = 1ULL << (8 * 5);
+	const size_t CHUNK = 1000;
+
 	std::vector<size_t> _sequenceOffsets;
-	//std::vector<size_t>
+	std::vector<size_t> _offsetsHint;
 };
 
