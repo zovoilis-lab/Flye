@@ -64,7 +64,7 @@ void RepeatGraph::build()
 	asmIndex.setRepeatCutoff(/*min freq*/ 1);
 	asmIndex.buildIndex(/*min freq*/ 2);
 
-	float badEndAdj = (float)Config::get("repeat_graph_ovlp_ident") / 2; //TODO: add to config
+	float badEndAdj = (float)Config::get("repeat_graph_ovlp_end_adjust");
 	OverlapDetector asmOverlapper(_asmSeqs, asmIndex, 
 								  (int)Config::get("maximum_jump"), 
 								  Parameters::get().minimumOverlap,
@@ -417,6 +417,21 @@ void RepeatGraph::checkGluepointProjections(const OverlapContainer& asmOverlaps)
 	{
 		std::unordered_map<FastaRecord::Id, 
 						   std::vector<GluePoint>> addedGluepoints;
+		std::unordered_map<size_t, SetNode<size_t>*> mergedGluepoints;
+		auto combinePts = [&mergedGluepoints](size_t idOne, size_t idTwo)
+		{
+			if (!mergedGluepoints.count(idOne))
+			{
+				mergedGluepoints[idOne] = new SetNode<size_t>(idOne);
+			}
+			if (!mergedGluepoints.count(idTwo))
+			{
+				mergedGluepoints[idTwo] = new SetNode<size_t>(idTwo);
+			}
+			unionSet(mergedGluepoints[idOne],
+					 mergedGluepoints[idTwo]);
+		};
+
 		for (auto& gp : _gluePoints)
 		{
 			if (!gp.first.strand()) continue;
@@ -424,7 +439,8 @@ void RepeatGraph::checkGluepointProjections(const OverlapContainer& asmOverlaps)
 			for (size_t i = 0; i < gp.second.size(); ++i)
 			{
 				GluePoint pt = gp.second[i];
-				GluePoint ptCompl = _gluePoints[pt.seqId.rc()][gp.second.size() - i - 1];
+				GluePoint ptCompl = 
+					_gluePoints[pt.seqId.rc()][gp.second.size() - i - 1];
 
 				for (auto& interval : asmOverlaps
 						.getCoveringOverlaps(gp.first, pt.position - 1,  
@@ -432,8 +448,6 @@ void RepeatGraph::checkGluepointProjections(const OverlapContainer& asmOverlaps)
 				{
 					auto& ovlp = *interval.value;
 					auto& seqPoints = _gluePoints[ovlp.extId];
-					//if (o.value->curEnd - pt->data.pos <= _maxSeparation &&
-					//	pt->data.pos - o.value->curBegin <= _maxSeparation) continue;
 
 					int32_t projectedPos = ovlp.project(pt.position);
 					bool isValid = false;
@@ -446,8 +460,21 @@ void RepeatGraph::checkGluepointProjections(const OverlapContainer& asmOverlaps)
 										 		 projectedPos + _maxSeparation, cmp);
 					for (; rBegin != rEnd; ++rBegin)
 					{
+						size_t compPos = seqPoints.size() - (rBegin - seqPoints.begin()) - 1;
+						GluePoint projCompl = _gluePoints[ovlp.extId.rc()][compPos];
+
 						if (abs(rBegin->position - projectedPos) <=
-							_maxSeparation) isValid = true;
+							_maxSeparation) 
+						{
+							//make sure that projections have proper IDs
+							if (pt.pointId != rBegin->pointId)
+							{
+								combinePts(pt.pointId, rBegin->pointId);
+								combinePts(ptCompl.pointId, projCompl.pointId);
+							}
+							
+							isValid = true;
+						}
 					}
 					for (auto& otherPt : addedGluepoints[ovlp.extId])
 					{
@@ -482,6 +509,25 @@ void RepeatGraph::checkGluepointProjections(const OverlapContainer& asmOverlaps)
 		}
 		Logger::get().debug() << "Added " << totalAdded 
 			<< " gluepoint projections";
+
+		for (auto& gp : _gluePoints)
+		{
+			for (auto& point : gp.second)
+			{
+				if (mergedGluepoints.count(point.pointId))
+				{
+					point.pointId = 
+						findSet(mergedGluepoints[point.pointId])->data;
+				}
+			}
+		}
+		for (auto& point : mergedGluepoints)
+		{
+			Logger::get().debug() << "Merging " << point.first << " -> "
+				<< findSet(point.second)->data;
+		}
+		for (auto& point : mergedGluepoints) delete point.second;
+
 		if (!totalAdded) break;
 	}
 }
@@ -907,18 +953,29 @@ void RepeatGraph::logEdges()
 	{
 		if (!seqEdgesPair.first.strand()) continue;
 
-		for (size_t i = 0; i < seqEdgesPair.second.size(); ++i)
+		size_t begin = 0;
+		while(begin < seqEdgesPair.second.size())
 		{
-			SequenceSegment* segment = seqEdgesPair.second[i].first;
-			GraphEdge* edge = seqEdgesPair.second[i].second;
+			size_t end = begin + 1;
+			while(end < seqEdgesPair.second.size() &&
+				 	seqEdgesPair.second[begin].second->edgeId ==
+				   	seqEdgesPair.second[end].second->edgeId) ++end;
+
+			SequenceSegment* beginSeg = seqEdgesPair.second[begin].first;
+			SequenceSegment* endSeg = seqEdgesPair.second[end - 1].first;
+			GraphEdge* edge = seqEdgesPair.second[begin].second;
 
 			std::string unique = edge->seqSegments.size() == 1 ? "*" : " ";
+			std::string mult = end - begin == 1 ? "" : 
+							   "(" + std::to_string(end - begin) + ")";
 			Logger::get().debug() << unique << "\t" 
 								  << edge->edgeId.signedId() << "\t" 
-								  << _asmSeqs.seqName(segment->seqId) << "\t"
-								  << segment->start << "\t" 
-								  << segment->end << "\t"
-								  << segment->end - segment->start;
+								  << _asmSeqs.seqName(beginSeg->seqId) << "\t"
+								  << beginSeg->start << "\t" 
+								  << endSeg->end << "\t"
+								  << endSeg->end - beginSeg->start << "\t"
+								  << mult;
+			begin = end;
 		}
 	}
 	Logger::get().debug() << "Total edges: " << _nextEdgeId / 2;
