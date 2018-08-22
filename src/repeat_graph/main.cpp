@@ -223,7 +223,7 @@ int main(int argc, char** argv)
 
 	Logger::get().info() << "Building repeat graph";
 	rg.build();
-	outGen.outputDot(proc.getEdgesPaths(), outFolder + "/graph_raw.dot");
+	outGen.outputDot(proc.getEdgesPaths(), outFolder + "/graph_raw.gv");
 	proc.simplify();
 
 	Logger::get().info() << "Aligning reads to the graph";
@@ -242,13 +242,13 @@ int main(int argc, char** argv)
 	RepeatResolver resolver(rg, seqAssembly, seqReads, aligner, multInf);
 	resolver.findRepeats();
 
-	outGen.outputDot(proc.getEdgesPaths(), outFolder + "/graph_before_rr.dot");
+	outGen.outputDot(proc.getEdgesPaths(), outFolder + "/graph_before_rr.gv");
 	outGen.outputGfa(proc.getEdgesPaths(), outFolder + "/graph_before_rr.gfa");
 	outGen.outputFasta(proc.getEdgesPaths(), outFolder + "/graph_before_rr.fasta");
 
 	resolver.resolveRepeats();
 	resolver.fixLongEdges();
-	outGen.outputDot(proc.getEdgesPaths(), outFolder + "/graph_after_rr.dot");
+	outGen.outputDot(proc.getEdgesPaths(), outFolder + "/graph_after_rr.gv");
 
 	Logger::get().info() << "Generating contigs";
 
@@ -263,7 +263,7 @@ int main(int argc, char** argv)
 	outGen.dumpRepeats(extender.getUnbranchingPaths(),
 					   outFolder + "/repeats_dump.txt");
 	outGen.outputDot(extender.getUnbranchingPaths(),
-					 outFolder + "/graph_final.dot");
+					 outFolder + "/graph_final.gv");
 	outGen.outputFasta(extender.getUnbranchingPaths(),
 					   outFolder + "/graph_final.fasta");
 	outGen.outputGfa(extender.getUnbranchingPaths(),
