@@ -89,7 +89,6 @@ void SequenceContainer::loadFromFile(const std::string& fileName)
 	}
 }
 
-
 int SequenceContainer::computeNxStat(float fraction) const
 {
 	std::vector<int32_t> readLengths;
@@ -115,7 +114,6 @@ int SequenceContainer::computeNxStat(float fraction) const
 	}
 	return nx;
 }
-
 
 //adds sequence ad it's complement
 const FastaRecord& 
