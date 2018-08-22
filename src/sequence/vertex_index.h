@@ -90,6 +90,7 @@ public:
 			return !(*this == other);
 		}
 
+		__attribute__((always_inline))
 		ReadPosition operator*() const
 		{
 			size_t globPos = rv.data[index].get();
@@ -156,6 +157,7 @@ public:
 						  _seqContainer);
 	}
 
+	__attribute__((always_inline))
 	bool isSolid(Kmer kmer) const
 	{
 		kmer.standardForm();
