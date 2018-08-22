@@ -10,7 +10,7 @@ import subprocess
 import logging
 import os
 
-from flye.utils import which
+from flye.utils.utils import which
 
 REPEAT_BIN = "flye-repeat"
 logger = logging.getLogger()

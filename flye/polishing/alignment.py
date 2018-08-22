@@ -15,9 +15,9 @@ import logging
 import multiprocessing
 import ctypes
 
-import flye.fasta_parser as fp
-from flye.utils import which
-import flye.config as config
+import flye.utils.fasta_parser as fp
+from flye.utils.utils import which
+import flye.config.py_cfg as cfg
 
 
 logger = logging.getLogger()
@@ -195,7 +195,7 @@ class SynchronizedSamReader(object):
             qry_start, qry_end, qry_len, qry_seq, err_rate) = \
                     self.parse_cigar(cigar_str, read_str, read_contig, ctg_pos)
 
-            OVERHANG = 100
+            OVERHANG = cfg.vals["read_aln_overhang"]
             if (float(qry_end - qry_start) / qry_len > self.min_aln_rate or
                     trg_start < OVERHANG or trg_len - trg_end < OVERHANG):
                 aln = Alignment(read_id, read_contig, qry_start,
@@ -217,7 +217,7 @@ def check_binaries():
 def make_alignment(reference_file, reads_file, num_proc,
                    work_dir, platform, out_alignment):
     """
-    Runs minimap2 and sort its output
+    Runs minimap2 and sorts its output
     """
     _run_minimap(reference_file, reads_file, num_proc, platform, out_alignment)
     logger.debug("Sorting alignment file")

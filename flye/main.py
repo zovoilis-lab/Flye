@@ -15,17 +15,17 @@ import json
 import shutil
 import subprocess
 
-import flye.alignment as aln
-import flye.bubbles as bbl
-import flye.polish as pol
-import flye.fasta_parser as fp
-import flye.assemble as asm
-import flye.repeat_graph as repeat
-import flye.consensus as cons
-import flye.scaffolder as scf
+import flye.polishing.alignment as aln
+import flye.polishing.bubbles as bbl
+import flye.polishing.polish as pol
+import flye.polishing.consensus as cons
+import flye.assembly.assemble as asm
+import flye.assembly.repeat_graph as repeat
+import flye.assembly.scaffolder as scf
 from flye.__version__ import __version__
-import flye.config as config
-from flye.bytes2human import human2bytes
+import flye.config.py_cfg as cfg
+from flye.utils.bytes2human import human2bytes
+import flye.utils.fasta_parser as fp
 
 logger = logging.getLogger()
 
@@ -180,7 +180,7 @@ class JobConsensus(Job):
         consensus_fasta = cons.get_consensus(out_alignment, self.in_contigs,
                                              contigs_info, self.args.threads,
                                              self.args.platform,
-                                             config.vals["min_aln_rate"])
+                                             cfg.vals["min_aln_rate"])
         fp.write_fasta_dict(consensus_fasta, self.out_consensus)
 
 
@@ -224,7 +224,7 @@ class JobPolishing(Job):
             coverage_stats = \
                 bbl.make_bubbles(alignment_file, contigs_info, prev_assembly,
                                  self.args.platform, self.args.threads,
-                                 config.vals["min_aln_rate"], bubbles_file)
+                                 cfg.vals["min_aln_rate"], bubbles_file)
 
             logger.info("Correcting bubbles")
             polished_file = os.path.join(self.polishing_dir,
@@ -293,14 +293,12 @@ def _set_kmer_size(args):
 
 
 def _set_read_attributes(args):
-    root = os.path.dirname(__file__)
     if args.read_type == "raw":
-        args.asm_config = os.path.join(root, "resource", config.vals["raw_cfg"])
+        args.asm_config = os.path.join(cfg.vals["pkg_root"], cfg.vals["raw_cfg"])
     elif args.read_type == "corrected":
-        args.asm_config = os.path.join(root, "resource",
-                                       config.vals["corrected_cfg"])
+        args.asm_config = os.path.join(cfg.vals["pkg_root"], cfg.vals["corrected_cfg"])
     elif args.read_type == "subasm":
-        args.asm_config = os.path.join(root, "resource", config.vals["subasm_cfg"])
+        args.asm_config = os.path.join(cfg.vals["pkg_root"], cfg.vals["subasm_cfg"])
 
 
 def _run(args):
@@ -374,9 +372,9 @@ def _enable_logging(log_file, debug, overwrite):
 def _usage():
     return ("flye (--pacbio-raw | --pacbio-corr | --nano-raw |\n"
             "\t     --nano-corr | --subassemblies) file1 [file_2 ...]\n"
-            "\t     --genome-size size --out-dir dir_path [--threads int]\n"
-            "\t     [--iterations int] [--min-overlap int] [--resume]\n"
-            "\t     [--debug] [--version] [--help]")
+            "\t     --genome-size SIZE --out-dir PATH\n"
+            "\t     [--threads int] [--iterations int] [--min-overlap int]\n"
+            "\t     [--debug] [--version] [--help] [--resume]")
 
 
 def _epilog():
@@ -389,10 +387,8 @@ def _epilog():
             "files with reads (separated by spaces). Mixing different read\n"
             "types is not yet supported.\n\n"
             "You must provide an estimate of the genome size as input,\n"
-            "which is used for solid k-mers selection. The estimate could\n"
-            "be rough (e.g. withing 0.5x-2x range) and does not affect\n"
-            "the other assembly stages. Standard size modificators are\n"
-            "supported (e.g. 5m or 2.6g)")
+            "which is used for solid k-mers selection. Standard size\n"
+            "modificators are supported (e.g. 5m or 2.6g)")
 
 
 def _version():
@@ -437,7 +433,7 @@ def main():
                         help="ONT corrected reads")
     read_group.add_argument("--subassemblies", dest="subassemblies", nargs="+",
                         default=None, metavar="path",
-                        help="high-quality contig-like input")
+                        help="high-quality contigs input")
 
     parser.add_argument("-g", "--genome-size", dest="genome_size",
                         metavar="size", required=True,
@@ -448,16 +444,14 @@ def main():
 
     parser.add_argument("-t", "--threads", dest="threads",
                         type=lambda v: check_int_range(v, 1, 128),
-                        default=1, metavar="int", help="number of parallel threads "
-                        "(default: 1)")
+                        default=1, metavar="int", help="number of parallel threads [1]")
     parser.add_argument("-i", "--iterations", dest="num_iters",
                         type=lambda v: check_int_range(v, 0, 10),
-                        default=1, help="number of polishing iterations "
-                        "(default: 1)", metavar="int")
+                        default=1, help="number of polishing iterations [1]",
+                        metavar="int")
     parser.add_argument("-m", "--min-overlap", dest="min_overlap", metavar="int",
                         type=lambda v: check_int_range(v, 1000, 10000),
-                        default=None, help="minimum overlap between reads "
-                        "(default: auto)")
+                        default=None, help="minimum overlap between reads [auto]")
 
     parser.add_argument("--resume", action="store_true",
                         dest="resume", default=False,
