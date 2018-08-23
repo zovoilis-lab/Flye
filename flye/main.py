@@ -15,17 +15,18 @@ import json
 import shutil
 import subprocess
 
-import flye.alignment as aln
-import flye.bubbles as bbl
-import flye.polish as pol
-import flye.fasta_parser as fp
-import flye.assemble as asm
-import flye.repeat_graph as repeat
-import flye.consensus as cons
-import flye.scaffolder as scf
+import flye.polishing.alignment as aln
+import flye.polishing.bubbles as bbl
+import flye.polishing.polish as pol
+import flye.polishing.consensus as cons
+import flye.assembly.assemble as asm
+import flye.assembly.repeat_graph as repeat
+import flye.assembly.scaffolder as scf
 from flye.__version__ import __version__
-import flye.config as config
-from flye.bytes2human import human2bytes
+import flye.config.py_cfg as cfg
+from flye.config.configurator import setup_params
+from flye.utils.bytes2human import human2bytes
+import flye.utils.fasta_parser as fp
 
 logger = logging.getLogger()
 
@@ -37,7 +38,7 @@ class Job(object):
     Describes an abstract list of jobs with persistent
     status that can be resumed
     """
-    run_description = {"stage_name" : ""}
+    run_params = {"stage_name" : ""}
 
     def __init__(self):
         self.name = None
@@ -50,15 +51,15 @@ class Job(object):
         pass
 
     def save(self, save_file):
-        Job.run_description["stage_name"] = self.name
+        Job.run_params["stage_name"] = self.name
 
         with open(save_file, "w") as fp:
-            json.dump(Job.run_description, fp)
+            json.dump(Job.run_params, fp)
 
     def load(self, save_file):
         with open(save_file, "r") as fp:
             data = json.load(fp)
-            Job.run_description = data
+            Job.run_params = data
 
     def completed(self, save_file):
         with open(save_file, "r") as fp:
@@ -69,6 +70,18 @@ class Job(object):
                     return False
 
             return True
+
+
+class JobConfigure(Job):
+    def __init__(self, args, work_dir):
+        super(JobConfigure, self).__init__()
+        self.args = args
+        self.work_dir = work_dir
+        self.name = "configure"
+
+    def run(self):
+        params = setup_params(self.args)
+        Job.run_params = params
 
 
 class JobAssembly(Job):
@@ -88,8 +101,8 @@ class JobAssembly(Job):
     def run(self):
         if not os.path.isdir(self.assembly_dir):
             os.mkdir(self.assembly_dir)
-        asm.assemble(self.args, self.assembly_filename, self.log_file,
-                     self.args.asm_config)
+        asm.assemble(self.args, Job.run_params, self.assembly_filename,
+                     self.log_file, self.args.asm_config, )
         if os.path.getsize(self.assembly_filename) == 0:
             raise asm.AssembleException("No contigs were assembled - "
                                         "please check if the read type and genome "
@@ -107,7 +120,7 @@ class JobRepeat(Job):
 
         self.repeat_dir = os.path.join(work_dir, "2-repeat")
         contig_sequences = os.path.join(self.repeat_dir, "graph_paths.fasta")
-        assembly_graph = os.path.join(self.repeat_dir, "graph_final.dot")
+        assembly_graph = os.path.join(self.repeat_dir, "graph_final.gv")
         contigs_stats = os.path.join(self.repeat_dir, "contigs_stats.txt")
         self.out_files["contigs"] = contig_sequences
         self.out_files["scaffold_links"] = os.path.join(self.repeat_dir,
@@ -119,8 +132,9 @@ class JobRepeat(Job):
         if not os.path.isdir(self.repeat_dir):
             os.mkdir(self.repeat_dir)
         logger.info("Performing repeat analysis")
-        repeat.analyse_repeats(self.args, self.in_assembly, self.repeat_dir,
-                               self.log_file, self.args.asm_config)
+        repeat.analyse_repeats(self.args, Job.run_params, self.in_assembly,
+                               self.repeat_dir, self.log_file,
+                               self.args.asm_config)
 
 
 class JobFinalize(Job):
@@ -141,7 +155,7 @@ class JobFinalize(Job):
         self.out_files["contigs"] = os.path.join(work_dir, "contigs.fasta")
         self.out_files["scaffolds"] = os.path.join(work_dir, "scaffolds.fasta")
         self.out_files["stats"] = os.path.join(work_dir, "assembly_info.txt")
-        self.out_files["graph"] = os.path.join(work_dir, "assembly_graph.dot")
+        self.out_files["graph"] = os.path.join(work_dir, "assembly_graph.gv")
 
     def run(self):
         shutil.copy2(self.contigs_file, self.out_files["contigs"])
@@ -180,7 +194,7 @@ class JobConsensus(Job):
         consensus_fasta = cons.get_consensus(out_alignment, self.in_contigs,
                                              contigs_info, self.args.threads,
                                              self.args.platform,
-                                             config.vals["min_aln_rate"])
+                                             cfg.vals["min_aln_rate"])
         fp.write_fasta_dict(consensus_fasta, self.out_consensus)
 
 
@@ -224,7 +238,7 @@ class JobPolishing(Job):
             coverage_stats = \
                 bbl.make_bubbles(alignment_file, contigs_info, prev_assembly,
                                  self.args.platform, self.args.threads,
-                                 config.vals["min_aln_rate"], bubbles_file)
+                                 cfg.vals["min_aln_rate"], bubbles_file)
 
             logger.info("Correcting bubbles")
             polished_file = os.path.join(self.polishing_dir,
@@ -246,6 +260,9 @@ def _create_job_list(args, work_dir, log_file):
     Build pipeline as a list of consecutive jobs
     """
     jobs = []
+
+    #Run configuration
+    jobs.append(JobConfigure(args, work_dir))
 
     #Assembly job
     jobs.append(JobAssembly(args, work_dir, log_file))
@@ -285,23 +302,6 @@ def _set_kmer_size(args):
     else:
         args.genome_size = human2bytes(args.genome_size.upper())
 
-    logger.debug("Genome size: {0}".format(args.genome_size))
-    #args.kmer_size = config.vals["small_kmer"]
-    #if args.genome_size > config.vals["big_genome"]:
-    #    args.kmer_size = config.vals["big_kmer"]
-    #logger.debug("Chosen k-mer size: {0}".format(args.kmer_size))
-
-
-def _set_read_attributes(args):
-    root = os.path.dirname(__file__)
-    if args.read_type == "raw":
-        args.asm_config = os.path.join(root, "resource", config.vals["raw_cfg"])
-    elif args.read_type == "corrected":
-        args.asm_config = os.path.join(root, "resource",
-                                       config.vals["corrected_cfg"])
-    elif args.read_type == "subasm":
-        args.asm_config = os.path.join(root, "resource", config.vals["subasm_cfg"])
-
 
 def _run(args):
     """
@@ -314,7 +314,7 @@ def _run(args):
         if not os.path.exists(read_file):
             raise ResumeException("Can't open " + read_file)
 
-    save_file = os.path.join(args.out_dir, "flye.save")
+    save_file = os.path.join(args.out_dir, "params.json")
     jobs = _create_job_list(args, args.out_dir, args.log_file)
 
     current_job = 0
@@ -374,9 +374,9 @@ def _enable_logging(log_file, debug, overwrite):
 def _usage():
     return ("flye (--pacbio-raw | --pacbio-corr | --nano-raw |\n"
             "\t     --nano-corr | --subassemblies) file1 [file_2 ...]\n"
-            "\t     --genome-size size --out-dir dir_path [--threads int]\n"
-            "\t     [--iterations int] [--min-overlap int] [--resume]\n"
-            "\t     [--debug] [--version] [--help]")
+            "\t     --genome-size SIZE --out-dir PATH\n"
+            "\t     [--threads int] [--iterations int] [--min-overlap int]\n"
+            "\t     [--debug] [--version] [--help] [--resume]")
 
 
 def _epilog():
@@ -389,10 +389,8 @@ def _epilog():
             "files with reads (separated by spaces). Mixing different read\n"
             "types is not yet supported.\n\n"
             "You must provide an estimate of the genome size as input,\n"
-            "which is used for solid k-mers selection. The estimate could\n"
-            "be rough (e.g. withing 0.5x-2x range) and does not affect\n"
-            "the other assembly stages. Standard size modificators are\n"
-            "supported (e.g. 5m or 2.6g)")
+            "which is used for solid k-mers selection. Standard size\n"
+            "modificators are supported (e.g. 5m or 2.6g)")
 
 
 def _version():
@@ -437,7 +435,7 @@ def main():
                         help="ONT corrected reads")
     read_group.add_argument("--subassemblies", dest="subassemblies", nargs="+",
                         default=None, metavar="path",
-                        help="high-quality contig-like input")
+                        help="high-quality contigs input")
 
     parser.add_argument("-g", "--genome-size", dest="genome_size",
                         metavar="size", required=True,
@@ -448,16 +446,17 @@ def main():
 
     parser.add_argument("-t", "--threads", dest="threads",
                         type=lambda v: check_int_range(v, 1, 128),
-                        default=1, metavar="int", help="number of parallel threads "
-                        "(default: 1)")
+                        default=1, metavar="int", help="number of parallel threads [1]")
     parser.add_argument("-i", "--iterations", dest="num_iters",
                         type=lambda v: check_int_range(v, 0, 10),
-                        default=1, help="number of polishing iterations "
-                        "(default: 1)", metavar="int")
+                        default=1, help="number of polishing iterations [1]",
+                        metavar="int")
     parser.add_argument("-m", "--min-overlap", dest="min_overlap", metavar="int",
                         type=lambda v: check_int_range(v, 1000, 10000),
-                        default=None, help="minimum overlap between reads "
-                        "(default: auto)")
+                        default=None, help="minimum overlap between reads [auto]")
+    parser.add_argument("--asm-coverage", dest="asm_coverage", metavar="int",
+                        default=None, help="reduced coverage for initial "
+                        "read assembly [auto]", type=int)
 
     parser.add_argument("--resume", action="store_true",
                         dest="resume", default=False,
@@ -503,7 +502,8 @@ def main():
                     overwrite=False)
 
     _set_kmer_size(args)
-    _set_read_attributes(args)
+    args.asm_config = os.path.join(cfg.vals["pkg_root"],
+                                   cfg.vals["bin_cfg"][args.read_type])
 
     try:
         aln.check_binaries()

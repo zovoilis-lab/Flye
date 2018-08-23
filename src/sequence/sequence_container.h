@@ -155,7 +155,7 @@ public:
 	SequenceContainer():
 		_offsetInitialized(false) {}
 
-	void loadFromFile(const std::string& filename);
+	void loadFromFile(const std::string& filename, int minReadLength = 0);
 
 	static void writeFasta(const std::vector<FastaRecord>& records,
 						   const std::string& fileName);

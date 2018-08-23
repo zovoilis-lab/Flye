@@ -14,9 +14,9 @@ import math
 import multiprocessing
 import signal
 
-import flye.fasta_parser as fp
-import flye.config as config
-from flye.alignment import shift_gaps, SynchronizedSamReader
+import flye.utils.fasta_parser as fp
+import flye.config.py_cfg as cfg
+from flye.polishing.alignment import shift_gaps, SynchronizedSamReader
 
 
 logger = logging.getLogger()
@@ -86,7 +86,7 @@ def make_bubbles(alignment_path, contigs_info, contigs_path,
     The main function: takes an alignment and returns bubbles
     """
     aln_reader = SynchronizedSamReader(alignment_path,
-                                       fp.read_fasta_dict(contigs_path),
+                                       fp.read_sequence_dict(contigs_path),
                                        min_alignment)
     manager = multiprocessing.Manager()
     results_queue = manager.Queue()
@@ -162,8 +162,8 @@ def _output_bubbles(bubbles, out_stream):
 
 
 def _postprocess_bubbles(bubbles):
-    MAX_BUBBLE = config.vals["max_bubble_length"]
-    MAX_BRANCHES = config.vals["max_bubble_branches"]
+    MAX_BUBBLE = cfg.vals["max_bubble_length"]
+    MAX_BRANCHES = cfg.vals["max_bubble_branches"]
 
     new_bubbles = []
     long_branches = 0
@@ -213,9 +213,9 @@ def _is_solid_kmer(profile, position, err_mode):
     """
     Checks if the kmer at given position is solid
     """
-    MISSMATCH_RATE = config.vals["err_modes"][err_mode]["solid_missmatch"]
-    INS_RATE = config.vals["err_modes"][err_mode]["solid_indel"]
-    SOLID_LEN = config.vals["solid_kmer_length"]
+    MISSMATCH_RATE = cfg.vals["err_modes"][err_mode]["solid_missmatch"]
+    INS_RATE = cfg.vals["err_modes"][err_mode]["solid_indel"]
+    SOLID_LEN = cfg.vals["solid_kmer_length"]
 
     for i in xrange(position, position + SOLID_LEN):
         if profile[i].coverage == 0:
@@ -232,7 +232,7 @@ def _is_simple_kmer(profile, position):
     """
     Checks if the kmer with center at the given position is simple
     """
-    SIMPLE_LEN = config.vals["simple_kmer_length"]
+    SIMPLE_LEN = cfg.vals["simple_kmer_length"]
 
     extended_len = SIMPLE_LEN * 2
     nucl_str = map(lambda p: p.nucl, profile[position - extended_len / 2 :
@@ -268,7 +268,7 @@ def _compute_profile(alignment, platform, genome_len):
     """
     Computes alignment profile
     """
-    max_aln_err = config.vals["err_modes"][platform]["max_aln_error"]
+    max_aln_err = cfg.vals["err_modes"][platform]["max_aln_error"]
     aln_errors = []
     filtered = 0
     profile = [ProfileInfo() for _ in xrange(genome_len)]
@@ -311,9 +311,9 @@ def _get_partition(profile, err_mode):
     Partitions genome into sub-alignments at solid regions / simple kmers
     """
     #logger.debug("Partitioning genome")
-    SOLID_LEN = config.vals["solid_kmer_length"]
-    SIMPLE_LEN = config.vals["simple_kmer_length"]
-    MAX_BUBBLE = config.vals["max_bubble_length"]
+    SOLID_LEN = cfg.vals["solid_kmer_length"]
+    SIMPLE_LEN = cfg.vals["simple_kmer_length"]
+    MAX_BUBBLE = cfg.vals["max_bubble_length"]
 
     solid_flags = [False for _ in xrange(len(profile))]
     prof_pos = 0
@@ -358,7 +358,7 @@ def _get_bubble_seqs(alignment, platform, profile, partition, contig_info):
     if not partition:
         return []
 
-    max_aln_err = config.vals["err_modes"][platform]["max_aln_error"]
+    max_aln_err = cfg.vals["err_modes"][platform]["max_aln_error"]
     bubbles = []
     ext_partition = [0] + partition + [contig_info.length]
     for p_left, p_right in zip(ext_partition[:-1], ext_partition[1:]):

@@ -66,7 +66,8 @@ FastaRecord::Id SequenceContainer::addSequence(const FastaRecord& seqRec)
 	return _seqIndex.back().id.rc();
 }
 
-void SequenceContainer::loadFromFile(const std::string& fileName)
+void SequenceContainer::loadFromFile(const std::string& fileName, 
+									 int minReadLength)
 {
 	std::vector<FastaRecord> records;
 	if (this->isFasta(fileName))
@@ -85,7 +86,10 @@ void SequenceContainer::loadFromFile(const std::string& fileName)
 
 	for (size_t i : indicesPerm)
 	{
-		this->addSequence(records[i]);
+		if (records[i].sequence.length() > (size_t)minReadLength)
+		{
+			this->addSequence(records[i]);
+		}
 	}
 }
 

@@ -12,9 +12,9 @@ from itertools import izip
 import multiprocessing
 import signal
 
-from flye.alignment import shift_gaps, SynchronizedSamReader
-import flye.config as config
-import flye.fasta_parser as fp
+from flye.polishing.alignment import shift_gaps, SynchronizedSamReader
+import flye.config.py_cfg as cfg
+import flye.utils.fasta_parser as fp
 
 logger = logging.getLogger()
 
@@ -51,7 +51,7 @@ def get_consensus(alignment_path, contigs_path, contigs_info, num_proc,
     Main function
     """
     aln_reader = SynchronizedSamReader(alignment_path,
-                                       fp.read_fasta_dict(contigs_path),
+                                       fp.read_sequence_dict(contigs_path),
                                        min_aln_length)
     manager = multiprocessing.Manager()
     results_queue = manager.Queue()
@@ -97,7 +97,7 @@ def _contig_profile(alignment, platform, genome_len):
     """
     Computes alignment profile
     """
-    max_aln_err = config.vals["err_modes"][platform]["max_aln_error"]
+    max_aln_err = cfg.vals["err_modes"][platform]["max_aln_error"]
     aln_errors = []
     profile = [Profile() for _ in xrange(genome_len)]
     for aln in alignment:
