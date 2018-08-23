@@ -35,13 +35,16 @@ def check_binaries():
         raise RepeatException(str(e))
 
 
-def analyse_repeats(args, input_assembly, out_folder, log_file, config_file):
+def analyse_repeats(args, run_params, input_assembly, out_folder,
+                    log_file, config_file):
     logger.debug("-----Begin repeat analyser log------")
     cmdline = [REPEAT_BIN, "-l", log_file, "-t", str(args.threads)]
     if args.min_overlap is not None:
         cmdline.extend(["-v", str(args.min_overlap)])
     if args.debug:
         cmdline.append("-d")
+    cmdline.extend(["-v", str(run_params["min_overlap"])])
+    cmdline.extend(["-k", str(run_params["kmer_size"])])
     cmdline.extend([input_assembly, ",".join(args.reads),
                     out_folder, str(args.genome_size), config_file])
 

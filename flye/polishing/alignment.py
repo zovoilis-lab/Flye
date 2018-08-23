@@ -232,7 +232,7 @@ def make_alignment(reference_file, reads_file, num_proc,
 
 def get_contigs_info(contigs_file):
     contigs_info = {}
-    contigs_fasta = fp.read_fasta_dict(contigs_file)
+    contigs_fasta = fp.read_sequence_dict(contigs_file)
     for ctg_id, ctg_seq in contigs_fasta.iteritems():
         contig_type = ctg_id.split("_")[0]
         contigs_info[ctg_id] = ContigInfo(ctg_id, len(ctg_seq),

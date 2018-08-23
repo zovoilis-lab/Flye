@@ -17,7 +17,7 @@ logger = logging.getLogger()
 
 def generate_scaffolds(contigs_file, links_file, out_scaffolds):
 
-    contigs_fasta = fp.read_fasta_dict(contigs_file)
+    contigs_fasta = fp.read_sequence_dict(contigs_file)
     scaffolds_fasta = {}
     used_contigs = set()
 

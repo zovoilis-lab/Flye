@@ -51,7 +51,7 @@ def get_consensus(alignment_path, contigs_path, contigs_info, num_proc,
     Main function
     """
     aln_reader = SynchronizedSamReader(alignment_path,
-                                       fp.read_fasta_dict(contigs_path),
+                                       fp.read_sequence_dict(contigs_path),
                                        min_aln_length)
     manager = multiprocessing.Manager()
     results_queue = manager.Queue()

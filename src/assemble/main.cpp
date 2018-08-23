@@ -24,7 +24,7 @@
 
 bool parseArgs(int argc, char** argv, std::string& readsFasta, 
 			   std::string& outAssembly, std::string& logFile, size_t& genomeSize,
-			   int& minKmer, int& maxKmer, bool& debug,
+			   int& minKmer, int& maxKmer, int& kmerSize, bool& debug,
 			   size_t& numThreads, int& minOverlap, std::string& configPath)
 {
 	auto printUsage = [argv]()
@@ -39,7 +39,7 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 				  << "\tgenome_size\tgenome size in bytes\n"
 				  << "\tconfig_file\tpath to the config file\n"
 				  << "\noptional arguments:\n"
-				  //<< "\t-k kmer_size\tk-mer size [default = 15] \n"
+				  << "\t-k kmer_size\tk-mer size [default = 15] \n"
 				  << "\t-m min_kmer_cov\tminimum k-mer coverage "
 				  << "[default = auto] \n"
 				  << "\t-x max_kmer_cov\tmaximum k-mer coverage "
@@ -57,19 +57,20 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 	//kmerSize = -1;
 	minKmer = -1;
 	maxKmer = -1;
+	kmerSize = 15;
 	numThreads = 1;
 	debug = false;
 	minOverlap = -1;
 
-	const char optString[] = "m:x:l:t:v:hds";
+	const char optString[] = "m:x:l:t:v:k:hds";
 	int opt = 0;
 	while ((opt = getopt(argc, argv, optString)) != -1)
 	{
 		switch(opt)
 		{
-		//case 'k':
-		//	kmerSize = atoi(optarg);
-		//	break;
+		case 'k':
+			kmerSize = atoi(optarg);
+			break;
 		case 'm':
 			minKmer = atoi(optarg);
 			break;
@@ -152,24 +153,6 @@ void exceptionHandler()
 	exit(1);
 }
 
-int getKmerSize(size_t genomeSize)
-{
-	return (genomeSize < (size_t)Config::get("big_genome_threshold")) ?
-			(int)Config::get("kmer_size") : 
-			(int)Config::get("kmer_size_big");
-}
-
-int chooseMinOverlap(const SequenceContainer& seqReads)
-{
-	//choose minimum overlap as reads N90
-	const float NX_FRAC = 0.90f;
-	const int GRADE = 1000;
-	int estMinOvlp = std::round((float)seqReads.computeNxStat(NX_FRAC) / GRADE) * GRADE;
-	return std::min(std::max((int)Config::get("low_minimum_overlap"), 
-							 estMinOvlp),
-					(int)Config::get("high_minimum_overlap"));
-}
-
 int main(int argc, char** argv)
 {
 	#ifndef _DEBUG
@@ -177,11 +160,11 @@ int main(int argc, char** argv)
 	std::set_terminate(exceptionHandler);
 	#endif
 
-	//int kmerSize = 0;
 	int minKmerCov = 0;
 	int maxKmerCov = 0;
+	int kmerSize = 0;
 	size_t genomeSize = 0;
-	int minOverlap = -1;
+	int minOverlap = 5000;
 	bool debugging = false;
 	size_t numThreads = 1;
 	std::string readsFasta;
@@ -190,7 +173,7 @@ int main(int argc, char** argv)
 	std::string configPath;
 
 	if (!parseArgs(argc, argv, readsFasta, outAssembly, logFile, genomeSize,
-				   minKmerCov, maxKmerCov, debugging, numThreads,
+				   minKmerCov, maxKmerCov, kmerSize, debugging, numThreads,
 				   minOverlap, configPath)) return 1;
 
 	Logger::get().setDebugging(debugging);
@@ -200,10 +183,9 @@ int main(int argc, char** argv)
 
 	Config::load(configPath);
 	Parameters::get().numThreads = numThreads;
-	Parameters::get().kmerSize = getKmerSize(genomeSize);
-	Logger::get().info() << "Running with k-mer size: " << 
+	Parameters::get().kmerSize = kmerSize;
+	Logger::get().debug() << "Running with k-mer size: " << 
 		Parameters::get().kmerSize; 
-	//if (kmerSize != -1) Parameters::get().kmerSize = kmerSize; 
 
 	SequenceContainer readsContainer;
 	std::vector<std::string> readsList = splitString(readsFasta, ',');
@@ -224,12 +206,8 @@ int main(int argc, char** argv)
 							(int)Config::get("assemble_kmer_sample"));
 	vertexIndex.outputProgress(true);
 
-	Logger::get().info() << "Reads N50/90: " << readsContainer.computeNxStat(0.50) <<
-		" / " << readsContainer.computeNxStat(0.90);
-
-	if (minOverlap == -1) minOverlap = chooseMinOverlap(readsContainer);
 	Parameters::get().minimumOverlap = minOverlap;
-	Logger::get().info() << "Selected minimum overlap " << minOverlap;
+	Logger::get().debug() << "Running with minimum overlap " << minOverlap;
 
 	int64_t sumLength = 0;
 	for (auto& seq : readsContainer.iterSeqs())
@@ -237,13 +215,7 @@ int main(int argc, char** argv)
 		sumLength += seq.sequence.length();
 	}
 	int coverage = sumLength / 2 / genomeSize;
-	Logger::get().info() << "Expected read coverage: " << coverage;
-	if (coverage < 5 || coverage > 1000)
-	{
-		Logger::get().warning() << "Expected read coverage is " << coverage
-			<< ", the assembly is not guaranteed to be optimal in this setting."
-			<< " Are you sure that the genome size was entered correctly?";
-	}
+	Logger::get().debug() << "Expected read coverage: " << coverage;
 
 	Logger::get().info() << "Generating solid k-mer index";
 	size_t hardThreshold = std::min(5, std::max(2, 

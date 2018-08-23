@@ -86,7 +86,7 @@ def make_bubbles(alignment_path, contigs_info, contigs_path,
     The main function: takes an alignment and returns bubbles
     """
     aln_reader = SynchronizedSamReader(alignment_path,
-                                       fp.read_fasta_dict(contigs_path),
+                                       fp.read_sequence_dict(contigs_path),
                                        min_alignment)
     manager = multiprocessing.Manager()
     results_queue = manager.Queue()

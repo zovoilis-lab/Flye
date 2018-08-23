@@ -24,6 +24,7 @@ import flye.assembly.repeat_graph as repeat
 import flye.assembly.scaffolder as scf
 from flye.__version__ import __version__
 import flye.config.py_cfg as cfg
+from flye.config.configurator import setup_params
 from flye.utils.bytes2human import human2bytes
 import flye.utils.fasta_parser as fp
 
@@ -37,7 +38,7 @@ class Job(object):
     Describes an abstract list of jobs with persistent
     status that can be resumed
     """
-    run_description = {"stage_name" : ""}
+    run_params = {"stage_name" : ""}
 
     def __init__(self):
         self.name = None
@@ -50,15 +51,15 @@ class Job(object):
         pass
 
     def save(self, save_file):
-        Job.run_description["stage_name"] = self.name
+        Job.run_params["stage_name"] = self.name
 
         with open(save_file, "w") as fp:
-            json.dump(Job.run_description, fp)
+            json.dump(Job.run_params, fp)
 
     def load(self, save_file):
         with open(save_file, "r") as fp:
             data = json.load(fp)
-            Job.run_description = data
+            Job.run_params = data
 
     def completed(self, save_file):
         with open(save_file, "r") as fp:
@@ -69,6 +70,18 @@ class Job(object):
                     return False
 
             return True
+
+
+class JobConfigure(Job):
+    def __init__(self, args, work_dir):
+        super(JobConfigure, self).__init__()
+        self.args = args
+        self.work_dir = work_dir
+        self.name = "configure"
+
+    def run(self):
+        params = setup_params(self.args)
+        Job.run_params = params
 
 
 class JobAssembly(Job):
@@ -88,8 +101,8 @@ class JobAssembly(Job):
     def run(self):
         if not os.path.isdir(self.assembly_dir):
             os.mkdir(self.assembly_dir)
-        asm.assemble(self.args, self.assembly_filename, self.log_file,
-                     self.args.asm_config)
+        asm.assemble(self.args, Job.run_params, self.assembly_filename,
+                     self.log_file, self.args.asm_config, )
         if os.path.getsize(self.assembly_filename) == 0:
             raise asm.AssembleException("No contigs were assembled - "
                                         "please check if the read type and genome "
@@ -119,8 +132,9 @@ class JobRepeat(Job):
         if not os.path.isdir(self.repeat_dir):
             os.mkdir(self.repeat_dir)
         logger.info("Performing repeat analysis")
-        repeat.analyse_repeats(self.args, self.in_assembly, self.repeat_dir,
-                               self.log_file, self.args.asm_config)
+        repeat.analyse_repeats(self.args, Job.run_params, self.in_assembly,
+                               self.repeat_dir, self.log_file,
+                               self.args.asm_config)
 
 
 class JobFinalize(Job):
@@ -247,6 +261,9 @@ def _create_job_list(args, work_dir, log_file):
     """
     jobs = []
 
+    #Run configuration
+    jobs.append(JobConfigure(args, work_dir))
+
     #Assembly job
     jobs.append(JobAssembly(args, work_dir, log_file))
     draft_assembly = jobs[-1].out_files["assembly"]
@@ -285,21 +302,6 @@ def _set_kmer_size(args):
     else:
         args.genome_size = human2bytes(args.genome_size.upper())
 
-    logger.debug("Genome size: {0}".format(args.genome_size))
-    #args.kmer_size = config.vals["small_kmer"]
-    #if args.genome_size > config.vals["big_genome"]:
-    #    args.kmer_size = config.vals["big_kmer"]
-    #logger.debug("Chosen k-mer size: {0}".format(args.kmer_size))
-
-
-def _set_read_attributes(args):
-    if args.read_type == "raw":
-        args.asm_config = os.path.join(cfg.vals["pkg_root"], cfg.vals["raw_cfg"])
-    elif args.read_type == "corrected":
-        args.asm_config = os.path.join(cfg.vals["pkg_root"], cfg.vals["corrected_cfg"])
-    elif args.read_type == "subasm":
-        args.asm_config = os.path.join(cfg.vals["pkg_root"], cfg.vals["subasm_cfg"])
-
 
 def _run(args):
     """
@@ -312,7 +314,7 @@ def _run(args):
         if not os.path.exists(read_file):
             raise ResumeException("Can't open " + read_file)
 
-    save_file = os.path.join(args.out_dir, "flye.save")
+    save_file = os.path.join(args.out_dir, "params.json")
     jobs = _create_job_list(args, args.out_dir, args.log_file)
 
     current_job = 0
@@ -497,7 +499,8 @@ def main():
                     overwrite=False)
 
     _set_kmer_size(args)
-    _set_read_attributes(args)
+    args.asm_config = os.path.join(cfg.vals["pkg_root"],
+                                   cfg.vals["bin_cfg"][args.read_type])
 
     try:
         aln.check_binaries()
