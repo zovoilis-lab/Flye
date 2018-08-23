@@ -25,13 +25,14 @@
 bool parseArgs(int argc, char** argv, std::string& readsFasta, 
 			   std::string& outAssembly, std::string& logFile, size_t& genomeSize,
 			   int& minKmer, int& maxKmer, int& kmerSize, bool& debug,
-			   size_t& numThreads, int& minOverlap, std::string& configPath)
+			   size_t& numThreads, int& minOverlap, std::string& configPath,
+			   int& minReadLength)
 {
 	auto printUsage = [argv]()
 	{
 		std::cerr << "Usage: " << argv[0]
 				  << "\treads_files out_assembly genome_size config_file\n\t"
-				  << "[-m min_kmer_cov] \n\t"
+				  << "[-m min_kmer_cov] [-r min_read_length]\n\t"
 				  << "[-x max_kmer_cov] [-l log_file] [-t num_threads] [-d]\n\n"
 				  << "positional arguments:\n"
 				  << "\treads file\tcomma-separated list of read files\n"
@@ -61,8 +62,9 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 	numThreads = 1;
 	debug = false;
 	minOverlap = -1;
+	minReadLength = 0;
 
-	const char optString[] = "m:x:l:t:v:k:hds";
+	const char optString[] = "m:x:l:t:v:k:r:hds";
 	int opt = 0;
 	while ((opt = getopt(argc, argv, optString)) != -1)
 	{
@@ -70,6 +72,9 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 		{
 		case 'k':
 			kmerSize = atoi(optarg);
+			break;
+		case 'r':
+			minReadLength = atoi(optarg);
 			break;
 		case 'm':
 			minKmer = atoi(optarg);
@@ -163,6 +168,7 @@ int main(int argc, char** argv)
 	int minKmerCov = 0;
 	int maxKmerCov = 0;
 	int kmerSize = 0;
+	int minReadLength = 0;
 	size_t genomeSize = 0;
 	int minOverlap = 5000;
 	bool debugging = false;
@@ -174,7 +180,7 @@ int main(int argc, char** argv)
 
 	if (!parseArgs(argc, argv, readsFasta, outAssembly, logFile, genomeSize,
 				   minKmerCov, maxKmerCov, kmerSize, debugging, numThreads,
-				   minOverlap, configPath)) return 1;
+				   minOverlap, configPath, minReadLength)) return 1;
 
 	Logger::get().setDebugging(debugging);
 	if (!logFile.empty()) Logger::get().setOutputFile(logFile);
@@ -194,7 +200,7 @@ int main(int argc, char** argv)
 	{
 		for (auto& readsFile : readsList)
 		{
-			readsContainer.loadFromFile(readsFile);
+			readsContainer.loadFromFile(readsFile, minReadLength);
 		}
 	}
 	catch (SequenceContainer::ParseException& e)

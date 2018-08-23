@@ -454,6 +454,9 @@ def main():
     parser.add_argument("-m", "--min-overlap", dest="min_overlap", metavar="int",
                         type=lambda v: check_int_range(v, 1000, 10000),
                         default=None, help="minimum overlap between reads [auto]")
+    parser.add_argument("--asm-coverage", dest="asm_coverage", metavar="int",
+                        default=None, help="reduced coverage for initial "
+                        "read assembly [auto]", type=int)
 
     parser.add_argument("--resume", action="store_true",
                         dest="resume", default=False,

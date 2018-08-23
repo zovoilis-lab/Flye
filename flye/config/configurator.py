@@ -61,8 +61,22 @@ def setup_params(args):
         parameters["kmer_size"] = cfg.vals["kmer_size"][args.read_type][1]
     logger.info("Selected k-mer size: {0}".format(parameters["kmer_size"]))
 
-    #Selecting read subsample...
-    pass
+    #Downsampling reads for the first assembly stage to save memory
+    target_cov = None
+    if args.asm_coverage and args.asm_coverage < coverage:
+        target_cov = args.asm_coverage
+    if not args.asm_coverage and args.genome_size >= 10 ** 9:
+        target_cov = cfg.vals["reduced_asm_cov"]
+
+    if target_cov:
+        logger.info("Using longest {}x reads for contig assembly"
+                    .format(target_cov))
+        min_read = _get_downsample_threshold(read_lengths,
+                                             args.genome_size * target_cov)
+        logger.debug("Min read length cutoff: {0}".format(min_read))
+        parameters["min_read_length"] = min_read
+    else:
+        parameters["min_read_length"] = 0
 
     return parameters
 
@@ -78,3 +92,13 @@ def _calc_nx(scaffolds_lengths, assembly_len, rate):
             n50 = l
             break
     return l50, n50
+
+
+def _get_downsample_threshold(read_lengths, target_len):
+    sum_len = 0
+    for l in sorted(read_lengths, reverse=True):
+        sum_len += l
+        if sum_len > target_len:
+            return l
+
+    return 0

@@ -44,6 +44,8 @@ def assemble(args, run_params, out_file, log_file, config_path):
         cmdline.append("-d")
     cmdline.extend(["-v", str(run_params["min_overlap"])])
     cmdline.extend(["-k", str(run_params["kmer_size"])])
+    if run_params["min_read_length"] > 0:
+        cmdline.extend(["-r", str(run_params["min_read_length"])])
     #if args.min_kmer_count is not None:
     #    cmdline.extend(["-m", str(args.min_kmer_count)])
     #if args.max_kmer_count is not None:

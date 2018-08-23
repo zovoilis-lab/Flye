@@ -30,6 +30,7 @@ vals = {
             "corrected" : [1000, 5000],
             "subasm" : [1000, 1000]
         },
+        "reduced_asm_cov"  : 40,
 
         #polishing
         "simple_kmer_length" : 4,
