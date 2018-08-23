@@ -390,7 +390,11 @@ def _epilog():
             "types is not yet supported.\n\n"
             "You must provide an estimate of the genome size as input,\n"
             "which is used for solid k-mers selection. Standard size\n"
-            "modificators are supported (e.g. 5m or 2.6g)")
+            "modificators are supported (e.g. 5m or 2.6g)\n\n"
+            "To reduce memory consumption for large genome assemblies,\n"
+            "you can use a subset of the longest reads for initial contig\n"
+            "assembly by specifying --asm-coverage option. Typically,\n"
+            "40x coverage is enough to produce good draft contigs.")
 
 
 def _version():
@@ -456,7 +460,7 @@ def main():
                         default=None, help="minimum overlap between reads [auto]")
     parser.add_argument("--asm-coverage", dest="asm_coverage", metavar="int",
                         default=None, help="reduced coverage for initial "
-                        "read assembly [auto]", type=int)
+                        "contig assembly [not set]", type=int)
 
     parser.add_argument("--resume", action="store_true",
                         dest="resume", default=False,

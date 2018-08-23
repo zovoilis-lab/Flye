@@ -65,8 +65,8 @@ def setup_params(args):
     target_cov = None
     if args.asm_coverage and args.asm_coverage < coverage:
         target_cov = args.asm_coverage
-    if not args.asm_coverage and args.genome_size >= 10 ** 9:
-        target_cov = cfg.vals["reduced_asm_cov"]
+    #if not args.asm_coverage and args.genome_size >= 10 ** 9:
+    #    target_cov = cfg.vals["reduced_asm_cov"]
 
     if target_cov:
         logger.info("Using longest {}x reads for contig assembly"
