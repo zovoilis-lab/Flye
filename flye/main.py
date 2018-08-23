@@ -120,7 +120,7 @@ class JobRepeat(Job):
 
         self.repeat_dir = os.path.join(work_dir, "2-repeat")
         contig_sequences = os.path.join(self.repeat_dir, "graph_paths.fasta")
-        assembly_graph = os.path.join(self.repeat_dir, "graph_final.dot")
+        assembly_graph = os.path.join(self.repeat_dir, "graph_final.gv")
         contigs_stats = os.path.join(self.repeat_dir, "contigs_stats.txt")
         self.out_files["contigs"] = contig_sequences
         self.out_files["scaffold_links"] = os.path.join(self.repeat_dir,
@@ -155,7 +155,7 @@ class JobFinalize(Job):
         self.out_files["contigs"] = os.path.join(work_dir, "contigs.fasta")
         self.out_files["scaffolds"] = os.path.join(work_dir, "scaffolds.fasta")
         self.out_files["stats"] = os.path.join(work_dir, "assembly_info.txt")
-        self.out_files["graph"] = os.path.join(work_dir, "assembly_graph.dot")
+        self.out_files["graph"] = os.path.join(work_dir, "assembly_graph.gv")
 
     def run(self):
         shutil.copy2(self.contigs_file, self.out_files["contigs"])
