@@ -219,7 +219,7 @@ public:
 					const VertexIndex& vertexIndex,
 					int maxJump, int minOverlap, int maxOverhang,
 					int maxCurOverlaps, bool keepAlignment, bool onlyMaxExt,
-					float maxDivergence):
+					float maxDivergence, float badEndAdjustment):
 		_maxJump(maxJump),
 		_minOverlap(minOverlap),
 		_maxOverhang(maxOverhang),
@@ -228,6 +228,7 @@ public:
 		_keepAlignment(keepAlignment),
 		_onlyMaxExt(onlyMaxExt),
 		_maxDivergence(maxDivergence),
+		_badEndAdjustment(badEndAdjustment),
 		_vertexIndex(vertexIndex),
 		_seqContainer(seqContainer),
 		_seqHitCounter(_seqContainer.getMaxSeqId())
@@ -252,7 +253,7 @@ private:
 	const bool  _keepAlignment;
 	const bool  _onlyMaxExt;
 	const float _maxDivergence;
-	const int   _ovlpFlank = 100;
+	const float _badEndAdjustment;
 
 	const VertexIndex& _vertexIndex;
 	const SequenceContainer& _seqContainer;

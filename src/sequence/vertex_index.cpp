@@ -178,7 +178,6 @@ void VertexIndex::setRepeatCutoff(int minCoverage)
 						  filteredRate << ")";
 }
 
-
 void VertexIndex::buildIndex(int minCoverage)
 {
 	if (_outputProgress) Logger::get().info() << "Filling index table";
@@ -191,10 +190,15 @@ void VertexIndex::buildIndex(int minCoverage)
 	size_t solidKmers = 0;
 	for (auto& kmer : _kmerCounts.lock_table())
 	{
-		if ((size_t)minCoverage <= kmer.second)
+		if ((size_t)minCoverage <= kmer.second &&
+			kmer.second < _repetitiveFrequency)
 		{
 			kmerEntries += kmer.second;
 			++solidKmers;
+		}
+		if (kmer.second > _repetitiveFrequency)
+		{
+			_repetitiveKmers.insert(kmer.first, true);
 		}
 	}
 	Logger::get().debug() << "Sampling rate: " << _sampleRate;
@@ -206,30 +210,27 @@ void VertexIndex::buildIndex(int minCoverage)
 	_kmerIndex.reserve(solidKmers);
 	for (auto& kmer : _kmerCounts.lock_table())
 	{
-		if ((size_t)minCoverage <= kmer.second)
+		if ((size_t)minCoverage <= kmer.second &&
+			kmer.second < _repetitiveFrequency)
 		{
 			ReadVector rv{(uint32_t)kmer.second, 0, nullptr};
 			_kmerIndex.insert(kmer.first, rv);
-		}
-		if (kmer.second > _repetitiveFrequency)
-		{
-			_repetitiveKmers.insert(kmer.first, true);
 		}
 	}
 	_kmerCounts.clear();
 	_kmerCounts.reserve(0);
 
-	_memoryChunks.push_back(new ReadPosition[INDEX_CHUNK]);
+	_memoryChunks.push_back(new IndexChunk[MEM_CHUNK]);
 	size_t chunkOffset = 0;
 	for (auto& kmer : _kmerIndex.lock_table())
 	{
-		if (INDEX_CHUNK < kmer.second.capacity) 
+		if (MEM_CHUNK < kmer.second.capacity) 
 		{
 			throw std::runtime_error("k-mer is too frequent");
 		}
-		if (INDEX_CHUNK - chunkOffset < kmer.second.capacity)
+		if (MEM_CHUNK - chunkOffset < kmer.second.capacity)
 		{
-			_memoryChunks.push_back(new ReadPosition[INDEX_CHUNK]);
+			_memoryChunks.push_back(new IndexChunk[MEM_CHUNK]);
 			chunkOffset = 0;
 		}
 		kmer.second.data = _memoryChunks.back() + chunkOffset;
@@ -244,7 +245,7 @@ void VertexIndex::buildIndex(int minCoverage)
 		if (!readId.strand()) return;
 
 		int32_t nextKmerPos = _sampleRate;
-		int32_t seqLen = _seqContainer.seqLen(readId);
+		//int32_t seqLen = _seqContainer.seqLen(readId);
 		for (auto kmerPos : IterKmers(_seqContainer.getSeq(readId)))
 		{
 			if (_sampleRate > 1) //subsampling
@@ -265,16 +266,19 @@ void VertexIndex::buildIndex(int minCoverage)
 			}
 
 			//filter out repetitive kmers (but allow some on sequence ends)
-			if (_repetitiveKmers.contains(kmerPos.kmer) &&
+			/*if (_repetitiveKmers.contains(kmerPos.kmer) &&
 				kmerPos.position >= _flankRepeatSize &&
-				kmerPos.position < seqLen - _flankRepeatSize) continue;
+				kmerPos.position < seqLen - _flankRepeatSize) continue;*/
 
 			_kmerIndex.update_fn(kmerPos.kmer, 
-				[targetRead, &kmerPos](ReadVector& rv)
+				[targetRead, &kmerPos, this](ReadVector& rv)
 				{
-
-					rv.data[rv.size] = ReadPosition(targetRead, 
-													kmerPos.position);
+					size_t globPos = _seqContainer
+							.globalPosition(targetRead, kmerPos.position);
+					//if (globPos > MAX_INDEX) throw std::runtime_error("Too much!");
+					rv.data[rv.size].set(globPos);
+					//rv.data[rv.size] = ReadPosition(targetRead, 
+					//								kmerPos.position);
 					++rv.size;
 				});
 		}
@@ -291,8 +295,8 @@ void VertexIndex::buildIndex(int minCoverage)
 	for (auto& kmerVec : _kmerIndex.lock_table())
 	{
 		std::sort(kmerVec.second.data, kmerVec.second.data + kmerVec.second.size,
-				  [](const ReadPosition& p1, const ReadPosition& p2)
-				  	{return p1.readId < p2.readId;});
+				  [](const IndexChunk& p1, const IndexChunk& p2)
+				  	{return p1.get() < p2.get();});
 	}
 }
 
