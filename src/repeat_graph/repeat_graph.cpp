@@ -4,6 +4,7 @@
 
 #include <deque>
 #include <iomanip>
+#include <cmath>
 
 #include "../sequence/overlap.h"
 #include "../sequence/vertex_index.h"
