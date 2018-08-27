@@ -131,7 +131,7 @@ def assemble_short_plasmids(args, work_dir, contigs_path):
     logger.debug("Assembling short plasmids")
 
     reads2contigs_mapping = os.path.join(work_dir, "reads2contigs.paf")
-    preset = ["ava-pb", "ava-ont"][args.platform == "nano"]
+    preset = ["map-pb", "map-ont"][args.platform == "nano"]
 
     if not os.path.isfile(reads2contigs_mapping):
         logger.debug("Mapping reads to contigs")
