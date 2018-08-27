@@ -22,6 +22,7 @@ import flye.polishing.consensus as cons
 import flye.assembly.assemble as asm
 import flye.assembly.repeat_graph as repeat
 import flye.assembly.scaffolder as scf
+import flye.short_plasmids.pipeline as plasmids
 from flye.__version__ import __version__
 import flye.config.py_cfg as cfg
 from flye.config.configurator import setup_params
@@ -108,6 +109,27 @@ class JobAssembly(Job):
             raise asm.AssembleException("No contigs were assembled - "
                                         "please check if the read type and genome "
                                         "size parameters are correct")
+
+
+class JobShortPlasmidsAssembly(Job):
+    def __init__(self, args, work_dir):
+        super(JobShortPlasmidsAssembly, self).__init__()
+
+        self.args = args
+        self.work_dir = os.path.join(work_dir, "0-assembly")
+        self.contigs_path = os.join.join(work_dir, "draft_assembly.fasta")
+        self.name = "short_plasmids_assembly"
+
+    def run(self):
+        mapping_rates = plasmids.assemble_short_plasmids(self.args,
+                                                         self.work_dir,
+                                                         self.contigs_path)
+
+        with open(os.path.join(self.work_dir, "mapping_rates.txt"), "w") as f:
+            for read, contigs in mapping_rates.items():
+                f.write(read + "\n")
+                for contig, mapping_rate in contigs.items():
+                    f.write(contig + "\t" + str(mapping_rate) + "\n")
 
 
 class JobRepeat(Job):
@@ -256,25 +278,6 @@ class JobPolishing(Job):
                         contig_lengths[ctg_id], coverage_stats[ctg_id]))
 
 
-class JobShortPlasmidsAssembly(Job):
-    def __init__(self, args, work_dir):
-        super(JobShortPlasmidsAssembly, self).__init__()
-
-        self.args = args
-        self.work_dir = os.path.join(work_dir, "0-assembly")
-        self.contigs_path = os.path.join(self.work_dir, "draft_assembly.fasta")
-        self.name = "short_plasmids_assembly"
-
-    def run(self):
-        unique_plasmids = \
-            plasmids.find_short_plasmids(self.args, self.work_dir,
-                                         self.contigs_path)
-
-        plasmids_out = os.path.join(self.work_dir, "plasmids.fasta")
-        fp.write_fasta_dict(unique_plasmids, self.contigs_path)
-        fp.write_fasta_dict(unique_plasmids, plasmids_out)
-
-
 def _create_job_list(args, work_dir, log_file):
     """
     Build pipeline as a list of consecutive jobs
@@ -287,9 +290,6 @@ def _create_job_list(args, work_dir, log_file):
     #Assembly job
     jobs.append(JobAssembly(args, work_dir, log_file))
     draft_assembly = jobs[-1].out_files["assembly"]
-
-    #Short Plasmids Assembly
-    jobs.append(JobShortPlasmidsAssembly(args, work_dir))
 
     #Consensus
     if args.read_type != "subasm":
