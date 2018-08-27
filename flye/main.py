@@ -117,7 +117,7 @@ class JobShortPlasmidsAssembly(Job):
 
         self.args = args
         self.work_dir = os.path.join(work_dir, "0-assembly")
-        self.contigs_path = os.join.join(work_dir, "draft_assembly.fasta")
+        self.contigs_path = os.path.join(work_dir, "draft_assembly.fasta")
         self.name = "short_plasmids_assembly"
 
     def run(self):
