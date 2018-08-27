@@ -121,8 +121,11 @@ class JobShortPlasmidsAssembly(Job):
         self.name = "short_plasmids_assembly"
 
     def run(self):
-        plasmids.assemble_short_plasmids(self.args, self.work_dir,
-                                         self.contigs_path)
+        short_plasmids = plasmids.assemble_short_plasmids(self.args,
+                                                          self.work_dir,
+                                                          self.contigs_path)
+        short_plasmids_out = os.path.join(self.work_dir, "plasmids.fasta")
+        fp.write_fasta_dict(short_plasmids, short_plasmids_out)
 
 
 class JobRepeat(Job):
