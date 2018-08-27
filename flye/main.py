@@ -121,15 +121,8 @@ class JobShortPlasmidsAssembly(Job):
         self.name = "short_plasmids_assembly"
 
     def run(self):
-        mapping_rates = plasmids.assemble_short_plasmids(self.args,
-                                                         self.work_dir,
-                                                         self.contigs_path)
-
-        with open(os.path.join(self.work_dir, "mapping_rates.txt"), "w") as f:
-            for read, contigs in mapping_rates.items():
-                f.write(read + "\n")
-                for contig, mapping_rate in contigs.items():
-                    f.write(contig + "\t" + str(mapping_rate) + "\n")
+        plasmids.assemble_short_plasmids(self.args, self.work_dir,
+                                         self.contigs_path)
 
 
 class JobRepeat(Job):

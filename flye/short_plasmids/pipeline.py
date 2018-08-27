@@ -1,6 +1,7 @@
 import os
 import logging
 import subprocess
+import utils.fasta_parser as fp
 
 
 logger = logging.getLogger()
@@ -109,6 +110,30 @@ def _calc_mapping_rates(reads2contigs_mapping):
     return mapping_rates
 
 
+def _extract_unmapped_reads(mapping_rates, reads_paths, mapping_rate_threshold):
+    unmapped_reads = dict()
+    n_processed_reads = 0
+
+    for file in reads_paths:
+        fasta_dict = fp.read_sequence_dict(file)
+        for read, sequence in fasta_dict.items():
+            contigs = mapping_rates.get(read)
+            if contigs is None:
+                unmapped_reads[read] = sequence
+            else:
+                is_unmapped = True
+                for contig, mapping_rate in contigs.items():
+                    if mapping_rate >= mapping_rate_threshold:
+                        is_unmapped = False
+
+                if is_unmapped:
+                    unmapped_reads[read] = sequence
+
+        n_processed_reads += len(fasta_dict)
+
+    return unmapped_reads, n_processed_reads
+
+
 def _run_minimap(preset, contigs_path, reads_paths, num_proc, out_file):
     cmdline = [MINIMAP_BIN]
     cmdline.extend(["-x", preset])
@@ -141,4 +166,16 @@ def assemble_short_plasmids(args, work_dir, contigs_path):
     logger.debug("Calculating mapping rates")
     mapping_rates = _calc_mapping_rates(reads2contigs_mapping)
 
-    return mapping_rates
+    logger.debug("Extracting unmapped reads")
+    unmapped_reads, n_processed_reads = \
+        _extract_unmapped_reads(mapping_rates, args.reads,
+                                mapping_rate_threshold=0.5)
+
+    n_unmapped_reads = len(unmapped_reads)
+    unmapped_reads_ratio = 100 * float(len(unmapped_reads)) / n_processed_reads
+    unmapped_reads_ratio = round(unmapped_reads_ratio, 3)
+    logger.debug("Extracted {} unmapped reads ({} %)".format(
+        n_unmapped_reads, unmapped_reads_ratio))
+
+    unmapped_reads_path = os.path.join(work_dir, "unmapped_reads.fasta")
+    fp.write_fasta_dict(unmapped_reads, unmapped_reads_path)
