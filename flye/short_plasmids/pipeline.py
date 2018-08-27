@@ -50,7 +50,7 @@ class MappingSegment:
         self.end = end
 
     def length(self):
-        return self.end - self.begin + 1
+        return self.end - self.start + 1
 
 
 def _unite_mapping_segments(segments):
