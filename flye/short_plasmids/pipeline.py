@@ -1,7 +1,7 @@
 import os
 import logging
 import subprocess
-import utils.fasta_parser as fp
+import flye.utils.fasta_parser as fp
 
 
 logger = logging.getLogger()
