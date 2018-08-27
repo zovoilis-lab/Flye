@@ -66,7 +66,8 @@ FastaRecord::Id SequenceContainer::addSequence(const FastaRecord& seqRec)
 	return _seqIndex.back().id.rc();
 }
 
-void SequenceContainer::loadFromFile(const std::string& fileName)
+void SequenceContainer::loadFromFile(const std::string& fileName, 
+									 int minReadLength)
 {
 	std::vector<FastaRecord> records;
 	if (this->isFasta(fileName))
@@ -85,10 +86,12 @@ void SequenceContainer::loadFromFile(const std::string& fileName)
 
 	for (size_t i : indicesPerm)
 	{
-		this->addSequence(records[i]);
+		if (records[i].sequence.length() > (size_t)minReadLength)
+		{
+			this->addSequence(records[i]);
+		}
 	}
 }
-
 
 int SequenceContainer::computeNxStat(float fraction) const
 {
@@ -115,7 +118,6 @@ int SequenceContainer::computeNxStat(float fraction) const
 	}
 	return nx;
 }
-
 
 //adds sequence ad it's complement
 const FastaRecord& 
@@ -337,5 +339,33 @@ void SequenceContainer::writeFasta(const std::vector<FastaRecord>& records,
 			   header.size(), fout);
 		fwrite(contigSeq.data(), sizeof(contigSeq.data()[0]), 
 			   contigSeq.size(), fout);
+	}
+}
+
+void SequenceContainer::buildPositionIndex()
+{
+	size_t offset = 0;
+	_sequenceOffsets.reserve(_seqIndex.size());
+	for (auto& seq : _seqIndex)
+	{
+		_sequenceOffsets.push_back(offset);
+		offset += seq.sequence.length();
+	}
+
+	_offsetsHint.reserve(offset / CHUNK + 1);
+	for (size_t i = 0; i <= offset / CHUNK; ++i)
+	{
+		size_t idx = std::upper_bound(_sequenceOffsets.begin(), 
+									  _sequenceOffsets.end(),
+									  i * CHUNK) - _sequenceOffsets.begin();
+		_offsetsHint.push_back(idx);
+	}
+
+	Logger::get().debug() << "Total sequence: " << offset / 2 << " bp";
+	if (offset > MAX_SEQUENCE)
+	{
+		Logger::get().error() << "Maximum sequence limit reached ("
+			<< MAX_SEQUENCE / 2 << ")";
+		throw std::runtime_error("Input overflow");
 	}
 }

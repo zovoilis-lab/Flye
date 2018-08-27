@@ -41,7 +41,7 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 				  << "\tout_assembly\tpath to output assembly\n"
 				  << "\tconfig_path\tpath to config file\n"
 				  << "\noptional arguments:\n"
-				  //<< "\t-k kmer_size\tk-mer size [default = 15] \n"
+				  << "\t-k kmer_size\tk-mer size [default = 15] \n"
 				  << "\t-v min_overlap\tminimum overlap between reads "
 				  << "[default = 5000] \n"
 				  << "\t-d \t\tenable debug output "
@@ -55,9 +55,9 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 	numThreads = 1;
 	debug = false;
 	minOverlap = -1;
-	//kmerSize = -1;
+	kmerSize = 15;
 
-	const char optString[] = "l:t:v:hd";
+	const char optString[] = "l:t:v:k:hd";
 	int opt = 0;
 	while ((opt = getopt(argc, argv, optString)) != -1)
 	{
@@ -69,9 +69,9 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 		case 'v':
 			minOverlap = atoi(optarg);
 			break;
-		//case 'k':
-		//	kmerSize = atoi(optarg);
-		//	break;
+		case 'k':
+			kmerSize = atoi(optarg);
+			break;
 		case 'l':
 			logFile = optarg;
 			break;
@@ -144,23 +144,6 @@ void exceptionHandler()
 	exit(1);
 }
 
-int getKmerSize(size_t genomeSize)
-{
-	return (genomeSize < (size_t)Config::get("big_genome_threshold")) ?
-			(int)Config::get("kmer_size") : 
-			(int)Config::get("kmer_size_big");
-}
-
-int chooseMinOverlap(const SequenceContainer& seqReads)
-{
-	//choose minimum overlap as reads N90
-	const float NX_FRAC = 0.90f;
-	const int GRADE = 1000;
-	int estMinOvlp = std::round((float)seqReads.computeNxStat(NX_FRAC) / GRADE) * GRADE;
-	return std::min(std::max((int)Config::get("low_minimum_overlap"), 
-							 estMinOvlp),
-					(int)Config::get("high_minimum_overlap"));
-}
 
 int main(int argc, char** argv)
 {
@@ -171,8 +154,8 @@ int main(int argc, char** argv)
 
 	bool debugging = false;
 	size_t numThreads = 1;
-	int kmerSize = -1;
-	int minOverlap = -1;
+	int kmerSize = 15;
+	int minOverlap = 5000;
 	size_t genomeSize = 0;
 	std::string readsFasta;
 	std::string inAssembly;
@@ -190,7 +173,7 @@ int main(int argc, char** argv)
 	
 	Config::load(configPath);
 	Parameters::get().numThreads = numThreads;
-	Parameters::get().kmerSize = getKmerSize(genomeSize);
+	Parameters::get().kmerSize = kmerSize;
 	Logger::get().debug() << "Running with k-mer size: " << 
 		Parameters::get().kmerSize; 
 
@@ -211,8 +194,9 @@ int main(int argc, char** argv)
 		Logger::get().error() << e.what();
 		return 1;
 	}
+	seqReads.buildPositionIndex();
+	seqAssembly.buildPositionIndex();
 
-	if (minOverlap == -1) minOverlap = chooseMinOverlap(seqReads);
 	Parameters::get().minimumOverlap = minOverlap;
 	Logger::get().debug() << "Selected minimum overlap " << minOverlap;
 
@@ -223,7 +207,7 @@ int main(int argc, char** argv)
 
 	Logger::get().info() << "Building repeat graph";
 	rg.build();
-	outGen.outputDot(proc.getEdgesPaths(), outFolder + "/graph_raw.dot");
+	outGen.outputDot(proc.getEdgesPaths(), outFolder + "/graph_raw.gv");
 	proc.simplify();
 
 	Logger::get().info() << "Aligning reads to the graph";
@@ -242,13 +226,13 @@ int main(int argc, char** argv)
 	RepeatResolver resolver(rg, seqAssembly, seqReads, aligner, multInf);
 	resolver.findRepeats();
 
-	outGen.outputDot(proc.getEdgesPaths(), outFolder + "/graph_before_rr.dot");
+	outGen.outputDot(proc.getEdgesPaths(), outFolder + "/graph_before_rr.gv");
 	outGen.outputGfa(proc.getEdgesPaths(), outFolder + "/graph_before_rr.gfa");
 	outGen.outputFasta(proc.getEdgesPaths(), outFolder + "/graph_before_rr.fasta");
 
 	resolver.resolveRepeats();
 	resolver.fixLongEdges();
-	outGen.outputDot(proc.getEdgesPaths(), outFolder + "/graph_after_rr.dot");
+	outGen.outputDot(proc.getEdgesPaths(), outFolder + "/graph_after_rr.gv");
 
 	Logger::get().info() << "Generating contigs";
 
@@ -263,7 +247,7 @@ int main(int argc, char** argv)
 	outGen.dumpRepeats(extender.getUnbranchingPaths(),
 					   outFolder + "/repeats_dump.txt");
 	outGen.outputDot(extender.getUnbranchingPaths(),
-					 outFolder + "/graph_final.dot");
+					 outFolder + "/graph_final.gv");
 	outGen.outputFasta(extender.getUnbranchingPaths(),
 					   outFolder + "/graph_final.fasta");
 	outGen.outputGfa(extender.getUnbranchingPaths(),
