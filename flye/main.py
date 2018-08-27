@@ -285,7 +285,7 @@ def _create_job_list(args, work_dir, log_file):
     jobs = []
 
     #Run configuration
-    jobs.append(JobConfigure(args, work_dir))
+    #jobs.append(JobConfigure(args, work_dir))
 
     #Assembly job
     #jobs.append(JobAssembly(args, work_dir, log_file))
