@@ -10,11 +10,11 @@ import logging
 import numpy as np
 from itertools import combinations, product
 
-import flye.alignment as flye_aln
-import flye.fasta_parser as fp
-import flye.config as config
-import flye.bubbles as bbl
-import flye.polish as pol
+import flye.polishing.alignment as flye_aln
+import flye.utils.fasta_parser as fp
+import flye.config.py_cfg as config
+import flye.polishing.bubbles as bbl
+import flye.polishing.polish as pol
 
 import flye.trestle.divergence as div
 import flye.trestle.trestle_config as trestle_config
@@ -355,8 +355,8 @@ def process_repeats(reads, repeats_dump, graph_edges, work_dir, repeat_label,
         
     reads_dict = {}
     for read_file in reads:
-        reads_dict.update(fp.read_fast_file(read_file))
-    orig_graph = fp.read_fasta_dict(graph_edges)
+        reads_dict.update(fp.read_sequence_dict(read_file))
+    orig_graph = fp.read_sequence_dict(graph_edges)
     graph_dict = {int(h.split('_')[1]):orig_graph[h] for h in orig_graph}
     
     if not reads_dict:
@@ -722,7 +722,7 @@ def find_coverage(frequency_file):
     return coverage
 
 def write_edge_reads(it, side, edge_id, all_reads, partitioning, out_file):
-    all_reads_dict = fp.read_fasta_dict(all_reads)
+    all_reads_dict = fp.read_sequence_dict(all_reads)
     part_list = _read_partitioning_file(partitioning)
     edge_header_name = "Read_{0}_Iter_{1}_{2}_{3}_edge_{4}"
     edge_reads = {}
@@ -810,7 +810,7 @@ def partition_reads(edges, it, side, position_path, cons_align_path,
 def _read_alignment(alignment, target_path, min_aln_rate):
     alignments = []
     aln_reader = flye_aln.SynchronizedSamReader(alignment,
-                                       fp.read_fasta_dict(target_path),
+                                       fp.read_sequence_dict(target_path),
                                        min_aln_rate)
     aln_reader.init_reading()
     while not aln_reader.is_eof():
@@ -2151,7 +2151,7 @@ def _calculate_divergence(qry_seq, trg_seq):
     return 1 - indel_sim_rate
 
 def _n50(reads_file):
-    reads_dict = fp.read_fasta_dict(reads_file)
+    reads_dict = fp.read_sequence_dict(reads_file)
     read_lengths = sorted([len(x) for x in reads_dict.values()], reverse=True)
     summed_len = 0
     n50 = 0
@@ -2214,11 +2214,11 @@ def _check_overlap(in_file, temp_file, out_file, overlap, in_start, in_end,
                    in_qry, in_trg, out_qry, out_trg, out_trg_aln, out_aln_trg, 
                    out_qry_aln, out_aln_qry, out_trg_end, out_qry_end, 
                    in_align, out_align):
-    in_dict = fp.read_fasta_dict(in_file)
+    in_dict = fp.read_sequence_dict(in_file)
     in_seq = in_dict.values()[0]
-    temp_dict = fp.read_fasta_dict(temp_file)
+    temp_dict = fp.read_sequence_dict(temp_file)
     temp_seq = temp_dict.values()[0]
-    out_dict = fp.read_fasta_dict(out_file)
+    out_dict = fp.read_sequence_dict(out_file)
     out_seq = out_dict.values()[0]  
     for i in range(len(out_qry)/50-1, len(out_qry)/50+1):
         aln_ind_st = i*50
@@ -2283,11 +2283,11 @@ def _construct_repeat_copy(in_file, temp_file, out_file, in_start, in_end,
         not os.path.isfile(temp_file) or 
         not os.path.isfile(out_file)):
         return ""
-    in_dict = fp.read_fasta_dict(in_file)
+    in_dict = fp.read_sequence_dict(in_file)
     in_seq = in_dict.values()[0]
-    temp_dict = fp.read_fasta_dict(temp_file)
+    temp_dict = fp.read_sequence_dict(temp_file)
     temp_seq = temp_dict.values()[0]
-    out_dict = fp.read_fasta_dict(out_file)
+    out_dict = fp.read_sequence_dict(out_file)
     out_seq = out_dict.values()[0]
     seq = ''.join([in_seq[in_start:in_end], 
                    temp_seq[temp_start:temp_end], 

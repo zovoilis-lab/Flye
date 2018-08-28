@@ -109,7 +109,6 @@ void ReadAligner::alignReads()
 {
 	static const int MIN_EDGE_OVLP = (int)Config::get("max_separation");
 	static const int EDGE_FLANK = 100;
-	static const int MAX_OVLP_COUNT = 500;
 
 	//create database
 	std::unordered_map<FastaRecord::Id, 
@@ -133,20 +132,21 @@ void ReadAligner::alignReads()
 										   segment.complement()};
 		}
 	}
+	pathsContainer.buildPositionIndex();
 
 	//index it and align reads
 	VertexIndex pathsIndex(pathsContainer, 
-						   (int)Config::get("read_align_kmer_sample"),
-						   /*flanking repeat*/ 0);
+						   (int)Config::get("read_align_kmer_sample"));
 	pathsIndex.countKmers(/*min freq*/ 1, /* genome size*/ 0);
 	pathsIndex.setRepeatCutoff(/*min freq*/ 1);
 	pathsIndex.buildIndex(/*min freq*/ 1);
 	OverlapDetector readsOverlapper(pathsContainer, pathsIndex, 
 									(int)Config::get("maximum_jump"),
 									MIN_EDGE_OVLP - EDGE_FLANK,
-									/*no overhang*/ 0, MAX_OVLP_COUNT,
+									/*no overhang*/ 0, /*no max ovlp count*/ 0,
 									/*keep alignment*/ false, /*only max*/ false,
-									(float)Config::get("read_align_ovlp_ident"));
+									(float)Config::get("read_align_ovlp_ident"),
+									/* bad end adjust*/ 0.0f);
 	OverlapContainer readsOverlaps(readsOverlapper, _readSeqs);
 
 	std::vector<FastaRecord::Id> allQueries;
