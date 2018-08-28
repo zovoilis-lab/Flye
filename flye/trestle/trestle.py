@@ -1260,6 +1260,9 @@ def _classify_reads(read_aligns, consensus_pos,
                       edge_score >= top_score):
                     top_score = edge_score
                     tie_bool = True
+                elif (edge_score >= top_score - buffer_count and
+                      edge_score < top_score):
+                    tie_bool = True
                 total_score += edge_score
             
             if total_score == 0:
