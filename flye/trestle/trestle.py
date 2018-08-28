@@ -152,15 +152,15 @@ def resolve_repeats(args, trestle_dir, repeats_dump, graph_edges, summ_file):
             overext_consensus = {}
             side_it = {s:0 for s in side_labels}
             edge_below_cov = {s:False for s in side_labels}
-            dup_part = {s:False for s in side_labels}
-            prev_partitionings = {s:set() for s in side_labels}
+            #dup_part = {s:False for s in side_labels}
+            #prev_partitionings = {s:set() for s in side_labels}
             #Initialize stats
             for side in side_labels:
                 edge_below_cov[side] = init_side_stats(
                                     rep, side, repeat_edges, args.min_overlap, 
                                     position_path, 
                                     partitioning.format(zero_it, side), 
-                                    prev_partitionings[side], 
+                                    #prev_partitionings[side], 
                                     template_len, 
                                     side_stats.format(side))
             init_int_stats(rep, repeat_edges, zero_it, position_path, 
@@ -171,8 +171,9 @@ def resolve_repeats(args, trestle_dir, repeats_dump, graph_edges, summ_file):
             for it in range(1, MAX_ITER + 1):
                 both_break = True
                 for side in side_labels:
-                    if (edge_below_cov[side] or dup_part[side] or 
-                        term_bool[side]):
+                    #if (edge_below_cov[side] or dup_part[side] or 
+                    #    term_bool[side]):
+                    if (edge_below_cov[side] or term_bool[side]):
                         continue
                     else:
                         logger.debug("iteration {0}, '{1}'".format(it, side))
@@ -257,9 +258,10 @@ def resolve_repeats(args, trestle_dir, repeats_dump, graph_edges, summ_file):
                                         cons_align, polished_template, 
                                         confirmed_pos_path.format(it, side), 
                                         partitioning.format(it, side), 
-                                        prev_partitionings[side], 
+                                        #prev_partitionings[side], 
                                         side_stats.format(side))
-                    edge_below_cov[side], dup_part[side] = side_stat_outputs
+                    #edge_below_cov[side], dup_part[side] = side_stat_outputs
+                    edge_below_cov[side] = side_stat_outputs
                     side_it[side] = it
                 update_int_stats(rep, repeat_edges, side_it, cons_align, 
                                     polished_template, 
@@ -278,7 +280,8 @@ def resolve_repeats(args, trestle_dir, repeats_dump, graph_edges, summ_file):
                                                               side), 
                                     partitioning.format(side_it[side], side), 
                                     edge_below_cov[side],
-                                    dup_part[side], term_bool[side], 
+                                    #dup_part[side], term_bool[side], 
+                                    term_bool[side], 
                                     side_stats.format(side))
             final_int_outputs = finalize_int_stats(rep, repeat_edges, side_it, 
                                                    cons_align, 
@@ -808,10 +811,14 @@ def _add_to_consensus(polished_cons, overext_cons, template,
             ext_st_minus_st = extend_start - overext_aln[0][0].trg_start
             aln_st_ind = trg_aln[ext_st_minus_st]
             qry_st = aln_qry[aln_st_ind] + overext_aln[0][0].qry_start
-        elif ((side == "in" and extend_start >= overext_aln[0][0].trg_start) or 
-              (side == "out" and extend_end <= overext_aln[0][0].trg_end)):
+        elif (((side == "in" and 
+                    extend_start >= overext_aln[0][0].trg_start) or 
+               (side == "out" and extend_end <= overext_aln[0][0].trg_end)) and
+               (extend_end > 0 and 
+                   extend_start < overext_aln[0][0].trg_end)):
             ext_st_minus_st = extend_start - overext_aln[0][0].trg_start
             ext_end_minus_st = extend_end - overext_aln[0][0].trg_start
+            
             aln_st_ind = trg_aln[ext_st_minus_st]
             qry_st = aln_qry[aln_st_ind] + overext_aln[0][0].qry_start
             if ext_end_minus_st == len(trg_aln):
@@ -1287,7 +1294,8 @@ def _index_mapping(aln):
     return al_inds, gen_inds
 
 def init_side_stats(rep, side, repeat_edges, min_overlap, position_path, 
-                    partitioning, prev_parts, template_len, stats_file):
+                    #partitioning, prev_parts, template_len, stats_file):
+                    partitioning, template_len, stats_file):
     SUB_THRESH = trestle_config.vals["sub_thresh"]
     DEL_THRESH = trestle_config.vals["del_thresh"]
     INS_THRESH = trestle_config.vals["ins_thresh"]
@@ -1308,7 +1316,7 @@ def init_side_stats(rep, side, repeat_edges, min_overlap, position_path,
     for edge in repeat_edges[rep][side]:
         if edge_reads[edge] < MIN_EDGE_COV:
             edge_below_cov = True
-    prev_parts.add(tuple(part_list))
+    #prev_parts.add(tuple(part_list))
     #Prepare header for iteration stats
     #Iter,Rep Lens,Confirmed/Rejected Pos,Partitioned Reads
     header_labels = ["Iter"]
@@ -1359,7 +1367,7 @@ def init_side_stats(rep, side, repeat_edges, min_overlap, position_path,
     return edge_below_cov
 
 def update_side_stats(edges, it, side, cons_align_path, template, 
-                      confirmed_pos_path, partitioning, prev_parts, 
+                      confirmed_pos_path, partitioning, #prev_parts, 
                       stats_file):
     CONS_ALN_RATE = trestle_config.vals["cons_aln_rate"]
     MIN_EDGE_COV = trestle_config.vals["min_edge_cov"]
@@ -1384,7 +1392,7 @@ def update_side_stats(edges, it, side, cons_align_path, template,
     stats_out.extend([str(len(confirmed["total"])), 
                       str(len(rejected["total"]))])
     edge_below_cov = False
-    dup_part = False
+    #dup_part = False
     part_list = _read_partitioning_file(partitioning)
     edge_reads, tied_reads, unassigned_reads = _get_partitioning_info(
                                                         part_list, edges)
@@ -1395,20 +1403,21 @@ def update_side_stats(edges, it, side, cons_align_path, template,
     for edge in edges:
         if edge_reads[edge] < MIN_EDGE_COV:
             edge_below_cov = True
-    if tuple(part_list) in prev_parts:
-        dup_part = True
-    else:
-        prev_parts.add(tuple(part_list))
+    #if tuple(part_list) in prev_parts:
+    #    dup_part = True
+    #else:
+    #    prev_parts.add(tuple(part_list))
     spaced_header = map("{:11}".format, stats_out)
     with open(stats_file, "a") as f:
         f.write("\t".join(spaced_header))
         f.write("\n")
         
-    return edge_below_cov, dup_part
+    return edge_below_cov#, dup_part
 
 def finalize_side_stats(edges, it, side, cons_align_path, template, 
                  cons_vs_cons_path, consensuses, confirmed_pos_path, 
-                 partitioning, edge_below_cov, dup_part, term_bool, 
+                 #partitioning, edge_below_cov, dup_part, term_bool, 
+                 partitioning, edge_below_cov, term_bool, 
                  stats_file):
     CONS_ALN_RATE = trestle_config.vals["cons_aln_rate"]
     MAX_ITER = trestle_config.vals["max_iter"]
@@ -1421,8 +1430,8 @@ def finalize_side_stats(edges, it, side, cons_align_path, template,
             f.write("Max iter reached\n")
         if edge_below_cov:
             f.write("Edge coverage fell below min_edge_cov\n")
-        if dup_part:
-            f.write("Partitioning was identical to a previous iteration\n")
+        #if dup_part:
+        #    f.write("Partitioning was identical to a previous iteration\n")
         if term_bool:
             f.write("Encountered empty consensus sequence or alignment\n")
         f.write("\n")
