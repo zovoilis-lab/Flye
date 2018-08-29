@@ -80,13 +80,17 @@ def _calc_mapping_rate(read_length, mapping_segments):
     return round(float(read_coverage) / read_length, 3)
 
 
-def _calc_mapping_rates(reads2contigs_mapping):
+def _read_paf(filename):
     hits = []
-
-    with open(reads2contigs_mapping) as f:
+    with open(filename) as f:
         for raw_hit in f:
             hits.append(Hit(raw_hit))
 
+    return hits
+
+
+def _calc_mapping_rates(reads2contigs_mapping):
+    hits = _read_paf(reads2contigs_mapping)
     hits.sort(key=lambda hit: (hit.query, hit.target))
 
     mapping_rates = dict()
@@ -192,12 +196,7 @@ def _mapping_segments_without_intersection(circular_pair):
 
 
 def _extract_circular_pairs(unmapped_reads_mapping, max_overhang=300):
-    hits = []
-
-    with open(unmapped_reads_mapping) as f:
-        for raw_hit in f:
-            hits.append(Hit(raw_hit))
-
+    hits = _read_paf(unmapped_reads_mapping)
     hits.sort(key=lambda hit: (hit.query, hit.target))
 
     circular_pairs = []
@@ -251,30 +250,27 @@ def _trim_circular_pairs(circular_pairs, unmapped_reads):
     return trimmed_circular_pairs
 
 
-def _extract_unique_plasmids(trimmed_reads_mappings, trimmed_reads_path,
-                             mapping_rate_threashold=0.8,
+def _extract_unique_plasmids(trimmed_reads_mapping, trimmed_reads_path,
+                             mapping_rate_threshold=0.8,
                              max_length_difference=500,
                              min_sequence_length=1000):
+    hits = _read_paf(trimmed_reads_mapping)
     trimmed_reads = set()
-    hits = []
 
-    with open(trimmed_reads_mappings) as f:
-        for raw_hit in f:
-            hit = Hit(raw_hit)
-            hits.append(hit)
-            trimmed_reads.add(hit.query)
-            trimmed_reads.add(hit.target)
+    for hit in hits:
+        trimmed_reads.add(hit.query)
+        trimmed_reads.add(hit.target)
 
     trimmed_reads = list(trimmed_reads)
     n_trimmed_reads = len(trimmed_reads)
     read2int = dict()
     int2read = dict()
 
-    for i in range(n_trimmed_reads):
+    for i in xrange(n_trimmed_reads):
         read2int[trimmed_reads[i]] = i
         int2read[i] = trimmed_reads[i]
 
-    similarity_graph = [[] for _ in range(n_trimmed_reads)]
+    similarity_graph = [[] for _ in xrange(n_trimmed_reads)]
     hits.sort(key=lambda hit: (hit.query, hit.target))
 
     current_hit = None
@@ -296,8 +292,8 @@ def _extract_unique_plasmids(trimmed_reads_mappings, trimmed_reads_path,
                 target_mapping_rate = \
                     _calc_mapping_rate(target_length, target_mapping_segments)
 
-                if query_mapping_rate > mapping_rate_threashold and \
-                   target_mapping_rate > mapping_rate_threashold and \
+                if query_mapping_rate > mapping_rate_threshold and \
+                   target_mapping_rate > mapping_rate_threshold and \
                    abs(query_length - target_length) < max_length_difference:
                     vertex1 = read2int[current_hit.query]
                     vertex2 = read2int[current_hit.target]
@@ -316,8 +312,8 @@ def _extract_unique_plasmids(trimmed_reads_mappings, trimmed_reads_path,
     connected_components, n_components = \
         find_connected_components(similarity_graph)
 
-    groups = [[] for _ in range(n_components)]
-    for i in range(len(connected_components)):
+    groups = [[] for _ in xrange(n_components)]
+    for i in xrange(len(connected_components)):
         groups[connected_components[i]].append(int2read[i])
 
     groups = [group for group in groups if len(group) > 1]
