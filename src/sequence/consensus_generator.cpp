@@ -175,6 +175,11 @@ FastaRecord ConsensusGenerator::generateLinear(const ContigPath& path,
 
 		contigSequence += sequence.substr(leftCut, rightCut - leftCut).str();
 	}
+	int32_t cutLen = contigSequence.length() - (path.trimLeft + path.trimRight);
+	if (cutLen > 0)
+	{
+		contigSequence = contigSequence.substr(path.trimLeft, cutLen);
+	}
 	return FastaRecord(DnaSequence(contigSequence), path.name, 
 					   FastaRecord::ID_NONE);
 }
