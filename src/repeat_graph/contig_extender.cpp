@@ -345,7 +345,8 @@ void ContigExtender::outputScaffoldConnections(const std::string& filename)
 			visited.insert(_graph.complementEdge(curEdge));
 			for (auto& adjEdge: curEdge->nodeRight->outEdges)
 			{
-				if (adjEdge->isRepetitive() && !visited.count(adjEdge))
+				if (adjEdge->isRepetitive() && !adjEdge->isLooped() &&
+					!visited.count(adjEdge))
 				{
 					dfsStack.push_back(adjEdge);
 					traversedRepeats.insert(adjEdge);
