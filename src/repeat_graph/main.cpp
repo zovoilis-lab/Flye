@@ -232,7 +232,7 @@ int main(int argc, char** argv)
 
 	resolver.resolveRepeats();
 	resolver.fixLongEdges();
-	//outGen.outputDot(proc.getEdgesPaths(), outFolder + "/graph_after_rr_detailed.gv");
+	//outGen.outputDot(proc.getEdgesPaths(), outFolder + "/graph_after_rr.gv");
 
 	Logger::get().info() << "Generating contigs";
 
@@ -240,17 +240,17 @@ int main(int argc, char** argv)
 							multInf.getMeanCoverage());
 	extender.generateUnbranchingPaths();
 	extender.generateContigs();
-	extender.outputContigs(outFolder + "/contigs.fasta");
+	extender.outputContigs(outFolder + "/graph_paths.fasta");
 	extender.outputStatsTable(outFolder + "/contigs_stats.txt");
 	extender.outputScaffoldConnections(outFolder + "/scaffolds_links.txt");
 
 	outGen.dumpRepeats(extender.getUnbranchingPaths(),
 					   outFolder + "/repeats_dump.txt");
 	outGen.outputDot(extender.getUnbranchingPaths(),
-					 outFolder + "/graph_after_rr.gv");
+					 outFolder + "/graph_final.gv");
 	outGen.outputFasta(extender.getUnbranchingPaths(),
-					   outFolder + "/graph_after_rr.fasta");
+					   outFolder + "/graph_final.fasta");
 	outGen.outputGfa(extender.getUnbranchingPaths(),
-					 outFolder + "/graph_after_rr.gfa");
+					 outFolder + "/graph_final.gfa");
 	return 0;
 }

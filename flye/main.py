@@ -118,13 +118,14 @@ class JobRepeat(Job):
         self.name = "repeat"
 
         self.repeat_dir = os.path.join(work_dir, "2-repeat")
-        self.out_files["contigs"] = os.path.join(self.repeat_dir, "contigs.fasta")
+        self.out_files["contigs"] = os.path.join(self.repeat_dir,
+                                                 "graph_paths.fasta")
         self.out_files["assembly_graph"] = os.path.join(self.repeat_dir,
-                                                        "graph_after_rr.gv")
+                                                        "graph_final.gv")
         self.out_files["edges_sequences"] = os.path.join(self.repeat_dir,
-                                                         "graph_after_rr.fasta")
+                                                         "graph_final.fasta")
         self.out_files["gfa_graph"] = os.path.join(self.repeat_dir,
-                                                   "graph_after_rr.gfa")
+                                                   "graph_final.gfa")
         self.out_files["stats"] = os.path.join(self.repeat_dir, "contigs_stats.txt")
         self.out_files["scaffold_links"] = os.path.join(self.repeat_dir,
                                                         "scaffolds_links.txt")
