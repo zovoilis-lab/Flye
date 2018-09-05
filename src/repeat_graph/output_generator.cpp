@@ -130,7 +130,8 @@ void OutputGenerator::dumpRepeats(const std::vector<UnbranchingPath>& paths,
 
 	for (auto& contig : paths)
 	{
-		if (!contig.path.front()->isRepetitive()) continue;
+		if (!contig.path.front()->isRepetitive() ||
+			contig.path.front()->selfComplement) continue;
 
 		bool isSimple = true;
 		std::unordered_set<GraphEdge*> inputs;
@@ -146,7 +147,7 @@ void OutputGenerator::dumpRepeats(const std::vector<UnbranchingPath>& paths,
 			if (edge->isRepetitive()) isSimple = false;
 		}
 		if (!isSimple || inputs.size() != outputs.size() ||
-			inputs.empty()) continue;
+			inputs.size() < 2) continue;
 
 		std::unordered_set<GraphEdge*> innerEdges(contig.path.begin(), 
 												  contig.path.end());

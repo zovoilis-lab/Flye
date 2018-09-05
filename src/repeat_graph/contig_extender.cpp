@@ -33,6 +33,8 @@ void ContigExtender::generateUnbranchingPaths()
 
 void ContigExtender::generateContigs()
 {
+	Logger::get().debug() << "Extending contigs into repeats";
+
 	bool graphContinue = (bool)Config::get("extend_contigs_with_repeats");
 
 	OutputGenerator outGen(_graph, _aligner, _asmSeqs, _readSeqs);
@@ -105,8 +107,8 @@ void ContigExtender::generateContigs()
 						   upathAln.back().aln.back().overlap.curEnd + 
 						   upathAln.back().aln.front().overlap.curBegin;
 		bool lastIncomplete = overhang > (int)Config::get("max_separation");
-		Logger::get().debug() << "Ctg " << upath.id.signedId() <<
-			" overhang " << overhang << " upath " << lastUpath->id.signedId();
+		//Logger::get().debug() << "Ctg " << upath.id.signedId() <<
+		//	" overhang " << overhang << " upath " << lastUpath->id.signedId();
 
 		for (size_t i = 0; i < upathAln.size(); ++i)
 		{
@@ -302,8 +304,8 @@ void ContigExtender::outputStatsTable(const std::string& filename)
 			<< "\t" << YES_NO[ctg.graphEdges.repetitive] << "\t"
 			<< estMult << "\t" << telomereStr << "\t" << pathStr << "\n";
 
-		Logger::get().debug() << "Contig: " << ctg.graphEdges.id.signedId()
-			<< ": " << pathStr;
+		//Logger::get().debug() << "Contig: " << ctg.graphEdges.id.signedId()
+		//	<< ": " << pathStr;
 	}
 }
 
@@ -320,6 +322,8 @@ void ContigExtender::outputContigs(const std::string& filename)
 
 void ContigExtender::outputScaffoldConnections(const std::string& filename)
 {
+	Logger::get().debug() << "Generating scaffold connections";
+
 	std::ofstream fout(filename);
 	if (!fout) throw std::runtime_error("Can't open " + filename);
 
@@ -341,7 +345,8 @@ void ContigExtender::outputScaffoldConnections(const std::string& filename)
 			visited.insert(_graph.complementEdge(curEdge));
 			for (auto& adjEdge: curEdge->nodeRight->outEdges)
 			{
-				if (adjEdge->isRepetitive() && !visited.count(adjEdge))
+				if (adjEdge->isRepetitive() && !adjEdge->isLooped() &&
+					!visited.count(adjEdge))
 				{
 					dfsStack.push_back(adjEdge);
 					traversedRepeats.insert(adjEdge);

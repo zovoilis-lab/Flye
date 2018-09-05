@@ -8,6 +8,7 @@
 #include <memory>
 
 #include "sequence_container.h"
+#include "../common/config.h"
 
 static_assert(sizeof(size_t) == 8, "32-bit architectures are not supported");
 
@@ -15,13 +16,68 @@ class Kmer
 {
 public:
 	Kmer(): _representation(0) {}
-	Kmer(const DnaSequence& dnaString, 
-		 size_t start, size_t length);
 
-	Kmer reverseComplement();
-	bool standardForm();
-	void appendRight(DnaSequence::NuclType dnaSymbol);
-	void appendLeft(DnaSequence::NuclType dnaSymbol);
+	Kmer(const DnaSequence& dnaString, 
+		   size_t start, size_t length):
+		_representation(0)
+	{
+		if (length != Parameters::get().kmerSize)
+		{
+			throw std::runtime_error("Kmer length inconsistency");
+		}
+
+		for (size_t i = start; i < start + length; ++i)	
+		{
+			_representation <<= 2;
+			_representation += dnaString.atRaw(i);
+		}
+	}
+
+	Kmer reverseComplement()
+	{
+		KmerRepr tmpRepr = _representation;
+		Kmer newKmer;
+
+		for (unsigned int i = 0; i < Parameters::get().kmerSize; ++i)
+		{
+			newKmer._representation <<= 2;
+			newKmer._representation += ~tmpRepr & 3;
+			tmpRepr >>= 2;
+		}
+
+		return newKmer;
+	}
+
+	bool standardForm()
+	{
+		Kmer complKmer = this->reverseComplement();
+		if (complKmer._representation < _representation)
+		{
+			_representation = complKmer._representation;
+			return true;
+		}
+		return false;
+	}
+
+	void appendRight(DnaSequence::NuclType dnaSymbol)
+	{
+		_representation <<= 2;
+		_representation += dnaSymbol;
+
+		KmerRepr kmerSize = Parameters::get().kmerSize;
+		KmerRepr kmerMask = ((KmerRepr)1 << kmerSize * 2) - 1;
+		_representation &= kmerMask;
+	}
+
+	void appendLeft(DnaSequence::NuclType dnaSymbol)
+	{
+		_representation >>= 2;
+
+		KmerRepr kmerSize = Parameters::get().kmerSize;
+		KmerRepr shift = kmerSize * 2 - 2;
+		_representation += dnaSymbol << shift;
+	}
+
 	typedef size_t KmerRepr;
 
 	bool operator == (const Kmer& other) const
@@ -70,19 +126,46 @@ class KmerIterator
 public:
     typedef std::forward_iterator_tag iterator_category;
 
-	KmerIterator(const DnaSequence* readSeq, size_t position);
+	KmerIterator(const DnaSequence* readSeq, size_t position):
+		_readSeq(readSeq),
+		_position(position)
+	{
+		if (position != readSeq->length() - Parameters::get().kmerSize)
+		{
+			//_kmer = Kmer(readSeq->substr(0, Parameters::get().kmerSize));
+			_kmer = Kmer(*readSeq, 0, Parameters::get().kmerSize);
+		}
+	}
 
-    bool operator==(const KmerIterator&) const;
-    bool operator!=(const KmerIterator&) const;
+	bool operator==(const KmerIterator& other) const
+	{
+		return _readSeq == other._readSeq && _position == other._position;
+	}
 
-	KmerPosition operator*() const;
-	KmerIterator& operator++();
+	bool operator!=(const KmerIterator& other) const
+	{
+		return !(*this == other);
+	}
+
+	KmerPosition operator*() const
+	{
+		return KmerPosition(_kmer, _position);
+	}
+
+	KmerIterator& operator++()
+	{
+		size_t appendPos = _position + Parameters::get().kmerSize;
+		_kmer.appendRight(_readSeq->atRaw(appendPos));
+		++_position;
+		return *this;
+	}
 
 protected:
 	const DnaSequence* _readSeq;
 	size_t 	_position;
 	Kmer 	_kmer;
 };
+
 
 class IterKmers
 {
@@ -92,8 +175,20 @@ public:
 		_sequence(sequence), _start(start), _length(length)
 	{}
 
-	KmerIterator begin();
-	KmerIterator end();
+	KmerIterator begin()
+	{
+		if (_sequence.length() < Parameters::get().kmerSize + _start)
+			return this->end();
+
+		return KmerIterator(&_sequence, _start);
+	}
+
+	KmerIterator end()
+	{
+		size_t end = _length == std::string::npos ?
+						_sequence.length() : _length + _start;
+		return KmerIterator(&_sequence, end - Parameters::get().kmerSize);
+	}
 
 private:
 	const DnaSequence& _sequence;

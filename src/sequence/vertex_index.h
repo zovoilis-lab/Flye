@@ -10,6 +10,7 @@
 #include <map>
 #include <vector>
 #include <iostream>
+#include <cstring>
 
 #include <cuckoohash_map.hh>
 
@@ -35,6 +36,39 @@ public:
 	void operator=(const VertexIndex&) = delete;
 
 private:
+	struct IndexChunk
+	{
+		IndexChunk(): 
+			hi(0), low(0) {}
+		IndexChunk(const IndexChunk& other): 
+			hi(other.hi), low(other.low) {}
+		IndexChunk(IndexChunk&& other):
+			hi(other.hi), low(other.low) {}
+		IndexChunk& operator=(const IndexChunk& other)
+		{
+			hi = other.hi;
+			low = other.low;
+			return *this;
+		}
+
+		size_t get() const
+		{
+			return ((size_t)hi << 32) + (size_t)low;
+		}
+		void set(size_t val)
+		{
+			low = val & ((1ULL << 32) - 1);
+			hi = val >> 32;
+		}
+
+		uint8_t hi;
+		uint32_t low;
+	} __attribute__((packed));
+	static_assert(sizeof(IndexChunk) == 5, 
+				  "Unexpected size of IndexChunk structure");
+
+	//static const size_t MAX_INDEX = 1ULL << (sizeof(IndexChunk) * 8);
+
 	struct ReadPosition
 	{
 		ReadPosition(FastaRecord::Id readId = FastaRecord::ID_NONE, 
@@ -48,15 +82,15 @@ private:
 	{
 		ReadVector(uint32_t capacity = 0, uint32_t size = 0): 
 			capacity(capacity), size(size), data(nullptr) {}
-		ReadVector(const ReadPosition& pos):	//construct a vector with single element
+		ReadVector(const IndexChunk& pos):	//construct a vector with single element
 			capacity(1), size(1)
 		{
-			data = new ReadPosition[1];
+			data = new IndexChunk[1];
 			data[0] = pos;
 		}
 		uint32_t capacity;
 		uint32_t size;
-		ReadPosition* data;
+		IndexChunk* data;
 	};
 
 public:
@@ -80,9 +114,15 @@ public:
 			return !(*this == other);
 		}
 
+		__attribute__((always_inline))
 		ReadPosition operator*() const
 		{
-			ReadPosition pos = rv.data[index];
+			size_t globPos = rv.data[index].get();
+			FastaRecord::Id seqId;
+			int32_t position;
+			seqContainer.seqPosition(globPos, seqId, position);
+
+			ReadPosition pos(seqId, position);
 			if (revComp)
 			{
 				pos.readId = pos.readId.rc();
@@ -142,6 +182,7 @@ public:
 						  _seqContainer);
 	}
 
+	__attribute__((always_inline))
 	bool isSolid(Kmer kmer) const
 	{
 		kmer.standardForm();
@@ -178,8 +219,8 @@ private:
 	size_t  _repetitiveFrequency;
 	//int32_t _flankRepeatSize;
 
-	const size_t INDEX_CHUNK = 32 * 1024 * 1024 / sizeof(ReadPosition);
-	std::vector<ReadPosition*> 		 _memoryChunks;
+	const size_t MEM_CHUNK = 32 * 1024 * 1024 / sizeof(IndexChunk);
+	std::vector<IndexChunk*> _memoryChunks;
 
 	cuckoohash_map<Kmer, ReadVector> _kmerIndex;
 	cuckoohash_map<Kmer, size_t> 	 _kmerCounts;

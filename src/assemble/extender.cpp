@@ -186,16 +186,20 @@ void Extender::assembleContigs()
 		(FastaRecord::Id startRead)
 	{
 		//if (coveredReads.contains(startRead)) return true;
+		
+		//most of the reads will fall into the inner categoty -
+		//so no further processing will be needed
 		if (_innerReads.contains(startRead)) return true;
 
 		int numInnerOvlp = 0;
+		int totalOverlaps = 0;
 		for (auto& ovlp : _ovlpContainer.lazySeqOverlaps(startRead))
 		{
 			if (_innerReads.contains(ovlp.extId)) ++numInnerOvlp;
-			if (ovlp.extId == startRead || 
-				ovlp.extId.rc() == startRead) return true;
+			++totalOverlaps;
+			//if (ovlp.extId == startRead || 
+			//	ovlp.extId.rc() == startRead) return true;
 		}
-		if (numInnerOvlp > 0) return true;
 
 		int maxStartExt = _chimDetector.getOverlapCoverage() * 10;
 		int minStartExt = std::max(1, _chimDetector.getOverlapCoverage() / 50);
@@ -203,7 +207,8 @@ void Extender::assembleContigs()
 		int extRight = this->countRightExtensions(startRead);
 		if (_chimDetector.isChimeric(startRead) ||
 			std::max(extLeft, extRight) > maxStartExt ||
-			std::min(extLeft, extRight) < minStartExt) return true;
+			std::min(extLeft, extRight) < minStartExt ||
+			numInnerOvlp > totalOverlaps / 2) return true;
 		
 		//Good to go!
 		ExtensionInfo exInfo = this->extendContig(startRead);

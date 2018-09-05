@@ -197,14 +197,21 @@ void VertexIndex::buildIndexUnevenCoverage(int minCoverage)
 
 			//in case kmer not in index yet, creates a new vector
 			//with a single element in it
+			size_t globPos = _seqContainer
+					.globalPosition(targetRead, kmerPos.position);
+			IndexChunk defChunk;
+			defChunk.set(globPos);
+			
 			_kmerIndex.upsert(kmerPos.kmer, 
-				[targetRead, &kmerPos](ReadVector& rv)
+				[targetRead, &kmerPos, this, globPos](ReadVector& rv)
 				{
-					if (rv.size == rv.capacity)
+					const size_t PADDING = 1;
+					if (rv.size + PADDING >= rv.capacity)
 					{
 						const size_t newSize = 
 							std::max(4, (int)rv.capacity * 3 / 2);
-						ReadPosition* newBuffer = new ReadPosition[newSize];
+						//ReadPosition* newBuffer = new ReadPosition[newSize];
+						IndexChunk* newBuffer = new IndexChunk[newSize];
 						for (size_t i = 0; i < rv.size; ++i) 
 						{
 							newBuffer[i] = rv.data[i];
@@ -213,10 +220,11 @@ void VertexIndex::buildIndexUnevenCoverage(int minCoverage)
 						rv.data = newBuffer;
 						rv.capacity = newSize;
 					}
-					rv.data[rv.size] = ReadPosition(targetRead, 
-													kmerPos.position);
+					rv.data[rv.size].set(globPos);
+					//rv.data[rv.size] = ReadPosition(targetRead, 
+					//								kmerPos.position);
 					++rv.size;
-				}, ReadPosition(targetRead, kmerPos.position));
+				}, defChunk);
 		}
 	};
 	std::vector<FastaRecord::Id> allReads;
@@ -293,10 +301,15 @@ void VertexIndex::buildIndex(int minCoverage)
 	size_t solidKmers = 0;
 	for (auto& kmer : _kmerCounts.lock_table())
 	{
-		if ((size_t)minCoverage <= kmer.second)
+		if ((size_t)minCoverage <= kmer.second &&
+			kmer.second < _repetitiveFrequency)
 		{
 			kmerEntries += kmer.second;
 			++solidKmers;
+		}
+		if (kmer.second > _repetitiveFrequency)
+		{
+			_repetitiveKmers.insert(kmer.first, true);
 		}
 	}
 	Logger::get().debug() << "Sampling rate: " << _sampleRate;
@@ -308,34 +321,35 @@ void VertexIndex::buildIndex(int minCoverage)
 	_kmerIndex.reserve(solidKmers);
 	for (auto& kmer : _kmerCounts.lock_table())
 	{
-		if ((size_t)minCoverage <= kmer.second)
+		if ((size_t)minCoverage <= kmer.second &&
+			kmer.second < _repetitiveFrequency)
 		{
 			ReadVector rv((uint32_t)kmer.second, 0);
 			_kmerIndex.insert(kmer.first, rv);
-		}
-		if (kmer.second > _repetitiveFrequency)
-		{
-			_repetitiveKmers.insert(kmer.first, true);
 		}
 	}
 	_kmerCounts.clear();
 	_kmerCounts.reserve(0);
 
-	_memoryChunks.push_back(new ReadPosition[INDEX_CHUNK]);
+	_memoryChunks.push_back(new IndexChunk[MEM_CHUNK]);
 	size_t chunkOffset = 0;
+	//Important: since packed structures are apparently not thread-safe,
+	//make sure that adjacent k-mer index arrays (that are accessed in parallel)
+	//do not overlap within 8-byte window
+	const size_t PADDING = 1;
 	for (auto& kmer : _kmerIndex.lock_table())
 	{
-		if (INDEX_CHUNK < kmer.second.capacity) 
+		if (MEM_CHUNK < kmer.second.capacity + PADDING) 
 		{
 			throw std::runtime_error("k-mer is too frequent");
 		}
-		if (INDEX_CHUNK - chunkOffset < kmer.second.capacity)
+		if (MEM_CHUNK - chunkOffset < kmer.second.capacity + PADDING)
 		{
-			_memoryChunks.push_back(new ReadPosition[INDEX_CHUNK]);
+			_memoryChunks.push_back(new IndexChunk[MEM_CHUNK]);
 			chunkOffset = 0;
 		}
 		kmer.second.data = _memoryChunks.back() + chunkOffset;
-		chunkOffset += kmer.second.capacity;
+		chunkOffset += kmer.second.capacity + PADDING;
 	}
 	//Logger::get().debug() << "Total chunks " << _memoryChunks.size()
 	//	<< " wasted space: " << wasted;
@@ -365,18 +379,16 @@ void VertexIndex::buildIndex(int minCoverage)
 										Parameters::get().kmerSize;
 				targetRead = targetRead.rc();
 			}
-
-			//filter out repetitive kmers (but allow some on sequence ends)
-			/*if (_repetitiveKmers.contains(kmerPos.kmer) &&
-				kmerPos.position >= _flankRepeatSize &&
-				kmerPos.position < seqLen - _flankRepeatSize) continue;*/
-
+			
 			_kmerIndex.update_fn(kmerPos.kmer, 
-				[targetRead, &kmerPos](ReadVector& rv)
+				[targetRead, &kmerPos, this](ReadVector& rv)
 				{
-
-					rv.data[rv.size] = ReadPosition(targetRead, 
-													kmerPos.position);
+					size_t globPos = _seqContainer
+							.globalPosition(targetRead, kmerPos.position);
+					//if (globPos > MAX_INDEX) throw std::runtime_error("Too much!");
+					rv.data[rv.size].set(globPos);
+					//rv.data[rv.size] = ReadPosition(targetRead, 
+					//								kmerPos.position);
 					++rv.size;
 				});
 		}
@@ -393,8 +405,8 @@ void VertexIndex::buildIndex(int minCoverage)
 	for (auto& kmerVec : _kmerIndex.lock_table())
 	{
 		std::sort(kmerVec.second.data, kmerVec.second.data + kmerVec.second.size,
-				  [](const ReadPosition& p1, const ReadPosition& p2)
-				  	{return p1.readId < p2.readId;});
+				  [](const IndexChunk& p1, const IndexChunk& p2)
+				  	{return p1.get() < p2.get();});
 	}
 }
 
