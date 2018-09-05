@@ -379,7 +379,7 @@ def process_repeats(reads, repeats_dump, graph_edges, work_dir, repeat_label,
         if -rep not in repeats_dict:
             logger.debug("Repeat {0} missing reverse strand".format(rep))
             valid_repeat = False
-        if (repeats_dict[rep][0] < MIN_MULT or
+        elif (repeats_dict[rep][0] < MIN_MULT or
                  repeats_dict[rep][0] > MAX_MULT or
                  repeats_dict[-rep][0] < MIN_MULT or
                  repeats_dict[-rep][0] > MAX_MULT):
@@ -627,7 +627,7 @@ def _read_repeats_dump(repeats_dump):
     curr_output_list = []
     output_bool = False
     with open(repeats_dump,'r') as rf:
-        for i,line in enumerate(rf):
+        for i, line in enumerate(rf):
             line = line.strip()
             if line:
                 if line[0] == '#':
