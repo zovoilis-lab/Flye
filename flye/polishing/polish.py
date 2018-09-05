@@ -13,7 +13,9 @@ import os
 from collections import defaultdict
 from threading import Thread
 
-import flye.polishing.bubbles as bbl
+from flye.polishing.alignment import (make_alignment, get_contigs_info,
+                                      SynchronizedSamReader)
+from flye.polishing.bubbles import make_bubbles
 import flye.utils.fasta_parser as fp
 from flye.utils.utils import which
 import flye.config.py_cfg as cfg
@@ -43,20 +45,103 @@ def check_binaries():
         raise PolishException(str(e))
 
 
-def polish(bubbles_file, num_proc, err_mode, work_dir, iter_id, out_polished):
+def polish(contig_seqs, read_seqs, work_dir, num_iters, num_threads, error_mode):
+    """
+    High-level polisher interface
+    """
+
     subs_matrix = os.path.join(cfg.vals["pkg_root"],
-                               cfg.vals["err_modes"][err_mode]["subs_matrix"])
+                               cfg.vals["err_modes"][error_mode]["subs_matrix"])
     hopo_matrix = os.path.join(cfg.vals["pkg_root"],
-                               cfg.vals["err_modes"][err_mode]["hopo_matrix"])
+                               cfg.vals["err_modes"][error_mode]["hopo_matrix"])
 
-    consensus_out = os.path.join(work_dir, "consensus_{0}.fasta"
-                                                .format(iter_id))
-    _run_polish_bin(bubbles_file, subs_matrix, hopo_matrix,
-                    consensus_out, num_proc)
-    polished_fasta, polished_lengths = _compose_sequence([consensus_out])
-    fp.write_fasta_dict(polished_fasta, out_polished)
+    prev_assembly = contig_seqs
+    contig_lengths = None
+    for i in xrange(num_iters):
+        logger.info("Polishing genome ({0}/{1})".format(i + 1, num_iters))
 
-    return polished_lengths
+        alignment_file = os.path.join(work_dir,
+                                      "minimap_{0}.sam".format(i + 1))
+        logger.info("Running minimap2")
+        make_alignment(prev_assembly, read_seqs, num_threads,
+                       work_dir, error_mode, alignment_file)
+
+        logger.info("Separating alignment into bubbles")
+        contigs_info = get_contigs_info(prev_assembly)
+        bubbles_file = os.path.join(work_dir,
+                                    "bubbles_{0}.fasta".format(i + 1))
+        coverage_stats = \
+            make_bubbles(alignment_file, contigs_info, prev_assembly,
+                         error_mode, num_threads,
+                         cfg.vals["min_aln_rate"], bubbles_file)
+
+        logger.info("Correcting bubbles")
+        consensus_out = os.path.join(work_dir, "consensus_{0}.fasta"
+                                     .format(i + 1))
+        polished_file = os.path.join(work_dir, "polished_{0}.fasta"
+                                     .format(i + 1))
+        _run_polish_bin(bubbles_file, subs_matrix, hopo_matrix,
+                        consensus_out, num_threads)
+        polished_fasta, polished_lengths = _compose_sequence([consensus_out])
+        fp.write_fasta_dict(polished_fasta, polished_file)
+
+        contig_lengths = polished_lengths
+        prev_assembly = polished_file
+
+    stats_file = os.path.join(work_dir, "contigs_stats.txt")
+    with open(stats_file, "w") as f:
+        f.write("seq_name\tlength\tcoverage\n")
+        for ctg_id in contig_lengths:
+            f.write("{0}\t{1}\t{2}\n".format(ctg_id,
+                    contig_lengths[ctg_id], coverage_stats[ctg_id]))
+
+
+def generate_polished_edges(edges_file, gfa_file, polished_contigs, work_dir,
+                            error_mode, num_threads):
+    """
+    Generate polished graph edges sequences by extracting them from
+    polished contigs
+    """
+    logger.debug("Generating polished GFA")
+
+    alignment_file = os.path.join(work_dir, "edges_aln.sam")
+    polished_dict = fp.read_sequence_dict(polished_contigs)
+    make_alignment(polished_contigs, [edges_file], num_threads,
+                   work_dir, error_mode, alignment_file)
+    aln_reader = SynchronizedSamReader(alignment_file,
+                                       polished_dict,
+                                       min_aln_rate=0)
+    aln_reader.init_reading()
+    aln_by_edge = {}
+    while not aln_reader.is_eof():
+        _, ctg_aln = aln_reader.get_chunk()
+        for aln in ctg_aln:
+            aln_by_edge[aln.qry_id] = aln
+
+    edges_dict = fp.read_sequence_dict(edges_file)
+    for edge in edges_dict:
+        if edge in aln_by_edge:
+            aln = aln_by_edge[edge]
+            new_seq = polished_dict[aln.trg_id][aln.trg_start : aln.trg_end]
+            if aln.trg_sign < 0:
+                new_seq = fp.reverse_complement(new_seq)
+            edges_dict[edge] = new_seq
+
+    #writes fasta file with polished egdes
+    edges_polished = os.path.join(work_dir, "polished_edges.fasta")
+    fp.write_fasta_dict(edges_dict, edges_polished)
+
+    #writes gfa file with polished edges
+    gfa_polished = open(os.path.join(work_dir, "polished_edges.gfa"), "w")
+    for line in open(gfa_file, "r"):
+        if line.startswith("S"):
+            seq_id = line.split()[1]
+            gfa_polished.write("S\t{0}\t{1}\n".format(seq_id, edges_dict[seq_id]))
+        else:
+            gfa_polished.write(line)
+
+    logger.debug("{0} sequences remained unpolished"
+                    .format(len(edges_dict) - len(aln_by_edge)))
 
 
 def _run_polish_bin(bubbles_in, subs_matrix, hopo_matrix,
