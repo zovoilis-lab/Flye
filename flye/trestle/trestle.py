@@ -1560,12 +1560,12 @@ def update_int_stats(rep, repeat_edges, side_it, cons_align_path, template,
                 cons_align = _read_alignment(curr_cons_path, 
                                              template, 
                                              CONS_ALN_RATE)
-            elif cons_align and cons_align[0]:
-                if side == "in":
-                    trg_limits.append(cons_align[0][0].trg_end)
-                elif side == "out":
-                    trg_limits.append(template_len - 
-                                        cons_align[0][0].trg_start)
+                if cons_align and cons_align[0]:
+                    if side == "in":
+                        trg_limits.append(cons_align[0][0].trg_end)
+                    elif side == "out":
+                        trg_limits.append(template_len - 
+                                            cons_align[0][0].trg_start)
         if trg_limits:
             medians[side] = _get_median(trg_limits)
     gap_len = template_len - (medians["in"] + medians["out"])
