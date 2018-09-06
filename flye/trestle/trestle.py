@@ -1573,14 +1573,31 @@ def update_int_stats(rep, repeat_edges, side_it, cons_align_path, template,
     #Add confirmed and rejected reads
     in_confirmed_path = confirmed_pos_path.format(side_it["in"], "in")
     out_confirmed_path = confirmed_pos_path.format(side_it["out"], "out")
-    confirmed_pos_outputs = _integrate_confirmed_pos(in_confirmed_path,
-                                                     out_confirmed_path)
-    int_confirmed, int_rejected, pos = confirmed_pos_outputs
-    _write_confirmed_positions(int_confirmed, int_rejected, pos, 
-                               int_confirmed_path.format(side_it["in"], 
-                                                         side_it["out"]))
-    stats_out.extend([str(len(int_confirmed["total"])), 
-                      str(len(int_rejected["total"]))])
+    total_confirmed = 0
+    total_rejected = 0
+    if side_it["in"] > 0:
+        all_in_pos = _read_confirmed_positions(in_confirmed_path)
+    if side_it["out"] > 0:
+        all_out_pos = _read_confirmed_positions(out_confirmed_path)
+    if side_it["in"] > 0 and side_it["out"] > 0:
+        confirmed_pos_outputs = _integrate_confirmed_pos(all_in_pos,
+                                                         all_out_pos)
+        int_confirmed, int_rejected, pos = confirmed_pos_outputs
+        _write_confirmed_positions(int_confirmed, int_rejected, pos, 
+                                   int_confirmed_path.format(side_it["in"], 
+                                                             side_it["out"]))
+        total_confirmed = len(int_confirmed["total"])
+        total_rejected = len(int_rejected["total"])
+    elif side_it["in"] > 0:
+        in_confirmed, in_rejected, pos = all_in_pos
+        total_confirmed = len(in_confirmed["total"])
+        total_rejected = len(in_rejected["total"])
+    elif side_it["out"] > 0:
+        out_confirmed, out_rejected, pos = all_out_pos
+        total_confirmed = len(out_confirmed["total"])
+        total_rejected = len(out_rejected["total"])
+    stats_out.extend([str(total_confirmed), 
+                      str(total_rejected)])
     #Get bridging reads for each pair of in/out edges
     side_headers_dict = {}
     all_headers = set()
@@ -2173,9 +2190,9 @@ def _get_median(lst):
         mid2 = sorted_list[(len(lst)/2)]
         return float(mid1 + mid2) / 2
 
-def _integrate_confirmed_pos(in_confirmed_path, out_confirmed_path):
-    in_conf, in_rej, in_pos = _read_confirmed_positions(in_confirmed_path)
-    out_conf, out_rej, out_pos = _read_confirmed_positions(out_confirmed_path)
+def _integrate_confirmed_pos(all_in_pos, all_out_pos):
+    in_conf, in_rej, in_pos = all_in_pos
+    out_conf, out_rej, out_pos = all_out_pos
     
     integrated_confirmed = {"total":[], "sub":[], "ins":[], "del":[]}
     integrated_rejected = {"total":[], "sub":[], "ins":[], "del":[]}
