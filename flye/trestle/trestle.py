@@ -1349,20 +1349,20 @@ def finalize_side_stats(edges, it, side, cons_align_path, template,
                 cons_align = _read_alignment(curr_cons_path, 
                                              template, 
                                              CONS_ALN_RATE)
-            if cons_align and cons_align[0]:
-                qry_start = cons_align[0][0].qry_start
-                qry_end = cons_align[0][0].qry_end
-                qry_len = cons_align[0][0].qry_len
-                trg_start = cons_align[0][0].trg_start
-                trg_end = cons_align[0][0].trg_end
-                trg_len = cons_align[0][0].trg_len
-                if limit_ind is None or (
-                        (side == "in" and trg_end < limit_ind) or
-                        (side == "out" and trg_start >= limit_ind)):
-                    if side == "in":
-                        limit_ind = trg_end
-                    elif side == "out":
-                        limit_ind = trg_start
+                if cons_align and cons_align[0]:
+                    qry_start = cons_align[0][0].qry_start
+                    qry_end = cons_align[0][0].qry_end
+                    qry_len = cons_align[0][0].qry_len
+                    trg_start = cons_align[0][0].trg_start
+                    trg_end = cons_align[0][0].trg_end
+                    trg_len = cons_align[0][0].trg_len
+                    if limit_ind is None or (
+                            (side == "in" and trg_end < limit_ind) or
+                            (side == "out" and trg_start >= limit_ind)):
+                        if side == "in":
+                            limit_ind = trg_end
+                        elif side == "out":
+                            limit_ind = trg_start
             f.write("Edge {0}|Template Alignment\n".format(edge_id))
             f.write("{0}{1}{2:20}\t{3:5}-{4:5} of {5:5}\n".format(
                     "Edge ", edge_id, ":", 
@@ -1391,15 +1391,15 @@ def finalize_side_stats(edges, it, side, cons_align_path, template,
                                                consensuses[(it, side, 
                                                             edge_two)], 
                                                CONS_ALN_RATE)
-            if cons_vs_cons and cons_vs_cons[0]:
-                qry_start = cons_vs_cons[0][0].qry_start
-                qry_end = cons_vs_cons[0][0].qry_end
-                qry_len = cons_vs_cons[0][0].qry_len
-                trg_start = cons_vs_cons[0][0].trg_start
-                trg_end = cons_vs_cons[0][0].trg_end
-                trg_len = cons_vs_cons[0][0].trg_len
-                qry_seq = cons_vs_cons[0][0].qry_seq
-                trg_seq = cons_vs_cons[0][0].trg_seq
+                if cons_vs_cons and cons_vs_cons[0]:
+                    qry_start = cons_vs_cons[0][0].qry_start
+                    qry_end = cons_vs_cons[0][0].qry_end
+                    qry_len = cons_vs_cons[0][0].qry_len
+                    trg_start = cons_vs_cons[0][0].trg_start
+                    trg_end = cons_vs_cons[0][0].trg_end
+                    trg_len = cons_vs_cons[0][0].trg_len
+                    qry_seq = cons_vs_cons[0][0].qry_seq
+                    trg_seq = cons_vs_cons[0][0].trg_seq
             f.write("Edge {0}|Edge {1} Alignment\n".format(edge_one, edge_two))
             f.write("{0}{1}{2:20}\t{3:5}-{4:5} of {5:5}\n".format(
                     "Edge ", edge_one, ":", 
@@ -1878,29 +1878,29 @@ def finalize_int_stats(rep, repeat_edges, side_it, cons_align_path, template,
                             cons_cons_file, 
                             consensuses[(side_it[side], side, edge_two)], 
                             CONS_ALN_RATE)
-                    if cons_vs_cons and cons_vs_cons[0]:
-                        one_start = cons_vs_cons[0][0].qry_start
-                        one_end = cons_vs_cons[0][0].qry_end
-                        two_start = cons_vs_cons[0][0].trg_start
-                        two_end = cons_vs_cons[0][0].trg_end
-                        if side == "in":
-                            if (side, edge_one) not in edge_limits:
-                                edge_limits[(side, edge_one)] = one_start
-                            elif one_start < edge_limits[(side, edge_one)]:
-                                edge_limits[(side, edge_one)] = one_start
-                            if (side, edge_two) not in edge_limits:
-                                edge_limits[(side, edge_two)] = two_start
-                            elif two_start < edge_limits[(side, edge_two)]:
-                                edge_limits[(side, edge_two)] = two_start
-                        elif side == "out":
-                            if (side, edge_one) not in edge_limits:
-                                edge_limits[(side, edge_one)] = one_end
-                            elif one_end > edge_limits[(side, edge_one)]:
-                                edge_limits[(side, edge_one)] = one_end
-                            if (side, edge_two) not in edge_limits:
-                                edge_limits[(side, edge_two)] = two_end
-                            elif two_end > edge_limits[(side, edge_two)]:
-                                edge_limits[(side, edge_two)] = two_end
+                        if cons_vs_cons and cons_vs_cons[0]:
+                            one_start = cons_vs_cons[0][0].qry_start
+                            one_end = cons_vs_cons[0][0].qry_end
+                            two_start = cons_vs_cons[0][0].trg_start
+                            two_end = cons_vs_cons[0][0].trg_end
+                            if side == "in":
+                                if (side, edge_one) not in edge_limits:
+                                    edge_limits[(side, edge_one)] = one_start
+                                elif one_start < edge_limits[(side, edge_one)]:
+                                    edge_limits[(side, edge_one)] = one_start
+                                if (side, edge_two) not in edge_limits:
+                                    edge_limits[(side, edge_two)] = two_start
+                                elif two_start < edge_limits[(side, edge_two)]:
+                                    edge_limits[(side, edge_two)] = two_start
+                            elif side == "out":
+                                if (side, edge_one) not in edge_limits:
+                                    edge_limits[(side, edge_one)] = one_end
+                                elif one_end > edge_limits[(side, edge_one)]:
+                                    edge_limits[(side, edge_one)] = one_end
+                                if (side, edge_two) not in edge_limits:
+                                    edge_limits[(side, edge_two)] = two_end
+                                elif two_end > edge_limits[(side, edge_two)]:
+                                    edge_limits[(side, edge_two)] = two_end
             #For each edge_pair, find starting and ending indices of
             #in, out, and template sequences to construct sequences
             summ_resolution = []
