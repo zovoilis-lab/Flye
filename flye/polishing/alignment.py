@@ -37,7 +37,8 @@ class AlignmentException(Exception):
 
 class SynchronizedSamReader(object):
     """
-    Parsing SAM file in multiple threads
+    Parsing SAM file in multiple threads. Filters out secondary alignments,
+    but keeps supplementary (split) alignments
     """
     def __init__(self, sam_alignment, reference_fasta, min_aln_rate):
         #will not be changed during exceution
@@ -157,7 +158,7 @@ class SynchronizedSamReader(object):
                 flags = int(tokens[1])
                 is_unmapped = flags & 0x4
                 is_secondary = flags & 0x100
-                #is_supplementary = flags & 0x800
+                is_supplementary = flags & 0x800    #allow supplementary
 
                 if is_unmapped or is_secondary: continue
                 if read_contig in self.processed_contigs:
@@ -221,13 +222,28 @@ def make_alignment(reference_file, reads_file, num_proc,
     """
     _run_minimap(reference_file, reads_file, num_proc, platform, out_alignment)
     logger.debug("Sorting alignment file")
-    temp_file = out_alignment + "_sorted"
+    sorted_file = out_alignment + "_sorted"
+    merged_file = out_alignment + "_merged"
     env = os.environ.copy()
     env["LC_ALL"] = "C"
     subprocess.check_call(["sort", "-k", "3,3", "-T", work_dir, out_alignment],
-                          stdout=open(temp_file, "w"), env=env)
-    os.remove(out_alignment)
-    os.rename(temp_file, out_alignment)
+                          stdout=open(sorted_file, "w"), env=env)
+
+    #puting back SAM headers
+    with open(merged_file, "w") as f:
+        for line in open(out_alignment, "r"):
+            if not line.startswith("@"):
+                break
+            f.write(line)
+
+        os.remove(out_alignment)
+
+        for line in open(sorted_file, "r"):
+            if not line.startswith("@"):
+                f.write(line)
+
+    os.remove(sorted_file)
+    os.rename(merged_file, out_alignment)
 
 
 def get_contigs_info(contigs_file):
