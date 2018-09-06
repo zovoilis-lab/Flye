@@ -1284,9 +1284,15 @@ def update_side_stats(edges, it, side, cons_align_path, template,
                 elif side == "out":
                     rep_len = cons_align[0][0].qry_end
         stats_out.extend([str(rep_len)])
-    confirmed, rejected, pos = _read_confirmed_positions(confirmed_pos_path)
-    stats_out.extend([str(len(confirmed["total"])), 
-                      str(len(rejected["total"]))])
+    confirmed_total = 0
+    rejected_total = 0
+    if it > 0:
+        confirmed, rejected, pos = _read_confirmed_positions(
+                                            confirmed_pos_path)
+        confirmed_total = len(confirmed["total"])
+        rejected_total = len(rejected["total"])
+    stats_out.extend([str(confirmed_total), 
+                      str(rejected_total)])
     edge_below_cov = False
     dup_part = False
     part_list = _read_partitioning_file(partitioning)
