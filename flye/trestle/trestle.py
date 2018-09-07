@@ -2041,13 +2041,15 @@ def finalize_int_stats(rep, repeat_edges, side_it, cons_align_path, template,
                                         "out_{0}_{1}_{2}".format(out_edge, 
                                                                  out_start, 
                                                                  out_end)])
-                copy_seq = _construct_repeat_copy(
-                        consensuses[(side_it["in"], "in", in_edge)], 
-                        template,
-                        consensuses[(side_it["out"], "out", out_edge)], 
-                        in_start, in_end, 
-                        temp_start, temp_end, 
-                        out_start, out_end)
+                copy_seq = ""
+                if side_it["in"] > 0 and side_it["out"] > 0:
+                    copy_seq = _construct_repeat_copy(
+                            consensuses[(side_it["in"], "in", in_edge)], 
+                            template,
+                            consensuses[(side_it["out"], "out", out_edge)], 
+                            in_start, in_end, 
+                            temp_start, temp_end, 
+                            out_start, out_end)
                 resolved_repeats[header] = copy_seq
                 if copy_seq:
                     seq_dict = {header:copy_seq}
