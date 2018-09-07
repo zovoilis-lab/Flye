@@ -770,7 +770,7 @@ def partition_reads(edges, it, side, position_path, cons_align_path,
                             edge_id))
             skip_bool = True
     if skip_bool:
-        if it == 1:
+        if it <= 1:
             confirmed_pos = {"total":[], "sub":[], "ins":[], "del":[]}
             rejected_pos = {"total":[], "sub":[], "ins":[], "del":[]}
             consensus_pos = pos
@@ -1417,8 +1417,13 @@ def finalize_side_stats(edges, it, side, cons_align_path, template,
             f.write("{0:26}\t{1:.4f}\n".format("Divergence Rate:", div_rate))
         f.write("\n")
         #Write overall position stats
-        confirmed_pos_output = _read_confirmed_positions(confirmed_pos_path)
-        confirmed, rejected, pos = confirmed_pos_output
+        types = ["total", "sub", "del", "ins"]
+        confirmed = {t:[] for t in types}
+        rejected = {t:[] for t in types}
+        pos = {t:[] for t in types}
+        if it > 0:
+            confirmed_pos_output = _read_confirmed_positions(confirmed_pos_path)
+            confirmed, rejected, pos = confirmed_pos_output
         if side == "in":
             largest_pos = -1
             if confirmed["total"]:
@@ -1431,7 +1436,6 @@ def finalize_side_stats(edges, it, side, cons_align_path, template,
                 smallest_pos = min(confirmed["total"])
             f.write("{0:26}\t{1}\n".format("Smallest Confirmed Position:", 
                                            smallest_pos))
-        types = ["total", "sub", "del", "ins"]
         remainings = {}
         for typ in types:
             remainings[typ] = len(pos[typ]) - (len(confirmed[typ]) + 
@@ -1580,9 +1584,9 @@ def update_int_stats(rep, repeat_edges, side_it, cons_align_path, template,
     in_confirmed_path = confirmed_pos_path.format(side_it["in"], "in")
     out_confirmed_path = confirmed_pos_path.format(side_it["out"], "out")
     types = ["total", "sub", "del", "ins"]
-    int_confirmed = {t:0 for t in types}
-    int_rejected = {t:0 for t in types}
-    pos = {t:0 for t in types}
+    int_confirmed = {t:[] for t in types}
+    int_rejected = {t:[] for t in types}
+    pos = {t:[] for t in types}
     if side_it["in"] > 0 and side_it["out"] > 0:
         all_in_pos = _read_confirmed_positions(in_confirmed_path)
         all_out_pos = _read_confirmed_positions(out_confirmed_path)
@@ -1654,9 +1658,9 @@ def finalize_int_stats(rep, repeat_edges, side_it, cons_align_path, template,
         f.write("\n\n")
         #Overall confirmed and rejected positions
         types = ["total", "sub", "del", "ins"]
-        int_confirmed = {t:0 for t in types}
-        int_rejected = {t:0 for t in types}
-        pos = {t:0 for t in types}
+        int_confirmed = {t:[] for t in types}
+        int_rejected = {t:[] for t in types}
+        pos = {t:[] for t in types}
         if side_it["in"] > 0 or side_it["out"] > 0:
             int_confirmed, int_rejected, pos = _read_confirmed_positions(
                 int_confirmed_path.format(side_it["in"], side_it["out"]))
