@@ -1595,7 +1595,6 @@ def update_int_stats(rep, repeat_edges, side_it, cons_align_path, template,
     elif side_it["out"] > 0:
         all_out_pos = _read_confirmed_positions(out_confirmed_path)
         int_confirmed, int_rejected, pos = all_out_pos
-        int_confirmed, int_rejected, pos = all_in_pos
     _write_confirmed_positions(int_confirmed, int_rejected, pos, 
                                int_confirmed_path.format(side_it["in"], 
                                                          side_it["out"]))
