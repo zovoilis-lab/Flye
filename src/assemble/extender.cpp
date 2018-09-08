@@ -244,6 +244,8 @@ void Extender::assembleContigs()
 			<< "\n\tMin overlap len: " << exInfo.minOverlapSize
 			<< "\n\tInner reads: " << innerCount
 			<< "\n\tLength: " << exInfo.assembledLength;
+
+		Logger::get().debug() << "Ovlp index size: " << _ovlpContainer.indexSize();
 		
 		//update inner read index
 		std::unordered_set<FastaRecord::Id> rightExtended;
@@ -314,7 +316,11 @@ void Extender::assembleContigs()
 	std::vector<FastaRecord::Id> allReads;
 	for (auto& seq : _readsContainer.iterSeqs())
 	{
-		allReads.push_back(seq.id);
+		if (seq.sequence.length() > (size_t)Parameters::get().minimumOverlap &&
+			seq.id.strand())
+		{
+			allReads.push_back(seq.id);
+		}
 	}
 	std::random_shuffle(allReads.begin(), allReads.end());
 	processInParallel(allReads, threadWorker,
