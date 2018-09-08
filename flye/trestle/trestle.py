@@ -80,10 +80,12 @@ def resolve_repeats(args, trestle_dir, repeats_dump, graph_edges, summ_file):
     div_pos_name = "divergent_positions.txt"
     div_summ_name = "divergence_summary.txt"
     reads_template_aln_name = "reads.vs.template.minimap.sam"
-    cons_template_aln_name = "consensus.{0}.{1}.{2}.vs.template.minimap.sam"
+    cons_temp_aln_name = "uncut_consensus.{0}.{1}.{2}.vs.template.minimap.sam"
+    cut_cons_temp_aln_name = "consensus.{0}.{1}.{2}.vs.template.minimap.sam"
     reads_cons_aln_name = "reads.vs.consensus.{0}.{1}.{2}.minimap.sam"
     confirmed_pos_name = "confirmed_positions.{0}.{1}.txt"
     edge_reads_name = "edge_reads.{0}.{1}.{2}.fasta"
+    cut_cons_name = "consensus.{0}.{1}.{2}.fasta"
     cons_vs_cons_name = "".join(["consensus.{0}.{1}.{2}.vs.",
                                  "consensus.{3}.{4}.{5}.minimap.sam"])
     side_stats_name = "{0}_stats.txt"
@@ -163,14 +165,18 @@ def resolve_repeats(args, trestle_dir, repeats_dump, graph_edges, summ_file):
                                 summary_path, config.vals["min_aln_rate"], 
                                 args.platform, args.threads,
                                 SUB_THRESH, DEL_THRESH, INS_THRESH) 
+            read_endpoints = find_read_endpoints(alignment_file, 
+                                                 polished_template)
             avg_cov = find_coverage(frequency_path)
             
             #4. Initialize paths, variables, and stats
             partitioning = os.path.join(orient_dir, partitioning_name)
-            cons_align = os.path.join(orient_dir, cons_template_aln_name)
+            cons_align = os.path.join(orient_dir, cons_temp_aln_name)
+            cut_cons_align = os.path.join(orient_dir, cut_cons_temp_aln_name)
             read_align = os.path.join(orient_dir, reads_cons_aln_name)
             confirmed_pos_path = os.path.join(orient_dir, confirmed_pos_name)
             edge_reads = os.path.join(orient_dir, edge_reads_name)
+            cut_cons = os.path.join(orient_dir, cut_cons_name)
             polishing_dir = os.path.join(orient_dir, pol_cons_name)
             cons_vs_cons = os.path.join(orient_dir, cons_vs_cons_name)
             side_stats = os.path.join(orient_dir, side_stats_name)
@@ -183,7 +189,7 @@ def resolve_repeats(args, trestle_dir, repeats_dump, graph_edges, summ_file):
             test_pos = os.path.join(orient_dir, test_pos_name)
             num_test = 10
             
-            polished_consensus = {}
+            cut_consensus = {}
             side_it = {s:0 for s in side_labels}
             edge_below_cov = {s:False for s in side_labels}
             dup_part = {s:False for s in side_labels}
@@ -211,15 +217,15 @@ def resolve_repeats(args, trestle_dir, repeats_dump, graph_edges, summ_file):
                     else:
                         logger.debug("iteration {0}, '{1}'".format(it, side))
                         both_break = False
-                    #5a. Call consensus on partitioned reads
                     for edge_id in sorted(repeat_edges[rep][side]):
+                        #5a. Call consensus on partitioned reads
                         pol_con_dir = polishing_dir.format(
                                     it, side, edge_id)
                         curr_reads = edge_reads.format(it, side, edge_id)
                         write_edge_reads(
                                     it, side, edge_id,
                                     repeat_reads, 
-                                    partitioning.format(it-1, side), 
+                                    partitioning.format(it - 1, side), 
                                     curr_reads)
                         curr_extended = polished_extended[(side, edge_id)]
                         pol_reads_str = "polishing '{0} {1}' reads"
@@ -227,37 +233,59 @@ def resolve_repeats(args, trestle_dir, repeats_dump, graph_edges, summ_file):
                         pol_con_out = _run_polishing(args, [curr_reads], 
                                                 curr_extended, 
                                                 pol_con_dir)
-                        polished_consensus[(it, side, edge_id)] = pol_con_out
-                    #5b. Partition reads using divergent positions
-                    for edge_id in sorted(repeat_edges[rep][side]):
-                        curr_cons = polished_consensus[(it, side, edge_id)]
-                        if os.path.isfile(curr_cons):
+                        #5b. Cut consensus where coverage drops
+                        cutpoint = locate_consensus_cutpoint(
+                                        side, read_endpoints,
+                                        curr_reads)
+                        if os.path.isfile(pol_con_out):
                             cons_al_file = cons_align.format(it, side, edge_id)
                             flye_aln.make_alignment(polished_template, 
-                                               [curr_cons], args.threads, 
-                                                orient_dir, args.platform, 
-                                                cons_al_file)
-                            read_al_file = read_align.format(it, side, edge_id)
-                            flye_aln.make_alignment(curr_cons, [repeat_reads], 
-                                               args.threads, orient_dir, 
-                                               args.platform, read_al_file)
+                                                    [pol_con_out], 
+                                                    args.threads, orient_dir, 
+                                                    args.platform, 
+                                                    cons_al_file)
                         else:
                             term_bool[side] = True
+                        curr_cut_cons = cut_cons.format(it, side, edge_id)
+                        cut_consensus[(it, side, edge_id)] = curr_cut_cons
+                        if os.path.isfile(cons_al_file):
+                            truncate_consensus(side, cutpoint, cons_al_file, 
+                                               polished_template,
+                                               pol_con_out, curr_cut_cons)
+                        else:
+                            term_bool[side] = True
+                        #5c. Align consensuses to template 
+                        #    and reads to consensuses
+                        if os.path.isfile(curr_cut_cons):
+                            cut_cons_al_file = cut_cons_align.format(it, side, 
+                                                                     edge_id)
+                            flye_aln.make_alignment(polished_template, 
+                                                    [curr_cut_cons], 
+                                                    args.threads, orient_dir, 
+                                                    args.platform, 
+                                                    cut_cons_al_file)
+                            read_al_file = read_align.format(it, side, edge_id)
+                            flye_aln.make_alignment(curr_cut_cons, 
+                                                    [repeat_reads], 
+                                                    args.threads, orient_dir, 
+                                                    args.platform, 
+                                                    read_al_file)
+                        else:
+                            term_bool[side] = True
+                    #5d. Partition reads using divergent positions
                     logger.debug("partitioning '{0}' reads".format(side))
                     partition_reads(repeat_edges[rep][side], it, side, 
-                                       position_path, cons_align, 
+                                       position_path, cut_cons_align, 
                                        polished_template, read_align, 
-                                       polished_consensus, 
-                                       confirmed_pos_path, 
-                                       partitioning, 
-                                       all_edge_headers[rep], 
+                                       cut_consensus, confirmed_pos_path, 
+                                       partitioning, all_edge_headers[rep], 
                                        test_pos.format(it, side), num_test)
-                    #5c. Write stats file for current iteration
+                    #5e. Write stats file for current iteration
                     edge_pairs = sorted(combinations(repeat_edges[rep][side], 
                                                      2))
                     for edge_one, edge_two in edge_pairs:
-                        cons_one = polished_consensus[(it, side, edge_one)]
-                        cons_two = polished_consensus[(it, side, edge_two)]
+                        cons_one = cut_consensus[(it, side, edge_one)]
+                        cons_two = cut_consensus[(it, side, edge_two)]
                         if (not os.path.isfile(cons_one) or 
                             not os.path.isfile(cons_two)):
                             continue
@@ -291,7 +319,7 @@ def resolve_repeats(args, trestle_dir, repeats_dump, graph_edges, summ_file):
             for side in side_labels:
                 finalize_side_stats(repeat_edges[rep][side], side_it[side], 
                                     side, cons_align, polished_template, 
-                                    cons_vs_cons, polished_consensus, 
+                                    cons_vs_cons, cut_consensus, 
                                     confirmed_pos_path.format(side_it[side], 
                                                               side), 
                                     partitioning.format(side_it[side], side), 
@@ -302,7 +330,7 @@ def resolve_repeats(args, trestle_dir, repeats_dump, graph_edges, summ_file):
                                                    cons_align, 
                                                    polished_template, 
                                                    template_len, cons_vs_cons, 
-                                                   polished_consensus, 
+                                                   cut_consensus, 
                                                    int_confirmed_path, 
                                                    partitioning, 
                                                    integrated_stats, 
@@ -710,7 +738,7 @@ def _read_partitioning_file(partitioning_file):
                     tokens[int_ind] = int(tokens[int_ind])
                 part_list.append(tuple(tokens))
     return part_list
-
+    
 def find_coverage(frequency_file):
     coverage = 0.0
     if os.path.isfile(frequency_file):
@@ -724,7 +752,7 @@ def find_coverage(frequency_file):
 def write_edge_reads(it, side, edge_id, all_reads, partitioning, out_file):
     all_reads_dict = fp.read_sequence_dict(all_reads)
     part_list = _read_partitioning_file(partitioning)
-    edge_header_name = "Read_{0}_Iter_{1}_{2}_{3}_edge_{4}"
+    edge_header_name = "Read_{0}|Iter_{1}|Side_{2}|Edge_{3}|{4}"
     edge_reads = {}
     for part in part_list:
         read_id, status, edge, top_sc, total_sc, header = part
@@ -736,6 +764,105 @@ def write_edge_reads(it, side, edge_id, all_reads, partitioning, out_file):
     if edge_reads and edge_reads.values()[0]:
         fp.write_fasta_dict(edge_reads, out_file)
 
+#Cut Consensus Functions
+def find_read_endpoints(alignment_file, template):
+    CONS_ALN_RATE = trestle_config.vals["cons_aln_rate"]
+    read_endpoints = {}
+    aligns = _read_alignment(alignment_file, template, CONS_ALN_RATE)
+    if aligns and aligns[0]:
+        for aln in aligns[0]:
+            read_header = aln.qry_id
+            start = aln.trg_start
+            end = aln.trg_end
+            read_endpoints[read_header] = (start, end)
+    else:
+        logger.debug("No read alignment to template, no read_endpoints")
+    return read_endpoints
+
+def locate_consensus_cutpoint(side, read_endpoints, edge_read_file):
+    MIN_EDGE_COV = trestle_config.vals["min_edge_cov"]
+    all_endpoints = []
+    max_endpoint = 0
+    edge_reads = fp.read_sequence_dict(edge_read_file)
+    for edge_header in edge_reads:
+        parts = edge_header.split("|")
+        read_header = parts[-1]
+        if read_header in read_endpoints:
+            endpoint = read_endpoints[read_header]
+            if max(endpoint) > max_endpoint:
+                max_endpoint = max(endpoint)
+            all_endpoints.append(endpoint)
+    coverage = [0 for _ in range(max_endpoint)]
+    for start, end in all_endpoints:
+        for x in range(start, end):
+            coverage[x] += 1
+    window_len = 100
+    cutpoint = -1
+    for i in range(len(coverage) - window_len):
+        if side == "in":
+            window_start = (len(coverage) - window_len) - i
+            window_end = len(coverage) - i
+            avg_cov = np.mean(coverage[window_start:window_end])
+            if avg_cov >= MIN_EDGE_COV:
+                cutpoint = window_end
+                break
+        elif side == "out":
+            window_start = i
+            window_end = i + window_len
+            avg_cov = np.mean(coverage[window_start:window_end])
+            if avg_cov >= MIN_EDGE_COV:
+                cutpoint = window_start
+                break
+    return cutpoint
+
+def truncate_consensus(side, cutpoint, cons_al_file, template,
+                       polished_consensus, cut_cons_file):
+    if cutpoint == -1:
+        logger.debug("No cutpoint for consensus file")
+        return
+        
+    CONS_ALN_RATE = trestle_config.vals["cons_aln_rate"]
+    cons_al = _read_alignment(cons_al_file, template, CONS_ALN_RATE)
+    consensus_endpoint = -1
+    aln_found = False
+    if cons_al and cons_al[0]:
+        for aln in cons_al[0]:
+            if side == "in" and cutpoint < aln.trg_start:
+                logger.debug("{0} Cutpoint too low {1} < {2} trg_start".format(
+                                cons_al_file, cutpoint, aln.trg_start))
+            elif side == "in" and cutpoint >= aln.trg_end and not aln_found:
+                consensus_endpoint = aln.qry_end
+            elif side == "out" and cutpoint >= aln.trg_end:
+                logger.debug("{0} Cutpoint too high, {1} >= {2} trg_end".format(
+                                cons_al_file, cutpoint, aln.trg_end))
+            elif side == "out" and cutpoint < aln.trg_start and not aln_found:
+                consensus_endpoint = aln.qry_start
+            else:
+                trg_aln, aln_trg = _index_mapping(aln.trg_seq)
+                qry_aln, aln_qry = _index_mapping(aln.qry_seq)
+                cutpoint_minus_start = cutpoint - aln.trg_start
+                aln_ind = trg_aln[cutpoint_minus_start]
+                qry_ind = aln_qry[aln_ind]
+                consensus_endpoint = qry_ind + aln.qry_start
+                aln_found = True
+    else:
+        logger.debug("No cons alignment to template, no cut consensus")
+        return
+    
+    if consensus_endpoint != -1:
+        cons_seqs = fp.read_sequence_dict(polished_consensus)
+        cons_head = cons_seqs.keys()[0]
+        consensus = cons_seqs.values()[0]
+        if side == "in":
+            start = 0
+            end = consensus_endpoint
+        elif side == "out":
+            start = consensus_endpoint
+            end = len(consensus)
+        cut_head = "".join([cons_head, "|{0}_{1}".format(start, end)])
+        cut_dict = {cut_head:consensus[start:end]}
+        fp.write_fasta_dict(cut_dict, cut_cons_file)
+    
 #Partition Reads Functions
 
 def partition_reads(edges, it, side, position_path, cons_align_path, 
@@ -786,7 +913,8 @@ def partition_reads(edges, it, side, position_path, cons_align_path,
                                confirmed_pos_path.format(it, side))
     read_aligns = {}
     for edge_id in edges:
-        if not os.path.isfile(read_align_path.format(it, side, edge_id)):
+        if (not os.path.isfile(read_align_path.format(it, side, edge_id)) or
+            not os.path.isfile(consensuses[(it, side, edge_id)])):
             skip_bool = True
         elif not skip_bool:
             read_aligns[edge_id] = _read_alignment(
@@ -1389,8 +1517,9 @@ def finalize_side_stats(edges, it, side, cons_align_path, template,
             trg_len = 0
             qry_seq = ""
             trg_seq = ""
-            if os.path.isfile(cons_vs_cons_path.format(it, side, edge_one, 
-                                                       it, side, edge_two)):
+            if (os.path.isfile(cons_vs_cons_path.format(it, side, edge_one, 
+                                                       it, side, edge_two)) and
+                os.path.isfile(consensuses[(it, side, edge_two)])):
                 cons_vs_cons = _read_alignment(cons_vs_cons_path.format(
                                                     it, side, edge_one, 
                                                     it, side, edge_two), 
@@ -1838,7 +1967,9 @@ def finalize_int_stats(rep, repeat_edges, side_it, cons_align_path, template,
                     cons_cons_file = cons_vs_cons_path.format(
                                         side_it[side], side, edge_one, 
                                         side_it[side], side, edge_two)
-                    if os.path.isfile(cons_cons_file):
+                    if (os.path.isfile(cons_cons_file) and 
+                        os.path.isfile(consensuses[(side_it[side], 
+                                                    side, edge_two)])):
                         cons_vs_cons = _read_alignment(
                                 cons_cons_file, 
                                 consensuses[(side_it[side], side, edge_two)], 
@@ -1883,7 +2014,9 @@ def finalize_int_stats(rep, repeat_edges, side_it, cons_align_path, template,
                     cons_cons_file = cons_vs_cons_path.format(
                                         side_it[side], side, edge_one, 
                                         side_it[side], side, edge_two)
-                    if os.path.isfile(cons_cons_file):
+                    if (os.path.isfile(cons_cons_file) and 
+                        os.path.isfile(consensuses[(side_it[side], 
+                                                    side, edge_two)])):
                         cons_vs_cons = _read_alignment(
                             cons_cons_file, 
                             consensuses[(side_it[side], side, edge_two)], 
