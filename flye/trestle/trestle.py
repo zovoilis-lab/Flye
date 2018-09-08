@@ -830,13 +830,15 @@ def truncate_consensus(side, cutpoint, cons_al_file, template,
             if side == "in" and cutpoint < aln.trg_start:
                 logger.debug("{0} Cutpoint too low {1} < {2} trg_start".format(
                                 cons_al_file, cutpoint, aln.trg_start))
-            elif side == "in" and cutpoint >= aln.trg_end and not aln_found:
-                consensus_endpoint = aln.qry_end
+            elif side == "in" and cutpoint >= aln.trg_end:
+                if not aln_found:
+                    consensus_endpoint = aln.qry_end
             elif side == "out" and cutpoint >= aln.trg_end:
                 logger.debug("{0} Cutpoint too high, {1} >= {2} trg_end".format(
                                 cons_al_file, cutpoint, aln.trg_end))
-            elif side == "out" and cutpoint < aln.trg_start and not aln_found:
-                consensus_endpoint = aln.qry_start
+            elif side == "out" and cutpoint < aln.trg_start:
+                if not aln_found:
+                    consensus_endpoint = aln.qry_start
             else:
                 trg_aln, aln_trg = _index_mapping(aln.trg_seq)
                 qry_aln, aln_qry = _index_mapping(aln.qry_seq)
