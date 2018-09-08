@@ -924,7 +924,8 @@ def partition_reads(edges, it, side, position_path, cons_align_path,
                                                                edge_id), 
                                         consensuses[(it, side, edge_id)], 
                                         CONS_ALN_RATE)
-        if (not read_aligns or 
+        if (skip_bool or 
+                not read_aligns or 
                 not read_aligns[edge_id] or 
                 not read_aligns[edge_id][0]):
             read_aln_str = "No read alignment found for edge {0}"
