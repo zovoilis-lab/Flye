@@ -9,6 +9,7 @@ import os
 import logging
 import numpy as np
 from itertools import combinations, product
+import copy
 
 import flye.polishing.alignment as flye_aln
 import flye.utils.fasta_parser as fp
@@ -908,7 +909,9 @@ def partition_reads(edges, it, side, position_path, cons_align_path,
                                 confirmed_pos_path.format(it - 1, side))
             confirmed_pos, rejected_pos, consensus_pos = previous_pos
     else:
-        curr_pos = _evaluate_positions(pos, cons_aligns, pos_test, 
+        #collapse multiple consensus alignments to the template
+        coll_cons_aligns = _collapse_cons_aligns(cons_aligns)
+        curr_pos = _evaluate_positions(pos, coll_cons_aligns, pos_test, 
                                        test_pos, side)
         confirmed_pos, rejected_pos, consensus_pos = curr_pos
     _write_confirmed_positions(confirmed_pos, rejected_pos, pos, 
@@ -951,7 +954,79 @@ def _read_alignment(alignment, target_path, min_aln_rate):
         alignments.append(ctg_aln)
     
     return alignments
-    
+
+def _collapse_cons_aligns(cons_aligns):
+    coll_cons_aligns = {}
+    for edge_id in cons_aligns:
+        coll_aln = None
+        for aln in cons_aligns[edge_id][0]:
+            if coll_aln is None:
+                coll_aln = aln
+            elif not _overlap(coll_aln, aln):
+                coll_aln = _collapse(coll_aln, aln)
+        coll_cons_aligns[edge_id] = coll_aln
+    return coll_cons_aligns
+
+def _overlap(aln_one, aln_two):
+    if (aln_one.qry_start >= aln_two.qry_start and 
+            aln_one.qry_start < aln_two.qry_end):
+        return True
+    elif (aln_one.qry_end > aln_two.qry_start and
+            aln_one.qry_end <= aln_two.qry_end):
+        return True
+    elif (aln_two.qry_start <= aln_one.qry_start and
+            aln_two.qry_end > aln_one.qry_start):
+        return True
+    elif (aln_one.trg_start >= aln_two.trg_start and 
+            aln_one.trg_start < aln_two.trg_end):
+        return True
+    elif (aln_one.trg_end > aln_two.trg_start and
+            aln_one.trg_end <= aln_two.trg_end):
+        return True
+    elif (aln_two.qry_start <= aln_one.qry_start and 
+            aln_two.qry_end > aln_one.qry_start):
+        return True
+    else:
+        return False
+
+def _collapse(aln_one, aln_two):
+    out_aln = copy.deep_copy(aln_one)
+    if (aln_one.qry_sign == "-" or aln_two.qry_sign == "-" or 
+            _overlap(aln_one, aln_two)):
+        return out_aln
+    if (aln_one.qry_end <= aln_two.qry_start and 
+            aln_one.trg_end <= aln_two.trg_start):
+        out_aln.qry_start = aln_one.qry_start
+        out_aln.qry_end = aln_two.qry_end
+        out_aln.trg_start = aln_one.trg_start
+        out_aln.trg_end = aln_two.trg_end
+        fill_qry_seq = "N"*(aln_two.qry_start - aln_one.qry_end)
+        fill_trg_seq = "N"*(aln_two.trg_start - aln_one.trg_end)
+        out_aln.qry_seq = "".join([aln_one.qry_seq, fill_qry_seq, 
+                                   aln_two.qry_seq])
+        out_aln.trg_seq = "".join([aln_one.trg_seq, fill_trg_seq, 
+                                   aln_two.trg_seq])
+        out_aln.err_rate = ((aln_one.err_rate * len(aln_one.trg_seq) + 
+                             aln_two.err_rate * len(aln_two.trg_seq)) /
+                             (len(aln_one.trg_seq) + len(aln_two.trg_seq)))
+        return out_aln
+    elif (aln_two.qry_end <= aln_one.qry_start and 
+            aln_two.trg_end <= aln_one.trg_start):
+        out_aln.qry_start = aln_two.qry_start
+        out_aln.qry_end = aln_one.qry_end
+        out_aln.trg_start = aln_two.trg_start
+        out_aln.trg_end = aln_one.trg_end
+        fill_qry_seq = "N"*(aln_one.qry_start - aln_two.qry_end)
+        fill_trg_seq = "N"*(aln_one.trg_start - aln_two.trg_end)
+        out_aln.qry_seq = "".join([aln_two.qry_seq, fill_qry_seq, 
+                                   aln_one.qry_seq])
+        out_aln.trg_seq = "".join([aln_two.trg_seq, fill_trg_seq, 
+                                   aln_one.trg_seq])
+        out_aln.err_rate = ((aln_one.err_rate * len(aln_one.trg_seq) + 
+                             aln_two.err_rate * len(aln_two.trg_seq)) /
+                             (len(aln_one.trg_seq) + len(aln_two.trg_seq)))
+        return out_aln
+    return out_aln
     
 class EdgeAlignment:
     __slots__ = ("edge_id", "qry_seq", "trg_seq", "qry_start", "trg_start", 
@@ -986,7 +1061,7 @@ def _evaluate_positions(pos, cons_aligns, pos_test, test_pos, side):
     
     alns = {}
     for edge_id in cons_aligns:
-        orig_aln = cons_aligns[edge_id][0][0]
+        orig_aln = cons_aligns[edge_id]
         alns[edge_id] = EdgeAlignment(edge_id, orig_aln.qry_seq, 
                                       orig_aln.trg_seq, orig_aln.qry_start, 
                                       orig_aln.trg_start, orig_aln.trg_end)
@@ -1050,20 +1125,23 @@ def _evaluate_positions(pos, cons_aligns, pos_test, test_pos, side):
                                 with open(pos_test, "a") as f:
                                     ins_str = "ins_confirmed, cons_pos:\t{0}\n"
                                     f.write(ins_str.format(aln.curr_qry_ind-1))
-                            
-                        if qry_nuc and qry_nuc != aln.curr_qry_nuc:
-                            if qry_nuc == "-":
-                                del_confirmed = True
+                        
+                        if qry_nuc != "N" and aln.curr_qry_nuc != "N":
+                            if qry_nuc and qry_nuc != aln.curr_qry_nuc:
+                                if qry_nuc == "-":
+                                    del_confirmed = True
+                                else:
+                                    sub_confirmed = True
                             else:
-                                sub_confirmed = True
-                        else:
-                            qry_nuc = aln.curr_qry_nuc
-                        if trg_nuc and trg_nuc != aln.curr_trg_nuc:
-                            incon_str = "Inconsistent trg_nuc, {0} {1} {2} {3}"
-                            logger.debug(incon_str.format(edge_id, 
+                                qry_nuc = aln.curr_qry_nuc
+                        if trg_nuc != "N" and aln.curr_trg_nuc != "N":
+                            if trg_nuc and trg_nuc != aln.curr_trg_nuc:
+                                incon_str = "".join(["Inconsistent trg_nuc,",
+                                                     " {0} {1} {2} {3}"])
+                                logger.debug(incon_str.format(edge_id, 
                                                           trg_ind, trg_nuc, 
                                                           aln.curr_trg_nuc))
-                        trg_nuc = aln.curr_trg_nuc
+                            trg_nuc = aln.curr_trg_nuc
                         """"""
                         if trg_ind in test_pos:
                             with open(pos_test, "a") as f:
@@ -1232,6 +1310,7 @@ def _classify_reads(read_aligns, consensus_pos,
     
     read_scores = {}    
     for edge_id in read_aligns:
+        read_counts = {}
         for aln in read_aligns[edge_id][0]:
             read_header = aln.qry_id
             cons_header = aln.trg_id
@@ -1241,7 +1320,13 @@ def _classify_reads(read_aligns, consensus_pos,
             if read_header not in read_scores:
                 read_scores[read_header] = {}
             read_scores[read_header][edge_id] = 0
-            
+            if read_header not in read_counts:
+                read_counts[read_header] = 1
+            else:
+                read_counts[read_header] += 1
+            #Any alignments after the first supplementary will not be scored
+            if read_counts[read_header] > 2:
+                continue
             positions = consensus_pos[edge_id]
             trg_aln, aln_trg = _index_mapping(aln.trg_seq)
             for pos in positions:
