@@ -990,7 +990,7 @@ def _overlap(aln_one, aln_two):
         return False
 
 def _collapse(aln_one, aln_two):
-    out_aln = copy.deep_copy(aln_one)
+    out_aln = copy.deepcopy(aln_one)
     if (aln_one.qry_sign == "-" or aln_two.qry_sign == "-" or 
             _overlap(aln_one, aln_two)):
         return out_aln
