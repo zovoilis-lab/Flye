@@ -185,31 +185,35 @@ void Extender::assembleContigs()
 	auto processRead = [this, &indexMutex, &coveredReads, totalReads] 
 		(FastaRecord::Id startRead)
 	{
-		//if (coveredReads.contains(startRead)) return true;
-		
 		//most of the reads will fall into the inner categoty -
 		//so no further processing will be needed
-		if (_innerReads.contains(startRead)) return true;
+		if (_innerReads.contains(startRead)) return;
+
+		//getting overlaps without caching first - so we don't
+		//store overlap information for many trashy reads
+		//that won't result into contig extension
+		auto startOvlps = _ovlpContainer.quickSeqOverlaps(startRead);
+		std::vector<OverlapRange> revOverlaps;
+		revOverlaps.reserve(startOvlps.size());
+		for (auto& ovlp : startOvlps) revOverlaps.push_back(ovlp.complement());
 
 		int numInnerOvlp = 0;
 		int totalOverlaps = 0;
-		for (auto& ovlp : _ovlpContainer.lazySeqOverlaps(startRead))
+		for (auto& ovlp : startOvlps)
 		{
 			if (_innerReads.contains(ovlp.extId)) ++numInnerOvlp;
 			++totalOverlaps;
-			//if (ovlp.extId == startRead || 
-			//	ovlp.extId.rc() == startRead) return true;
 		}
 		int maxExtensions = _chimDetector.getOverlapCoverage() * 10;
-		if (_chimDetector.isChimeric(startRead) ||
-			this->countRightExtensions(startRead) > maxExtensions ||
-			this->countRightExtensions(startRead.rc()) > maxExtensions ||
-			numInnerOvlp > totalOverlaps / 2) return true;
+		if (_chimDetector.isChimeric(startRead, startOvlps) ||
+			this->countRightExtensions(startOvlps) > maxExtensions ||
+			this->countRightExtensions(revOverlaps) > maxExtensions ||
+			numInnerOvlp > totalOverlaps / 2) return;
 		
 		//Good to go!
 		ExtensionInfo exInfo = this->extendContig(startRead);
 		if (exInfo.reads.size() < 
-			(size_t)Config::get("min_reads_in_contig")) return true;
+			(size_t)Config::get("min_reads_in_contig")) return;
 
 		//Exclusive part - updating the overall assembly
 		std::lock_guard<std::mutex> guard(indexMutex);
@@ -228,7 +232,7 @@ void Extender::assembleContigs()
 			Logger::get().debug() << "Discarded contig with "
 				<< exInfo.reads.size() << " reads and "
 				<< innerCount << " inner overlaps";
-			return false;
+			return;
 		}
 
 		Logger::get().debug() << "Assembled contig " 
@@ -269,21 +273,6 @@ void Extender::assembleContigs()
 				allOverlaps.push_back(ovlp);
 				coveredReads.insert(ovlp.extId, true);
 				coveredReads.insert(ovlp.extId.rc(), true);
-
-				//contained inside the other read - probably repetitive
-				//if (ovlp.leftShift > MAX_JUMP &&
-				//	ovlp.rightShift < -MAX_JUMP) continue;
-
-				/*if (ovlp.leftShift > MAX_JUMP)
-				{
-					leftExtended.insert(ovlp.extId);
-					rightExtended.insert(ovlp.extId.rc());
-				}
-				if (ovlp.rightShift < -MAX_JUMP)	
-				{
-					rightExtended.insert(ovlp.extId);
-					leftExtended.insert(ovlp.extId.rc());
-				}*/
 			}
 		}
 		for (auto read : this->getInnerReads(allOverlaps))
@@ -291,21 +280,12 @@ void Extender::assembleContigs()
 			_innerReads.insert(read, true);
 			_innerReads.insert(read.rc(), true);
 		}
-		/*for (auto& read : rightExtended)
-		{
-			if (leftExtended.count(read)) 
-			{
-				_innerReads.insert(read, true);
-				_innerReads.insert(read.rc(), true);
-			}
-		}*/
 
 		Logger::get().debug() << "Inner: " << 
 			_innerReads.size() << " covered: " << coveredReads.size()
 			<< " total: "<< totalReads;
 		
 		_readLists.push_back(std::move(exInfo));
-		return true;
 	};
 
 	std::function<void(const FastaRecord::Id&)> threadWorker = 
@@ -474,21 +454,20 @@ void Extender::convertToContigs()
 	}
 }
 
-int Extender::countRightExtensions(FastaRecord::Id readId) const
+int Extender::countRightExtensions(const std::vector<OverlapRange>& ovlps) const
 {
 	int count = 0;
-	for (auto& ovlp : _ovlpContainer.lazySeqOverlaps(readId))
+	for (auto& ovlp : ovlps)
 	{
 		if (this->extendsRight(ovlp)) ++count;
 	}
 	return count;
 }
 
-/*bool Extender::isRightRepeat(FastaRecord::Id readId) const
+int Extender::countRightExtensions(FastaRecord::Id readId) const
 {
-	int maxExtensions = _chimDetector.getOverlapCoverage() * 10;
-	return this->countRightExtensions(readId) >= maxExtensions;
-}*/
+	return this->countRightExtensions(_ovlpContainer.lazySeqOverlaps(readId));
+}
 
 bool Extender::extendsRight(const OverlapRange& ovlp) const
 {

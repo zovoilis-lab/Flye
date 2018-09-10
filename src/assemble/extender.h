@@ -50,8 +50,8 @@ private:
 
 	ExtensionInfo extendContig(FastaRecord::Id startingRead);
 	int   countRightExtensions(FastaRecord::Id readId) const;
+	int   countRightExtensions(const std::vector<OverlapRange>&) const;
 	bool  extendsRight(const OverlapRange& ovlp) const;
-	//bool  isRightRepeat(FastaRecord::Id readId) const;
 	void  convertToContigs();
 	std::vector<FastaRecord::Id> 
 		getInnerReads(const std::vector<OverlapRange>& ovlps);
