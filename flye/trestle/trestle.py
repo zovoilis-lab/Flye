@@ -10,6 +10,7 @@ import logging
 import numpy as np
 from itertools import combinations, product
 import copy
+from collections import namedtuple
 
 import flye.polishing.alignment as flye_aln
 import flye.utils.fasta_parser as fp
@@ -991,6 +992,12 @@ def _overlap(aln_one, aln_two):
     else:
         return False
 
+Alignment = namedtuple("Alignment", ["qry_id", "trg_id", "qry_start", 
+                                     "qry_end",
+                                     "qry_sign", "qry_len", "trg_start",
+                                     "trg_end", "trg_sign", "trg_len",
+                                     "qry_seq", "trg_seq", "err_rate"])
+
 def _collapse(aln_one, aln_two):
     out_aln = copy.deepcopy(aln_one)
     if (aln_one.qry_sign == "-" or aln_two.qry_sign == "-" or 
@@ -998,19 +1005,20 @@ def _collapse(aln_one, aln_two):
         return out_aln
     if (aln_one.qry_end <= aln_two.qry_start and 
             aln_one.trg_end <= aln_two.trg_start):
-        out_aln.qry_start = aln_one.qry_start
-        out_aln.qry_end = aln_two.qry_end
-        out_aln.trg_start = aln_one.trg_start
-        out_aln.trg_end = aln_two.trg_end
         fill_qry_seq = "N"*(aln_two.qry_start - aln_one.qry_end)
         fill_trg_seq = "N"*(aln_two.trg_start - aln_one.trg_end)
-        out_aln.qry_seq = "".join([aln_one.qry_seq, fill_qry_seq, 
-                                   aln_two.qry_seq])
-        out_aln.trg_seq = "".join([aln_one.trg_seq, fill_trg_seq, 
-                                   aln_two.trg_seq])
-        out_aln.err_rate = ((aln_one.err_rate * len(aln_one.trg_seq) + 
-                             aln_two.err_rate * len(aln_two.trg_seq)) /
-                             (len(aln_one.trg_seq) + len(aln_two.trg_seq)))
+        out_qry_seq = "".join([aln_one.qry_seq, fill_qry_seq, 
+                               aln_two.qry_seq])
+        out_trg_seq = "".join([aln_one.trg_seq, fill_trg_seq, 
+                               aln_two.trg_seq])
+        out_err_rate = ((aln_one.err_rate * len(aln_one.trg_seq) + 
+                         aln_two.err_rate * len(aln_two.trg_seq)) /
+                         (len(aln_one.trg_seq) + len(aln_two.trg_seq)))
+        out_aln = Alignment(aln_one.qry_id, aln_one.trg_id, aln_one.qry_start, 
+                            aln_two.qry_end, aln_one.qry_sign, aln_one.qry_len, 
+                            aln_one.trg_start, aln_two.trg_end, 
+                            aln_one.trg_sign, aln_one.trg_len, out_qry_seq, 
+                            out_trg_seq, out_err_rate)
         return out_aln
     elif (aln_two.qry_end <= aln_one.qry_start and 
             aln_two.trg_end <= aln_one.trg_start):
@@ -1020,13 +1028,18 @@ def _collapse(aln_one, aln_two):
         out_aln.trg_end = aln_one.trg_end
         fill_qry_seq = "N"*(aln_one.qry_start - aln_two.qry_end)
         fill_trg_seq = "N"*(aln_one.trg_start - aln_two.trg_end)
-        out_aln.qry_seq = "".join([aln_two.qry_seq, fill_qry_seq, 
-                                   aln_one.qry_seq])
-        out_aln.trg_seq = "".join([aln_two.trg_seq, fill_trg_seq, 
-                                   aln_one.trg_seq])
-        out_aln.err_rate = ((aln_one.err_rate * len(aln_one.trg_seq) + 
-                             aln_two.err_rate * len(aln_two.trg_seq)) /
-                             (len(aln_one.trg_seq) + len(aln_two.trg_seq)))
+        out_qry_seq = "".join([aln_two.qry_seq, fill_qry_seq, 
+                               aln_one.qry_seq])
+        out_trg_seq = "".join([aln_two.trg_seq, fill_trg_seq, 
+                               aln_one.trg_seq])
+        out_err_rate = ((aln_one.err_rate * len(aln_one.trg_seq) + 
+                         aln_two.err_rate * len(aln_two.trg_seq)) /
+                         (len(aln_one.trg_seq) + len(aln_two.trg_seq)))
+        out_aln = Alignment(aln_one.qry_id, aln_one.trg_id, aln_two.qry_start, 
+                            aln_one.qry_end, aln_one.qry_sign, aln_one.qry_len, 
+                            aln_two.trg_start, aln_one.trg_end, 
+                            aln_one.trg_sign, aln_one.trg_len, out_qry_seq, 
+                            out_trg_seq, out_err_rate)
         return out_aln
     return out_aln
     
