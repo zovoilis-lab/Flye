@@ -59,12 +59,14 @@ def _run_polishing(args, reads, seqs, polish_dir):
     
     return polished_seqs
 
-
-def resolve_repeats(args, trestle_dir, repeats_dump, graph_edges, summ_file):
+def resolve_repeats(args, trestle_dir, summ_file):
     SUB_THRESH = trestle_config.vals["sub_thresh"]
     DEL_THRESH = trestle_config.vals["del_thresh"]
     INS_THRESH = trestle_config.vals["ins_thresh"]
     MAX_ITER = trestle_config.vals["max_iter"]
+    
+    repeats_dump = args.repeats_dump
+    graph_edges = args.graph_edges
     
     #Defining directory and file names for trestle output
     repeat_label = "repeat_{0}"
@@ -990,7 +992,7 @@ def _overlap(aln_one, aln_two):
         return False
 
 def _collapse(aln_one, aln_two):
-    out_aln = copy.deep_copy(aln_one)
+    out_aln = copy.deepcopy(aln_one)
     if (aln_one.qry_sign == "-" or aln_two.qry_sign == "-" or 
             _overlap(aln_one, aln_two)):
         return out_aln

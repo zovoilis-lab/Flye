@@ -266,15 +266,12 @@ class JobPolishing(Job):
 
 
 class JobTrestle(Job):
-    def __init__(self, args, work_dir, log_file, repeats_dump, graph_edges):
+    def __init__(self, args, work_dir, log_file):
         super(JobTrestle, self).__init__()
 
         self.args = args
         self.trestle_dir = os.path.join(work_dir, "4-trestle")
         self.log_file = log_file
-        self.repeats_dump = repeats_dump
-        self.graph_edges = graph_edges
-
         self.name = "trestle"
         self.out_files["reps"] = os.path.join(self.trestle_dir,
                                               "resolved_repeats.fasta")
@@ -286,10 +283,8 @@ class JobTrestle(Job):
             os.mkdir(self.trestle_dir)
 
         logger.info("Running Trestle: resolving unbridged repeats")
-        resolved_repeats_dict = tres.resolve_repeats(self.args,
-                                                     self.trestle_dir,
-                                                     self.repeats_dump,
-                                                     self.graph_edges,
+        resolved_repeats_dict = tres.resolve_repeats(self.args, 
+                                                     self.trestle_dir, 
                                                      self.out_files["summary"])
         fp.write_fasta_dict(resolved_repeats_dict, self.out_files["reps"])
 
@@ -300,9 +295,10 @@ def _create_job_list(args, work_dir, log_file):
     """
     jobs = []
 
-    #Run configuration
-    jobs.append(JobConfigure(args, work_dir))
-
+    #Resolve Unbridged Repeats
+    jobs.append(JobTrestle(args, work_dir, log_file))
+    
+    """
     #Assembly job
     jobs.append(JobAssembly(args, work_dir, log_file))
     draft_assembly = jobs[-1].out_files["assembly"]
@@ -336,6 +332,7 @@ def _create_job_list(args, work_dir, log_file):
     jobs.append(JobFinalize(args, work_dir, log_file, contigs_file,
                             graph_file, repeat_stats, polished_stats,
                             scaffold_links))
+    """
 
     return jobs
 
@@ -419,9 +416,9 @@ def _enable_logging(log_file, debug, overwrite):
 
 
 def _usage():
-    return ("flye (--pacbio-raw | --pacbio-corr | --nano-raw |\n"
-            "\t     --nano-corr | --subassemblies) file1 [file_2 ...]\n"
-            "\t     --genome-size SIZE --out-dir PATH\n"
+    return ("flye  --read_files READS\n"
+            "\t     --repeats_dump DUMP_FILE\n"
+            "\t     --graph_file GRAPH_FILE --out-dir PATH\n"
             "\t     [--threads int] [--iterations int] [--min-overlap int]\n"
             "\t     [--debug] [--version] [--help] [--resume]")
 
@@ -471,26 +468,20 @@ def main():
          formatter_class=argparse.RawDescriptionHelpFormatter,
          usage=_usage(), epilog=_epilog())
 
-    read_group = parser.add_mutually_exclusive_group(required=True)
-    read_group.add_argument("--pacbio-raw", dest="pacbio_raw",
-                        default=None, metavar="path", nargs="+",
-                        help="PacBio raw reads")
-    read_group.add_argument("--pacbio-corr", dest="pacbio_corrected",
-                        default=None, metavar="path", nargs="+",
-                        help="PacBio corrected reads")
-    read_group.add_argument("--nano-raw", dest="nano_raw", nargs="+",
-                        default=None, metavar="path",
-                        help="ONT raw reads")
-    read_group.add_argument("--nano-corr", dest="nano_corrected", nargs="+",
-                        default=None, metavar="path",
-                        help="ONT corrected reads")
-    read_group.add_argument("--subassemblies", dest="subassemblies", nargs="+",
-                        default=None, metavar="path",
-                        help="high-quality contigs input")
-
-    parser.add_argument("-g", "--genome-size", dest="genome_size",
-                        metavar="size", required=True,
-                        help="estimated genome size (for example, 5m or 2.6g)")
+    """Repeat Resolutions inputs
+    -all_reads for whole genome
+    -repeats_dump
+    -graph_final.fasta
+    """
+    parser.add_argument("-r", "--read_files", dest="read_files",
+                        metavar="read_files", required=True,
+                        help="reads file for the entire assembly")
+    parser.add_argument("-d", "--repeats-dump", dest="repeats_dump",
+                        metavar="repeats", required=True,
+                        help="repeats_dump file from Flye assembly")
+    parser.add_argument("-g", "--graph-edges", dest="graph_edges",
+                        metavar="graph", required=True,
+                        help="graph_final.fasta file from Flye assembly")
     parser.add_argument("-o", "--out-dir", dest="out_dir",
                         default=None, required=True,
                         metavar="path", help="Output directory")
@@ -522,7 +513,12 @@ def main():
                         help="enable debug output")
     parser.add_argument("-v", "--version", action="version", version=_version())
     args = parser.parse_args()
-
+    
+    args.reads = [args.read_files]
+    args.platform = "pacbio"
+    args.read_type = "raw"
+    
+    """
     if args.pacbio_raw:
         args.reads = args.pacbio_raw
         args.platform = "pacbio"
@@ -543,7 +539,7 @@ def main():
         args.reads = args.subassemblies
         args.platform = "subasm"
         args.read_type = "subasm"
-
+    """
     if not os.path.isdir(args.out_dir):
         os.mkdir(args.out_dir)
     args.out_dir = os.path.abspath(args.out_dir)
@@ -552,9 +548,10 @@ def main():
     _enable_logging(args.log_file, args.debug,
                     overwrite=False)
 
-    _set_kmer_size(args)
     args.asm_config = os.path.join(cfg.vals["pkg_root"],
                                    cfg.vals["bin_cfg"][args.read_type])
+    #_set_kmer_size(args)
+    #_set_read_attributes(args)
 
     try:
         aln.check_binaries()
