@@ -331,6 +331,7 @@ def resolve_repeats(args, trestle_dir, repeats_dump, graph_edges, summ_file):
             logger.debug("Generating summary and resolved repeat file")
             avg_div = 0.0
             if bridged:
+                logger.info("Repeat successfully resolved")
                 res_inds = range(len(repeat_edges[rep]["in"]))
                 for res_one, res_two in sorted(combinations(res_inds, 2)):
                     res_one_path = resolved_rep_path.format(rep, res_one)
