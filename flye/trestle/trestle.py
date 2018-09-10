@@ -776,7 +776,8 @@ def find_read_endpoints(alignment_file, template):
             read_header = aln.qry_id
             start = aln.trg_start
             end = aln.trg_end
-            read_endpoints[read_header] = (start, end)
+            if read_header not in read_endpoints:
+                read_endpoints[read_header] = (start, end)
     else:
         logger.debug("No read alignment to template, no read_endpoints")
     return read_endpoints
@@ -826,29 +827,25 @@ def truncate_consensus(side, cutpoint, cons_al_file, template,
     CONS_ALN_RATE = trestle_config.vals["cons_aln_rate"]
     cons_al = _read_alignment(cons_al_file, template, CONS_ALN_RATE)
     consensus_endpoint = -1
-    aln_found = False
     if cons_al and cons_al[0]:
-        for aln in cons_al[0]:
-            if side == "in" and cutpoint < aln.trg_start:
-                logger.debug("{0} Cutpoint too low {1} < {2} trg_start".format(
-                                cons_al_file, cutpoint, aln.trg_start))
-            elif side == "in" and cutpoint >= aln.trg_end:
-                if not aln_found:
-                    consensus_endpoint = aln.qry_end
-            elif side == "out" and cutpoint >= aln.trg_end:
-                logger.debug("{0} Cutpoint too high, {1} >= {2} trg_end".format(
-                                cons_al_file, cutpoint, aln.trg_end))
-            elif side == "out" and cutpoint < aln.trg_start:
-                if not aln_found:
-                    consensus_endpoint = aln.qry_start
-            else:
-                trg_aln, aln_trg = _index_mapping(aln.trg_seq)
-                qry_aln, aln_qry = _index_mapping(aln.qry_seq)
-                cutpoint_minus_start = cutpoint - aln.trg_start
-                aln_ind = trg_aln[cutpoint_minus_start]
-                qry_ind = aln_qry[aln_ind]
-                consensus_endpoint = qry_ind + aln.qry_start
-                aln_found = True
+        aln = _collapse_cons_aln(cons_al)
+        if side == "in" and cutpoint < aln.trg_start:
+            logger.debug("{0} Cutpoint too low {1} < {2} trg_start".format(
+                            cons_al_file, cutpoint, aln.trg_start))
+        elif side == "in" and cutpoint >= aln.trg_end:
+            consensus_endpoint = aln.qry_end
+        elif side == "out" and cutpoint >= aln.trg_end:
+            logger.debug("{0} Cutpoint too high, {1} >= {2} trg_end".format(
+                            cons_al_file, cutpoint, aln.trg_end))
+        elif side == "out" and cutpoint < aln.trg_start:
+            consensus_endpoint = aln.qry_start
+        else:
+            trg_aln, aln_trg = _index_mapping(aln.trg_seq)
+            qry_aln, aln_qry = _index_mapping(aln.qry_seq)
+            cutpoint_minus_start = cutpoint - aln.trg_start
+            aln_ind = trg_aln[cutpoint_minus_start]
+            qry_ind = aln_qry[aln_ind]
+            consensus_endpoint = qry_ind + aln.qry_start
     else:
         logger.debug("No cons alignment to template, no cut consensus")
         return
@@ -911,7 +908,10 @@ def partition_reads(edges, it, side, position_path, cons_align_path,
             confirmed_pos, rejected_pos, consensus_pos = previous_pos
     else:
         #collapse multiple consensus alignments to the template
-        coll_cons_aligns = _collapse_cons_aligns(cons_aligns)
+        coll_cons_aligns = {}
+        for edge_id in cons_aligns:
+            aln = cons_aligns[edge_id]
+            coll_cons_aligns[edge_id] = _collapse_cons_aln(aln)
         curr_pos = _evaluate_positions(pos, coll_cons_aligns, pos_test, 
                                        test_pos, side)
         confirmed_pos, rejected_pos, consensus_pos = curr_pos
@@ -956,17 +956,14 @@ def _read_alignment(alignment, target_path, min_aln_rate):
     
     return alignments
 
-def _collapse_cons_aligns(cons_aligns):
-    coll_cons_aligns = {}
-    for edge_id in cons_aligns:
-        coll_aln = None
-        for aln in cons_aligns[edge_id][0]:
-            if coll_aln is None:
-                coll_aln = aln
-            elif not _overlap(coll_aln, aln):
-                coll_aln = _collapse(coll_aln, aln)
-        coll_cons_aligns[edge_id] = coll_aln
-    return coll_cons_aligns
+def _collapse_cons_aln(cons_aligns):
+    coll_aln = None
+    for aln in cons_aligns[0]:
+        if coll_aln is None:
+            coll_aln = aln
+        elif not _overlap(coll_aln, aln):
+            coll_aln = _collapse(coll_aln, aln)
+    return coll_aln
 
 def _overlap(aln_one, aln_two):
     if (aln_one.qry_start >= aln_two.qry_start and 
@@ -1003,8 +1000,14 @@ def _collapse(aln_one, aln_two):
         return out_aln
     if (aln_one.qry_end <= aln_two.qry_start and 
             aln_one.trg_end <= aln_two.trg_start):
-        fill_qry_seq = "N"*(aln_two.qry_start - aln_one.qry_end)
-        fill_trg_seq = "N"*(aln_two.trg_start - aln_one.trg_end)
+        fill_qry_seq = "N" * (aln_two.qry_start - aln_one.qry_end)
+        fill_trg_seq = "N" * (aln_two.trg_start - aln_one.trg_end)
+        if len(fill_qry_seq) > len(fill_trg_seq):
+            diff = len(fill_qry_seq) - len(fill_trg_seq)
+            fill_trg_seq = fill_trg_seq + ("-" * diff)
+        elif len(fill_trg_seq) > len(fill_qry_seq):
+            diff = len(fill_trg_seq) - len(fill_qry_seq)
+            fill_qry_seq = fill_qry_seq + ("-" * diff)
         out_qry_seq = "".join([aln_one.qry_seq, fill_qry_seq, 
                                aln_two.qry_seq])
         out_trg_seq = "".join([aln_one.trg_seq, fill_trg_seq, 
@@ -1020,12 +1023,14 @@ def _collapse(aln_one, aln_two):
         return out_aln
     elif (aln_two.qry_end <= aln_one.qry_start and 
             aln_two.trg_end <= aln_one.trg_start):
-        out_aln.qry_start = aln_two.qry_start
-        out_aln.qry_end = aln_one.qry_end
-        out_aln.trg_start = aln_two.trg_start
-        out_aln.trg_end = aln_one.trg_end
-        fill_qry_seq = "N"*(aln_one.qry_start - aln_two.qry_end)
-        fill_trg_seq = "N"*(aln_one.trg_start - aln_two.trg_end)
+        fill_qry_seq = "N" * (aln_one.qry_start - aln_two.qry_end)
+        fill_trg_seq = "N" * (aln_one.trg_start - aln_two.trg_end)
+        if len(fill_qry_seq) > len(fill_trg_seq):
+            diff = len(fill_qry_seq) - len(fill_trg_seq)
+            fill_trg_seq = fill_trg_seq + ("-" * diff)
+        elif len(fill_trg_seq) > len(fill_qry_seq):
+            diff = len(fill_trg_seq) - len(fill_qry_seq)
+            fill_qry_seq = fill_qry_seq + ("-" * diff)
         out_qry_seq = "".join([aln_two.qry_seq, fill_qry_seq, 
                                aln_one.qry_seq])
         out_trg_seq = "".join([aln_two.trg_seq, fill_trg_seq, 
@@ -1040,7 +1045,7 @@ def _collapse(aln_one, aln_two):
                             out_trg_seq, out_err_rate)
         return out_aln
     return out_aln
-    
+
 class EdgeAlignment:
     __slots__ = ("edge_id", "qry_seq", "trg_seq", "qry_start", "trg_start", 
                  "trg_end", "in_alignment", "curr_aln_ind", "curr_qry_nuc", 
@@ -1139,22 +1144,22 @@ def _evaluate_positions(pos, cons_aligns, pos_test, test_pos, side):
                                     ins_str = "ins_confirmed, cons_pos:\t{0}\n"
                                     f.write(ins_str.format(aln.curr_qry_ind-1))
                         
-                        if qry_nuc != "N" and aln.curr_qry_nuc != "N":
-                            if qry_nuc and qry_nuc != aln.curr_qry_nuc:
+                        if qry_nuc and qry_nuc != aln.curr_qry_nuc:
+                            if qry_nuc != "N" and aln.curr_qry_nuc != "N":
                                 if qry_nuc == "-":
                                     del_confirmed = True
                                 else:
                                     sub_confirmed = True
-                            else:
-                                qry_nuc = aln.curr_qry_nuc
-                        if trg_nuc != "N" and aln.curr_trg_nuc != "N":
-                            if trg_nuc and trg_nuc != aln.curr_trg_nuc:
-                                incon_str = "".join(["Inconsistent trg_nuc,",
-                                                     " {0} {1} {2} {3}"])
-                                logger.debug(incon_str.format(edge_id, 
-                                                          trg_ind, trg_nuc, 
-                                                          aln.curr_trg_nuc))
-                            trg_nuc = aln.curr_trg_nuc
+                        else:
+                            qry_nuc = aln.curr_qry_nuc
+                        if (trg_nuc and trg_nuc != aln.curr_trg_nuc and
+                                trg_nuc != "N" and aln.curr_trg_nuc != "N"):
+                            incon_str = "".join(["Inconsistent trg_nuc,",
+                                                 " {0} {1} {2} {3}"])
+                            logger.debug(incon_str.format(edge_id, 
+                                                      trg_ind, trg_nuc, 
+                                                      aln.curr_trg_nuc))
+                        trg_nuc = aln.curr_trg_nuc
                         """"""
                         if trg_ind in test_pos:
                             with open(pos_test, "a") as f:
