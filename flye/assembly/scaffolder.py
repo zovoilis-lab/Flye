@@ -9,15 +9,15 @@ Final output generator
 import sys
 import logging
 
-import flye.fasta_parser as fp
-import flye.config as config
+import flye.utils.fasta_parser as fp
+import flye.config.py_cfg as cfg
 
 logger = logging.getLogger()
 
 
 def generate_scaffolds(contigs_file, links_file, out_scaffolds):
 
-    contigs_fasta = fp.read_fasta_dict(contigs_file)
+    contigs_fasta = fp.read_sequence_dict(contigs_file)
     scaffolds_fasta = {}
     used_contigs = set()
 
@@ -68,7 +68,7 @@ def generate_scaffolds(contigs_file, links_file, out_scaffolds):
                 else:
                     scf_seq.append(fp.reverse_complement(
                                     contigs_fasta[unsigned(scf_ctg)]))
-            gap = "N" * config.vals["scaffold_gap"]
+            gap = "N" * cfg.vals["scaffold_gap"]
             scaffolds_fasta[scf_name] = gap.join(scf_seq)
 
     fp.write_fasta_dict(scaffolds_fasta, out_scaffolds)
@@ -124,7 +124,7 @@ def generate_stats(repeat_file, polished_file, scaffolds, out_stats):
         scaffolds_stats[scf] = SeqStats(scf)
         scf_length = sum(map(lambda c: int(contigs_stats[unsigned(c)].length),
                              scf_seq))
-        scf_length += (len(scf_seq) - 1) * config.vals["scaffold_gap"]
+        scf_length += (len(scf_seq) - 1) * cfg.vals["scaffold_gap"]
         scaffolds_stats[scf].length = str(scf_length)
 
         scf_cov = _mean(map(lambda c: int(contigs_stats[unsigned(c)].coverage),

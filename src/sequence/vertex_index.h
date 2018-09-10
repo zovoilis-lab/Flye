@@ -10,6 +10,7 @@
 #include <map>
 #include <vector>
 #include <iostream>
+#include <cstring>
 
 #include <cuckoohash_map.hh>
 
@@ -25,17 +26,33 @@ public:
 	{
 		this->clear();
 	}
-	VertexIndex(const SequenceContainer& seqContainer, int sampleRate,
-				int flankRepeatSize):
+	VertexIndex(const SequenceContainer& seqContainer, int sampleRate):
 		_seqContainer(seqContainer), _outputProgress(false), 
-		_sampleRate(sampleRate), _repetitiveFrequency(0),
-		_flankRepeatSize(flankRepeatSize)
+		_sampleRate(sampleRate), _repetitiveFrequency(0)
+		//_flankRepeatSize(flankRepeatSize)
 	{}
 
 	VertexIndex(const VertexIndex&) = delete;
 	void operator=(const VertexIndex&) = delete;
 
 private:
+	struct IndexChunk
+	{
+		size_t get() const
+		{
+			return ((size_t)hi << 32) + (size_t)low;
+		}
+		void set(size_t val)
+		{
+			low = val & ((1ULL << 32) - 1);
+			hi = val >> 32;
+		}
+		uint8_t hi;
+		uint32_t low;
+	} __attribute__((packed));
+
+	//static const size_t MAX_INDEX = 1ULL << (sizeof(IndexChunk) * 8);
+
 	struct ReadPosition
 	{
 		ReadPosition(FastaRecord::Id readId = FastaRecord::ID_NONE, 
@@ -49,7 +66,7 @@ private:
 	{
 		uint32_t capacity;
 		uint32_t size;
-		ReadPosition* data;
+		IndexChunk* data;
 	};
 
 public:
@@ -73,9 +90,15 @@ public:
 			return !(*this == other);
 		}
 
+		__attribute__((always_inline))
 		ReadPosition operator*() const
 		{
-			ReadPosition pos = rv.data[index];
+			size_t globPos = rv.data[index].get();
+			FastaRecord::Id seqId;
+			int32_t position;
+			seqContainer.seqPosition(globPos, seqId, position);
+
+			ReadPosition pos(seqId, position);
 			if (revComp)
 			{
 				pos.readId = pos.readId.rc();
@@ -134,6 +157,7 @@ public:
 						  _seqContainer);
 	}
 
+	__attribute__((always_inline))
 	bool isSolid(Kmer kmer) const
 	{
 		kmer.standardForm();
@@ -158,7 +182,7 @@ public:
 
 	int getSampleRate() const {return _sampleRate;}
 
-	int getFlankRepeatSize() const {return _flankRepeatSize;}
+	//int getFlankRepeatSize() const {return _flankRepeatSize;}
 
 private:
 	void addFastaSequence(const FastaRecord& fastaRecord);
@@ -168,10 +192,10 @@ private:
 	bool    _outputProgress;
 	int32_t _sampleRate;
 	size_t  _repetitiveFrequency;
-	int32_t _flankRepeatSize;
+	//int32_t _flankRepeatSize;
 
-	const size_t INDEX_CHUNK = 32 * 1024 * 1024 / sizeof(ReadPosition);
-	std::vector<ReadPosition*> 		 _memoryChunks;
+	const size_t MEM_CHUNK = 32 * 1024 * 1024 / sizeof(IndexChunk);
+	std::vector<IndexChunk*> _memoryChunks;
 
 	cuckoohash_map<Kmer, ReadVector> _kmerIndex;
 	cuckoohash_map<Kmer, size_t> 	 _kmerCounts;

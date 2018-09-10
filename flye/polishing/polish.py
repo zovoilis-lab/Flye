@@ -13,10 +13,10 @@ import os
 from collections import defaultdict
 from threading import Thread
 
-import flye.bubbles as bbl
-import flye.fasta_parser as fp
-from flye.utils import which
-import flye.config as config
+import flye.polishing.bubbles as bbl
+import flye.utils.fasta_parser as fp
+from flye.utils.utils import which
+import flye.config.py_cfg as cfg
 
 
 POLISH_BIN = "flye-polish"
@@ -45,12 +45,10 @@ def check_binaries():
 
 def polish(bubbles_file, num_proc, err_mode, work_dir, iter_id, out_polished,
            output_progress):
-    _ROOT = os.path.dirname(__file__)
-
-    subs_matrix = os.path.join(_ROOT, "resource",
-                               config.vals["err_modes"][err_mode]["subs_matrix"])
-    hopo_matrix = os.path.join(_ROOT, "resource",
-                               config.vals["err_modes"][err_mode]["hopo_matrix"])
+    subs_matrix = os.path.join(cfg.vals["pkg_root"],
+                               cfg.vals["err_modes"][err_mode]["subs_matrix"])
+    hopo_matrix = os.path.join(cfg.vals["pkg_root"],
+                               cfg.vals["err_modes"][err_mode]["hopo_matrix"])
 
     consensus_out = os.path.join(work_dir, "consensus_{0}.fasta"
                                                 .format(iter_id))

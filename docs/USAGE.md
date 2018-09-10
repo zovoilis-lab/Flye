@@ -183,9 +183,9 @@ For example, you might supply different sets of reads for different stages.
 
 ## <a name="graph"></a> Assembly graph
 
-The final assembly graph is output into the ```assembly_graph.dot``` file.
+The final assembly graph is output into the ```assembly_graph.gv``` file.
 It could be visualized using [Graphviz](https://graphviz.gitlab.io/): 
-```dot -Tpng -O assembly_graph.dot```. The edges in this graph 
+```dot -Tpng -O assembly_graph.gv```. The edges in this graph 
 represent genomic sequences, and nodes simply serve
 as junctions. The genomic chromosomes traverse this graph (in an unknown way) 
 so as each unique edge is covered exactly once. The genomic repeats that were not
@@ -211,7 +211,7 @@ As the repeats remained unresolved, there are no reads in the dataset that cover
 those repeats in full.
 
 Initial assembly graph state (before repeats were resolved) could be found in
-the ```2-repeat/graph_before_rr.dot``` file. Additionally, ```.gfa``` versions of
+the ```2-repeat/graph_before_rr.gv``` file. Additionally, ```.gfa``` versions of
 assembly graphs could be found in ```2-repeat``` directory.
 
 ## <a name="output"></a> Contigs/scaffolds output

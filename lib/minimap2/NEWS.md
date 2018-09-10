@@ -1,3 +1,152 @@
+Release 2.12-r827 (6 August 2018)
+---------------------------------
+
+Changes to minimap2:
+
+ * Added option --split-prefix to write proper alignments (correct mapping
+   quality and clustered query sequences) given a multi-part index (#141 and
+   #189; mostly by @hasindu2008).
+
+ * Fixed a memory leak when option -y is in use.
+
+Changes to mappy:
+
+ * Support the MD/cs tag (#183 and #203).
+
+ * Allow mappy to index a single sequence, to add extra flags and to change the
+   scoring system.
+
+Minimap2 should produce alignments identical to v2.11.
+
+(2.12: 6 August 2018, r827)
+
+
+
+Release 2.11-r797 (20 June 2018)
+--------------------------------
+
+Changes to minimap2:
+
+ * Improved alignment accuracy in low-complexity regions for SV calling. Thank
+   @armintoepfer for multiple offline examples.
+
+ * Added option --eqx to encode sequence match/mismatch with the =/X CIGAR
+   operators (#156, #157 and #175).
+
+ * When compiled with VC++, minimap2 generated wrong alignments due to a
+   comparison between a signed integer and an unsigned integer (#184). Also
+   fixed warnings reported by "clang -Wextra".
+
+ * Fixed incorrect anchor filtering due to a missing 64- to 32-bit cast.
+
+ * Fixed incorrect mapping quality for inversions (#148).
+
+ * Fixed incorrect alignment involving ambiguous bases (#155).
+
+ * Fixed incorrect presets: option `-r 2000` is intended to be used with
+   ava-ont, not ava-pb. The bug was introduced in 2.10.
+
+ * Fixed a bug when --for-only/--rev-only is used together with --sr or
+   --heap-sort=yes (#166).
+
+ * Fixed option -Y that was not working in the previous releases.
+
+ * Added option --lj-min-ratio to fine control the alignment of long gaps
+   found by the "long-join" heuristic (#128).
+
+ * Exposed `mm_idx_is_idx`, `mm_idx_load` and `mm_idx_dump` C APIs (#177).
+   Also fixed a bug when indexing without reference names (this feature is not
+   exposed to the command line).
+
+Changes to mappy:
+
+ * Added `__version__` (#165).
+
+ * Exposed the maximum fragment length parameter to mappy (#174).
+
+Changes to paftools:
+
+ * Don't crash when there is no "cg" tag (#153).
+
+ * Fixed wrong coverage report by "paftools.js call" (#145).
+
+This version may produce slightly different base-level alignment. The overall
+alignment statistics should remain similar.
+
+(2.11: 20 June 2018, r797)
+
+
+
+Release 2.10-r761 (27 March 2018)
+---------------------------------
+
+Changes to minimap2:
+
+ * Optionally output the MD tag for compatibility with existing tools (#63,
+   #118 and #137).
+
+ * Use SSE compiler flags more precisely to prevent compiling errors on certain
+   machines (#127).
+
+ * Added option --min-occ-floor to set a minimum occurrence threshold. Presets
+   intended for assembly-to-reference alignment set this option to 100. This
+   option alleviates issues with regions having high copy numbers (#107).
+
+ * Exit with non-zero code on file writing errors (e.g. disk full; #103 and
+   #132).
+
+ * Added option -y to copy FASTA/FASTQ comments in query sequences to the
+   output (#136).
+
+ * Added the asm20 preset for alignments between genomes at 5-10% sequence
+   divergence.
+
+ * Changed the band-width in the ava-ont preset from 500 to 2000. Oxford
+   Nanopore reads may contain long deletion sequencing errors that break
+   chaining.
+
+Changes to mappy, the Python binding:
+
+ * Fixed a typo in Align.seq() (#126).
+
+Changes to paftools.js, the companion script:
+
+ * Command sam2paf now converts the MD tag to cs.
+
+ * Support VCF output for assembly-to-reference variant calling (#109).
+
+This version should produce identical alignment for read overlapping, RNA-seq
+read mapping, and genomic read mapping. We have also added a cook book to show
+the variety uses of minimap2 on real datasets. Please see cookbook.md in the
+minimap2 source code directory.
+
+(2.10: 27 March 2017, r761)
+
+
+
+Release 2.9-r720 (23 February 2018)
+-----------------------------------
+
+This release fixed multiple minor bugs.
+
+* Fixed two bugs that lead to incorrect inversion alignment. Also improved the
+  sensitivity to small inversions by using double Z-drop cutoff (#112).
+
+* Fixed an issue that may cause the end of a query sequence unmapped (#104).
+
+* Added a mappy API to retrieve sequences from the index (#126) and to reverse
+  complement DNA sequences. Fixed a bug where the `best_n` parameter did not
+  work (#117).
+
+* Avoided segmentation fault given incorrect FASTQ input (#111).
+
+* Combined all auxiliary javascripts to paftools.js. Fixed several bugs in
+  these scripts at the same time.
+
+(2.9: 24 February 2018, r720)
+
+
+
 Release 2.8-r672 (1 February 2018)
 ----------------------------------
 
