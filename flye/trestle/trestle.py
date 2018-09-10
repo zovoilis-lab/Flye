@@ -828,24 +828,7 @@ def truncate_consensus(side, cutpoint, cons_al_file, template,
     cons_al = _read_alignment(cons_al_file, template, CONS_ALN_RATE)
     consensus_endpoint = -1
     if cons_al and cons_al[0]:
-        aln = _collapse_cons_aln(cons_al)
-        if side == "in" and cutpoint < aln.trg_start:
-            logger.debug("{0} Cutpoint too low {1} < {2} trg_start".format(
-                            cons_al_file, cutpoint, aln.trg_start))
-        elif side == "in" and cutpoint >= aln.trg_end:
-            consensus_endpoint = aln.qry_end
-        elif side == "out" and cutpoint >= aln.trg_end:
-            logger.debug("{0} Cutpoint too high, {1} >= {2} trg_end".format(
-                            cons_al_file, cutpoint, aln.trg_end))
-        elif side == "out" and cutpoint < aln.trg_start:
-            consensus_endpoint = aln.qry_start
-        else:
-            trg_aln, aln_trg = _index_mapping(aln.trg_seq)
-            qry_aln, aln_qry = _index_mapping(aln.qry_seq)
-            cutpoint_minus_start = cutpoint - aln.trg_start
-            aln_ind = trg_aln[cutpoint_minus_start]
-            qry_ind = aln_qry[aln_ind]
-            consensus_endpoint = qry_ind + aln.qry_start
+        consensus_endpoint = _find_consensus_endpoint(cutpoint, cons_al, side)
     else:
         logger.debug("No cons alignment to template, no cut consensus")
         return
@@ -863,7 +846,45 @@ def truncate_consensus(side, cutpoint, cons_al_file, template,
         cut_head = "".join([cons_head, "|{0}_{1}".format(start, end)])
         cut_dict = {cut_head:consensus[start:end]}
         fp.write_fasta_dict(cut_dict, cut_cons_file)
-    
+
+def _find_consensus_endpoint(cutpoint, aligns, side):
+    consensus_endpoint = -1
+    #first try collapsing
+    coll_aln = _collapse_cons_aln(aligns)
+    if cutpoint >= coll_aln.trg_start and cutpoint < coll_aln.trg_end:
+        trg_aln, aln_trg = _index_mapping(coll_aln.trg_seq)
+        qry_aln, aln_qry = _index_mapping(coll_aln.qry_seq)
+        cutpoint_minus_start = cutpoint - coll_aln.trg_start
+        aln_ind = trg_aln[cutpoint_minus_start]
+        qry_ind = aln_qry[aln_ind]
+        consensus_endpoint = qry_ind + coll_aln.qry_start
+    else:
+        #otherwise try each alignment
+        min_aln_length = 1000
+        #save tuples of cutpoint distance, cutpoint
+        aln_endpoints = []
+        for i, aln in enumerate(aligns[0]):
+            if i == 0 or len(aln.trg_seq) >= min_aln_length:
+                if cutpoint >= aln.trg_start and cutpoint < aln.trg_end:
+                    trg_aln, aln_trg = _index_mapping(coll_aln.trg_seq)
+                    qry_aln, aln_qry = _index_mapping(coll_aln.qry_seq)
+                    cutpoint_minus_start = cutpoint - coll_aln.trg_start
+                    aln_ind = trg_aln[cutpoint_minus_start]
+                    qry_ind = aln_qry[aln_ind]
+                    endpoint = qry_ind + coll_aln.qry_start
+                    aln_endpoints.append((0, endpoint))
+                elif side == "in" and cutpoint >= aln.trg_end:
+                    endpoint = aln.qry_end
+                    distance = cutpoint - aln.trg_end
+                    aln_endpoints.append((distance, endpoint))
+                elif side == "out" and cutpoint < aln.trg_start:
+                    endpoint = aln.qry_start
+                    distance = aln.trg_start - cutpoint
+                    aln_endpoints.append((distance, endpoint))
+        if aln_endpoints:
+            consensus_endpoint = sorted(aln_endpoints)[0][1]
+    return consensus_endpoint
+
 #Partition Reads Functions
 
 def partition_reads(edges, it, side, position_path, cons_align_path, 
