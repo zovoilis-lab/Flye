@@ -116,11 +116,8 @@ def generate_stats(repeat_file, polished_file, scaffolds, out_stats):
     if polished_file is not None:
         for line in open(polished_file, "r").readlines()[1:]:
             tokens = line.strip().split("\t")
-            # plasmids are not contained in the graph, that is why we need this
-            # check
-            if tokens[0] in contigs_stats:
-                contigs_stats[tokens[0]].length = tokens[1]
-                contigs_stats[tokens[0]].coverage = tokens[2]
+            contigs_stats[tokens[0]].length = tokens[1]
+            contigs_stats[tokens[0]].coverage = tokens[2]
 
     scaffolds_stats = {}
     for scf, scf_seq in scaffolds.iteritems():

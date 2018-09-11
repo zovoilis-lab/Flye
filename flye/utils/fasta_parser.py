@@ -155,11 +155,11 @@ def _read_fastq(file_handle):
         state_counter = (state_counter + 1) % 4
 
 
-def write_fasta_dict(fasta_dict, filename, mode="w"):
+def write_fasta_dict(fasta_dict, filename):
     """
     Writes dictionary with fasta to file
     """
-    with open(filename, mode) as f:
+    with open(filename, "w") as f:
         for header in sorted(fasta_dict):
             f.write(">{0}\n".format(header))
 

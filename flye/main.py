@@ -111,20 +111,26 @@ class JobAssembly(Job):
 
 
 class JobShortPlasmidsAssembly(Job):
-    def __init__(self, args, work_dir):
+    def __init__(self, args, work_dir, contigs_file):
         super(JobShortPlasmidsAssembly, self).__init__()
 
         self.args = args
-        self.work_dir = os.path.join(work_dir, "0-assembly")
-        self.contigs_path = os.path.join(self.work_dir, "draft_assembly.fasta")
-        self.name = "short_plasmids_assembly"
+        self.work_dir = work_dir
+        self.plasmids_dir = os.path.join(work_dir, "2b-plasmids")
+        self.contigs_path = contigs_file
+        self.name = "plasmids"
+        self.out_files["short_plasmids"] = os.path.join(self.plasmids_dir,
+                                                        "short_plasmids.fasta")
 
     def run(self):
-        short_plasmids = assemble_short_plasmids(self.args, self.work_dir,
+        logger.info("Recovering plasmids")
+        if not os.path.isdir(self.plasmids_dir):
+            os.mkdir(self.plasmids_dir)
+        short_plasmids = assemble_short_plasmids(self.args, self.plasmids_dir,
                                                  self.contigs_path)
-        short_plasmids_out = os.path.join(self.work_dir, "plasmids.fasta")
-        fp.write_fasta_dict(short_plasmids, short_plasmids_out)
-        fp.write_fasta_dict(short_plasmids, self.contigs_path, "a")
+        fp.write_fasta_dict(short_plasmids, self.out_files["short_plasmids"])
+        logger.info("Added {0} extra contigs".format(len(short_plasmids)))
+        #fp.write_fasta_dict(short_plasmids, self.contigs_path, "a")
 
 
 class JobRepeat(Job):
@@ -271,9 +277,6 @@ def _create_job_list(args, work_dir, log_file):
     jobs.append(JobAssembly(args, work_dir, log_file))
     draft_assembly = jobs[-1].out_files["assembly"]
 
-    #Short plasmids
-    jobs.append(JobShortPlasmidsAssembly(args, work_dir))
-
     #Consensus
     if args.read_type != "subasm":
         jobs.append(JobConsensus(args, work_dir, draft_assembly))
@@ -287,6 +290,9 @@ def _create_job_list(args, work_dir, log_file):
     gfa_file = jobs[-1].out_files["gfa_graph"]
     edges_seqs = jobs[-1].out_files["edges_sequences"]
     repeat_stats = jobs[-1].out_files["stats"]
+
+    #Short plasmids
+    jobs.append(JobShortPlasmidsAssembly(args, work_dir, raw_contigs))
 
     #Polishing
     contigs_file = raw_contigs
@@ -345,8 +351,8 @@ def _run(args):
                 jobs[i].load(save_file)
                 current_job = i
                 if not jobs[i - 1].completed(save_file):
-                    raise ResumeException("Can't resume: stage {0} incomplete"
-                                          .format(jobs[i].name))
+                    raise ResumeException("Can't resume: stage '{0}' incomplete"
+                                          .format(jobs[i - 1].name))
                 can_resume = True
                 break
 
