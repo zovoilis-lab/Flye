@@ -305,7 +305,7 @@ void Extender::assembleContigs()
 	std::random_shuffle(allReads.begin(), allReads.end());
 	processInParallel(allReads, threadWorker,
 					  Parameters::get().numThreads, true);
-	_ovlpContainer.ensureTransitivity(/*only max*/ true);
+	//_ovlpContainer.ensureTransitivity(/*only max*/ true);
 
 	bool addSingletons = (bool)Config::get("add_unassembled_reads");
 	if (addSingletons)
@@ -442,6 +442,18 @@ void Extender::convertToContigs()
 					readsOvlp = ovlp;
 					found = true;
 					break;
+				}
+			}
+			if (!found)
+			{
+				for (auto& ovlp : _ovlpContainer.lazySeqOverlaps(exInfo.reads[i + 1]))
+				{
+					if (ovlp.extId == exInfo.reads[i]) 
+					{
+						readsOvlp = ovlp.reverse();
+						found = true;
+						break;
+					}
 				}
 			}
 			if (!found) throw std::runtime_error("Ovlp not found!");
