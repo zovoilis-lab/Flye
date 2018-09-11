@@ -281,39 +281,39 @@ def _create_job_list(args, work_dir, log_file):
     jobs = []
 
     #Run configuration
-    #jobs.append(JobConfigure(args, work_dir))
+    jobs.append(JobConfigure(args, work_dir))
 
     #Assembly job
-    #jobs.append(JobAssembly(args, work_dir, log_file))
-    #draft_assembly = jobs[-1].out_files["assembly"]
+    jobs.append(JobAssembly(args, work_dir, log_file))
+    draft_assembly = jobs[-1].out_files["assembly"]
 
     #Short plasmids
     jobs.append(JobShortPlasmidsAssembly(args, work_dir))
 
     #Consensus
-    #if args.read_type != "subasm":
-    #    jobs.append(JobConsensus(args, work_dir, draft_assembly))
-    #    draft_assembly = jobs[-1].out_files["consensus"]
+    if args.read_type != "subasm":
+        jobs.append(JobConsensus(args, work_dir, draft_assembly))
+        draft_assembly = jobs[-1].out_files["consensus"]
 
     #Repeat analysis
-    #jobs.append(JobRepeat(args, work_dir, log_file, draft_assembly))
-    #raw_contigs = jobs[-1].out_files["contigs"]
-    #scaffold_links = jobs[-1].out_files["scaffold_links"]
-    #graph_file = jobs[-1].out_files["assembly_graph"]
-    #repeat_stats = jobs[-1].out_files["stats"]
+    jobs.append(JobRepeat(args, work_dir, log_file, draft_assembly))
+    raw_contigs = jobs[-1].out_files["contigs"]
+    scaffold_links = jobs[-1].out_files["scaffold_links"]
+    graph_file = jobs[-1].out_files["assembly_graph"]
+    repeat_stats = jobs[-1].out_files["stats"]
 
     #Polishing
-    #contigs_file = raw_contigs
-    #polished_stats = None
-    #if args.num_iters > 0:
-    #    jobs.append(JobPolishing(args, work_dir, log_file, raw_contigs))
-    #    contigs_file = jobs[-1].out_files["contigs"]
-    #    polished_stats = jobs[-1].out_files["stats"]
+    contigs_file = raw_contigs
+    polished_stats = None
+    if args.num_iters > 0:
+        jobs.append(JobPolishing(args, work_dir, log_file, raw_contigs))
+        contigs_file = jobs[-1].out_files["contigs"]
+        polished_stats = jobs[-1].out_files["stats"]
 
     #Report results
-    #jobs.append(JobFinalize(args, work_dir, log_file, contigs_file,
-    #                        graph_file, repeat_stats, polished_stats,
-    #                        scaffold_links))
+    jobs.append(JobFinalize(args, work_dir, log_file, contigs_file,
+                            graph_file, repeat_stats, polished_stats,
+                            scaffold_links))
 
     return jobs
 
@@ -332,9 +332,9 @@ def _run(args):
     logger.info("Running Flye " + _version())
     logger.debug("Cmd: {0}".format(" ".join(sys.argv)))
 
-    #for read_file in args.reads:
-    #    if not os.path.exists(read_file):
-    #        raise ResumeException("Can't open " + read_file)
+    for read_file in args.reads:
+        if not os.path.exists(read_file):
+            raise ResumeException("Can't open " + read_file)
 
     save_file = os.path.join(args.out_dir, "params.json")
     jobs = _create_job_list(args, args.out_dir, args.log_file)
