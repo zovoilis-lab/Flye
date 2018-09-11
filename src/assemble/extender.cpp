@@ -110,19 +110,20 @@ Extender::ExtensionInfo Extender::extendContig(FastaRecord::Id startRead)
 			currentRead = maxExtension->extId;
 		}
 
-		bool overlapsVisited = _innerReads.contains(currentRead);
+		//bool overlapsVisited = _innerReads.contains(currentRead);
 		if (foundExtension) 
 		{
 			exInfo.reads.push_back(currentRead);
 			overlapSizes.push_back(maxExtension->curRange());
-			overlapsVisited |= currentReads.count(currentRead);
+			//overlapsVisited |= currentReads.count(currentRead);
 		}
 		else
 		{
 			rightExtension ? exInfo.leftTip = true : exInfo.rightTip = true;
 		}
 
-		if (!foundExtension || overlapsVisited)
+		if (!foundExtension || _innerReads.contains(currentRead) ||
+			currentReads.count(currentRead))
 		{
 			//Logger::get().debug() << "Not found: " << !foundExtension << 
 			//	" overlaps visited: " << overlapsVisited;
@@ -161,6 +162,15 @@ Extender::ExtensionInfo Extender::extendContig(FastaRecord::Id startRead)
 												  overlapSizes.end());
 	}
 
+	if (_innerReads.contains(exInfo.reads.front())) 
+	{
+		exInfo.leftAsmOverlap = _readsContainer.seqLen(exInfo.reads.front());
+	}
+	if (_innerReads.contains(exInfo.reads.back())) 
+	{
+		exInfo.rightAsmOverlap = _readsContainer.seqLen(exInfo.reads.back());
+	}
+
 	return exInfo;
 }
 
@@ -189,6 +199,9 @@ void Extender::assembleContigs()
 		//so no further processing will be needed
 		if (_innerReads.contains(startRead)) return;
 
+		coveredReads.insert(startRead);
+		coveredReads.insert(startRead.rc());
+
 		//getting overlaps without caching first - so we don't
 		//store overlap information for many trashy reads
 		//that won't result into contig extension
@@ -215,11 +228,18 @@ void Extender::assembleContigs()
 		if (exInfo.reads.size() < 
 			(size_t)Config::get("min_reads_in_contig")) return;
 
+		if (exInfo.leftAsmOverlap + exInfo.rightAsmOverlap > 
+			exInfo.assembledLength)
+		{
+			//Logger::get().debug() << "No novel sequence";
+			return;
+		}
+
 		//Exclusive part - updating the overall assembly
 		std::lock_guard<std::mutex> guard(indexMutex);
 		
 		int innerCount = 0;
-		//do not count dirst and last reads - they are inner by defalut
+		//do not count first and last reads - they are inner by defalut
 		for (size_t i = 1; i < exInfo.reads.size() - 1; ++i)
 		{
 			if (_innerReads.contains(exInfo.reads[i])) ++innerCount;
@@ -263,9 +283,9 @@ void Extender::assembleContigs()
 			_innerReads.insert(readId.rc(), true);
 
 			//repetitive read - will bring to many "off-target" reads
-			int maxExtensions = exInfo.meanOverlaps * 2;
-			if (this->countRightExtensions(readId) > maxExtensions||
-				this->countRightExtensions(readId.rc()) > maxExtensions) continue;
+			//int maxExtensions = exInfo.meanOverlaps * 2;
+			//if (this->countRightExtensions(readId) > maxExtensions||
+			//	this->countRightExtensions(readId.rc()) > maxExtensions) continue;
 
 			//so each read is covered from the left and right
 			for (auto& ovlp : _ovlpContainer.lazySeqOverlaps(readId))
@@ -429,6 +449,10 @@ void Extender::convertToContigs()
 		{
 			path.name = "read_" + std::to_string(_contigPaths.size() + 1);
 		}
+		path.trimLeft = std::max(0, exInfo.leftAsmOverlap - 
+									2 * Parameters::get().minimumOverlap);
+		path.trimRight = std::max(0, exInfo.rightAsmOverlap - 
+									 2 * Parameters::get().minimumOverlap);
 
 		for (size_t i = 0; i < exInfo.reads.size() - 1; ++i)
 		{
