@@ -81,8 +81,9 @@ def assemble_short_plasmids(args, work_dir, contigs_path):
         circular.trim_circular_pairs(circular_pairs, unmapped_reads)
     trimmed_sequences_path = os.path.join(work_dir, "trimmed_sequences.fasta")
 
-    fp.write_fasta_dict(trimmed_circular_reads, trimmed_sequences_path)
-    fp.write_fasta_dict(trimmed_circular_pairs, trimmed_sequences_path, "a")
+    fp.write_fasta_dict(dict(trimmed_circular_reads.items() +
+                             trimmed_circular_pairs.items()),
+                        trimmed_sequences_path)
 
     trimmed_sequences_mapping = os.path.join(work_dir, "trimmed.paf")
 
