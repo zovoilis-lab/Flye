@@ -33,6 +33,8 @@ void ContigExtender::generateUnbranchingPaths()
 
 void ContigExtender::generateContigs()
 {
+	Logger::get().debug() << "Extending contigs into repeats";
+
 	bool graphContinue = (bool)Config::get("extend_contigs_with_repeats");
 
 	OutputGenerator outGen(_graph, _aligner, _asmSeqs, _readSeqs);
@@ -43,10 +45,18 @@ void ContigExtender::generateContigs()
 		upathsSeqs[&_unbranchingPaths[i]] = &coreSeqs[i];
 	}
 
-	std::vector<const GraphAlignment*> interestingAlignments;
+	//std::vector<const GraphAlignment*> interestingAlignments;
+	std::unordered_map<GraphEdge*, 
+					   std::vector<const GraphAlignment*>> alnIndex;
 	for (auto& aln : _aligner.getAlignments())
 	{
-		if (aln.size() > 1) interestingAlignments.push_back(&aln);
+		if (aln.size() > 1)
+		{
+			for (auto edge : aln)
+			{
+				alnIndex[edge.edge].push_back(&aln);
+			}
+		}
 	}
 
 	std::unordered_set<GraphEdge*> coveredRepeats;
@@ -61,7 +71,7 @@ void ContigExtender::generateContigs()
 	typedef std::pair<GraphPath, std::string> PathAndSeq;
 	auto extendPathRight =
 		[this, &coveredRepeats, &repeatDirections, &upathsSeqs, 
-		 &canTraverse, &interestingAlignments, graphContinue] 
+		 &canTraverse, &alnIndex, graphContinue] 
 	(UnbranchingPath& upath)
 	{
 
@@ -71,7 +81,7 @@ void ContigExtender::generateContigs()
 		//first, choose the longest aligned read from this edge
 		int32_t maxExtension = 0;
 		GraphAlignment bestAlignment;
-		for (auto pathPtr : interestingAlignments)
+		for (auto pathPtr : alnIndex[upath.path.back()])
 		{
 			const GraphAlignment& path = *pathPtr;
 			for (size_t i = 0; i < path.size(); ++i)
@@ -105,8 +115,8 @@ void ContigExtender::generateContigs()
 						   upathAln.back().aln.back().overlap.curEnd + 
 						   upathAln.back().aln.front().overlap.curBegin;
 		bool lastIncomplete = overhang > (int)Config::get("max_separation");
-		Logger::get().debug() << "Ctg " << upath.id.signedId() <<
-			" overhang " << overhang << " upath " << lastUpath->id.signedId();
+		//Logger::get().debug() << "Ctg " << upath.id.signedId() <<
+		//	" overhang " << overhang << " upath " << lastUpath->id.signedId();
 
 		for (size_t i = 0; i < upathAln.size(); ++i)
 		{
@@ -302,8 +312,8 @@ void ContigExtender::outputStatsTable(const std::string& filename)
 			<< "\t" << YES_NO[ctg.graphEdges.repetitive] << "\t"
 			<< estMult << "\t" << telomereStr << "\t" << pathStr << "\n";
 
-		Logger::get().debug() << "Contig: " << ctg.graphEdges.id.signedId()
-			<< ": " << pathStr;
+		//Logger::get().debug() << "Contig: " << ctg.graphEdges.id.signedId()
+		//	<< ": " << pathStr;
 	}
 }
 
@@ -320,6 +330,8 @@ void ContigExtender::outputContigs(const std::string& filename)
 
 void ContigExtender::outputScaffoldConnections(const std::string& filename)
 {
+	Logger::get().debug() << "Generating scaffold connections";
+
 	std::ofstream fout(filename);
 	if (!fout) throw std::runtime_error("Can't open " + filename);
 
@@ -341,7 +353,8 @@ void ContigExtender::outputScaffoldConnections(const std::string& filename)
 			visited.insert(_graph.complementEdge(curEdge));
 			for (auto& adjEdge: curEdge->nodeRight->outEdges)
 			{
-				if (adjEdge->isRepetitive() && !visited.count(adjEdge))
+				if (adjEdge->isRepetitive() && !adjEdge->isLooped() &&
+					!visited.count(adjEdge))
 				{
 					dfsStack.push_back(adjEdge);
 					traversedRepeats.insert(adjEdge);

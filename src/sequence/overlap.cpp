@@ -220,7 +220,7 @@ namespace
 	}
 }
 
-//This implementation was inspired by Hen Li's minimap2 paper
+//This implementation was inspired by Heng Li's minimap2 paper
 //might be used in parallel
 std::vector<OverlapRange> 
 OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec, 

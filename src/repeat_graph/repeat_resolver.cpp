@@ -58,6 +58,16 @@ void RepeatResolver::separatePath(const GraphPath& graphPath,
 int RepeatResolver::resolveConnections(const std::vector<Connection>& connections, 
 									   float minSupport)
 {
+	std::unordered_map<FastaRecord::Id, 
+					   std::vector<const Connection*>> connectIndex;
+	for (auto& conn : connections)
+	{
+		connectIndex[conn.path.front()->edgeId].push_back(&conn);
+		connectIndex[conn.path.front()->edgeId.rc()].push_back(&conn);
+		connectIndex[conn.path.back()->edgeId].push_back(&conn);
+		connectIndex[conn.path.back()->edgeId.rc()].push_back(&conn);
+	}
+
 	//Constructs transitions graph using the lemon library
 	std::unordered_map<FastaRecord::Id, int> leftCoverage;
 	std::unordered_map<FastaRecord::Id, int> rightCoverage;
@@ -147,14 +157,14 @@ int RepeatResolver::resolveConnections(const std::vector<Connection>& connection
 		}
 
 		std::vector<Connection> spanningConnections;
-		for (auto& conn : connections)
+		for (auto& conn : connectIndex[leftId])
 		{
-			if ((conn.path.front()->edgeId == leftId && 
-				 	conn.path.back()->edgeId == rightId.rc()) ||
-				(conn.path.front()->edgeId == rightId && 
-				 	conn.path.back()->edgeId == leftId.rc()))
+			if ((conn->path.front()->edgeId == leftId && 
+				 	conn->path.back()->edgeId == rightId.rc()) ||
+				(conn->path.front()->edgeId == rightId && 
+				 	conn->path.back()->edgeId == leftId.rc()))
 			{
-				spanningConnections.push_back(conn);
+				spanningConnections.push_back(*conn);
 			}
 		}
 		std::sort(spanningConnections.begin(), spanningConnections.end(),

@@ -207,7 +207,7 @@ int main(int argc, char** argv)
 
 	Logger::get().info() << "Building repeat graph";
 	rg.build();
-	outGen.outputDot(proc.getEdgesPaths(), outFolder + "/graph_raw.gv");
+	//outGen.outputDot(proc.getEdgesPaths(), outFolder + "/graph_raw.gv");
 	proc.simplify();
 
 	Logger::get().info() << "Aligning reads to the graph";
@@ -227,12 +227,12 @@ int main(int argc, char** argv)
 	resolver.findRepeats();
 
 	outGen.outputDot(proc.getEdgesPaths(), outFolder + "/graph_before_rr.gv");
-	outGen.outputGfa(proc.getEdgesPaths(), outFolder + "/graph_before_rr.gfa");
+	//outGen.outputGfa(proc.getEdgesPaths(), outFolder + "/graph_before_rr.gfa");
 	outGen.outputFasta(proc.getEdgesPaths(), outFolder + "/graph_before_rr.fasta");
 
 	resolver.resolveRepeats();
 	resolver.fixLongEdges();
-	outGen.outputDot(proc.getEdgesPaths(), outFolder + "/graph_after_rr.gv");
+	//outGen.outputDot(proc.getEdgesPaths(), outFolder + "/graph_after_rr.gv");
 
 	Logger::get().info() << "Generating contigs";
 
