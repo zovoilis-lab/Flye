@@ -229,7 +229,7 @@ void Extender::assembleContigs()
 			(size_t)Config::get("min_reads_in_contig")) return;
 
 		if (exInfo.leftAsmOverlap + exInfo.rightAsmOverlap > 
-			exInfo.assembledLength)
+			exInfo.assembledLength + 2 * Parameters::get().minimumOverlap)
 		{
 			//Logger::get().debug() << "No novel sequence";
 			return;
