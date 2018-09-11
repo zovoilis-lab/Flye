@@ -45,10 +45,18 @@ void ContigExtender::generateContigs()
 		upathsSeqs[&_unbranchingPaths[i]] = &coreSeqs[i];
 	}
 
-	std::vector<const GraphAlignment*> interestingAlignments;
+	//std::vector<const GraphAlignment*> interestingAlignments;
+	std::unordered_map<GraphEdge*, 
+					   std::vector<const GraphAlignment*>> alnIndex;
 	for (auto& aln : _aligner.getAlignments())
 	{
-		if (aln.size() > 1) interestingAlignments.push_back(&aln);
+		if (aln.size() > 1)
+		{
+			for (auto edge : aln)
+			{
+				alnIndex[edge.edge].push_back(&aln);
+			}
+		}
 	}
 
 	std::unordered_set<GraphEdge*> coveredRepeats;
@@ -63,7 +71,7 @@ void ContigExtender::generateContigs()
 	typedef std::pair<GraphPath, std::string> PathAndSeq;
 	auto extendPathRight =
 		[this, &coveredRepeats, &repeatDirections, &upathsSeqs, 
-		 &canTraverse, &interestingAlignments, graphContinue] 
+		 &canTraverse, &alnIndex, graphContinue] 
 	(UnbranchingPath& upath)
 	{
 
@@ -73,7 +81,7 @@ void ContigExtender::generateContigs()
 		//first, choose the longest aligned read from this edge
 		int32_t maxExtension = 0;
 		GraphAlignment bestAlignment;
-		for (auto pathPtr : interestingAlignments)
+		for (auto pathPtr : alnIndex[upath.path.back()])
 		{
 			const GraphAlignment& path = *pathPtr;
 			for (size_t i = 0; i < path.size(); ++i)

@@ -112,20 +112,35 @@ def generate_polished_edges(edges_file, gfa_file, polished_contigs, work_dir,
                                        polished_dict,
                                        min_aln_rate=0)
     aln_reader.init_reading()
-    aln_by_edge = {}
+    aln_by_edge = defaultdict(list)
+
+    #getting one best alignment for each contig
     while not aln_reader.is_eof():
         _, ctg_aln = aln_reader.get_chunk()
         for aln in ctg_aln:
-            aln_by_edge[aln.qry_id] = aln
+            aln_by_edge[aln.qry_id].append(aln)
 
+    MIN_CONTAINMENT = 0.9
+    updated_seqs = 0
     edges_dict = fp.read_sequence_dict(edges_file)
     for edge in edges_dict:
         if edge in aln_by_edge:
-            aln = aln_by_edge[edge]
-            new_seq = polished_dict[aln.trg_id][aln.trg_start : aln.trg_end]
-            if aln.trg_sign < 0:
+            main_aln = aln_by_edge[edge][0]
+            map_start = main_aln.qry_start
+            map_end = main_aln.qry_end
+            for aln in aln_by_edge[edge]:
+                if aln.trg_id == main_aln.trg_id and aln.trg_sign == main_aln.trg_sign:
+                    map_start = min(map_start, aln.qry_start)
+                    map_end = max(map_end, aln.qry_end)
+
+            new_seq = polished_dict[main_aln.trg_id][map_start : map_end]
+            if main_aln.trg_sign < 0:
                 new_seq = fp.reverse_complement(new_seq)
-            edges_dict[edge] = new_seq
+
+            #print edge, main_aln.qry_len, len(new_seq), main_aln.qry_start, main_aln.qry_end
+            if float(len(new_seq)) / aln.qry_len > MIN_CONTAINMENT:
+                edges_dict[edge] = new_seq
+                updated_seqs += 1
 
     #writes fasta file with polished egdes
     edges_polished = os.path.join(work_dir, "polished_edges.fasta")
@@ -141,7 +156,7 @@ def generate_polished_edges(edges_file, gfa_file, polished_contigs, work_dir,
             gfa_polished.write(line)
 
     logger.debug("{0} sequences remained unpolished"
-                    .format(len(edges_dict) - len(aln_by_edge)))
+                    .format(len(edges_dict) - updated_seqs))
 
 
 def _run_polish_bin(bubbles_in, subs_matrix, hopo_matrix,
