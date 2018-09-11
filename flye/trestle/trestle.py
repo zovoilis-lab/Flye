@@ -1023,7 +1023,8 @@ def partition_reads(edges, it, side, position_path, cons_align_path,
                                                         edge_id), 
                                                    template, 
                                                    CONS_ALN_RATE)
-        if (not cons_aligns or 
+        if (skip_bool or 
+                not cons_aligns or
                 not cons_aligns[edge_id] or 
                 not cons_aligns[edge_id][0]):
             logger.debug("No cons alignment found for edge {0}".format(
