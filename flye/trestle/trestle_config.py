@@ -18,6 +18,8 @@ vals = {
         "sub_thresh" : 0.1, 
         "del_thresh" : 2.0, 
         "ins_thresh" : 2.0, 
-        "cons_aln_rate" : 0.01,
-        "extend_len" : 1000
+        "cons_aln_rate" : 0.01, 
+        "extend_len" : 1000, 
+        "min_supp_align_len" : 1000,
+        "max_supp_align_overlap" : 100
     }
