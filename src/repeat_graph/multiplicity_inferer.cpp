@@ -66,9 +66,7 @@ void MultiplicityInferer::estimateCoverage()
 		int32_t medianCov = (median(wndCoverage[edge]) + 
 						 	 median(wndCoverage[complEdge])) / 2;
 
-		float minMult = (!edge->isTip()) ? 1 : 0;
-		int estMult = std::max(minMult, std::round((float)medianCov / 
-													_meanCoverage));
+		int estMult = std::round((float)medianCov / _meanCoverage);
 		if (estMult == 1)
 		{
 			edgesCoverage.push_back(medianCov);

@@ -228,7 +228,7 @@ void RepeatResolver::findRepeats()
 
 		//mark paths with high coverage as repetitive
 		if (path.meanCoverage > _multInf.getUniqueCovThreshold() &&
-			path.length < (int)Config::get("unique_edge_length"))
+			path.length < Parameters::get().minimumOverlap * 2)
 		{
 			markRepetitive(&path);
 			markRepetitive(complPath(&path));
