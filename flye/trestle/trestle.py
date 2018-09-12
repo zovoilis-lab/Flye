@@ -118,6 +118,7 @@ def resolve_repeats(args, trestle_dir, summ_file):
         repeat_dir = os.path.join(trestle_dir, 
                                   repeat_label.format(rep_id))
         orient_reps = [rep_id, -rep_id]
+        repeat_bridged = False
         
         for orientation, rep in zip(orient_labels, orient_reps):
             orient_dir = os.path.join(repeat_dir, orientation)
@@ -344,7 +345,7 @@ def resolve_repeats(args, trestle_dir, summ_file):
             logger.info("Generating summary and resolved repeat file")
             avg_div = 0.0
             if bridged:
-                logger.info("Repeat successfully resolved")
+                repeat_bridged = True
                 res_inds = range(len(repeat_edges[rep]["in"]))
                 for res_one, res_two in sorted(combinations(res_inds, 2)):
                     res_one_path = resolved_rep_path.format(rep, res_one)
@@ -364,6 +365,10 @@ def resolve_repeats(args, trestle_dir, summ_file):
             all_resolved_reps_dict.update(repeat_seqs)
             update_summary(rep, template_len, avg_cov, summ_vals, avg_div, 
                            summ_file)
+        if repeat_bridged:
+            logger.info("Repeat successfully resolved")
+        else:
+            logger.info("Repeat not resolved")
     return all_resolved_reps_dict
 
 #Process Repeats functions
