@@ -364,6 +364,8 @@ def resolve_repeats(args, trestle_dir, repeats_dump, graph_edges, summ_file):
                            summ_file)
         if repeat_bridged:
             logger.info("Repeat successfully resolved")
+        else:
+            logger.info("Repeat not resolved")
     return all_resolved_reps_dict
 
 #Process Repeats functions
