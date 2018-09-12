@@ -863,11 +863,11 @@ def _find_consensus_endpoint(cutpoint, aligns, side):
         consensus_endpoint = qry_ind + coll_aln.qry_start
     else:
         #otherwise try each alignment
-        min_aln_length = 1000
+        MIN_SUPP_ALN_LEN = trestle_config.vals["min_supp_aln_len"]
         #save tuples of cutpoint distance, cutpoint
         aln_endpoints = []
         for i, aln in enumerate(aligns[0]):
-            if i == 0 or len(aln.trg_seq) >= min_aln_length:
+            if i == 0 or len(aln.trg_seq) >= MIN_SUPP_ALN_LEN:
                 if cutpoint >= aln.trg_start and cutpoint < aln.trg_end:
                     trg_aln, aln_trg = _index_mapping(coll_aln.trg_seq)
                     qry_aln, aln_qry = _index_mapping(coll_aln.qry_seq)
@@ -982,35 +982,73 @@ def _read_alignment(alignment, target_path, min_aln_rate):
     return alignments
 
 def _collapse_cons_aln(cons_aligns):
+    MAX_SUPP_ALIGN_OVERLAP = trestle_config.vals["max_supp_align_overlap"]
     coll_aln = None
     for aln in cons_aligns[0]:
         if coll_aln is None:
             coll_aln = aln
-        elif not _overlap(coll_aln, aln):
+        elif _overlap(coll_aln, aln) <= MAX_SUPP_ALIGN_OVERLAP:
             coll_aln = _collapse(coll_aln, aln)
     return coll_aln
 
 def _overlap(aln_one, aln_two):
+    qry_overlap_lens = []
     if (aln_one.qry_start >= aln_two.qry_start and 
             aln_one.qry_start < aln_two.qry_end):
-        return True
-    elif (aln_one.qry_end > aln_two.qry_start and
+        if aln_one.qry_end >= aln_two.qry_end:
+            qry_overlap_lens.append(aln_two.qry_end - aln_one.qry_start)
+        else:
+            qry_overlap_lens.append(aln_one.qry_end - aln_one.qry_start)
+    if (aln_one.qry_end > aln_two.qry_start and
             aln_one.qry_end <= aln_two.qry_end):
-        return True
-    elif (aln_two.qry_start <= aln_one.qry_start and
-            aln_two.qry_end > aln_one.qry_start):
-        return True
-    elif (aln_one.trg_start >= aln_two.trg_start and 
+        if aln_one.qry_start <= aln_two.qry_start:
+            qry_overlap_lens.append(aln_one.qry_end - aln_two.qry_start)
+        else:
+            qry_overlap_lens.append(aln_one.qry_end - aln_one.qry_start)
+    if (aln_two.qry_start >= aln_one.qry_start and
+            aln_two.qry_start < aln_one.qry_end):
+        if aln_two.qry_end >= aln_one.qry_end:
+            qry_overlap_lens.append(aln_one.qry_end - aln_two.qry_start)
+        else:
+            qry_overlap_lens.append(aln_two.qry_end - aln_two.qry_start)
+    if (aln_two.qry_end > aln_one.qry_start and
+            aln_two.qry_end <= aln_one.qry_end):
+        if aln_two.qry_start <= aln_one.qry_start:
+            qry_overlap_lens.append(aln_two.qry_end - aln_one.qry_start)
+        else:
+            qry_overlap_lens.append(aln_two.qry_end - aln_two.qry_start)
+    qry_len = 0
+    if qry_overlap_lens:
+        qry_len = min(qry_overlap_lens)
+    trg_overlap_lens = []
+    if (aln_one.trg_start >= aln_two.trg_start and 
             aln_one.trg_start < aln_two.trg_end):
-        return True
-    elif (aln_one.trg_end > aln_two.trg_start and
+        if aln_one.trg_end >= aln_two.trg_end:
+            trg_overlap_lens.append(aln_two.trg_end - aln_one.trg_start)
+        else:
+            trg_overlap_lens.append(aln_one.trg_end - aln_one.trg_start)
+    if (aln_one.trg_end > aln_two.trg_start and
             aln_one.trg_end <= aln_two.trg_end):
-        return True
-    elif (aln_two.qry_start <= aln_one.qry_start and 
-            aln_two.qry_end > aln_one.qry_start):
-        return True
-    else:
-        return False
+        if aln_one.trg_start <= aln_two.trg_start:
+            trg_overlap_lens.append(aln_one.trg_end - aln_two.trg_start)
+        else:
+            trg_overlap_lens.append(aln_one.trg_end - aln_one.trg_start)
+    if (aln_two.trg_start >= aln_one.trg_start and
+            aln_two.trg_start < aln_one.trg_end):
+        if aln_two.trg_end >= aln_one.trg_end:
+            trg_overlap_lens.append(aln_one.trg_end - aln_two.trg_start)
+        else:
+            trg_overlap_lens.append(aln_two.trg_end - aln_two.trg_start)
+    if (aln_two.trg_end > aln_one.trg_start and
+            aln_two.trg_end <= aln_one.trg_end):
+        if aln_two.trg_start <= aln_one.trg_start:
+            trg_overlap_lens.append(aln_two.trg_end - aln_one.trg_start)
+        else:
+            trg_overlap_lens.append(aln_two.trg_end - aln_two.trg_start)
+    trg_len = 0
+    if trg_overlap_lens:
+        trg_len = min(trg_overlap_lens)
+    return max([qry_len, trg_len])
 
 Alignment = namedtuple("Alignment", ["qry_id", "trg_id", "qry_start", 
                                      "qry_end",
@@ -1019,57 +1057,104 @@ Alignment = namedtuple("Alignment", ["qry_id", "trg_id", "qry_start",
                                      "qry_seq", "trg_seq", "err_rate"])
 
 def _collapse(aln_one, aln_two):
+    MAX_SUPP_ALIGN_OVERLAP = trestle_config.vals["max_supp_align_overlap"]
     out_aln = copy.deepcopy(aln_one)
     if (aln_one.qry_sign == "-" or aln_two.qry_sign == "-" or 
-            _overlap(aln_one, aln_two)):
+            _overlap(aln_one, aln_two) > MAX_SUPP_ALIGN_OVERLAP):
         return out_aln
-    if (aln_one.qry_end <= aln_two.qry_start and 
-            aln_one.trg_end <= aln_two.trg_start):
-        fill_qry_seq = "N" * (aln_two.qry_start - aln_one.qry_end)
-        fill_trg_seq = "N" * (aln_two.trg_start - aln_one.trg_end)
-        if len(fill_qry_seq) > len(fill_trg_seq):
-            diff = len(fill_qry_seq) - len(fill_trg_seq)
-            fill_trg_seq = fill_trg_seq + ("-" * diff)
-        elif len(fill_trg_seq) > len(fill_qry_seq):
-            diff = len(fill_trg_seq) - len(fill_qry_seq)
-            fill_qry_seq = fill_qry_seq + ("-" * diff)
-        out_qry_seq = "".join([aln_one.qry_seq, fill_qry_seq, 
-                               aln_two.qry_seq])
-        out_trg_seq = "".join([aln_one.trg_seq, fill_trg_seq, 
-                               aln_two.trg_seq])
+    if (aln_one.qry_start <= aln_two.qry_start and 
+            aln_one.trg_start <= aln_two.trg_start):
+        qry_merge_outs = _merge_alns(aln_one.qry_start, aln_one.qry_end, 
+                                     aln_one.qry_seq, aln_two.qry_start, 
+                                     aln_two.qry_end, aln_two.qry_seq)
+        one_qry_seq, two_qry_seq, out_qry_end = qry_merge_outs
+        trg_merge_outs = _merge_alns(aln_one.trg_start, aln_one.trg_end, 
+                                     aln_one.trg_seq, aln_two.trg_start, 
+                                     aln_two.trg_end, aln_two.trg_seq)
+        one_trg_seq, two_trg_seq, out_trg_end = trg_merge_outs
+        fill_qry = ""
+        fill_trg = ""
+        qry_lens = len(one_qry_seq) + len(two_qry_seq)
+        trg_lens = len(one_trg_seq) + len(two_trg_seq)
+        if qry_lens > trg_lens:
+            diff = qry_lens - trg_lens
+            fill_trg = "-" * diff
+        elif trg_lens > qry_lens:
+            diff = trg_lens - qry_lens
+            fill_qry = "-" * diff
+        out_qry_seq = "".join([one_qry_seq, fill_qry, two_qry_seq])
+        out_trg_seq = "".join([one_trg_seq, fill_trg, two_trg_seq])
         out_err_rate = ((aln_one.err_rate * len(aln_one.trg_seq) + 
                          aln_two.err_rate * len(aln_two.trg_seq)) /
                          (len(aln_one.trg_seq) + len(aln_two.trg_seq)))
         out_aln = Alignment(aln_one.qry_id, aln_one.trg_id, aln_one.qry_start, 
-                            aln_two.qry_end, aln_one.qry_sign, aln_one.qry_len, 
-                            aln_one.trg_start, aln_two.trg_end, 
-                            aln_one.trg_sign, aln_one.trg_len, out_qry_seq, 
-                            out_trg_seq, out_err_rate)
+                            out_qry_end, aln_one.qry_sign, aln_one.qry_len, 
+                            aln_one.trg_start, out_trg_end, aln_one.trg_sign, 
+                            aln_one.trg_len, out_qry_seq, out_trg_seq, 
+                            out_err_rate)
         return out_aln
-    elif (aln_two.qry_end <= aln_one.qry_start and 
-            aln_two.trg_end <= aln_one.trg_start):
-        fill_qry_seq = "N" * (aln_one.qry_start - aln_two.qry_end)
-        fill_trg_seq = "N" * (aln_one.trg_start - aln_two.trg_end)
-        if len(fill_qry_seq) > len(fill_trg_seq):
-            diff = len(fill_qry_seq) - len(fill_trg_seq)
-            fill_trg_seq = fill_trg_seq + ("-" * diff)
-        elif len(fill_trg_seq) > len(fill_qry_seq):
-            diff = len(fill_trg_seq) - len(fill_qry_seq)
-            fill_qry_seq = fill_qry_seq + ("-" * diff)
-        out_qry_seq = "".join([aln_two.qry_seq, fill_qry_seq, 
-                               aln_one.qry_seq])
-        out_trg_seq = "".join([aln_two.trg_seq, fill_trg_seq, 
-                               aln_one.trg_seq])
+    elif (aln_two.qry_start <= aln_one.qry_start and 
+            aln_two.trg_start <= aln_one.trg_start):
+        qry_merge_outs = _merge_alns(aln_two.qry_start, aln_two.qry_end, 
+                                     aln_two.qry_seq, aln_one.qry_start, 
+                                     aln_one.qry_end, aln_one.qry_seq)
+        two_qry_seq, one_qry_seq, out_qry_end = qry_merge_outs
+        trg_merge_outs = _merge_alns(aln_two.trg_start, aln_two.trg_end, 
+                                     aln_two.trg_seq, aln_one.trg_start, 
+                                     aln_one.trg_end, aln_one.trg_seq)
+        two_trg_seq, one_trg_seq, out_trg_end = trg_merge_outs
+        fill_qry = ""
+        fill_trg = ""
+        qry_lens = len(two_qry_seq) + len(one_qry_seq)
+        trg_lens = len(two_trg_seq) + len(one_trg_seq)
+        if qry_lens > trg_lens:
+            diff = qry_lens - trg_lens
+            fill_trg = "-" * diff
+        elif trg_lens > qry_lens:
+            diff = trg_lens - qry_lens
+            fill_qry = "-" * diff
+        out_qry_seq = "".join([two_qry_seq, fill_qry, one_qry_seq])
+        out_trg_seq = "".join([two_trg_seq, fill_trg, one_trg_seq])
         out_err_rate = ((aln_one.err_rate * len(aln_one.trg_seq) + 
                          aln_two.err_rate * len(aln_two.trg_seq)) /
                          (len(aln_one.trg_seq) + len(aln_two.trg_seq)))
         out_aln = Alignment(aln_one.qry_id, aln_one.trg_id, aln_two.qry_start, 
-                            aln_one.qry_end, aln_one.qry_sign, aln_one.qry_len, 
-                            aln_two.trg_start, aln_one.trg_end, 
-                            aln_one.trg_sign, aln_one.trg_len, out_qry_seq, 
-                            out_trg_seq, out_err_rate)
+                            out_qry_end, aln_one.qry_sign, aln_one.qry_len, 
+                            aln_two.trg_start, out_trg_end, aln_one.trg_sign, 
+                            aln_one.trg_len, out_qry_seq, out_trg_seq, 
+                            out_err_rate)
         return out_aln
     return out_aln
+
+def _merge_alns(first_start, first_end, first_seq, 
+                second_start, second_end, second_seq):
+    first_out_seq = first_seq
+    second_out_seq = second_seq
+    out_end = second_end
+    if first_end <= second_start:
+        fill_qry_seq = "N" * (second_start - first_end)
+        first_out_seq = "".join([first_seq, fill_qry_seq])
+        second_out_seq = second_seq
+    else:
+        if first_end < second_end:
+            overlap = first_end - second_start
+            two_cut_ind = _overlap_to_aln_ind(overlap, second_seq)
+            first_out_seq = first_seq
+            second_out_seq = second_seq[two_cut_ind:]
+        else:
+            first_out_seq = first_seq
+            second_out_seq = ""
+            out_end = first_end
+    return first_out_seq, second_out_seq, out_end
+
+def _overlap_to_aln_ind(overlap, aln):
+    num_bases = 0
+    for i, base in enumerate(aln):
+        if base != "-":
+            num_bases += 1
+        if num_bases == overlap:
+            return i + 1
+    return len(aln)
 
 class EdgeAlignment:
     __slots__ = ("edge_id", "qry_seq", "trg_seq", "qry_start", "trg_start", 
