@@ -863,7 +863,7 @@ def _find_consensus_endpoint(cutpoint, aligns, side):
         consensus_endpoint = qry_ind + coll_aln.qry_start
     else:
         #otherwise try each alignment
-        MIN_SUPP_ALN_LEN = trestle_config.vals["min_supp_aln_len"]
+        MIN_SUPP_ALN_LEN = trestle_config.vals["min_supp_align_len"]
         #save tuples of cutpoint distance, cutpoint
         aln_endpoints = []
         for i, aln in enumerate(aligns[0]):
