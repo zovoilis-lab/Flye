@@ -10,6 +10,7 @@ import flye.utils.fasta_parser as fp
 import flye.short_plasmids.unmapped_reads as unmapped
 import flye.short_plasmids.circular_sequences as circular
 from flye.polishing.alignment import make_alignment
+import flye.polishing.polish as pol
 
 
 logger = logging.getLogger()
@@ -23,9 +24,6 @@ def assemble_short_plasmids(args, work_dir, contigs_path):
     make_alignment(contigs_path, args.reads, args.threads,
                    work_dir, args.platform, reads2contigs_mapping,
                    reference_mode=True, sam_output=False)
-    #preset = ["map-pb", "map-ont"][args.platform == "nano"]
-    #_run_minimap(preset, contigs_path, args.reads,
-    #             args.threads, reads2contigs_mapping)
 
     logger.debug("Extracting unmapped reads")
     unmapped_reads, n_processed_reads = \
@@ -47,9 +45,6 @@ def assemble_short_plasmids(args, work_dir, contigs_path):
     make_alignment(unmapped_reads_path, [unmapped_reads_path], args.threads,
                    work_dir, args.platform, unmapped_reads_mapping,
                    reference_mode=False, sam_output=False)
-    #preset = ["ava-pb", "ava-ont"][args.platform == "nano"]
-    #_run_minimap(preset, unmapped_reads_path, [unmapped_reads_path],
-    #             args.threads, unmapped_reads_mapping)
 
     logger.debug("Extracting circular reads")
     circular_reads = circular.extract_circular_reads(unmapped_reads_mapping)
@@ -72,9 +67,6 @@ def assemble_short_plasmids(args, work_dir, contigs_path):
 
     trimmed_sequences_mapping = os.path.join(work_dir, "trimmed.paf")
 
-    #preset = ["ava-pb", "ava-ont"][args.platform == "nano"]
-    #_run_minimap(preset, trimmed_sequences_path, [trimmed_sequences_path],
-    #             args.threads, trimmed_sequences_mapping)
     make_alignment(trimmed_sequences_path, [trimmed_sequences_path], args.threads,
                    work_dir, args.platform, trimmed_sequences_mapping,
                    reference_mode=False, sam_output=False)
@@ -82,7 +74,12 @@ def assemble_short_plasmids(args, work_dir, contigs_path):
     plasmids = \
         circular.extract_unique_plasmids(trimmed_sequences_mapping,
                                          trimmed_sequences_path)
-    logger.debug("Extracted {} unique plasmids".format(len(plasmids)))
+    plasmids_raw = os.path.join(work_dir, "plasmids_raw.fasta")
+    fp.write_fasta_dict(plasmids, plasmids_raw)
+    pol.polish(plasmids_raw, [unmapped_reads_path], work_dir, 1,
+               args.threads, args.platform, output_progress=False)
+
+    logger.info("Extracted {} extra plasmids".format(len(plasmids)))
 
     # remove all unnecesarry files
     os.remove(reads2contigs_mapping)
@@ -90,5 +87,3 @@ def assemble_short_plasmids(args, work_dir, contigs_path):
     os.remove(unmapped_reads_mapping)
     os.remove(trimmed_sequences_path)
     os.remove(trimmed_sequences_mapping)
-
-    return plasmids

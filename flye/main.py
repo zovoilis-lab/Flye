@@ -26,7 +26,7 @@ import flye.config.py_cfg as cfg
 from flye.config.configurator import setup_params
 from flye.utils.bytes2human import human2bytes
 import flye.utils.fasta_parser as fp
-from flye.short_plasmids.main import assemble_short_plasmids
+from flye.short_plasmids.plasmids import assemble_short_plasmids
 
 
 logger = logging.getLogger()
@@ -126,11 +126,8 @@ class JobShortPlasmidsAssembly(Job):
         logger.info("Recovering plasmids")
         if not os.path.isdir(self.plasmids_dir):
             os.mkdir(self.plasmids_dir)
-        short_plasmids = assemble_short_plasmids(self.args, self.plasmids_dir,
-                                                 self.contigs_path)
-        fp.write_fasta_dict(short_plasmids, self.out_files["short_plasmids"])
-        logger.info("Added {0} extra contigs".format(len(short_plasmids)))
-        #fp.write_fasta_dict(short_plasmids, self.contigs_path, "a")
+        assemble_short_plasmids(self.args, self.plasmids_dir,
+                                self.contigs_path)
 
 
 class JobRepeat(Job):
