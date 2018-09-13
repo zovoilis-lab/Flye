@@ -151,7 +151,9 @@ def generate_polished_edges(edges_file, gfa_file, polished_contigs, work_dir,
     for line in open(gfa_file, "r"):
         if line.startswith("S"):
             seq_id = line.split()[1]
-            gfa_polished.write("S\t{0}\t{1}\n".format(seq_id, edges_dict[seq_id]))
+            coverage_tag = line.split()[3]
+            gfa_polished.write("S\t{0}\t{1}\t{2}\n"
+                                .format(seq_id, edges_dict[seq_id], coverage_tag))
         else:
             gfa_polished.write(line)
 

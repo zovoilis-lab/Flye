@@ -274,9 +274,9 @@ void OutputGenerator::outputGfa(const std::vector<UnbranchingPath>& paths,
 	{
 		if (!paths[i].id.strand()) continue;
 
-		size_t kmerCount = sequences[i].sequence.length() * paths[i].meanCoverage;
-		fprintf(fout, "S\t%s\t%s\tKC:i:%d\n", paths[i].name().c_str(), 
-				sequences[i].sequence.str().c_str(), (int)kmerCount);
+		//size_t kmerCount = sequences[i].sequence.length() * paths[i].meanCoverage;
+		fprintf(fout, "S\t%s\t%s\tDP:i:%d\n", paths[i].name().c_str(), 
+				sequences[i].sequence.str().c_str(), (int)paths[i].meanCoverage);
 	}
 
 	for (auto& contigLeft : paths)
