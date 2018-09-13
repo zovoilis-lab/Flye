@@ -229,7 +229,8 @@ class JobPolishing(Job):
             os.mkdir(self.polishing_dir)
 
         pol.polish(self.in_contigs, self.args.reads, self.polishing_dir,
-                   self.args.num_iters, self.args.threads, self.args.platform)
+                   self.args.num_iters, self.args.threads, self.args.platform,
+                   output_progress=True)
 
         polished_file = os.path.join(self.polishing_dir, "polished_{0}.fasta"
                                      .format(self.args.num_iters))
