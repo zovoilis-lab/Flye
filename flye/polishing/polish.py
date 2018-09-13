@@ -45,10 +45,13 @@ def check_binaries():
         raise PolishException(str(e))
 
 
-def polish(contig_seqs, read_seqs, work_dir, num_iters, num_threads, error_mode):
+def polish(contig_seqs, read_seqs, work_dir, num_iters, num_threads, error_mode,
+           output_progress):
     """
     High-level polisher interface
     """
+
+    logger_func = logger.info if output_progress else logger.debug
 
     subs_matrix = os.path.join(cfg.vals["pkg_root"],
                                cfg.vals["err_modes"][error_mode]["subs_matrix"])
@@ -58,25 +61,26 @@ def polish(contig_seqs, read_seqs, work_dir, num_iters, num_threads, error_mode)
     prev_assembly = contig_seqs
     contig_lengths = None
     for i in xrange(num_iters):
-        logger.info("Polishing genome ({0}/{1})".format(i + 1, num_iters))
+        logger_func("Polishing genome ({0}/{1})".format(i + 1, num_iters))
 
         alignment_file = os.path.join(work_dir,
                                       "minimap_{0}.sam".format(i + 1))
-        logger.info("Running minimap2")
+        logger_func("Running minimap2")
         make_alignment(prev_assembly, read_seqs, num_threads,
                        work_dir, error_mode, alignment_file,
                        reference_mode=True, sam_output=True)
 
-        logger.info("Separating alignment into bubbles")
+        logger_func("Separating alignment into bubbles")
         contigs_info = get_contigs_info(prev_assembly)
         bubbles_file = os.path.join(work_dir,
                                     "bubbles_{0}.fasta".format(i + 1))
-        coverage_stats = \
+        coverage_stats, mean_aln_error = \
             make_bubbles(alignment_file, contigs_info, prev_assembly,
                          error_mode, num_threads,
                          cfg.vals["min_aln_rate"], bubbles_file)
+        logger_func("Alignment error rate: {0}".format(mean_aln_error))
 
-        logger.info("Correcting bubbles")
+        logger_func("Correcting bubbles")
         consensus_out = os.path.join(work_dir, "consensus_{0}.fasta"
                                      .format(i + 1))
         polished_file = os.path.join(work_dir, "polished_{0}.fasta"
@@ -153,7 +157,9 @@ def generate_polished_edges(edges_file, gfa_file, polished_contigs, work_dir,
     for line in open(gfa_file, "r"):
         if line.startswith("S"):
             seq_id = line.split()[1]
-            gfa_polished.write("S\t{0}\t{1}\n".format(seq_id, edges_dict[seq_id]))
+            coverage_tag = line.split()[3]
+            gfa_polished.write("S\t{0}\t{1}\t{2}\n"
+                                .format(seq_id, edges_dict[seq_id], coverage_tag))
         else:
             gfa_polished.write(line)
 
