@@ -3,10 +3,10 @@
 #Released under the BSD license (see LICENSE file)
 
 
-import flye.short_plasmids.paf_parser as pp
 import flye.short_plasmids.utils as utils
 import flye.short_plasmids.unmapped_reads as unmapped
 import flye.utils.fasta_parser as fp
+from flye.polishing.alignment import read_paf, PafHit
 
 
 def is_circular_read(hit, max_overhang=150):
@@ -30,7 +30,7 @@ def extract_circular_reads(unmapped_reads_mapping, max_overhang=150):
 
     with open(unmapped_reads_mapping) as f:
         for raw_hit in f:
-            current_hit = pp.Hit(raw_hit)
+            current_hit = PafHit(raw_hit)
             if is_circular_read(current_hit, max_overhang):
                 hit = circular_reads.get(current_hit.query)
                 if hit is None or current_hit.query_mapping_length() > \
@@ -65,7 +65,7 @@ def mapping_segments_without_intersection(circular_pair):
 
 
 def extract_circular_pairs(unmapped_reads_mapping, max_overhang=300):
-    hits = pp.read_paf(unmapped_reads_mapping)
+    hits = read_paf(unmapped_reads_mapping)
     hits.sort(key=lambda hit: (hit.query, hit.target))
 
     circular_pairs = []
@@ -123,7 +123,7 @@ def extract_unique_plasmids(trimmed_reads_mapping, trimmed_reads_path,
                             mapping_rate_threshold=0.8,
                             max_length_difference=500,
                             min_sequence_length=1000):
-    hits = pp.read_paf(trimmed_reads_mapping)
+    hits = read_paf(trimmed_reads_mapping)
     trimmed_reads = set()
 
     for hit in hits:

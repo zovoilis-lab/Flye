@@ -9,41 +9,23 @@ import subprocess
 import flye.utils.fasta_parser as fp
 import flye.short_plasmids.unmapped_reads as unmapped
 import flye.short_plasmids.circular_sequences as circular
+from flye.polishing.alignment import make_alignment
 
 
 logger = logging.getLogger()
 MINIMAP_BIN = "flye-minimap2"
 
 
-class ShortPlasmidsAssemblyException(Exception):
-    pass
-
-
-def _run_minimap(preset, contigs_path, reads_paths, num_proc, out_file):
-    cmdline = [MINIMAP_BIN]
-    cmdline.extend(["-x", preset])
-    cmdline.extend([contigs_path])
-    cmdline.extend(reads_paths)
-    cmdline.extend(["-t", str(num_proc)])
-
-    try:
-        devnull = open(os.devnull, "w")
-        logger.debug("Running: " + " ".join(cmdline))
-        subprocess.check_call(cmdline, stderr=devnull,
-                              stdout=open(out_file, "w"))
-    except (subprocess.CalledProcessError, OSError) as e:
-        if e.returncode == -9:
-            logger.error("Looks like the system ran out of memory")
-        raise ShortPlasmidsAssemblyException(str(e))
-
-
 def assemble_short_plasmids(args, work_dir, contigs_path):
     logger.debug("Assembling short plasmids")
 
     reads2contigs_mapping = os.path.join(work_dir, "reads2contigs.paf")
-    preset = ["map-pb", "map-ont"][args.platform == "nano"]
-    _run_minimap(preset, contigs_path, args.reads,
-                 args.threads, reads2contigs_mapping)
+    make_alignment(contigs_path, args.reads, args.threads,
+                   work_dir, args.platform, reads2contigs_mapping,
+                   reference_mode=True, sam_output=False)
+    #preset = ["map-pb", "map-ont"][args.platform == "nano"]
+    #_run_minimap(preset, contigs_path, args.reads,
+    #             args.threads, reads2contigs_mapping)
 
     logger.debug("Extracting unmapped reads")
     unmapped_reads, n_processed_reads = \
@@ -62,9 +44,12 @@ def assemble_short_plasmids(args, work_dir, contigs_path):
     unmapped_reads_mapping = os.path.join(work_dir, "unmapped_ava.paf")
 
     logger.debug("Finding self-mappings for unmapped reads")
-    preset = ["ava-pb", "ava-ont"][args.platform == "nano"]
-    _run_minimap(preset, unmapped_reads_path, [unmapped_reads_path],
-                 args.threads, unmapped_reads_mapping)
+    make_alignment(unmapped_reads_path, [unmapped_reads_path], args.threads,
+                   work_dir, args.platform, unmapped_reads_mapping,
+                   reference_mode=False, sam_output=False)
+    #preset = ["ava-pb", "ava-ont"][args.platform == "nano"]
+    #_run_minimap(preset, unmapped_reads_path, [unmapped_reads_path],
+    #             args.threads, unmapped_reads_mapping)
 
     logger.debug("Extracting circular reads")
     circular_reads = circular.extract_circular_reads(unmapped_reads_mapping)
@@ -87,9 +72,12 @@ def assemble_short_plasmids(args, work_dir, contigs_path):
 
     trimmed_sequences_mapping = os.path.join(work_dir, "trimmed.paf")
 
-    preset = ["ava-pb", "ava-ont"][args.platform == "nano"]
-    _run_minimap(preset, trimmed_sequences_path, [trimmed_sequences_path],
-                 args.threads, trimmed_sequences_mapping)
+    #preset = ["ava-pb", "ava-ont"][args.platform == "nano"]
+    #_run_minimap(preset, trimmed_sequences_path, [trimmed_sequences_path],
+    #             args.threads, trimmed_sequences_mapping)
+    make_alignment(trimmed_sequences_path, [trimmed_sequences_path], args.threads,
+                   work_dir, args.platform, trimmed_sequences_mapping,
+                   reference_mode=False, sam_output=False)
 
     plasmids = \
         circular.extract_unique_plasmids(trimmed_sequences_mapping,

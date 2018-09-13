@@ -64,7 +64,8 @@ def polish(contig_seqs, read_seqs, work_dir, num_iters, num_threads, error_mode)
                                       "minimap_{0}.sam".format(i + 1))
         logger.info("Running minimap2")
         make_alignment(prev_assembly, read_seqs, num_threads,
-                       work_dir, error_mode, alignment_file)
+                       work_dir, error_mode, alignment_file,
+                       reference_mode=True, sam_output=True)
 
         logger.info("Separating alignment into bubbles")
         contigs_info = get_contigs_info(prev_assembly)
@@ -107,7 +108,8 @@ def generate_polished_edges(edges_file, gfa_file, polished_contigs, work_dir,
     alignment_file = os.path.join(work_dir, "edges_aln.sam")
     polished_dict = fp.read_sequence_dict(polished_contigs)
     make_alignment(polished_contigs, [edges_file], num_threads,
-                   work_dir, error_mode, alignment_file)
+                   work_dir, error_mode, alignment_file,
+                   reference_mode=True, sam_output=True)
     aln_reader = SynchronizedSamReader(alignment_file,
                                        polished_dict,
                                        min_aln_rate=0)

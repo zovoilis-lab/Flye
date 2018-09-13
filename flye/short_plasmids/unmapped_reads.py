@@ -3,8 +3,8 @@
 #Released under the BSD license (see LICENSE file)
 
 
-import flye.short_plasmids.paf_parser as pp
 import flye.utils.fasta_parser as fp
+from flye.polishing.alignment import read_paf
 
 
 class MappingSegment:
@@ -41,7 +41,7 @@ def calc_mapping_rate(read_length, mapping_segments):
 
 
 def calc_mapping_rates(reads2contigs_mapping):
-    hits = pp.read_paf(reads2contigs_mapping)
+    hits = read_paf(reads2contigs_mapping)
     hits.sort(key=lambda hit: (hit.query, hit.target))
 
     mapping_rates = dict()

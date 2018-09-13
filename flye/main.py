@@ -217,7 +217,8 @@ class JobConsensus(Job):
         logger.info("Running Minimap2")
         out_alignment = os.path.join(self.consensus_dir, "minimap.sam")
         aln.make_alignment(self.in_contigs, self.args.reads, self.args.threads,
-                           self.consensus_dir, self.args.platform, out_alignment)
+                           self.consensus_dir, self.args.platform, out_alignment,
+                           reference_mode=True, sam_output=True)
 
         contigs_info = aln.get_contigs_info(self.in_contigs)
         logger.info("Computing consensus")

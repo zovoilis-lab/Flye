@@ -35,6 +35,51 @@ class AlignmentException(Exception):
     pass
 
 
+class PafHit:
+    """
+    Stores paf alignment
+    """
+    def __init__(self, raw_hit):
+        hit = raw_hit.split()
+
+        self.query = hit[0]
+        self.query_length = int(hit[1])
+        self.query_start = int(hit[2])
+        self.query_end = int(hit[3])
+
+        self.target = hit[5]
+        self.target_length = int(hit[6])
+        self.target_start = int(hit[7])
+        self.target_end = int(hit[8])
+
+    def query_mapping_length(self):
+        return self.query_end - self.query_start + 1
+
+    def target_mapping_length(self):
+        return self.target_end - self.target_start + 1
+
+    def query_left_overhang(self):
+        return self.query_start
+
+    def query_right_overhang(self):
+        return self.query_length - self.query_end + 1
+
+    def target_left_overhang(self):
+        return self.target_start
+
+    def target_right_overhang(self):
+        return self.target_length - self.target_end + 1
+
+
+def read_paf(filename):
+    hits = []
+    with open(filename) as f:
+        for raw_hit in f:
+            hits.append(PafHit(raw_hit))
+
+    return hits
+
+
 class SynchronizedSamReader(object):
     """
     Parsing SAM file in multiple threads. Filters out secondary alignments,
@@ -217,34 +262,42 @@ def check_binaries():
 
 
 def make_alignment(reference_file, reads_file, num_proc,
-                   work_dir, platform, out_alignment):
+                   work_dir, platform, out_alignment, reference_mode,
+                   sam_output):
     """
     Runs minimap2 and sorts its output
     """
-    _run_minimap(reference_file, reads_file, num_proc, platform, out_alignment)
-    logger.debug("Sorting alignment file")
-    sorted_file = out_alignment + "_sorted"
-    merged_file = out_alignment + "_merged"
-    env = os.environ.copy()
-    env["LC_ALL"] = "C"
-    subprocess.check_call(["sort", "-k", "3,3", "-T", work_dir, out_alignment],
-                          stdout=open(sorted_file, "w"), env=env)
+    minimap_ref_mode = {False: "ava", True: "map"}
+    minimap_reads_mode = {"nano": "ont", "pacbio": "pb"}
+    mode = minimap_ref_mode[reference_mode] + "-" + minimap_reads_mode[platform]
 
-    #puting back SAM headers
-    with open(merged_file, "w") as f:
-        for line in open(out_alignment, "r"):
-            if not line.startswith("@"):
-                break
-            f.write(line)
+    _run_minimap(reference_file, reads_file, num_proc, mode,
+                 out_alignment, sam_output)
 
-        os.remove(out_alignment)
+    if sam_output:
+        logger.debug("Sorting alignment file")
+        sorted_file = out_alignment + "_sorted"
+        merged_file = out_alignment + "_merged"
+        env = os.environ.copy()
+        env["LC_ALL"] = "C"
+        subprocess.check_call(["sort", "-k", "3,3", "-T", work_dir, out_alignment],
+                              stdout=open(sorted_file, "w"), env=env)
 
-        for line in open(sorted_file, "r"):
-            if not line.startswith("@"):
+        #puting back SAM headers
+        with open(merged_file, "w") as f:
+            for line in open(out_alignment, "r"):
+                if not line.startswith("@"):
+                    break
                 f.write(line)
 
-    os.remove(sorted_file)
-    os.rename(merged_file, out_alignment)
+            os.remove(out_alignment)
+
+            for line in open(sorted_file, "r"):
+                if not line.startswith("@"):
+                    f.write(line)
+
+        os.remove(sorted_file)
+        os.rename(merged_file, out_alignment)
 
 
 def get_contigs_info(contigs_file):
@@ -285,15 +338,21 @@ def shift_gaps(seq_trg, seq_qry):
     return "".join(lst_qry[1 : -1])
 
 
-def _run_minimap(reference_file, reads_files, num_proc, platform, out_file):
+def _run_minimap(reference_file, reads_files, num_proc, mode, out_file,
+                 sam_output):
     cmdline = [MINIMAP_BIN, reference_file]
     cmdline.extend(reads_files)
-    cmdline.extend(["-a", "-Q", "-w5", "-m100", "-g10000", "--max-chain-skip",
+    cmdline.extend(["-x", mode, "-t", str(num_proc)])
+    if sam_output:
+        cmdline.append("-a")
+    """
+    cmdline.extend(["-Q", "-w5", "-m100", "-g10000", "--max-chain-skip",
                     "25", "-t", str(num_proc)])
     if platform == "nano":
         cmdline.append("-k15")
     else:
         cmdline.append("-Hk19")
+    """
 
     try:
         devnull = open(os.devnull, "w")
