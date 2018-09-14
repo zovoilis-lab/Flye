@@ -26,6 +26,8 @@ import flye.config.py_cfg as cfg
 from flye.config.configurator import setup_params
 from flye.utils.bytes2human import human2bytes
 import flye.utils.fasta_parser as fp
+from flye.short_plasmids.plasmids import assemble_short_plasmids
+
 
 logger = logging.getLogger()
 
@@ -106,6 +108,26 @@ class JobAssembly(Job):
             raise asm.AssembleException("No contigs were assembled - "
                                         "please check if the read type and genome "
                                         "size parameters are correct")
+
+
+class JobShortPlasmidsAssembly(Job):
+    def __init__(self, args, work_dir, contigs_file):
+        super(JobShortPlasmidsAssembly, self).__init__()
+
+        self.args = args
+        self.work_dir = work_dir
+        self.plasmids_dir = os.path.join(work_dir, "2b-plasmids")
+        self.contigs_path = contigs_file
+        self.name = "plasmids"
+        self.out_files["short_plasmids"] = os.path.join(self.plasmids_dir,
+                                                        "short_plasmids.fasta")
+
+    def run(self):
+        logger.info("Recovering plasmids")
+        if not os.path.isdir(self.plasmids_dir):
+            os.mkdir(self.plasmids_dir)
+        assemble_short_plasmids(self.args, self.plasmids_dir,
+                                self.contigs_path)
 
 
 class JobRepeat(Job):
@@ -192,7 +214,8 @@ class JobConsensus(Job):
         logger.info("Running Minimap2")
         out_alignment = os.path.join(self.consensus_dir, "minimap.sam")
         aln.make_alignment(self.in_contigs, self.args.reads, self.args.threads,
-                           self.consensus_dir, self.args.platform, out_alignment)
+                           self.consensus_dir, self.args.platform, out_alignment,
+                           reference_mode=True, sam_output=True)
 
         contigs_info = aln.get_contigs_info(self.in_contigs)
         logger.info("Computing consensus")
@@ -229,7 +252,8 @@ class JobPolishing(Job):
             os.mkdir(self.polishing_dir)
 
         pol.polish(self.in_contigs, self.args.reads, self.polishing_dir,
-                   self.args.num_iters, self.args.threads, self.args.platform)
+                   self.args.num_iters, self.args.threads, self.args.platform,
+                   output_progress=True)
 
         polished_file = os.path.join(self.polishing_dir, "polished_{0}.fasta"
                                      .format(self.args.num_iters))
@@ -265,6 +289,9 @@ def _create_job_list(args, work_dir, log_file):
     gfa_file = jobs[-1].out_files["gfa_graph"]
     edges_seqs = jobs[-1].out_files["edges_sequences"]
     repeat_stats = jobs[-1].out_files["stats"]
+
+    #Short plasmids
+    jobs.append(JobShortPlasmidsAssembly(args, work_dir, raw_contigs))
 
     #Polishing
     contigs_file = raw_contigs
@@ -323,8 +350,8 @@ def _run(args):
                 jobs[i].load(save_file)
                 current_job = i
                 if not jobs[i - 1].completed(save_file):
-                    raise ResumeException("Can't resume: stage {0} incomplete"
-                                          .format(jobs[i].name))
+                    raise ResumeException("Can't resume: stage '{0}' incomplete"
+                                          .format(jobs[i - 1].name))
                 can_resume = True
                 break
 

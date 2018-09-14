@@ -100,7 +100,7 @@ class SeqStats:
 
 def generate_stats(repeat_file, polished_file, scaffolds, out_stats):
     """
-    Compiles information fomr multiple stages
+    Compiles information from multiple stages
     """
     #contigs_length = {}
     #contigs_coverage = {}
@@ -227,4 +227,3 @@ def _calc_n50(scaffolds_lengths, assembly_len):
             n50 = l
             break
     return n50
-
