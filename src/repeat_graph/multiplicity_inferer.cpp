@@ -98,8 +98,9 @@ void MultiplicityInferer::removeUnsupportedEdges()
 	GraphProcessor proc(_graph, _asmSeqs, _readSeqs);
 	auto unbranchingPaths = proc.getUnbranchingPaths();
 
-	int32_t coverageThreshold = this->getMeanCoverage() / 
-								Config::get("graph_cov_drop_rate");
+	int32_t coverageThreshold = std::round((float)this->getMeanCoverage() / 
+											Config::get("graph_cov_drop_rate"));
+	coverageThreshold = std::max(1, coverageThreshold);
 	Logger::get().debug() << "Read coverage cutoff: " << coverageThreshold;
 
 	std::unordered_set<GraphEdge*> edgesRemove;
