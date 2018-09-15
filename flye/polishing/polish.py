@@ -85,6 +85,10 @@ def polish(contig_seqs, read_seqs, work_dir, num_iters, num_threads, error_mode,
                                      .format(i + 1))
         polished_file = os.path.join(work_dir, "polished_{0}.fasta"
                                      .format(i + 1))
+        if os.path.getsize(bubbles_file) == 0:
+            logger_func("No reads were aligned during polishing")
+            return
+
         _run_polish_bin(bubbles_file, subs_matrix, hopo_matrix,
                         consensus_out, num_threads)
         polished_fasta, polished_lengths = _compose_sequence([consensus_out])

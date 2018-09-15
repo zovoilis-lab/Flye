@@ -74,12 +74,13 @@ def assemble_short_plasmids(args, work_dir, contigs_path):
     plasmids = \
         circular.extract_unique_plasmids(trimmed_sequences_mapping,
                                          trimmed_sequences_path)
-    plasmids_raw = os.path.join(work_dir, "plasmids_raw.fasta")
-    fp.write_fasta_dict(plasmids, plasmids_raw)
-    pol.polish(plasmids_raw, [unmapped_reads_path], work_dir, 1,
-               args.threads, args.platform, output_progress=False)
+    if len(plasmids):
+        plasmids_raw = os.path.join(work_dir, "plasmids_raw.fasta")
+        fp.write_fasta_dict(plasmids, plasmids_raw)
+        pol.polish(plasmids_raw, [unmapped_reads_path], work_dir, 1,
+                   args.threads, args.platform, output_progress=False)
 
-    logger.info("Extracted {} extra plasmids".format(len(plasmids)))
+    logger.info("Added {} extra contigs".format(len(plasmids)))
 
     # remove all unnecesarry files
     os.remove(reads2contigs_mapping)

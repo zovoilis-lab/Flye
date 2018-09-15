@@ -120,10 +120,10 @@ class JobShortPlasmidsAssembly(Job):
         self.contigs_path = contigs_file
         self.name = "plasmids"
         self.out_files["short_plasmids"] = os.path.join(self.plasmids_dir,
-                                                        "short_plasmids.fasta")
+                                                        "polished_1.fasta")
 
     def run(self):
-        logger.info("Recovering plasmids")
+        logger.info("Recovering short unassebmled sequences")
         if not os.path.isdir(self.plasmids_dir):
             os.mkdir(self.plasmids_dir)
         assemble_short_plasmids(self.args, self.plasmids_dir,
