@@ -77,6 +77,9 @@ def resolve_repeats(args, trestle_dir, repeats_dump, graph_edges, summ_file):
     template_name = "template.fasta"
     extended_name = "extended_templates.{0}.{1}.fasta"
     repeat_reads_name = "repeat_reads.fasta"
+    pre_partitioning_name = "pre_partitioning.{0}.txt"
+    pre_edge_reads_name = "pre_edge_reads.{0}.{1}.txt"
+    pre_read_aln_name = "pre_edge_reads.{0}.{1}.vs.extended.minimap.sam"
     partitioning_name = "partitioning.{0}.{1}.txt"
     div_freq_name = "divergence_frequencies.txt"
     div_pos_name = "divergent_positions.txt"
@@ -107,9 +110,11 @@ def resolve_repeats(args, trestle_dir, repeats_dump, graph_edges, summ_file):
     process_outputs = process_repeats(args.reads, repeats_dump, graph_edges, 
                                       trestle_dir, repeat_label, orient_labels, 
                                       template_name, extended_name, 
-                                      repeat_reads_name, partitioning_name, 
-                                      side_labels, zero_it)
+                                      repeat_reads_name, pre_partitioning_name, 
+                                      side_labels)
     repeat_list, repeat_edges, all_edge_headers = process_outputs
+    #1.5. Re-align reads to template 
+    #add in realigning of reads here - change partitioning above to prepartitioning
     logger.info("Repeats to be resolved: {0}".format(len(repeat_list)))
     for rep_id in sorted(repeat_list):
         logger.info("Resolving repeat '{0}'".format(rep_id))
@@ -172,6 +177,9 @@ def resolve_repeats(args, trestle_dir, repeats_dump, graph_edges, summ_file):
             avg_cov = find_coverage(frequency_path)
             
             #4. Initialize paths, variables, and stats
+            pre_partitioning = os.path.join(orient_dir, pre_partitioning_name)
+            pre_edge_reads = os.path.join(orient_dir, pre_edge_reads_name)
+            pre_read_align = os.path.join(orient_dir, pre_read_aln_name)
             partitioning = os.path.join(orient_dir, partitioning_name)
             cons_align = os.path.join(orient_dir, cons_temp_aln_name)
             cut_cons_align = os.path.join(orient_dir, cut_cons_temp_aln_name)
@@ -191,12 +199,31 @@ def resolve_repeats(args, trestle_dir, repeats_dump, graph_edges, summ_file):
             test_pos = os.path.join(orient_dir, test_pos_name)
             num_test = 10
             
+            #5. Re-align reads to extended and initialize partitioning 0
+            for side in side_labels:
+                for edge_id in repeat_edges[rep][side]:
+                    write_edge_reads(zero_it, side, edge_id,
+                                     repeat_reads, 
+                                     pre_partitioning.format(side), 
+                                     pre_edge_reads.format(side, edge_id))
+                    flye_aln.make_alignment(polished_extended[(side, edge_id)], 
+                                            [pre_edge_reads.format(side, 
+                                                                   edge_id)], 
+                                            args.threads, orient_dir, 
+                                            args.platform, 
+                                            pre_read_align.format(side, 
+                                                                  edge_id))
+                init_partitioning(repeat_edges[rep][side], 
+                                  side, pre_partitioning.format(side), 
+                                  pre_read_align, polished_extended, 
+                                  partitioning.format(zero_it, side))
+            
             cut_consensus = {}
             side_it = {s:0 for s in side_labels}
             edge_below_cov = {s:False for s in side_labels}
             dup_part = {s:False for s in side_labels}
             prev_partitionings = {s:set() for s in side_labels}
-            #Initialize stats
+            #5.5. Initialize stats
             for side in side_labels:
                 edge_below_cov[side] = init_side_stats(
                                     rep, side, repeat_edges, args.min_overlap, 
@@ -208,7 +235,7 @@ def resolve_repeats(args, trestle_dir, repeats_dump, graph_edges, summ_file):
             init_int_stats(rep, repeat_edges, zero_it, position_path, 
                            partitioning, repeat_reads, template_len, 
                            avg_cov, integrated_stats)
-            #5. Start iterations
+            #6. Start iterations
             logger.debug("Iterative procedure")
             for it in range(1, MAX_ITER + 1):
                 both_break = True
@@ -220,7 +247,7 @@ def resolve_repeats(args, trestle_dir, repeats_dump, graph_edges, summ_file):
                         logger.debug("iteration {0}, '{1}'".format(it, side))
                         both_break = False
                     for edge_id in sorted(repeat_edges[rep][side]):
-                        #5a. Call consensus on partitioned reads
+                        #6a. Call consensus on partitioned reads
                         pol_con_dir = polishing_dir.format(
                                     it, side, edge_id)
                         curr_reads = edge_reads.format(it, side, edge_id)
@@ -235,7 +262,7 @@ def resolve_repeats(args, trestle_dir, repeats_dump, graph_edges, summ_file):
                         pol_con_out = _run_polishing(args, [curr_reads], 
                                                 curr_extended, 
                                                 pol_con_dir)
-                        #5b. Cut consensus where coverage drops
+                        #6b. Cut consensus where coverage drops
                         cutpoint = locate_consensus_cutpoint(
                                         side, read_endpoints,
                                         curr_reads)
@@ -256,7 +283,7 @@ def resolve_repeats(args, trestle_dir, repeats_dump, graph_edges, summ_file):
                                                pol_con_out, curr_cut_cons)
                         else:
                             term_bool[side] = True
-                        #5c. Align consensuses to template 
+                        #6c. Align consensuses to template 
                         #    and reads to consensuses
                         if os.path.isfile(curr_cut_cons):
                             cut_cons_al_file = cut_cons_align.format(it, side, 
@@ -274,7 +301,7 @@ def resolve_repeats(args, trestle_dir, repeats_dump, graph_edges, summ_file):
                                                     read_al_file)
                         else:
                             term_bool[side] = True
-                    #5d. Partition reads using divergent positions
+                    #6d. Partition reads using divergent positions
                     logger.debug("partitioning '{0}' reads".format(side))
                     partition_reads(repeat_edges[rep][side], it, side, 
                                        position_path, cut_cons_align, 
@@ -282,7 +309,7 @@ def resolve_repeats(args, trestle_dir, repeats_dump, graph_edges, summ_file):
                                        cut_consensus, confirmed_pos_path, 
                                        partitioning, all_edge_headers[rep], 
                                        test_pos.format(it, side), num_test)
-                    #5e. Write stats file for current iteration
+                    #6e. Write stats file for current iteration
                     edge_pairs = sorted(combinations(repeat_edges[rep][side], 
                                                      2))
                     for edge_one, edge_two in edge_pairs:
@@ -316,7 +343,7 @@ def resolve_repeats(args, trestle_dir, repeats_dump, graph_edges, summ_file):
                                     partitioning, integrated_stats)
                 if both_break:
                     break
-            #6. Finalize stats files
+            #7. Finalize stats files
             logger.debug("Writing stats files")
             for side in side_labels:
                 finalize_side_stats(repeat_edges[rep][side], side_it[side], 
@@ -338,7 +365,7 @@ def resolve_repeats(args, trestle_dir, repeats_dump, graph_edges, summ_file):
                                                    integrated_stats, 
                                                    resolved_rep_path)
             bridged, repeat_seqs, summ_vals = final_int_outputs
-            #7. Generate summary and resolved repeat file
+            #8. Generate summary and resolved repeat file
             logger.debug("Generating summary and resolved repeat file")
             avg_div = 0.0
             if bridged:
@@ -374,8 +401,7 @@ class ProcessingException(Exception):
        
 def process_repeats(reads, repeats_dump, graph_edges, work_dir, repeat_label, 
                     orient_labels, template_name, extended_name, 
-                    repeat_reads_name, partitioning_name, side_labels, 
-                    zero_it):
+                    repeat_reads_name, pre_partition_name, side_labels):
     """Generates repeat dirs and files given reads, repeats_dump and
     graph_edges files. Only returns repeats between min_mult and max_mult"""
     MIN_MULT = trestle_config.vals["min_mult"]
@@ -441,7 +467,7 @@ def process_repeats(reads, repeats_dump, graph_edges, work_dir, repeat_label,
             template_path = os.path.join(orient_path, template_name)
             extended_path = os.path.join(orient_path, extended_name)
             repeat_reads_path = os.path.join(orient_path, repeat_reads_name)
-            partitioning_path = os.path.join(orient_path, partitioning_name)
+            partitioning_path = os.path.join(orient_path, pre_partition_name)
             
             in_label = side_labels[0]
             out_label = side_labels[1]
@@ -624,8 +650,7 @@ def process_repeats(reads, repeats_dump, graph_edges, work_dir, repeat_label,
                 fp.write_fasta_dict(repeat_reads_dict, repeat_reads_path)
             for side in side_labels:
                 _write_partitioning_file(partitioning[side], 
-                                         partitioning_path.format(zero_it, 
-                                                                  side))
+                                         partitioning_path.format(side))
             
             if not template_dict:
                 raise ProcessingException("No template {0} found".format(
@@ -642,7 +667,7 @@ def process_repeats(reads, repeats_dump, graph_edges, work_dir, repeat_label,
                 if not partitioning[side]:
                     raise ProcessingException(
                         "Empty partitioning file {0}".format(
-                            partitioning_path.format(zero_it, side)))
+                            partitioning_path.format(side)))
     return repeat_list, repeat_edges, all_edge_headers
 
 def _read_repeats_dump(repeats_dump):
@@ -770,6 +795,36 @@ def write_edge_reads(it, side, edge_id, all_reads, partitioning, out_file):
             edge_reads[edge_header] = edge_seq
     if edge_reads and edge_reads.values()[0]:
         fp.write_fasta_dict(edge_reads, out_file)
+
+def init_partitioning(edges, side, pre_partitioning, pre_read_align, extended, 
+                      partitioning):
+    FLANKING_LEN = trestle_config.vals["flanking_len"]
+    CONS_ALN_RATE = trestle_config.vals["cons_aln_rate"]
+    #dict from read_header to edge
+    extend_overlap_reads = {}
+    for edge in edges:
+        aligns = _read_alignment(pre_read_align.format(side, edge), 
+                                 extended[(side, edge)], CONS_ALN_RATE)
+        if aligns and aligns[0]:
+            for aln in aligns[0]:
+                edge_header = aln.qry_id
+                read_header = edge_header.split("|")[-1]
+                if ((side == "in" and 
+                        aln.trg_start < FLANKING_LEN) or 
+                    (side == "out" and 
+                        aln.trg_end >= aln.trg_len - FLANKING_LEN)):
+                    extend_overlap_reads[read_header] = str(edge)
+    partitioned_reads = []
+    part_list = _read_partitioning_file(pre_partitioning)
+    for part in part_list:
+        read_id, status, edge, top_sc, total_sc, header = part
+        if header in extend_overlap_reads:
+            partitioned_reads.append((read_id, "Partitioned", 
+                                      extend_overlap_reads[header],
+                                      1, 0, header))
+        else:
+            partitioned_reads.append((read_id, "None", "NA", 0, 0, header))
+    _write_partitioning_file(partitioned_reads, partitioning)
 
 #Cut Consensus Functions
 def find_read_endpoints(alignment_file, template):
