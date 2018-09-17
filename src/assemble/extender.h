@@ -15,13 +15,10 @@ class Extender
 {
 public:
 	Extender(const SequenceContainer& readsContainer, 
-			 OverlapContainer& ovlpContainer,
-			 int coverage, int genomeSize):
+			 OverlapContainer& ovlpContainer):
 		_readsContainer(readsContainer), 
 		_ovlpContainer(ovlpContainer),
-		_chimDetector(readsContainer, ovlpContainer, coverage),
-		_coverage(coverage), _genomeSize(genomeSize),
-		_progress(genomeSize)
+		_chimDetector(readsContainer, ovlpContainer)
 	{}
 
 	void assembleContigs();
@@ -62,9 +59,6 @@ private:
 	const SequenceContainer& _readsContainer;
 	OverlapContainer& _ovlpContainer;
 	ChimeraDetector   _chimDetector;
-	const int 		  _coverage;
-	const int 		  _genomeSize;
-	ProgressPercent   _progress;
 
 	std::vector<ExtensionInfo> 	_readLists;
 	std::vector<ContigPath> 	_contigPaths;
