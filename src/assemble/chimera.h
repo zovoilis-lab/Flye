@@ -12,12 +12,10 @@ class ChimeraDetector
 {
 public:
 	ChimeraDetector(const SequenceContainer& readContainer,
-					OverlapContainer& ovlpContainer,
-					int inputCoverage):
+					OverlapContainer& ovlpContainer):
 		_seqContainer(readContainer),
 		_ovlpContainer(ovlpContainer), 
-		_overlapCoverage(0),
-		_inputCoverage(inputCoverage)
+		_overlapCoverage(0)
 	{}
 
 	void estimateGlobalCoverage();
@@ -39,5 +37,4 @@ private:
 
 	cuckoohash_map<FastaRecord::Id, bool> _chimeras;
 	int _overlapCoverage;
-	int _inputCoverage;
 };
