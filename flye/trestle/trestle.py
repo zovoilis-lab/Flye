@@ -330,14 +330,14 @@ def resolve_repeats(args, trestle_dir, repeats_dump, graph_edges, summ_file):
                                             cons_cons_file)
                     side_stat_outputs = update_side_stats(
                                         repeat_edges[rep][side], it, side, 
-                                        cons_align, polished_template, 
+                                        cut_cons_align, polished_template, 
                                         confirmed_pos_path.format(it, side), 
                                         partitioning.format(it, side), 
                                         prev_partitionings[side], 
                                         side_stats.format(side))
                     edge_below_cov[side], dup_part[side] = side_stat_outputs
                     side_it[side] = it
-                update_int_stats(rep, repeat_edges, side_it, cons_align, 
+                update_int_stats(rep, repeat_edges, side_it, cut_cons_align, 
                                     polished_template, 
                                     template_len,
                                     confirmed_pos_path, int_confirmed_path, 
@@ -348,7 +348,7 @@ def resolve_repeats(args, trestle_dir, repeats_dump, graph_edges, summ_file):
             logger.debug("Writing stats files")
             for side in side_labels:
                 finalize_side_stats(repeat_edges[rep][side], side_it[side], 
-                                    side, cons_align, polished_template, 
+                                    side, cut_cons_align, polished_template, 
                                     cons_vs_cons, cut_consensus, 
                                     confirmed_pos_path.format(side_it[side], 
                                                               side), 
@@ -357,7 +357,7 @@ def resolve_repeats(args, trestle_dir, repeats_dump, graph_edges, summ_file):
                                     dup_part[side], term_bool[side], 
                                     side_stats.format(side))
             final_int_outputs = finalize_int_stats(rep, repeat_edges, side_it, 
-                                                   cons_align, 
+                                                   cut_cons_align, 
                                                    polished_template, 
                                                    template_len, cons_vs_cons, 
                                                    cut_consensus, 
