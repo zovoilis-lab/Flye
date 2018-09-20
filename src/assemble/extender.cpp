@@ -30,10 +30,10 @@ Extender::ExtensionInfo Extender::extendContig(FastaRecord::Id startRead)
 
 	auto leftExtendsStart = [startRead, this](const FastaRecord::Id readId)
 	{
-		for (auto& ovlp : _ovlpContainer.lazySeqOverlaps(readId))
+		for (auto& ovlp : _ovlpContainer.lazySeqOverlaps(startRead))
 		{
-			if (ovlp.extId == startRead &&
-				ovlp.leftShift > (int)Config::get("maximum_jump")) 
+			if (ovlp.extId == readId &&
+				ovlp.leftShift < -(int)Config::get("maximum_jump")) 
 			{
 				return true;
 			}
@@ -83,6 +83,9 @@ Extender::ExtensionInfo Extender::extendContig(FastaRecord::Id startRead)
 		OverlapRange* maxExtension = nullptr;
 		for (auto& ovlp : extensions)
 		{
+			//need to check this condition, otherwise there will
+			//be complications when we initiate extension of startRead
+			//to the left
 			if(leftExtendsStart(ovlp.extId)) continue;
 
 			//try to find a good one
