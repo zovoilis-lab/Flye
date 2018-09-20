@@ -62,7 +62,7 @@ Extender::ExtensionInfo Extender::extendContig(FastaRecord::Id startRead)
 		bool foundExtension = false;
 
 		//getting extension
-		int minExtensions = std::max(1, (int)extensions.size() / 
+		int minExtensions = std::max(1, (int)median(numExtensions) / 
 										(int)Config::get("max_coverage_drop_rate"));
 
 		/*Logger::get().debug() << _readsContainer.seqName(currentRead) 
@@ -452,10 +452,10 @@ void Extender::convertToContigs()
 		{
 			path.name = "read_" + std::to_string(_contigPaths.size() + 1);
 		}
-		path.trimLeft = std::max(0, exInfo.leftAsmOverlap - 
-									2 * Parameters::get().minimumOverlap);
-		path.trimRight = std::max(0, exInfo.rightAsmOverlap - 
-									 2 * Parameters::get().minimumOverlap);
+		//path.trimLeft = std::max(0, exInfo.leftAsmOverlap - 
+		//							2 * Parameters::get().minimumOverlap);
+		//path.trimRight = std::max(0, exInfo.rightAsmOverlap - 
+		//							 2 * Parameters::get().minimumOverlap);
 
 		for (size_t i = 0; i < exInfo.reads.size() - 1; ++i)
 		{
