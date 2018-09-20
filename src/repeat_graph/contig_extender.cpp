@@ -332,12 +332,11 @@ void ContigExtender::outputScaffoldConnections(const std::string& filename)
 		std::vector<GraphEdge*> dfsStack;
 		std::unordered_set<GraphEdge*> visited;
 		std::unordered_set<GraphEdge*> reachableUnique;
-		std::unordered_set<GraphEdge*> traversedRepeats;
 
 		dfsStack.push_back(edge);
 		while(!dfsStack.empty())
 		{
-			auto curEdge = dfsStack.back(); 
+			GraphEdge* curEdge = dfsStack.back(); 
 			dfsStack.pop_back();
 			if (visited.count(curEdge)) continue;
 
@@ -349,7 +348,6 @@ void ContigExtender::outputScaffoldConnections(const std::string& filename)
 					!visited.count(adjEdge))
 				{
 					dfsStack.push_back(adjEdge);
-					traversedRepeats.insert(adjEdge);
 				}
 				else if (!adjEdge->isRepetitive() && adjEdge != edge)
 				{
