@@ -6,21 +6,21 @@
 def find_connected_components(graph):
     def dfs(start_vertex, connected_components_counter):
         dfs_stack = [start_vertex]
+        used[start_vertex] = True
         while len(dfs_stack):
             vertex = dfs_stack.pop()
-
             connected_components[vertex] = connected_components_counter
-            used[vertex] = True
             for neighbour in graph[vertex]:
                 if not used[neighbour]:
                     dfs_stack.append(neighbour)
+                    used[neighbour] = True
 
     n_vertices = len(graph)
-    connected_components = [0 for _ in range(n_vertices)]
+    connected_components = [0 for _ in xrange(n_vertices)]
     connected_components_counter = 0
-    used = [0 for _ in range(n_vertices)]
+    used = [False for _ in xrange(n_vertices)]
 
-    for i in range(n_vertices):
+    for i in xrange(n_vertices):
         if not used[i]:
             dfs(i, connected_components_counter)
             connected_components_counter += 1
