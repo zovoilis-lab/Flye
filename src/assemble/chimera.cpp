@@ -31,10 +31,21 @@ bool ChimeraDetector::isChimeric(FastaRecord::Id readId)
 bool ChimeraDetector::isChimeric(FastaRecord::Id readId,
 								 const std::vector<OverlapRange>& readOvlps)
 {
+	const int JUMP = Config::get("maximum_jump");
 	if (!_chimeras.contains(readId))
 	{
-		bool result = this->testReadByCoverage(readId, readOvlps) ||
-					  _ovlpContainer.hasSelfOverlaps(readId);
+		bool result = this->testReadByCoverage(readId, readOvlps);
+		for (auto& ovlp : readOvlps)
+		{
+			if (ovlp.curId == ovlp.extId.rc()) 
+			{
+				int32_t projEnd = ovlp.extLen - ovlp.extEnd - 1;
+				if (abs(ovlp.curEnd - projEnd) < JUMP)
+				{
+					result = true;
+				}
+			}
+		}
 		_chimeras.insert(readId, result);
 		_chimeras.insert(readId.rc(), result);
 	}

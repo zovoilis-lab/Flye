@@ -174,28 +174,23 @@ void OutputGenerator::dumpRepeats(const std::vector<UnbranchingPath>& paths,
 			if (!repeatRead) continue;
 
 			allReads.insert(readAln.front().overlap.curId);
-			for (auto& alnEdge : readAln)
+			for (size_t i = 1; i < readAln.size(); ++i)
 			{
-				for (auto& inputEdge : inputs)
+				if (inputs.count(readAln[i - 1].edge) &&
+					innerEdges.count(readAln[i].edge))
 				{
-					if (alnEdge.edge == inputEdge) 
-					{
-						inputEdges[inputEdge]
-							.insert(readAln.front().overlap.curId);
-					}
+					inputEdges[readAln[i - 1].edge]
+						.insert(readAln.front().overlap.curId);
 				}
-				for (auto& outputEdge : outputs)
+				if (innerEdges.count(readAln[i - 1].edge) &&
+					outputs.count(readAln[i].edge))
 				{
-					if (alnEdge.edge == outputEdge) 
-					{
-						outputEdges[outputEdge]
-							.insert(readAln.front().overlap.curId);
-					}
+					outputEdges[readAln[i].edge]
+						.insert(readAln.front().overlap.curId);
 				}
 			}
 		}
 
-		//dump as text
 		fout << "\n#All reads\t" << allReads.size() << "\n";
 		for (auto& readId : allReads)
 		{
@@ -205,7 +200,7 @@ void OutputGenerator::dumpRepeats(const std::vector<UnbranchingPath>& paths,
 
 		for (auto& inputEdge : inputs)
 		{
-			//TODO: more accurate version!
+			//get corresponding contig ids
 			int ctgId = 0;
 			for (auto& ctg : paths)
 			{

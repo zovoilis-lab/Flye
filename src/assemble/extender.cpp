@@ -30,10 +30,10 @@ Extender::ExtensionInfo Extender::extendContig(FastaRecord::Id startRead)
 
 	auto leftExtendsStart = [startRead, this](const FastaRecord::Id readId)
 	{
-		for (auto& ovlp : _ovlpContainer.lazySeqOverlaps(readId))
+		for (auto& ovlp : _ovlpContainer.lazySeqOverlaps(startRead))
 		{
-			if (ovlp.extId == startRead &&
-				ovlp.leftShift > (int)Config::get("maximum_jump")) 
+			if (ovlp.extId == readId &&
+				ovlp.leftShift < -(int)Config::get("maximum_jump")) 
 			{
 				return true;
 			}
@@ -62,7 +62,7 @@ Extender::ExtensionInfo Extender::extendContig(FastaRecord::Id startRead)
 		bool foundExtension = false;
 
 		//getting extension
-		int minExtensions = std::max(1, (int)extensions.size() / 
+		int minExtensions = std::max(1, (int)median(numExtensions) / 
 										(int)Config::get("max_coverage_drop_rate"));
 
 		/*Logger::get().debug() << _readsContainer.seqName(currentRead) 
@@ -83,6 +83,9 @@ Extender::ExtensionInfo Extender::extendContig(FastaRecord::Id startRead)
 		OverlapRange* maxExtension = nullptr;
 		for (auto& ovlp : extensions)
 		{
+			//need to check this condition, otherwise there will
+			//be complications when we initiate extension of startRead
+			//to the left
 			if(leftExtendsStart(ovlp.extId)) continue;
 
 			//try to find a good one
@@ -453,10 +456,10 @@ void Extender::convertToContigs()
 		{
 			path.name = "read_" + std::to_string(_contigPaths.size() + 1);
 		}
-		path.trimLeft = std::max(0, exInfo.leftAsmOverlap - 
-									2 * Parameters::get().minimumOverlap);
-		path.trimRight = std::max(0, exInfo.rightAsmOverlap - 
-									 2 * Parameters::get().minimumOverlap);
+		//path.trimLeft = std::max(0, exInfo.leftAsmOverlap - 
+		//							2 * Parameters::get().minimumOverlap);
+		//path.trimRight = std::max(0, exInfo.rightAsmOverlap - 
+		//							 2 * Parameters::get().minimumOverlap);
 
 		for (size_t i = 0; i < exInfo.reads.size() - 1; ++i)
 		{
