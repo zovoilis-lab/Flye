@@ -225,9 +225,9 @@ int main(int argc, char** argv)
 	Logger::get().debug() << "Expected read coverage: " << coverage;
 
 	Logger::get().info() << "Generating solid k-mer index";
-	size_t hardThreshold = std::min(5, std::max(2, 
-			coverage / (int)Config::get("hard_min_coverage_rate")));
-	vertexIndex.countKmers(hardThreshold, genomeSize);
+	//size_t hardThreshold = std::min(5, std::max(2, 
+	//		coverage / (int)Config::get("hard_min_coverage_rate")));
+	vertexIndex.countKmers(/*hard threshold*/ 2, genomeSize);
 
 	ParametersEstimator estimator(readsContainer, vertexIndex, genomeSize);
 	estimator.estimateMinKmerCount();
@@ -244,7 +244,7 @@ int main(int argc, char** argv)
 						 (int)Config::get("maximum_jump"), 
 						 Parameters::get().minimumOverlap,
 						 (int)Config::get("maximum_overhang"),
-						 /*max ovlp*/ 5 * coverage, 
+						 /*no max ovlp*/ 0, 
 						 /*store alignment*/ false,
 						 /*only max*/ true,
 						 (float)Config::get("assemble_ovlp_ident"), 
