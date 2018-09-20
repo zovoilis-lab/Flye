@@ -4,12 +4,16 @@
 
 
 def find_connected_components(graph):
-    def dfs(vertex, connected_components_counter):
-        connected_components[vertex] = connected_components_counter
-        used[vertex] = True
-        for neighbour in graph[vertex]:
-            if not used[neighbour]:
-                dfs(neighbour, connected_components_counter)
+    def dfs(start_vertex, connected_components_counter):
+        dfs_stack = [start_vertex]
+        while len(dfs_stack):
+            vertex = dfs_stack.pop()
+
+            connected_components[vertex] = connected_components_counter
+            used[vertex] = True
+            for neighbour in graph[vertex]:
+                if not used[neighbour]:
+                    dfs_stack.append(neighbour)
 
     n_vertices = len(graph)
     connected_components = [0 for _ in range(n_vertices)]

@@ -116,7 +116,7 @@ class JobShortPlasmidsAssembly(Job):
 
         self.args = args
         self.work_dir = work_dir
-        self.plasmids_dir = os.path.join(work_dir, "2b-plasmids")
+        self.plasmids_dir = os.path.join(work_dir, "99-plasmids")
         self.contigs_path = contigs_file
         self.name = "plasmids"
         self.out_files["short_plasmids"] = os.path.join(self.plasmids_dir,
