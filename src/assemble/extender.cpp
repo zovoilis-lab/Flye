@@ -220,10 +220,16 @@ void Extender::assembleContigs()
 			if (_innerReads.contains(ovlp.extId)) ++numInnerOvlp;
 			++totalOverlaps;
 		}
-		int maxExtensions = _chimDetector.getOverlapCoverage() * 10;
+
+		int maxStartExt = _chimDetector.getOverlapCoverage() * 10;
+		//int minStartExt = std::max(1, _chimDetector.getOverlapCoverage() / 50);
+		int minStartExt = 1;
+		int extLeft = this->countRightExtensions(revOverlaps);
+		int extRight = this->countRightExtensions(startOvlps);
+
 		if (_chimDetector.isChimeric(startRead, startOvlps) ||
-			this->countRightExtensions(startOvlps) > maxExtensions ||
-			this->countRightExtensions(revOverlaps) > maxExtensions ||
+			std::max(extLeft, extRight) > maxStartExt ||
+			std::min(extLeft, extRight) < minStartExt ||
 			numInnerOvlp > totalOverlaps / 2) return;
 		
 		//Good to go!
