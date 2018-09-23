@@ -396,7 +396,10 @@ void VertexIndex::buildIndex(int minCoverage)
 	std::vector<FastaRecord::Id> allReads;
 	for (auto& seq : _seqContainer.iterSeqs())
 	{
-		allReads.push_back(seq.id);
+		if (seq.sequence.length() > (size_t)Parameters::get().minimumOverlap)
+		{
+			allReads.push_back(seq.id);
+		}
 	}
 	processInParallel(allReads, indexUpdate, 
 					  Parameters::get().numThreads, _outputProgress);

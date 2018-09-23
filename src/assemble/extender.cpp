@@ -227,6 +227,7 @@ void Extender::assembleContigs()
 		int minStartExt = 5;
 		int extLeft = this->countRightExtensions(revOverlaps);
 		int extRight = this->countRightExtensions(startOvlps);
+
 		if (_chimDetector.isChimeric(startRead, startOvlps) ||
 			std::max(extLeft, extRight) > maxStartExt ||
 			std::min(extLeft, extRight) < minStartExt ||
@@ -396,7 +397,11 @@ std::vector<FastaRecord::Id>
 		if (coverage.empty())
 		{
 			int numWindows = _readsContainer.seqLen(ovlp.extId) / WINDOW;
-			if (!numWindows) throw std::runtime_error("wrong read length");
+			if (numWindows < 1)
+			{
+				Logger::get().warning() << "Wrong read length: " << numWindows;
+				numWindows = 1;
+			}
 			coverage.assign(numWindows, 0);
 		}
 
