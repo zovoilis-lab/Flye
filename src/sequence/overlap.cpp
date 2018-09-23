@@ -225,7 +225,8 @@ namespace
 std::vector<OverlapRange> 
 OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec, 
 								bool& outSuggestChimeric,
-								OvlpDivStats& divStats) const
+								OvlpDivStats& divStats,
+								int maxOverlaps) const
 {
 	const int MAX_LOOK_BACK = 50;
 	const int kmerSize = Parameters::get().kmerSize;
@@ -307,7 +308,7 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 	//if there is a limit on the number of sequences to consider,
 	//sort by the decreasing number of k-mer hits and filter
 	//some out if needed
-	if (_maxCurOverlaps > 0)
+	if (maxOverlaps > 0)
 	{
 		std::vector<std::pair<FastaRecord::Id, SeqCountType>> topSeqs;
 		topSeqs.reserve(lockedHitCount.size());
@@ -322,7 +323,7 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 				  [](const std::pair<FastaRecord::Id, SeqCountType> p1, 
 					 const std::pair<FastaRecord::Id, SeqCountType>& p2) 
 					 {return p1.second > p2.second;});
-		for (size_t i = (size_t)_maxCurOverlaps; i < topSeqs.size(); ++i)
+		for (size_t i = (size_t)maxOverlaps; i < topSeqs.size(); ++i)
 		{
 			lockedHitCount[topSeqs[i].first] = 0;
 		}
@@ -691,12 +692,12 @@ bool OverlapContainer::hasSelfOverlaps(FastaRecord::Id readId)
 
 
 std::vector<OverlapRange> 
-	OverlapContainer::quickSeqOverlaps(FastaRecord::Id readId)
+	OverlapContainer::quickSeqOverlaps(FastaRecord::Id readId, int maxOverlaps)
 {
 	bool suggestChimeric;
 	const FastaRecord& record = _queryContainer.getRecord(readId);
 	return _ovlpDetect.getSeqOverlaps(record, suggestChimeric, 
-									  _divergenceStats);
+									  _divergenceStats, maxOverlaps);
 }
 
 const std::vector<OverlapRange>&
@@ -720,7 +721,8 @@ const std::vector<OverlapRange>&
 	bool suggestChimeric;
 	const FastaRecord& record = _queryContainer.getRecord(readId);
 	auto overlaps = _ovlpDetect.getSeqOverlaps(record, suggestChimeric, 
-											   _divergenceStats);
+											   _divergenceStats,
+											   _ovlpDetect._maxCurOverlaps);
 	overlaps.shrink_to_fit();
 
 	std::vector<OverlapRange> revOverlaps;

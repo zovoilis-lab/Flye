@@ -208,7 +208,8 @@ void Extender::assembleContigs()
 		//getting overlaps without caching first - so we don't
 		//store overlap information for many trashy reads
 		//that won't result into contig extension
-		auto startOvlps = _ovlpContainer.quickSeqOverlaps(startRead);
+		auto startOvlps = _ovlpContainer.quickSeqOverlaps(startRead, 
+														  /*max overlaps*/ 100);
 		std::vector<OverlapRange> revOverlaps;
 		revOverlaps.reserve(startOvlps.size());
 		for (auto& ovlp : startOvlps) revOverlaps.push_back(ovlp.complement());

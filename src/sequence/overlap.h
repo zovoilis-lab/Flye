@@ -241,7 +241,8 @@ private:
 	std::vector<OverlapRange> 
 	getSeqOverlaps(const FastaRecord& fastaRec, 
 				   bool& outSuggestChiemeric,
-				   OvlpDivStats& divergenceStats) const;
+				   OvlpDivStats& divergenceStats,
+				   int maxOverlaps) const;
 
 	bool    overlapTest(const OverlapRange& ovlp, bool& outSuggestChimeric) const;
 	
@@ -301,7 +302,8 @@ public:
 	bool hasSelfOverlaps(FastaRecord::Id seqId);
 
 	//finds and returns overlaps - no caching is done	
-	std::vector<OverlapRange> quickSeqOverlaps(FastaRecord::Id readId);
+	std::vector<OverlapRange> quickSeqOverlaps(FastaRecord::Id readId, 
+											   int maxOverlaps=0);
 
 	size_t indexSize() {return _indexSize;}
 
