@@ -34,6 +34,8 @@ private:
 		int32_t flankLength;
 	};
 
+	bool checkByReadExtension(const GraphEdge* edge,
+							  const std::vector<GraphAlignment>& alignments);
 	void clearResolvedRepeats();
 	std::vector<Connection> getConnections();
 	int  resolveConnections(const std::vector<Connection>& conns, 
