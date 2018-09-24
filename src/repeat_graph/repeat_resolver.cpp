@@ -192,6 +192,93 @@ int RepeatResolver::resolveConnections(const std::vector<Connection>& connection
 	return uniqueConnections.size();
 }
 
+bool RepeatResolver::checkByReadExtension(const GraphEdge* edge,
+										  const std::vector<GraphAlignment>& alignments)
+{
+	const GraphEdge* currentEdge = edge;
+	std::vector<GraphAlignment> consistentReads = alignments;
+
+	Logger::get().debug() << "Starting from edge " << edge->edgeId.signedId();
+
+	//while(!consistentReads.empty())
+	while(true)
+	{
+		//select reads that are consistent with the current path extension
+		std::vector<GraphAlignment> selectedReads;
+		for (auto& aln : consistentReads)
+		{
+			for (size_t i = 0; i < aln.size() - 1; ++i)
+			{
+				if (aln[i].edge == currentEdge)
+				{
+					if (aln[i].edge->isLooped() &&
+						aln[i].edge == aln[i + 1].edge) continue;
+
+					selectedReads.emplace_back();
+					std::copy(aln.begin() + i, aln.end(), 
+							  std::back_inserter(selectedReads.back()));
+					break;
+				}
+
+			}
+		}
+		if (selectedReads.empty()) break;
+		consistentReads.swap(selectedReads);
+		
+		//count all possible extensions from this edge
+		std::unordered_map<GraphEdge*, int> outConnections;
+		for (auto& readPath : consistentReads)
+		{
+			++outConnections[readPath[1].edge];
+		}
+
+		//check if there is agreement
+		int maxSupport = 0;
+		GraphEdge* maxEdge = nullptr;
+		for (auto& outConn : outConnections)
+		{
+			if (maxSupport < outConn.second)
+			{
+				maxSupport =  outConn.second;
+				maxEdge = outConn.first;
+			}
+		}
+
+		int repeatMult = 0;
+		int uniqueMult = 0;
+		int minSupport = maxSupport / (int)Config::get("out_paths_ratio");
+		for (auto& outConn : outConnections) 
+		{
+			if (outConn.second > minSupport)
+			{
+				//all repeatitive successors are count as one
+				outConn.first->repetitive ? ++repeatMult : ++uniqueMult;
+			}
+		}
+
+		int outMultiplicity = std::min(repeatMult, 1) + uniqueMult;
+		if (outMultiplicity > 1) 
+		{
+			Logger::get().debug() << "\tAmbiguity:";
+			for (auto& outConn : outConnections) 
+			{
+				if (outConn.second > minSupport)
+				{
+					Logger::get().debug() << "\t\t" << outConn.first->edgeId.signedId()
+						<< " " << outConn.second;
+				}
+			}
+			return true;
+		}
+
+		//found consistent extension, repeat
+		currentEdge = maxEdge;
+		Logger::get().debug() << "\tContinued to " << maxEdge->edgeId.signedId();
+	}
+	
+	return false;
+}
+
 //Classifies all edges into unique and repetitive based on the coverage + 
 //alignment information - one of the key steps here.
 void RepeatResolver::findRepeats()
@@ -326,6 +413,8 @@ void RepeatResolver::findRepeats()
 			  {return p1->length < p2->length;});
 	for (auto& path : sortedPaths)
 	{
+		this->checkByReadExtension(path->path.back(), _aligner.getAlignments());
+
 		if (!path->id.strand()) continue;
 		if (path->path.front()->repetitive) continue;
 
