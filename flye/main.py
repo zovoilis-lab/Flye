@@ -221,8 +221,7 @@ class JobConsensus(Job):
         logger.info("Computing consensus")
         consensus_fasta = cons.get_consensus(out_alignment, self.in_contigs,
                                              contigs_info, self.args.threads,
-                                             self.args.platform,
-                                             cfg.vals["min_aln_rate"])
+                                             self.args.platform)
         fp.write_fasta_dict(consensus_fasta, self.out_consensus)
 
 
