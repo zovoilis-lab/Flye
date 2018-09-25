@@ -16,56 +16,64 @@ Table of Contents
 
 ## <a name="quickusage"></a> Quick usage
 
-    usage: flye (--pacbio-raw | --pacbio-corr | --nano-raw |
-                 --nano-corr | --subassemblies) file1 [file_2 ...]
-                 --genome-size size --out-dir dir_path [--threads int]
-                 [--iterations int] [--min-overlap int] [--resume]
-                 [--debug] [--version] [--help]
-    
-    Assembly of long and error-prone reads
-    
-    optional arguments:
-      -h, --help            show this help message and exit
-      --pacbio-raw path [path ...]
-                            PacBio raw reads
-      --pacbio-corr path [path ...]
-                            PacBio corrected reads
-      --nano-raw path [path ...]
-                            ONT raw reads
-      --nano-corr path [path ...]
-                            ONT corrected reads
-      --subassemblies path [path ...]
-                            high-quality contig-like input
-      -g size, --genome-size size
-                            estimated genome size (for example, 5m or 2.6g)
-      -o path, --out-dir path
-                            Output directory
-      -t int, --threads int
-                            number of parallel threads (default: 1)
-      -i int, --iterations int
-                            number of polishing iterations (default: 1)
-      -m int, --min-overlap int
-                            minimum overlap between reads (default: 5000)
-      --resume              resume from the last completed stage
-      --resume-from stage_name
-                            resume from a custom stage
-      --debug               enable debug output
-      -v, --version         show program's version number and exit
+```
+usage: flye (--pacbio-raw | --pacbio-corr | --nano-raw |
+	     --nano-corr | --subassemblies) file1 [file_2 ...]
+	     --genome-size SIZE --out-dir PATH
+	     [--threads int] [--iterations int] [--min-overlap int]
+	     [--debug] [--version] [--help] [--resume]
+
+Assembly of long and error-prone reads
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --pacbio-raw path [path ...]
+                        PacBio raw reads
+  --pacbio-corr path [path ...]
+                        PacBio corrected reads
+  --nano-raw path [path ...]
+                        ONT raw reads
+  --nano-corr path [path ...]
+                        ONT corrected reads
+  --subassemblies path [path ...]
+                        high-quality contigs input
+  -g size, --genome-size size
+                        estimated genome size (for example, 5m or 2.6g)
+  -o path, --out-dir path
+                        Output directory
+  -t int, --threads int
+                        number of parallel threads [1]
+  -i int, --iterations int
+                        number of polishing iterations [1]
+  -m int, --min-overlap int
+                        minimum overlap between reads [auto]
+  --asm-coverage int    reduced coverage for initial contig assembly [not set]
+  --resume              resume from the last completed stage
+  --resume-from stage_name
+                        resume from a custom stage
+  --debug               enable debug output
+  -v, --version         show program's version number and exit
+```
+
 
 Input reads could be in FASTA or FASTQ format, uncompressed
 or compressed with gz. Currenlty, raw and corrected reads
 from PacBio and ONT are supported. The expected error rates are
 <30% for raw and <2% for corrected reads. Additionally,
-```--subassemblies``` option performs a consensus assembly of multiple
+--subassemblies option performs a consensus assembly of multiple
 sets of high-quality contigs. You may specify multiple
 files with reads (separated by spaces). Mixing different read
 types is not yet supported.
 
 You must provide an estimate of the genome size as input,
-which is used for solid k-mers selection. The estimate could
-be rough (e.g. withing 0.5x-2x range) and does not affect
-the other assembly stages. Standard size modificators are
-supported (e.g. 5m or 2.6g)
+which is used for solid k-mers selection. Standard size
+modificators are supported (e.g. 5m or 2.6g)
+
+To reduce memory consumption for large genome assemblies,
+you can use a subset of the longest reads for initial contig
+assembly by specifying --asm-coverage option. Typically,
+40x coverage is enough to produce good draft contigs.
+
 
 
 ## <a name="examples"></a> Examples
@@ -161,6 +169,16 @@ repeat graph is less tangled. However, higher values might lead to assembly gaps
 In some *rare* cases (for example in case of biased read length distribution)
 it makes sense to set this parameter manualy.
 
+### Contig assembly coverage
+
+Typically, assemblies of large genomes at high coverage require
+a lot of RAM. For high coverage assemblies, you can reduce memory usage
+by using only a subset of longest reads for initial contig extension
+stage (typically, the memory bottleneck). The parameter ```--asm-coverage```
+specifies the target coverage of the longest reads. Typically, 40x
+is enough to produce good initial contigs. Regardless of this parameter,
+all reads will be later used for repeat graph analysis.
+
 ### Number of polishing iterations
 
 Flye first constructs a draft assembly of the genome, which is a 
@@ -171,7 +189,7 @@ errors (due to improvements on how reads may align to the corrected assembly;
 especially for ONT datasets). If the parameter is set to 0, the polishing will
 not be performed.
 
-### Starting from a particular assembly stage
+### Re-starting from a particular assembly stage
 
 Use ```--resume``` to resume a previous run of the assembler that may have terminated
 prematurely (using the same output directory). 
@@ -251,7 +269,7 @@ computational node. The more detailed benchmarks are below.
 | E.coli       | 5 Mb   | 50       | 170 m     | 2 Gb   |
 | S.cerevisiae | 12 Mb  | 30       | 180 m     | 7 Gb   |
 | C.elegans    | 100 Mb | 30       | 160 h     | 23 Gb  |
-| H.sapiens    | 3 Gb   | 30       | 8400 h    | 700 Gb |
+| H.sapiens    | 3 Gb   | 30       | 5000 h    | 500 Gb |
 
 
 ## <a name="algorithm"></a> Algorithm Description

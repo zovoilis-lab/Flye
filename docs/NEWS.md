@@ -1,3 +1,11 @@
+Flye 2.3.6 (24 Sep 2018)
+========================
+* Memory consumption for large genome assemblies reduced by ~30%
+* It could be reduced even further by using the new option --asm-coverage,
+which specifies a subset of reads for initial contig assembly
+* Better repeat graph representation for complex genomes
+* Various bugfixes and stability improvements
+
 Flye 2.3.5 (7 August 2018)
 ==========================
 * New solid kmer alignment implementation with improved specificity

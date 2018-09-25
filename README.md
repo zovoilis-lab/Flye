@@ -1,21 +1,43 @@
-Flye assembler (successor of ABruijn)
-=====================================
+Flye assembler
+==============
 
 [![BioConda Install](https://img.shields.io/conda/dn/bioconda/flye.svg?style=flag&label=BioConda%20install)](https://anaconda.org/bioconda/flye)
 
-### Version: 2.3.6b
+### Version: 2.3.6
 
 Flye is a de novo assembler for long and noisy reads, such as
 those produced by PacBio and Oxford Nanopore Technologies.
-The algorithm uses an A-Bruijn graph to find the overlaps between reads
-and does not require them to be error-corrected. After the initial assembly, 
-Flye performs an extra repeat classification and analysis step to improve the structural
-accuracy of the resulting sequence. The package also includes a polisher
+It is built on top of the ABruijn assembler, and features many new
+algorithmic improvements. The core read overlapping algorithm uses an A-Bruijn graph 
+to find the mappings between reads and does not require them to be error-corrected. 
+As a result, Flye is 2-10 times faster then hierarchical assembly pipelines.
+After the initial contig assembly, Flye constructs assembly (repeat) graph and
+accurately resolves repeats using bridging reads. The package also includes a polisher
 module, which produces the final assembly of high nucleotide-level quality.
 
 
-New in version 2.3
-------------------
+
+Latest updates
+--------------
+
+### Experimental metagenome version (24 Sep 2018)
+
+Experimental Flye version for metagenome assembly is available 
+in the 'flye-meta' branch of this repository. Be aware that
+this is still an early 'beta' version, and the code is frequently
+updated.
+
+
+### Flye 2.3.6 released (24 Sep 2018)
+
+* Memory consumption for large genome assemblies reduced by ~30%
+* It could be reduced even further by using the new option --asm-coverage,
+which specifies a subset of reads for initial contig assembly
+* Better repeat graph representation for complex genomes
+* Various bugfixes and stability improvements
+
+
+### Flye 2.3 released (04 Jan 2018)
 
 * ABruijn 2.x branch has been renamed to Flye, highlighting many substantial algorithmic changes
 * Stable version of the repeat analysis module
@@ -26,6 +48,8 @@ New in version 2.3
 * Extra output with information about the contigs (coverage, multiplicity, graph paths etc.)
 * Gzipped Fasta/q support
 * Multiple read files support
+* Various bugfixes
+
 
 
 Manuals
