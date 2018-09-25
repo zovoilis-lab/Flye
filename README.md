@@ -20,8 +20,7 @@ module, which produces the final assembly of high nucleotide-level quality.
 Latest updates
 --------------
 
-Experimental metagenome version (24 Sep 2018)
-=============================================
+### Experimental metagenome version (24 Sep 2018)
 
 Experimental Flye version for metagenome assembly is available 
 in the 'flye-meta' branch of this repository. Be aware that
@@ -29,8 +28,7 @@ this is still an early 'beta' version, and the code is frequently
 updated.
 
 
-Flye 2.3.6 released (24 Sep 2018)
-=================================
+### Flye 2.3.6 released (24 Sep 2018)
 
 * Memory consumption for large genome assemblies reduced by ~30%
 * It could be reduced even further by using the new option --asm-coverage,
@@ -39,8 +37,7 @@ which specifies a subset of reads for initial contig assembly
 * Various bugfixes and stability improvements
 
 
-Flye 2.3 released (04 Jan 2018)
-===============================
+### Flye 2.3 released (04 Jan 2018)
 
 * ABruijn 2.x branch has been renamed to Flye, highlighting many substantial algorithmic changes
 * Stable version of the repeat analysis module
