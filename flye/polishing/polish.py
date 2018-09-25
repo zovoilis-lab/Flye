@@ -76,7 +76,7 @@ def polish(contig_seqs, read_seqs, work_dir, num_iters, num_threads, error_mode,
         coverage_stats, mean_aln_error = \
             make_bubbles(alignment_file, contigs_info, prev_assembly,
                          error_mode, num_threads,
-                         cfg.vals["min_aln_rate"], bubbles_file)
+                         bubbles_file)
         logger_func("Alignment error rate: {0}".format(mean_aln_error))
 
         logger_func("Correcting bubbles")
@@ -114,7 +114,7 @@ def generate_polished_edges(edges_file, gfa_file, polished_contigs, work_dir,
                    work_dir, error_mode, alignment_file)
     aln_reader = SynchronizedSamReader(alignment_file,
                                        polished_dict,
-                                       min_aln_rate=0)
+                                       cfg.vals["max_read_coverage"])
     aln_reader.init_reading()
     aln_by_edge = defaultdict(list)
 
