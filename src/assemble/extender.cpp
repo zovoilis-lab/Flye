@@ -224,7 +224,7 @@ void Extender::assembleContigs()
 
 		int maxStartExt = _chimDetector.getOverlapCoverage() * 10;
 		//int minStartExt = std::max(1, _chimDetector.getOverlapCoverage() / 50);
-		int minStartExt = 5;
+		int minStartExt = 1;
 		int extLeft = this->countRightExtensions(revOverlaps);
 		int extRight = this->countRightExtensions(startOvlps);
 

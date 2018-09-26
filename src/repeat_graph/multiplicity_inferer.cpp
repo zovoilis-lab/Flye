@@ -101,6 +101,7 @@ void MultiplicityInferer::removeUnsupportedEdges()
 	int32_t coverageThreshold = std::round((float)this->getMeanCoverage() / 
 											Config::get("graph_cov_drop_rate"));
 	coverageThreshold = std::max(1, coverageThreshold);
+	coverageThreshold = std::min(coverageThreshold, 2);
 	Logger::get().debug() << "Read coverage cutoff: " << coverageThreshold;
 
 	std::unordered_set<GraphEdge*> edgesRemove;

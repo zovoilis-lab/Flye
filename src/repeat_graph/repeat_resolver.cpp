@@ -468,7 +468,7 @@ void RepeatResolver::fixLongEdges()
 void RepeatResolver::resolveRepeats()
 {
 	//make the first iteration resolve only high-confidence connections
-	bool perfectIter = true;	
+	bool perfectIter = false;	//no.
 	while (true)
 	{
 		float minSupport = perfectIter ? 1.0f : 
