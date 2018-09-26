@@ -116,7 +116,7 @@ class JobShortPlasmidsAssembly(Job):
 
         self.args = args
         self.work_dir = work_dir
-        self.plasmids_dir = os.path.join(work_dir, "99-plasmids")
+        self.plasmids_dir = os.path.join(work_dir, "5-plasmids")
         self.contigs_path = contigs_file
         self.name = "plasmids"
         self.out_files["short_plasmids"] = os.path.join(self.plasmids_dir,
@@ -289,9 +289,6 @@ def _create_job_list(args, work_dir, log_file):
     edges_seqs = jobs[-1].out_files["edges_sequences"]
     repeat_stats = jobs[-1].out_files["stats"]
 
-    #Short plasmids
-    jobs.append(JobShortPlasmidsAssembly(args, work_dir, raw_contigs))
-
     #Polishing
     contigs_file = raw_contigs
     polished_stats = None
@@ -302,6 +299,10 @@ def _create_job_list(args, work_dir, log_file):
         contigs_file = jobs[-1].out_files["contigs"]
         polished_stats = jobs[-1].out_files["stats"]
         polished_gfa = jobs[-1].out_files["polished_gfa"]
+
+    #Short plasmids
+    if args.plasmids:
+        jobs.append(JobShortPlasmidsAssembly(args, work_dir, contigs_file))
 
     #Report results
     jobs.append(JobFinalize(args, work_dir, log_file, contigs_file,
@@ -476,7 +477,9 @@ def main():
     parser.add_argument("--asm-coverage", dest="asm_coverage", metavar="int",
                         default=None, help="reduced coverage for initial "
                         "contig assembly [not set]", type=int)
-
+    parser.add_argument("--plasmids", action="store_true",
+                        dest="plasmids", default=False,
+                        help="try to rescue short unassmebled plasmids")
     parser.add_argument("--resume", action="store_true",
                         dest="resume", default=False,
                         help="resume from the last completed stage")
