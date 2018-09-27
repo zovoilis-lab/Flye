@@ -249,8 +249,7 @@ int main(int argc, char** argv)
 						 /* bad end adjustment*/ 0.0f);
 	OverlapContainer readOverlaps(ovlp, readsContainer);
 
-	Extender extender(readsContainer, readOverlaps, coverage, 
-					  estimator.genomeSizeEstimate());
+	Extender extender(readsContainer, readOverlaps);
 	extender.assembleContigs();
 	vertexIndex.clear();
 

@@ -15,7 +15,6 @@ from collections import namedtuple
 import flye.polishing.alignment as flye_aln
 import flye.utils.fasta_parser as fp
 import flye.config.py_cfg as config
-import flye.polishing.bubbles as bbl
 import flye.polishing.polish as pol
 
 import flye.trestle.divergence as div
@@ -23,6 +22,9 @@ import flye.trestle.trestle_config as trestle_config
 
 logger = logging.getLogger()
 
+MIN_ALN_RATE = 0.5
+
+"""
 def _run_polishing(args, reads, seqs, polish_dir):
     MIN_ALN_RATE = config.vals["min_aln_rate"]
     if not os.path.isdir(polish_dir):
@@ -59,6 +61,7 @@ def _run_polishing(args, reads, seqs, polish_dir):
                     contig_lengths[ctg_id], coverage_stats[ctg_id]))
     
     return polished_seqs
+"""
 
 
 def resolve_repeats(args, trestle_dir, repeats_dump, graph_edges, summ_file):
@@ -132,8 +135,11 @@ def resolve_repeats(args, trestle_dir, repeats_dump, graph_edges, summ_file):
             #2. Polish template and extended templates
             logger.debug("Polishing templates")
             pol_temp_dir = os.path.join(orient_dir, pol_temp_name)
-            polished_template = _run_polishing(args, [repeat_reads], template, 
-                                               pol_temp_dir)
+            polished_template, _stats = \
+                pol.polish(template, [repeat_reads], pol_temp_dir, 1,
+                           args.threads, args.platform, output_progress=False)
+            #polished_template = _run_polishing(args, [repeat_reads], template, 
+            #                                   pol_temp_dir)
 
             if not os.path.isfile(polished_template):
                 for side in side_labels:
@@ -143,9 +149,14 @@ def resolve_repeats(args, trestle_dir, repeats_dump, graph_edges, summ_file):
             for side in side_labels:
                 for edge_id in repeat_edges[rep][side]:
                     pol_ext_dir = os.path.join(orient_dir, pol_ext_name)
-                    pol_output = _run_polishing(args, [repeat_reads], 
-                                                extended.format(side, edge_id), 
-                                                pol_ext_dir.format(side, edge_id))                    
+
+                    pol_output, _stats = \
+                        pol.polish(extended.format(side, edge_id), [repeat_reads],
+                                   pol_ext_dir.format(side, edge_id), 1,
+                                   args.threads, args.platform, output_progress=False)
+                    #pol_output = _run_polishing(args, [repeat_reads], 
+                    #                            extended.format(side, edge_id), 
+                    #                            pol_ext_dir.format(side, edge_id))                    
                     polished_extended[(side, edge_id)] = pol_output
                     if not os.path.isfile(pol_output):
                         term_bool[side] = True
@@ -169,7 +180,7 @@ def resolve_repeats(args, trestle_dir, repeats_dump, graph_edges, summ_file):
             logger.debug("Finding tentative divergence positions")
             div.find_divergence(alignment_file, polished_template, 
                                 template_info, frequency_path, position_path, 
-                                summary_path, config.vals["min_aln_rate"], 
+                                summary_path, MIN_ALN_RATE, 
                                 args.platform, args.threads,
                                 SUB_THRESH, DEL_THRESH, INS_THRESH) 
             read_endpoints = find_read_endpoints(alignment_file, 
@@ -260,9 +271,16 @@ def resolve_repeats(args, trestle_dir, repeats_dump, graph_edges, summ_file):
                         curr_extended = polished_extended[(side, edge_id)]
                         pol_reads_str = "polishing '{0} {1}' reads"
                         logger.debug(pol_reads_str.format(side, edge_id))
-                        pol_con_out = _run_polishing(args, [curr_reads], 
-                                                curr_extended, 
-                                                pol_con_dir)
+
+                        if not os.path.isdir(pol_con_dir):
+                            os.mkdir(pol_con_dir)
+                        pol_con_out, _stats = \
+                            pol.polish(curr_extended, [curr_reads], pol_con_dir, 1,
+                                       args.threads, args.platform,
+                                       output_progress=False)
+                        #pol_con_out = _run_polishing(args, [curr_reads], 
+                        #                        curr_extended, 
+                        #                        pol_con_dir)
                         #7b. Cut consensus where coverage drops
                         cutpoint = locate_consensus_cutpoint(
                                         side, read_endpoints,
@@ -1034,7 +1052,7 @@ def _read_alignment(alignment, target_path, min_aln_rate):
     alignments = []
     aln_reader = flye_aln.SynchronizedSamReader(alignment,
                                        fp.read_sequence_dict(target_path),
-                                       min_aln_rate)
+                                       config.vals["max_read_coverage"])
     aln_reader.init_reading()
     while not aln_reader.is_eof():
         ctg_id, ctg_aln = aln_reader.get_chunk()

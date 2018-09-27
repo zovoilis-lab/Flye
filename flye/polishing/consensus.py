@@ -46,13 +46,13 @@ def _thread_worker(aln_reader, contigs_info, platform, results_queue,
 
 
 def get_consensus(alignment_path, contigs_path, contigs_info, num_proc,
-                  platform, min_aln_length):
+                  platform):
     """
     Main function
     """
     aln_reader = SynchronizedSamReader(alignment_path,
                                        fp.read_sequence_dict(contigs_path),
-                                       min_aln_length)
+                                       cfg.vals["max_read_coverage"])
     manager = multiprocessing.Manager()
     results_queue = manager.Queue()
     error_queue = manager.Queue()

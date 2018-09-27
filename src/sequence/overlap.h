@@ -269,7 +269,8 @@ public:
 	OverlapContainer(const OverlapDetector& ovlpDetect,
 					 const SequenceContainer& queryContainer):
 		_ovlpDetect(ovlpDetect),
-		_queryContainer(queryContainer)
+		_queryContainer(queryContainer),
+		_indexSize(0)
 	{}
 
 	struct IndexVecWrapper
@@ -302,6 +303,8 @@ public:
 	//finds and returns overlaps - no caching is done	
 	std::vector<OverlapRange> quickSeqOverlaps(FastaRecord::Id readId);
 
+	size_t indexSize() {return _indexSize;}
+
 	//The functions below are NOT thread safe.
 	//Do not mix them with any other functions
 
@@ -330,6 +333,7 @@ private:
 
 	OvlpDivStats _divergenceStats;
 	OverlapIndex _overlapIndex;
+	std::atomic<size_t> _indexSize;
 	std::unordered_map<FastaRecord::Id, 
 					   IntervalTree<OverlapRange*>> _ovlpTree;
 };

@@ -37,14 +37,37 @@ class AlignmentException(Exception):
 
 class SynchronizedSamReader(object):
     """
-    Parsing SAM file in multiple threads
+    Parsing SAM file in multiple threads. Filters out secondary alignments,
+    but keeps supplementary (split) alignments
     """
-    def __init__(self, sam_alignment, reference_fasta, min_aln_rate):
-        #will not be changed during exceution
+    def __init__(self, sam_alignment, reference_fasta,
+                 max_coverage=None):
+        #will not be changed during exceution, each process has its own copy
         self.aln_path = sam_alignment
+        self.aln_file = None
         self.ref_fasta = reference_fasta
         self.change_strand = True
-        self.min_aln_rate = min_aln_rate
+        self.max_coverage = max_coverage
+        self.seq_lengths = {}
+
+        #reading SAM header
+        if not os.path.exists(self.aln_path):
+            raise AlignmentException("Can't open {0}".format(self.aln_path))
+
+        with open(self.aln_path, "r") as f:
+            for line in f:
+                if not line or not line.startswith("@"):
+                    break
+                if line.startswith("@SQ"):
+                    seq_name = None
+                    seq_len = None
+                    for tag in line.split():
+                        if tag.startswith("SN"):
+                            seq_name = tag[3:]
+                        if tag.startswith("LN"):
+                            seq_len = int(tag[3:])
+                    if seq_name and seq_len:
+                        self.seq_lengths[seq_name] = seq_len
 
         #will be shared between processes
         self.lock = multiprocessing.Lock()
@@ -55,8 +78,6 @@ class SynchronizedSamReader(object):
         """
         Call from the reading process, initializing local variables
         """
-        if not os.path.exists(self.aln_path):
-            raise AlignmentException("Can't open {0}".format(self.aln_path))
         self.aln_file = open(self.aln_path, "r")
         self.processed_contigs = set()
         self.cigar_parser = re.compile("[0-9]+[MIDNSHP=X]")
@@ -157,7 +178,7 @@ class SynchronizedSamReader(object):
                 flags = int(tokens[1])
                 is_unmapped = flags & 0x4
                 is_secondary = flags & 0x100
-                #is_supplementary = flags & 0x800
+                is_supplementary = flags & 0x800    #allow supplementary
 
                 if is_unmapped or is_secondary: continue
                 if read_contig in self.processed_contigs:
@@ -181,6 +202,11 @@ class SynchronizedSamReader(object):
                 parsed_contig = current_contig
         #end with
 
+        if not parsed_contig in self.seq_lengths:
+            raise AlignmentException("Missing from SAM header: " + parsed_contig)
+        contig_length = self.seq_lengths[parsed_contig]
+        sequence_length = 0
+
         alignments = []
         for tokens in buffer:
             read_id = tokens[0]
@@ -195,14 +221,18 @@ class SynchronizedSamReader(object):
             qry_start, qry_end, qry_len, qry_seq, err_rate) = \
                     self.parse_cigar(cigar_str, read_str, read_contig, ctg_pos)
 
-            OVERHANG = cfg.vals["read_aln_overhang"]
-            if (float(qry_end - qry_start) / qry_len > self.min_aln_rate or
-                    trg_start < OVERHANG or trg_len - trg_end < OVERHANG):
-                aln = Alignment(read_id, read_contig, qry_start,
-                                qry_end, "-" if is_reversed else "+",
-                                qry_len, trg_start, trg_end, "+", trg_len,
-                                qry_seq, trg_seq, err_rate)
-                alignments.append(aln)
+            #OVERHANG = cfg.vals["read_aln_overhang"]
+            #if (float(qry_end - qry_start) / qry_len > self.min_aln_rate or
+            #        trg_start < OVERHANG or trg_len - trg_end < OVERHANG):
+            aln = Alignment(read_id, read_contig, qry_start,
+                            qry_end, "-" if is_reversed else "+",
+                            qry_len, trg_start, trg_end, "+", trg_len,
+                            qry_seq, trg_seq, err_rate)
+            alignments.append(aln)
+
+            sequence_length += qry_end - qry_start
+            if sequence_length / contig_length > self.max_coverage:
+                break
 
         return parsed_contig, alignments
 
@@ -221,13 +251,28 @@ def make_alignment(reference_file, reads_file, num_proc,
     """
     _run_minimap(reference_file, reads_file, num_proc, platform, out_alignment)
     logger.debug("Sorting alignment file")
-    temp_file = out_alignment + "_sorted"
+    sorted_file = out_alignment + "_sorted"
+    merged_file = out_alignment + "_merged"
     env = os.environ.copy()
     env["LC_ALL"] = "C"
     subprocess.check_call(["sort", "-k", "3,3", "-T", work_dir, out_alignment],
-                          stdout=open(temp_file, "w"), env=env)
-    os.remove(out_alignment)
-    os.rename(temp_file, out_alignment)
+                          stdout=open(sorted_file, "w"), env=env)
+
+    #puting back SAM headers
+    with open(merged_file, "w") as f:
+        for line in open(out_alignment, "r"):
+            if not line.startswith("@"):
+                break
+            f.write(line)
+
+        os.remove(out_alignment)
+
+        for line in open(sorted_file, "r"):
+            if not line.startswith("@"):
+                f.write(line)
+
+    os.remove(sorted_file)
+    os.rename(merged_file, out_alignment)
 
 
 def get_contigs_info(contigs_file):

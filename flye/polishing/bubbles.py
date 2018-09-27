@@ -81,13 +81,13 @@ def _thread_worker(aln_reader, contigs_info, err_mode,
 
 
 def make_bubbles(alignment_path, contigs_info, contigs_path,
-                 err_mode, num_proc, min_alignment, bubbles_out):
+                 err_mode, num_proc, bubbles_out):
     """
     The main function: takes an alignment and returns bubbles
     """
     aln_reader = SynchronizedSamReader(alignment_path,
                                        fp.read_sequence_dict(contigs_path),
-                                       min_alignment)
+                                       cfg.vals["max_read_coverage"])
     manager = multiprocessing.Manager()
     results_queue = manager.Queue()
     error_queue = manager.Queue()

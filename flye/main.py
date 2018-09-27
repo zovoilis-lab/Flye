@@ -16,7 +16,6 @@ import shutil
 import subprocess
 
 import flye.polishing.alignment as aln
-import flye.polishing.bubbles as bbl
 import flye.polishing.polish as pol
 import flye.polishing.consensus as cons
 import flye.assembly.assemble as asm
@@ -120,20 +119,18 @@ class JobRepeat(Job):
         self.name = "repeat"
 
         self.repeat_dir = os.path.join(work_dir, "2-repeat")
-        contig_sequences = os.path.join(self.repeat_dir, "graph_paths.fasta")
-        assembly_graph = os.path.join(self.repeat_dir, "graph_final.gv")
-        contigs_stats = os.path.join(self.repeat_dir, "contigs_stats.txt")
-        self.out_files["contigs"] = contig_sequences
+        self.out_files["contigs"] = os.path.join(self.repeat_dir,
+                                                 "graph_paths.fasta")
+        self.out_files["assembly_graph"] = os.path.join(self.repeat_dir,
+                                                        "graph_final.gv")
+        self.out_files["edges_sequences"] = os.path.join(self.repeat_dir,
+                                                         "graph_final.fasta")
+        self.out_files["gfa_graph"] = os.path.join(self.repeat_dir,
+                                                   "graph_final.gfa")
+        self.out_files["stats"] = os.path.join(self.repeat_dir, "contigs_stats.txt")
         self.out_files["scaffold_links"] = os.path.join(self.repeat_dir,
                                                         "scaffolds_links.txt")
-        self.out_files["assembly_graph"] = assembly_graph
-        self.out_files["stats"] = contigs_stats
-        
-        #Adding repeats_dump.txt and graph_final.fasta to out_files
-        repeats_dump = os.path.join(self.repeat_dir, "repeats_dump.txt")
-        graph_final = os.path.join(self.repeat_dir, "graph_final.fasta")
-        self.out_files["repeats_dump"] = repeats_dump
-        self.out_files["graph_final"] = graph_final
+        self.out_files["repeats_dump"] = os.path.join(self.repeat_dir, "repeats_dump.txt")
 
     def run(self):
         if not os.path.isdir(self.repeat_dir):
@@ -147,7 +144,7 @@ class JobRepeat(Job):
 class JobFinalize(Job):
     def __init__(self, args, work_dir, log_file,
                  contigs_file, graph_file, repeat_stats,
-                 polished_stats, scaffold_links):
+                 polished_stats, polished_gfa, scaffold_links):
         super(JobFinalize, self).__init__()
 
         self.args = args
@@ -158,15 +155,18 @@ class JobFinalize(Job):
         self.repeat_stats = repeat_stats
         self.polished_stats = polished_stats
         self.scaffold_links = scaffold_links
+        self.polished_gfa = polished_gfa
 
-        self.out_files["contigs"] = os.path.join(work_dir, "contigs.fasta")
+        #self.out_files["contigs"] = os.path.join(work_dir, "contigs.fasta")
         self.out_files["scaffolds"] = os.path.join(work_dir, "scaffolds.fasta")
         self.out_files["stats"] = os.path.join(work_dir, "assembly_info.txt")
         self.out_files["graph"] = os.path.join(work_dir, "assembly_graph.gv")
+        self.out_files["gfa"] = os.path.join(work_dir, "assembly_graph.gfa")
 
     def run(self):
-        shutil.copy2(self.contigs_file, self.out_files["contigs"])
+        #shutil.copy2(self.contigs_file, self.out_files["contigs"])
         shutil.copy2(self.graph_file, self.out_files["graph"])
+        shutil.copy2(self.polished_gfa, self.out_files["gfa"])
 
         scaffolds = scf.generate_scaffolds(self.contigs_file, self.scaffold_links,
                                            self.out_files["scaffolds"])
@@ -200,18 +200,20 @@ class JobConsensus(Job):
         logger.info("Computing consensus")
         consensus_fasta = cons.get_consensus(out_alignment, self.in_contigs,
                                              contigs_info, self.args.threads,
-                                             self.args.platform,
-                                             cfg.vals["min_aln_rate"])
+                                             self.args.platform)
         fp.write_fasta_dict(consensus_fasta, self.out_consensus)
 
 
 class JobPolishing(Job):
-    def __init__(self, args, work_dir, log_file, in_contigs):
+    def __init__(self, args, work_dir, log_file, in_contigs, in_graph_edges,
+                 in_graph_gfa):
         super(JobPolishing, self).__init__()
 
         self.args = args
         self.log_file = log_file
         self.in_contigs = in_contigs
+        self.in_graph_edges = in_graph_edges
+        self.in_graph_gfa = in_graph_gfa
         self.polishing_dir = os.path.join(work_dir, "3-polishing")
 
         self.name = "polishing"
@@ -220,49 +222,23 @@ class JobPolishing(Job):
         self.out_files["contigs"] = final_contigs
         self.out_files["stats"] = os.path.join(self.polishing_dir,
                                                "contigs_stats.txt")
+        self.out_files["polished_gfa"] = os.path.join(self.polishing_dir,
+                                                      "polished_edges.gfa")
 
     def run(self):
         if not os.path.isdir(self.polishing_dir):
             os.mkdir(self.polishing_dir)
 
-        prev_assembly = self.in_contigs
-        contig_lengths = None
-        for i in xrange(self.args.num_iters):
-            logger.info("Polishing genome ({0}/{1})".format(i + 1,
-                                                self.args.num_iters))
+        pol.polish(self.in_contigs, self.args.reads, self.polishing_dir,
+                   self.args.num_iters, self.args.threads, self.args.platform,
+                   output_progress=True)
 
-            alignment_file = os.path.join(self.polishing_dir,
-                                          "minimap_{0}.sam".format(i + 1))
-            logger.info("Running Minimap2")
-            aln.make_alignment(prev_assembly, self.args.reads, self.args.threads,
-                               self.polishing_dir, self.args.platform,
-                               alignment_file)
-
-            logger.info("Separating alignment into bubbles")
-            contigs_info = aln.get_contigs_info(prev_assembly)
-            bubbles_file = os.path.join(self.polishing_dir,
-                                        "bubbles_{0}.fasta".format(i + 1))
-            coverage_stats, err_rate = \
-                bbl.make_bubbles(alignment_file, contigs_info, prev_assembly,
-                                 self.args.platform, self.args.threads,
-                                 cfg.vals["min_aln_rate"], bubbles_file)
-
-            logger.info("Alignment error rate: {0}".format(err_rate))
-
-            logger.info("Correcting bubbles")
-            polished_file = os.path.join(self.polishing_dir,
-                                         "polished_{0}.fasta".format(i + 1))
-            contig_lengths = pol.polish(bubbles_file, self.args.threads,
-                                        self.args.platform, self.polishing_dir,
-                                        i + 1, polished_file,
-                                        output_progress=True)
-            prev_assembly = polished_file
-
-        with open(self.out_files["stats"], "w") as f:
-            f.write("seq_name\tlength\tcoverage\n")
-            for ctg_id in contig_lengths:
-                f.write("{0}\t{1}\t{2}\n".format(ctg_id,
-                        contig_lengths[ctg_id], coverage_stats[ctg_id]))
+        polished_file = os.path.join(self.polishing_dir, "polished_{0}.fasta"
+                                     .format(self.args.num_iters))
+        pol.generate_polished_edges(self.in_graph_edges, self.in_graph_gfa,
+                                    polished_file,
+                                    self.polishing_dir, self.args.platform,
+                                    self.args.threads)
 
 
 class JobTrestle(Job):
@@ -317,25 +293,29 @@ def _create_job_list(args, work_dir, log_file):
     raw_contigs = jobs[-1].out_files["contigs"]
     scaffold_links = jobs[-1].out_files["scaffold_links"]
     graph_file = jobs[-1].out_files["assembly_graph"]
+    gfa_file = jobs[-1].out_files["gfa_graph"]
+    edges_seqs = jobs[-1].out_files["edges_sequences"]
     repeat_stats = jobs[-1].out_files["stats"]
     repeats_dump = jobs[-1].out_files["repeats_dump"]
-    graph_final = jobs[-1].out_files["graph_final"]
 
     #Polishing
     contigs_file = raw_contigs
     polished_stats = None
+    polished_gfa = gfa_file
     if args.num_iters > 0:
-        jobs.append(JobPolishing(args, work_dir, log_file, raw_contigs))
+        jobs.append(JobPolishing(args, work_dir, log_file, raw_contigs,
+                                 edges_seqs, gfa_file))
         contigs_file = jobs[-1].out_files["contigs"]
         polished_stats = jobs[-1].out_files["stats"]
+        polished_gfa = jobs[-1].out_files["polished_gfa"]
 
     #Trestle: Resolve Unbridged Repeats
-    jobs.append(JobTrestle(args, work_dir, log_file, repeats_dump, graph_final))
+    jobs.append(JobTrestle(args, work_dir, log_file, repeats_dump, edges_seqs))
 
     #Report results
     jobs.append(JobFinalize(args, work_dir, log_file, contigs_file,
                             graph_file, repeat_stats, polished_stats,
-                            scaffold_links))
+                            polished_gfa, scaffold_links))
 
     return jobs
 

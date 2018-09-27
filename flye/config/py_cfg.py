@@ -37,8 +37,9 @@ vals = {
         "solid_kmer_length" : 10,
         "max_bubble_length" : 500,
         "max_bubble_branches" : 50,
-        "min_aln_rate" : 0.50,
-        "read_aln_overhang" : 100,
+        "max_read_coverage" : 1000,
+        #"min_aln_rate" : 0.50,
+        #"read_aln_overhang" : 100,
 
         "err_modes" : {
             "pacbio" : {

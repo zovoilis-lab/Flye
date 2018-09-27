@@ -38,6 +38,19 @@ public:
 private:
 	struct IndexChunk
 	{
+		IndexChunk(): 
+			hi(0), low(0) {}
+		IndexChunk(const IndexChunk& other): 
+			hi(other.hi), low(other.low) {}
+		IndexChunk(IndexChunk&& other):
+			hi(other.hi), low(other.low) {}
+		IndexChunk& operator=(const IndexChunk& other)
+		{
+			hi = other.hi;
+			low = other.low;
+			return *this;
+		}
+
 		size_t get() const
 		{
 			return ((size_t)hi << 32) + (size_t)low;
@@ -47,9 +60,12 @@ private:
 			low = val & ((1ULL << 32) - 1);
 			hi = val >> 32;
 		}
+
 		uint8_t hi;
 		uint32_t low;
 	} __attribute__((packed));
+	static_assert(sizeof(IndexChunk) == 5, 
+				  "Unexpected size of IndexChunk structure");
 
 	//static const size_t MAX_INDEX = 1ULL << (sizeof(IndexChunk) * 8);
 

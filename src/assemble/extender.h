@@ -15,13 +15,10 @@ class Extender
 {
 public:
 	Extender(const SequenceContainer& readsContainer, 
-			 OverlapContainer& ovlpContainer,
-			 int coverage, int genomeSize):
+			 OverlapContainer& ovlpContainer):
 		_readsContainer(readsContainer), 
 		_ovlpContainer(ovlpContainer),
-		_chimDetector(readsContainer, ovlpContainer, coverage),
-		_coverage(coverage), _genomeSize(genomeSize),
-		_progress(genomeSize)
+		_chimDetector(readsContainer, ovlpContainer)
 	{}
 
 	void assembleContigs();
@@ -34,7 +31,8 @@ private:
 		ExtensionInfo(): leftTip(false), rightTip(false),
 			numSuspicious(0), meanOverlaps(0), stepsToTurn(0),
 			assembledLength(0), singleton(false),
-			avgOverlapSize(0), minOverlapSize(0) {}
+			avgOverlapSize(0), minOverlapSize(0),
+			leftAsmOverlap(0), rightAsmOverlap(0) {}
 
 		std::vector<FastaRecord::Id> reads;
 		bool leftTip;
@@ -46,12 +44,14 @@ private:
 		bool singleton;
 		int  avgOverlapSize;
 		int  minOverlapSize;
+		int  leftAsmOverlap;
+		int  rightAsmOverlap;
 	};
 
 	ExtensionInfo extendContig(FastaRecord::Id startingRead);
 	int   countRightExtensions(FastaRecord::Id readId) const;
+	int   countRightExtensions(const std::vector<OverlapRange>&) const;
 	bool  extendsRight(const OverlapRange& ovlp) const;
-	//bool  isRightRepeat(FastaRecord::Id readId) const;
 	void  convertToContigs();
 	std::vector<FastaRecord::Id> 
 		getInnerReads(const std::vector<OverlapRange>& ovlps);
@@ -59,9 +59,6 @@ private:
 	const SequenceContainer& _readsContainer;
 	OverlapContainer& _ovlpContainer;
 	ChimeraDetector   _chimDetector;
-	const int 		  _coverage;
-	const int 		  _genomeSize;
-	ProgressPercent   _progress;
 
 	std::vector<ExtensionInfo> 	_readLists;
 	std::vector<ContigPath> 	_contigPaths;

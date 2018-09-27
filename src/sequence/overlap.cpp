@@ -220,7 +220,7 @@ namespace
 	}
 }
 
-//This implementation was inspired by Hen Li's minimap2 paper
+//This implementation was inspired by Heng Li's minimap2 paper
 //might be used in parallel
 std::vector<OverlapRange> 
 OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec, 
@@ -721,17 +721,19 @@ const std::vector<OverlapRange>&
 	const FastaRecord& record = _queryContainer.getRecord(readId);
 	auto overlaps = _ovlpDetect.getSeqOverlaps(record, suggestChimeric, 
 											   _divergenceStats);
+	overlaps.shrink_to_fit();
 
 	std::vector<OverlapRange> revOverlaps;
 	revOverlaps.reserve(overlaps.size());
 	for (auto& ovlp : overlaps) revOverlaps.push_back(ovlp.complement());
 
 	_overlapIndex.update_fn(readId,
-		[&wrapper, &overlaps, &revOverlaps, &suggestChimeric, &flipped]
+		[&wrapper, &overlaps, &revOverlaps, &suggestChimeric, &flipped, this]
 		(IndexVecWrapper& val)
 		{
 			if (!val.cached)
 			{
+				_indexSize += overlaps.size();
 				*val.fwdOverlaps = std::move(overlaps);
 				*val.revOverlaps = std::move(revOverlaps);
 				val.suggestChimeric = suggestChimeric;

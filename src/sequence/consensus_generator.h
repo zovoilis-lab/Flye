@@ -14,11 +14,13 @@
 
 struct ContigPath
 {
-	ContigPath() {}
+	ContigPath(): trimLeft(0), trimRight(0) {}
 
 	std::string name;
 	std::vector<DnaSequence> sequences;
 	std::vector<OverlapRange> overlaps;
+	int32_t trimLeft;
+	int32_t trimRight;
 };
 
 class ConsensusGenerator

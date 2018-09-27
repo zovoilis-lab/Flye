@@ -15,6 +15,7 @@ import os.path
 
 from flye.polishing.alignment import shift_gaps, SynchronizedSamReader
 import flye.utils.fasta_parser as fp
+import flye.config.py_cfg as config
 
 logger = logging.getLogger()
 
@@ -163,7 +164,7 @@ def find_divergence(alignment_path, contigs_path, contigs_info,
         
     aln_reader = SynchronizedSamReader(alignment_path,
                                        fp.read_sequence_dict(contigs_path),
-                                       min_aln_rate)
+                                       config.vals["max_read_coverage"])
     manager = multiprocessing.Manager()
     results_queue = manager.Queue()
     error_queue = manager.Queue()

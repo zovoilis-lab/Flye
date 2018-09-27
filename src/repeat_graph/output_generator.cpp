@@ -130,7 +130,8 @@ void OutputGenerator::dumpRepeats(const std::vector<UnbranchingPath>& paths,
 
 	for (auto& contig : paths)
 	{
-		if (!contig.path.front()->isRepetitive()) continue;
+		if (!contig.path.front()->isRepetitive() ||
+			contig.path.front()->selfComplement) continue;
 
 		bool isSimple = true;
 		std::unordered_set<GraphEdge*> inputs;
@@ -146,7 +147,7 @@ void OutputGenerator::dumpRepeats(const std::vector<UnbranchingPath>& paths,
 			if (edge->isRepetitive()) isSimple = false;
 		}
 		if (!isSimple || inputs.size() != outputs.size() ||
-			inputs.empty()) continue;
+			inputs.size() < 2) continue;
 
 		std::unordered_set<GraphEdge*> innerEdges(contig.path.begin(), 
 												  contig.path.end());
@@ -173,28 +174,23 @@ void OutputGenerator::dumpRepeats(const std::vector<UnbranchingPath>& paths,
 			if (!repeatRead) continue;
 
 			allReads.insert(readAln.front().overlap.curId);
-			for (auto& alnEdge : readAln)
+			for (size_t i = 1; i < readAln.size(); ++i)
 			{
-				for (auto& inputEdge : inputs)
+				if (inputs.count(readAln[i - 1].edge) &&
+					innerEdges.count(readAln[i].edge))
 				{
-					if (alnEdge.edge == inputEdge) 
-					{
-						inputEdges[inputEdge]
-							.insert(readAln.front().overlap.curId);
-					}
+					inputEdges[readAln[i - 1].edge]
+						.insert(readAln.front().overlap.curId);
 				}
-				for (auto& outputEdge : outputs)
+				if (innerEdges.count(readAln[i - 1].edge) &&
+					outputs.count(readAln[i].edge))
 				{
-					if (alnEdge.edge == outputEdge) 
-					{
-						outputEdges[outputEdge]
-							.insert(readAln.front().overlap.curId);
-					}
+					outputEdges[readAln[i].edge]
+						.insert(readAln.front().overlap.curId);
 				}
 			}
 		}
 
-		//dump as text
 		fout << "\n#All reads\t" << allReads.size() << "\n";
 		for (auto& readId : allReads)
 		{
@@ -204,7 +200,7 @@ void OutputGenerator::dumpRepeats(const std::vector<UnbranchingPath>& paths,
 
 		for (auto& inputEdge : inputs)
 		{
-			//TODO: more accurate version!
+			//get corresponding contig ids
 			int ctgId = 0;
 			for (auto& ctg : paths)
 			{
@@ -273,9 +269,9 @@ void OutputGenerator::outputGfa(const std::vector<UnbranchingPath>& paths,
 	{
 		if (!paths[i].id.strand()) continue;
 
-		size_t kmerCount = sequences[i].sequence.length() * paths[i].meanCoverage;
-		fprintf(fout, "S\t%s\t%s\tKC:i:%d\n", paths[i].name().c_str(), 
-				sequences[i].sequence.str().c_str(), (int)kmerCount);
+		//size_t kmerCount = sequences[i].sequence.length() * paths[i].meanCoverage;
+		fprintf(fout, "S\t%s\t%s\tDP:i:%d\n", paths[i].name().c_str(), 
+				sequences[i].sequence.str().c_str(), (int)paths[i].meanCoverage);
 	}
 
 	for (auto& contigLeft : paths)

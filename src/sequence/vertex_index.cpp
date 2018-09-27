@@ -222,19 +222,23 @@ void VertexIndex::buildIndex(int minCoverage)
 
 	_memoryChunks.push_back(new IndexChunk[MEM_CHUNK]);
 	size_t chunkOffset = 0;
+	//Important: since packed structures are apparently not thread-safe,
+	//make sure that adjacent k-mer index arrays (that are accessed in parallel)
+	//do not overlap within 8-byte window
+	const size_t PADDING = 1;
 	for (auto& kmer : _kmerIndex.lock_table())
 	{
-		if (MEM_CHUNK < kmer.second.capacity) 
+		if (MEM_CHUNK < kmer.second.capacity + PADDING) 
 		{
 			throw std::runtime_error("k-mer is too frequent");
 		}
-		if (MEM_CHUNK - chunkOffset < kmer.second.capacity)
+		if (MEM_CHUNK - chunkOffset < kmer.second.capacity + PADDING)
 		{
 			_memoryChunks.push_back(new IndexChunk[MEM_CHUNK]);
 			chunkOffset = 0;
 		}
 		kmer.second.data = _memoryChunks.back() + chunkOffset;
-		chunkOffset += kmer.second.capacity;
+		chunkOffset += kmer.second.capacity + PADDING;
 	}
 	//Logger::get().debug() << "Total chunks " << _memoryChunks.size()
 	//	<< " wasted space: " << wasted;
@@ -264,12 +268,7 @@ void VertexIndex::buildIndex(int minCoverage)
 										Parameters::get().kmerSize;
 				targetRead = targetRead.rc();
 			}
-
-			//filter out repetitive kmers (but allow some on sequence ends)
-			/*if (_repetitiveKmers.contains(kmerPos.kmer) &&
-				kmerPos.position >= _flankRepeatSize &&
-				kmerPos.position < seqLen - _flankRepeatSize) continue;*/
-
+			
 			_kmerIndex.update_fn(kmerPos.kmer, 
 				[targetRead, &kmerPos, this](ReadVector& rv)
 				{
