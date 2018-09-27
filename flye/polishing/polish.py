@@ -99,6 +99,8 @@ def polish(contig_seqs, read_seqs, work_dir, num_iters, num_threads, error_mode,
             f.write("{0}\t{1}\t{2}\n".format(ctg_id,
                     contig_lengths[ctg_id], coverage_stats[ctg_id]))
 
+    return prev_assembly, stats_file
+
 
 def generate_polished_edges(edges_file, gfa_file, polished_contigs, work_dir,
                             error_mode, num_threads):
