@@ -16,6 +16,7 @@ import copy
 from collections import namedtuple
 
 import flye.polishing.alignment as flye_aln
+from flye.polishing.alignment import Alignment
 import flye.utils.fasta_parser as fp
 import flye.config.py_cfg as config
 import flye.polishing.polish as pol
@@ -25,7 +26,6 @@ import flye.trestle.trestle_config as trestle_config
 
 logger = logging.getLogger()
 
-MIN_ALN_RATE = 0.5
 
 
 def resolve_repeats(args, trestle_dir, repeats_dump, graph_edges, summ_file):
@@ -146,6 +146,7 @@ def resolve_repeats(args, trestle_dir, repeats_dump, graph_edges, summ_file):
                 template_len = template_info[str(rep)].length
             
             logger.debug("Finding tentative divergence positions")
+            MIN_ALN_RATE = 0.5
             div.find_divergence(alignment_file, polished_template, 
                                 template_info, frequency_path, position_path, 
                                 summary_path, MIN_ALN_RATE, 
@@ -1114,12 +1115,6 @@ def _overlap(aln_one, aln_two):
     if trg_overlap_lens:
         trg_len = min(trg_overlap_lens)
     return max([qry_len, trg_len])
-
-Alignment = namedtuple("Alignment", ["qry_id", "trg_id", "qry_start", 
-                                     "qry_end",
-                                     "qry_sign", "qry_len", "trg_start",
-                                     "trg_end", "trg_sign", "trg_len",
-                                     "qry_seq", "trg_seq", "err_rate"])
 
 
 def _collapse(aln_one, aln_two):
