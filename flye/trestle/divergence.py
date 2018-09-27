@@ -1,4 +1,7 @@
-# -*- coding: utf-8 -*-
+#(c) 2016-2018 by Authors
+#This file is a part of Flye program.
+#Released under the BSD license (see LICENSE file)
+
 """
 Created on Wed Jan  4 03:50:31 2017
 
@@ -27,6 +30,7 @@ class Profile:
         self.matches = defaultdict(int)
         self.nucl = "-"
 
+
 def _thread_worker(aln_reader, contigs_info, platform, results_queue,
                    error_queue):
     try:
@@ -44,6 +48,7 @@ def _thread_worker(aln_reader, contigs_info, platform, results_queue,
 
     except Exception as e:
         error_queue.put(e)
+
 
 def _contig_profile(alignment, platform, genome_len):
     """
@@ -78,6 +83,7 @@ def _contig_profile(alignment, platform, genome_len):
             trg_pos += 1
 
     return profile, aln_errors
+
 
 def _count_freqs(elem):
     matches = elem.matches
@@ -115,6 +121,7 @@ def _count_freqs(elem):
                             'del_base':del_key, 'del_ct':del_ct, 
                             'ins_base':max_ins_key, 'ins_ct':max_ins_ct}
 
+
 def _call_position(ind, counts, pos, sub_thresh, del_thresh, ins_thresh):
     over_thresh = False
     if counts['cov']:
@@ -132,6 +139,7 @@ def _call_position(ind, counts, pos, sub_thresh, del_thresh, ins_thresh):
             pos['total'].append(ind)
         
     return pos
+
 
 def find_divergence(alignment_path, contigs_path, contigs_info, 
                     frequency_path, positions_path, div_sum_path, 
@@ -220,6 +228,7 @@ def find_divergence(alignment_path, contigs_path, contigs_info,
     mean_aln_error = float(sum(total_aln_errors)) / (len(total_aln_errors) + 1)
     logger.debug("Alignment error rate: {0}".format(mean_aln_error))
 
+
 def _write_frequency_path(frequency_path, ctg_profile, sub_thresh, 
                           del_thresh, ins_thresh):
     #The set of called positions for each category
@@ -238,6 +247,7 @@ def _write_frequency_path(frequency_path, ctg_profile, sub_thresh,
                                        sub_thresh, del_thresh, ins_thresh)
     return positions
 
+
 def read_frequency_path(frequency_path):
     header = []
     freqs = []
@@ -254,6 +264,7 @@ def read_frequency_path(frequency_path):
                 freqs.append(vals)
     return header, freqs
 
+
 def _write_positions(positions_path, positions, total_header, sub_header, 
                      del_header, ins_header):
     with open(positions_path, 'w') as f:
@@ -269,6 +280,7 @@ def _write_positions(positions_path, positions, total_header, sub_header,
         f.write(">{0}\n".format(ins_header))
         f.write(",".join(map(str, sorted(positions["ins"]))))
         f.write("\n")
+
 
 def _write_div_summary(div_sum_path, sum_header, positions, 
                       seq_len, window_len):
@@ -347,6 +359,7 @@ def _write_div_summary(div_sum_path, sum_header, positions,
 
 class PositionIOError(Exception):
     pass
+
 
 def read_positions(positions_file):
     """

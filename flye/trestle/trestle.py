@@ -1,4 +1,7 @@
-# -*- coding: utf-8 -*-
+#(c) 2016-2018 by Authors
+#This file is a part of Flye program.
+#Released under the BSD license (see LICENSE file)
+
 """
 Created on Wed Jan  4 03:50:31 2017
 
@@ -379,10 +382,12 @@ def resolve_repeats(args, trestle_dir, repeats_dump, graph_edges, summ_file):
             logger.info("Repeat not resolved")
     return all_resolved_reps_dict
 
+
 #Process Repeats functions
 class ProcessingException(Exception):
     pass
-       
+
+
 def process_repeats(reads, repeats_dump, graph_edges, work_dir, repeat_label, 
                     orient_labels, template_name, extended_name, 
                     repeat_reads_name, pre_partition_name, side_labels):
@@ -654,6 +659,7 @@ def process_repeats(reads, repeats_dump, graph_edges, work_dir, repeat_label,
                             partitioning_path.format(side)))
     return repeat_list, repeat_edges, all_edge_headers
 
+
 def _read_repeats_dump(repeats_dump):
     """Read repeats_dump.txt file following format guidelines"""
     repeats_dict = {}
@@ -731,6 +737,7 @@ def _read_repeats_dump(repeats_dump):
                 mult, all_reads_list, inputs_dict, outputs_dict)
     return repeats_dict        
         
+
 def _write_partitioning_file(part_list, part_path):
     with open(part_path, "w") as f:
         header_labels = ["Read_ID", "Status", "Edge", "Top Score", 
@@ -742,6 +749,7 @@ def _write_partitioning_file(part_list, part_path):
             spaced_label = map("{:11}".format, read_label)
             f.write("\t".join(spaced_label))
             f.write("\n")
+
 
 def _read_partitioning_file(partitioning_file):
     part_list = []
@@ -755,6 +763,7 @@ def _read_partitioning_file(partitioning_file):
                 part_list.append(tuple(tokens))
     return part_list
     
+
 def find_coverage(frequency_file):
     coverage = 0.0
     if os.path.isfile(frequency_file):
@@ -764,6 +773,7 @@ def find_coverage(frequency_file):
         coverage = np.mean(all_covs)
         #print min(all_covs), np.mean(all_covs), max(all_covs)
     return coverage
+
 
 def write_edge_reads(it, side, edge_id, all_reads, partitioning, out_file):
     all_reads_dict = fp.read_sequence_dict(all_reads)
@@ -779,6 +789,7 @@ def write_edge_reads(it, side, edge_id, all_reads, partitioning, out_file):
             edge_reads[edge_header] = edge_seq
     if edge_reads and edge_reads.values()[0]:
         fp.write_fasta_dict(edge_reads, out_file)
+
 
 def init_partitioning(edges, side, pre_partitioning, pre_read_align, extended, 
                       partitioning):
@@ -815,6 +826,7 @@ def init_partitioning(edges, side, pre_partitioning, pre_read_align, extended,
             partitioned_reads.append((read_id, "None", "NA", 0, 0, header))
     _write_partitioning_file(partitioned_reads, partitioning)
 
+
 #Cut Consensus Functions
 def find_read_endpoints(alignment_file, template):
     CONS_ALN_RATE = trestle_config.vals["cons_aln_rate"]
@@ -830,6 +842,7 @@ def find_read_endpoints(alignment_file, template):
     else:
         logger.debug("No read alignment to template, no read_endpoints")
     return read_endpoints
+
 
 def locate_consensus_cutpoint(side, read_endpoints, edge_read_file):
     MIN_EDGE_COV = trestle_config.vals["min_edge_cov"]
@@ -867,6 +880,7 @@ def locate_consensus_cutpoint(side, read_endpoints, edge_read_file):
                 break
     return cutpoint
 
+
 def truncate_consensus(side, cutpoint, cons_al_file, template,
                        polished_consensus, cut_cons_file):
     if cutpoint == -1:
@@ -895,6 +909,7 @@ def truncate_consensus(side, cutpoint, cons_al_file, template,
         cut_head = "".join([cons_head, "|{0}_{1}".format(start, end)])
         cut_dict = {cut_head:consensus[start:end]}
         fp.write_fasta_dict(cut_dict, cut_cons_file)
+
 
 def _find_consensus_endpoint(cutpoint, aligns, side):
     consensus_endpoint = -1
@@ -935,6 +950,7 @@ def _find_consensus_endpoint(cutpoint, aligns, side):
     return consensus_endpoint
 
 #Partition Reads Functions
+
 
 def partition_reads(edges, it, side, position_path, cons_align_path, 
                     template, read_align_path, consensuses, 
@@ -1013,6 +1029,7 @@ def partition_reads(edges, it, side, position_path, cons_align_path,
                         headers_to_id, BUFFER_COUNT, pos_test, num_test)
     _write_partitioning_file(partitioning, part_file.format(it, side))
     
+
 def _read_alignment(alignment, target_path, min_aln_rate):
     alignments = []
     aln_reader = flye_aln.SynchronizedSamReader(alignment,
@@ -1027,6 +1044,7 @@ def _read_alignment(alignment, target_path, min_aln_rate):
     
     return alignments
 
+
 def _collapse_cons_aln(cons_aligns):
     MAX_SUPP_ALIGN_OVERLAP = trestle_config.vals["max_supp_align_overlap"]
     coll_aln = None
@@ -1036,6 +1054,7 @@ def _collapse_cons_aln(cons_aligns):
         elif _overlap(coll_aln, aln) <= MAX_SUPP_ALIGN_OVERLAP:
             coll_aln = _collapse(coll_aln, aln)
     return coll_aln
+
 
 def _overlap(aln_one, aln_two):
     qry_overlap_lens = []
@@ -1101,6 +1120,7 @@ Alignment = namedtuple("Alignment", ["qry_id", "trg_id", "qry_start",
                                      "qry_sign", "qry_len", "trg_start",
                                      "trg_end", "trg_sign", "trg_len",
                                      "qry_seq", "trg_seq", "err_rate"])
+
 
 def _collapse(aln_one, aln_two):
     MAX_SUPP_ALIGN_OVERLAP = trestle_config.vals["max_supp_align_overlap"]
@@ -1172,6 +1192,7 @@ def _collapse(aln_one, aln_two):
         return out_aln
     return out_aln
 
+
 def _merge_alns(first_start, first_end, first_seq, 
                 second_start, second_end, second_seq):
     first_out_seq = first_seq
@@ -1193,6 +1214,7 @@ def _merge_alns(first_start, first_end, first_seq,
             out_end = first_end
     return first_out_seq, second_out_seq, out_end
 
+
 def _overlap_to_aln_ind(overlap, aln):
     num_bases = 0
     for i, base in enumerate(aln):
@@ -1201,6 +1223,7 @@ def _overlap_to_aln_ind(overlap, aln):
         if num_bases == overlap:
             return i + 1
     return len(aln)
+
 
 class EdgeAlignment:
     __slots__ = ("edge_id", "qry_seq", "trg_seq", "qry_start", "trg_start", 
@@ -1226,6 +1249,7 @@ class EdgeAlignment:
         self.curr_qry_nuc = ""
         self.curr_trg_nuc = ""
         self.curr_ins_nuc = ""
+
 
 def _evaluate_positions(pos, cons_aligns, pos_test, test_pos, side):
     #Includes insertions!
@@ -1399,6 +1423,7 @@ def _evaluate_positions(pos, cons_aligns, pos_test, test_pos, side):
     
     return confirmed_pos, rejected_pos, consensus_pos
 
+
 def _write_confirmed_positions(confirmed, rejected, pos, out_file):
     with open(out_file, 'w') as f:
         f.write(">Confirmed_total_positions_{0}\n".format(
@@ -1439,6 +1464,7 @@ def _write_confirmed_positions(confirmed, rejected, pos, out_file):
         f.write(">Tentative_ins_positions_{0}\n".format(len(pos["ins"])))
         f.write(",".join(map(str, sorted(pos["ins"]))))
         f.write("\n")
+
 
 def _read_confirmed_positions(confirmed_file):
     confirmed = {"total":[], "sub":[], "ins":[], "del":[]}
@@ -1569,6 +1595,7 @@ def _classify_reads(read_aligns, consensus_pos,
                                 top_score, total_score, read_header))    
     return partitioning
 
+
 def _index_mapping(aln):
     #Given a genomic index, return the alignment index of the alignment
     al_inds = []
@@ -1579,6 +1606,7 @@ def _index_mapping(aln):
         if b != '-':
             al_inds.append(i)
     return al_inds, gen_inds
+
 
 def init_side_stats(rep, side, repeat_edges, min_overlap, position_path, 
                     partitioning, prev_parts, template_len, stats_file):
@@ -1652,6 +1680,7 @@ def init_side_stats(rep, side, repeat_edges, min_overlap, position_path,
     
     return edge_below_cov
 
+
 def update_side_stats(edges, it, side, cons_align_path, template, 
                       confirmed_pos_path, partitioning, prev_parts, 
                       stats_file):
@@ -1705,6 +1734,7 @@ def update_side_stats(edges, it, side, cons_align_path, template,
         f.write("\n")
         
     return edge_below_cov, dup_part
+
 
 def finalize_side_stats(edges, it, side, cons_align_path, template, 
                  cons_vs_cons_path, consensuses, confirmed_pos_path, 
@@ -1887,6 +1917,7 @@ def finalize_side_stats(edges, it, side, cons_align_path, template,
                                       unassigned_reads/float(total_reads)))
         f.write("\n")
 
+
 def init_int_stats(rep, repeat_edges, zero_it, position_path, partitioning, 
                    all_reads_file, template_len, cov, int_stats_file):
     #Count edge reads
@@ -2030,6 +2061,7 @@ def update_int_stats(rep, repeat_edges, side_it, cons_align_path, template,
         f.write("\t".join(spaced_header))
         f.write("\n")
         
+
 def finalize_int_stats(rep, repeat_edges, side_it, cons_align_path, template, 
                        template_len, cons_vs_cons_path, consensuses, 
                        int_confirmed_path, partitioning, int_stats_file, 
@@ -2456,6 +2488,7 @@ def finalize_int_stats(rep, repeat_edges, side_it, cons_align_path, template,
             summ_vals.extend(["+".join(summ_resolution)])
     return bridged, resolved_repeats, summ_vals
 
+
 def int_stats_postscript(rep, repeat_edges, integrated_stats, 
                          resolved_rep_path, res_vs_res):
     CONS_ALN_RATE = trestle_config.vals["cons_aln_rate"]
@@ -2502,6 +2535,7 @@ def int_stats_postscript(rep, repeat_edges, integrated_stats,
         f.write("\n")
     return np.mean(divs)
         
+
 def _get_partitioning_info(part_list, edges):
     edge_reads = {edge:0 for edge in edges}
     tied_reads = 0
@@ -2518,6 +2552,7 @@ def _get_partitioning_info(part_list, edges):
             exception_str = "Unknown status {0} in partitioning file"
             raise Exception(exception_str.format(status))
     return edge_reads, tied_reads, unassigned_reads
+
 
 def _calculate_divergence(qry_seq, trg_seq):
     if not qry_seq or not trg_seq:
@@ -2574,6 +2609,7 @@ def _calculate_divergence(qry_seq, trg_seq):
         indel_sim_rate = match_count / float(total)
     return 1 - indel_sim_rate
 
+
 def _n50(reads_file):
     reads_dict = fp.read_sequence_dict(reads_file)
     read_lengths = sorted([len(x) for x in reads_dict.values()], reverse=True)
@@ -2586,6 +2622,7 @@ def _n50(reads_file):
             break
     return n50
 
+
 def _get_median(lst):
     if not lst:
         raise ValueError("_get_median() arg is an empty sequence")
@@ -2596,6 +2633,7 @@ def _get_median(lst):
         mid1 = sorted_list[(len(lst)/2) - 1]
         mid2 = sorted_list[(len(lst)/2)]
         return float(mid1 + mid2) / 2
+
 
 def _integrate_confirmed_pos(all_in_pos, all_out_pos):
     in_conf, in_rej, in_pos = all_in_pos
@@ -2612,11 +2650,13 @@ def _integrate_confirmed_pos(all_in_pos, all_out_pos):
                 integrated_rejected[pos_type].append(pos)
     return integrated_confirmed, integrated_rejected, in_pos
 
+
 def _get_combos(in_list, out_list):
     all_combos = []
     for combo in _combo_helper(in_list, out_list):
         all_combos.append(combo)
     return all_combos
+
 
 def _combo_helper(in_list, out_list):
     if not in_list or not out_list:
@@ -2630,8 +2670,10 @@ def _combo_helper(in_list, out_list):
                                       out_list[:j] + out_list[j + 1:]):
                  yield [combo] + rest
 
+
 def _get_aln_end(aln_start, aln_seq):
     return aln_start+len(aln_seq.replace("-",""))
+
 
 def _check_overlap(in_file, temp_file, out_file, overlap, in_start, in_end, 
                    temp_start, temp_end, out_start, out_end, new_out_start, 
@@ -2718,6 +2760,7 @@ def _construct_repeat_copy(in_file, temp_file, out_file, in_start, in_end,
                    out_seq[out_start:out_end]])
     return seq
 
+
 def init_summary(summary_file):
     with open(summary_file, "w") as f:
         summ_header_labels = ["Repeat", "Template", "Cov", "# Confirmed Pos", 
@@ -2726,6 +2769,7 @@ def init_summary(summary_file):
         spaced_header = map("{:13}".format, summ_header_labels)
         f.write("\t".join(spaced_header))
         f.write("\n")
+
 
 def update_summary(rep, template_len, avg_cov, summ_vals, avg_div, 
                    summary_file):
