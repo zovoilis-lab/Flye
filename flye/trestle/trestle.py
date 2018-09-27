@@ -24,45 +24,6 @@ logger = logging.getLogger()
 
 MIN_ALN_RATE = 0.5
 
-"""
-def _run_polishing(args, reads, seqs, polish_dir):
-    MIN_ALN_RATE = config.vals["min_aln_rate"]
-    if not os.path.isdir(polish_dir):
-        os.mkdir(polish_dir)
-    polished_seqs = os.path.join(polish_dir, 
-                                 "polished_{0}.fasta".format(args.num_iters))
-    polished_stats = os.path.join(polish_dir, "contigs_stats.txt")
-    
-    prev_template = seqs
-    contig_lengths = None
-    for i in xrange(args.num_iters):
-        alignment_file = os.path.join(polish_dir,
-                                      "minimap_{0}.sam".format(i + 1))
-        flye_aln.make_alignment(prev_template, reads, args.threads,
-                               polish_dir, args.platform, alignment_file)
-        contigs_info = flye_aln.get_contigs_info(prev_template)
-        bubbles_file = os.path.join(polish_dir,
-                                    "bubbles_{0}.fasta".format(i + 1))
-        coverage_stats, err_rate = \
-            bbl.make_bubbles(alignment_file, contigs_info, prev_template,
-                             args.platform, args.threads, MIN_ALN_RATE, 
-                             bubbles_file)
-        polished_file = os.path.join(polish_dir,
-                                     "polished_{0}.fasta".format(i + 1))
-        contig_lengths = pol.polish(bubbles_file, args.threads, args.platform, 
-                                    polish_dir, i + 1, polished_file,
-                                    output_progress=False)
-        prev_template = polished_file
-        
-    with open(polished_stats, "w") as f:
-        f.write("seq_name\tlength\tcoverage\n")
-        for ctg_id in contig_lengths:
-            f.write("{0}\t{1}\t{2}\n".format(ctg_id,
-                    contig_lengths[ctg_id], coverage_stats[ctg_id]))
-    
-    return polished_seqs
-"""
-
 
 def resolve_repeats(args, trestle_dir, repeats_dump, graph_edges, summ_file):
     SUB_THRESH = trestle_config.vals["sub_thresh"]
@@ -135,6 +96,8 @@ def resolve_repeats(args, trestle_dir, repeats_dump, graph_edges, summ_file):
             #2. Polish template and extended templates
             logger.debug("Polishing templates")
             pol_temp_dir = os.path.join(orient_dir, pol_temp_name)
+            if not os.path.isdir(pol_temp_dir):
+                os.mkdir(pol_temp_dir)
             polished_template, _stats = \
                 pol.polish(template, [repeat_reads], pol_temp_dir, 1,
                            args.threads, args.platform, output_progress=False)
@@ -148,12 +111,14 @@ def resolve_repeats(args, trestle_dir, repeats_dump, graph_edges, summ_file):
             polished_extended = {}
             for side in side_labels:
                 for edge_id in repeat_edges[rep][side]:
-                    pol_ext_dir = os.path.join(orient_dir, pol_ext_name)
-
+                    pol_ext_dir = os.path.join(orient_dir,
+                                               pol_ext_name).format(side, edge_id)
+                    if not os.path.isdir(pol_ext_dir):
+                        os.mkdir(pol_ext_dir)
                     pol_output, _stats = \
                         pol.polish(extended.format(side, edge_id), [repeat_reads],
-                                   pol_ext_dir.format(side, edge_id), 1,
-                                   args.threads, args.platform, output_progress=False)
+                                   pol_ext_dir, 1, args.threads, args.platform,
+                                   output_progress=False)
                     #pol_output = _run_polishing(args, [repeat_reads], 
                     #                            extended.format(side, edge_id), 
                     #                            pol_ext_dir.format(side, edge_id))                    
