@@ -197,6 +197,7 @@ bool RepeatResolver::checkByReadExtension(const GraphEdge* edge,
 {
 	const GraphEdge* currentEdge = edge;
 	std::vector<GraphAlignment> consistentReads = alignments;
+	int numStartingReads = 0;
 
 	Logger::get().debug() << "Starting from edge " << edge->edgeId.signedId();
 
@@ -224,6 +225,14 @@ bool RepeatResolver::checkByReadExtension(const GraphEdge* edge,
 		}
 		if (selectedReads.empty()) break;
 		consistentReads.swap(selectedReads);
+		if (!numStartingReads) 
+		{
+			numStartingReads = consistentReads.size();
+		}
+		else if (numStartingReads / consistentReads.size() > 4)	//coverage dropped too much
+		{
+			return false;
+		}
 		
 		//count all possible extensions from this edge
 		std::unordered_map<GraphEdge*, int> outConnections;
@@ -273,7 +282,8 @@ bool RepeatResolver::checkByReadExtension(const GraphEdge* edge,
 
 		//found consistent extension, repeat
 		currentEdge = maxEdge;
-		Logger::get().debug() << "\tContinued to " << maxEdge->edgeId.signedId();
+		Logger::get().debug() << "\tContinued to " << maxEdge->edgeId.signedId() 
+			<< " " << consistentReads.size();
 	}
 	
 	return false;
@@ -380,7 +390,7 @@ void RepeatResolver::findRepeats()
 	{
 		if (!path->id.strand()) continue;
 		if (path->path.front()->repetitive) continue;
-		if (path->length > (int)Config::get("unique_edge_length")) continue;
+		//if (path->length > (int)Config::get("unique_edge_length")) continue;
 
 		bool rightRepeat = 
 			this->checkByReadExtension(path->path.back(), 
