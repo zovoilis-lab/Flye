@@ -235,8 +235,8 @@ void Extender::assembleContigs()
 		
 		//Good to go!
 		ExtensionInfo exInfo = this->extendContig(startRead);
-		if (exInfo.reads.size() < 
-			(size_t)Config::get("min_reads_in_contig")) return;
+		if ((int)exInfo.reads.size() - exInfo.numSuspicious < 
+			(int)Config::get("min_reads_in_contig")) return;
 
 		if (exInfo.leftAsmOverlap + exInfo.rightAsmOverlap > 
 			exInfo.assembledLength + 2 * Parameters::get().minimumOverlap)
@@ -244,6 +244,12 @@ void Extender::assembleContigs()
 			//Logger::get().debug() << "No novel sequence";
 			return;
 		}
+		/*const float MAX_SUSPICIOUS = 0.1f;
+		if ((float)exInfo.numSuspicious / exInfo.reads.size() > MAX_SUSPICIOUS)
+		{
+			Logger::get().debug() << "Suspicious contig";
+			return;
+		}*/
 
 		//Exclusive part - updating the overall assembly
 		std::lock_guard<std::mutex> guard(indexMutex);
