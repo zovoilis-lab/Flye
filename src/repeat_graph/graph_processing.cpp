@@ -79,8 +79,8 @@ void GraphProcessor::fixChimericJunctions()
 	}
 
 	Logger::get().debug() << "Removed " 
-		<< simpleCases.size() + complexCases.size()
-		<< " chimeric junctions";
+		<< simpleCases.size() << " simple and " << complexCases.size()
+		<< " double chimeric junctions";
 }
 
 //Collapses simple small bulges
