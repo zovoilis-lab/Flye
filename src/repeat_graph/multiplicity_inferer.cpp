@@ -183,6 +183,7 @@ void MultiplicityInferer::removeUnsupportedConnections()
 		//	<< leftConnections[edge] / 2 << " " << rightConnections[edge] / 2;
 
 		if (!edge->nodeRight->isEnd() &&
+			edge->nodeRight->isBifurcation() &&
 			rightConnections[edge] / 2 < coverageThreshold)
 		{
 			Logger::get().debug() << "Chimeric right: " <<
@@ -194,6 +195,7 @@ void MultiplicityInferer::removeUnsupportedConnections()
 			if (edge->selfComplement) continue;	//already discinnected
 		}
 		if (!edge->nodeLeft->isEnd() &&
+			edge->nodeLeft->isBifurcation() &&
 			leftConnections[edge] / 2 < coverageThreshold)
 		{
 			Logger::get().debug() << "Chimeric left: " <<
