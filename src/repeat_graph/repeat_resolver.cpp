@@ -196,10 +196,41 @@ bool RepeatResolver::checkByReadExtension(const GraphEdge* edge,
 										  const std::vector<GraphAlignment>& alignments)
 {
 	const GraphEdge* currentEdge = edge;
-	std::vector<GraphAlignment> consistentReads = alignments;
 	int numStartingReads = 0;
 
+	std::unordered_set<GraphEdge*> tandemEdges;
+	for (auto& aln : alignments)
+	{
+		for (size_t i = 0; i < aln.size() - 1; ++i)
+		{
+			if (aln[i].edge == aln[i + 1].edge) tandemEdges.insert(aln[i].edge);
+		}
+	}
+	std::unordered_set<GraphEdge*> edgesToSkip;
+	for (auto& aln : alignments)
+	{
+		for (size_t i = 0; i < aln.size(); ++i)
+		{
+			if (aln[i].edge->length() < 1000 && 
+				!tandemEdges.count(aln[i].edge) &&
+				aln[i].edge != edge) edgesToSkip.insert(aln[i].edge);
+		}
+	}
+
+	std::vector<GraphAlignment> consistentReads;
+	for (auto& aln : alignments)
+	{
+		GraphAlignment newAln;
+		for (auto& edge : aln)
+		{
+			if (!edgesToSkip.count(edge.edge)) newAln.push_back(edge);
+		}
+		if (newAln.size() > 1) consistentReads.emplace_back(std::move(newAln));
+	}
+
 	Logger::get().debug() << "Starting from edge " << edge->edgeId.signedId();
+	Logger::get().debug() << "Skipping edge: " << edgesToSkip.size();
+	Logger::get().debug() << "Discarded alignments: " << alignments.size() - consistentReads.size();
 
 	//while(!consistentReads.empty())
 	while(true)
@@ -212,8 +243,7 @@ bool RepeatResolver::checkByReadExtension(const GraphEdge* edge,
 			{
 				if (aln[i].edge == currentEdge)
 				{
-					if (aln[i].edge->isLooped() &&
-						aln[i].edge == aln[i + 1].edge) continue;
+					if (aln[i].edge == aln[i + 1].edge) continue;
 
 					selectedReads.emplace_back();
 					std::copy(aln.begin() + i, aln.end(), 
@@ -229,7 +259,7 @@ bool RepeatResolver::checkByReadExtension(const GraphEdge* edge,
 		{
 			numStartingReads = consistentReads.size();
 		}
-		else if (numStartingReads / consistentReads.size() > 4)	//coverage dropped too much
+		else if (numStartingReads / consistentReads.size() > 2)	//coverage dropped too much
 		{
 			return false;
 		}
