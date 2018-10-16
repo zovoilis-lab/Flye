@@ -121,6 +121,25 @@ std::vector<FastaRecord> OutputGenerator::
 	return gen.generateConsensuses(contigParts, /*verbose*/ false);
 }
 
+void OutputGenerator::detailedFasta(const std::string& outFile)
+{
+	std::vector<FastaRecord> records;
+	for (auto& edge : _graph.iterEdges())
+	{
+		if (!edge->edgeId.strand()) continue;
+		int segmentId = 0;
+		for (auto& seq : edge->seqSegments)
+		{
+			DnaSequence sequence = _asmSeqs.getSeq(seq.seqId)
+									.substr(seq.start, seq.length());
+			std::string descr = "contig_" + std::to_string(edge->edgeId.signedId()) +
+				"_" + std::to_string(segmentId++);
+			records.emplace_back(sequence, descr, FastaRecord::ID_NONE);
+		}
+	}
+	SequenceContainer::writeFasta(records, outFile);
+}
+
 //dumps repeat information for the consecutive analysis
 void OutputGenerator::dumpRepeats(const std::vector<UnbranchingPath>& paths,
 								  const std::string& outFile)
