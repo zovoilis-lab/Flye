@@ -367,14 +367,14 @@ void RepeatResolver::findRepeats()
 		if (!path.id.strand()) continue;
 
 		//mark paths with high coverage as repetitive
-		/*if (path.meanCoverage > _multInf.getUniqueCovThreshold())
+		if (path.meanCoverage > _multInf.getUniqueCovThreshold())
 		{
 			markRepetitive(&path);
 			markRepetitive(complPath(&path));
 			Logger::get().debug() << "Cov: " 
 				<< path.edgesStr() << "\t" << path.length << "\t" 
 				<< path.meanCoverage;
-		}*/
+		}
 
 		//self-complements are repetitive
 		for (auto& edge : path.path)
