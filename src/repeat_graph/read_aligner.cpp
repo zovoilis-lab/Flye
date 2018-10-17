@@ -25,6 +25,7 @@ std::vector<GraphAlignment>
 								 	 const std::vector<EdgeAlignment>& ovlps) const
 {
 	static const int32_t MAX_JUMP = Config::get("maximum_jump");
+	static const int32_t MAX_SEP = Config::get("max_separation");
 	static const int32_t MAX_READ_OVLP = 50;
 
 	std::list<Chain> activeChains;
@@ -39,15 +40,16 @@ std::vector<GraphAlignment>
 			const OverlapRange& prevOvlp = chain.aln.back()->overlap;
 
 			int32_t readDiff = nextOvlp.curBegin - prevOvlp.curEnd;
-			int32_t graphDiff = nextOvlp.extBegin +
-								prevOvlp.extLen - prevOvlp.extEnd;
+			int32_t graphLeftDiff = nextOvlp.extBegin;
+			int32_t graphRightDiff = prevOvlp.extLen - prevOvlp.extEnd;
 
 			if (chain.aln.back()->edge->nodeRight == edgeAlignment.edge->nodeLeft &&
 				MAX_JUMP > readDiff && readDiff > -MAX_READ_OVLP &&
-				MAX_JUMP > graphDiff && graphDiff > 0)
+				graphLeftDiff < MAX_SEP && graphRightDiff < MAX_SEP)
 			{
-				int32_t jumpDiv = abs(readDiff - graphDiff);
-				int32_t gapCost = jumpDiv ? std::log2(jumpDiv) : 0;
+				//int32_t jumpDiv = abs(readDiff - graphDiff);
+				//int32_t gapCost = jumpDiv ? std::log2(jumpDiv) : 0;
+				int32_t gapCost = (graphLeftDiff + graphRightDiff) / 10;
 				int32_t score = chain.score + nextOvlp.score - gapCost;
 				if (score > maxScore)
 				{
