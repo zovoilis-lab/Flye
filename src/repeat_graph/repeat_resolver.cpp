@@ -195,6 +195,64 @@ int RepeatResolver::resolveConnections(const std::vector<Connection>& connection
 bool RepeatResolver::checkByReadExtension(const GraphEdge* edge,
 										  const std::vector<GraphAlignment>& alignments)
 {
+	std::unordered_map<GraphEdge*, int> outConnections;
+	for (auto& aln : alignments)
+	{
+		bool passedStart = false;
+		for (size_t i = 0; i < aln.size(); ++i)
+		{
+			if (!passedStart && aln[i].edge == edge)
+			{
+				passedStart = true;
+				continue;
+			}
+			if (passedStart && !aln[i].edge->repetitive)
+			{
+				++outConnections[aln[i].edge];
+				break;
+			}
+		}
+	}
+
+	//check if there is agreement
+	int maxSupport = 0;
+	for (auto& outConn : outConnections)
+	{
+		if (maxSupport < outConn.second)
+		{
+			maxSupport =  outConn.second;
+		}
+	}
+
+	int uniqueMult = 0;
+	int minSupport = maxSupport / (int)Config::get("out_paths_ratio");
+	for (auto& outConn : outConnections) 
+	{
+		if (outConn.second > minSupport)
+		{
+			++uniqueMult;
+		}
+	}
+	
+	if (uniqueMult > 1) 
+	{
+		Logger::get().debug() << "Starting " << edge->edgeId.signedId();
+		for (auto& outEdgeCount : outConnections)
+		{
+			std::string star = outEdgeCount.first->repetitive ? "R" : " ";
+			std::string loop = outEdgeCount.first->isLooped() ? "L" : " ";
+			std::string tip = outEdgeCount.first->isTip() ? "T" : " ";
+			Logger::get().debug() << "\t+\t" << star << " " << loop << " " << tip << " "
+				<< outEdgeCount.first->edgeId.signedId() << "\t" << outEdgeCount.second;
+		}
+		return true;
+	}
+	return false;
+}
+
+/*bool RepeatResolver::checkByReadExtension(const GraphEdge* edge,
+										  const std::vector<GraphAlignment>& alignments)
+{
 	const GraphEdge* currentEdge = edge;
 	int numStartingReads = 0;
 
@@ -317,7 +375,7 @@ bool RepeatResolver::checkByReadExtension(const GraphEdge* edge,
 	}
 	
 	return false;
-}
+}*/
 
 //Classifies all edges into unique and repetitive based on the coverage + 
 //alignment information - one of the key steps here.
