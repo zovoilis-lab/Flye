@@ -192,23 +192,27 @@ int RepeatResolver::resolveConnections(const std::vector<Connection>& connection
 	return uniqueConnections.size();
 }
 
-bool RepeatResolver::checkByReadExtension(const GraphEdge* edge,
+bool RepeatResolver::checkByReadExtension(const GraphEdge* checkEdge,
 										  const std::vector<GraphAlignment>& alignments)
 {
 	std::unordered_map<GraphEdge*, int> outConnections;
 	for (auto& aln : alignments)
-	{
+	{ 
 		bool passedStart = false;
 		for (size_t i = 0; i < aln.size(); ++i)
 		{
-			if (!passedStart && aln[i].edge == edge)
+			if (!passedStart && aln[i].edge == checkEdge)
 			{
 				passedStart = true;
 				continue;
 			}
 			if (passedStart && !aln[i].edge->repetitive)
 			{
-				++outConnections[aln[i].edge];
+				if (aln[i].edge->edgeId != checkEdge->edgeId &&
+					aln[i].edge->edgeId != checkEdge->edgeId.rc())
+				{
+					++outConnections[aln[i].edge];
+				}
 				break;
 			}
 		}
@@ -225,7 +229,7 @@ bool RepeatResolver::checkByReadExtension(const GraphEdge* edge,
 	}
 
 	int uniqueMult = 0;
-	int minSupport = maxSupport / (int)Config::get("out_paths_ratio");
+	int minSupport = std::max(maxSupport / (int)Config::get("out_paths_ratio"), 1);
 	for (auto& outConn : outConnections) 
 	{
 		if (outConn.second > minSupport)
@@ -236,7 +240,8 @@ bool RepeatResolver::checkByReadExtension(const GraphEdge* edge,
 	
 	if (uniqueMult > 1) 
 	{
-		Logger::get().debug() << "Starting " << edge->edgeId.signedId();
+		Logger::get().debug() << "Starting " 
+			<< checkEdge->edgeId.signedId() << " " << alignments.size();
 		for (auto& outEdgeCount : outConnections)
 		{
 			std::string star = outEdgeCount.first->repetitive ? "R" : " ";
