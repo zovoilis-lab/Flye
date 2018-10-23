@@ -23,7 +23,7 @@
 #include "../common/parallel.h"
 #include "../common/disjoint_set.h"
 
-/*namespace
+namespace
 {
 	float kswAlign(const DnaSequence& seqT, const DnaSequence seqQ,
 				   int matchScore, int misScore, int gapOpen, int gapExtend,
@@ -145,7 +145,7 @@
 
 		return errRate;
 	}
-}*/
+}
 
 //Check if it is a proper overlap
 bool OverlapDetector::overlapTest(const OverlapRange& ovlp,
@@ -570,6 +570,15 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 					std::max(ovlp.curRange() - filteredPositions, ovlp.score);
 				ovlp.seqDivergence = std::log((float)normalizedLength / 
 											  ovlp.score) / kmerSize;
+				/*if (_maxDivergence <= 0.11)
+				{
+					ovlp.seqDivergence = kswAlign(fastaRec.sequence
+													.substr(ovlp.curBegin, ovlp.curRange()),
+												 _seqContainer.getSeq(extId)
+													.substr(ovlp.extBegin, ovlp.extRange()),
+												 1, -2, 2, 1, false);
+				}*/
+
 
 				float divThreshold = _maxDivergence;
 				if (ovlp.curBegin < _maxJump || curLen - ovlp.curEnd < _maxJump)

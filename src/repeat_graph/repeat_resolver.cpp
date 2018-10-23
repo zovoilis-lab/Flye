@@ -195,15 +195,22 @@ int RepeatResolver::resolveConnections(const std::vector<Connection>& connection
 bool RepeatResolver::checkByReadExtension(const GraphEdge* checkEdge,
 										  const std::vector<GraphAlignment>& alignments)
 {
-	std::unordered_map<GraphEdge*, int> outConnections;
+	std::unordered_map<GraphEdge*, std::vector<int>> outFlanks;
+	std::unordered_map<GraphEdge*, std::vector<int>> outSpans;
+	int lowerBound = 0;
 	for (auto& aln : alignments)
 	{ 
 		bool passedStart = false;
+		int leftFlank = 0;
+		int leftCoord = 0;
+		bool foundUnique = false;
 		for (size_t i = 0; i < aln.size(); ++i)
 		{
 			if (!passedStart && aln[i].edge == checkEdge)
 			{
 				passedStart = true;
+				leftFlank = aln[i].overlap.curEnd - aln[0].overlap.curBegin;
+				leftCoord = aln[i].overlap.curEnd;
 				continue;
 			}
 			if (passedStart && !aln[i].edge->repetitive)
@@ -211,28 +218,42 @@ bool RepeatResolver::checkByReadExtension(const GraphEdge* checkEdge,
 				if (aln[i].edge->edgeId != checkEdge->edgeId &&
 					aln[i].edge->edgeId != checkEdge->edgeId.rc())
 				{
-					++outConnections[aln[i].edge];
+					int rightFlank = aln.back().overlap.curEnd -
+									 aln[i].overlap.curBegin;
+					int alnSpan = aln[i].overlap.curBegin - leftCoord;
+					outFlanks[aln[i].edge].push_back(std::min(leftFlank, rightFlank));
+					outSpans[aln[i].edge].push_back(alnSpan);
 				}
+				foundUnique = true;
 				break;
 			}
+		}
+		if (!foundUnique)
+		{
+			lowerBound = std::max(lowerBound, 
+								  aln.back().overlap.curBegin - leftCoord);
 		}
 	}
 
 	//check if there is agreement
 	int maxSupport = 0;
-	for (auto& outConn : outConnections)
+	for (auto& outConn : outFlanks)
 	{
-		if (maxSupport < outConn.second)
+		if (maxSupport < (int)outConn.second.size())
 		{
-			maxSupport =  outConn.second;
+			maxSupport = outConn.second.size();
 		}
 	}
 
 	int uniqueMult = 0;
-	int minSupport = std::max(maxSupport / (int)Config::get("out_paths_ratio"), 1);
-	for (auto& outConn : outConnections) 
+	int minSupport = maxSupport / (int)Config::get("out_paths_ratio");
+	//if there is at least one extension supported by more than 1 read,
+	//make minimum support at least 1
+	if (maxSupport > 1) minSupport = std::max(minSupport, 1);
+
+	for (auto& outConn : outFlanks) 
 	{
-		if (outConn.second > minSupport)
+		if ((int)outConn.second.size() > minSupport)
 		{
 			++uniqueMult;
 		}
@@ -241,14 +262,21 @@ bool RepeatResolver::checkByReadExtension(const GraphEdge* checkEdge,
 	if (uniqueMult > 1) 
 	{
 		Logger::get().debug() << "Starting " 
-			<< checkEdge->edgeId.signedId() << " " << alignments.size();
-		for (auto& outEdgeCount : outConnections)
+			<< checkEdge->edgeId.signedId() << " aln:" << alignments.size()
+			<< " minSpan:" << lowerBound;
+		for (auto& outEdgeCount : outFlanks)
 		{
+			int maxFlank = *std::max_element(outEdgeCount.second.begin(),
+											 outEdgeCount.second.end());
+			int minSpan = *std::min_element(outSpans[outEdgeCount.first].begin(),
+											outSpans[outEdgeCount.first].end());
+
 			std::string star = outEdgeCount.first->repetitive ? "R" : " ";
 			std::string loop = outEdgeCount.first->isLooped() ? "L" : " ";
 			std::string tip = outEdgeCount.first->isTip() ? "T" : " ";
-			Logger::get().debug() << "\t+\t" << star << " " << loop << " " << tip << " "
-				<< outEdgeCount.first->edgeId.signedId() << "\t" << outEdgeCount.second;
+			Logger::get().debug() << "\t" << star << " " << loop << " " << tip << " "
+				<< outEdgeCount.first->edgeId.signedId() << "\tnum:" << outEdgeCount.second.size()
+				<< "\tflank:" << maxFlank << "\tspan:" << minSpan;
 		}
 		return true;
 	}
@@ -571,7 +599,8 @@ void RepeatResolver::fixLongEdges()
 void RepeatResolver::resolveRepeats()
 {
 	//make the first iteration resolve only high-confidence connections
-	bool perfectIter = true;	
+	//bool perfectIter = true;	
+	bool perfectIter = false;	
 	while (true)
 	{
 		float minSupport = perfectIter ? 1.0f : 
