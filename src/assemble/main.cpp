@@ -246,7 +246,8 @@ int main(int argc, char** argv)
 						 /*store alignment*/ false,
 						 /*only max*/ true,
 						 (float)Config::get("assemble_ovlp_ident"), 
-						 /* bad end adjustment*/ 0.0f);
+						 /* bad end adjustment*/ 0.0f,
+						 /* nucl alignent*/ false);
 	OverlapContainer readOverlaps(ovlp, readsContainer);
 
 	Extender extender(readsContainer, readOverlaps);

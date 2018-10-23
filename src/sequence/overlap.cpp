@@ -542,50 +542,34 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 				ovlp.leftShift = median(shifts);
 				ovlp.rightShift = extLen - curLen + ovlp.leftShift;
 
-				int32_t filteredPositions = 0;
-				//int32_t curInterval = 0;
-				//int32_t prevPos = 0;
-				for (auto pos : curFilteredPos)
+				if (!_nuclAlignment)
 				{
-					if (pos < ovlp.curBegin) continue;
-					if (pos > ovlp.curEnd) break;
-					++filteredPositions;
-
-					/*if (pos - prevPos == 1)
+					int32_t filteredPositions = 0;
+					for (auto pos : curFilteredPos)
 					{
-						++curInterval;
+						if (pos < ovlp.curBegin) continue;
+						if (pos > ovlp.curEnd) break;
+						++filteredPositions;
 					}
-					else
-					{
-						if (curInterval > kmerSize) 
-						{
-							filteredPositions += curInterval - kmerSize;
-						}
-						curInterval = 0;
-					}
-					prevPos = pos;*/
+					int32_t normalizedLength = 
+						std::max(ovlp.curRange() - filteredPositions, chainLength);
+					ovlp.seqDivergence = std::log((float)normalizedLength / 
+												  chainLength) / kmerSize;
 				}
-
-				int32_t normalizedLength = 
-					std::max(ovlp.curRange() - filteredPositions, ovlp.score);
-				ovlp.seqDivergence = std::log((float)normalizedLength / 
-											  ovlp.score) / kmerSize;
-				/*if (_maxDivergence <= 0.11)
+				else
 				{
-					ovlp.seqDivergence = kswAlign(fastaRec.sequence
-													.substr(ovlp.curBegin, ovlp.curRange()),
-												 _seqContainer.getSeq(extId)
-													.substr(ovlp.extBegin, ovlp.extRange()),
-												 1, -2, 2, 1, false);
-				}*/
-
+					ovlp.seqDivergence = 
+						kswAlign(fastaRec.sequence.substr(ovlp.curBegin, 
+														 ovlp.curRange()),
+								 _seqContainer.getSeq(extId).substr(ovlp.extBegin, 
+								 									ovlp.extRange()),
+								 /*match*/ 1, /*mm*/ -2, /*gap open*/ 2, 
+								 /*gap ext*/ 1, false);
+				}
 
 				float divThreshold = _maxDivergence;
-				if (ovlp.curBegin < _maxJump || curLen - ovlp.curEnd < _maxJump)
-				{
-					divThreshold += _badEndAdjustment;
-				}
-				if (ovlp.extBegin < _maxJump || extLen - ovlp.extEnd < _maxJump)
+				if (ovlp.curBegin < _maxJump || curLen - ovlp.curEnd < _maxJump ||
+					ovlp.extBegin < _maxJump || extLen - ovlp.extEnd < _maxJump)
 				{
 					divThreshold += _badEndAdjustment;
 				}

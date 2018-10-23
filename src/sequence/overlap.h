@@ -219,7 +219,8 @@ public:
 					const VertexIndex& vertexIndex,
 					int maxJump, int minOverlap, int maxOverhang,
 					int maxCurOverlaps, bool keepAlignment, bool onlyMaxExt,
-					float maxDivergence, float badEndAdjustment):
+					float maxDivergence, float badEndAdjustment,
+					bool nuclAlignment):
 		_maxJump(maxJump),
 		_minOverlap(minOverlap),
 		_maxOverhang(maxOverhang),
@@ -227,6 +228,7 @@ public:
 		_checkOverhang(maxOverhang > 0),
 		_keepAlignment(keepAlignment),
 		_onlyMaxExt(onlyMaxExt),
+		_nuclAlignment(nuclAlignment),
 		_maxDivergence(maxDivergence),
 		_badEndAdjustment(badEndAdjustment),
 		_vertexIndex(vertexIndex),
@@ -252,6 +254,7 @@ private:
 	const bool  _checkOverhang;
 	const bool  _keepAlignment;
 	const bool  _onlyMaxExt;
+	const bool  _nuclAlignment;
 	const float _maxDivergence;
 	const float _badEndAdjustment;
 
