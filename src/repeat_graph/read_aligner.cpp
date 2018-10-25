@@ -25,9 +25,9 @@ std::vector<GraphAlignment>
 								 	 const std::vector<EdgeAlignment>& ovlps) const
 {
 	static const int32_t MAX_JUMP = Config::get("maximum_jump");
-	static const int32_t MAX_SEP = Config::get("max_separation");
+	//static const int32_t MAX_SEP = Config::get("max_separation");
 	static const int32_t MAX_READ_OVLP = 50;
-	static const int32_t KMER_SIZE = Parameters::get().kmerSize;
+	//static const int32_t KMER_SIZE = Parameters::get().kmerSize;
 
 	std::list<Chain> activeChains;
 	for (auto& edgeAlignment : ovlps)
@@ -46,13 +46,13 @@ std::vector<GraphAlignment>
 
 			if (chain.aln.back()->edge->nodeRight == edgeAlignment.edge->nodeLeft &&
 				MAX_JUMP > readDiff && readDiff > -MAX_READ_OVLP &&
-				graphLeftDiff < MAX_SEP && graphRightDiff < MAX_SEP)
+				graphLeftDiff + graphRightDiff < MAX_JUMP)
 			{
 				int32_t jumpDiv = abs(readDiff - 
 									  (graphLeftDiff + graphRightDiff));
-				int32_t gapCost = jumpDiv ? 
-						KMER_SIZE * jumpDiv / 100 + std::log2(jumpDiv) : 0;
-				gapCost += std::max(-readDiff, 0) * 2;
+				int32_t gapCost = 2 * jumpDiv + 2 * std::max(-readDiff, 0);
+				//int32_t gapCost = jumpDiv ? 
+				//		KMER_SIZE * jumpDiv / 100 + std::log2(jumpDiv) : 0;
 				//int32_t gapCost = (graphLeftDiff + graphRightDiff) / 10;
 				int32_t score = chain.score + nextOvlp.score - gapCost;
 				if (score > maxScore)
