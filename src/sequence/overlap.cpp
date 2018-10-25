@@ -29,6 +29,8 @@ namespace
 				   int matchScore, int misScore, int gapOpen, int gapExtend,
 				   bool showAlignment)
 	{
+		static const int32_t MAX_JUMP = Config::get("maximum_jump");
+
 		std::vector<uint8_t> tseq(seqT.length());
 		for (size_t i = 0; i < (size_t)seqT.length(); ++i)
 		{
@@ -41,7 +43,7 @@ namespace
 		}
 
 		int seqDiff = abs((int)tseq.size() - (int)qseq.size());
-		int bandWidth = seqDiff + 500;
+		int bandWidth = seqDiff + MAX_JUMP * 2;
 		//substitution matrix
 		int8_t a = matchScore;
 		int8_t b = misScore < 0 ? misScore : -misScore; // a > 0 and b < 0
