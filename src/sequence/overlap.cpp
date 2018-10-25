@@ -432,7 +432,8 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 					//convex gap seems useless..
 					//int32_t gapCost = jumpDiv ? 
 					//		kmerSize * jumpDiv + ilog2_32(jumpDiv) : 0;
-					int32_t gapCost = 2 * jumpDiv;
+					int32_t gapCost = (jumpDiv > 50) ? 2 * jumpDiv : 
+									  ilog2_32(jumpDiv);
 					int32_t nextScore = scoreTable[j] + matchScore - gapCost;
 					if (nextScore > maxScore)
 					{
@@ -595,8 +596,8 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 										 _seqContainer.getSeq(extId)
 											.substr(ovlp.extBegin, ovlp.extRange()),
 										 1, -2, 2, 1, false);
-				fout << alnDiff << " " << ovlp.seqDivergence << std::endl;
-				if (0.15 < alnDiff && ovlp.seqDivergence < 0.15)
+				fout << alnDiff << " " << ovlp.seqDivergence << std::endl;*/
+				/*if (0.15 < alnDiff && ovlp.seqDivergence < 0.15)
 				{
 					kswAlign(fastaRec.sequence
 								.substr(ovlp.curBegin, ovlp.curRange()),

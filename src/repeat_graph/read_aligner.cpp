@@ -50,7 +50,9 @@ std::vector<GraphAlignment>
 			{
 				int32_t jumpDiv = abs(readDiff - 
 									  (graphLeftDiff + graphRightDiff));
-				int32_t gapCost = 2 * jumpDiv + 2 * std::max(-readDiff, 0);
+				int32_t gapCost = (jumpDiv > 50) ? 2 * jumpDiv : 
+								  std::log2(jumpDiv);
+				gapCost += std::max(-readDiff, 0);
 				//int32_t gapCost = jumpDiv ? 
 				//		KMER_SIZE * jumpDiv / 100 + std::log2(jumpDiv) : 0;
 				//int32_t gapCost = (graphLeftDiff + graphRightDiff) / 10;
