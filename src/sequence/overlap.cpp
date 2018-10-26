@@ -120,7 +120,8 @@ namespace
 				posTrg += size;
 			}
 		}
-        float errRate = 1 - float(matches) / alnLength;
+        //float errRate = 1 - float(matches) / alnLength;
+        float errRate = 1 - float(matches) / std::max(tseq.size(), qseq.size());
 		free(ez.cigar);
 
 		if (showAlignment)
@@ -432,8 +433,7 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 					//convex gap seems useless..
 					//int32_t gapCost = jumpDiv ? 
 					//		kmerSize * jumpDiv + ilog2_32(jumpDiv) : 0;
-					int32_t gapCost = (jumpDiv > 50) ? 2 * jumpDiv : 
-									  ilog2_32(jumpDiv);
+					int32_t gapCost = (jumpDiv > 50) ? 2 * jumpDiv : 0;
 					int32_t nextScore = scoreTable[j] + matchScore - gapCost;
 					if (nextScore > maxScore)
 					{
@@ -555,10 +555,10 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 					++filteredPositions;
 				}
 
-				float matchRate = (float)chainLength / ovlp.curRange();
-				float repeatRate = (float)filteredPositions / ovlp.curRange();
-				ovlp.seqDivergence = std::log(1 / matchRate) / 
-										kmerSize * (1 - repeatRate);
+				float matchRate = (float)chainLength / std::max(ovlp.curRange(), 
+																ovlp.extRange());
+				//float repeatRate = (float)filteredPositions / ovlp.curRange();
+				ovlp.seqDivergence = std::log(1 / matchRate) / kmerSize;
 
 				if(_nuclAlignment)
 				{
