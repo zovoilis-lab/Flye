@@ -229,7 +229,7 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 								bool& outSuggestChimeric,
 								OvlpDivStats& divStats) const
 {
-	const int MAX_LOOK_BACK = 50;
+	//const int MAX_LOOK_BACK = 50;
 	const int kmerSize = Parameters::get().kmerSize;
 	//const float minKmerSruvivalRate = std::exp(-_maxDivergence * kmerSize);
 	const float minKmerSruvivalRate = 0.01;
@@ -415,7 +415,7 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 			int32_t maxId = 0;
 			int32_t curNext = matchesList[i].curPos;
 			int32_t extNext = matchesList[i].extPos;
-			int32_t noImprovement = 0;
+			//int32_t noImprovement = 0;
 
 			for (int32_t j = i - 1; j >= 0; --j)
 			{
@@ -439,14 +439,14 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 					{
 						maxScore = nextScore;
 						maxId = j;
-						noImprovement = 0;
+						//noImprovement = 0;
 
 						if (jumpDiv == 0 && curNext - curPrev < kmerSize) break;
 					}
-					else
+					/*else
 					{
 						if (++noImprovement > MAX_LOOK_BACK) break;
-					}
+					}*/
 				}
 				if (extSorted && extNext - extPrev > _maxJump) break;
 				if (!extSorted && curNext - curPrev > _maxJump) break;
