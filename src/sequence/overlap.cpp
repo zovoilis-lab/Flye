@@ -547,21 +547,20 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 				ovlp.leftShift = median(shifts);
 				ovlp.rightShift = extLen - curLen + ovlp.leftShift;
 
-				if (!_nuclAlignment)
+				int32_t filteredPositions = 0;
+				for (auto pos : curFilteredPos)
 				{
-					int32_t filteredPositions = 0;
-					for (auto pos : curFilteredPos)
-					{
-						if (pos < ovlp.curBegin) continue;
-						if (pos > ovlp.curEnd) break;
-						++filteredPositions;
-					}
-					int32_t normalizedLength = 
-						std::max(ovlp.curRange() - filteredPositions, chainLength);
-					ovlp.seqDivergence = std::log((float)normalizedLength / 
-												  chainLength) / kmerSize;
+					if (pos < ovlp.curBegin) continue;
+					if (pos > ovlp.curEnd) break;
+					++filteredPositions;
 				}
-				else
+
+				float matchRate = (float)chainLength / ovlp.curRange();
+				float repeatRate = (float)filteredPositions / ovlp.curRange();
+				ovlp.seqDivergence = std::log(1 / matchRate) / 
+										kmerSize * (1 - repeatRate);
+
+				if(_nuclAlignment)
 				{
 					ovlp.seqDivergence = 
 						kswAlign(fastaRec.sequence.substr(ovlp.curBegin, 
@@ -597,14 +596,15 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 											.substr(ovlp.extBegin, ovlp.extRange()),
 										 1, -2, 2, 1, false);
 				fout << alnDiff << " " << ovlp.seqDivergence << std::endl;*/
-				/*if (0.15 < alnDiff && ovlp.seqDivergence < 0.15)
+				/*if (0.15 > alnDiff && ovlp.seqDivergence > 0.20)
 				{
 					kswAlign(fastaRec.sequence
 								.substr(ovlp.curBegin, ovlp.curRange()),
 							 _seqContainer.getSeq(extId)
 								.substr(ovlp.extBegin, ovlp.extRange()),
 							 1, -2, 2, 1, true);
-					std::cout << alnDiff << " " << ovlp.seqDivergence << std::endl;
+					std::cout << alnDiff << " " << ovlp.seqDivergence << 
+						" " << (float)filteredPositions / ovlp.curRange() << std::endl;
 				}*/
 			}
 		}
