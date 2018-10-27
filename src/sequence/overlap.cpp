@@ -30,6 +30,7 @@ namespace
 				   bool showAlignment)
 	{
 		static const int32_t MAX_JUMP = Config::get("maximum_jump");
+		const int KMER_SIZE = Parameters::get().kmerSize;
 
 		std::vector<uint8_t> tseq(seqT.length());
 		for (size_t i = 0; i < (size_t)seqT.length(); ++i)
@@ -81,6 +82,7 @@ namespace
 		size_t posTrg = 0;
         int matches = 0;
 		int alnLength = 0;
+		int condensedLength = 0;
 		for (size_t i = 0; i < (size_t)ez.n_cigar; ++i)
 		{
 			int size = ez.cigar[i] >> 4;
@@ -100,6 +102,7 @@ namespace
 				}
 				posQry += size;
 				posTrg += size;
+				condensedLength += size;
 			}
             else if (op == 'I')
 			{
@@ -109,6 +112,7 @@ namespace
 					alnTrg += std::string(size, '-');
 				}
                 posQry += size;
+				condensedLength += std::min(size, KMER_SIZE);
 			}
             else //D
 			{
@@ -118,30 +122,31 @@ namespace
 					alnTrg += strT.substr(posTrg, size);
 				}
 				posTrg += size;
+				condensedLength += std::min(size, KMER_SIZE);
 			}
 		}
         //float errRate = 1 - float(matches) / alnLength;
-        float errRate = 1 - float(matches) / std::max(tseq.size(), qseq.size());
+        //float errRate = 1 - float(matches) / std::max(tseq.size(), qseq.size());
+        float errRate = 1 - float(matches) / condensedLength;
 		free(ez.cigar);
 
 		if (showAlignment)
 		{
-			for (size_t chunk = 0; chunk <= alnQry.size() / 100; ++chunk)
+			const int WIDTH = 100;
+			for (size_t chunk = 0; chunk <= alnQry.size() / WIDTH; ++chunk)
 			{
-				for (size_t i = chunk * 100; 
-					 i < std::min((chunk + 1) * 100, alnQry.size()); ++i)
+				for (size_t i = chunk * WIDTH; 
+					 i < std::min((chunk + 1) * WIDTH, alnQry.size()); ++i)
 				{
 					std::cout << alnQry[i];
 				}
 				std::cout << "\n";
-				for (size_t i = chunk * 100; 
-					 i < std::min((chunk + 1) * 100, alnQry.size()); ++i)
+				for (size_t i = chunk * WIDTH; 
+					 i < std::min((chunk + 1) * WIDTH, alnQry.size()); ++i)
 				{
 					std::cout << alnTrg[i];
 				}
-				//std::cout << alnQry;
 				std::cout << "\n\n";
-				//std::cout << std::endl;
 			}
 			std::cout << "\n----------------\n" << std::endl;
 		}
