@@ -173,7 +173,10 @@ FastaRecord ConsensusGenerator::generateLinear(const ContigPath& path,
 			prevSwitch = curSwitch;
 		}
 
-		contigSequence += sequence.substr(leftCut, rightCut - leftCut).str();
+		if (rightCut - leftCut > 0)	//shoudn't happen, but just in case
+		{
+			contigSequence += sequence.substr(leftCut, rightCut - leftCut).str();
+		}
 	}
 	int32_t cutLen = contigSequence.length() - (path.trimLeft + path.trimRight);
 	if (cutLen > 0)
