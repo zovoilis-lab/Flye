@@ -175,6 +175,20 @@ bool OverlapDetector::overlapTest(const OverlapRange& ovlp,
 		return false;
 	}
 
+	//check if it's "almost trivial" match with intersecting sequence
+	int32_t intersect = 0;
+	if (ovlp.curId == ovlp.extId)
+	{
+		intersect = std::min(ovlp.curEnd, ovlp.extEnd) - 
+			   		std::max(ovlp.curBegin, ovlp.extBegin);
+	}
+	if (ovlp.curId == ovlp.extId.rc())
+	{
+		intersect = std::min(ovlp.curEnd, ovlp.extLen - ovlp.extBegin) - 
+			   		std::max(ovlp.curBegin, ovlp.extLen - ovlp.extEnd);
+	}
+	if (intersect > ovlp.curRange() / 2) return false;
+
 	if (ovlp.curId == ovlp.extId.rc()) 
 	{
 		int32_t projEnd = ovlp.extLen - ovlp.extEnd - 1;
