@@ -44,7 +44,7 @@ namespace
 		}
 
 		int seqDiff = abs((int)tseq.size() - (int)qseq.size());
-		int bandWidth = seqDiff + MAX_JUMP * 2;
+		int bandWidth = seqDiff + MAX_JUMP;
 		//substitution matrix
 		int8_t a = matchScore;
 		int8_t b = misScore < 0 ? misScore : -misScore; // a > 0 and b < 0
@@ -253,6 +253,8 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 	const int kmerSize = Parameters::get().kmerSize;
 	//const float minKmerSruvivalRate = std::exp(-_maxDivergence * kmerSize);
 	const float minKmerSruvivalRate = 0.01;
+	const float LG_GAP = 2;
+	const float SM_GAP = 0.5;
 
 	//static std::ofstream fout("../kmers.txt");
 
@@ -449,10 +451,9 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 										  kmerSize);
 					int32_t jumpDiv = abs((curNext - curPrev) - 
 										  (extNext - extPrev));
-					//convex gap seems useless..
 					//int32_t gapCost = jumpDiv ? 
 					//		kmerSize * jumpDiv + ilog2_32(jumpDiv) : 0;
-					int32_t gapCost = (jumpDiv > 50) ? 2 * jumpDiv : 0;
+					int32_t gapCost = (jumpDiv > 100 ? LG_GAP : SM_GAP) * jumpDiv;
 					int32_t nextScore = scoreTable[j] + matchScore - gapCost;
 					if (nextScore > maxScore)
 					{
@@ -506,6 +507,7 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 			shifts.clear();
 			kmerMatches.clear();
 			//int32_t totalMatch = kmerSize;
+			//int32_t totalGap = 0;
 			while (pos != -1)
 			{
 				firstMatch = matchesList[pos];
@@ -523,8 +525,12 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 					int32_t matchScore = 
 							std::min(std::min(curNext - curPrev, extNext - extPrev),
 											  kmerSize);
-					totalMatch += matchScore;
+					int32_t jumpDiv = abs((curNext - curPrev) - 
+										  (extNext - extPrev));
+					int32_t gapCost = (jumpDiv > 50) ? 2 * jumpDiv : jumpDiv;
 
+					totalMatch += matchScore;
+					totalGap += gapCost;
 				}*/
 				if (_keepAlignment)
 				{
@@ -545,6 +551,7 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 				}
 				pos = newPos;
 			}
+
 
 			OverlapRange ovlp(fastaRec.id, matchesList.front().extId,
 							  firstMatch.curPos, firstMatch.extPos,

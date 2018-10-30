@@ -48,13 +48,10 @@ std::vector<GraphAlignment>
 				MAX_JUMP > readDiff && readDiff > -MAX_READ_OVLP &&
 				graphLeftDiff + graphRightDiff < MAX_JUMP)
 			{
-				int32_t jumpDiv = abs(readDiff - 
-									  (graphLeftDiff + graphRightDiff));
-				int32_t gapCost = (jumpDiv > 50) ? 2 * jumpDiv : 0;
-				gapCost += std::max(-readDiff, 0);
-				//int32_t gapCost = jumpDiv ? 
-				//		KMER_SIZE * jumpDiv / 100 + std::log2(jumpDiv) : 0;
-				//int32_t gapCost = (graphLeftDiff + graphRightDiff) / 10;
+				//int32_t jumpDiv = abs(readDiff - 
+				//					  (graphLeftDiff + graphRightDiff));
+				//int32_t gapCost = (jumpDiv > 100) ? 2 * jumpDiv : 0;
+				int32_t gapCost = std::max(-readDiff, 0);
 				int32_t score = chain.score + nextOvlp.score - gapCost;
 				if (score > maxScore)
 				{
