@@ -206,6 +206,9 @@ bool RepeatResolver::checkByReadExtension(const GraphEdge* checkEdge,
 		bool foundUnique = false;
 		for (size_t i = 0; i < aln.size(); ++i)
 		{
+			 //only high quality flanking alignments
+			if (aln[i].overlap.seqDivergence > 0.15) continue;
+
 			if (!passedStart && aln[i].edge == checkEdge)
 			{
 				passedStart = true;
@@ -658,26 +661,27 @@ std::vector<RepeatResolver::Connection>
 			currentAln.push_back(aln);
 			if (safeEdge(aln.edge))
 			{
-				if (currentAln.back().edge->nodeLeft->isBifurcation() ||
-					currentAln.front().edge->nodeRight->isBifurcation()) 
-				{
+				if (!currentAln.back().edge->nodeLeft->isBifurcation() &&
+					!currentAln.front().edge->nodeRight->isBifurcation()) continue;
 
-					int32_t flankScore = std::min(currentAln.front().overlap.curRange(),
-												  currentAln.back().overlap.curRange());
-					GraphPath currentPath;
-					for (auto& aln : currentAln) currentPath.push_back(aln.edge);
-					GraphPath complPath = _graph.complementPath(currentPath);
+				if (currentAln.front().overlap.seqDivergence > 0.15 ||
+					currentAln.back().overlap.seqDivergence > 0.15) continue;
+				
+				int32_t flankScore = std::min(currentAln.front().overlap.curRange(),
+											  currentAln.back().overlap.curRange());
+				GraphPath currentPath;
+				for (auto& aln : currentAln) currentPath.push_back(aln.edge);
+				GraphPath complPath = _graph.complementPath(currentPath);
 
-					int32_t readEnd = aln.overlap.curBegin - aln.overlap.extBegin;
-					readEnd = std::max(readStart + 100, readEnd);	//TODO: less ad-hoc fix
-					SequenceSegment segment(aln.overlap.curId, aln.overlap.curLen, 
-											readStart, readEnd);
-					segment.segType = SequenceSegment::Read;
-					SequenceSegment complSegment = segment.complement();
+				int32_t readEnd = aln.overlap.curBegin - aln.overlap.extBegin;
+				readEnd = std::max(readStart + 100, readEnd);	//TODO: less ad-hoc fix
+				SequenceSegment segment(aln.overlap.curId, aln.overlap.curLen, 
+										readStart, readEnd);
+				segment.segType = SequenceSegment::Read;
+				SequenceSegment complSegment = segment.complement();
 
-					readConnections.push_back({currentPath, segment, flankScore});
-					readConnections.push_back({complPath, complSegment, flankScore});
-				}
+				readConnections.push_back({currentPath, segment, flankScore});
+				readConnections.push_back({complPath, complSegment, flankScore});
 
 				currentAln.clear();
 				currentAln.push_back(aln);
