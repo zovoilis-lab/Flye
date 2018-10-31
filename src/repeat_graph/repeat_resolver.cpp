@@ -207,7 +207,7 @@ bool RepeatResolver::checkByReadExtension(const GraphEdge* checkEdge,
 		for (size_t i = 0; i < aln.size(); ++i)
 		{
 			 //only high quality flanking alignments
-			if (aln[i].overlap.seqDivergence > 0.15) continue;
+			//if (aln[i].overlap.seqDivergence > 0.15) continue;
 
 			if (!passedStart && aln[i].edge == checkEdge)
 			{
@@ -664,8 +664,8 @@ std::vector<RepeatResolver::Connection>
 				if (!currentAln.back().edge->nodeLeft->isBifurcation() &&
 					!currentAln.front().edge->nodeRight->isBifurcation()) continue;
 
-				if (currentAln.front().overlap.seqDivergence > 0.15 ||
-					currentAln.back().overlap.seqDivergence > 0.15) continue;
+				//if (currentAln.front().overlap.seqDivergence > 0.15 ||
+				//	currentAln.back().overlap.seqDivergence > 0.15) continue;
 				
 				int32_t flankScore = std::min(currentAln.front().overlap.curRange(),
 											  currentAln.back().overlap.curRange());
