@@ -202,11 +202,7 @@ class SynchronizedSamReader(object):
                 parsed_contig = current_contig
         #end with
 
-        if not parsed_contig in self.seq_lengths:
-            raise AlignmentException("Missing from SAM header: " + parsed_contig)
-        contig_length = self.seq_lengths[parsed_contig]
         sequence_length = 0
-
         alignments = []
         for tokens in buffer:
             read_id = tokens[0]
@@ -231,8 +227,11 @@ class SynchronizedSamReader(object):
             alignments.append(aln)
 
             sequence_length += qry_end - qry_start
-            if sequence_length / contig_length > self.max_coverage:
-                break
+            #In rare cases minimap2 does not output SQ tag, so need to check
+            if parsed_contig in self.seq_lengths:
+                contig_length = self.seq_lengths[parsed_contig]
+                if sequence_length / contig_length > self.max_coverage:
+                    break
 
         return parsed_contig, alignments
 
