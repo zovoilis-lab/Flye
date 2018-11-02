@@ -15,7 +15,10 @@
 #include <cstring>
 #include <iomanip>
 
+#define HAVE_KALLOC
+#include "kalloc.h"
 #include "ksw2.h"
+#undef HAVE_KALLOC
 
 #include "overlap.h"
 #include "../common/config.h"
@@ -25,26 +28,59 @@
 
 namespace
 {
-	float kswAlign(const DnaSequence& seqT, const DnaSequence seqQ,
+	using namespace std::chrono;
+	struct ThreadMemPool
+	{
+		ThreadMemPool():
+			prevCleanup(system_clock::now() + seconds(rand() % 60))
+		{
+		   memPool = km_init();
+		}
+		~ThreadMemPool()
+		{
+		   km_destroy(memPool);
+		}
+		void cleanIter()
+		{
+			if ((system_clock::now() - prevCleanup) > seconds(60))
+			{
+				km_destroy(memPool);
+               	memPool = km_init();
+				prevCleanup = system_clock::now();
+			}
+		}
+
+		time_point<system_clock> prevCleanup;
+		void* memPool;
+    };
+
+	float kswAlign(const DnaSequence& trgSeq, size_t trgBegin, size_t trgLen,
+				   const DnaSequence& qrySeq, size_t qryBegin, size_t qryLen,
 				   int matchScore, int misScore, int gapOpen, int gapExtend,
 				   bool showAlignment)
 	{
 		static const int32_t MAX_JUMP = Config::get("maximum_jump");
 		const int KMER_SIZE = Parameters::get().kmerSize;
 
-		std::vector<uint8_t> tseq(seqT.length());
-		for (size_t i = 0; i < (size_t)seqT.length(); ++i)
+		thread_local ThreadMemPool buf;
+		thread_local std::vector<uint8_t> trgByte;
+		thread_local std::vector<uint8_t> qryByte;
+		buf.cleanIter();
+		trgByte.assign(trgLen, 0);
+		qryByte.assign(qryLen, 0);
+
+		for (size_t i = 0; i < trgLen; ++i)
 		{
-			tseq[i] = seqT.atRaw(i);
+			trgByte[i] = trgSeq.atRaw(i + trgBegin);
 		}
-		std::vector<uint8_t> qseq(seqQ.length());
-		for (size_t i = 0; i < seqQ.length(); ++i)
+		for (size_t i = 0; i < qryLen; ++i)
 		{
-			qseq[i] = seqQ.atRaw(i);
+			qryByte[i] = qrySeq.atRaw(i + qryBegin);
 		}
 
-		int seqDiff = abs((int)tseq.size() - (int)qseq.size());
+		int seqDiff = abs((int)trgByte.size() - (int)qryByte.size());
 		int bandWidth = seqDiff + MAX_JUMP;
+
 		//substitution matrix
 		int8_t a = matchScore;
 		int8_t b = misScore < 0 ? misScore : -misScore; // a > 0 and b < 0
@@ -62,20 +98,20 @@ namespace
 		const int END_BONUS = 0;
 		//ksw_extf2_sse(0, qseq.size(), &qseq[0], tseq.size(), &tseq[0], matchScore,
 		//		 	  misScore, gapOpen, bandWidth, Z_DROP, &ez);
-		ksw_extz2_sse(0, qseq.size(), &qseq[0], tseq.size(), &tseq[0], NUM_NUCL,
+		ksw_extz2_sse(buf.memPool, qryByte.size(), &qryByte[0], 
+					  trgByte.size(), &trgByte[0], NUM_NUCL,
 				 	  subsMat, gapOpen, gapExtend, bandWidth, Z_DROP, 
 					  END_BONUS, FLAG, &ez);
 		
 		//decode CIGAR
-		
 		std::string strQ;
 		std::string strT;
 		std::string alnQry;
 		std::string alnTrg;
 		if (showAlignment)
 		{
-			for (auto x : qseq) strQ += "ACGT"[x];
-			for (auto x : tseq) strT += "ACGT"[x];
+			for (auto x : qryByte) strQ += "ACGT"[x];
+			for (auto x : trgByte) strT += "ACGT"[x];
 		}
 
 		size_t posQry = 0;
@@ -93,7 +129,7 @@ namespace
 			{
 				for (size_t i = 0; i < (size_t)size; ++i)
 				{
-					if (tseq[posTrg + i] == qseq[posQry + i]) ++matches;
+					if (trgByte[posTrg + i] == qryByte[posQry + i]) ++matches;
 				}
 				if (showAlignment)
 				{
@@ -128,7 +164,7 @@ namespace
         //float errRate = 1 - float(matches) / alnLength;
         //float errRate = 1 - float(matches) / std::max(tseq.size(), qseq.size());
         float errRate = 1 - float(matches) / condensedLength;
-		free(ez.cigar);
+		kfree(buf.memPool, ez.cigar);
 
 		if (showAlignment)
 		{
@@ -277,11 +313,12 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 	static thread_local std::vector<int32_t> backtrackTable;
 
 	//although once in a while shrink allocated memory size
-	static thread_local auto prevClenup = std::chrono::system_clock::now();
-	if ((std::chrono::system_clock::now() - prevClenup) > 
+	static thread_local auto prevCleanup = 
+		std::chrono::system_clock::now() + std::chrono::seconds(rand() % 60);
+	if ((std::chrono::system_clock::now() - prevCleanup) > 
 		std::chrono::seconds(60))
 	{
-		prevClenup = std::chrono::system_clock::now();
+		prevCleanup = std::chrono::system_clock::now();
 		vecMatches.shrink_to_fit();
 		matchesList.shrink_to_fit();
 		scoreTable.shrink_to_fit();
@@ -589,10 +626,8 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 				if(_nuclAlignment)
 				{
 					ovlp.seqDivergence = 
-						kswAlign(fastaRec.sequence.substr(ovlp.curBegin, 
-														 ovlp.curRange()),
-								 _seqContainer.getSeq(extId).substr(ovlp.extBegin, 
-								 									ovlp.extRange()),
+						kswAlign(fastaRec.sequence, ovlp.curBegin, ovlp.curRange(),
+								 _seqContainer.getSeq(extId), ovlp.extBegin, ovlp.extRange(),
 								 /*match*/ 1, /*mm*/ -2, /*gap open*/ 2, 
 								 /*gap ext*/ 1, false);
 				}
