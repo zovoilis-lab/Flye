@@ -229,6 +229,7 @@ int main(int argc, char** argv)
 	outGen.outputDot(proc.getEdgesPaths(), outFolder + "/graph_before_rr.gv");
 	//outGen.outputGfa(proc.getEdgesPaths(), outFolder + "/graph_before_rr.gfa");
 	outGen.outputFasta(proc.getEdgesPaths(), outFolder + "/graph_before_rr.fasta");
+	//outGen.detailedFasta(outFolder + "/before_rr_detailed.fasta");
 
 	resolver.resolveRepeats();
 	resolver.fixLongEdges();
