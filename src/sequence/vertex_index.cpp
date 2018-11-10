@@ -146,7 +146,7 @@ namespace
 
 void VertexIndex::buildIndexUnevenCoverage(int minCoverage)
 {
-	static const float SELECT_RATE = 0.20;
+	static const float SELECT_RATE = 0.25;
 
 	if (_outputProgress) Logger::get().info() << "Filling index table";
 	
