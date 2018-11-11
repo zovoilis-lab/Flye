@@ -571,8 +571,8 @@ void RepeatResolver::fixLongEdges()
 
 		if (!path.path.front()->selfComplement &&
 			path.path.front()->repetitive &&
-			path.length > (int)Config::get("unique_edge_length") &&
-			(float)path.meanCoverage < _multInf.getUniqueCovThreshold())
+			path.length > (int)Config::get("unique_edge_length"))
+			//(float)path.meanCoverage < _multInf.getUniqueCovThreshold())
 		{
 			for (auto& edge : path.path)
 			{
