@@ -483,7 +483,7 @@ def main():
         args.read_type = "corrected"
     if args.subassemblies:
         args.reads = args.subassemblies
-        args.platform = "subasm"
+        args.platform = "pacbio"    #arbitrary
         args.read_type = "subasm"
 
     if not os.path.isdir(args.out_dir):
