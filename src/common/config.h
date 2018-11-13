@@ -38,12 +38,26 @@ public:
 		std::ifstream fin(filename);
 		if (!fin) throw std::runtime_error("Can't open config file: " + filename);
 
+		std::string dirname = "";
+		size_t slash = filename.find_last_of("/\\");
+		if (slash != std::string::npos)
+		{
+			dirname = filename.substr(0, slash + 1);
+		}
+
 		std::string buffer;
-		Logger::get().debug() << "Parameters:";
+		Logger::get().debug() << "Loading " << filename;
 		while(!fin.eof())
 		{
 			std::getline(fin, buffer);
 			if (buffer.empty() || buffer.front() == '#') continue;
+
+			if (!buffer.compare(0, 8, std::string("\%include")))
+			{
+				auto tokens = splitString(buffer, ' ');
+				Config::load(dirname + tokens[1]);
+				continue;
+			}
 
 			auto tokens = splitString(buffer, '=');
 			if (tokens.size() != 2) 
