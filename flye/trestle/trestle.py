@@ -90,6 +90,7 @@ def resolve_repeats(args, trestle_dir, repeats_dump, graph_edges, summ_file):
         orient_reps = [rep_id, -rep_id]
         repeat_bridged = False
         for orientation, rep in zip(orient_labels, orient_reps):
+            logger.debug("Orientation: " + orientation)
             orient_dir = os.path.join(repeat_dir, orientation)
             template = os.path.join(orient_dir, template_name)
             extended = os.path.join(orient_dir, extended_name)
@@ -225,7 +226,7 @@ def resolve_repeats(args, trestle_dir, repeats_dump, graph_edges, summ_file):
                         term_bool[side]):
                         continue
                     else:
-                        logger.debug("iteration {0}, '{1}'".format(it, side))
+                        logger.debug("Iteration {0}, '{1}'".format(it, side))
                         both_break = False
                     for edge_id in sorted(repeat_edges[rep][side]):
                         #7a. Call consensus on partitioned reads
@@ -238,7 +239,7 @@ def resolve_repeats(args, trestle_dir, repeats_dump, graph_edges, summ_file):
                                     partitioning.format(it - 1, side), 
                                     curr_reads)
                         curr_extended = polished_extended[(side, edge_id)]
-                        pol_reads_str = "polishing '{0} {1}' reads"
+                        pol_reads_str = "\tPolishing '{0} {1}' reads"
                         logger.debug(pol_reads_str.format(side, edge_id))
 
                         if not os.path.isdir(pol_con_dir):
@@ -290,7 +291,7 @@ def resolve_repeats(args, trestle_dir, repeats_dump, graph_edges, summ_file):
                         else:
                             term_bool[side] = True
                     #7d. Partition reads using divergent positions
-                    logger.debug("partitioning '{0}' reads".format(side))
+                    logger.debug("\tPartitioning '{0}' reads".format(side))
                     partition_reads(repeat_edges[rep][side], it, side, 
                                        position_path, cut_cons_align, 
                                        polished_template, read_align, 

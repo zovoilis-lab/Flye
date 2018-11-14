@@ -249,7 +249,7 @@ def make_alignment(reference_file, reads_file, num_proc,
     Runs minimap2 and sorts its output
     """
     _run_minimap(reference_file, reads_file, num_proc, platform, out_alignment)
-    logger.debug("Sorting alignment file")
+    #logger.debug("Sorting alignment file")
     sorted_file = out_alignment + "_sorted"
     merged_file = out_alignment + "_merged"
     env = os.environ.copy()
@@ -324,7 +324,7 @@ def _run_minimap(reference_file, reads_files, num_proc, platform, out_file):
 
     try:
         devnull = open(os.devnull, "w")
-        logger.debug("Running: " + " ".join(cmdline))
+        #logger.debug("Running: " + " ".join(cmdline))
         subprocess.check_call(cmdline, stderr=devnull,
                               stdout=open(out_file, "w"))
     except (subprocess.CalledProcessError, OSError) as e:

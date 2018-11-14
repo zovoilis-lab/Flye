@@ -50,8 +50,8 @@ def polish(contig_seqs, read_seqs, work_dir, num_iters, num_threads, error_mode,
     """
     High-level polisher interface
     """
-
-    logger_func = logger.info if output_progress else logger.debug
+    if not output_progress:
+        logger.disabled = True
 
     subs_matrix = os.path.join(cfg.vals["pkg_root"],
                                cfg.vals["err_modes"][error_mode]["subs_matrix"])
@@ -61,15 +61,15 @@ def polish(contig_seqs, read_seqs, work_dir, num_iters, num_threads, error_mode,
     prev_assembly = contig_seqs
     contig_lengths = None
     for i in xrange(num_iters):
-        logger_func("Polishing genome ({0}/{1})".format(i + 1, num_iters))
+        logger.info("Polishing genome ({0}/{1})".format(i + 1, num_iters))
 
         alignment_file = os.path.join(work_dir,
                                       "minimap_{0}.sam".format(i + 1))
-        logger_func("Running minimap2")
+        logger.info("Running minimap2")
         make_alignment(prev_assembly, read_seqs, num_threads,
                        work_dir, error_mode, alignment_file)
 
-        logger_func("Separating alignment into bubbles")
+        logger.info("Separating alignment into bubbles")
         contigs_info = get_contigs_info(prev_assembly)
         bubbles_file = os.path.join(work_dir,
                                     "bubbles_{0}.fasta".format(i + 1))
@@ -77,9 +77,9 @@ def polish(contig_seqs, read_seqs, work_dir, num_iters, num_threads, error_mode,
             make_bubbles(alignment_file, contigs_info, prev_assembly,
                          error_mode, num_threads,
                          bubbles_file)
-        logger_func("Alignment error rate: {0}".format(mean_aln_error))
+        logger.info("Alignment error rate: {0}".format(mean_aln_error))
 
-        logger_func("Correcting bubbles")
+        logger.info("Correcting bubbles")
         consensus_out = os.path.join(work_dir, "consensus_{0}.fasta"
                                      .format(i + 1))
         polished_file = os.path.join(work_dir, "polished_{0}.fasta"
@@ -98,6 +98,9 @@ def polish(contig_seqs, read_seqs, work_dir, num_iters, num_threads, error_mode,
         for ctg_id in contig_lengths:
             f.write("{0}\t{1}\t{2}\n".format(ctg_id,
                     contig_lengths[ctg_id], coverage_stats[ctg_id]))
+
+    if not output_progress:
+        logger.disabled = False
 
     return prev_assembly, stats_file
 
