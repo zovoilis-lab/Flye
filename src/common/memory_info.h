@@ -206,7 +206,7 @@ size_t getCurrentRSS( )
 #endif
 }
 
-size_t getFreeMemorySize()
+/*size_t getFreeMemorySize()
 {
 #if defined(__linux__) || defined(__linux)
 	unsigned long long ps = sysconf(_SC_PAGESIZE);
@@ -214,4 +214,4 @@ size_t getFreeMemorySize()
 	return ps * pn;
 #endif
 	return 0L;
-}
+}*/
