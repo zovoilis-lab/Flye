@@ -14,11 +14,10 @@
 #include "../sequence/overlap.h"
 #include "../sequence/consensus_generator.h"
 #include "../common/config.h"
-#include "chimera.h"
 #include "extender.h"
 #include "parameters_estimator.h"
 #include "../common/logger.h"
-#include "../common/utils.h"
+#include "../common/memory_info.h"
 
 #include <getopt.h>
 
@@ -187,6 +186,10 @@ int main(int argc, char** argv)
 	Logger::get().debug() << "Build date: " << __DATE__ << " " << __TIME__;
 	std::ios::sync_with_stdio(false);
 
+	Logger::get().debug() << "Total RAM: " 
+		<< getMemorySize() / 1024 / 1024 / 1024 << " Gb";
+	Logger::get().debug() << "Total CPUs: " << std::thread::hardware_concurrency();
+
 	Config::load(configPath);
 	Parameters::get().numThreads = numThreads;
 	Parameters::get().kmerSize = kmerSize;
@@ -237,6 +240,8 @@ int main(int argc, char** argv)
 	}
 	vertexIndex.setRepeatCutoff(minKmerCov);
 	vertexIndex.buildIndex(minKmerCov);
+	Logger::get().debug() << "Peak RAM usage: " 
+		<< getPeakRSS() / 1024 / 1024 / 1024 << " Gb";
 
 	OverlapDetector ovlp(readsContainer, vertexIndex,
 						 (int)Config::get("maximum_jump"), 
@@ -246,7 +251,8 @@ int main(int argc, char** argv)
 						 /*store alignment*/ false,
 						 /*only max*/ true,
 						 (float)Config::get("assemble_ovlp_ident"), 
-						 /* bad end adjustment*/ 0.0f);
+						 /* bad end adjustment*/ 0.0f,
+						 /* nucl alignent*/ false);
 	OverlapContainer readOverlaps(ovlp, readsContainer);
 
 	Extender extender(readsContainer, readOverlaps);
@@ -256,6 +262,9 @@ int main(int argc, char** argv)
 	ConsensusGenerator consGen;
 	auto contigsFasta = consGen.generateConsensuses(extender.getContigPaths());
 	SequenceContainer::writeFasta(contigsFasta, outAssembly);
+
+	Logger::get().debug() << "Peak RAM usage: " 
+		<< getPeakRSS() / 1024 / 1024 / 1024 << " Gb";
 
 	return 0;
 }

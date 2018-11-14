@@ -234,15 +234,15 @@ void Extender::assembleContigs()
 		
 		//Good to go!
 		ExtensionInfo exInfo = this->extendContig(startRead);
-		if (exInfo.reads.size() < 
+		if (exInfo.reads.size() - exInfo.numSuspicious < 
 			(size_t)Config::get("min_reads_in_contig")) return;
 
-		if (exInfo.leftAsmOverlap + exInfo.rightAsmOverlap > 
+		/*if (exInfo.leftAsmOverlap + exInfo.rightAsmOverlap > 
 			exInfo.assembledLength + 2 * Parameters::get().minimumOverlap)
 		{
 			//Logger::get().debug() << "No novel sequence";
 			return;
-		}
+		}*/
 
 		//Exclusive part - updating the overall assembly
 		std::lock_guard<std::mutex> guard(indexMutex);

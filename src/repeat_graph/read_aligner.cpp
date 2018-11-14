@@ -25,7 +25,9 @@ std::vector<GraphAlignment>
 								 	 const std::vector<EdgeAlignment>& ovlps) const
 {
 	static const int32_t MAX_JUMP = Config::get("maximum_jump");
+	//static const int32_t MAX_SEP = Config::get("max_separation");
 	static const int32_t MAX_READ_OVLP = 50;
+	//static const int32_t KMER_SIZE = Parameters::get().kmerSize;
 
 	std::list<Chain> activeChains;
 	for (auto& edgeAlignment : ovlps)
@@ -39,15 +41,17 @@ std::vector<GraphAlignment>
 			const OverlapRange& prevOvlp = chain.aln.back()->overlap;
 
 			int32_t readDiff = nextOvlp.curBegin - prevOvlp.curEnd;
-			int32_t graphDiff = nextOvlp.extBegin +
-								prevOvlp.extLen - prevOvlp.extEnd;
+			int32_t graphLeftDiff = nextOvlp.extBegin;
+			int32_t graphRightDiff = prevOvlp.extLen - prevOvlp.extEnd;
 
 			if (chain.aln.back()->edge->nodeRight == edgeAlignment.edge->nodeLeft &&
 				MAX_JUMP > readDiff && readDiff > -MAX_READ_OVLP &&
-				MAX_JUMP > graphDiff && graphDiff > 0)
+				graphLeftDiff + graphRightDiff < MAX_JUMP)
 			{
-				int32_t jumpDiv = abs(readDiff - graphDiff);
-				int32_t gapCost = jumpDiv ? std::log2(jumpDiv) : 0;
+				//int32_t jumpDiv = abs(readDiff - 
+				//					  (graphLeftDiff + graphRightDiff));
+				//int32_t gapCost = (jumpDiv > 100) ? 2 * jumpDiv : 0;
+				int32_t gapCost = std::max(-readDiff, 0);
 				int32_t score = chain.score + nextOvlp.score - gapCost;
 				if (score > maxScore)
 				{
@@ -146,7 +150,8 @@ void ReadAligner::alignReads()
 									/*no overhang*/ 0, /*no max ovlp count*/ 0,
 									/*keep alignment*/ false, /*only max*/ false,
 									(float)Config::get("read_align_ovlp_ident"),
-									/* bad end adjust*/ 0.0f);
+									/*bad end adjust*/ 0.0f, 
+									/*nucl alignment*/ false);
 	OverlapContainer readsOverlaps(readsOverlapper, _readSeqs);
 
 	std::vector<FastaRecord::Id> allQueries;
@@ -236,16 +241,34 @@ void ReadAligner::alignReads()
 				if (aln[i].segment.end != aln[i + 1].segment.start) ++switches;
 			}
 
+			int totalScore = 0;
+			int32_t prevGap = 0;
+			int32_t prevReadPos = 0;
 			for (auto& edge : aln)
 			{
+				totalScore += edge.overlap.score;
+				int32_t nextGap = edge.overlap.extBegin;
+				int32_t readGap = edge.overlap.curBegin - prevReadPos;
+				if (prevGap > 0)
+				{
+					int32_t gapCost = (nextGap + prevGap) / 10;
+					totalScore -= gapCost;
+				}
+
 				alnStr += std::to_string(edge.edge->edgeId.signedId()) + " ("
-					+ std::to_string(edge.overlap.curRange()) + " " 
-					+ std::to_string(edge.overlap.score) + " " 
-					+ std::to_string((float)edge.overlap.score / 
-						edge.overlap.curRange()) + ") -> ";
+					+ std::to_string(edge.overlap.curRange()) + ", " 
+					+ std::to_string(edge.overlap.seqDivergence) + ", " 
+					+ std::to_string(nextGap + prevGap) + ", "
+					+ std::to_string(readGap) + ") -> ";
+
+				prevGap = edge.overlap.extLen - edge.overlap.extEnd;
+				prevReadPos = edge.overlap.curEnd;
 			}
 			alnStr.erase(alnStr.size() - 4);
-			alnStr += " s: " + std::to_string(switches);
+			alnStr += " readLen:" + std::to_string(aln.front().overlap.curLen);
+			alnStr += " alnLen:" + std::to_string(aln.back().overlap.curEnd - 
+												   aln.front().overlap.curBegin);
+			alnStr += " score:" + std::to_string(totalScore);
 			FastaRecord::Id readId = aln.front().overlap.curId;
 			Logger::get().debug() << "Aln " << _readSeqs.seqName(readId);
 			Logger::get().debug() << "\t" << alnStr;

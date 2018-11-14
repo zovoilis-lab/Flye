@@ -9,11 +9,11 @@
 #include <cmath>
 #include <execinfo.h>
 
-#include "../sequence/vertex_index.h"
 #include "../sequence/sequence_container.h"
-#include "../sequence/overlap.h"
 #include "../common/config.h"
 #include "../common/logger.h"
+#include "../common/memory_info.h"
+
 #include "repeat_graph.h"
 #include "multiplicity_inferer.h"
 #include "graph_processing.h"
@@ -229,6 +229,7 @@ int main(int argc, char** argv)
 	outGen.outputDot(proc.getEdgesPaths(), outFolder + "/graph_before_rr.gv");
 	//outGen.outputGfa(proc.getEdgesPaths(), outFolder + "/graph_before_rr.gfa");
 	outGen.outputFasta(proc.getEdgesPaths(), outFolder + "/graph_before_rr.fasta");
+	//outGen.detailedFasta(outFolder + "/before_rr_detailed.fasta");
 
 	resolver.resolveRepeats();
 	resolver.fixLongEdges();
@@ -252,5 +253,9 @@ int main(int argc, char** argv)
 					   outFolder + "/graph_final.fasta");
 	outGen.outputGfa(extender.getUnbranchingPaths(),
 					 outFolder + "/graph_final.gfa");
+
+	Logger::get().debug() << "Peak RAM usage: " 
+		<< getPeakRSS() / 1024 / 1024 / 1024 << " Gb";
+
 	return 0;
 }

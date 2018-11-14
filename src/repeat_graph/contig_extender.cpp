@@ -63,7 +63,7 @@ void ContigExtender::generateContigs()
 	std::unordered_map<const GraphEdge*, bool> repeatDirections;
 	auto canTraverse = [&repeatDirections] (const GraphEdge* edge)
 	{
-		if (edge->isLooped() && edge->selfComplement) return false;
+		//if (edge->isLooped() && edge->selfComplement) return false;
 		return !repeatDirections.count(edge) || 
 			   repeatDirections.at(edge);
 	};
