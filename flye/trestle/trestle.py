@@ -389,8 +389,9 @@ def resolve_repeats(args, trestle_dir, repeats_dump, graph_edges, summ_file):
                                   partitioning, cons_align, cut_cons_align, 
                                   read_align, confirmed_pos_path, edge_reads, 
                                   cut_cons, polishing_dir, cons_vs_cons, 
-                                  int_confirmed_path, test_pos, num_pol_iters, 
-                                  iter_pairs)
+                                  int_confirmed_path, test_pos, repeat_reads, 
+                                  frequency_path, alignment_file, 
+                                  num_pol_iters, iter_pairs)
         if repeat_bridged:
             logger.info("Repeat successfully resolved")
         else:
@@ -2800,25 +2801,31 @@ def remove_unneeded_files(repeat_edges, rep, side_labels, side_it, orient_dir,
                           partitioning, cons_align, cut_cons_align, 
                           read_align, confirmed_pos_path, edge_reads, 
                           cut_cons, polishing_dir, cons_vs_cons, 
-                          int_confirmed_path, test_pos, num_pol_iters, 
+                          int_confirmed_path, test_pos, repeat_reads, 
+                          frequency_path, alignment_file, num_pol_iters, 
                           iter_pairs):
+    add_dir_name = "additional_output"
+    add_dir = os.path.join(orient_dir, add_dir_name)
+    if not os.path.isdir(add_dir):
+        os.mkdir(add_dir)
     pol_name = "polished_{0}.fasta".format(num_pol_iters)
     pol_template = "polished_template.fasta"
     pol_ext = "polished_extended.{0}.{1}.fasta"
     pol_temp_file = os.path.join(pol_temp_dir, pol_name)
     if os.path.exists(pol_temp_file):
-        os.rename(pol_temp_file, os.path.join(orient_dir, pol_template))
+        os.rename(pol_temp_file, os.path.join(add_dir, pol_template))
     for side in side_labels:
         for edge_id in repeat_edges[rep][side]:
             pol_ext_file = os.path.join(pol_ext_dir.format(side, edge_id), 
                                         pol_name)
             if os.path.exists(pol_ext_file):
                 os.rename(pol_ext_file, 
-                          os.path.join(orient_dir, 
+                          os.path.join(add_dir,
                                        pol_ext.format(side, edge_id)))
     
     files_to_remove = [template]
     dirs_to_remove = [pol_temp_dir]
+    files_to_move = [repeat_reads, frequency_path, alignment_file]
     if os.path.exists(pol_temp_dir):
         for fil in os.listdir(pol_temp_dir):
             files_to_remove.append(os.path.join(pol_temp_dir, fil))
@@ -2826,7 +2833,7 @@ def remove_unneeded_files(repeat_edges, rep, side_labels, side_it, orient_dir,
     for side in side_labels:
         for edge_id in repeat_edges[rep][side]:
             files_to_remove.append(extended.format(side, edge_id))
-	    curr_pol_ext_dir = pol_ext_dir.format(side, edge_id)
+            curr_pol_ext_dir = pol_ext_dir.format(side, edge_id)
             dirs_to_remove.append(curr_pol_ext_dir)
             if os.path.exists(curr_pol_ext_dir):
                 for fil in os.listdir(curr_pol_ext_dir):
@@ -2845,17 +2852,28 @@ def remove_unneeded_files(repeat_edges, rep, side_labels, side_it, orient_dir,
             for it in range(1, side_it[side]):
                 files_to_remove.append(cut_cons_align.format(it, side, edge_id))
                 files_to_remove.append(cut_cons.format(it, side, edge_id))
+            it = side_it[side]
+            files_to_move.append(cut_cons_align.format(it, side, edge_id))
+            files_to_move.append(cut_cons.format(it, side, edge_id))
         
-	edge_pairs = sorted(combinations(repeat_edges[rep][side], 2))
+        edge_pairs = sorted(combinations(repeat_edges[rep][side], 2))
         for edge_one, edge_two in edge_pairs:
             for it in range(1, side_it[side]):
                 cons_cons_file = cons_vs_cons.format(it, side, edge_one, 
                                                      it, side, edge_two)
                 files_to_remove.append(cons_cons_file)
+            it = side_it[side]
+            cons_cons_file = cons_vs_cons.format(it, side, edge_one, 
+                                                 it, side, edge_two)
+            files_to_move.append(cons_cons_file)
         files_to_remove.append(pre_partitioning.format(side))
         for it in range(1, side_it[side]):
             files_to_remove.append(partitioning.format(it, side))
             files_to_remove.append(confirmed_pos_path.format(it, side))
+        for it in [0, side_it[side]]:
+            files_to_move.append(partitioning.format(it, side))
+        it = side_it[side]
+        files_to_move.append(confirmed_pos_path.format(it, side))
         for it in range(1, side_it[side] + 1):
             files_to_remove.append(test_pos.format(it, side))                        
     
@@ -2865,6 +2883,8 @@ def remove_unneeded_files(repeat_edges, rep, side_labels, side_it, orient_dir,
         curr_conf_pos = int_confirmed_path.format(it1, it2)
         if curr_conf_pos != last_conf_pos:
             files_to_remove.append(curr_conf_pos)
+        else:
+            files_to_move.append(curr_conf_pos)
     
     for f in files_to_remove:
         if os.path.exists(f):
@@ -2872,4 +2892,9 @@ def remove_unneeded_files(repeat_edges, rep, side_labels, side_it, orient_dir,
     for d in dirs_to_remove:
         if os.path.exists(d):
             os.rmdir(d)
-    
+    for f in files_to_move:
+        if os.path.exists(f):
+            split_path = os.path.split(f)
+            new_file = os.path.join(split_path[0], add_dir, split_path[1])
+            os.rename(f, new_file)
+            
