@@ -1,3 +1,11 @@
+Flye 2.3.7 (4 Nov 2018)
+=======================
+* Improvements in repeat edges detection
+* More precise read mapping - more contigious assemblies for some datasets
+* Memory and performance optimizations for high-coverage datasets
+* More accurate repeat graphs for complex datasets
+
+
 Flye 2.3.6 (24 Sep 2018)
 ========================
 * Memory consumption for large genome assemblies reduced by ~30%
