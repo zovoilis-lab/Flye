@@ -2869,8 +2869,6 @@ def remove_unneeded_files(repeat_edges, rep, side_labels, side_it, orient_dir,
     for f in files_to_remove:
         if os.path.exists(f):
             os.remove(f)
-	else:
-	    print f
     for d in dirs_to_remove:
         if os.path.exists(d):
             os.rmdir(d)
