@@ -13,7 +13,6 @@ import logging
 import numpy as np
 from itertools import combinations, product
 import copy
-from collections import namedtuple
 
 import flye.polishing.alignment as flye_aln
 from flye.polishing.alignment import Alignment
@@ -60,8 +59,8 @@ def resolve_repeats(args, trestle_dir, repeats_dump, graph_edges, summ_file):
     cut_cons_name = "consensus.{0}.{1}.{2}.fasta"
     cons_vs_cons_name = "".join(["consensus.{0}.{1}.{2}.vs.",
                                  "consensus.{3}.{4}.{5}.minimap.sam"])
-    side_stats_name = "{0}_stats.txt"
-    int_stats_name = "integrated_stats.txt"
+    side_stats_name = "stats_from_{0}.txt"
+    int_stats_name = "stats_integrated.txt"
     int_confirmed_pos_name = "integrated_confirmed_positions.{0}.{1}.txt"
     resolved_rep_name = "resolved_repeat_{0}.copy.{1}.fasta"
     res_vs_res_name = "resolved_repeat_{0}.copy.{1}.vs.{2}.minimap.sam"
@@ -113,15 +112,15 @@ def resolve_repeats(args, trestle_dir, repeats_dump, graph_edges, summ_file):
                     term_bool[side] = True
             
             polished_extended = {}
+            pol_ext_dir = os.path.join(orient_dir, pol_ext_name)
             for side in side_labels:
                 for edge_id in repeat_edges[rep][side]:
-                    pol_ext_dir = os.path.join(orient_dir,
-                                               pol_ext_name).format(side, edge_id)
-                    if not os.path.isdir(pol_ext_dir):
-                        os.mkdir(pol_ext_dir)
+                    if not os.path.isdir(pol_ext_dir.format(side, edge_id)):
+                        os.mkdir(pol_ext_dir.format(side, edge_id))
                     pol_output, _stats = \
                         pol.polish(extended.format(side, edge_id), [repeat_reads],
-                                   pol_ext_dir, 1, args.threads, args.platform,
+                                   pol_ext_dir.format(side, edge_id), 1, 
+                                   args.threads, args.platform,
                                    output_progress=False)
                     #pol_output = _run_polishing(args, [repeat_reads], 
                     #                            extended.format(side, edge_id), 
@@ -202,6 +201,7 @@ def resolve_repeats(args, trestle_dir, repeats_dump, graph_edges, summ_file):
             
             cut_consensus = {}
             side_it = {s:0 for s in side_labels}
+            iter_pairs = []
             edge_below_cov = {s:False for s in side_labels}
             dup_part = {s:False for s in side_labels}
             prev_partitionings = {s:set() for s in side_labels}
@@ -325,6 +325,8 @@ def resolve_repeats(args, trestle_dir, repeats_dump, graph_edges, summ_file):
                                         side_stats.format(side))
                     edge_below_cov[side], dup_part[side] = side_stat_outputs
                     side_it[side] = it
+                iter_pairs.append(side_it[side_labels[0]], 
+                                  side_it[side_labels[1]])
                 update_int_stats(rep, repeat_edges, side_it, cut_cons_align, 
                                     polished_template, 
                                     template_len,
@@ -378,6 +380,15 @@ def resolve_repeats(args, trestle_dir, repeats_dump, graph_edges, summ_file):
             all_resolved_reps_dict.update(repeat_seqs)
             update_summary(rep, template_len, avg_cov, summ_vals, avg_div, 
                            summ_file)
+            remove_unneeded_files(repeat_edges, rep, side_labels, side_it, 
+                                  orient_dir, template, extended, pol_temp_dir, 
+                                  pol_ext_dir, pre_edge_reads, 
+                                  pre_partitioning, pre_read_align, 
+                                  partitioning, cons_align, cut_cons_align, 
+                                  read_align, confirmed_pos_path, edge_reads, 
+                                  cut_cons, polishing_dir, cons_vs_cons, 
+                                  int_confirmed_path, test_pos, args.num_iters, 
+                                  iter_pairs)
         if repeat_bridged:
             logger.info("Repeat successfully resolved")
         else:
@@ -2780,3 +2791,79 @@ def update_summary(rep, template_len, avg_cov, summ_vals, avg_div,
     with open(summary_file, "a") as f:
         f.write("\t".join(spaced_summ))
         f.write("\n")
+
+def remove_unneeded_files(repeat_edges, rep, side_labels, side_it, orient_dir, 
+                          template, extended, pol_temp_dir, pol_ext_dir, 
+                          pre_edge_reads, pre_partitioning, pre_read_align, 
+                          partitioning, cons_align, cut_cons_align, 
+                          read_align, confirmed_pos_path, edge_reads, 
+                          cut_cons, polishing_dir, cons_vs_cons, 
+                          int_confirmed_path, test_pos, num_pol_iters, 
+                          iter_pairs):
+    pol_name = "polished_{0}.fasta".format(num_pol_iters)
+    pol_template = "polished_template.fasta"
+    pol_ext = "polished_extended.{0}.{1}.fasta"
+    pol_temp_file = os.path.join(pol_temp_dir, pol_name)
+    if os.path.exists(pol_temp_file):
+        os.rename(pol_temp_file, os.path.join(orient_dir, pol_template))
+    for side in side_labels:
+        for edge_id in repeat_edges[rep][side]:
+            pol_ext_file = os.path.join(pol_ext_dir.format(side, edge_id), 
+                                        pol_name)
+            if os.path.exists(pol_ext_file):
+                os.rename(pol_ext_file, 
+                          os.path.join(orient_dir, 
+                                       pol_ext.format(side, edge_id)))
+    
+    files_to_remove = [template]
+    dirs_to_remove = [pol_temp_dir]
+    if os.path.exists(pol_temp_dir):
+        for fil in os.listdir(pol_temp_dir):
+            files_to_remove.append(fil)
+    
+    for side in side_labels:
+        for edge_id in repeat_edges[rep][side]:
+            files_to_remove.append(extended.format(side, edge_id))
+            dirs_to_remove.append(pol_ext_dir.format(side, edge_id))
+            if os.path.exists(pol_ext_dir.format(side, edge_id)):
+                for fil in os.list_dir(pol_ext_dir.format(side, edge_id)):
+                    files_to_remove.append(fil)
+            files_to_remove.append(pre_edge_reads.format(side, edge_id))
+            files_to_remove.append(pre_read_align.format(side, edge_id))
+            for it in range(1, side_it[side] + 1):
+                files_to_remove.append(cons_align.format(side, edge_id, it))
+                files_to_remove.append(read_align.format(side, edge_id, it))
+                files_to_remove.append(edge_reads.format(side, edge_id, it))
+                pol_cons = polishing_dir.format(side, edge_id, it)
+                dirs_to_remove.append(pol_cons)
+                if os.path.exists(pol_cons):
+                    for fil in os.listdir(pol_cons):
+                        files_to_remove.append(fil)
+            for it in range(1, side_it[side]):
+                files_to_remove.append(cut_cons_align.format(side, edge_id, it))
+                files_to_remove.append(cut_cons.format(side, edge_id, it))
+                edge_pairs = sorted(combinations(repeat_edges[rep][side], 2))
+                for edge_one, edge_two in edge_pairs:
+                    cons_cons_file = cons_vs_cons.format(it, side, edge_one, 
+                                                         it, side, edge_two)
+                    files_to_remove.append(cons_cons_file)
+        files_to_remove.append(pre_partitioning.format(side))
+        for it in range(1, side_it[side]):
+            files_to_remove.append(partitioning.format(it, side))
+            files_to_remove.append(confirmed_pos_path.format(it, side))
+            files_to_remove.append(test_pos.format(it, side))                        
+    
+    last_conf_pos = int_confirmed_path.format(side_it[side_labels[0]], 
+                                             side_it[side_labels[1]])
+    for it1, it2 in iter_pairs:
+        curr_conf_pos = int_confirmed_path.format(it1, it2)
+        if curr_conf_pos != last_conf_pos:
+            files_to_remove.append(curr_conf_pos)
+    
+    for f in files_to_remove:
+        if os.path.exists(f):
+            os.remove(template)
+    for d in dirs_to_remove:
+        if os.path.exists(d):
+            os.rmdir(d)
+    
