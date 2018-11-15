@@ -1,4 +1,4 @@
-Flye 2.3.7 (4 Nov 2018)
+Flye 2.3.7 (14 Nov 2018)
 =======================
 * Improvements in repeat edges detection
 * More precise read mapping - more contigious assemblies for some datasets

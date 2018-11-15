@@ -20,6 +20,12 @@ module, which produces the final assembly of high nucleotide-level quality.
 Latest updates
 --------------
 
+### Flye 2.3.7 released (14 Nov)
+* Improvements in repeat edges detection
+* More precise read mapping - more contigious assemblies for some datasets
+* Memory and performance optimizations for high-coverage datasets
+* More accurate repeat graphs for complex datasets
+
 ### Experimental metagenome version (24 Sep 2018)
 
 Experimental Flye version for metagenome assembly is available 
