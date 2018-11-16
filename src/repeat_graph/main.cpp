@@ -171,6 +171,13 @@ int main(int argc, char** argv)
 	Logger::get().debug() << "Build date: " << __DATE__ << " " << __TIME__;
 	std::ios::sync_with_stdio(false);
 	
+	Logger::get().debug() << "Total RAM: " 
+		<< getMemorySize() / 1024 / 1024 / 1024 << " Gb";
+	Logger::get().debug() << "Available RAM: " 
+		<< getFreeMemorySize() / 1024 / 1024 / 1024 << " Gb";
+	Logger::get().debug() << "Total CPUs: " << std::thread::hardware_concurrency();
+
+	
 	Config::load(configPath);
 	Parameters::get().numThreads = numThreads;
 	Parameters::get().kmerSize = kmerSize;

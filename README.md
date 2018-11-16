@@ -3,7 +3,7 @@ Flye assembler
 
 [![BioConda Install](https://img.shields.io/conda/dn/bioconda/flye.svg?style=flag&label=BioConda%20install)](https://anaconda.org/bioconda/flye)
 
-### Version: 2.3.6
+### Version: 2.3.7
 
 Flye is a de novo assembler for long and noisy reads, such as
 those produced by PacBio and Oxford Nanopore Technologies.
@@ -19,6 +19,12 @@ module, which produces the final assembly of high nucleotide-level quality.
 
 Latest updates
 --------------
+
+### Flye 2.3.7 released (14 Nov)
+* Improvements in repeat edges detection
+* More precise read mapping - more contigious assemblies for some datasets
+* Memory and performance optimizations for high-coverage datasets
+* More accurate repeat graphs for complex datasets
 
 ### Experimental metagenome version (24 Sep 2018)
 

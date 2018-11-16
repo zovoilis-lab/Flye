@@ -14,6 +14,7 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/param.h>
+#include <string.h>
 #if defined(BSD)
 #include <sys/sysctl.h>
 #endif
@@ -206,12 +207,40 @@ size_t getCurrentRSS( )
 #endif
 }
 
-/*size_t getFreeMemorySize()
+size_t getFreeMemorySize()
 {
-#if defined(__linux__) || defined(__linux)
-	unsigned long long ps = sysconf(_SC_PAGESIZE);
-	unsigned long long pn = sysconf(_SC_AVPHYS_PAGES);
-	return ps * pn;
+#if defined(__linux__) || defined(__linux) || defined(linux) || defined(__gnu_linux__)
+	char buffer[64];
+	unsigned long long freed = 0;
+	unsigned long long buffered = 0;
+	unsigned long long cached = 0;
+	unsigned long long totalMem = 0;
+
+	FILE *fp = fopen("/proc/meminfo", "r");
+	while((fscanf(fp, "%s", buffer)) > 0)
+	{
+		if (strstr(buffer, "MemTotal") == buffer)
+		{
+			if (fscanf(fp, "%llu", &totalMem) != 1) return 0;
+			totalMem *= 1024;
+		} 
+		else if (strstr(buffer, "MemFree") == buffer)
+		{
+			if (fscanf(fp, "%llu", &freed) != 1) return 0;
+		} 
+		else if (strstr(buffer, "Buffers") == buffer)
+		{
+			if(fscanf(fp, "%llu", &buffered) != 1) return 0;
+		} 
+		else if (strstr(buffer, "Cached") == buffer)
+		{
+			if (fscanf(fp, "%llu", &cached) != 1) return 0;
+		}
+	}
+	fclose(fp);
+
+	return (freed + buffered + cached) * 1024;
+#elif
+	return 0;
 #endif
-	return 0L;
-}*/
+}
