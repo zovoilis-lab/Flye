@@ -2895,6 +2895,6 @@ def remove_unneeded_files(repeat_edges, rep, side_labels, side_it, orient_dir,
     for f in files_to_move:
         if os.path.exists(f):
             split_path = os.path.split(f)
-            new_file = os.path.join(split_path[0], add_dir, split_path[1])
+            new_file = os.path.join(split_path[0], add_dir_name, split_path[1])
             os.rename(f, new_file)
             
