@@ -239,12 +239,16 @@ int main(int argc, char** argv)
 	//outGen.detailedFasta(outFolder + "/before_rr_detailed.fasta");
 
 	resolver.resolveRepeats();
-	resolver.fixLongEdges();
+	resolver.finalizeGraph();
+
+	rg.storeGraph(outFolder + "/graph_after_rr.rg");
+	RepeatGraph rg2(seqAssembly);
+	rg2.loadGraph(outFolder + "/graph_after_rr.rg");
 	//outGen.outputDot(proc.getEdgesPaths(), outFolder + "/graph_after_rr.gv");
 
 	Logger::get().info() << "Generating contigs";
 
-	ContigExtender extender(rg, aligner, seqAssembly, seqReads, 
+	ContigExtender extender(rg2, aligner, seqAssembly, seqReads, 
 							multInf.getMeanCoverage());
 	extender.generateUnbranchingPaths();
 	extender.generateContigs();

@@ -24,7 +24,7 @@ public:
 
 	void findRepeats();
 	void resolveRepeats();
-	void fixLongEdges();
+	void finalizeGraph();
 
 private:
 	struct Connection
@@ -48,4 +48,5 @@ private:
 	const SequenceContainer&   _readSeqs;
 	ReadAligner& _aligner;
 	const MultiplicityInferer& _multInf;
+	std::unordered_map<GraphEdge*, int> _substractedCoverage;
 };

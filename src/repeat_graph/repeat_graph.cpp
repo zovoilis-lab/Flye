@@ -1011,3 +1011,88 @@ GraphNode* RepeatGraph::complementNode(GraphNode* node) const
 	}
 	return nullptr;
 }
+
+void RepeatGraph::storeGraph(const std::string& filename)
+{
+	size_t nextNodeId = 0;
+	std::unordered_map<GraphNode*, size_t> nodeIds;
+	for (auto& node : this->iterNodes())
+	{
+		nodeIds[node] = nextNodeId++;
+	}
+
+	std::ofstream fout(filename);
+	if (!fout)
+	{
+		throw std::runtime_error("Can't open "  + filename);
+	}
+
+	for (auto& edge : this->iterEdges())
+	{
+		fout << "Edge\t" << edge->edgeId << "\t" 
+			<< nodeIds[edge->nodeLeft] << "\t" << nodeIds[edge->nodeRight]
+			<< "\t" << edge->repetitive << "\t" << edge->selfComplement 
+			<< "\t" << edge->resolved << "\t" << edge->meanCoverage << "\n";
+
+		for (auto& seg : edge->seqSegments)
+		{
+			fout << "\tSequence\t" << seg.segType << "\t" << seg.seqId 
+				<< "\t" << seg.start << "\t" << seg.end << "\t" 
+				<< seg.seqLen << "\n";
+		}
+	}
+}
+
+void RepeatGraph::loadGraph(const std::string& filename)
+{
+	std::ifstream fin(filename);
+	if (!fin)
+	{
+		throw std::runtime_error("Can't open "  + filename);
+	}
+
+	std::unordered_map<size_t, GraphNode*> idToNode;
+	GraphEdge* currentEdge = 0;
+	while(!fin.eof())
+	{
+		std::string buffer;
+		fin >> buffer;
+		if (buffer.empty()) continue;
+
+		if (buffer == "Edge")
+		{
+			size_t leftNode = 0;
+			size_t rightNode = 0;
+			size_t edgeId = 0;
+			fin >> edgeId >> leftNode >> rightNode;
+
+			if (!idToNode.count(leftNode))
+			{
+				idToNode[leftNode] = this->addNode();
+			}
+			if (!idToNode.count(rightNode))
+			{
+				idToNode[rightNode] = this->addNode();
+			}
+			
+			GraphEdge edge(idToNode[leftNode], idToNode[rightNode],
+						   FastaRecord::Id(edgeId));
+			fin >> edge.repetitive >> edge.selfComplement 
+				>> edge.resolved >> edge.meanCoverage;
+			currentEdge = this->addEdge(std::move(edge));
+		}
+		else if (buffer == "Sequence")
+		{
+			if (!currentEdge)std::runtime_error("Error parsing: " + filename);
+
+			SequenceSegment seg;
+			int type = 0;
+			size_t id = 0;
+			fin >> type >> id >> seg.start >> seg.end >> seg.seqLen;
+			seg.segType = SequenceSegment::SegmentType(type);
+			seg.seqId = FastaRecord::Id(id);
+			currentEdge->seqSegments.push_back(seg);
+		}
+		else throw std::runtime_error("Error parsing: " + filename);
+	}
+}

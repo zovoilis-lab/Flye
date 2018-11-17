@@ -54,7 +54,7 @@ struct GraphEdge
 		nodeLeft(nodeLeft), nodeRight(nodeRight), 
 		edgeId(edgeId), repetitive(false), 
 		selfComplement(false), resolved(false), 
-		meanCoverage(0), substractedCoverage(0) {}
+		meanCoverage(0) {}
 
 	bool isRepetitive() const 
 		{return repetitive;}
@@ -68,7 +68,6 @@ struct GraphEdge
 					 int32_t start, int32_t end)
 	{
 		seqSegments.emplace_back(id, length, start, end);
-		//++multiplicity;
 	}
 
 	int32_t length() const
@@ -91,12 +90,10 @@ struct GraphEdge
 	FastaRecord::Id edgeId;
 	std::vector<SequenceSegment> seqSegments;
 
-	//int  multiplicity;
 	bool repetitive;
 	bool selfComplement;
 	bool resolved;
 	int  meanCoverage;
-	int  substractedCoverage;
 };
 
 struct GraphNode
@@ -192,6 +189,9 @@ public:
 	{}
 
 	void build();
+	void storeGraph(const std::string& filename);
+	void loadGraph(const std::string& filename);
+
 	GraphPath  complementPath(const GraphPath& path) const;
 	GraphEdge* complementEdge(GraphEdge* edge) const;
 	GraphNode* complementNode(GraphNode* node) const;

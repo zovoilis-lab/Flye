@@ -34,7 +34,8 @@ void RepeatResolver::separatePath(const GraphPath& graphPath,
 	for (size_t i = 1; i < graphPath.size() - 1; ++i)
 	{
 		graphPath[i]->resolved = true;
-		graphPath[i]->substractedCoverage += pathCoverage;
+		_substractedCoverage[graphPath[i]] += pathCoverage;
+		//graphPath[i]->substractedCoverage += pathCoverage;
 	}
 
 	GraphNode* rightNode = leftNode;
@@ -560,7 +561,7 @@ void RepeatResolver::findRepeats()
 	}
 }
 
-void RepeatResolver::fixLongEdges()
+void RepeatResolver::finalizeGraph()
 {
 	GraphProcessor proc(_graph, _asmSeqs, _readSeqs);
 	auto unbranchingPaths = proc.getUnbranchingPaths();
@@ -592,7 +593,7 @@ void RepeatResolver::fixLongEdges()
 		for (auto& edge : path.path)
 		{
 			edge->meanCoverage = std::max(0, (int)edge->meanCoverage - 
-											 (int)edge->substractedCoverage);
+											  _substractedCoverage[edge]);
 		}
 	}
 }
