@@ -187,12 +187,11 @@ int main(int argc, char** argv)
 	//outGen.outputGfa(proc.getEdgesPaths(), outFolder + "/graph_before_rr.gfa");
 	outGen.outputFasta(proc.getEdgesPaths(), outFolder + "/graph_before_rr.fasta");
 	//outGen.detailedFasta(outFolder + "/before_rr_detailed.fasta");
-	
-	outGen.outputDot(proc.getEdgesPaths(), outFolder + "/graph_after_rr.gv");
 
 	resolver.resolveRepeats();
 	resolver.finalizeGraph();
 
+	outGen.outputDot(proc.getEdgesPaths(), outFolder + "/graph_after_rr.gv");
 	rg.storeGraph(outFolder + "/repeat_graph_dump.txt");
 	aligner.storeAlignments(outFolder + "/read_alignment_dump.txt");
 
