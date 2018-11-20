@@ -234,6 +234,8 @@ int main(int argc, char** argv)
 	//outGen.outputGfa(proc.getEdgesPaths(), outFolder + "/graph_before_rr.gfa");
 	outGen.outputFasta(proc.getEdgesPaths(), outFolder + "/graph_before_rr.fasta");
 	//outGen.detailedFasta(outFolder + "/before_rr_detailed.fasta");
+	
+	outGen.outputDot(proc.getEdgesPaths(), outFolder + "/graph_after_rr.gv");
 
 	resolver.resolveRepeats();
 	resolver.finalizeGraph();
@@ -241,34 +243,7 @@ int main(int argc, char** argv)
 	rg.storeGraph(outFolder + "/repeat_graph_dump.txt");
 	aligner.storeAlignments(outFolder + "/read_alignment_dump.txt");
 
-	//testing
-	/*SequenceContainer::g_nextSeqId = 0;
-	SequenceContainer seqAssembly2; 
-	SequenceContainer seqReads2;
-	try
-	{
-		seqAssembly2.loadFromFile(inAssembly);
-		for (auto& readsFile : readsList)
-		{
-			seqReads2.loadFromFile(readsFile);
-		}
-	}
-	catch (SequenceContainer::ParseException& e)
-	{
-		Logger::get().error() << e.what();
-		return 1;
-	}
-	seqReads2.buildPositionIndex();
-	seqAssembly2.buildPositionIndex();
-
-	RepeatGraph rg2(seqAssembly2);
-	rg2.loadGraph(outFolder + "/repeat_graph_dump.txt");
-	ReadAligner aln2(rg2, seqAssembly2, seqReads2);
-	aln2.loadAlignments(outFolder + "/read_alignment_dump.txt");
-	OutputGenerator outGen2(rg2, aln2, seqAssembly2, seqReads2);
-	//outGen.outputDot(proc.getEdgesPaths(), outFolder + "/graph_after_rr.gv");
-
-	Logger::get().info() << "Generating contigs";
+	/*Logger::get().info() << "Generating contigs";
 
 	ContigExtender extender(rg2, aln2, seqAssembly2, seqReads2, 
 							multInf.getMeanCoverage());

@@ -58,6 +58,10 @@ class Job(object):
     def load(self, save_file):
         with open(save_file, "r") as fp:
             data = json.load(fp)
+            if (not "pipeline_version" in data or
+                    data["pipeline_version"] != cfg.vals["pipeline_version"]):
+                raise ResumeException("Inconsistent pipelnie version")
+
             Job.run_params = data
 
     def completed(self, save_file):
@@ -111,35 +115,70 @@ class JobAssembly(Job):
 
 
 class JobRepeat(Job):
-    def __init__(self, args, work_dir, log_file, in_assembly):
+    def __init__(self, args, work_dir, log_file, disjointigs):
         super(JobRepeat, self).__init__()
 
         self.args = args
-        self.in_assembly = in_assembly
+        self.disjointigs = disjointigs
         self.log_file = log_file
         self.name = "repeat"
 
-        self.repeat_dir = os.path.join(work_dir, "2-repeat")
-        self.out_files["contigs"] = os.path.join(self.repeat_dir,
-                                                 "graph_paths.fasta")
-        self.out_files["assembly_graph"] = os.path.join(self.repeat_dir,
-                                                        "graph_final.gv")
-        self.out_files["edges_sequences"] = os.path.join(self.repeat_dir,
-                                                         "graph_final.fasta")
-        self.out_files["gfa_graph"] = os.path.join(self.repeat_dir,
-                                                   "graph_final.gfa")
-        self.out_files["stats"] = os.path.join(self.repeat_dir, "contigs_stats.txt")
-        self.out_files["scaffold_links"] = os.path.join(self.repeat_dir,
-                                                        "scaffolds_links.txt")
+        self.work_dir = os.path.join(work_dir, "2-repeat")
+        #self.out_files["contigs"] = os.path.join(self.work_dir,
+        #                                         "graph_paths.fasta")
+        self.out_files["repeat_graph"] = os.path.join(self.work_dir,
+                                                      "repeat_graph_dump.txt")
+        self.out_files["reads_alignment"] = os.path.join(self.work_dir,
+                                                         "read_alignment_dump.txt")
+        #self.out_files["gfa_graph"] = os.path.join(self.work_dir,
+        #                                           "graph_final.gfa")
+        #self.out_files["stats"] = os.path.join(self.work_dir, "contigs_stats.txt")
+        #self.out_files["scaffold_links"] = os.path.join(self.work_dir,
+        #                                                "scaffolds_links.txt")
 
     def run(self):
         super(JobRepeat, self).run()
-        if not os.path.isdir(self.repeat_dir):
-            os.mkdir(self.repeat_dir)
-        logger.info("Performing repeat analysis")
-        repeat.analyse_repeats(self.args, Job.run_params, self.in_assembly,
-                               self.repeat_dir, self.log_file,
+        if not os.path.isdir(self.work_dir):
+            os.mkdir(self.work_dir)
+        logger.info("Building and resolving repeat graph")
+        repeat.analyse_repeats(self.args, Job.run_params, self.disjointigs,
+                               self.work_dir, self.log_file,
                                self.args.asm_config)
+
+
+class JobContigger(Job):
+    def __init__(self, args, work_dir, log_file, disjointigs,
+                 repeat_graph, reads_alignment):
+        super(JobContigger, self).__init__()
+
+        self.args = args
+        self.disjointigs = disjointigs
+        self.repeat_graph = repeat_graph
+        self.reads_alignment = reads_alignment
+        self.log_file = log_file
+        self.name = "contigger"
+
+        self.work_dir = os.path.join(work_dir, "4-contigger")
+        self.out_files["contigs"] = os.path.join(self.work_dir,
+                                                 "graph_paths.fasta")
+        self.out_files["assembly_graph"] = os.path.join(self.work_dir,
+                                                        "graph_final.gv")
+        self.out_files["edges_sequences"] = os.path.join(self.work_dir,
+                                                         "graph_final.fasta")
+        self.out_files["gfa_graph"] = os.path.join(self.work_dir,
+                                                   "graph_final.gfa")
+        self.out_files["stats"] = os.path.join(self.work_dir, "contigs_stats.txt")
+        self.out_files["scaffold_links"] = os.path.join(self.work_dir,
+                                                        "scaffolds_links.txt")
+
+    def run(self):
+        super(JobContigger, self).run()
+        if not os.path.isdir(self.work_dir):
+            os.mkdir(self.work_dir)
+        logger.info("Generating contigs")
+        repeat.generate_contigs(self.args, Job.run_params, self.disjointigs,
+                                self.work_dir, self.log_file, self.args.asm_config,
+                                self.repeat_graph, self.reads_alignment)
 
 
 class JobFinalize(Job):
@@ -217,7 +256,7 @@ class JobPolishing(Job):
         self.in_contigs = in_contigs
         self.in_graph_edges = in_graph_edges
         self.in_graph_gfa = in_graph_gfa
-        self.polishing_dir = os.path.join(work_dir, "3-polishing")
+        self.polishing_dir = os.path.join(work_dir, "5-polishing")
 
         self.name = "polishing"
         final_conitgs = os.path.join(self.polishing_dir,
@@ -256,15 +295,24 @@ def _create_job_list(args, work_dir, log_file):
 
     #Assembly job
     jobs.append(JobAssembly(args, work_dir, log_file))
-    draft_assembly = jobs[-1].out_files["assembly"]
+    disjointigs = jobs[-1].out_files["assembly"]
 
     #Consensus
     if args.read_type != "subasm":
-        jobs.append(JobConsensus(args, work_dir, draft_assembly))
-        draft_assembly = jobs[-1].out_files["consensus"]
+        jobs.append(JobConsensus(args, work_dir, disjointigs))
+        disjointigs = jobs[-1].out_files["consensus"]
 
     #Repeat analysis
-    jobs.append(JobRepeat(args, work_dir, log_file, draft_assembly))
+    jobs.append(JobRepeat(args, work_dir, log_file, disjointigs))
+
+    #trestle goes here
+
+    #Contigger
+    repeat_graph = jobs[-1].out_files["repeat_graph"]
+    reads_alignment = jobs[-1].out_files["reads_alignment"]
+    jobs.append(JobContigger(args, work_dir, log_file, disjointigs,
+                             repeat_graph, reads_alignment))
+
     raw_contigs = jobs[-1].out_files["contigs"]
     scaffold_links = jobs[-1].out_files["scaffold_links"]
     graph_file = jobs[-1].out_files["assembly_graph"]

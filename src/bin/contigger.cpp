@@ -25,7 +25,8 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 			   std::string& outFolder, std::string& logFile, 
 			   std::string& inAssembly, int& kmerSize,
 			   int& minOverlap, bool& debug, size_t& numThreads, 
-			   std::string& configPath)
+			   std::string& configPath, std::string& inRepeatGraph,
+			   std::string& inReadsAlignment)
 {
 	auto printUsage = [argv]()
 	{
@@ -94,6 +95,8 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 	readsFasta = *(argv + optind + 1);
 	outFolder = *(argv + optind + 2);
 	configPath = *(argv + optind + 3);
+	inRepeatGraph = *(argv + optind + 4);
+	inReadsAlignment = *(argv + optind + 5);
 
 	return true;
 }
@@ -158,12 +161,15 @@ int main(int argc, char** argv)
 	int minOverlap = 5000;
 	std::string readsFasta;
 	std::string inAssembly;
+	std::string inRepeatGraph;
+	std::string inReadsAlignment;
 	std::string outFolder;
 	std::string logFile;
 	std::string configPath;
 	if (!parseArgs(argc, argv, readsFasta, outFolder, logFile, inAssembly,
 				   kmerSize, minOverlap, debugging, 
-				   numThreads, configPath))  return 1;
+				   numThreads, configPath, inRepeatGraph, 
+				   inReadsAlignment))  return 1;
 	
 	Logger::get().setDebugging(debugging);
 	if (!logFile.empty()) Logger::get().setOutputFile(logFile);
@@ -204,13 +210,12 @@ int main(int argc, char** argv)
 	seqAssembly.buildPositionIndex();
 
 	RepeatGraph rg(seqAssembly);
-	rg.loadGraph(outFolder + "/repeat_graph_dump.txt");
+	rg.loadGraph(inRepeatGraph);
 	ReadAligner aln(rg, seqAssembly, seqReads);
-	aln.loadAlignments(outFolder + "/read_alignment_dump.txt");
+	aln.loadAlignments(inReadsAlignment);
 	OutputGenerator outGen(rg, aln, seqAssembly, seqReads);
-	//outGen.outputDot(proc.getEdgesPaths(), outFolder + "/graph_after_rr.gv");
 
-	Logger::get().info() << "Generating contigs";
+	//Logger::get().info() << "Generating contigs";
 
 	ContigExtender extender(rg, aln, seqAssembly, seqReads);
 	extender.generateUnbranchingPaths();

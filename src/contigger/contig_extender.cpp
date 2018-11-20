@@ -287,7 +287,17 @@ void ContigExtender::outputStatsTable(const std::string& filename)
 	char YES_NO[] = {'-', '+'};
 
 	//TODO: compute mean coverage
-	int meanCoverage = 1;
+	int64_t sumCov = 0;
+	int64_t sumLength = 0;
+	for (auto& edge : _graph.iterEdges())
+	{
+		if (edge->edgeId.strand())
+		{
+			sumCov += edge->meanCoverage * edge->length();
+			sumLength += edge->length();
+		}
+	}
+	int meanCoverage = sumCov / (sumLength + 1);
 
 	for (auto& ctg : _contigs)
 	{
