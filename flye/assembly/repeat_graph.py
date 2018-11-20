@@ -46,7 +46,7 @@ def analyse_repeats(args, run_params, input_assembly, out_folder,
     cmdline.extend(["-v", str(run_params["min_overlap"])])
     cmdline.extend(["-k", str(run_params["kmer_size"])])
     cmdline.extend([input_assembly, ",".join(args.reads),
-                    out_folder, str(args.genome_size), config_file])
+                    out_folder, config_file])
 
     try:
         logger.debug("Running: " + " ".join(cmdline))

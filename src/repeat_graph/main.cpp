@@ -27,12 +27,12 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 			   std::string& outFolder, std::string& logFile, 
 			   std::string& inAssembly, int& kmerSize,
 			   int& minOverlap, bool& debug, size_t& numThreads, 
-			   std::string& configPath, size_t& genomeSize)
+			   std::string& configPath)
 {
 	auto printUsage = [argv]()
 	{
 		std::cerr << "Usage: " << argv[0]
-				  << "\tin_assembly reads_files out_folder genome_size config_path\n\t"
+				  << "\tin_assembly reads_files out_folder config_path\n\t"
 				  << "[-l log_file] [-t num_threads] [-v min_overlap]\n\t"
 				  << "[-d]\n\n"
 				  << "positional arguments:\n"
@@ -83,7 +83,7 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 			exit(0);
 		}
 	}
-	if (argc - optind != 5)
+	if (argc - optind != 4)
 	{
 		printUsage();
 		return false;
@@ -92,8 +92,7 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 	inAssembly = *(argv + optind);
 	readsFasta = *(argv + optind + 1);
 	outFolder = *(argv + optind + 2);
-	genomeSize = atoll(*(argv + optind + 3));
-	configPath = *(argv + optind + 4);
+	configPath = *(argv + optind + 3);
 
 	return true;
 }
@@ -156,7 +155,6 @@ int main(int argc, char** argv)
 	size_t numThreads = 1;
 	int kmerSize = 15;
 	int minOverlap = 5000;
-	size_t genomeSize = 0;
 	std::string readsFasta;
 	std::string inAssembly;
 	std::string outFolder;
@@ -164,7 +162,7 @@ int main(int argc, char** argv)
 	std::string configPath;
 	if (!parseArgs(argc, argv, readsFasta, outFolder, logFile, inAssembly,
 				   kmerSize, minOverlap, debugging, 
-				   numThreads, configPath, genomeSize))  return 1;
+				   numThreads, configPath))  return 1;
 	
 	Logger::get().setDebugging(debugging);
 	if (!logFile.empty()) Logger::get().setOutputFile(logFile);
@@ -241,14 +239,39 @@ int main(int argc, char** argv)
 	resolver.resolveRepeats();
 	resolver.finalizeGraph();
 
-	rg.storeGraph(outFolder + "/graph_after_rr.rg");
-	RepeatGraph rg2(seqAssembly);
-	rg2.loadGraph(outFolder + "/graph_after_rr.rg");
+	rg.storeGraph(outFolder + "/repeat_graph_dump.txt");
+	aligner.storeAlignments(outFolder + "/read_alignment_dump.txt");
+
+	//testing
+	SequenceContainer::g_nextSeqId = 0;
+	SequenceContainer seqAssembly2; 
+	SequenceContainer seqReads2;
+	try
+	{
+		seqAssembly2.loadFromFile(inAssembly);
+		for (auto& readsFile : readsList)
+		{
+			seqReads2.loadFromFile(readsFile);
+		}
+	}
+	catch (SequenceContainer::ParseException& e)
+	{
+		Logger::get().error() << e.what();
+		return 1;
+	}
+	seqReads2.buildPositionIndex();
+	seqAssembly2.buildPositionIndex();
+
+	RepeatGraph rg2(seqAssembly2);
+	rg2.loadGraph(outFolder + "/repeat_graph_dump.txt");
+	ReadAligner aln2(rg2, seqAssembly2, seqReads2);
+	aln2.loadAlignments(outFolder + "/read_alignment_dump.txt");
+	OutputGenerator outGen2(rg2, aln2, seqAssembly2, seqReads2);
 	//outGen.outputDot(proc.getEdgesPaths(), outFolder + "/graph_after_rr.gv");
 
 	Logger::get().info() << "Generating contigs";
 
-	ContigExtender extender(rg2, aligner, seqAssembly, seqReads, 
+	ContigExtender extender(rg2, aln2, seqAssembly2, seqReads2, 
 							multInf.getMeanCoverage());
 	extender.generateUnbranchingPaths();
 	extender.generateContigs();
@@ -256,13 +279,13 @@ int main(int argc, char** argv)
 	extender.outputStatsTable(outFolder + "/contigs_stats.txt");
 	extender.outputScaffoldConnections(outFolder + "/scaffolds_links.txt");
 
-	outGen.dumpRepeats(extender.getUnbranchingPaths(),
+	outGen2.dumpRepeats(extender.getUnbranchingPaths(),
 					   outFolder + "/repeats_dump.txt");
-	outGen.outputDot(extender.getUnbranchingPaths(),
+	outGen2.outputDot(extender.getUnbranchingPaths(),
 					 outFolder + "/graph_final.gv");
-	outGen.outputFasta(extender.getUnbranchingPaths(),
+	outGen2.outputFasta(extender.getUnbranchingPaths(),
 					   outFolder + "/graph_final.fasta");
-	outGen.outputGfa(extender.getUnbranchingPaths(),
+	outGen2.outputGfa(extender.getUnbranchingPaths(),
 					 outFolder + "/graph_final.gfa");
 
 	Logger::get().debug() << "Peak RAM usage: " 

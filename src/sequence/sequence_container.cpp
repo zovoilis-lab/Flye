@@ -80,11 +80,12 @@ void SequenceContainer::loadFromFile(const std::string& fileName,
 	}
 	
 	//shuffling input reads
-	std::vector<size_t> indicesPerm(records.size());
-	for (size_t i = 0; i < indicesPerm.size(); ++i) indicesPerm[i] = i;
-	std::random_shuffle(indicesPerm.begin(), indicesPerm.end());
+	//std::vector<size_t> indicesPerm(records.size());
+	//for (size_t i = 0; i < indicesPerm.size(); ++i) indicesPerm[i] = i;
+	//std::random_shuffle(indicesPerm.begin(), indicesPerm.end());
 
-	for (size_t i : indicesPerm)
+	//for (size_t i : indicesPerm)
+	for (size_t i = 0; i < records.size(); ++i)
 	{
 		if (records[i].sequence.length() > (size_t)minReadLength)
 		{

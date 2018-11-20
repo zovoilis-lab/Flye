@@ -22,6 +22,9 @@ public:
 	const std::vector<GraphAlignment>& getAlignments() const
 		{return _readAlignments;}
 
+	void storeAlignments(const std::string& filename);
+	void loadAlignments(const std::string& filename);
+
 private:
 	std::vector<GraphAlignment> 
 		chainReadAlignments(const SequenceContainer& edgeSeqs,

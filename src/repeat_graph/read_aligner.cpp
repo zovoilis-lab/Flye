@@ -309,3 +309,65 @@ void ReadAligner::updateAlignments()
 
 	_readAlignments = newAlignments;
 }
+
+void ReadAligner::storeAlignments(const std::string& filename)
+{
+	std::ofstream fout(filename);
+	if (!fout)
+	{
+		throw std::runtime_error("Can't open "  + filename);
+	}
+
+	for (auto& chain : _readAlignments)
+	{
+		fout << "Chain\n";
+		for (auto& aln : chain)
+		{
+			fout << "\tAln\t" << aln.edge->edgeId << "\t" 
+				<< aln.segment << "\t" << aln.overlap << "\n";
+		}
+	}
+}
+
+void ReadAligner::loadAlignments(const std::string& filename)
+{
+	std::ifstream fin(filename);
+	if (!fin)
+	{
+		throw std::runtime_error("Can't open "  + filename);
+	}
+
+	GraphAlignment curAlignment;
+	while(!fin.eof())
+	{
+		std::string buffer;
+		fin >> buffer;
+		if (buffer.empty()) continue;
+
+		if (buffer == "Chain")
+		{
+			if (!curAlignment.empty())
+			{
+				_readAlignments.push_back(curAlignment);
+				curAlignment.clear();
+			}
+		}
+		else if (buffer == "Aln")
+		{
+			OverlapRange ovlp;
+			SequenceSegment seg;
+			size_t edgeId = 0;
+			fin >> edgeId >> seg >> ovlp;
+			GraphEdge* edge = _graph.getEdge(FastaRecord::Id(edgeId));
+			curAlignment.push_back({ovlp, edge, seg});
+		}
+		else throw std::runtime_error("Error parsing: " + filename);
+	}
+	if (!curAlignment.empty())
+	{
+		_readAlignments.push_back(curAlignment);
+		curAlignment.clear();
+	}
+
+	this->updateAlignments();
+}

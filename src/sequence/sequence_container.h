@@ -213,6 +213,7 @@ public:
 		outSeqId = FastaRecord::Id(_seqIdOffest + hint - 1);
 		outPosition = globPos - _sequenceOffsets[hint - 1];
 	}
+	static size_t g_nextSeqId;
 
 private:
 	FastaRecord::Id addSequence(const FastaRecord& sequence);
@@ -232,7 +233,6 @@ private:
 	SequenceIndex _seqIndex;
 	size_t _seqIdOffest;
 	bool   _offsetInitialized;
-	static size_t g_nextSeqId;
 
 	//global/local position convertions
 	const size_t MAX_SEQUENCE = 1ULL << (8 * 5);

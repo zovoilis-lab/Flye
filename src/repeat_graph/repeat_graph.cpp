@@ -1036,9 +1036,7 @@ void RepeatGraph::storeGraph(const std::string& filename)
 
 		for (auto& seg : edge->seqSegments)
 		{
-			fout << "\tSequence\t" << seg.segType << "\t" << seg.seqId 
-				<< "\t" << seg.start << "\t" << seg.end << "\t" 
-				<< seg.seqLen << "\n";
+			fout << "\tSequence\t" << seg << "\n";
 		}
 	}
 }
@@ -1086,11 +1084,7 @@ void RepeatGraph::loadGraph(const std::string& filename)
 			if (!currentEdge)std::runtime_error("Error parsing: " + filename);
 
 			SequenceSegment seg;
-			int type = 0;
-			size_t id = 0;
-			fin >> type >> id >> seg.start >> seg.end >> seg.seqLen;
-			seg.segType = SequenceSegment::SegmentType(type);
-			seg.seqId = FastaRecord::Id(id);
+			fin >> seg;
 			currentEdge->seqSegments.push_back(seg);
 		}
 		else throw std::runtime_error("Error parsing: " + filename);

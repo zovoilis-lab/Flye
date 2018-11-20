@@ -37,6 +37,9 @@ struct SequenceSegment
 		return seqId == other.seqId && start == other.start && end == other.end;
 	}
 
+	friend std::ostream& operator<<(std::ostream& os, const SequenceSegment& seg);
+	friend std::istream& operator>>(std::istream& is, SequenceSegment& seg);
+
 	FastaRecord::Id seqId;
 	int32_t seqLen;
 	int32_t start;
@@ -44,6 +47,24 @@ struct SequenceSegment
 
 	SegmentType segType;
 };
+
+inline std::ostream& operator<<(std::ostream& os, const SequenceSegment& seg)
+{
+	os << seg.segType << " " << seg.seqId 
+		<< " " << seg.start << " " << seg.end << " " 
+		<< seg.seqLen;
+	return os;
+}
+
+inline std::istream& operator>>(std::istream& is, SequenceSegment& seg)
+{
+	int type = 0;
+	size_t id = 0;
+	is >> type >> id >> seg.start >> seg.end >> seg.seqLen;
+	seg.segType = SequenceSegment::SegmentType(type);
+	seg.seqId = FastaRecord::Id(id);
+	return is;
+}
 
 struct GraphNode;
 
@@ -238,6 +259,11 @@ public:
 	bool hasEdge(GraphEdge* edge)
 	{
 		return _graphEdges.count(edge);
+	}
+	GraphEdge* getEdge(FastaRecord::Id edgeId)
+	{
+		if (_idToEdge.count(edgeId)) return _idToEdge[edgeId];
+		return nullptr;
 	}
 	class IterEdges
 	{
