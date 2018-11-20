@@ -17,6 +17,7 @@
 #include "../assemble/extender.h"
 #include "../assemble/parameters_estimator.h"
 #include "../common/logger.h"
+#include "../common/utils.h"
 #include "../common/memory_info.h"
 
 #include <getopt.h>
@@ -109,52 +110,6 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 	configPath = *(argv + optind + 3);
 
 	return true;
-}
-
-bool fileExists(const std::string& path)
-{
-	std::ifstream fin(path);
-	return fin.good();
-}
-
-void segfaultHandler(int signal)
-{
-	void *stackArray[20];
-	size_t size = backtrace(stackArray, 10);
-	Logger::get().error() << "Segmentation fault! Backtrace:";
-	char** backtrace = backtrace_symbols(stackArray, size);
-	for (size_t i = 0; i < size; ++i)
-	{
-		Logger::get().error() << "\t" << backtrace[i];
-	}
-	exit(1);
-}
-
-void exceptionHandler()
-{
-	static bool triedThrow = false;
-	try
-	{
-        if (!triedThrow)
-		{
-			triedThrow = true;
-			throw;
-		}
-    }
-    catch (const std::exception &e) 
-	{
-        Logger::get().error() << "Caught unhandled exception: " << e.what();
-    }
-	catch (...) {}
-
-	void *stackArray[20];
-	size_t size = backtrace(stackArray, 10);
-	char** backtrace = backtrace_symbols(stackArray, size);
-	for (size_t i = 0; i < size; ++i)
-	{
-		Logger::get().error() << "\t" << backtrace[i];
-	}
-	exit(1);
 }
 
 int main(int argc, char** argv)

@@ -37,7 +37,7 @@ setup(name='flye',
       packages=['flye', 'flye/assembly', 'flye/config', 'flye/polishing',
                 'flye/utils'],
       package_data={'flye': ['config/bin_cfg/*']},
-      scripts = ['bin/flye-assemble', 'bin/flye-polish',
+      scripts = ['bin/flye-assemble', 'bin/flye-polish', 'bin/flye-contigger',
                  'bin/flye-repeat', 'bin/flye', 'bin/flye-minimap2'],
       cmdclass={'build': MakeBuild}
       )
