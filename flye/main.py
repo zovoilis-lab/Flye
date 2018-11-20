@@ -47,7 +47,7 @@ class Job(object):
         self.log_file = None
 
     def run(self):
-        pass
+        logger.info("\t>>> Running '{0}' stage".format(self.name))
 
     def save(self, save_file):
         Job.run_params["stage_name"] = self.name
@@ -79,6 +79,7 @@ class JobConfigure(Job):
         self.name = "configure"
 
     def run(self):
+        super(JobConfigure, self).run()
         params = setup_params(self.args)
         Job.run_params = params
 
@@ -98,6 +99,7 @@ class JobAssembly(Job):
         self.out_files["assembly"] = self.assembly_filename
 
     def run(self):
+        super(JobAssembly, self).run()
         if not os.path.isdir(self.assembly_dir):
             os.mkdir(self.assembly_dir)
         asm.assemble(self.args, Job.run_params, self.assembly_filename,
@@ -131,6 +133,7 @@ class JobRepeat(Job):
                                                         "scaffolds_links.txt")
 
     def run(self):
+        super(JobRepeat, self).run()
         if not os.path.isdir(self.repeat_dir):
             os.mkdir(self.repeat_dir)
         logger.info("Performing repeat analysis")
@@ -162,6 +165,7 @@ class JobFinalize(Job):
         self.out_files["gfa"] = os.path.join(work_dir, "assembly_graph.gfa")
 
     def run(self):
+        super(JobFinalize, self).run()
         #shutil.copy2(self.contigs_file, self.out_files["contigs"])
         shutil.copy2(self.graph_file, self.out_files["graph"])
         shutil.copy2(self.polished_gfa, self.out_files["gfa"])
@@ -186,6 +190,7 @@ class JobConsensus(Job):
         self.out_files["consensus"] = self.out_consensus
 
     def run(self):
+        super(JobConsensus, self).run()
         if not os.path.isdir(self.consensus_dir):
             os.mkdir(self.consensus_dir)
 
@@ -224,6 +229,7 @@ class JobPolishing(Job):
                                                       "polished_edges.gfa")
 
     def run(self):
+        super(JobPolishing, self).run()
         if not os.path.isdir(self.polishing_dir):
             os.mkdir(self.polishing_dir)
 
@@ -296,7 +302,7 @@ def _run(args):
     """
     Runs the pipeline
     """
-    logger.info("Running Flye " + _version())
+    logger.info("Starting Flye " + _version())
     logger.debug("Cmd: {0}".format(" ".join(sys.argv)))
 
     for read_file in args.reads:
