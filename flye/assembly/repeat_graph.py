@@ -57,3 +57,15 @@ def analyse_repeats(args, run_params, input_assembly, out_folder,
         raise RepeatException(str(e))
     except OSError as e:
         raise RepeatException(str(e))
+
+    cmdline = ["flye-contigger", "-l", log_file, "-t", str(args.threads)]
+    if args.debug:
+        cmdline.append("-d")
+    cmdline.extend(["-v", str(run_params["min_overlap"])])
+    cmdline.extend(["-k", str(run_params["kmer_size"])])
+    cmdline.extend([input_assembly, ",".join(args.reads),
+                    out_folder, config_file,
+                    os.path.join(out_folder, "repeat_graph_dump.txt"),
+                    os.path.join(out_folder, "read_alignment_dump.txt")])
+    subprocess.check_call(cmdline)
+

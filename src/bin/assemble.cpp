@@ -14,8 +14,8 @@
 #include "../sequence/overlap.h"
 #include "../sequence/consensus_generator.h"
 #include "../common/config.h"
-#include "extender.h"
-#include "parameters_estimator.h"
+#include "../assemble/extender.h"
+#include "../assemble/parameters_estimator.h"
 #include "../common/logger.h"
 #include "../common/memory_info.h"
 

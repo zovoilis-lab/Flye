@@ -14,12 +14,11 @@
 #include "../common/logger.h"
 #include "../common/memory_info.h"
 
-#include "repeat_graph.h"
-#include "multiplicity_inferer.h"
-#include "graph_processing.h"
-#include "repeat_resolver.h"
-#include "output_generator.h"
-#include "contig_extender.h"
+#include "../repeat_graph/repeat_graph.h"
+#include "../repeat_graph/multiplicity_inferer.h"
+#include "../repeat_graph/graph_processing.h"
+#include "../repeat_graph/repeat_resolver.h"
+#include "../repeat_graph/output_generator.h"
 
 #include <getopt.h>
 
@@ -243,7 +242,7 @@ int main(int argc, char** argv)
 	aligner.storeAlignments(outFolder + "/read_alignment_dump.txt");
 
 	//testing
-	SequenceContainer::g_nextSeqId = 0;
+	/*SequenceContainer::g_nextSeqId = 0;
 	SequenceContainer seqAssembly2; 
 	SequenceContainer seqReads2;
 	try
@@ -286,7 +285,7 @@ int main(int argc, char** argv)
 	outGen2.outputFasta(extender.getUnbranchingPaths(),
 					   outFolder + "/graph_final.fasta");
 	outGen2.outputGfa(extender.getUnbranchingPaths(),
-					 outFolder + "/graph_final.gfa");
+					 outFolder + "/graph_final.gfa");*/
 
 	Logger::get().debug() << "Peak RAM usage: " 
 		<< getPeakRSS() / 1024 / 1024 / 1024 << " Gb";

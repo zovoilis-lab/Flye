@@ -3,7 +3,7 @@
 //Released under the BSD license (see LICENSE file)
 
 #include "contig_extender.h"
-#include "output_generator.h"
+#include "../repeat_graph/output_generator.h"
 #include <cmath>
 
 void ContigExtender::generateUnbranchingPaths()
@@ -286,6 +286,9 @@ void ContigExtender::outputStatsTable(const std::string& filename)
 
 	char YES_NO[] = {'-', '+'};
 
+	//TODO: compute mean coverage
+	int meanCoverage = 1;
+
 	for (auto& ctg : _contigs)
 	{
 		std::string pathStr;
@@ -296,7 +299,7 @@ void ContigExtender::outputStatsTable(const std::string& filename)
 		pathStr.pop_back();
 
 		int estMult = std::max(1.0f, std::round((float)ctg.graphEdges.meanCoverage / 
-											    _meanCoverage));
+											    meanCoverage));
 
 		std::string telomereStr;
 		bool telLeft = (ctg.graphEdges.path.front()->nodeLeft->isTelomere());

@@ -5,6 +5,7 @@ LDFLAGS += -pthread -std=c++11 -rdynamic
 
 ASSEMBLE_BIN := ${BIN_DIR}/flye-assemble
 REPEAT_BIN := ${BIN_DIR}/flye-repeat
+CONTIGGER_BIN := ${BIN_DIR}/flye-contigger
 POLISH_BIN := ${BIN_DIR}/flye-polish
 
 profile: CXXFLAGS += -pg
@@ -12,10 +13,10 @@ profile: LDFLAGS += -pg
 profile: release
 
 release: CXXFLAGS += -D_LOG -O3 -DNDEBUG
-release: flye-repeat flye-polish flye-assemble
+release: flye-repeat flye-polish flye-assemble flye-contigger
 
 debug: CXXFLAGS += -Og -D_GLIBCXX_DEBUG -D_DEBUG -D_DEBUG_LOG -D_LOG
-debug: flye-repeat flye-polish flye-assemble
+debug: flye-repeat flye-polish flye-assemble flye-contigger
 
 
 #sequence module
@@ -26,26 +27,35 @@ sequence/%.o: sequence/%.cpp sequence/*.h common/*h
 
 #flye-assemble module
 assemble_obj := ${patsubst %.cpp,%.o,${wildcard assemble/*.cpp}}
-flye-assemble: ${assemble_obj} ${sequence_obj}
-	${CXX} ${assemble_obj} ${sequence_obj} -o ${ASSEMBLE_BIN} ${LDFLAGS}
+flye-assemble: ${assemble_obj} ${sequence_obj} bin/assemble.o
+	${CXX} ${assemble_obj} ${sequence_obj} bin/assemble.o -o ${ASSEMBLE_BIN} ${LDFLAGS}
 
-assemble/%.o: assemble/%.cpp assemble/*.h sequence/*.h common/*h
+assemble/%.o: assemble/%.cpp assemble/*.h sequence/*.h common/*h bin/assemble.cpp
 	${CXX} -c ${CXXFLAGS} $< -o $@
 
 #flye-repeat module
 repeat_obj := ${patsubst %.cpp,%.o,${wildcard repeat_graph/*.cpp}}
-flye-repeat: ${repeat_obj} ${sequence_obj}
-	${CXX} ${repeat_obj} ${sequence_obj} -o ${REPEAT_BIN} ${LDFLAGS}
+flye-repeat: ${repeat_obj} ${sequence_obj} bin/repeat.o
+	${CXX} ${repeat_obj} ${sequence_obj} bin/repeat.o -o ${REPEAT_BIN} ${LDFLAGS}
 
-repeat_graph/%.o: repeat_graph/%.cpp repeat_graph/*.h sequence/*.h common/*.h
+repeat_graph/%.o: repeat_graph/%.cpp repeat_graph/*.h sequence/*.h common/*.h bin/repeat.cpp
 	${CXX} -c ${CXXFLAGS} $< -o $@
+
+#flye-contigger module
+contigger_obj := ${patsubst %.cpp,%.o,${wildcard contigger/*.cpp}}
+flye-contigger: ${contigger_obj} ${sequence_obj} ${repeat_obj} bin/contigger.o
+	${CXX} ${contigger_obj} ${repeat_obj} ${sequence_obj} bin/contigger.o -o ${CONTIGGER_BIN} ${LDFLAGS}
+
+contigger/%.o: contigger/%.cpp repeat_graph/%.cpp repeat_graph/*.h sequence/*.h common/*.h bin/contigger.cpp
+	${CXX} -c ${CXXFLAGS} $< -o $@
+
 
 #flye-polish module
 polish_obj := ${patsubst %.cpp,%.o,${wildcard polishing/*.cpp}}
-flye-polish: ${polish_obj}
-	${CXX} ${polish_obj} -o ${POLISH_BIN} ${LDFLAGS}
+flye-polish: ${polish_obj} bin/polisher.o
+	${CXX} ${polish_obj} bin/polisher.o -o ${POLISH_BIN} ${LDFLAGS}
 
-polishing/%.o: polishing/%.cpp polishing/*.h common/*h
+polishing/%.o: polishing/%.cpp bin/polisher.cpp polishing/*.h common/*h
 	${CXX} -c ${CXXFLAGS} $< -o $@
 
 
@@ -55,6 +65,8 @@ clean:
 	-rm ${sequence_obj}
 	-rm ${assemble_obj}
 	-rm ${polish_obj}
+	-rm ${patsubst %.cpp,%.o,${wildcard bin/*.cpp}}
 	-rm ${REPEAT_BIN}
 	-rm ${ASSEMBLE_BIN}
 	-rm ${POLISH_BIN}
+	-rm ${CONTIGGER_BIN}

@@ -50,7 +50,7 @@
 /**
  * Returns the size of physical memory (RAM) in bytes.
  */
-size_t getMemorySize( )
+inline size_t getMemorySize( )
 {
 #if defined(_WIN32) && (defined(__CYGWIN__) || defined(__CYGWIN32__))
 	/* Cygwin under Windows. ------------------------------------ */
@@ -127,7 +127,7 @@ size_t getMemorySize( )
  * memory use) measured in bytes, or zero if the value cannot be
  * determined on this OS.
  */
-size_t getPeakRSS( )
+inline size_t getPeakRSS( )
 {
 #if defined(_WIN32)
 	/* Windows -------------------------------------------------- */
@@ -170,7 +170,7 @@ size_t getPeakRSS( )
  * Returns the current resident set size (physical memory use) measured
  * in bytes, or zero if the value cannot be determined on this OS.
  */
-size_t getCurrentRSS( )
+inline size_t getCurrentRSS( )
 {
 #if defined(_WIN32)
 	/* Windows -------------------------------------------------- */
@@ -207,7 +207,7 @@ size_t getCurrentRSS( )
 #endif
 }
 
-size_t getFreeMemorySize()
+inline size_t getFreeMemorySize()
 {
 #if defined(__linux__) || defined(__linux) || defined(linux) || defined(__gnu_linux__)
 	char buffer[64];
