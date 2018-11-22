@@ -126,26 +126,6 @@ void ReadAligner::alignReads()
 										   		   segment.complement()};
 		}
 	}
-	//SequenceContainer pathsContainer;
-
-	/*for (auto& edge : _graph.iterEdges())
-	{
-		if (!edge->edgeId.strand()) continue;
-
-		//add each edge sequence variant to the database
-		for (auto& segment : edge->seqSegments)
-		{
-			size_t len = segment.end - segment.start;
-			auto sequence = _asmSeqs.getSeq(segment.seqId)
-										.substr(segment.start, len);
-			auto& newRec = pathsContainer.addSequence(sequence, "");
-
-			idToSegment[newRec.id] = {edge, segment};
-			idToSegment[newRec.id.rc()] = {_graph.complementEdge(edge), 
-										   segment.complement()};
-		}
-	}
-	pathsContainer.buildPositionIndex();*/
 
 	//index it and align reads
 	VertexIndex pathsIndex(_graph.edgeSequences(), 
@@ -194,8 +174,9 @@ void ReadAligner::alignReads()
 			if (ovlp.extLen < MIN_EDGE_OVLP + EDGE_FLANK ||
 				std::min(ovlp.curRange(), ovlp.extRange()) > MIN_EDGE_OVLP)
 			{
-				alignments.push_back({ovlp, idToSegment[ovlp.extId].first,
-									  idToSegment[ovlp.extId].second});
+				//alignments.push_back({ovlp, idToSegment[ovlp.extId].first,
+				//					  idToSegment[ovlp.extId].second});
+				alignments.push_back({ovlp, idToSegment[ovlp.extId].first});
 			}
 
 		}
@@ -210,7 +191,7 @@ void ReadAligner::alignReads()
 			for (auto& aln : chain)
 			{
 				aln.edge = _graph.complementEdge(aln.edge);
-				aln.segment = aln.segment.complement();
+				//aln.segment = aln.segment.complement();
 				aln.overlap = aln.overlap.complement();
 			}
 			std::reverse(chain.begin(), chain.end());
@@ -321,7 +302,7 @@ void ReadAligner::updateAlignments()
 
 void ReadAligner::storeAlignments(const std::string& filename)
 {
-	std::ofstream fout(filename);
+	/*std::ofstream fout(filename);
 	if (!fout)
 	{
 		throw std::runtime_error("Can't open "  + filename);
@@ -335,12 +316,12 @@ void ReadAligner::storeAlignments(const std::string& filename)
 			fout << "\tAln\t" << aln.edge->edgeId << "\t" 
 				<< aln.segment << "\t" << aln.overlap << "\n";
 		}
-	}
+	}*/
 }
 
 void ReadAligner::loadAlignments(const std::string& filename)
 {
-	std::ifstream fin(filename);
+	/*std::ifstream fin(filename);
 	if (!fin)
 	{
 		throw std::runtime_error("Can't open "  + filename);
@@ -378,5 +359,5 @@ void ReadAligner::loadAlignments(const std::string& filename)
 		curAlignment.clear();
 	}
 
-	this->updateAlignments();
+	this->updateAlignments();*/
 }

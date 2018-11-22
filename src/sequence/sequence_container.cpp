@@ -338,7 +338,9 @@ void SequenceContainer::writeFasta(const std::vector<FastaRecord>& records,
 		{
 			contigSeq += rec.sequence.substr(c, FASTA_SLICE).str() + "\n";
 		}
-		std::string header = ">" + rec.description + "\n";
+		std::string header = onlyPositiveStrand ? 
+							 ">" + rec.description.substr(1) + "\n":
+							 ">" + rec.description + "\n";
 		fwrite(header.data(), sizeof(header.data()[0]), 
 			   header.size(), fout);
 		fwrite(contigSeq.data(), sizeof(contigSeq.data()[0]), 

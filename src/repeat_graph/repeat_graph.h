@@ -15,7 +15,7 @@ struct EdgeSequence
 {
 	EdgeSequence(FastaRecord::Id edgeSeqId = FastaRecord::ID_NONE,
 				 int32_t seqLen = 0):
-		edgeSeqId(edgeSeqId), seqLen(seqLen),
+		edgeSeqId(edgeSeqId), seqLen(seqLen), origSeqId(FastaRecord::ID_NONE),
 		origSeqLen(0), origSeqStart(0), origSeqEnd(0) {}
 
 		EdgeSequence(FastaRecord::Id origSeq, int32_t origLen,  
@@ -28,9 +28,12 @@ struct EdgeSequence
 	{
 		EdgeSequence other(*this);
 		other.edgeSeqId = edgeSeqId.rc();
-		other.origSeqId = origSeqId.rc();
-		other.origSeqStart = origSeqLen - origSeqEnd - 1;
-		other.origSeqEnd = origSeqLen - origSeqStart - 1;
+		if (origSeqId != FastaRecord::ID_NONE) 
+		{
+			other.origSeqId = origSeqId.rc();
+			other.origSeqStart = origSeqLen - origSeqEnd - 1;
+			other.origSeqEnd = origSeqLen - origSeqStart - 1;
+		}
 		return other;
 	}
 
@@ -44,8 +47,34 @@ struct EdgeSequence
 			   origSeqEnd == other.origSeqEnd;
 	}
 
-	friend std::ostream& operator<<(std::ostream& os, const EdgeSequence& seg);
-	friend std::istream& operator>>(std::istream& is, EdgeSequence& seg);
+	void dump(std::ostream& os, const SequenceContainer& edgesSeqs)
+	{
+		std::string origIdString = 
+			origSeqId != FastaRecord::ID_NONE ?
+			std::to_string(origSeqId.signedId()) : "*";
+		os  << edgesSeqs.seqName(edgeSeqId) << " " << seqLen 
+			<< " " << origIdString << " " << origSeqLen << " " << origSeqStart 
+			<< " " << origSeqEnd;
+	}
+
+	void parse(std::istream& is, const SequenceContainer& edgeSeqs)
+	{
+		std::string edgeSeqName;
+		std::string origSeqName;
+		is  >> edgeSeqName >> seqLen >> origSeqName >> origSeqLen 
+			>> origSeqStart >> origSeqEnd;
+		
+		if (origSeqName == "*")
+		{
+			origSeqId = FastaRecord::ID_NONE;
+		}
+		else
+		{
+			size_t unsignedId = llabs(atoll(origSeqName.c_str())) * 2 - 2;
+			unsignedId += atoll(origSeqName.c_str()) < 0;
+			origSeqId = FastaRecord::Id(unsignedId);
+		}
+	}
 
 	//index in the repeat graph sequence container
 	FastaRecord::Id edgeSeqId;
@@ -61,23 +90,7 @@ struct EdgeSequence
 	int32_t origSeqEnd;
 };
 
-inline std::ostream& operator<<(std::ostream& os, const EdgeSequence& seg)
-{
-	os  << seg.edgeSeqId << " " << seg.seqLen << " " << seg.origSeqId << " "
-		<< seg.origSeqLen << " " << seg.origSeqStart << " " << seg.origSeqEnd;
-	return os;
-}
 
-inline std::istream& operator>>(std::istream& is, EdgeSequence& seg)
-{
-	size_t id = 0;
-	size_t origId = 0;
-	is  >> id >> seg.seqLen >> origId >> seg.origSeqLen 
-		>> seg.origSeqStart >> seg.origSeqEnd;
-	seg.edgeSeqId = FastaRecord::Id(id);
-	seg.origSeqId = FastaRecord::Id(origId);
-	return is;
-}
 
 struct GraphNode;
 
@@ -205,7 +218,7 @@ struct EdgeAlignment
 {
 	OverlapRange overlap;
 	GraphEdge* edge;
-	EdgeSequence segment;
+	//EdgeSequence segment;
 };
 typedef std::vector<EdgeAlignment> GraphAlignment;
 

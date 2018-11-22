@@ -1042,7 +1042,9 @@ void RepeatGraph::storeGraph(const std::string& filename)
 
 		for (auto& seg : edge->seqSegments)
 		{
-			fout << "\tSequence\t" << seg << "\n";
+			fout << "\tSequence\t";
+			seg.dump(fout, *_edgeSeqsContainer);
+			fout << "\n";
 		}
 	}
 }
@@ -1090,7 +1092,7 @@ void RepeatGraph::loadGraph(const std::string& filename)
 			if (!currentEdge)std::runtime_error("Error parsing: " + filename);
 
 			EdgeSequence seg;
-			fin >> seg;
+			seg.parse(fin, *_edgeSeqsContainer);
 			currentEdge->seqSegments.push_back(seg);
 		}
 		else throw std::runtime_error("Error parsing: " + filename);
@@ -1121,7 +1123,10 @@ void RepeatGraph::updateEdgeSequences()
 										.substr(edgeSeq.origSeqStart, len);
 			std::string description = "edge_" + 
 				std::to_string(edge->edgeId.signedId()) + 
-				"_" + std::to_string(num++);
+				"_" + std::to_string(num++) + "_" +
+				_asmSeqs.getRecord(edgeSeq.origSeqId).description + "_" +
+				std::to_string(edgeSeq.origSeqStart) + "_" + 
+				std::to_string(edgeSeq.origSeqEnd);
 			auto& newRec = _edgeSeqsContainer->addSequence(subSeq, description);
 
 			edgeSeq.edgeSeqId = newRec.id;

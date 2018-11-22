@@ -178,14 +178,17 @@ int RepeatResolver::resolveConnections(const std::vector<Connection>& connection
 	//separates the resolved paths in the graph
 	for (auto& conn : uniqueConnections)
 	{
-		std::string description = "read_seq_" + 
-					std::to_string(conn.readSeq.readId.signedId());
+		FastaRecord::Id edgeId = _graph.newEdgeId();
+
+		std::string description = "edge_" + std::to_string(edgeId.signedId()) + 
+				"_0_" + _readSeqs.getRecord(conn.readSeq.readId).description + "_" +
+				std::to_string(conn.readSeq.start) + "_" + 
+				std::to_string(conn.readSeq.end);
 		EdgeSequence edgeSeq = 
 			_graph.addEdgeSequence(_readSeqs.getSeq(conn.readSeq.readId),
 								   conn.readSeq.start, conn.readSeq.length(),
 								   description);
 
-		FastaRecord::Id edgeId = _graph.newEdgeId();
 		this->separatePath(conn.path, edgeSeq, edgeId);
 		this->separatePath(_graph.complementPath(conn.path), 
 						   edgeSeq.complement(), edgeId.rc());
