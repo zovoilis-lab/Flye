@@ -198,6 +198,11 @@ public:
 		return _sequenceOffsets[seqId._id - _seqIdOffest] + position;
 	}
 
+	const FastaRecord& recordByName(const std::string& name) const
+	{
+		return this->getRecord(_nameIndex.at(name));
+	}
+
 	void seqPosition(size_t globPos, FastaRecord::Id& outSeqId, 
 					 int32_t& outPosition) const
 	{
@@ -225,9 +230,11 @@ private:
 
 	void   validateHeader(std::string& header);
 
-	SequenceIndex _seqIndex;
-	size_t _seqIdOffest;
-	bool   _offsetInitialized;
+	SequenceIndex 	_seqIndex;
+	size_t 			_seqIdOffest;
+	bool   			_offsetInitialized;
+	std::unordered_map<std::string, 
+					   FastaRecord::Id> _nameIndex;
 
 	//global/local position convertions
 	const size_t MAX_SEQUENCE = 1ULL << (8 * 5);

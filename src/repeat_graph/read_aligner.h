@@ -10,6 +10,14 @@
 
 #include "repeat_graph.h"
 
+struct EdgeAlignment
+{
+	OverlapRange overlap;
+	GraphEdge* edge;
+	//EdgeSequence segment;
+};
+typedef std::vector<EdgeAlignment> GraphAlignment;
+
 class ReadAligner
 {
 public:

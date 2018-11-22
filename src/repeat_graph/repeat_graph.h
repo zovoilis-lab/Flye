@@ -63,6 +63,7 @@ struct EdgeSequence
 		std::string origSeqName;
 		is  >> edgeSeqName >> seqLen >> origSeqName >> origSeqLen 
 			>> origSeqStart >> origSeqEnd;
+		edgeSeqId = edgeSeqs.recordByName(edgeSeqName).id;
 		
 		if (origSeqName == "*")
 		{
@@ -214,13 +215,6 @@ struct GraphNode
 
 typedef std::vector<GraphEdge*> GraphPath;
 
-struct EdgeAlignment
-{
-	OverlapRange overlap;
-	GraphEdge* edge;
-	//EdgeSequence segment;
-};
-typedef std::vector<EdgeAlignment> GraphAlignment;
 
 class RepeatGraph
 {

@@ -61,8 +61,13 @@ FastaRecord::Id SequenceContainer::addSequence(const FastaRecord& seqRec)
 
 	_seqIndex.emplace_back(seqRec.sequence, "+" + seqRec.description, 
 						   newId);
+
+	_nameIndex[_seqIndex.back().description] = _seqIndex.back().id;
+
 	_seqIndex.emplace_back(seqRec.sequence.complement(), 
 						   "-" + seqRec.description, newId.rc());
+	_nameIndex[_seqIndex.back().description] = _seqIndex.back().id;
+
 	return _seqIndex.back().id.rc();
 }
 

@@ -142,8 +142,26 @@ struct OverlapRange
 			   std::max(extBegin, other.extBegin);
 	}
 
-	friend std::ostream& operator<<(std::ostream& os, const OverlapRange& ovlp);
-	friend std::ostream& operator>>(std::ostream& is, OverlapRange& ovlp);
+	void dump(std::ostream& os, const SequenceContainer& curContainer,
+			  const SequenceContainer& extContainer)
+	{
+		os << curContainer.seqName(curId) << " " 
+		   << curBegin << " " << curEnd << " " 
+		   << curLen << " " << extContainer.seqName(extId) 
+		   << " " << extBegin << " " << extEnd << " " << extLen << " " 
+		   << leftShift << " " << rightShift << " " 
+		   << score << " " << seqDivergence;
+	}
+
+	void load(std::istream& is, const SequenceContainer& curContainer,
+			  const SequenceContainer& extContainer)
+	{
+		std::string curSeqName;
+		std::string extSeqName;
+		is >> curSeqName >> curBegin >> curEnd 
+		   >> curLen >> extSeqName >> extBegin >> extEnd >> extLen
+		   >> leftShift >> rightShift >> score >> seqDivergence;
+	}
 
 	/*bool equals(const OverlapRange& other) const
 	{
@@ -172,25 +190,7 @@ struct OverlapRange
 	std::vector<std::pair<int32_t, int32_t>> kmerMatches;
 };
 
-inline std::ostream& operator<<(std::ostream& os, const OverlapRange& ovlp)
-{
-	os << ovlp.curId << " " << ovlp.curBegin << " " << ovlp.curEnd << " " 
-	   << ovlp.curLen << " " << ovlp.extId << " " << ovlp.extBegin << " " 
-	   << ovlp.extEnd << " " << ovlp.extLen << " " 
-	   << ovlp.leftShift << " " << ovlp.rightShift << " " 
-	   << ovlp.score << " " << ovlp.seqDivergence;
-	return os;
-}
 
-inline std::istream& operator>>(std::istream& is, OverlapRange& ovlp)
-{
-	is >> ovlp.curId >> ovlp.curBegin >> ovlp.curEnd 
-	   >> ovlp.curLen >> ovlp.extId >> ovlp.extBegin
-	   >> ovlp.extEnd >> ovlp.extLen
-	   >> ovlp.leftShift >> ovlp.rightShift
-	   >> ovlp.score >> ovlp.seqDivergence;
-	return is;
-}
 
 struct OvlpDivStats
 {
