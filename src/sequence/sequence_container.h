@@ -144,12 +144,6 @@ public:
 		{}
 	};
 
-	/*struct SeqPos
-	{
-		FastaRecord::Id seqId;
-		int32_t position;
-	};*/
-
 	typedef std::vector<FastaRecord> SequenceIndex;
 
 	SequenceContainer():
@@ -158,7 +152,8 @@ public:
 	void loadFromFile(const std::string& filename, int minReadLength = 0);
 
 	static void writeFasta(const std::vector<FastaRecord>& records,
-						   const std::string& fileName);
+						   const std::string& fileName,
+						   bool  onlyPositiveStrand = false);
 
 	static size_t getMaxSeqId() {return g_nextSeqId;}
 

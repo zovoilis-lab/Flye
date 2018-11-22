@@ -157,15 +157,15 @@ int main(int argc, char** argv)
 	Parameters::get().minimumOverlap = minOverlap;
 	Logger::get().debug() << "Selected minimum overlap " << minOverlap;
 
-	RepeatGraph rg(seqAssembly);
-	GraphProcessor proc(rg, seqAssembly, seqReads);
+	SequenceContainer edgeSequences;
+	RepeatGraph rg(seqAssembly, &edgeSequences);
+	GraphProcessor proc(rg, seqAssembly);
 	ReadAligner aligner(rg, seqAssembly, seqReads);
-	OutputGenerator outGen(rg, aligner, seqAssembly, seqReads);
+	OutputGenerator outGen(rg, aligner, seqReads);
 
 	Logger::get().info() << "Building repeat graph";
 	rg.build();
 	//outGen.outputDot(proc.getEdgesPaths(), outFolder + "/graph_raw.gv");
-	proc.simplify();
 
 	Logger::get().info() << "Aligning reads to the graph";
 	aligner.alignReads();
@@ -194,6 +194,9 @@ int main(int argc, char** argv)
 	outGen.outputDot(proc.getEdgesPaths(), outFolder + "/graph_after_rr.gv");
 	rg.storeGraph(outFolder + "/repeat_graph_dump.txt");
 	aligner.storeAlignments(outFolder + "/read_alignment_dump.txt");
+	SequenceContainer::writeFasta(edgeSequences.iterSeqs(), 
+								  outFolder + "/repeat_graph_edges.fasta",
+								  /*only pos strand*/ true);
 
 	/*Logger::get().info() << "Generating contigs";
 

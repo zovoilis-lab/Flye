@@ -116,10 +116,19 @@ void ReadAligner::alignReads()
 
 	//create database
 	std::unordered_map<FastaRecord::Id, 
-					   std::pair<GraphEdge*, SequenceSegment>> idToSegment;
-	SequenceContainer pathsContainer;
-
+					   std::pair<GraphEdge*, EdgeSequence>> idToSegment;
 	for (auto& edge : _graph.iterEdges())
+	{
+		for (auto& segment : edge->seqSegments)
+		{
+			idToSegment[segment.edgeSeqId] = {edge, segment};
+			idToSegment[segment.edgeSeqId.rc()] = {_graph.complementEdge(edge), 
+										   		   segment.complement()};
+		}
+	}
+	//SequenceContainer pathsContainer;
+
+	/*for (auto& edge : _graph.iterEdges())
 	{
 		if (!edge->edgeId.strand()) continue;
 
@@ -136,15 +145,15 @@ void ReadAligner::alignReads()
 										   segment.complement()};
 		}
 	}
-	pathsContainer.buildPositionIndex();
+	pathsContainer.buildPositionIndex();*/
 
 	//index it and align reads
-	VertexIndex pathsIndex(pathsContainer, 
+	VertexIndex pathsIndex(_graph.edgeSequences(), 
 						   (int)Config::get("read_align_kmer_sample"));
 	pathsIndex.countKmers(/*min freq*/ 1, /* genome size*/ 0);
 	pathsIndex.setRepeatCutoff(/*min freq*/ 1);
 	pathsIndex.buildIndex(/*min freq*/ 1);
-	OverlapDetector readsOverlapper(pathsContainer, pathsIndex, 
+	OverlapDetector readsOverlapper(_graph.edgeSequences(), pathsIndex, 
 									(int)Config::get("maximum_jump"),
 									MIN_EDGE_OVLP - EDGE_FLANK,
 									/*no overhang*/ 0, /*no max ovlp count*/ 0,
@@ -172,7 +181,7 @@ void ReadAligner::alignReads()
 
 	std::function<void(const FastaRecord::Id&)> alignRead = 
 	[this, &indexMutex, &numAligned, &readsOverlaps,
-		&idToSegment, &pathsContainer, &alignedLength, &alignedInFull] 
+		&idToSegment, &alignedLength, &alignedInFull] 
 	(const FastaRecord::Id& seqId)
 	{
 		auto overlaps = readsOverlaps.quickSeqOverlaps(seqId);
@@ -193,7 +202,7 @@ void ReadAligner::alignReads()
 		std::sort(alignments.begin(), alignments.end(),
 		  [](const EdgeAlignment& e1, const EdgeAlignment& e2)
 			{return e1.overlap.curBegin < e2.overlap.curBegin;});
-		auto readChains = this->chainReadAlignments(pathsContainer, alignments);
+		auto readChains = this->chainReadAlignments(_graph.edgeSequences(), alignments);
 
 		std::vector<GraphAlignment> complChains(readChains);
 		for (auto& chain : complChains)
@@ -355,7 +364,7 @@ void ReadAligner::loadAlignments(const std::string& filename)
 		else if (buffer == "Aln")
 		{
 			OverlapRange ovlp;
-			SequenceSegment seg;
+			EdgeSequence seg;
 			size_t edgeId = 0;
 			fin >> edgeId >> seg >> ovlp;
 			GraphEdge* edge = _graph.getEdge(FastaRecord::Id(edgeId));

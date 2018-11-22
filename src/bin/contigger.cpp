@@ -144,12 +144,12 @@ int main(int argc, char** argv)
 		Parameters::get().kmerSize; 
 
 	Logger::get().info() << "Reading sequences";
-	SequenceContainer seqAssembly; 
+	SequenceContainer seqGraphEdges; 
 	SequenceContainer seqReads;
 	std::vector<std::string> readsList = splitString(readsFasta, ',');
 	try
 	{
-		seqAssembly.loadFromFile(inAssembly);
+		seqGraphEdges.loadFromFile(inAssembly);
 		for (auto& readsFile : readsList)
 		{
 			seqReads.loadFromFile(readsFile);
@@ -161,17 +161,18 @@ int main(int argc, char** argv)
 		return 1;
 	}
 	seqReads.buildPositionIndex();
-	seqAssembly.buildPositionIndex();
+	//seqAssembly.buildPositionIndex();
 
-	RepeatGraph rg(seqAssembly);
+	SequenceContainer emptyContainer;
+	RepeatGraph rg(emptyContainer, &seqGraphEdges);
 	rg.loadGraph(inRepeatGraph);
-	ReadAligner aln(rg, seqAssembly, seqReads);
+	ReadAligner aln(rg, emptyContainer, seqReads);
 	aln.loadAlignments(inReadsAlignment);
-	OutputGenerator outGen(rg, aln, seqAssembly, seqReads);
+	OutputGenerator outGen(rg, aln, seqReads);
 
 	//Logger::get().info() << "Generating contigs";
 
-	ContigExtender extender(rg, aln, seqAssembly, seqReads);
+	ContigExtender extender(rg, aln, emptyContainer, seqReads);
 	extender.generateUnbranchingPaths();
 	extender.generateContigs();
 	extender.outputContigs(outFolder + "/graph_paths.fasta");

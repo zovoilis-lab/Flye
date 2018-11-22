@@ -97,7 +97,7 @@ void MultiplicityInferer::estimateCoverage()
 //removes edges with low coverage support from the graph
 void MultiplicityInferer::removeUnsupportedEdges()
 {
-	GraphProcessor proc(_graph, _asmSeqs, _readSeqs);
+	GraphProcessor proc(_graph, _asmSeqs);
 	auto unbranchingPaths = proc.getUnbranchingPaths();
 
 	int32_t coverageThreshold = this->getMeanCoverage() / 
@@ -206,7 +206,7 @@ void MultiplicityInferer::removeUnsupportedConnections()
 		}
 	}
 
-	GraphProcessor proc(_graph, _asmSeqs, _readSeqs);
+	GraphProcessor proc(_graph, _asmSeqs);
 	proc.trimTips();
 	_aligner.updateAlignments();
 }
@@ -217,7 +217,7 @@ void MultiplicityInferer::collapseHeterozygousLoops()
 {
 	const float COV_MULT = 1.5;
 
-	GraphProcessor proc(_graph, _asmSeqs, _readSeqs);
+	GraphProcessor proc(_graph, _asmSeqs);
 	auto unbranchingPaths = proc.getUnbranchingPaths();
 
 	std::unordered_set<FastaRecord::Id> toUnroll;
@@ -303,7 +303,7 @@ void MultiplicityInferer::collapseHeterozygousBulges()
 	const float MAX_COV_VAR = 0.20;
 	const float MAX_LEN_VAR = 0.50;
 
-	GraphProcessor proc(_graph, _asmSeqs, _readSeqs);
+	GraphProcessor proc(_graph, _asmSeqs);
 	auto unbranchingPaths = proc.getUnbranchingPaths();
 
 	std::unordered_set<FastaRecord::Id> toSeparate;

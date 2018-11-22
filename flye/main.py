@@ -128,6 +128,8 @@ class JobRepeat(Job):
         #                                         "graph_paths.fasta")
         self.out_files["repeat_graph"] = os.path.join(self.work_dir,
                                                       "repeat_graph_dump.txt")
+        self.out_files["repeat_graph_edges"] = os.path.join(self.work_dir,
+                                                        "repeat_graph_edges.fasta")
         self.out_files["reads_alignment"] = os.path.join(self.work_dir,
                                                          "read_alignment_dump.txt")
         #self.out_files["gfa_graph"] = os.path.join(self.work_dir,
@@ -147,12 +149,12 @@ class JobRepeat(Job):
 
 
 class JobContigger(Job):
-    def __init__(self, args, work_dir, log_file, disjointigs,
+    def __init__(self, args, work_dir, log_file, repeat_graph_edges,
                  repeat_graph, reads_alignment):
         super(JobContigger, self).__init__()
 
         self.args = args
-        self.disjointigs = disjointigs
+        self.repeat_graph_edges = repeat_graph_edges
         self.repeat_graph = repeat_graph
         self.reads_alignment = reads_alignment
         self.log_file = log_file
@@ -176,7 +178,7 @@ class JobContigger(Job):
         if not os.path.isdir(self.work_dir):
             os.mkdir(self.work_dir)
         logger.info("Generating contigs")
-        repeat.generate_contigs(self.args, Job.run_params, self.disjointigs,
+        repeat.generate_contigs(self.args, Job.run_params, self.repeat_graph_edges,
                                 self.work_dir, self.log_file, self.args.asm_config,
                                 self.repeat_graph, self.reads_alignment)
 
@@ -309,8 +311,9 @@ def _create_job_list(args, work_dir, log_file):
 
     #Contigger
     repeat_graph = jobs[-1].out_files["repeat_graph"]
+    repeat_graph_edges = jobs[-1].out_files["repeat_graph_edges"]
     reads_alignment = jobs[-1].out_files["reads_alignment"]
-    jobs.append(JobContigger(args, work_dir, log_file, disjointigs,
+    jobs.append(JobContigger(args, work_dir, log_file, repeat_graph_edges,
                              repeat_graph, reads_alignment))
 
     raw_contigs = jobs[-1].out_files["contigs"]

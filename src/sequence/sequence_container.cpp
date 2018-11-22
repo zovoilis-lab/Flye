@@ -320,7 +320,8 @@ void SequenceContainer::validateSequence(std::string& sequence)
 }
 
 void SequenceContainer::writeFasta(const std::vector<FastaRecord>& records, 
-								   const std::string& filename)
+								   const std::string& filename,
+								   bool onlyPositiveStrand)
 {
 	static const size_t FASTA_SLICE = 80;
 
@@ -330,6 +331,8 @@ void SequenceContainer::writeFasta(const std::vector<FastaRecord>& records,
 	
 	for (auto& rec : records)
 	{
+		if (onlyPositiveStrand && !rec.id.strand()) continue;
+
 		std::string contigSeq;
 		for (size_t c = 0; c < rec.sequence.length(); c += FASTA_SLICE)
 		{

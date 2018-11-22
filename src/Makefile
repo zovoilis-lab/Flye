@@ -65,6 +65,7 @@ clean:
 	-rm ${sequence_obj}
 	-rm ${assemble_obj}
 	-rm ${polish_obj}
+	-rm ${contigger_obj}
 	-rm ${patsubst %.cpp,%.o,${wildcard bin/*.cpp}}
 	-rm ${REPEAT_BIN}
 	-rm ${ASSEMBLE_BIN}
