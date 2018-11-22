@@ -45,7 +45,6 @@ void ContigExtender::generateContigs()
 		upathsSeqs[&_unbranchingPaths[i]] = &coreSeqs[i];
 	}
 
-	//std::vector<const GraphAlignment*> interestingAlignments;
 	std::unordered_map<GraphEdge*, 
 					   std::vector<const GraphAlignment*>> alnIndex;
 	for (auto& aln : _aligner.getAlignments())

@@ -161,6 +161,8 @@ struct OverlapRange
 		is >> curSeqName >> curBegin >> curEnd 
 		   >> curLen >> extSeqName >> extBegin >> extEnd >> extLen
 		   >> leftShift >> rightShift >> score >> seqDivergence;
+		curId = curContainer.recordByName(curSeqName).id;
+		extId = extContainer.recordByName(extSeqName).id;
 	}
 
 	/*bool equals(const OverlapRange& other) const
