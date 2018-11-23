@@ -166,7 +166,7 @@ int main(int argc, char** argv)
 	SequenceContainer emptyContainer;
 	RepeatGraph rg(emptyContainer, &seqGraphEdges);
 	rg.loadGraph(inRepeatGraph);
-	ReadAligner aln(rg, emptyContainer, seqReads);
+	ReadAligner aln(rg, seqReads);
 	aln.loadAlignments(inReadsAlignment);
 	OutputGenerator outGen(rg, aln, seqReads);
 

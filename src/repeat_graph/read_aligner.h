@@ -21,9 +21,8 @@ typedef std::vector<EdgeAlignment> GraphAlignment;
 class ReadAligner
 {
 public:
-	ReadAligner(RepeatGraph& graph, const SequenceContainer& asmSeqs,
-				const SequenceContainer& readSeqs): 
-		_graph(graph), _asmSeqs(asmSeqs), _readSeqs(readSeqs) {}
+	ReadAligner(RepeatGraph& graph, const SequenceContainer& readSeqs): 
+		_graph(graph), _readSeqs(readSeqs) {}
 
 	void alignReads();
 	void updateAlignments();
@@ -41,6 +40,6 @@ private:
 	std::vector<GraphAlignment> _readAlignments;
 
 	RepeatGraph& _graph;
-	const SequenceContainer&   _asmSeqs;
+	//const SequenceContainer&   _asmSeqs;
 	const SequenceContainer&   _readSeqs;
 };

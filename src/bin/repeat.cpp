@@ -160,7 +160,7 @@ int main(int argc, char** argv)
 	SequenceContainer edgeSequences;
 	RepeatGraph rg(seqAssembly, &edgeSequences);
 	GraphProcessor proc(rg, seqAssembly);
-	ReadAligner aligner(rg, seqAssembly, seqReads);
+	ReadAligner aligner(rg, seqReads);
 	OutputGenerator outGen(rg, aligner, seqReads);
 
 	Logger::get().info() << "Building repeat graph";

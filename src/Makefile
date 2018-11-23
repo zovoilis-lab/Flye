@@ -22,7 +22,7 @@ debug: flye-repeat flye-polish flye-assemble flye-contigger
 #sequence module
 sequence_obj := ${patsubst %.cpp,%.o,${wildcard sequence/*.cpp}}
 
-sequence/%.o: sequence/%.cpp sequence/*.h common/*h
+sequence/%.o: sequence/%.cpp sequence/*.h common/*.h
 	${CXX} -c ${CXXFLAGS} $< -o $@
 
 #flye-assemble module
@@ -30,7 +30,7 @@ assemble_obj := ${patsubst %.cpp,%.o,${wildcard assemble/*.cpp}}
 flye-assemble: ${assemble_obj} ${sequence_obj} bin/assemble.o
 	${CXX} ${assemble_obj} ${sequence_obj} bin/assemble.o -o ${ASSEMBLE_BIN} ${LDFLAGS}
 
-assemble/%.o: assemble/%.cpp assemble/*.h sequence/*.h common/*h bin/assemble.cpp
+assemble/%.o: assemble/%.cpp assemble/*.h sequence/*.h common/*.h bin/assemble.cpp
 	${CXX} -c ${CXXFLAGS} $< -o $@
 
 #flye-repeat module
@@ -46,7 +46,7 @@ contigger_obj := ${patsubst %.cpp,%.o,${wildcard contigger/*.cpp}}
 flye-contigger: ${contigger_obj} ${sequence_obj} ${repeat_obj} bin/contigger.o
 	${CXX} ${contigger_obj} ${repeat_obj} ${sequence_obj} bin/contigger.o -o ${CONTIGGER_BIN} ${LDFLAGS}
 
-contigger/%.o: contigger/%.cpp repeat_graph/%.cpp repeat_graph/*.h sequence/*.h common/*.h bin/contigger.cpp
+contigger/%.o: contigger/%.cpp repeat_graph/*.h sequence/*.h common/*.h bin/contigger.cpp
 	${CXX} -c ${CXXFLAGS} $< -o $@
 
 
