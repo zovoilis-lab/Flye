@@ -6,7 +6,7 @@
 #include <iostream>
 #include <getopt.h>
 
-#include "bubble_processor.h"
+#include "../polishing/bubble_processor.h"
 
 
 bool parseArgs(int argc, char** argv, std::string& bubblesFile, 

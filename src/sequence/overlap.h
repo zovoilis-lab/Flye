@@ -142,27 +142,34 @@ struct OverlapRange
 			   std::max(extBegin, other.extBegin);
 	}
 
+	void dump(std::ostream& os, const SequenceContainer& curContainer,
+			  const SequenceContainer& extContainer)
+	{
+		os << curContainer.seqName(curId) << " " 
+		   << curBegin << " " << curEnd << " " 
+		   << curLen << " " << extContainer.seqName(extId) 
+		   << " " << extBegin << " " << extEnd << " " << extLen << " " 
+		   << leftShift << " " << rightShift << " " 
+		   << score << " " << seqDivergence;
+	}
+
+	void load(std::istream& is, const SequenceContainer& curContainer,
+			  const SequenceContainer& extContainer)
+	{
+		std::string curSeqName;
+		std::string extSeqName;
+		is >> curSeqName >> curBegin >> curEnd 
+		   >> curLen >> extSeqName >> extBegin >> extEnd >> extLen
+		   >> leftShift >> rightShift >> score >> seqDivergence;
+		curId = curContainer.recordByName(curSeqName).id;
+		extId = extContainer.recordByName(extSeqName).id;
+	}
+
 	/*bool equals(const OverlapRange& other) const
 	{
 		return other.curId == curId && other.extId == extId &&
 			   other.curBegin == curBegin && other.curEnd == curEnd &&
 			   other.extBegin == extBegin && other.extEnd == extEnd;
-	}*/
-
-	/*std::string serialize() const
-	{
-		std::stringstream ss;
-		ss << curId << " " << curBegin << " " << curEnd << " " 
-		   << leftShift << " " << extId << " " << extBegin << " " 
-		   << extEnd << " " << rightShift;
-		return ss.str();
-	}
-
-	void unserialize(const std::string& str)
-	{
-		std::stringstream ss(str);
-		ss >> curId >> curBegin >> curEnd >> leftShift 
-		   >> extId >> extBegin >> extEnd >> rightShift;
 	}*/
 
 	//current read
@@ -184,6 +191,8 @@ struct OverlapRange
 	float   seqDivergence;
 	std::vector<std::pair<int32_t, int32_t>> kmerMatches;
 };
+
+
 
 struct OvlpDivStats
 {

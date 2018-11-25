@@ -3,12 +3,12 @@
 //Released under the BSD license (see LICENSE file)
 
 #include "contig_extender.h"
-#include "output_generator.h"
+#include "../repeat_graph/output_generator.h"
 #include <cmath>
 
 void ContigExtender::generateUnbranchingPaths()
 {
-	GraphProcessor proc(_graph, _asmSeqs, _readSeqs);
+	GraphProcessor proc(_graph, _asmSeqs);
 	_unbranchingPaths = proc.getUnbranchingPaths();
 
 	_edgeToPath.clear();
@@ -37,7 +37,7 @@ void ContigExtender::generateContigs()
 
 	bool graphContinue = (bool)Config::get("extend_contigs_with_repeats");
 
-	OutputGenerator outGen(_graph, _aligner, _asmSeqs, _readSeqs);
+	OutputGenerator outGen(_graph, _aligner, _readSeqs);
 	auto coreSeqs = outGen.generatePathSequences(_unbranchingPaths);
 	std::unordered_map<UnbranchingPath*, FastaRecord*> upathsSeqs;
 	for (size_t i = 0; i < _unbranchingPaths.size(); ++i)
@@ -45,7 +45,6 @@ void ContigExtender::generateContigs()
 		upathsSeqs[&_unbranchingPaths[i]] = &coreSeqs[i];
 	}
 
-	//std::vector<const GraphAlignment*> interestingAlignments;
 	std::unordered_map<GraphEdge*, 
 					   std::vector<const GraphAlignment*>> alnIndex;
 	for (auto& aln : _aligner.getAlignments())
@@ -286,6 +285,19 @@ void ContigExtender::outputStatsTable(const std::string& filename)
 
 	char YES_NO[] = {'-', '+'};
 
+	//TODO: compute mean coverage
+	int64_t sumCov = 0;
+	int64_t sumLength = 0;
+	for (auto& edge : _graph.iterEdges())
+	{
+		if (edge->edgeId.strand())
+		{
+			sumCov += edge->meanCoverage * edge->length();
+			sumLength += edge->length();
+		}
+	}
+	int meanCoverage = sumCov / (sumLength + 1);
+
 	for (auto& ctg : _contigs)
 	{
 		std::string pathStr;
@@ -296,7 +308,7 @@ void ContigExtender::outputStatsTable(const std::string& filename)
 		pathStr.pop_back();
 
 		int estMult = std::max(1.0f, std::round((float)ctg.graphEdges.meanCoverage / 
-											    _meanCoverage));
+											    meanCoverage));
 
 		std::string telomereStr;
 		bool telLeft = (ctg.graphEdges.path.front()->nodeLeft->isTelomere());

@@ -4,9 +4,9 @@
 
 #pragma once
 
-#include "repeat_graph.h"
-#include "read_aligner.h"
-#include "graph_processing.h"
+#include "../repeat_graph/repeat_graph.h"
+#include "../repeat_graph/read_aligner.h"
+#include "../repeat_graph/graph_processing.h"
 
 
 
@@ -15,11 +15,9 @@ class ContigExtender
 public:
 	ContigExtender(RepeatGraph& graph, const ReadAligner& aligner,
 				   const SequenceContainer& asmSeqs, 
-				   const SequenceContainer& readSeqs,
-				   int meanCoverage):
+				   const SequenceContainer& readSeqs):
 		_graph(graph), _aligner(aligner), 
-		_asmSeqs(asmSeqs), _readSeqs(readSeqs), 
-		_meanCoverage(meanCoverage) {}
+		_asmSeqs(asmSeqs), _readSeqs(readSeqs) {}
 
 	void generateUnbranchingPaths();
 	void generateContigs();
@@ -64,5 +62,4 @@ private:
 	const ReadAligner& _aligner;
 	const SequenceContainer& _asmSeqs;
 	const SequenceContainer& _readSeqs;
-	const int _meanCoverage;
 };

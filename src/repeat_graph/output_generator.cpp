@@ -11,7 +11,7 @@
 std::vector<FastaRecord> OutputGenerator::
 	generatePathSequences(const std::vector<UnbranchingPath>& paths) const
 {
-	std::vector<ContigPath> contigParts;
+	std::vector<FastaRecord> contigSequences;
 
 	for (auto& contig : paths)
 	{
@@ -24,7 +24,7 @@ std::vector<FastaRecord> OutputGenerator::
 			std::unordered_set<FastaRecord::Id> edgeSeqIds;
 			for (auto& seg: edge->seqSegments) 
 			{
-				edgeSeqIds.insert(seg.seqId);
+				edgeSeqIds.insert(seg.origSeqId);
 			}
 			for (auto& seqId : edgeSeqIds)
 			{
@@ -32,10 +32,11 @@ std::vector<FastaRecord> OutputGenerator::
 			}
 		}
 
-		ContigPath contigPath;
-		contigPath.name = contig.name();
-		int32_t prevFlank = 0;
-		int32_t prevSubLength = 0;
+		std::string nucSequence;
+		//ContigPath contigPath;
+		//contigPath.name = contig.name();
+		//int32_t prevFlank = 0;
+		//int32_t prevSubLength = 0;
 
 		for (size_t i = 0; i < contig.path.size(); ++i) 
 		{
@@ -45,19 +46,19 @@ std::vector<FastaRecord> OutputGenerator::
 			}
 
 			//get the sequence with maximum frequency
-			SequenceSegment* bestSegment = nullptr;
+			EdgeSequence* bestSegment = nullptr;
 			for (auto& seg : contig.path[i]->seqSegments)
 			{
 				if (!bestSegment || 
-					seqIdFreq[seg.seqId] > seqIdFreq[bestSegment->seqId])
+					seqIdFreq[seg.origSeqId] > seqIdFreq[bestSegment->origSeqId])
 				{
 					bestSegment = &seg;
 				}
 			}
-			if (bestSegment->length() == 0) continue;
-
-			DnaSequence sequence;
-			switch (bestSegment->segType)
+			if (bestSegment->seqLen == 0) continue;
+			nucSequence += _graph.edgeSequences()
+								.getSeq(bestSegment->edgeSeqId).str();
+			/*switch (bestSegment->segType)
 			{
 				case SequenceSegment::Asm:
 					sequence = _asmSeqs.getSeq(bestSegment->seqId);
@@ -65,12 +66,12 @@ std::vector<FastaRecord> OutputGenerator::
 				case SequenceSegment::Read:
 					sequence = _readSeqs.getSeq(bestSegment->seqId);
 					break;
-			}
+			}*/
 
 			//make the consecutive sequences overlapping if possible,
 			//so the consensus module can correct possibly imprecise
 			//ends of the edges sequences
-			int32_t leftFlank = std::min((int32_t)Config::get("max_separation"),
+			/*int32_t leftFlank = std::min((int32_t)Config::get("max_separation"),
 										 bestSegment->start);
 			if (i == 0) 
 			{
@@ -111,17 +112,20 @@ std::vector<FastaRecord> OutputGenerator::
 				assert(ovlp.curBegin >= 0);
 			}
 			prevFlank = rightFlank;
-			prevSubLength = curSubLength;
+			prevSubLength = curSubLength;*/
 		}
-		contigParts.push_back(contigPath);
+		//contigParts.push_back(contigPath);
+		contigSequences.push_back({DnaSequence(nucSequence), contig.name(), 
+								  FastaRecord::ID_NONE});
 	}
 
 	//finally, generate a consensus
-	ConsensusGenerator gen;
-	return gen.generateConsensuses(contigParts, /*verbose*/ false);
+	//ConsensusGenerator gen;
+	//return gen.generateConsensuses(contigParts, /*verbose*/ false);
+	return contigSequences;
 }
 
-void OutputGenerator::detailedFasta(const std::string& outFile)
+/*void OutputGenerator::detailedFasta(const std::string& outFile)
 {
 	std::vector<FastaRecord> records;
 	for (auto& edge : _graph.iterEdges())
@@ -138,7 +142,7 @@ void OutputGenerator::detailedFasta(const std::string& outFile)
 		}
 	}
 	SequenceContainer::writeFasta(records, outFile);
-}
+}*/
 
 //dumps repeat information for the consecutive analysis
 void OutputGenerator::dumpRepeats(const std::vector<UnbranchingPath>& paths,

@@ -24,13 +24,21 @@ public:
 
 	void findRepeats();
 	void resolveRepeats();
-	void fixLongEdges();
+	void finalizeGraph();
 
 private:
+	struct ReadSequence
+	{
+		FastaRecord::Id readId;
+		int32_t start;
+		int32_t end;
+
+		int32_t length() const {return end - start;}
+	};
 	struct Connection
 	{
 		GraphPath path;
-		SequenceSegment readSequence;
+		ReadSequence readSeq;
 		int32_t flankLength;
 	};
 
@@ -40,7 +48,7 @@ private:
 	std::vector<Connection> getConnections();
 	int  resolveConnections(const std::vector<Connection>& conns, 
 							float minSupport);
-	void separatePath(const GraphPath& path, SequenceSegment segment,
+	void separatePath(const GraphPath& path, EdgeSequence segment,
 					  FastaRecord::Id startId);
 
 	RepeatGraph& _graph;
@@ -48,4 +56,5 @@ private:
 	const SequenceContainer&   _readSeqs;
 	ReadAligner& _aligner;
 	const MultiplicityInferer& _multInf;
+	std::unordered_map<GraphEdge*, int> _substractedCoverage;
 };

@@ -74,21 +74,22 @@ struct UnbranchingPath
 class GraphProcessor
 {
 public:
-	GraphProcessor(RepeatGraph& graph, const SequenceContainer& asmSeqs,
-				   const SequenceContainer& readSeqs):
-		_graph(graph), _asmSeqs(asmSeqs), _readSeqs(readSeqs) {}
+	GraphProcessor(RepeatGraph& graph, const SequenceContainer& asmSeqs):
+		_graph(graph), _asmSeqs(asmSeqs) {}
 
-	void simplify();
 	void fixChimericJunctions();
 	void trimTips();
 	std::vector<UnbranchingPath> getUnbranchingPaths() const;
 	std::vector<UnbranchingPath> getEdgesPaths() const;
 
 private:
+	//used during repeat graph construction only
+	friend class RepeatGraph;
+	void simplify();
 	void condenceEdges();
 	void collapseBulges();
+	//
 
 	RepeatGraph& _graph;
 	const SequenceContainer& _asmSeqs;
-	const SequenceContainer& _readSeqs;
 };

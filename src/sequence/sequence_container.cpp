@@ -61,8 +61,13 @@ FastaRecord::Id SequenceContainer::addSequence(const FastaRecord& seqRec)
 
 	_seqIndex.emplace_back(seqRec.sequence, "+" + seqRec.description, 
 						   newId);
+
+	_nameIndex[_seqIndex.back().description] = _seqIndex.back().id;
+
 	_seqIndex.emplace_back(seqRec.sequence.complement(), 
 						   "-" + seqRec.description, newId.rc());
+	_nameIndex[_seqIndex.back().description] = _seqIndex.back().id;
+
 	return _seqIndex.back().id.rc();
 }
 
@@ -80,11 +85,12 @@ void SequenceContainer::loadFromFile(const std::string& fileName,
 	}
 	
 	//shuffling input reads
-	std::vector<size_t> indicesPerm(records.size());
-	for (size_t i = 0; i < indicesPerm.size(); ++i) indicesPerm[i] = i;
-	std::random_shuffle(indicesPerm.begin(), indicesPerm.end());
+	//std::vector<size_t> indicesPerm(records.size());
+	//for (size_t i = 0; i < indicesPerm.size(); ++i) indicesPerm[i] = i;
+	//std::random_shuffle(indicesPerm.begin(), indicesPerm.end());
 
-	for (size_t i : indicesPerm)
+	//for (size_t i : indicesPerm)
+	for (size_t i = 0; i < records.size(); ++i)
 	{
 		if (records[i].sequence.length() > (size_t)minReadLength)
 		{
@@ -319,7 +325,8 @@ void SequenceContainer::validateSequence(std::string& sequence)
 }
 
 void SequenceContainer::writeFasta(const std::vector<FastaRecord>& records, 
-								   const std::string& filename)
+								   const std::string& filename,
+								   bool onlyPositiveStrand)
 {
 	static const size_t FASTA_SLICE = 80;
 
@@ -329,12 +336,16 @@ void SequenceContainer::writeFasta(const std::vector<FastaRecord>& records,
 	
 	for (auto& rec : records)
 	{
+		if (onlyPositiveStrand && !rec.id.strand()) continue;
+
 		std::string contigSeq;
 		for (size_t c = 0; c < rec.sequence.length(); c += FASTA_SLICE)
 		{
 			contigSeq += rec.sequence.substr(c, FASTA_SLICE).str() + "\n";
 		}
-		std::string header = ">" + rec.description + "\n";
+		std::string header = onlyPositiveStrand ? 
+							 ">" + rec.description.substr(1) + "\n":
+							 ">" + rec.description + "\n";
 		fwrite(header.data(), sizeof(header.data()[0]), 
 			   header.size(), fout);
 		fwrite(contigSeq.data(), sizeof(contigSeq.data()[0]), 
