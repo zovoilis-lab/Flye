@@ -125,19 +125,14 @@ class JobRepeat(Job):
         self.name = "repeat"
 
         self.work_dir = os.path.join(work_dir, "2-repeat")
-        #self.out_files["contigs"] = os.path.join(self.work_dir,
-        #                                         "graph_paths.fasta")
         self.out_files["repeat_graph"] = os.path.join(self.work_dir,
                                                       "repeat_graph_dump.txt")
         self.out_files["repeat_graph_edges"] = os.path.join(self.work_dir,
                                                         "repeat_graph_edges.fasta")
         self.out_files["reads_alignment"] = os.path.join(self.work_dir,
                                                          "read_alignment_dump.txt")
-        #self.out_files["gfa_graph"] = os.path.join(self.work_dir,
-        #                                           "graph_final.gfa")
-        #self.out_files["stats"] = os.path.join(self.work_dir, "contigs_stats.txt")
-        #self.out_files["scaffold_links"] = os.path.join(self.work_dir,
-        #                                                "scaffolds_links.txt")
+        self.out_files["repeats_dump"] = os.path.join(self.work_dir,
+                                                      "repeats_dump.txt")
 
     def run(self):
         super(JobRepeat, self).run()
@@ -173,7 +168,6 @@ class JobContigger(Job):
         self.out_files["stats"] = os.path.join(self.work_dir, "contigs_stats.txt")
         self.out_files["scaffold_links"] = os.path.join(self.work_dir,
                                                         "scaffolds_links.txt")
-        self.out_files["repeats_dump"] = os.path.join(self.repeat_dir, "repeats_dump.txt")
 
     def run(self):
         super(JobContigger, self).run()
@@ -293,7 +287,7 @@ class JobTrestle(Job):
         super(JobTrestle, self).__init__()
 
         self.args = args
-        self.trestle_dir = os.path.join(work_dir, "4-trestle")
+        self.trestle_dir = os.path.join(work_dir, "3-trestle")
         self.log_file = log_file
         self.repeats_dump = repeats_dump
         self.graph_edges = graph_edges
@@ -337,8 +331,11 @@ def _create_job_list(args, work_dir, log_file):
 
     #Repeat analysis
     jobs.append(JobRepeat(args, work_dir, log_file, disjointigs))
+    repeats_dump = jobs[-1].out_files["repeats_dump"]
 
-    #trestle goes here
+    #Trestle: Resolve Unbridged Repeats
+    #jobs.append(JobTrestle(args, work_dir, log_file,
+    #            repeats_dump, edges_seqs))
 
     #Contigger
     repeat_graph = jobs[-1].out_files["repeat_graph"]
@@ -353,7 +350,6 @@ def _create_job_list(args, work_dir, log_file):
     gfa_file = jobs[-1].out_files["gfa_graph"]
     edges_seqs = jobs[-1].out_files["edges_sequences"]
     repeat_stats = jobs[-1].out_files["stats"]
-    repeats_dump = jobs[-1].out_files["repeats_dump"]
 
     #Polishing
     contigs_file = raw_contigs
@@ -366,8 +362,6 @@ def _create_job_list(args, work_dir, log_file):
         polished_stats = jobs[-1].out_files["stats"]
         polished_gfa = jobs[-1].out_files["polished_gfa"]
 
-    #Trestle: Resolve Unbridged Repeats
-    jobs.append(JobTrestle(args, work_dir, log_file, repeats_dump, edges_seqs))
 
     #Report results
     jobs.append(JobFinalize(args, work_dir, log_file, contigs_file,

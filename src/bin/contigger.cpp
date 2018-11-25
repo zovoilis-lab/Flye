@@ -179,8 +179,8 @@ int main(int argc, char** argv)
 	extender.outputStatsTable(outFolder + "/contigs_stats.txt");
 	extender.outputScaffoldConnections(outFolder + "/scaffolds_links.txt");
 
-	outGen.dumpRepeats(extender.getUnbranchingPaths(),
-					   outFolder + "/repeats_dump.txt");
+	//outGen.dumpRepeats(extender.getUnbranchingPaths(),
+	//				   outFolder + "/repeats_dump.txt");
 	outGen.outputDot(extender.getUnbranchingPaths(),
 					 outFolder + "/graph_final.gv");
 	outGen.outputFasta(extender.getUnbranchingPaths(),

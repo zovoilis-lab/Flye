@@ -197,6 +197,8 @@ int main(int argc, char** argv)
 	SequenceContainer::writeFasta(edgeSequences.iterSeqs(), 
 								  outFolder + "/repeat_graph_edges.fasta",
 								  /*only pos strand*/ true);
+	outGen.dumpRepeats(proc.getEdgesPaths(),
+					   outFolder + "/repeats_dump.txt");
 
 	/*Logger::get().info() << "Generating contigs";
 
@@ -208,8 +210,6 @@ int main(int argc, char** argv)
 	extender.outputStatsTable(outFolder + "/contigs_stats.txt");
 	extender.outputScaffoldConnections(outFolder + "/scaffolds_links.txt");
 
-	outGen2.dumpRepeats(extender.getUnbranchingPaths(),
-					   outFolder + "/repeats_dump.txt");
 	outGen2.outputDot(extender.getUnbranchingPaths(),
 					 outFolder + "/graph_final.gv");
 	outGen2.outputFasta(extender.getUnbranchingPaths(),
