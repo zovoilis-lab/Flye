@@ -122,6 +122,22 @@ class RepeatGraph:
                                 seq.orig_seq_len, seq.orig_seq_start,
                                 seq.orig_seq_end))
 
+    def output_dot(self, filename):
+        next_node_id = 0
+        node_ids = {}
+        for node in self.nodes:
+            node_ids[node] = next_node_id
+            next_node_id += 1
+
+        with open(filename, "w") as f:
+            f.write("digraph {\nnodesep = 0.5;\n"
+                    "node [shape = circle, label = \"\", height = 0.3];")
+            for edge in self.edges.values():
+                f.write("{0} -> {1} [label = \"{2}\", color = \"{3}\"]\n"
+                    .format(node_ids[edge.node_left], node_ids[edge.node_right],
+                            edge.edge_id, "red" if edge.repetitive else "black"))
+            f.write("}")
+
 
 def _to_signed_id(unsigned_id):
     return -(unsigned_id + 1) / 2 if unsigned_id % 2 else unsigned_id / 2 + 1
