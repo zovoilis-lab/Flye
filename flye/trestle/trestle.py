@@ -27,7 +27,8 @@ logger = logging.getLogger()
 
 
 
-def resolve_repeats(args, trestle_dir, repeats_dump, graph_edges, summ_file):
+def resolve_repeats(args, trestle_dir, repeats_dump, graph_edges, summ_file,
+                    resolved_repeats_seqs):
     SUB_THRESH = trestle_config.vals["sub_thresh"]
     DEL_THRESH = trestle_config.vals["del_thresh"]
     INS_THRESH = trestle_config.vals["ins_thresh"]
@@ -396,7 +397,9 @@ def resolve_repeats(args, trestle_dir, repeats_dump, graph_edges, summ_file):
             logger.info("Repeat successfully resolved")
         else:
             logger.info("Repeat not resolved")
-    return all_resolved_reps_dict
+
+    fp.write_fasta_dict(all_resolved_reps_dict, resolved_repeats_seqs)
+    #return all_resolved_reps_dict
 
 
 #Process Repeats functions
