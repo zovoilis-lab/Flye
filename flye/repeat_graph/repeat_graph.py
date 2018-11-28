@@ -94,9 +94,9 @@ class RepeatGraph:
                 elif tokens[0] == "Sequence":
                     (edge_seq_name, edge_seq_len, orig_seq_id,
                     orig_seq_len, orig_seq_start, orig_seq_end) = tokens[1:]
-                    edge_seq = EdgeSequence(edge_seq_name, int(edge_seq_len), orig_seq_id,
-                                            int(orig_seq_len), int(orig_seq_start),
-                                            int(orig_seq_end))
+                    edge_seq = EdgeSequence(edge_seq_name, int(edge_seq_len),
+                                            orig_seq_id, orig_seq_len,
+                                            orig_seq_start, orig_seq_end)
                     cur_edge.edge_sequences.append(edge_seq)
 
                 else:
@@ -120,9 +120,8 @@ class RepeatGraph:
                 for seq in edge.edge_sequences:
                     f.write("\tSequence\t{0} {1} {2} {3} {4} {5}\n"
                         .format(seq.edge_seq_name, seq.edge_seq_len,
-                                seq.orig_seq_id, seq.orig_seq_id,
-                                seq.orig_seq_len, seq.orig_seq_start,
-                                seq.orig_seq_end))
+                                seq.orig_seq_id, seq.orig_seq_len,
+                                seq.orig_seq_start, seq.orig_seq_end))
 
     def output_dot(self, filename):
         next_node_id = 0

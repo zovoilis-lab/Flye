@@ -2305,12 +2305,12 @@ def finalize_int_stats(rep, repeat_edges, side_it, cons_align_path, template,
                                           weighted_mean_div))
             res_str = "No resolution so no resolved file for repeat {0}\n\n"
             f.write(res_str.format(rep))
-            for i, edge in enumerate(sorted(repeat_edges[rep]["in"])):
-                header = "Repeat_{0}_unbridged_copy_{1}".format(rep, i)
-                resolved_repeats[header] = ""
+            #for i, edge in enumerate(sorted(repeat_edges[rep]["in"])):
+                #header = "Repeat_{0}_unbridged_copy_{1}".format(rep, i)
+                #resolved_repeats[header] = ""
                 #seq_dict = {header:""}
                 #fp.write_fasta_dict(seq_dict, resolved_seq_file.format(i))
-            summ_vals.extend([""])
+            summ_vals.extend(["*", "*"])
         #If bridged, find overlap and construct repeat copy sequences
         else:
             #Find end of repeat as min/max of in/out cons_vs_cons alignments
@@ -2354,6 +2354,7 @@ def finalize_int_stats(rep, repeat_edges, side_it, cons_align_path, template,
             #For each edge_pair, find starting and ending indices of
             #in, out, and template sequences to construct sequences
             summ_resolution = []
+            resolved_sequences = []
             for i, edge_pair in enumerate(sorted(bridged_edges)):
                 f.write("Repeat Copy {0}\n".format(i))
                 f.write("{0[0]} {0[1]:2}  {1:3} {2[0]} {2[1]}\n".format(
@@ -2471,16 +2472,17 @@ def finalize_int_stats(rep, repeat_edges, side_it, cons_align_path, template,
                     
                 in_edge = edge_pair[0][1]
                 out_edge = edge_pair[1][1]
-                header = "_".join(["Repeat_{0}".format(rep), 
-                                        "bridged_copy_{0}".format(i), 
-                                        "in_{0}_{1}_{2}".format(in_edge, 
-                                                                in_start, 
-                                                                in_end), 
-                                        "template_{0}_{1}".format(temp_start, 
-                                                                  temp_end), 
-                                        "out_{0}_{1}_{2}".format(out_edge, 
-                                                                 out_start, 
-                                                                 out_end)])
+                #header = "_".join(["Repeat_{0}".format(rep), 
+                #                        "bridged_copy_{0}".format(i), 
+                #                        "in_{0}_{1}_{2}".format(in_edge, 
+                #                                                in_start, 
+                #                                                in_end), 
+                #                        "template_{0}_{1}".format(temp_start, 
+                #                                                  temp_end), 
+                #                        "out_{0}_{1}_{2}".format(out_edge, 
+                #                                                 out_start, 
+                #                                                 out_end)])
+                header = "repeat_{0}_path_{1}_{2}".format(rep, in_edge, out_edge)
                 copy_seq = ""
                 if side_it["in"] > 0 and side_it["out"] > 0:
                     copy_seq = _construct_repeat_copy(
@@ -2495,10 +2497,14 @@ def finalize_int_stats(rep, repeat_edges, side_it, cons_align_path, template,
                     seq_dict = {header:copy_seq}
                     fp.write_fasta_dict(seq_dict, 
                                         resolved_seq_file.format(rep, i))
-                in_str = "".join(["in", str(in_edge)])
-                out_str = "".join(["out", str(out_edge)])
-                summ_resolution.append("|".join([in_str, out_str]))
-            summ_vals.extend(["+".join(summ_resolution)])
+                #in_str = "".join(["in", str(in_edge)])
+                #out_str = "".join(["out", str(out_edge)])
+                #summ_resolution.append("|".join([in_str, out_str]))
+                summ_resolution.append("{0},{1}".format(in_edge,out_edge))
+                resolved_sequences.append(header)
+            #summ_vals.extend(["+".join(summ_resolution)])
+            summ_vals.append(":".join(summ_resolution))
+            summ_vals.append(":".join(resolved_sequences))
     return bridged, resolved_repeats, summ_vals
 
 
@@ -2776,9 +2782,9 @@ def _construct_repeat_copy(in_file, temp_file, out_file, in_start, in_end,
 
 def init_summary(summary_file):
     with open(summary_file, "w") as f:
-        summ_header_labels = ["Repeat", "Template", "Cov", "# Confirmed Pos", 
-                              "Max Pos Gap", "Bridged?", "Support", "Against", 
-                              "Avg Div", "Resolution"]
+        summ_header_labels = ["Repeat", "Template", "Cov", "#Conf_Pos", 
+                              "Max_Pos_Gap", "Bridged?", "Support", "Against", 
+                              "Avg_Div", "Resolution", "Sequences"]
         spaced_header = map("{:13}".format, summ_header_labels)
         f.write("\t".join(spaced_header))
         f.write("\n")
@@ -2787,12 +2793,12 @@ def init_summary(summary_file):
 def update_summary(rep, template_len, avg_cov, summ_vals, avg_div, 
                    summary_file):
     (confirmed_pos, max_pos_gap, bridged, 
-     support, against, resolution) = tuple(summ_vals)
+     support, against, resolution, sequences) = tuple(summ_vals)
     summ_out = [rep, template_len, avg_cov, confirmed_pos, max_pos_gap, 
-                bridged, support, against, avg_div, resolution]
-    summ_out[2] = "{:.4}".format(summ_out[2])
+                bridged, support, against, avg_div, resolution, sequences]
+    summ_out[2] = "{:.4f}".format(summ_out[2])
     summ_out[5] = str(summ_out[5])
-    summ_out[8] = "{:.4}".format(summ_out[8])
+    summ_out[8] = "{:.4f}".format(summ_out[8])
     spaced_summ = map("{:13}".format, map(str, summ_out))
     with open(summary_file, "a") as f:
         f.write("\t".join(spaced_summ))
