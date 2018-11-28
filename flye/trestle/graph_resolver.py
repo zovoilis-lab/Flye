@@ -11,14 +11,22 @@ import logging
 logger = logging.getLogger()
 
 
-def apply_changes(repeat_graph, trestle_results, resolved_repeats_fasta):
+class Connection:
+    __slots__ = ("id", "path", "sequence")
+    def __init__(self, id=None, path=[], sequence=""):
+        self.id = id
+        self.path = path
+        self.sequence = sequence
+
+
+def apply_changes(repeat_graph, trestle_results, resolved_repeats_file):
+    #repeat_graph.output_dot("before.dot")
     connections = _get_connections(trestle_results)
+    _add_sequences(connections)
     for conn in connections:
-        complement_conn = map(lambda x: -x, conn)[::-1]
-        resolved_sequence = None
-        compl_sequence = None
-        repeat_graph.separate_path(conn, resolved_sequence)
-        repeat_graph.separate_path(complement_conn, compl_sequence)
+        repeat_graph.separate_path(conn.path, conn.id, conn.sequence)
+
+    #repeat_graph.output_dot("after.dot")
 
 
 def _get_connections(trestle_results):
@@ -43,6 +51,14 @@ def _get_connections(trestle_results):
 
                 logger.info("Repeat {0}: {1}, {2}"
                     .format(repeat_id, connection_1, connection_2))
-                connections.extend([connection_1, connection_2])
+
+                new_seq_id = "trestle_resolved_" + str(repeat_id) + "_copy_"
+                connections.extend([Connection(new_seq_id + "1", connection_1, ""),
+                                    Connection(new_seq_id + "2", connection_2, "")])
 
     return connections
+
+
+def _add_sequences(connections):
+    for conn in connections:
+        conn.sequence = "ACGT"

@@ -29,7 +29,7 @@ class EdgeSequence:
     __slots__ = ("edge_seq_name", "edge_seq_len", "orig_seq_id", "orig_seq_len",
                  "orig_seq_start", "orig_seq_end")
 
-    def __init__(self, edge_seq_name=None, edge_seq_len=0, orig_seq_id=None,
+    def __init__(self, edge_seq_name=None, edge_seq_len=0, orig_seq_id="*",
                  orig_seq_len=0, orig_seq_start=0, orig_seq_end=0):
         self.edge_seq_name = edge_seq_name
         self.edge_seq_len = edge_seq_len
@@ -64,6 +64,8 @@ class RepeatGraph:
         edge.node_right.in_edges.append(edge)
 
     def complement_edge(self, edge):
+        if edge.self_complement:
+            return edge
         return self.edges[-edge.edge_id]
 
     def load_from_file(self, filename):
@@ -137,6 +139,65 @@ class RepeatGraph:
                     .format(node_ids[edge.node_left], node_ids[edge.node_right],
                             edge.edge_id, "red" if edge.repetitive else "black"))
             f.write("}")
+
+    def separate_path(self, graph_path, new_seq_id, new_seq_seq):
+        """
+        Separates the path (and its complement) on the graph.
+        First and last edges in the path are disconnected from the graph,
+        and then connected by a new edge. For example,
+        a path (A -> X -> Y -> ... -> Z -> B) will be transformed
+        into a new unbranching path path A -> N -> B,
+        where N represents a new edge with the given sequence.
+        The intermediate path edges remain in the graph (their mean
+        coverage is modified accordingly) and they aquire attribute 'resolved'.
+        Resolved edges could later be cleaned up by using XXX function.
+        """
+        def remove_from_list(lst, elem):
+            lst = [x for x in lst if x != elem]
+
+        def separate_one(edges_path, new_edge_id, new_edge_seq):
+            left_node = self.add_node()
+            remove_from_list(edges_path[0].node_right.in_edges, edges_path[0])
+            edges_path[0].node_right = left_node
+            left_node.in_edges.append(edges_path[0])
+
+            path_coverage = (edges_path[0].mean_coverage +
+                             edges_path[-1].mean_coverage) / 2
+            for mid_edge in edges_path[1:-1]:
+                mid_edge.resolved = True
+                mid_edge.mean_coverage -= path_coverage
+
+            right_node = left_node
+            if len(edges_path) > 2:
+                right_node = self.add_node()
+                new_edge = RgEdge(left_node, right_node, new_edge_id)
+                self.add_edge(new_edge)
+                new_edge.mean_coverage = path_coverage
+                new_edge.edge_sequences.append(new_edge_seq)
+
+            remove_from_list(edges_path[-1].node_left.out_edges, edges_path[-1])
+            edges_path[-1].node_left = right_node
+            right_node.out_edges.append(edges_path[-1])
+
+        if len(graph_path) < 2:
+            raise Exception("Path is too short")
+
+        fwd_edges = []
+        rev_edges = []
+        for e in graph_path:
+            if e not in self.edges:
+                raise Exception("Nonexistent edge")
+            fwd_edges.append(self.edges[e])
+            rev_edges.append(self.complement_edge(self.edges[e]))
+        rev_edges = rev_edges[::-1]
+
+        new_edge_seq = EdgeSequence("+" + new_seq_id, len(new_seq_seq))
+        compl_edge_seq = EdgeSequence("-" + new_seq_id, len(new_seq_seq))
+        self.edges_fasta[new_seq_id] = new_seq_seq
+
+        new_edge_id = max(self.edges.keys()) + 1
+        separate_one(fwd_edges, new_edge_id, new_edge_seq)
+        separate_one(rev_edges, -new_edge_id, compl_edge_seq)
 
 
 def _to_signed_id(unsigned_id):

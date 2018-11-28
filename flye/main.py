@@ -128,13 +128,13 @@ class JobRepeat(Job):
 
         self.work_dir = os.path.join(work_dir, "2-repeat")
         self.out_files["repeat_graph"] = os.path.join(self.work_dir,
-                                                      "repeat_graph_dump.txt")
+                                                      "repeat_graph_dump")
         self.out_files["repeat_graph_edges"] = os.path.join(self.work_dir,
                                                         "repeat_graph_edges.fasta")
         self.out_files["reads_alignment"] = os.path.join(self.work_dir,
-                                                         "read_alignment_dump.txt")
+                                                         "read_alignment_dump")
         self.out_files["repeats_dump"] = os.path.join(self.work_dir,
-                                                      "repeats_dump.txt")
+                                                      "repeats_dump")
 
     def run(self):
         super(JobRepeat, self).run()
@@ -297,10 +297,10 @@ class JobTrestle(Job):
         self.repeat_graph = repeat_graph
 
         self.name = "trestle"
-        #self.out_files["reps"] = os.path.join(self.trestle_dir,
-        #                                      "resolved_repeats.fasta")
-        #self.out_files["summary"] = os.path.join(self.trestle_dir,
-        #                                      "trestle_summary.txt")
+        self.out_files["resolved_graph"] = os.path.join(self.work_dir,
+                                                        "resolved_graph")
+        self.out_files["resolved_graph_edges"] = \
+            os.path.join(self.work_dir, "resolved_graph_edges.fasta")
 
     def run(self):
         super(JobTrestle, self).run()
@@ -315,12 +315,15 @@ class JobTrestle(Job):
         repeat_graph.load_from_file(self.repeat_graph)
         #TODO: generate repeats_dump directly
 
-        tres.resolve_repeats(self.args, self.work_dir, self.repeats_dump,
-                             self.graph_edges, summary_file,
-                             resolved_repeats_seqs)
-        #tres_graph.apply_changes(repeat_graph, summary_file,
-        #                         fp.read_sequence_dict(resolved_repeats_seqs))
+        #tres.resolve_repeats(self.args, self.work_dir, self.repeats_dump,
+        #                     self.graph_edges, summary_file,
+        #                     resolved_repeats_seqs)
+        tres_graph.apply_changes(repeat_graph, summary_file,
+                                 fp.read_sequence_dict(resolved_repeats_seqs))
 
+        repeat_graph.dump_to_file(self.out_files["resolved_graph"])
+        fp.write_fasta_dict(repeat_graph.edges_fasta,
+                            self.out_files["resolved_graph_edges"])
 
 
 def _create_job_list(args, work_dir, log_file):
