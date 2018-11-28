@@ -192,13 +192,13 @@ int main(int argc, char** argv)
 	resolver.finalizeGraph();
 
 	outGen.outputDot(proc.getEdgesPaths(), outFolder + "/graph_after_rr.gv");
-	rg.storeGraph(outFolder + "/repeat_graph_dump.txt");
-	aligner.storeAlignments(outFolder + "/read_alignment_dump.txt");
+	rg.storeGraph(outFolder + "/repeat_graph_dump");
+	aligner.storeAlignments(outFolder + "/read_alignment_dump");
 	SequenceContainer::writeFasta(edgeSequences.iterSeqs(), 
 								  outFolder + "/repeat_graph_edges.fasta",
 								  /*only pos strand*/ true);
 	outGen.dumpRepeats(proc.getEdgesPaths(),
-					   outFolder + "/repeats_dump.txt");
+					   outFolder + "/repeats_dump");
 
 	/*Logger::get().info() << "Generating contigs";
 
