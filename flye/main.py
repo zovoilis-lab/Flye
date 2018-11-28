@@ -352,10 +352,11 @@ def _create_job_list(args, work_dir, log_file):
     reads_alignment = jobs[-1].out_files["reads_alignment"]
 
     #Trestle: Resolve Unbridged Repeats
-    jobs.append(JobTrestle(args, work_dir, log_file,
-                repeats_dump, repeat_graph, repeat_graph_edges))
-    repeat_graph_edges = jobs[-1].out_files["repeat_graph_edges"]
-    repeat_graph = jobs[-1].out_files["repeat_graph"]
+    if args.read_type != "subasm":
+        jobs.append(JobTrestle(args, work_dir, log_file,
+                    repeats_dump, repeat_graph, repeat_graph_edges))
+        repeat_graph_edges = jobs[-1].out_files["repeat_graph_edges"]
+        repeat_graph = jobs[-1].out_files["repeat_graph"]
 
     #Contigger
     jobs.append(JobContigger(args, work_dir, log_file, repeat_graph_edges,
