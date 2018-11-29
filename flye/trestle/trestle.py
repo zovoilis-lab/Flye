@@ -407,7 +407,7 @@ class ProcessingException(Exception):
     pass
 
 
-def process_repeats(reads, repeats_dump, graph_edges, work_dir, repeat_label, 
+def process_repeats(reads, repeats_dict, graph_edges, work_dir, repeat_label, 
                     orient_labels, template_name, extended_name, 
                     repeat_reads_name, pre_partition_name, side_labels):
     """Generates repeat dirs and files given reads, repeats_dump and
@@ -417,7 +417,7 @@ def process_repeats(reads, repeats_dump, graph_edges, work_dir, repeat_label,
     FLANKING_LEN = trestle_config.vals["flanking_len"]
     
     #Reads input files
-    repeats_dict = _read_repeats_dump(repeats_dump)
+    #repeats_dict = _read_repeats_dump(repeats_dump)
     if not repeats_dict:
         logger.debug("Empty repeats_dump file: {0}".format(repeats_dump))
         return [], {}, {}
