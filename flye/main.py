@@ -29,6 +29,7 @@ import flye.utils.fasta_parser as fp
 import flye.trestle.trestle as tres
 import flye.trestle.graph_resolver as tres_graph
 from flye.repeat_graph.repeat_graph import RepeatGraph
+from flye.repeat_graph.graph_alignment import parse_alignments
 
 logger = logging.getLogger()
 
@@ -133,8 +134,8 @@ class JobRepeat(Job):
                                                         "repeat_graph_edges.fasta")
         self.out_files["reads_alignment"] = os.path.join(self.work_dir,
                                                          "read_alignment_dump")
-        self.out_files["repeats_dump"] = os.path.join(self.work_dir,
-                                                      "repeats_dump")
+        #self.out_files["repeats_dump"] = os.path.join(self.work_dir,
+        #                                              "repeats_dump")
 
     def run(self):
         super(JobRepeat, self).run()
@@ -285,16 +286,17 @@ class JobPolishing(Job):
 
 
 class JobTrestle(Job):
-    def __init__(self, args, work_dir, log_file, repeats_dump, repeat_graph,
-                 graph_edges):
+    def __init__(self, args, work_dir, log_file, repeat_graph,
+                 graph_edges, reads_alignment_file):
         super(JobTrestle, self).__init__()
 
         self.args = args
         self.work_dir = os.path.join(work_dir, "3-trestle")
         self.log_file = log_file
-        self.repeats_dump = repeats_dump
+        #self.repeats_dump = repeats_dump
         self.graph_edges = graph_edges
         self.repeat_graph = repeat_graph
+        self.reads_alignment_file = reads_alignment_file
 
         self.name = "trestle"
         self.out_files["repeat_graph"] = os.path.join(self.work_dir,
@@ -313,9 +315,14 @@ class JobTrestle(Job):
                                              "resolved_copies.fasta")
         repeat_graph = RepeatGraph(fp.read_sequence_dict(self.graph_edges))
         repeat_graph.load_from_file(self.repeat_graph)
-        #TODO: generate repeats_dump directly
+        reads_alignment = parse_alignments(self.reads_alignment_file)
 
-        tres.resolve_repeats(self.args, self.work_dir, self.repeats_dump,
+        repeats_info = tres_graph.get_simple_repeats(repeat_graph,
+                                                     reads_alignment)
+        tres_graph.dump_repeats(repeats_info,
+                                os.path.join(self.work_dir, "repeats_dump"))
+
+        tres.resolve_repeats(self.args, self.work_dir, os.path.join(self.work_dir, "repeats_dump"),
                              self.graph_edges, summary_file,
                              resolved_repeats_seqs)
         tres_graph.apply_changes(repeat_graph, summary_file,
@@ -346,7 +353,7 @@ def _create_job_list(args, work_dir, log_file):
 
     #Repeat analysis
     jobs.append(JobRepeat(args, work_dir, log_file, disjointigs))
-    repeats_dump = jobs[-1].out_files["repeats_dump"]
+    #repeats_dump = jobs[-1].out_files["repeats_dump"]
     repeat_graph_edges = jobs[-1].out_files["repeat_graph_edges"]
     repeat_graph = jobs[-1].out_files["repeat_graph"]
     reads_alignment = jobs[-1].out_files["reads_alignment"]
@@ -354,7 +361,8 @@ def _create_job_list(args, work_dir, log_file):
     #Trestle: Resolve Unbridged Repeats
     if args.read_type != "subasm":
         jobs.append(JobTrestle(args, work_dir, log_file,
-                    repeats_dump, repeat_graph, repeat_graph_edges))
+                    repeat_graph, repeat_graph_edges,
+                    reads_alignment))
         repeat_graph_edges = jobs[-1].out_files["repeat_graph_edges"]
         repeat_graph = jobs[-1].out_files["repeat_graph"]
 

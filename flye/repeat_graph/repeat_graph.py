@@ -25,6 +25,19 @@ class RgEdge:
         self.mean_coverage = 0
         self.edge_sequences = []
 
+    def length(self):
+        if not self.edge_sequences:
+            return 0
+
+        return sum(map(lambda s: s.edge_seq_len,
+                       self.edge_sequences)) / len(self.edge_sequences)
+
+    def __repr__(self):
+        return "(id={0}, len={1}, cov={2} rep={3})" \
+                .format(self.edge_id, self.length(),
+                        self.mean_coverage, self.repetitive)
+
+
 class EdgeSequence:
     __slots__ = ("edge_seq_name", "edge_seq_len", "orig_seq_id", "orig_seq_len",
                  "orig_seq_start", "orig_seq_end")
@@ -39,12 +52,17 @@ class EdgeSequence:
         self.orig_seq_start = orig_seq_start
         self.orig_seq_end = orig_seq_end
 
+
 class RgNode:
     __slots__ = ("in_edges", "out_edge")
 
     def __init__(self):
         self.in_edges = []
         self.out_edges = []
+
+    def is_bifurcation(self):
+	return len(self.in_edges) != 1 or len(self.out_edges) != 1
+
 
 class RepeatGraph:
     __slots__ = ("nodes", "edges")
@@ -67,6 +85,40 @@ class RepeatGraph:
         if edge.self_complement:
             return edge
         return self.edges[-edge.edge_id]
+
+    def get_unbranching_paths(self):
+        unbranching_paths = []
+        visited_edges = set()
+
+        for edge in self.edges.values():
+            if edge in visited_edges:
+                continue
+
+            traversed = [edge]
+            if not edge.self_complement:
+                cur_node = edge.node_left
+                while (not cur_node.is_bifurcation() and
+                       len(cur_node.in_edges) > 0 and
+                       cur_node.in_edges[0] not in visited_edges and
+                       not cur_node.in_edges[0].self_complement):
+                    traversed.append(cur_node.in_edges[0])
+                    visited_edges.add(cur_node.in_edges[0])
+                    cur_node = cur_node.in_edges[0].node_left
+
+                traversed = traversed[::-1]
+                cur_node = edge.node_right
+
+                while (not cur_node.is_bifurcation() and
+                       len(cur_node.out_edges) > 0 and
+                       cur_node.out_edges[0] not in visited_edges and
+                       not cur_node.out_edges[0].self_complement):
+                    traversed.append(cur_node.out_edges[0])
+                    visited_edges.add(cur_node.out_edges[0])
+                    cur_node = cur_node.out_edges[0].node_right
+
+            unbranching_paths.append(traversed)
+
+        return unbranching_paths
 
     def load_from_file(self, filename):
         id_to_node = {}

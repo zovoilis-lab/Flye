@@ -197,8 +197,8 @@ int main(int argc, char** argv)
 	SequenceContainer::writeFasta(edgeSequences.iterSeqs(), 
 								  outFolder + "/repeat_graph_edges.fasta",
 								  /*only pos strand*/ true);
-	outGen.dumpRepeats(proc.getEdgesPaths(),
-					   outFolder + "/repeats_dump");
+	//outGen.dumpRepeats(proc.getEdgesPaths(),
+	//				   outFolder + "/repeats_dump");
 
 	/*Logger::get().info() << "Generating contigs";
 
