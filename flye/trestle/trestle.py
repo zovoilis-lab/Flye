@@ -1789,12 +1789,14 @@ def finalize_side_stats(edges, it, side, cons_align_path, template,
                                              template, 
                                              CONS_ALN_RATE)
                 if cons_align and cons_align[0]:
-                    qry_start = cons_align[0][0].qry_start
-                    qry_end = cons_align[0][0].qry_end
-                    qry_len = cons_align[0][0].qry_len
-                    trg_start = cons_align[0][0].trg_start
-                    trg_end = cons_align[0][0].trg_end
-                    trg_len = cons_align[0][0].trg_len
+                    #collapse multiple consensus alignments
+                    coll_cons = _collapse_cons_aln(cons_align)
+                    qry_start = coll_cons.qry_start
+                    qry_end = coll_cons.qry_end
+                    qry_len = coll_cons.qry_len
+                    trg_start = coll_cons.trg_start
+                    trg_end = coll_cons.trg_end
+                    trg_len = coll_cons.trg_len
                     if limit_ind is None or (
                             (side == "in" and trg_end < limit_ind) or
                             (side == "out" and trg_start >= limit_ind)):
@@ -2329,10 +2331,12 @@ def finalize_int_stats(rep, repeat_edges, side_it, cons_align_path, template,
                             consensuses[(side_it[side], side, edge_two)], 
                             CONS_ALN_RATE)
                         if cons_vs_cons and cons_vs_cons[0]:
-                            one_start = cons_vs_cons[0][0].qry_start
-                            one_end = cons_vs_cons[0][0].qry_end
-                            two_start = cons_vs_cons[0][0].trg_start
-                            two_end = cons_vs_cons[0][0].trg_end
+                            #collapse multiple consensus alignments
+                            coll_cons = _collapse_cons_aln(cons_vs_cons)
+                            one_start = coll_cons.qry_start
+                            one_end = coll_cons.qry_end
+                            two_start = coll_cons.trg_start
+                            two_end = coll_cons.trg_end
                             if side == "in":
                                 if (side, edge_one) not in edge_limits:
                                     edge_limits[(side, edge_one)] = one_start
@@ -2380,10 +2384,12 @@ def finalize_int_stats(rep, repeat_edges, side_it, cons_align_path, template,
                                 template, 
                                 CONS_ALN_RATE)
                         if cons_align and cons_align[0]:
+                            #collapse multiple consensus alignments
+                            coll_cons_align = _collapse_cons_aln(cons_align)
                             if side == "in":
-                                in_align = cons_align[0][0]
+                                in_align = coll_cons_align
                             elif side == "out":
-                                out_align = cons_align[0][0]
+                                out_align = coll_cons_align
                 if not in_align:
                     in_end = 0
                     temp_start = 0
