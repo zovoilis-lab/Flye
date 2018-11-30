@@ -317,14 +317,14 @@ class JobTrestle(Job):
         repeat_graph.load_from_file(self.repeat_graph)
         reads_alignment = parse_alignments(self.reads_alignment_file)
 
-        repeats_info = tres_graph.get_simple_repeats(repeat_graph,
-                                                     reads_alignment)
+        repeats_info = tres_graph \
+            .get_simple_repeats(repeat_graph, reads_alignment,
+                                fp.read_sequence_dict(self.graph_edges))
         tres_graph.dump_repeats(repeats_info,
                                 os.path.join(self.work_dir, "repeats_dump"))
 
         tres.resolve_repeats(self.args, self.work_dir, repeats_info,
-                             self.graph_edges, summary_file,
-                             resolved_repeats_seqs)
+                             summary_file, resolved_repeats_seqs)
         tres_graph.apply_changes(repeat_graph, summary_file,
                                  fp.read_sequence_dict(resolved_repeats_seqs))
 

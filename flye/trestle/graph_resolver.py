@@ -7,8 +7,10 @@ Modifies repeat graph using the Tresle output
 """
 
 import logging
-from itertools import izip
+from itertools import izip, chain
 from collections import defaultdict
+
+import flye.utils.fasta_parser as fp
 
 logger = logging.getLogger()
 
@@ -21,8 +23,26 @@ class Connection:
         self.sequence = sequence
 
 
-def get_simple_repeats(repeat_graph, alignments):
+class RepeatInfo:
+    __slots__ = ("id", "repeat_path", "all_reads", "in_reads", "out_reads",
+                 "sequences", "multiplicity")
+
+    def __init__(self, id, repeat_path, all_reads, in_reads, out_reads,
+                 sequences, multiplicity):
+        self.id = id
+        self.repeat_path = repeat_path
+        self.all_reads = all_reads
+        self.in_reads = in_reads
+        self.out_reads = out_reads
+        self.sequences = sequences
+        self.multiplicity = multiplicity
+
+
+def get_simple_repeats(repeat_graph, alignments, edge_seqs):
+    next_path_id = 1
+    path_ids = {}
     repeats_dict = {}
+    MULT = 2
 
     for path in repeat_graph.get_unbranching_paths():
         if not path[0].repetitive or path[0].self_complement:
@@ -41,8 +61,14 @@ def get_simple_repeats(repeat_graph, alignments):
             if out_edge.repetitive:
                 is_simple = False
 
-        if not is_simple or len(inputs) != 2 or len(outputs) != 2:
+        if not is_simple or len(inputs) != MULT or len(outputs) != MULT:
             continue
+
+        if path[0].edge_id not in path_ids:
+            path_ids[path[0].edge_id] = next_path_id
+            path_ids[-path[-1].edge_id] = -next_path_id
+            next_path_id += 1
+        path_id = path_ids[path[0].edge_id]
 
         repeat_edge_ids = set(map(lambda e: e.edge_id, path))
         inner_reads = []
@@ -68,35 +94,60 @@ def get_simple_repeats(repeat_graph, alignments):
 
 
         #TODO: temporary restriction
-        if len(path) != 1:
-            continue
+        #if len(path) != 1:
+        #    continue
 
-        repeats_dict[path[0].edge_id] = (2, inner_reads, input_reads,
-                                         output_reads)
+        #repeats_dict[path_id] = (MULT, inner_reads, input_reads,
+        #                         output_reads, map(lambda e: e.edge_id, path))
+
+        #add edges sequences:
+        print path_id
+        sequences = {}
+        for edge in chain(input_reads, output_reads):
+            seq_id = repeat_graph.edges[edge].edge_sequences[0].edge_seq_name
+            seq = edge_seqs[seq_id[1:]]
+            if seq_id[0] == "-":
+                seq = fp.reverse_complement(seq)
+            sequences[edge] = seq
+
+        template_seq = ""
+        for edge in path:
+            seq_id = edge.edge_sequences[0].edge_seq_name
+            seq = edge_seqs[seq_id[1:]]
+            if seq_id[0] == "-":
+                seq = fp.reverse_complement(seq)
+            template_seq += seq
+        sequences["template"] = template_seq
+
+        for h, s in sequences.items():
+            print h, s[:100]
+
+        repeats_dict[path_id] = RepeatInfo(path_id, map(lambda e: e.edge_id, path),
+                                           inner_reads, input_reads, output_reads,
+                                           sequences, MULT)
 
     return repeats_dict
 
 
 def dump_repeats(repeats_info, filename):
     with open(filename, "w") as f:
-        for repeat, (mult, all_reads,
-                     in_reads, out_reads) in repeats_info.iteritems():
-            f.write("#Repeat {0}\t{1}\n\n".format(repeat, mult))
+        for repeat_id, info in repeats_info.iteritems():
+            f.write("#Repeat {0}\t{1}\n\n".format(repeat_id, info.multiplicity))
 
-            f.write("#All reads\t{0}\n".format(len(all_reads)))
-            for read in all_reads:
+            f.write("#All reads\t{0}\n".format(len(info.all_reads)))
+            for read in info.all_reads:
                 f.write(read + "\n")
             f.write("\n")
 
-            for in_edge in in_reads:
-                f.write("#Input {0}\t{1}\n".format(in_edge, len(in_reads[in_edge])))
-                for read in in_reads[in_edge]:
+            for in_edge in info.in_reads:
+                f.write("#Input {0}\t{1}\n".format(in_edge, len(info.in_reads[in_edge])))
+                for read in info.in_reads[in_edge]:
                     f.write(read + "\n")
                 f.write("\n")
 
-            for out_edge in out_reads:
-                f.write("#Output {0}\t{1}\n".format(out_edge, len(out_reads[out_edge])))
-                for read in out_reads[out_edge]:
+            for out_edge in info.out_reads:
+                f.write("#Output {0}\t{1}\n".format(out_edge, len(info.out_reads[out_edge])))
+                for read in info.out_reads[out_edge]:
                     f.write(read + "\n")
                 f.write("\n")
 

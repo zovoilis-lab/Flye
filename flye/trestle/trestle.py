@@ -26,7 +26,7 @@ import flye.trestle.trestle_config as trestle_config
 logger = logging.getLogger()
 
 
-def resolve_repeats(args, trestle_dir, repeats_info, graph_edges, summ_file,
+def resolve_repeats(args, trestle_dir, repeats_info, summ_file,
                     resolved_repeats_seqs):
     SUB_THRESH = trestle_config.vals["sub_thresh"]
     DEL_THRESH = trestle_config.vals["del_thresh"]
@@ -74,7 +74,7 @@ def resolve_repeats(args, trestle_dir, repeats_info, graph_edges, summ_file,
     
     #1. Process repeats from graph - generates a folder for each repeat
     logger.debug("Finding unbridged repeats")
-    process_outputs = process_repeats(args.reads, repeats_info, graph_edges, 
+    process_outputs = process_repeats(args.reads, repeats_info,
                                       trestle_dir, repeat_label, orient_labels, 
                                       template_name, extended_name, 
                                       repeat_reads_name, pre_partitioning_name, 
@@ -406,7 +406,7 @@ class ProcessingException(Exception):
     pass
 
 
-def process_repeats(reads, repeats_dict, graph_edges, work_dir, repeat_label, 
+def process_repeats(reads, repeats_dict, work_dir, repeat_label, 
                     orient_labels, template_name, extended_name, 
                     repeat_reads_name, pre_partition_name, side_labels):
     """Generates repeat dirs and files given reads, repeats_dump and
@@ -424,14 +424,14 @@ def process_repeats(reads, repeats_dict, graph_edges, work_dir, repeat_label,
     reads_dict = {}
     for read_file in reads:
         reads_dict.update(fp.read_sequence_dict(read_file))
-    orig_graph = fp.read_sequence_dict(graph_edges)
-    graph_dict = {int(h.split('_')[1]):orig_graph[h] for h in orig_graph}
+    #orig_graph = fp.read_sequence_dict(graph_edges)
+    #graph_dict = {int(h.split('_')[1]):orig_graph[h] for h in orig_graph}
     
     if not reads_dict:
         raise ProcessingException("No reads found from {0}".format(reads))
-    if not graph_dict:
-        raise ProcessingException("No edges found from {0}".format(
-            graph_edges))
+    #if not graph_dict:
+    #    raise ProcessingException("No edges found from {0}".format(
+    #        graph_edges))
         
     repeat_list = []
     repeat_edges = {}
@@ -447,16 +447,16 @@ def process_repeats(reads, repeats_dict, graph_edges, work_dir, repeat_label,
         if -rep not in repeats_dict:
             logger.debug("Repeat {0} missing reverse strand".format(rep))
             valid_repeat = False
-        elif (repeats_dict[rep][0] < MIN_MULT or
-                 repeats_dict[rep][0] > MAX_MULT or
-                 repeats_dict[-rep][0] < MIN_MULT or
-                 repeats_dict[-rep][0] > MAX_MULT):
+        elif (repeats_dict[rep].multiplicity < MIN_MULT or
+                 repeats_dict[rep].multiplicity > MAX_MULT or
+                 repeats_dict[-rep].multiplicity < MIN_MULT or
+                 repeats_dict[-rep].multiplicity > MAX_MULT):
             logger.debug("Repeat {0} multiplicity not in range: {1}".format(
-                                                 rep, repeats_dict[rep][0]))
+                                                 rep, repeats_dict[rep].multiplicity))
             valid_repeat = False
-        if rep not in graph_dict:
-            logger.debug("Repeat {0} missing from graph file".format(rep))
-            valid_repeat = False
+        #if rep not in graph_dict:
+        #    logger.debug("Repeat {0} missing from graph file".format(rep))
+        #    valid_repeat = False
         if not valid_repeat:
             continue
         
@@ -480,8 +480,12 @@ def process_repeats(reads, repeats_dict, graph_edges, work_dir, repeat_label,
             out_label = side_labels[1]
             repeat_edges[curr_rep] = {in_label:[], out_label:[]}
             
-            repeat_parts = repeats_dict[curr_rep]
-            mult, all_reads_list, inputs_dict, outputs_dict = repeat_parts
+            #(mult, all_reads_list, inputs_dict,
+            # outputs_dict) = repeats_dict[curr_rep]
+            #mult = repeats_dict[curr_rep].multiplicity
+            all_reads_list = repeats_dict[curr_rep].all_reads
+            inputs_dict = repeats_dict[curr_rep].in_reads
+            outputs_dict = repeats_dict[curr_rep].out_reads
             
             template_dict = {}
             extended_dicts = {}
@@ -491,9 +495,9 @@ def process_repeats(reads, repeats_dict, graph_edges, work_dir, repeat_label,
             partitioning = {in_label:[], out_label:[]}
             read_id = 0
             
-            template_seq = graph_dict[rep]
-            if curr_label == "reverse":
-                template_seq = fp.reverse_complement(graph_dict[rep])
+            template_seq = repeats_dict[curr_rep].sequences["template"]
+            #if curr_label == "reverse":
+            #    template_seq = fp.reverse_complement(graph_dict[rep])
             template_dict[curr_rep] = template_seq
             
             all_edge_headers[curr_rep] = {}
@@ -530,10 +534,11 @@ def process_repeats(reads, repeats_dict, graph_edges, work_dir, repeat_label,
                 
                 extend_in_header = "Extended_Template_Input_{0}".format(
                     edge_id)
-                if edge_id > 0:
-                    edge_seq = graph_dict[edge_id]
-                elif edge_id < 0:
-                    edge_seq = fp.reverse_complement(graph_dict[-edge_id])
+                #if edge_id > 0:
+                #    edge_seq = graph_dict[edge_id]
+                #elif edge_id < 0:
+                #    edge_seq = fp.reverse_complement(graph_dict[-edge_id])
+                edge_seq = repeats_dict[curr_rep].sequences[edge_id]
                 extended_seq = edge_seq[-FLANKING_LEN:]
                 extended_dicts[(in_label, edge_id)][extend_in_header] = (
                                         extended_seq + template_seq)
@@ -584,10 +589,11 @@ def process_repeats(reads, repeats_dict, graph_edges, work_dir, repeat_label,
                 
                 extend_out_header = "Extended_Template_Output_{0}".format(
                     edge_id)
-                if edge_id > 0:
-                    edge_seq = graph_dict[edge_id]
-                elif edge_id < 0:
-                    edge_seq = fp.reverse_complement(graph_dict[-edge_id])
+                #if edge_id > 0:
+                #    edge_seq = graph_dict[edge_id]
+                #elif edge_id < 0:
+                #    edge_seq = fp.reverse_complement(graph_dict[-edge_id])
+                edge_seq = repeats_dict[curr_rep].sequences[edge_id]
                 extended_seq = edge_seq[:FLANKING_LEN]
                 extended_dicts[(out_label, edge_id)][extend_out_header] = (
                                         template_seq + extended_seq)
