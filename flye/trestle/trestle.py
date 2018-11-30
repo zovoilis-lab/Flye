@@ -26,8 +26,7 @@ import flye.trestle.trestle_config as trestle_config
 logger = logging.getLogger()
 
 
-
-def resolve_repeats(args, trestle_dir, repeats_dump, graph_edges, summ_file,
+def resolve_repeats(args, trestle_dir, repeats_info, graph_edges, summ_file,
                     resolved_repeats_seqs):
     SUB_THRESH = trestle_config.vals["sub_thresh"]
     DEL_THRESH = trestle_config.vals["del_thresh"]
@@ -75,7 +74,7 @@ def resolve_repeats(args, trestle_dir, repeats_dump, graph_edges, summ_file,
     
     #1. Process repeats from graph - generates a folder for each repeat
     logger.debug("Finding unbridged repeats")
-    process_outputs = process_repeats(args.reads, repeats_dump, graph_edges, 
+    process_outputs = process_repeats(args.reads, repeats_info, graph_edges, 
                                       trestle_dir, repeat_label, orient_labels, 
                                       template_name, extended_name, 
                                       repeat_reads_name, pre_partitioning_name, 
@@ -419,7 +418,7 @@ def process_repeats(reads, repeats_dict, graph_edges, work_dir, repeat_label,
     #Reads input files
     #repeats_dict = _read_repeats_dump(repeats_dump)
     if not repeats_dict:
-        logger.debug("Empty repeats_dump file: {0}".format(repeats_dump))
+        #logger.debug("Empty repeats_dump file: {0}".format(repeats_dump))
         return [], {}, {}
         
     reads_dict = {}
