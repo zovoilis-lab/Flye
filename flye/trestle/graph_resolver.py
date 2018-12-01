@@ -92,16 +92,7 @@ def get_simple_repeats(repeat_graph, alignments, edge_seqs):
                         next_edge.edge_id in outputs):
                     output_reads[next_edge.edge_id].append(next_edge.overlap.cur_id)
 
-
-        #TODO: temporary restriction
-        #if len(path) != 1:
-        #    continue
-
-        #repeats_dict[path_id] = (MULT, inner_reads, input_reads,
-        #                         output_reads, map(lambda e: e.edge_id, path))
-
         #add edges sequences:
-        print path_id
         sequences = {}
         for edge in chain(input_reads, output_reads):
             seq_id = repeat_graph.edges[edge].edge_sequences[0].edge_seq_name
@@ -119,8 +110,9 @@ def get_simple_repeats(repeat_graph, alignments, edge_seqs):
             template_seq += seq
         sequences["template"] = template_seq
 
-        for h, s in sequences.items():
-            print h, s[:100]
+        #print path_id
+        #for h, s in sequences.items():
+        #    print h, s[:100]
 
         repeats_dict[path_id] = RepeatInfo(path_id, map(lambda e: e.edge_id, path),
                                            inner_reads, input_reads, output_reads,
@@ -171,16 +163,18 @@ def _get_connections(trestle_results):
             if line.startswith("Repeat"): continue
 
             tokens = line.strip().split()
-            repeat_id, bridged = int(tokens[0]), tokens[5]
+            repeat_id, bridged = int(tokens[0]), tokens[6]
             if bridged == "True" and abs(repeat_id) not in resolved_repeats:
                 resolved_repeats.add(abs(repeat_id))
 
-                path_1, path_2 = tokens[9].split(":")
-                seq_1, seq_2 = tokens[10].split(":")
-                in_1, out_1 = path_1.split(",")
-                in_2, out_2 = path_2.split(",")
-                connection_1 = [int(in_1), repeat_id, int(out_1)]
-                connection_2 = [int(in_2), repeat_id, int(out_2)]
+                repeat_path = map(int, tokens[1].split(","))
+                res_1, res_2 = tokens[10].split(":")
+                in_1, out_1 = res_1.split(",")
+                in_2, out_2 = res_2.split(",")
+
+                seq_1, seq_2 = tokens[11].split(":")
+                connection_1 = [int(in_1)] + repeat_path + [int(out_1)]
+                connection_2 = [int(in_2)] + repeat_path + [int(out_2)]
 
                 logger.info("Repeat {0}: {1}, {2}"
                     .format(repeat_id, connection_1, connection_2))

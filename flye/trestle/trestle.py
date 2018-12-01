@@ -84,7 +84,8 @@ def resolve_repeats(args, trestle_dir, repeats_info, summ_file,
     #add in realigning of reads here - change partitioning above to prepartitioning
     logger.info("Repeats to be resolved: {0}".format(len(repeat_list)))
     for rep_id in sorted(repeat_list):
-        logger.info("Resolving repeat '{0}'".format(rep_id))
+        logger.info("Resolving repeat {0}: {1}" \
+            .format(rep_id, repeats_info[rep_id].repeat_path))
         repeat_dir = os.path.join(trestle_dir, 
                                   repeat_label.format(rep_id))
         orient_reps = [rep_id, -rep_id]
@@ -380,8 +381,8 @@ def resolve_repeats(args, trestle_dir, repeats_info, summ_file,
                                                integrated_stats, 
                                                resolved_rep_path, res_vs_res)
             all_resolved_reps_dict.update(repeat_seqs)
-            update_summary(rep, template_len, avg_cov, summ_vals, avg_div, 
-                           summ_file)
+            update_summary(rep, repeats_info[rep].repeat_path, template_len, avg_cov, 
+                           summ_vals, avg_div, summ_file)
             remove_unneeded_files(repeat_edges, rep, side_labels, side_it, 
                                   orient_dir, template, extended, pol_temp_dir, 
                                   pol_ext_dir, pre_edge_reads, 
@@ -2787,26 +2788,31 @@ def _construct_repeat_copy(in_file, temp_file, out_file, in_start, in_end,
 
 def init_summary(summary_file):
     with open(summary_file, "w") as f:
-        summ_header_labels = ["Repeat", "Template", "Cov", "#Conf_Pos", 
+        summ_header_labels = ["Repeat_Id", "Path", "Template", "Cov", "#Conf_Pos", 
                               "Max_Pos_Gap", "Bridged?", "Support", "Against", 
                               "Avg_Div", "Resolution", "Sequences"]
-        spaced_header = map("{:13}".format, summ_header_labels)
-        f.write("\t".join(spaced_header))
+        #spaced_header = map("{:13}".format, summ_header_labels)
+        f.write("\t".join(summ_header_labels))
         f.write("\n")
 
 
-def update_summary(rep, template_len, avg_cov, summ_vals, avg_div, 
+def update_summary(rep_id, graph_path, template_len, avg_cov, summ_vals, avg_div, 
                    summary_file):
     (confirmed_pos, max_pos_gap, bridged, 
      support, against, resolution, sequences) = tuple(summ_vals)
-    summ_out = [rep, template_len, avg_cov, confirmed_pos, max_pos_gap, 
+
+    avg_cov = "{:.4f}".format(avg_cov)
+    avg_div = "{:.4f}".format(avg_div)
+    graph_path = ",".join(map(str, graph_path))
+
+    summ_out = [rep_id, graph_path, template_len, avg_cov, confirmed_pos, max_pos_gap, 
                 bridged, support, against, avg_div, resolution, sequences]
-    summ_out[2] = "{:.4f}".format(summ_out[2])
-    summ_out[5] = str(summ_out[5])
-    summ_out[8] = "{:.4f}".format(summ_out[8])
-    spaced_summ = map("{:13}".format, map(str, summ_out))
+    #summ_out[3] = "{:.4f}".format(summ_out[3])
+    #summ_out[6] = str(summ_out[6])
+    #summ_out[9] = "{:.4f}".format(summ_out[9])
+    #spaced_summ = map("{:13}".format, map(str, summ_out))
     with open(summary_file, "a") as f:
-        f.write("\t".join(spaced_summ))
+        f.write("\t".join(map(str, summ_out)))
         f.write("\n")
 
 def remove_unneeded_files(repeat_edges, rep, side_labels, side_it, orient_dir, 
