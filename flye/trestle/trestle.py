@@ -26,8 +26,7 @@ import flye.trestle.trestle_config as trestle_config
 logger = logging.getLogger()
 
 
-
-def resolve_repeats(args, trestle_dir, repeats_dump, graph_edges, summ_file,
+def resolve_repeats(args, trestle_dir, repeats_info, summ_file,
                     resolved_repeats_seqs):
     SUB_THRESH = trestle_config.vals["sub_thresh"]
     DEL_THRESH = trestle_config.vals["del_thresh"]
@@ -75,7 +74,7 @@ def resolve_repeats(args, trestle_dir, repeats_dump, graph_edges, summ_file,
     
     #1. Process repeats from graph - generates a folder for each repeat
     logger.debug("Finding unbridged repeats")
-    process_outputs = process_repeats(args.reads, repeats_dump, graph_edges, 
+    process_outputs = process_repeats(args.reads, repeats_info,
                                       trestle_dir, repeat_label, orient_labels, 
                                       template_name, extended_name, 
                                       repeat_reads_name, pre_partitioning_name, 
@@ -85,7 +84,8 @@ def resolve_repeats(args, trestle_dir, repeats_dump, graph_edges, summ_file,
     #add in realigning of reads here - change partitioning above to prepartitioning
     logger.info("Repeats to be resolved: {0}".format(len(repeat_list)))
     for rep_id in sorted(repeat_list):
-        logger.info("Resolving repeat '{0}'".format(rep_id))
+        logger.info("Resolving repeat {0}: {1}" \
+            .format(rep_id, repeats_info[rep_id].repeat_path))
         repeat_dir = os.path.join(trestle_dir, 
                                   repeat_label.format(rep_id))
         orient_reps = [rep_id, -rep_id]
@@ -381,8 +381,8 @@ def resolve_repeats(args, trestle_dir, repeats_dump, graph_edges, summ_file,
                                                integrated_stats, 
                                                resolved_rep_path, res_vs_res)
             all_resolved_reps_dict.update(repeat_seqs)
-            update_summary(rep, template_len, avg_cov, summ_vals, avg_div, 
-                           summ_file)
+            update_summary(rep, repeats_info[rep].repeat_path, template_len, avg_cov, 
+                           summ_vals, avg_div, summ_file)
             remove_unneeded_files(repeat_edges, rep, side_labels, side_it, 
                                   orient_dir, template, extended, pol_temp_dir, 
                                   pol_ext_dir, pre_edge_reads, 
@@ -407,7 +407,7 @@ class ProcessingException(Exception):
     pass
 
 
-def process_repeats(reads, repeats_dump, graph_edges, work_dir, repeat_label, 
+def process_repeats(reads, repeats_dict, work_dir, repeat_label, 
                     orient_labels, template_name, extended_name, 
                     repeat_reads_name, pre_partition_name, side_labels):
     """Generates repeat dirs and files given reads, repeats_dump and
@@ -417,22 +417,22 @@ def process_repeats(reads, repeats_dump, graph_edges, work_dir, repeat_label,
     FLANKING_LEN = trestle_config.vals["flanking_len"]
     
     #Reads input files
-    repeats_dict = _read_repeats_dump(repeats_dump)
+    #repeats_dict = _read_repeats_dump(repeats_dump)
     if not repeats_dict:
-        logger.debug("Empty repeats_dump file: {0}".format(repeats_dump))
+        #logger.debug("Empty repeats_dump file: {0}".format(repeats_dump))
         return [], {}, {}
         
     reads_dict = {}
     for read_file in reads:
         reads_dict.update(fp.read_sequence_dict(read_file))
-    orig_graph = fp.read_sequence_dict(graph_edges)
-    graph_dict = {int(h.split('_')[1]):orig_graph[h] for h in orig_graph}
+    #orig_graph = fp.read_sequence_dict(graph_edges)
+    #graph_dict = {int(h.split('_')[1]):orig_graph[h] for h in orig_graph}
     
     if not reads_dict:
         raise ProcessingException("No reads found from {0}".format(reads))
-    if not graph_dict:
-        raise ProcessingException("No edges found from {0}".format(
-            graph_edges))
+    #if not graph_dict:
+    #    raise ProcessingException("No edges found from {0}".format(
+    #        graph_edges))
         
     repeat_list = []
     repeat_edges = {}
@@ -448,16 +448,16 @@ def process_repeats(reads, repeats_dump, graph_edges, work_dir, repeat_label,
         if -rep not in repeats_dict:
             logger.debug("Repeat {0} missing reverse strand".format(rep))
             valid_repeat = False
-        elif (repeats_dict[rep][0] < MIN_MULT or
-                 repeats_dict[rep][0] > MAX_MULT or
-                 repeats_dict[-rep][0] < MIN_MULT or
-                 repeats_dict[-rep][0] > MAX_MULT):
+        elif (repeats_dict[rep].multiplicity < MIN_MULT or
+                 repeats_dict[rep].multiplicity > MAX_MULT or
+                 repeats_dict[-rep].multiplicity < MIN_MULT or
+                 repeats_dict[-rep].multiplicity > MAX_MULT):
             logger.debug("Repeat {0} multiplicity not in range: {1}".format(
-                                                 rep, repeats_dict[rep][0]))
+                                                 rep, repeats_dict[rep].multiplicity))
             valid_repeat = False
-        if rep not in graph_dict:
-            logger.debug("Repeat {0} missing from graph file".format(rep))
-            valid_repeat = False
+        #if rep not in graph_dict:
+        #    logger.debug("Repeat {0} missing from graph file".format(rep))
+        #    valid_repeat = False
         if not valid_repeat:
             continue
         
@@ -481,8 +481,12 @@ def process_repeats(reads, repeats_dump, graph_edges, work_dir, repeat_label,
             out_label = side_labels[1]
             repeat_edges[curr_rep] = {in_label:[], out_label:[]}
             
-            repeat_parts = repeats_dict[curr_rep]
-            mult, all_reads_list, inputs_dict, outputs_dict = repeat_parts
+            #(mult, all_reads_list, inputs_dict,
+            # outputs_dict) = repeats_dict[curr_rep]
+            #mult = repeats_dict[curr_rep].multiplicity
+            all_reads_list = repeats_dict[curr_rep].all_reads
+            inputs_dict = repeats_dict[curr_rep].in_reads
+            outputs_dict = repeats_dict[curr_rep].out_reads
             
             template_dict = {}
             extended_dicts = {}
@@ -492,9 +496,9 @@ def process_repeats(reads, repeats_dump, graph_edges, work_dir, repeat_label,
             partitioning = {in_label:[], out_label:[]}
             read_id = 0
             
-            template_seq = graph_dict[rep]
-            if curr_label == "reverse":
-                template_seq = fp.reverse_complement(graph_dict[rep])
+            template_seq = repeats_dict[curr_rep].sequences["template"]
+            #if curr_label == "reverse":
+            #    template_seq = fp.reverse_complement(graph_dict[rep])
             template_dict[curr_rep] = template_seq
             
             all_edge_headers[curr_rep] = {}
@@ -531,10 +535,11 @@ def process_repeats(reads, repeats_dump, graph_edges, work_dir, repeat_label,
                 
                 extend_in_header = "Extended_Template_Input_{0}".format(
                     edge_id)
-                if edge_id > 0:
-                    edge_seq = graph_dict[edge_id]
-                elif edge_id < 0:
-                    edge_seq = fp.reverse_complement(graph_dict[-edge_id])
+                #if edge_id > 0:
+                #    edge_seq = graph_dict[edge_id]
+                #elif edge_id < 0:
+                #    edge_seq = fp.reverse_complement(graph_dict[-edge_id])
+                edge_seq = repeats_dict[curr_rep].sequences[edge_id]
                 extended_seq = edge_seq[-FLANKING_LEN:]
                 extended_dicts[(in_label, edge_id)][extend_in_header] = (
                                         extended_seq + template_seq)
@@ -585,10 +590,11 @@ def process_repeats(reads, repeats_dump, graph_edges, work_dir, repeat_label,
                 
                 extend_out_header = "Extended_Template_Output_{0}".format(
                     edge_id)
-                if edge_id > 0:
-                    edge_seq = graph_dict[edge_id]
-                elif edge_id < 0:
-                    edge_seq = fp.reverse_complement(graph_dict[-edge_id])
+                #if edge_id > 0:
+                #    edge_seq = graph_dict[edge_id]
+                #elif edge_id < 0:
+                #    edge_seq = fp.reverse_complement(graph_dict[-edge_id])
+                edge_seq = repeats_dict[curr_rep].sequences[edge_id]
                 extended_seq = edge_seq[:FLANKING_LEN]
                 extended_dicts[(out_label, edge_id)][extend_out_header] = (
                                         template_seq + extended_seq)
@@ -2788,26 +2794,31 @@ def _construct_repeat_copy(in_file, temp_file, out_file, in_start, in_end,
 
 def init_summary(summary_file):
     with open(summary_file, "w") as f:
-        summ_header_labels = ["Repeat", "Template", "Cov", "#Conf_Pos", 
+        summ_header_labels = ["Repeat_Id", "Path", "Template", "Cov", "#Conf_Pos", 
                               "Max_Pos_Gap", "Bridged?", "Support", "Against", 
                               "Avg_Div", "Resolution", "Sequences"]
-        spaced_header = map("{:13}".format, summ_header_labels)
-        f.write("\t".join(spaced_header))
+        #spaced_header = map("{:13}".format, summ_header_labels)
+        f.write("\t".join(summ_header_labels))
         f.write("\n")
 
 
-def update_summary(rep, template_len, avg_cov, summ_vals, avg_div, 
+def update_summary(rep_id, graph_path, template_len, avg_cov, summ_vals, avg_div, 
                    summary_file):
     (confirmed_pos, max_pos_gap, bridged, 
      support, against, resolution, sequences) = tuple(summ_vals)
-    summ_out = [rep, template_len, avg_cov, confirmed_pos, max_pos_gap, 
+
+    avg_cov = "{:.4f}".format(avg_cov)
+    avg_div = "{:.4f}".format(avg_div)
+    graph_path = ",".join(map(str, graph_path))
+
+    summ_out = [rep_id, graph_path, template_len, avg_cov, confirmed_pos, max_pos_gap, 
                 bridged, support, against, avg_div, resolution, sequences]
-    summ_out[2] = "{:.4f}".format(summ_out[2])
-    summ_out[5] = str(summ_out[5])
-    summ_out[8] = "{:.4f}".format(summ_out[8])
-    spaced_summ = map("{:13}".format, map(str, summ_out))
+    #summ_out[3] = "{:.4f}".format(summ_out[3])
+    #summ_out[6] = str(summ_out[6])
+    #summ_out[9] = "{:.4f}".format(summ_out[9])
+    #spaced_summ = map("{:13}".format, map(str, summ_out))
     with open(summary_file, "a") as f:
-        f.write("\t".join(spaced_summ))
+        f.write("\t".join(map(str, summ_out)))
         f.write("\n")
 
 def remove_unneeded_files(repeat_edges, rep, side_labels, side_it, orient_dir, 
