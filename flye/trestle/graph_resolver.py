@@ -176,7 +176,7 @@ def _get_connections(trestle_results):
                 connection_1 = [int(in_1)] + repeat_path + [int(out_1)]
                 connection_2 = [int(in_2)] + repeat_path + [int(out_2)]
 
-                logger.info("Repeat {0}: {1}, {2}"
+                logger.debug("Repeat {0}: {1}, {2}"
                     .format(repeat_id, connection_1, connection_2))
 
                 new_seq_id = "trestle_resolved_" + str(repeat_id) + "_copy_"
