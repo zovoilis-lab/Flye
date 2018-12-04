@@ -135,15 +135,15 @@ def generate_polished_edges(edges_file, gfa_file, polished_contigs, work_dir,
     for edge in edges_dict:
         if edge in aln_by_edge:
             main_aln = aln_by_edge[edge][0]
-            map_start = main_aln.qry_start
-            map_end = main_aln.qry_end
+            map_start = main_aln.trg_start
+            map_end = main_aln.trg_end
             for aln in aln_by_edge[edge]:
                 if aln.trg_id == main_aln.trg_id and aln.trg_sign == main_aln.trg_sign:
-                    map_start = min(map_start, aln.qry_start)
-                    map_end = max(map_end, aln.qry_end)
+                    map_start = min(map_start, aln.trg_start)
+                    map_end = max(map_end, aln.trg_end)
 
             new_seq = polished_dict[main_aln.trg_id][map_start : map_end]
-            if main_aln.trg_sign < 0:
+            if main_aln.qry_sign == "-":
                 new_seq = fp.reverse_complement(new_seq)
 
             #print edge, main_aln.qry_len, len(new_seq), main_aln.qry_start, main_aln.qry_end
