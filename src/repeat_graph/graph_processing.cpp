@@ -186,8 +186,8 @@ void GraphProcessor::condenceEdges()
 	auto collapseEdges = [] (const GraphPath& edges)
 	{
 		std::vector<GraphEdge> newEdges;
-		std::list<SequenceSegment> growingSeqs(edges.front()->seqSegments.begin(),
-											   edges.front()->seqSegments.end());
+		std::list<EdgeSequence> growingSeqs(edges.front()->seqSegments.begin(),
+											edges.front()->seqSegments.end());
 		assert(edges.size() > 1);
 		size_t prevStart = 0;
 		for (size_t i = 1; i < edges.size(); ++i)
@@ -199,11 +199,11 @@ void GraphProcessor::condenceEdges()
 				bool continued = false;
 				for (auto& nextSeg : edges[i]->seqSegments)
 				{
-					if (prevSeg->seqId == nextSeg.seqId &&
-						prevSeg->end == nextSeg.start)
+					if (prevSeg->origSeqId == nextSeg.origSeqId &&
+						prevSeg->origSeqEnd == nextSeg.origSeqStart)
 					{
 						continued = true;
-						prevSeg->end = nextSeg.end;
+						prevSeg->origSeqEnd = nextSeg.origSeqEnd;
 					}
 				}
 				if (!continued)
@@ -277,8 +277,8 @@ void GraphProcessor::condenceEdges()
 		}
 
 		if (addedStr.size() > 4) addedStr.erase(addedStr.size() - 4);
-		Logger::get().debug() << "Collapsed: " << unbranchingPath.edgesStr() 
-			<< " to " << addedStr;
+		//Logger::get().debug() << "Collapsed: " << unbranchingPath.edgesStr() 
+		//	<< " to " << addedStr;
 
 		std::unordered_set<GraphEdge*> toRemove;
 		for (auto& edge : unbranchingPath.path) toRemove.insert(edge);
@@ -289,8 +289,9 @@ void GraphProcessor::condenceEdges()
 		edgesAdded += newEdges.size();
 	}
 
-	Logger::get().debug() << "Removed " << edgesRemoved << " edges";
-	Logger::get().debug() << "Added " << edgesAdded << " edges";
+	//Logger::get().debug() << "Removed " << edgesRemoved << " edges";
+	//Logger::get().debug() << "Added " << edgesAdded << " edges";
+	Logger::get().debug() << "Collapsed " << edgesRemoved - edgesAdded << " edges";
 }
 
 //converts edges to unbranching paths

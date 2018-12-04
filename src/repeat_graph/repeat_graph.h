@@ -11,39 +11,87 @@
 #include "../common/config.h"
 #include "../common/utils.h"
 
-struct SequenceSegment
+struct EdgeSequence
 {
-	enum SegmentType {Asm, Read};
+	EdgeSequence(FastaRecord::Id edgeSeqId = FastaRecord::ID_NONE,
+				 int32_t seqLen = 0):
+		edgeSeqId(edgeSeqId), seqLen(seqLen), origSeqId(FastaRecord::ID_NONE),
+		origSeqLen(0), origSeqStart(0), origSeqEnd(0) {}
 
-	SequenceSegment(FastaRecord::Id seqId = FastaRecord::ID_NONE, 
-					int32_t seqLen = 0, int32_t start = 0, 
-					int32_t end = 0):
-		seqId(seqId), seqLen(seqLen), start(start), 
-		end(end), segType(Asm) {}
+		EdgeSequence(FastaRecord::Id origSeq, int32_t origLen,  
+					 int32_t origSeqStart, int32_t origSeqEnd):
+		edgeSeqId(FastaRecord::ID_NONE), seqLen(origSeqEnd - origSeqStart),
+		origSeqId(origSeq), origSeqLen(origLen),
+		origSeqStart(origSeqStart), origSeqEnd(origSeqEnd) {}
 
-	SequenceSegment complement() const
+	EdgeSequence complement() const
 	{
-		SequenceSegment other(*this);
-		other.seqId = seqId.rc();
-		other.start = seqLen - end - 1;
-		other.end = seqLen - start - 1;
+		EdgeSequence other(*this);
+		other.edgeSeqId = edgeSeqId.rc();
+		if (origSeqId != FastaRecord::ID_NONE) 
+		{
+			other.origSeqId = origSeqId.rc();
+			other.origSeqStart = origSeqLen - origSeqEnd - 1;
+			other.origSeqEnd = origSeqLen - origSeqStart - 1;
+		}
 		return other;
 	}
 
-	int32_t length() const {return end - start;}
-
-	bool operator==(const SequenceSegment& other)
+	bool operator==(const EdgeSequence& other)
 	{
-		return seqId == other.seqId && start == other.start && end == other.end;
+		return edgeSeqId == other.edgeSeqId && 
+			   seqLen == other.seqLen &&
+			   origSeqId == other.origSeqId &&
+			   origSeqLen == other.origSeqLen &&
+			   origSeqStart == other.origSeqStart &&
+			   origSeqEnd == other.origSeqEnd;
 	}
 
-	FastaRecord::Id seqId;
-	int32_t seqLen;
-	int32_t start;
-	int32_t end;
+	void dump(std::ostream& os, const SequenceContainer& edgesSeqs)
+	{
+		std::string origIdString = 
+			origSeqId != FastaRecord::ID_NONE ?
+			std::to_string(origSeqId.signedId()) : "*";
+		os  << edgesSeqs.seqName(edgeSeqId) << " " << seqLen 
+			<< " " << origIdString << " " << origSeqLen << " " << origSeqStart 
+			<< " " << origSeqEnd;
+	}
 
-	SegmentType segType;
+	void parse(std::istream& is, const SequenceContainer& edgeSeqs)
+	{
+		std::string edgeSeqName;
+		std::string origSeqName;
+		is  >> edgeSeqName >> seqLen >> origSeqName >> origSeqLen 
+			>> origSeqStart >> origSeqEnd;
+		edgeSeqId = edgeSeqs.recordByName(edgeSeqName).id;
+		
+		if (origSeqName == "*")
+		{
+			origSeqId = FastaRecord::ID_NONE;
+		}
+		else
+		{
+			size_t unsignedId = llabs(atoll(origSeqName.c_str())) * 2 - 2;
+			unsignedId += atoll(origSeqName.c_str()) < 0;
+			origSeqId = FastaRecord::Id(unsignedId);
+		}
+	}
+
+	//index in the repeat graph sequence container
+	FastaRecord::Id edgeSeqId;
+	int32_t seqLen;
+	
+	//this information is required during repeat graph construction,
+	//but not necessary afterwards. It might be used for 
+	//some huristics later on, but it it not guaranteed that all
+	//edges will have it
+	FastaRecord::Id origSeqId;
+	int32_t origSeqLen;
+	int32_t origSeqStart;
+	int32_t origSeqEnd;
 };
+
+
 
 struct GraphNode;
 
@@ -54,7 +102,7 @@ struct GraphEdge
 		nodeLeft(nodeLeft), nodeRight(nodeRight), 
 		edgeId(edgeId), repetitive(false), 
 		selfComplement(false), resolved(false), 
-		meanCoverage(0), substractedCoverage(0) {}
+		meanCoverage(0) {}
 
 	bool isRepetitive() const 
 		{return repetitive;}
@@ -64,13 +112,6 @@ struct GraphEdge
 
 	bool isTip() const;
 
-	void addSequence(FastaRecord::Id id, int32_t length, 
-					 int32_t start, int32_t end)
-	{
-		seqSegments.emplace_back(id, length, start, end);
-		//++multiplicity;
-	}
-
 	int32_t length() const
 	{
 		if (seqSegments.empty()) return 0;
@@ -78,7 +119,7 @@ struct GraphEdge
 		int64_t sumLen = 0;
 		for (auto& seqSeg : seqSegments)
 		{
-			sumLen += seqSeg.end - seqSeg.start;
+			sumLen += seqSeg.seqLen;
 		}
 		return sumLen / seqSegments.size();
 	}
@@ -89,14 +130,12 @@ struct GraphEdge
 	GraphNode* nodeRight;
 
 	FastaRecord::Id edgeId;
-	std::vector<SequenceSegment> seqSegments;
+	std::vector<EdgeSequence> seqSegments;
 
-	//int  multiplicity;
 	bool repetitive;
 	bool selfComplement;
 	bool resolved;
 	int  meanCoverage;
-	int  substractedCoverage;
 };
 
 struct GraphNode
@@ -176,22 +215,18 @@ struct GraphNode
 
 typedef std::vector<GraphEdge*> GraphPath;
 
-struct EdgeAlignment
-{
-	OverlapRange overlap;
-	GraphEdge* edge;
-	SequenceSegment segment;
-};
-typedef std::vector<EdgeAlignment> GraphAlignment;
 
 class RepeatGraph
 {
 public:
-	RepeatGraph(const SequenceContainer& asmSeqs):
-		 _nextEdgeId(0), _asmSeqs(asmSeqs)
+	RepeatGraph(const SequenceContainer& asmSeqs, SequenceContainer* graphSeqs):
+		 _nextEdgeId(0), _asmSeqs(asmSeqs), _edgeSeqsContainer(graphSeqs)
 	{}
 
 	void build();
+	void storeGraph(const std::string& filename);
+	void loadGraph(const std::string& filename);
+
 	GraphPath  complementPath(const GraphPath& path) const;
 	GraphEdge* complementEdge(GraphEdge* edge) const;
 	GraphNode* complementNode(GraphNode* node) const;
@@ -238,6 +273,11 @@ public:
 	bool hasEdge(GraphEdge* edge)
 	{
 		return _graphEdges.count(edge);
+	}
+	GraphEdge* getEdge(FastaRecord::Id edgeId)
+	{
+		if (_idToEdge.count(edgeId)) return _idToEdge[edgeId];
+		return nullptr;
 	}
 	class IterEdges
 	{
@@ -290,6 +330,12 @@ public:
 		return FastaRecord::Id(curId);
 	}
 
+	const SequenceContainer& edgeSequences() {return *_edgeSeqsContainer;}
+
+	EdgeSequence addEdgeSequence(const DnaSequence& sequence, 
+							 	 int32_t start, int32_t length,
+							 	 const std::string& description);
+
 private:
 	size_t _nextEdgeId;
 
@@ -322,8 +368,10 @@ private:
 	void collapseTandems();
 	void logEdges();
 	void checkGluepointProjections(const OverlapContainer& asmOverlaps);
+	void updateEdgeSequences();
 	
 	const SequenceContainer& _asmSeqs;
+	SequenceContainer* 		 _edgeSeqsContainer;
 	const int _maxSeparation = Config::get("max_separation");
 
 	std::unordered_map<FastaRecord::Id, 

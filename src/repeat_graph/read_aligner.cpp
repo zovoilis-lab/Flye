@@ -116,35 +116,24 @@ void ReadAligner::alignReads()
 
 	//create database
 	std::unordered_map<FastaRecord::Id, 
-					   std::pair<GraphEdge*, SequenceSegment>> idToSegment;
-	SequenceContainer pathsContainer;
-
+					   std::pair<GraphEdge*, EdgeSequence>> idToSegment;
 	for (auto& edge : _graph.iterEdges())
 	{
-		if (!edge->edgeId.strand()) continue;
-
-		//add each edge sequence variant to the database
 		for (auto& segment : edge->seqSegments)
 		{
-			size_t len = segment.end - segment.start;
-			auto sequence = _asmSeqs.getSeq(segment.seqId)
-										.substr(segment.start, len);
-			auto& newRec = pathsContainer.addSequence(sequence, "");
-
-			idToSegment[newRec.id] = {edge, segment};
-			idToSegment[newRec.id.rc()] = {_graph.complementEdge(edge), 
-										   segment.complement()};
+			idToSegment[segment.edgeSeqId] = {edge, segment};
+			idToSegment[segment.edgeSeqId.rc()] = {_graph.complementEdge(edge), 
+										   		   segment.complement()};
 		}
 	}
-	pathsContainer.buildPositionIndex();
 
 	//index it and align reads
-	VertexIndex pathsIndex(pathsContainer, 
+	VertexIndex pathsIndex(_graph.edgeSequences(), 
 						   (int)Config::get("read_align_kmer_sample"));
 	pathsIndex.countKmers(/*min freq*/ 1, /* genome size*/ 0);
 	pathsIndex.setRepeatCutoff(/*min freq*/ 1);
 	pathsIndex.buildIndex(/*min freq*/ 1);
-	OverlapDetector readsOverlapper(pathsContainer, pathsIndex, 
+	OverlapDetector readsOverlapper(_graph.edgeSequences(), pathsIndex, 
 									(int)Config::get("maximum_jump"),
 									MIN_EDGE_OVLP - EDGE_FLANK,
 									/*no overhang*/ 0, /*no max ovlp count*/ 0,
@@ -172,7 +161,7 @@ void ReadAligner::alignReads()
 
 	std::function<void(const FastaRecord::Id&)> alignRead = 
 	[this, &indexMutex, &numAligned, &readsOverlaps,
-		&idToSegment, &pathsContainer, &alignedLength, &alignedInFull] 
+		&idToSegment, &alignedLength, &alignedInFull] 
 	(const FastaRecord::Id& seqId)
 	{
 		auto overlaps = readsOverlaps.quickSeqOverlaps(seqId);
@@ -185,15 +174,16 @@ void ReadAligner::alignReads()
 			if (ovlp.extLen < MIN_EDGE_OVLP + EDGE_FLANK ||
 				std::min(ovlp.curRange(), ovlp.extRange()) > MIN_EDGE_OVLP)
 			{
-				alignments.push_back({ovlp, idToSegment[ovlp.extId].first,
-									  idToSegment[ovlp.extId].second});
+				//alignments.push_back({ovlp, idToSegment[ovlp.extId].first,
+				//					  idToSegment[ovlp.extId].second});
+				alignments.push_back({ovlp, idToSegment[ovlp.extId].first});
 			}
 
 		}
 		std::sort(alignments.begin(), alignments.end(),
 		  [](const EdgeAlignment& e1, const EdgeAlignment& e2)
 			{return e1.overlap.curBegin < e2.overlap.curBegin;});
-		auto readChains = this->chainReadAlignments(pathsContainer, alignments);
+		auto readChains = this->chainReadAlignments(_graph.edgeSequences(), alignments);
 
 		std::vector<GraphAlignment> complChains(readChains);
 		for (auto& chain : complChains)
@@ -201,7 +191,7 @@ void ReadAligner::alignReads()
 			for (auto& aln : chain)
 			{
 				aln.edge = _graph.complementEdge(aln.edge);
-				aln.segment = aln.segment.complement();
+				//aln.segment = aln.segment.complement();
 				aln.overlap = aln.overlap.complement();
 			}
 			std::reverse(chain.begin(), chain.end());
@@ -308,4 +298,67 @@ void ReadAligner::updateAlignments()
 	}
 
 	_readAlignments = newAlignments;
+}
+
+void ReadAligner::storeAlignments(const std::string& filename)
+{
+	std::ofstream fout(filename);
+	if (!fout)
+	{
+		throw std::runtime_error("Can't open "  + filename);
+	}
+
+	for (auto& chain : _readAlignments)
+	{
+		fout << "Chain\n";
+		for (auto& aln : chain)
+		{
+			fout << "\tAln\t" << aln.edge->edgeId << "\t";
+			aln.overlap.dump(fout, _readSeqs, _graph.edgeSequences());
+			fout << "\n";
+		}
+	}
+}
+
+void ReadAligner::loadAlignments(const std::string& filename)
+{
+	std::ifstream fin(filename);
+	if (!fin)
+	{
+		throw std::runtime_error("Can't open "  + filename);
+	}
+
+	GraphAlignment curAlignment;
+	while(!fin.eof())
+	{
+		std::string buffer;
+		fin >> buffer;
+		if (buffer.empty()) continue;
+
+		if (buffer == "Chain")
+		{
+			if (!curAlignment.empty())
+			{
+				_readAlignments.push_back(curAlignment);
+				curAlignment.clear();
+			}
+		}
+		else if (buffer == "Aln")
+		{
+			OverlapRange ovlp;
+			size_t edgeId = 0;
+			fin >> edgeId;
+			ovlp.load(fin, _readSeqs, _graph.edgeSequences());
+			GraphEdge* edge = _graph.getEdge(FastaRecord::Id(edgeId));
+			curAlignment.push_back({ovlp, edge});
+		}
+		else throw std::runtime_error("Error parsing: " + filename);
+	}
+	if (!curAlignment.empty())
+	{
+		_readAlignments.push_back(curAlignment);
+		curAlignment.clear();
+	}
+
+	this->updateAlignments();
 }

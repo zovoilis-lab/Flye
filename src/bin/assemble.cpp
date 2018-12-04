@@ -14,11 +14,11 @@
 #include "../sequence/overlap.h"
 #include "../sequence/consensus_generator.h"
 #include "../common/config.h"
-#include "chimera.h"
-#include "extender.h"
-#include "parameters_estimator.h"
+#include "../assemble/extender.h"
+#include "../assemble/parameters_estimator.h"
 #include "../common/logger.h"
 #include "../common/utils.h"
+#include "../common/memory_info.h"
 
 #include <getopt.h>
 
@@ -112,52 +112,6 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 	return true;
 }
 
-bool fileExists(const std::string& path)
-{
-	std::ifstream fin(path);
-	return fin.good();
-}
-
-void segfaultHandler(int signal)
-{
-	void *stackArray[20];
-	size_t size = backtrace(stackArray, 10);
-	Logger::get().error() << "Segmentation fault! Backtrace:";
-	char** backtrace = backtrace_symbols(stackArray, size);
-	for (size_t i = 0; i < size; ++i)
-	{
-		Logger::get().error() << "\t" << backtrace[i];
-	}
-	exit(1);
-}
-
-void exceptionHandler()
-{
-	static bool triedThrow = false;
-	try
-	{
-        if (!triedThrow)
-		{
-			triedThrow = true;
-			throw;
-		}
-    }
-    catch (const std::exception &e) 
-	{
-        Logger::get().error() << "Caught unhandled exception: " << e.what();
-    }
-	catch (...) {}
-
-	void *stackArray[20];
-	size_t size = backtrace(stackArray, 10);
-	char** backtrace = backtrace_symbols(stackArray, size);
-	for (size_t i = 0; i < size; ++i)
-	{
-		Logger::get().error() << "\t" << backtrace[i];
-	}
-	exit(1);
-}
-
 int main(int argc, char** argv)
 {
 	#ifndef _DEBUG
@@ -186,6 +140,12 @@ int main(int argc, char** argv)
 	if (!logFile.empty()) Logger::get().setOutputFile(logFile);
 	Logger::get().debug() << "Build date: " << __DATE__ << " " << __TIME__;
 	std::ios::sync_with_stdio(false);
+
+	Logger::get().debug() << "Total RAM: " 
+		<< getMemorySize() / 1024 / 1024 / 1024 << " Gb";
+	Logger::get().debug() << "Available RAM: " 
+		<< getFreeMemorySize() / 1024 / 1024 / 1024 << " Gb";
+	Logger::get().debug() << "Total CPUs: " << std::thread::hardware_concurrency();
 
 	Config::load(configPath);
 	Parameters::get().numThreads = numThreads;
@@ -239,6 +199,8 @@ int main(int argc, char** argv)
 	vertexIndex.setRepeatCutoff(minKmerCov);
 	//vertexIndex.buildIndex(minKmerCov);
 	vertexIndex.buildIndexUnevenCoverage(/*min coverage*/ 2);
+	Logger::get().debug() << "Peak RAM usage: " 
+		<< getPeakRSS() / 1024 / 1024 / 1024 << " Gb";
 
 	OverlapDetector ovlp(readsContainer, vertexIndex,
 						 (int)Config::get("maximum_jump"), 
@@ -259,6 +221,9 @@ int main(int argc, char** argv)
 	ConsensusGenerator consGen;
 	auto contigsFasta = consGen.generateConsensuses(extender.getContigPaths());
 	SequenceContainer::writeFasta(contigsFasta, outAssembly);
+
+	Logger::get().debug() << "Peak RAM usage: " 
+		<< getPeakRSS() / 1024 / 1024 / 1024 << " Gb";
 
 	return 0;
 }

@@ -19,7 +19,7 @@
 //and the last edges of the graphPath parameter
 //should correspond to the flanking unique edges
 void RepeatResolver::separatePath(const GraphPath& graphPath, 
-								  SequenceSegment readSegment, 
+								  EdgeSequence readSegment, 
 								  FastaRecord::Id newId)
 {
 	//first edge
@@ -34,7 +34,8 @@ void RepeatResolver::separatePath(const GraphPath& graphPath,
 	for (size_t i = 1; i < graphPath.size() - 1; ++i)
 	{
 		graphPath[i]->resolved = true;
-		graphPath[i]->substractedCoverage += pathCoverage;
+		_substractedCoverage[graphPath[i]] += pathCoverage;
+		//graphPath[i]->substractedCoverage += pathCoverage;
 	}
 
 	GraphNode* rightNode = leftNode;
@@ -169,7 +170,7 @@ int RepeatResolver::resolveConnections(const std::vector<Connection>& connection
 		}
 		std::sort(spanningConnections.begin(), spanningConnections.end(),
 				  [](const Connection c1, const Connection c2)
-				{return c1.readSequence.length() < c2.readSequence.length();});
+				{return c1.readSeq.length() < c2.readSeq.length();});
 		uniqueConnections
 			.push_back(spanningConnections[spanningConnections.size() / 2]);
 	}
@@ -177,12 +178,20 @@ int RepeatResolver::resolveConnections(const std::vector<Connection>& connection
 	//separates the resolved paths in the graph
 	for (auto& conn : uniqueConnections)
 	{
-		GraphPath complPath = _graph.complementPath(conn.path);
-		SequenceSegment complSegment = conn.readSequence.complement();
-
 		FastaRecord::Id edgeId = _graph.newEdgeId();
-		this->separatePath(conn.path, conn.readSequence, edgeId);
-		this->separatePath(complPath, complSegment, edgeId.rc());
+
+		std::string description = "edge_" + std::to_string(edgeId.signedId()) + 
+				"_0_" + _readSeqs.getRecord(conn.readSeq.readId).description + "_" +
+				std::to_string(conn.readSeq.start) + "_" + 
+				std::to_string(conn.readSeq.end);
+		EdgeSequence edgeSeq = 
+			_graph.addEdgeSequence(_readSeqs.getSeq(conn.readSeq.readId),
+								   conn.readSeq.start, conn.readSeq.length(),
+								   description);
+
+		this->separatePath(conn.path, edgeSeq, edgeId);
+		this->separatePath(_graph.complementPath(conn.path), 
+						   edgeSeq.complement(), edgeId.rc());
 	}
 
 	Logger::get().debug() << "Resolved: " << uniqueConnections.size() << " links: "
@@ -286,134 +295,6 @@ bool RepeatResolver::checkByReadExtension(const GraphEdge* checkEdge,
 	return false;
 }
 
-/*bool RepeatResolver::checkByReadExtension(const GraphEdge* edge,
-										  const std::vector<GraphAlignment>& alignments)
-{
-	const GraphEdge* currentEdge = edge;
-	int numStartingReads = 0;
-
-	std::unordered_set<GraphEdge*> tandemEdges;
-	for (auto& aln : alignments)
-	{
-		for (size_t i = 0; i < aln.size() - 1; ++i)
-		{
-			if (aln[i].edge == aln[i + 1].edge) tandemEdges.insert(aln[i].edge);
-		}
-	}
-	std::unordered_set<GraphEdge*> edgesToSkip;
-	for (auto& aln : alignments)
-	{
-		for (size_t i = 0; i < aln.size(); ++i)
-		{
-			if (aln[i].edge->length() < 1000 && 
-				!tandemEdges.count(aln[i].edge) &&
-				aln[i].edge != edge) edgesToSkip.insert(aln[i].edge);
-		}
-	}
-
-	std::vector<GraphAlignment> consistentReads;
-	for (auto& aln : alignments)
-	{
-		GraphAlignment newAln;
-		for (auto& edge : aln)
-		{
-			if (!edgesToSkip.count(edge.edge)) newAln.push_back(edge);
-		}
-		if (newAln.size() > 1) consistentReads.emplace_back(std::move(newAln));
-	}
-
-	Logger::get().debug() << "Starting from edge " << edge->edgeId.signedId();
-	Logger::get().debug() << "Skipping edge: " << edgesToSkip.size();
-	Logger::get().debug() << "Discarded alignments: " << alignments.size() - consistentReads.size();
-
-	//while(!consistentReads.empty())
-	while(true)
-	{
-		//select reads that are consistent with the current path extension
-		std::vector<GraphAlignment> selectedReads;
-		for (auto& aln : consistentReads)
-		{
-			for (size_t i = 0; i < aln.size() - 1; ++i)
-			{
-				if (aln[i].edge == currentEdge)
-				{
-					if (aln[i].edge == aln[i + 1].edge) continue;
-
-					selectedReads.emplace_back();
-					std::copy(aln.begin() + i, aln.end(), 
-							  std::back_inserter(selectedReads.back()));
-					break;
-				}
-
-			}
-		}
-		if (selectedReads.empty()) break;
-		consistentReads.swap(selectedReads);
-		if (!numStartingReads) 
-		{
-			numStartingReads = consistentReads.size();
-		}
-
-		else if (numStartingReads / consistentReads.size() > 2)	//coverage dropped too much
-		{
-			return false;
-		}
-		
-		//count all possible extensions from this edge
-		std::unordered_map<GraphEdge*, int> outConnections;
-		for (auto& readPath : consistentReads)
-		{
-			++outConnections[readPath[1].edge];
-		}
-
-		//check if there is agreement
-		int maxSupport = 0;
-		GraphEdge* maxEdge = nullptr;
-		for (auto& outConn : outConnections)
-		{
-			if (maxSupport < outConn.second)
-			{
-				maxSupport =  outConn.second;
-				maxEdge = outConn.first;
-			}
-		}
-
-		int repeatMult = 0;
-		int uniqueMult = 0;
-		int minSupport = maxSupport / (int)Config::get("out_paths_ratio");
-		for (auto& outConn : outConnections) 
-		{
-			if (outConn.second > minSupport)
-			{
-				//all repeatitive successors are count as one
-				outConn.first->repetitive ? ++repeatMult : ++uniqueMult;
-			}
-		}
-
-		int outMultiplicity = std::min(repeatMult, 1) + uniqueMult;
-		if (outMultiplicity > 1) 
-		{
-			Logger::get().debug() << "\tAmbiguity:";
-			for (auto& outEdgeCount : outConnections)
-			{
-				std::string star = outEdgeCount.first->repetitive ? "R" : " ";
-				std::string loop = outEdgeCount.first->isLooped() ? "L" : " ";
-				std::string tip = outEdgeCount.first->isTip() ? "T" : " ";
-				Logger::get().debug() << "\t+\t" << star << " " << loop << " " << tip << " "
-					<< outEdgeCount.first->edgeId.signedId() << "\t" << outEdgeCount.second;
-			}
-			return true;
-		}
-
-		//found consistent extension, repeat
-		currentEdge = maxEdge;
-		Logger::get().debug() << "\tContinued to " << maxEdge->edgeId.signedId() 
-			<< " " << consistentReads.size();
-	}
-	
-	return false;
-}*/
-
 //Classifies all edges into unique and repetitive based on the coverage + 
 //alignment information - one of the key steps here.
 void RepeatResolver::findRepeats()
@@ -440,7 +321,7 @@ void RepeatResolver::findRepeats()
 	}
 
 	//Will operate on unbranching paths rather than single edges
-	GraphProcessor proc(_graph, _asmSeqs, _readSeqs);
+	GraphProcessor proc(_graph, _asmSeqs);
 	auto unbranchingPaths = proc.getUnbranchingPaths();
 	std::unordered_map<FastaRecord::Id, UnbranchingPath*> idToPath;
 	for (auto& path : unbranchingPaths) idToPath[path.id] = &path;
@@ -483,13 +364,15 @@ void RepeatResolver::findRepeats()
 			}
 		}
 
+		//This was kinda hacky originally - probably should be removed now
+		//with all other repeat detection improvements
 		//tandem repeats
-		if (path.path.size() == 1 && path.path.front()->isLooped())
+		/*if (path.path.size() == 1 && path.path.front()->isLooped())
 		{
 			std::unordered_set<FastaRecord::Id> seen;
 			for (auto& seg : path.path.front()->seqSegments)
 			{
-				if (seen.count(seg.seqId))
+				if (seen.count(seg.origSeqId))
 				{
 					markRepetitive(&path);
 					markRepetitive(complPath(&path));
@@ -498,9 +381,9 @@ void RepeatResolver::findRepeats()
 						<< path.meanCoverage;
 					break;
 				}
-				seen.insert(seg.seqId);
+				seen.insert(seg.origSeqId);
 			}
-		}
+		}*/
 	}
 
 	//Finally, using the read alignments
@@ -561,9 +444,9 @@ void RepeatResolver::findRepeats()
 	}
 }
 
-void RepeatResolver::fixLongEdges()
+void RepeatResolver::finalizeGraph()
 {
-	GraphProcessor proc(_graph, _asmSeqs, _readSeqs);
+	GraphProcessor proc(_graph, _asmSeqs);
 	auto unbranchingPaths = proc.getUnbranchingPaths();
 	for (auto& path : unbranchingPaths)
 	{
@@ -593,7 +476,7 @@ void RepeatResolver::fixLongEdges()
 		for (auto& edge : path.path)
 		{
 			edge->meanCoverage = std::max(0, (int)edge->meanCoverage - 
-											 (int)edge->substractedCoverage);
+											  _substractedCoverage[edge]);
 		}
 	}
 }
@@ -621,7 +504,7 @@ void RepeatResolver::resolveRepeats()
 		perfectIter = false;
 	}
 
-	GraphProcessor proc(_graph, _asmSeqs, _readSeqs);
+	GraphProcessor proc(_graph, _asmSeqs);
 	proc.fixChimericJunctions();
 	_aligner.updateAlignments();
 }
@@ -660,7 +543,7 @@ std::vector<RepeatResolver::Connection>
 			}
 
 			currentAln.push_back(aln);
-			if (safeEdge(aln.edge))
+			if (safeEdge(aln.edge) && currentAln.front().edge != aln.edge)
 			{
 				if (!currentAln.back().edge->nodeLeft->isBifurcation() &&
 					!currentAln.front().edge->nodeRight->isBifurcation()) continue;
@@ -675,14 +558,25 @@ std::vector<RepeatResolver::Connection>
 				GraphPath complPath = _graph.complementPath(currentPath);
 
 				int32_t readEnd = aln.overlap.curBegin - aln.overlap.extBegin;
-				readEnd = std::max(readStart + 100, readEnd);	//TODO: less ad-hoc fix
-				SequenceSegment segment(aln.overlap.curId, aln.overlap.curLen, 
-										readStart, readEnd);
-				segment.segType = SequenceSegment::Read;
-				SequenceSegment complSegment = segment.complement();
 
-				readConnections.push_back({currentPath, segment, flankScore});
-				readConnections.push_back({complPath, complSegment, flankScore});
+				//TODO: less ad-hoc fix. Currently, if read connects
+				//two consecutive edges (for example, when resolving chimer junctions,
+				//we still would insert a tiny bit of read sequence as a placeholder.
+				//Probably, wouldn't harm, but who knows..
+				readEnd = std::max(readStart + 100, readEnd);	
+
+				/*std::string description = "read_seq_" + 
+					std::to_string(aln.overlap.curId.signedId());
+				EdgeSequence edgeSeq = 
+					_graph.addEdgeSequence(_readSeqs.getSeq(aln.overlap.curId),
+										   readStart, readEnd - readStart,
+										   description);*/
+				ReadSequence readSeq = {aln.overlap.curId, readStart, readEnd};
+				ReadSequence complRead = {aln.overlap.curId.rc(), 
+										  aln.overlap.curLen - readEnd - 1,
+										  aln.overlap.curLen - readStart - 1};
+				readConnections.push_back({currentPath, readSeq, flankScore});
+				readConnections.push_back({complPath, complRead, flankScore});
 
 				currentAln.clear();
 				currentAln.push_back(aln);

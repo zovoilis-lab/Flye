@@ -18,6 +18,7 @@ logger = logging.getLogger()
 def setup_params(args):
     logger.info("Configuring run")
     parameters = {}
+    parameters["pipeline_version"] = cfg.vals["pipeline_version"]
 
     total_length = 0
     read_lengths = []

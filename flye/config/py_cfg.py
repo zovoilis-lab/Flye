@@ -10,6 +10,7 @@ import os
 
 vals = {
         "pkg_root" : os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        "pipeline_version" : 1,
 
         #additional configuration files for binary modules
         "bin_cfg" : {
@@ -30,7 +31,7 @@ vals = {
             "corrected" : [1000, 5000],
             "subasm" : [1000, 1000]
         },
-        "reduced_asm_cov"  : 40,
+        #"reduced_asm_cov"  : 40,
 
         #polishing
         "simple_kmer_length" : 4,
@@ -55,20 +56,6 @@ vals = {
                 "solid_missmatch" : 0.3,
                 "solid_indel" : 0.3,
                 "max_aln_error" : 0.3
-            },
-            "pacbio_hi_err" : {
-                "subs_matrix" : "config/bin_cfg/p6c4_substitutions.mat",
-                "hopo_matrix" : "config/bin_cfg/p6c4_homopolymers.mat",
-                "solid_missmatch" : 0.25,
-                "solid_indel" : 0.25,
-                "max_aln_error" : 0.3
-            },
-            "subasm" : {
-                "subs_matrix" : "config/bin_cfg/pacbio_substitutions.mat",
-                "hopo_matrix" : "config/bin_cfg/pacbio_homopolymers.mat",
-                "solid_missmatch" : 0.2,
-                "solid_indel" : 0.2,
-                "max_aln_error" : 0.25
             },
         },
 

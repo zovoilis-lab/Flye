@@ -6,5 +6,6 @@
 bin/flye-assemble
 bin/flye-polish
 bin/flye-repeat
+bin/flye-contigger
 bin/flye-minimap2
 build

@@ -144,12 +144,6 @@ public:
 		{}
 	};
 
-	/*struct SeqPos
-	{
-		FastaRecord::Id seqId;
-		int32_t position;
-	};*/
-
 	typedef std::vector<FastaRecord> SequenceIndex;
 
 	SequenceContainer():
@@ -158,7 +152,8 @@ public:
 	void loadFromFile(const std::string& filename, int minReadLength = 0);
 
 	static void writeFasta(const std::vector<FastaRecord>& records,
-						   const std::string& fileName);
+						   const std::string& fileName,
+						   bool  onlyPositiveStrand = false);
 
 	static size_t getMaxSeqId() {return g_nextSeqId;}
 
@@ -203,6 +198,11 @@ public:
 		return _sequenceOffsets[seqId._id - _seqIdOffest] + position;
 	}
 
+	const FastaRecord& recordByName(const std::string& name) const
+	{
+		return this->getRecord(_nameIndex.at(name));
+	}
+
 	void seqPosition(size_t globPos, FastaRecord::Id& outSeqId, 
 					 int32_t& outPosition) const
 	{
@@ -213,6 +213,7 @@ public:
 		outSeqId = FastaRecord::Id(_seqIdOffest + hint - 1);
 		outPosition = globPos - _sequenceOffsets[hint - 1];
 	}
+	static size_t g_nextSeqId;
 
 private:
 	FastaRecord::Id addSequence(const FastaRecord& sequence);
@@ -229,10 +230,11 @@ private:
 
 	void   validateHeader(std::string& header);
 
-	SequenceIndex _seqIndex;
-	size_t _seqIdOffest;
-	bool   _offsetInitialized;
-	static size_t g_nextSeqId;
+	SequenceIndex 	_seqIndex;
+	size_t 			_seqIdOffest;
+	bool   			_offsetInitialized;
+	std::unordered_map<std::string, 
+					   FastaRecord::Id> _nameIndex;
 
 	//global/local position convertions
 	const size_t MAX_SEQUENCE = 1ULL << (8 * 5);

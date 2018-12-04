@@ -1,13 +1,12 @@
 ROOT_DIR := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 
-export COMMON = -I${ROOT_DIR}/src/include
 export LIBCUCKOO = -I${ROOT_DIR}/lib/libcuckoo
 export INTERVAL_TREE = -I${ROOT_DIR}/lib/interval_tree
 export LEMON = -I${ROOT_DIR}/lib/lemon
 export BIN_DIR = ${ROOT_DIR}/bin
 export MINIMAP2_DIR = ${ROOT_DIR}/lib/minimap2
 
-export CXXFLAGS += ${LIBCUCKOO} ${INTERVAL_TREE} ${LEMON} ${COMMON} -I${MINIMAP2_DIR}
+export CXXFLAGS += ${LIBCUCKOO} ${INTERVAL_TREE} ${LEMON} -I${MINIMAP2_DIR}
 export LDFLAGS += -lz -L${MINIMAP2_DIR} -lminimap2
 
 .PHONY: clean all profile debug minimap2
