@@ -135,7 +135,7 @@ int main(int argc, char** argv)
 	Logger::get().debug() << "Running with k-mer size: " << 
 		Parameters::get().kmerSize; 
 	Logger::get().debug() << "Selected minimum overlap " << minOverlap;
-	Logger::get().debug() << "Metagenome mode: " << unevenCov;
+	Logger::get().debug() << "Metagenome mode: " << "NY"[unevenCov];
 
 	Logger::get().info() << "Reading sequences";
 	SequenceContainer seqAssembly; 

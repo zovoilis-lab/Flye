@@ -139,7 +139,7 @@ int main(int argc, char** argv)
 	Logger::get().debug() << "Running with k-mer size: " << 
 		Parameters::get().kmerSize; 
 	Logger::get().debug() << "Running with minimum overlap " << minOverlap;
-	Logger::get().debug() << "Metagenome mode: " << unevenCov;
+	Logger::get().debug() << "Metagenome mode: " << "NY"[unevenCov];
 
 	SequenceContainer readsContainer;
 	std::vector<std::string> readsList = splitString(readsFasta, ',');
@@ -170,25 +170,38 @@ int main(int argc, char** argv)
 	Logger::get().debug() << "Expected read coverage: " << coverage;
 
 	Logger::get().info() << "Generating solid k-mer index";
-	//size_t hardThreshold = std::min(5, std::max(2, 
-	//		coverage / (int)Config::get("hard_min_coverage_rate")));
-	vertexIndex.countKmers(/*hard threshold*/ 2, genomeSize);
-
+	if (!Parameters::get().unevenCoverage)
+	{
+		size_t hardThreshold = std::min(5, std::max(2, 
+				coverage / (int)Config::get("hard_min_coverage_rate")));
+		vertexIndex.countKmers(hardThreshold, genomeSize);
+	}
+	else
+	{
+		vertexIndex.countKmers(/*hard threshold*/ 2, genomeSize);
+	}
 	ParametersEstimator estimator(readsContainer, vertexIndex, genomeSize);
 	estimator.estimateMinKmerCount();
 	int minKmerCov = estimator.minKmerCount();
-
 	vertexIndex.setRepeatCutoff(minKmerCov);
-	//vertexIndex.buildIndex(minKmerCov);
-	vertexIndex.buildIndexUnevenCoverage(/*min coverage*/ 2);
+	if (!Parameters::get().unevenCoverage)
+	{
+		vertexIndex.buildIndex(minKmerCov);
+	}
+	else
+	{
+		vertexIndex.buildIndexUnevenCoverage(/*min coverage*/ 2);
+	}
+
 	Logger::get().debug() << "Peak RAM usage: " 
 		<< getPeakRSS() / 1024 / 1024 / 1024 << " Gb";
 
+	int maxOverlapsNum = !Parameters::get().unevenCoverage ? 5 * coverage : 0;
 	OverlapDetector ovlp(readsContainer, vertexIndex,
 						 (int)Config::get("maximum_jump"), 
 						 Parameters::get().minimumOverlap,
 						 (int)Config::get("maximum_overhang"),
-						 /*no max ovlp*/ 0, 
+						 maxOverlapsNum, 
 						 /*store alignment*/ false,
 						 /*only max*/ true,
 						 (float)Config::get("assemble_ovlp_ident"), 

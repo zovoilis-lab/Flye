@@ -13,7 +13,7 @@
 void MultiplicityInferer::estimateCoverage()
 {
 	const int WINDOW = Config::get("coverage_estimate_window");
-	const int SHORT_EDGE = Config::get("unique_edge_length");
+	//const int SHORT_EDGE = Config::get("unique_edge_length");
 
 	//alternative coverage
 	std::unordered_map<GraphEdge*, std::vector<int32_t>> wndCoverage;
@@ -46,7 +46,7 @@ void MultiplicityInferer::estimateCoverage()
 	int64_t sumLength = 0;
 	for (auto& edgeCoverage : wndCoverage)
 	{
-		if (edgeCoverage.first->length() < SHORT_EDGE) continue;
+		//if (edgeCoverage.first->length() < SHORT_EDGE) continue;
 		for (auto& cov : edgeCoverage.second)
 		{
 			sumCov += (int64_t)cov;
@@ -101,7 +101,10 @@ void MultiplicityInferer::removeUnsupportedEdges()
 	int32_t coverageThreshold = std::round((float)this->getMeanCoverage() / 
 											Config::get("graph_cov_drop_rate"));
 	coverageThreshold = std::max(1, coverageThreshold);
-	coverageThreshold = std::min(coverageThreshold, 2);
+	if (Parameters::get().unevenCoverage)
+	{
+		coverageThreshold = std::min(coverageThreshold, 2);
+	}
 	Logger::get().debug() << "Read coverage cutoff: " << coverageThreshold;
 
 	std::unordered_set<GraphEdge*> edgesRemove;

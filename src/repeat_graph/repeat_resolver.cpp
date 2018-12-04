@@ -343,14 +343,17 @@ void RepeatResolver::findRepeats()
 		if (!path.id.strand()) continue;
 
 		//mark paths with high coverage as repetitive
-		/*if (path.meanCoverage > _multInf.getUniqueCovThreshold())
+		if (!Parameters::get().unevenCoverage)
 		{
-			markRepetitive(&path);
-			markRepetitive(complPath(&path));
-			Logger::get().debug() << "Cov: " 
-				<< path.edgesStr() << "\t" << path.length << "\t" 
-				<< path.meanCoverage;
-		}*/
+			if (path.meanCoverage > _multInf.getUniqueCovThreshold())
+			{
+				markRepetitive(&path);
+				markRepetitive(complPath(&path));
+				Logger::get().debug() << "Cov: " 
+					<< path.edgesStr() << "\t" << path.length << "\t" 
+					<< path.meanCoverage;
+			}
+		}
 
 		//self-complements are repetitive
 		for (auto& edge : path.path)
@@ -452,10 +455,13 @@ void RepeatResolver::finalizeGraph()
 	{
 		if (!path.id.strand()) continue;
 
+		bool highCoverage = (float)path.meanCoverage > 
+							_multInf.getUniqueCovThreshold();
+
 		if (!path.path.front()->selfComplement &&
 			path.path.front()->repetitive &&
-			path.length > (int)Config::get("unique_edge_length"))
-			//(float)path.meanCoverage < _multInf.getUniqueCovThreshold())
+			path.length > (int)Config::get("unique_edge_length") &&
+			(Parameters::get().unevenCoverage || !highCoverage))
 		{
 			for (auto& edge : path.path)
 			{
