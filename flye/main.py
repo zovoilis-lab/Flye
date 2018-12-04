@@ -26,7 +26,7 @@ import flye.config.py_cfg as cfg
 from flye.config.configurator import setup_params
 from flye.utils.bytes2human import human2bytes
 import flye.utils.fasta_parser as fp
-from flye.short_plasmids.plasmids import assemble_short_plasmids
+import flye.short_plasmids.plasmids as plas
 import flye.trestle.trestle as tres
 import flye.trestle.graph_resolver as tres_graph
 from flye.repeat_graph.repeat_graph import RepeatGraph
@@ -120,24 +120,40 @@ class JobAssembly(Job):
 
 
 class JobShortPlasmidsAssembly(Job):
-    def __init__(self, args, work_dir, contigs_file):
+    def __init__(self, args, work_dir, contigs_file, repeat_graph,
+                 graph_edges):
         super(JobShortPlasmidsAssembly, self).__init__()
 
         self.args = args
         self.work_dir = work_dir
-        self.plasmids_dir = os.path.join(work_dir, "5-plasmids")
+        self.work_dir = os.path.join(work_dir, "3-plasmids")
         self.contigs_path = contigs_file
+        self.repeat_graph = repeat_graph
+        self.graph_edges = graph_edges
+
         self.name = "plasmids"
-        self.out_files["short_plasmids"] = os.path.join(self.plasmids_dir,
-                                                        "polished_1.fasta")
+        self.out_files["repeat_graph"] = os.path.join(self.work_dir,
+                                                      "repeat_graph_dump")
+        self.out_files["repeat_graph_edges"] = \
+            os.path.join(self.work_dir, "repeat_graph_edges.fasta")
+
 
     def run(self):
         super(JobShortPlasmidsAssembly, self).run()
         logger.info("Recovering short unassebmled sequences")
-        if not os.path.isdir(self.plasmids_dir):
-            os.mkdir(self.plasmids_dir)
-        assemble_short_plasmids(self.args, self.plasmids_dir,
-                                self.contigs_path)
+        if not os.path.isdir(self.work_dir):
+            os.mkdir(self.work_dir)
+        plasmids = plas.assemble_short_plasmids(self.args, self.work_dir,
+                                                self.contigs_path)
+
+        #updating repeat graph
+        repeat_graph = RepeatGraph(fp.read_sequence_dict(self.graph_edges))
+        repeat_graph.load_from_file(self.repeat_graph)
+        plas.update_graph(repeat_graph, plasmids)
+        repeat_graph.dump_to_file(self.out_files["repeat_graph"])
+        fp.write_fasta_dict(repeat_graph.edges_fasta,
+                            self.out_files["repeat_graph_edges"])
+
 
 
 class JobRepeat(Job):
@@ -381,6 +397,14 @@ def _create_job_list(args, work_dir, log_file):
     repeat_graph = jobs[-1].out_files["repeat_graph"]
     reads_alignment = jobs[-1].out_files["reads_alignment"]
 
+    #Short plasmids
+    if args.plasmids:
+        jobs.append(JobShortPlasmidsAssembly(args, work_dir, repeat_graph_edges,
+                                             repeat_graph, repeat_graph_edges))
+        repeat_graph_edges = jobs[-1].out_files["repeat_graph_edges"]
+        repeat_graph = jobs[-1].out_files["repeat_graph"]
+
+
     #Trestle: Resolve Unbridged Repeats
     if args.read_type != "subasm":
         jobs.append(JobTrestle(args, work_dir, log_file,
@@ -409,10 +433,6 @@ def _create_job_list(args, work_dir, log_file):
         contigs_file = jobs[-1].out_files["contigs"]
         polished_stats = jobs[-1].out_files["stats"]
         polished_gfa = jobs[-1].out_files["polished_gfa"]
-
-    #Short plasmids
-    if args.plasmids:
-        jobs.append(JobShortPlasmidsAssembly(args, work_dir, contigs_file))
 
     #Report results
     jobs.append(JobFinalize(args, work_dir, log_file, contigs_file,
@@ -592,7 +612,7 @@ def main():
                         "contig assembly [not set]", type=int)
     parser.add_argument("--plasmids", action="store_true",
                         dest="plasmids", default=False,
-                        help="try to rescue short unassmebled plasmids")
+                        help="rescue short unassmebled plasmids")
     parser.add_argument("--resume", action="store_true",
                         dest="resume", default=False,
                         help="resume from the last completed stage")
