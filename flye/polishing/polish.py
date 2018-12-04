@@ -86,7 +86,9 @@ def polish(contig_seqs, read_seqs, work_dir, num_iters, num_threads, error_mode,
         polished_file = os.path.join(work_dir, "polished_{0}.fasta"
                                      .format(i + 1))
         if os.path.getsize(bubbles_file) == 0:
-            logger_func("No reads were aligned during polishing")
+            logger.info("No reads were aligned during polishing")
+            if not output_progress:
+                logger.disabled = False
             return
 
         _run_polish_bin(bubbles_file, subs_matrix, hopo_matrix,

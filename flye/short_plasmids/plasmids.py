@@ -83,13 +83,14 @@ def assemble_short_plasmids(args, work_dir, contigs_path):
 
     #extract coverage
     plasmids_with_coverage = {}
-    with open(os.path.join(work_dir, "contigs_stats.txt"), "r") as f:
-        for line in f:
-            if line.startswith("seq"): continue
-            tokens = line.strip().split()
-            seq_id, coverage = tokens[0], int(tokens[2])
-            if coverage > 0:
-                plasmids_with_coverage[seq_id] = plasmids[seq_id], coverage
+    if os.path.isfile(os.path.join(work_dir, "contigs_stats.txt")):
+        with open(os.path.join(work_dir, "contigs_stats.txt"), "r") as f:
+            for line in f:
+                if line.startswith("seq"): continue
+                tokens = line.strip().split()
+                seq_id, coverage = tokens[0], int(tokens[2])
+                if coverage > 0:
+                    plasmids_with_coverage[seq_id] = plasmids[seq_id], coverage
 
     logger.info("Added {} extra contigs".format(len(plasmids_with_coverage)))
 
