@@ -80,7 +80,8 @@ struct Parameters
 		return param;
 	}
 
-	int minimumOverlap;
-	size_t kmerSize;
-	size_t numThreads;
+	int 	minimumOverlap;
+	size_t 	kmerSize;
+	size_t 	numThreads;
+	bool 	unevenCoverage;
 };

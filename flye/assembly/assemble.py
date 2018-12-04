@@ -42,6 +42,8 @@ def assemble(args, run_params, out_file, log_file, config_path):
     cmdline = [ASSEMBLE_BIN, "-l", log_file, "-t", str(args.threads)]
     if args.debug:
         cmdline.append("-d")
+    if args.meta:
+        cmdline.append("-u")
     cmdline.extend(["-v", str(run_params["min_overlap"])])
     cmdline.extend(["-k", str(run_params["kmer_size"])])
     if run_params["min_read_length"] > 0:

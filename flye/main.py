@@ -589,14 +589,12 @@ def main():
     read_group.add_argument("--subassemblies", dest="subassemblies", nargs="+",
                         default=None, metavar="path",
                         help="high-quality contigs input")
-
     parser.add_argument("-g", "--genome-size", dest="genome_size",
                         metavar="size", required=True,
                         help="estimated genome size (for example, 5m or 2.6g)")
     parser.add_argument("-o", "--out-dir", dest="out_dir",
                         default=None, required=True,
                         metavar="path", help="Output directory")
-
     parser.add_argument("-t", "--threads", dest="threads",
                         type=lambda v: check_int_range(v, 1, 128),
                         default=1, metavar="int", help="number of parallel threads [1]")
@@ -613,6 +611,9 @@ def main():
     parser.add_argument("--plasmids", action="store_true",
                         dest="plasmids", default=False,
                         help="rescue short unassmebled plasmids")
+    parser.add_argument("--meta", action="store_true",
+                        dest="meta", default=False,
+                        help="metagenome / uneven coverage mode")
     parser.add_argument("--resume", action="store_true",
                         dest="resume", default=False,
                         help="resume from the last completed stage")

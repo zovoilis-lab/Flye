@@ -24,16 +24,15 @@
 
 bool parseArgs(int argc, char** argv, std::string& readsFasta, 
 			   std::string& outAssembly, std::string& logFile, size_t& genomeSize,
-			   int& minKmer, int& maxKmer, int& kmerSize, bool& debug,
-			   size_t& numThreads, int& minOverlap, std::string& configPath,
-			   int& minReadLength)
+			   int& kmerSize, bool& debug, size_t& numThreads, int& minOverlap, 
+			   std::string& configPath, int& minReadLength, bool& unevenCov)
 {
 	auto printUsage = [argv]()
 	{
 		std::cerr << "Usage: " << argv[0]
-				  << "\treads_files out_assembly genome_size config_file\n\t"
-				  << "[-m min_kmer_cov] [-r min_read_length]\n\t"
-				  << "[-x max_kmer_cov] [-l log_file] [-t num_threads] [-d]\n\n"
+				  << " reads_files out_assembly genome_size config_file\n\t"
+				  << "[-r min_read_length] [-l log_file] [-t num_threads]\n\t"
+				  << "[-u] [-d] [-h]\n\n"
 				  << "positional arguments:\n"
 				  << "\treads file\tcomma-separated list of read files\n"
 				  << "\tout_assembly\tpath to output file\n"
@@ -41,13 +40,11 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 				  << "\tconfig_file\tpath to the config file\n"
 				  << "\noptional arguments:\n"
 				  << "\t-k kmer_size\tk-mer size [default = 15] \n"
-				  << "\t-m min_kmer_cov\tminimum k-mer coverage "
-				  << "[default = auto] \n"
-				  << "\t-x max_kmer_cov\tmaximum k-mer coverage "
-				  << "[default = auto] \n"
 				  << "\t-v min_overlap\tminimum overlap between reads "
 				  << "[default = 5000] \n"
 				  << "\t-d \t\tenable debug output "
+				  << "[default = false] \n"
+				  << "\t-u \t\tenable uneven coverage (metagenome) mode "
 				  << "[default = false] \n"
 				  << "\t-l log_file\toutput log to file "
 				  << "[default = not set] \n"
@@ -55,16 +52,7 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 				  << "[default = 1] \n";
 	};
 
-	//kmerSize = -1;
-	minKmer = -1;
-	maxKmer = -1;
-	kmerSize = 15;
-	numThreads = 1;
-	debug = false;
-	minOverlap = -1;
-	minReadLength = 0;
-
-	const char optString[] = "m:x:l:t:v:k:r:hds";
+	const char optString[] = "l:t:v:k:r:hdu";
 	int opt = 0;
 	while ((opt = getopt(argc, argv, optString)) != -1)
 	{
@@ -75,12 +63,6 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 			break;
 		case 'r':
 			minReadLength = atoi(optarg);
-			break;
-		case 'm':
-			minKmer = atoi(optarg);
-			break;
-		case 'x':
-			maxKmer = atoi(optarg);
 			break;
 		case 't':
 			numThreads = atoi(optarg);
@@ -93,6 +75,9 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 			break;
 		case 'd':
 			debug = true;
+			break;
+		case 'u':
+			unevenCov = true;
 			break;
 		case 'h':
 			printUsage();
@@ -119,13 +104,12 @@ int main(int argc, char** argv)
 	std::set_terminate(exceptionHandler);
 	#endif
 
-	int minKmerCov = 0;
-	int maxKmerCov = 0;
-	int kmerSize = 0;
+	int kmerSize = 15;
 	int minReadLength = 0;
 	size_t genomeSize = 0;
 	int minOverlap = 5000;
 	bool debugging = false;
+	bool unevenCov = false;
 	size_t numThreads = 1;
 	std::string readsFasta;
 	std::string outAssembly;
@@ -133,8 +117,8 @@ int main(int argc, char** argv)
 	std::string configPath;
 
 	if (!parseArgs(argc, argv, readsFasta, outAssembly, logFile, genomeSize,
-				   minKmerCov, maxKmerCov, kmerSize, debugging, numThreads,
-				   minOverlap, configPath, minReadLength)) return 1;
+				   kmerSize, debugging, numThreads, minOverlap, configPath, 
+				   minReadLength, unevenCov)) return 1;
 
 	Logger::get().setDebugging(debugging);
 	if (!logFile.empty()) Logger::get().setOutputFile(logFile);
@@ -150,8 +134,12 @@ int main(int argc, char** argv)
 	Config::load(configPath);
 	Parameters::get().numThreads = numThreads;
 	Parameters::get().kmerSize = kmerSize;
+	Parameters::get().minimumOverlap = minOverlap;
+	Parameters::get().unevenCoverage = unevenCov;
 	Logger::get().debug() << "Running with k-mer size: " << 
 		Parameters::get().kmerSize; 
+	Logger::get().debug() << "Running with minimum overlap " << minOverlap;
+	Logger::get().debug() << "Metagenome mode: " << unevenCov;
 
 	SequenceContainer readsContainer;
 	std::vector<std::string> readsList = splitString(readsFasta, ',');
@@ -173,9 +161,6 @@ int main(int argc, char** argv)
 							(int)Config::get("assemble_kmer_sample"));
 	vertexIndex.outputProgress(true);
 
-	Parameters::get().minimumOverlap = minOverlap;
-	Logger::get().debug() << "Running with minimum overlap " << minOverlap;
-
 	int64_t sumLength = 0;
 	for (auto& seq : readsContainer.iterSeqs())
 	{
@@ -191,10 +176,7 @@ int main(int argc, char** argv)
 
 	ParametersEstimator estimator(readsContainer, vertexIndex, genomeSize);
 	estimator.estimateMinKmerCount();
-	if (minKmerCov == -1)
-	{
-		minKmerCov = estimator.minKmerCount();
-	}
+	int minKmerCov = estimator.minKmerCount();
 
 	vertexIndex.setRepeatCutoff(minKmerCov);
 	//vertexIndex.buildIndex(minKmerCov);

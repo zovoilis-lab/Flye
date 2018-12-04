@@ -43,6 +43,8 @@ def analyse_repeats(args, run_params, input_assembly, out_folder,
         cmdline.extend(["-v", str(args.min_overlap)])
     if args.debug:
         cmdline.append("-d")
+    if args.meta:
+        cmdline.append("-u")
     cmdline.extend(["-v", str(run_params["min_overlap"])])
     cmdline.extend(["-k", str(run_params["kmer_size"])])
     cmdline.extend([input_assembly, ",".join(args.reads),

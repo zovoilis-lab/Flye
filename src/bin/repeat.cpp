@@ -26,14 +26,14 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 			   std::string& outFolder, std::string& logFile, 
 			   std::string& inAssembly, int& kmerSize,
 			   int& minOverlap, bool& debug, size_t& numThreads, 
-			   std::string& configPath)
+			   std::string& configPath, bool& unevenCov)
 {
 	auto printUsage = [argv]()
 	{
 		std::cerr << "Usage: " << argv[0]
 				  << "\tin_assembly reads_files out_folder config_path\n\t"
 				  << "[-l log_file] [-t num_threads] [-v min_overlap]\n\t"
-				  << "[-d]\n\n"
+				  << "[-d] [-u]\n\n"
 				  << "positional arguments:\n"
 				  << "\tin_assembly\tpath to input assembly\n"
 				  << "\treads_files\tcomma-separated list with reads\n"
@@ -45,18 +45,15 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 				  << "[default = 5000] \n"
 				  << "\t-d \t\tenable debug output "
 				  << "[default = false] \n"
+				  << "\t-u \t\tenable uneven coverage (metagenome) mode "
+				  << "[default = false] \n"
 				  << "\t-l log_file\toutput log to file "
 				  << "[default = not set] \n"
 				  << "\t-t num_threads\tnumber of parallel threads "
 				  << "[default = 1] \n";
 	};
 
-	numThreads = 1;
-	debug = false;
-	minOverlap = -1;
-	kmerSize = 15;
-
-	const char optString[] = "l:t:v:k:hd";
+	const char optString[] = "l:t:v:k:hdu";
 	int opt = 0;
 	while ((opt = getopt(argc, argv, optString)) != -1)
 	{
@@ -76,6 +73,9 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 			break;
 		case 'd':
 			debug = true;
+			break;
+		case 'u':
+			unevenCov = true;
 			break;
 		case 'h':
 			printUsage();
@@ -107,6 +107,7 @@ int main(int argc, char** argv)
 	size_t numThreads = 1;
 	int kmerSize = 15;
 	int minOverlap = 5000;
+	bool unevenCov = false;
 	std::string readsFasta;
 	std::string inAssembly;
 	std::string outFolder;
@@ -114,7 +115,7 @@ int main(int argc, char** argv)
 	std::string configPath;
 	if (!parseArgs(argc, argv, readsFasta, outFolder, logFile, inAssembly,
 				   kmerSize, minOverlap, debugging, 
-				   numThreads, configPath))  return 1;
+				   numThreads, configPath, unevenCov))  return 1;
 	
 	Logger::get().setDebugging(debugging);
 	if (!logFile.empty()) Logger::get().setOutputFile(logFile);
@@ -127,12 +128,14 @@ int main(int argc, char** argv)
 		<< getFreeMemorySize() / 1024 / 1024 / 1024 << " Gb";
 	Logger::get().debug() << "Total CPUs: " << std::thread::hardware_concurrency();
 
-	
 	Config::load(configPath);
 	Parameters::get().numThreads = numThreads;
 	Parameters::get().kmerSize = kmerSize;
+	Parameters::get().minimumOverlap = minOverlap;
 	Logger::get().debug() << "Running with k-mer size: " << 
 		Parameters::get().kmerSize; 
+	Logger::get().debug() << "Selected minimum overlap " << minOverlap;
+	Logger::get().debug() << "Metagenome mode: " << unevenCov;
 
 	Logger::get().info() << "Reading sequences";
 	SequenceContainer seqAssembly; 
@@ -153,9 +156,6 @@ int main(int argc, char** argv)
 	}
 	seqReads.buildPositionIndex();
 	seqAssembly.buildPositionIndex();
-
-	Parameters::get().minimumOverlap = minOverlap;
-	Logger::get().debug() << "Selected minimum overlap " << minOverlap;
 
 	SequenceContainer edgeSequences;
 	RepeatGraph rg(seqAssembly, &edgeSequences);

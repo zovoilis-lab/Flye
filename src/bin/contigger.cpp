@@ -32,10 +32,9 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 	auto printUsage = [argv]()
 	{
 		std::cerr << "Usage: " << argv[0]
-				  << "\tin_assembly reads_files out_folder config_path "
-				  << "repeat_graph reads_alignment\n\t"
-				  << "[-l log_file] [-t num_threads] [-v min_overlap]\n\t"
-				  << "[-d]\n\n"
+				  << " in_assembly reads_files out_folder config_path\n\t\t"
+				  << "repeat_graph reads_alignment\n\t\t"
+				  << "[-l log_file] [-t num_threads] [-v min_overlap] [-d]\n\n"
 				  << "positional arguments:\n"
 				  << "\tin_assembly\tpath to input assembly\n"
 				  << "\treads_files\tcomma-separated list with reads\n"
@@ -54,11 +53,6 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 				  << "\t-t num_threads\tnumber of parallel threads "
 				  << "[default = 1] \n";
 	};
-
-	numThreads = 1;
-	debug = false;
-	minOverlap = -1;
-	kmerSize = 15;
 
 	const char optString[] = "l:t:v:k:hd";
 	int opt = 0;
@@ -140,8 +134,10 @@ int main(int argc, char** argv)
 	Config::load(configPath);
 	Parameters::get().numThreads = numThreads;
 	Parameters::get().kmerSize = kmerSize;
+	Parameters::get().minimumOverlap = minOverlap;
 	Logger::get().debug() << "Running with k-mer size: " << 
 		Parameters::get().kmerSize; 
+	Logger::get().debug() << "Selected minimum overlap " << minOverlap;
 
 	Logger::get().info() << "Reading sequences";
 	SequenceContainer seqGraphEdges; 
