@@ -204,7 +204,7 @@ int main(int argc, char** argv)
 						 maxOverlapsNum, 
 						 /*store alignment*/ false,
 						 /*only max*/ true,
-						 (float)Config::get("assemble_ovlp_ident"), 
+						 (float)Config::get("assemble_ovlp_divergence"),
 						 /* bad end adjustment*/ 0.0f,
 						 /* nucl alignent*/ false);
 	OverlapContainer readOverlaps(ovlp, readsContainer);

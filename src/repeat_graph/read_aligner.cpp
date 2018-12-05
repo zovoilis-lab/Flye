@@ -138,7 +138,7 @@ void ReadAligner::alignReads()
 									MIN_EDGE_OVLP - EDGE_FLANK,
 									/*no overhang*/ 0, /*no max ovlp count*/ 0,
 									/*keep alignment*/ false, /*only max*/ false,
-									(float)Config::get("read_align_ovlp_ident"),
+									(float)Config::get("read_align_ovlp_divergence"),
 									/*bad end adjust*/ 0.0f, 
 									/*nucl alignment*/ false);
 	OverlapContainer readsOverlaps(readsOverlapper, _readSeqs);
