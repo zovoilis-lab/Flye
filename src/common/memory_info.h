@@ -240,7 +240,7 @@ inline size_t getFreeMemorySize()
 	fclose(fp);
 
 	return (freed + buffered + cached) * 1024;
-#elif
+#else
 	return 0;
 #endif
 }
