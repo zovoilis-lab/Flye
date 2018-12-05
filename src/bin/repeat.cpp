@@ -132,6 +132,7 @@ int main(int argc, char** argv)
 	Parameters::get().numThreads = numThreads;
 	Parameters::get().kmerSize = kmerSize;
 	Parameters::get().minimumOverlap = minOverlap;
+	Parameters::get().unevenCoverage = unevenCov;
 	Logger::get().debug() << "Running with k-mer size: " << 
 		Parameters::get().kmerSize; 
 	Logger::get().debug() << "Selected minimum overlap " << minOverlap;
