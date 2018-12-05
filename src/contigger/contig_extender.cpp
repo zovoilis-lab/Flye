@@ -136,7 +136,7 @@ void ContigExtender::generateContigs()
 
 		//generate extension sequence
 		std::string extendedSeq;
-		if (lastIncomplete && graphContinue && !lastUpath->isLooped())
+		if (lastIncomplete && graphContinue)
 		{
 			upathAln.pop_back();
 		}
@@ -148,7 +148,7 @@ void ContigExtender::generateContigs()
 			extendedSeq = _readSeqs.getSeq(readId)
 				.substr(readStart, readEnd - readStart).str();
 		}
-		if (lastIncomplete && graphContinue && !lastUpath->isLooped())
+		if (lastIncomplete && graphContinue)
 		{
 			extendedSeq += upathsSeqs[lastUpath]->sequence.str();
 		}
@@ -158,7 +158,7 @@ void ContigExtender::generateContigs()
 		{
 			for (auto& edgeAln : ualn.aln) extendedPath.push_back(edgeAln.edge);
 		}
-		if (lastIncomplete && graphContinue && !lastUpath->isLooped())
+		if (lastIncomplete && graphContinue)
 		{
 			for (auto& edge : lastUpath->path) extendedPath.push_back(edge);
 		}
