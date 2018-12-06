@@ -89,7 +89,7 @@ def polish(contig_seqs, read_seqs, work_dir, num_iters, num_threads, error_mode,
             logger.info("No reads were aligned during polishing")
             if not output_progress:
                 logger.disabled = False
-            return
+            return None, None
 
         _run_polish_bin(bubbles_file, subs_matrix, hopo_matrix,
                         consensus_out, num_threads, output_progress)
