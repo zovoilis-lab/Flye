@@ -397,27 +397,36 @@ void RepeatResolver::findRepeats()
 			  [](const UnbranchingPath* p1, const UnbranchingPath* p2) 
 			  {return p1->length < p2->length;});
 
-	for (auto& path : sortedPaths)
+	//in the case of metagenome do 2 passes, since some small
+	//edges might not be detected from the 1st iteration
+	//if tey are partes of mosaic repeats. In the case of
+	//uniform coverage, this edges are typically detected using coverage
+	size_t numIters = !Parameters::get().unevenCoverage ? 1 : 2;
+	for (size_t i = 0; i < numIters; ++i)
 	{
-		if (!path->id.strand()) continue;
-		if (path->path.front()->repetitive) continue;
-		//if (path->length > (int)Config::get("unique_edge_length")) continue;
-
-		bool rightRepeat = 
-			this->checkByReadExtension(path->path.back(), 
-									   alnIndex[path->path.back()]);
-		bool leftRepeat = 
-			this->checkByReadExtension(complPath(path)->path.back(), 
-								   	   alnIndex[complPath(path)->path.back()]);
-		if (rightRepeat || leftRepeat)
+		Logger::get().debug() << "Repeat detection iteration " << i + 1;
+		for (auto& path : sortedPaths)
 		{
-			markRepetitive(path);
-			markRepetitive(complPath(path));
-			
-			Logger::get().debug() << "Mult: " 
-				<< path->edgesStr() << "\t" << path->length << "\t" 
-				<< path->meanCoverage << "\t" " ("
-				<< leftRepeat << "," << rightRepeat << ")";
+			if (!path->id.strand()) continue;
+			if (path->path.front()->repetitive) continue;
+			//if (path->length > (int)Config::get("unique_edge_length")) continue;
+
+			bool rightRepeat = 
+				this->checkByReadExtension(path->path.back(), 
+										   alnIndex[path->path.back()]);
+			bool leftRepeat = 
+				this->checkByReadExtension(complPath(path)->path.back(), 
+										   alnIndex[complPath(path)->path.back()]);
+			if (rightRepeat || leftRepeat)
+			{
+				markRepetitive(path);
+				markRepetitive(complPath(path));
+				
+				Logger::get().debug() << "Mult: " 
+					<< path->edgesStr() << "\t" << path->length << "\t" 
+					<< path->meanCoverage << "\t" " ("
+					<< leftRepeat << "," << rightRepeat << ")";
+			}
 		}
 	}
 
