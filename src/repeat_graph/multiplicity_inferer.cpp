@@ -228,6 +228,7 @@ void MultiplicityInferer::collapseHeterozygousLoops()
 	for (auto& loop : unbranchingPaths)
 	{
 		if (!loop.isLooped()) continue;
+		if (loop.path.front()->selfComplement) continue;
 
 		GraphNode* node = loop.nodeLeft();
 		if (node->inEdges.size() != 2 ||
@@ -258,9 +259,11 @@ void MultiplicityInferer::collapseHeterozygousLoops()
 			(entrancePath->meanCoverage + exitPath->meanCoverage) / 4)
 		{
 			toRemove.insert(loop.id);
+			toRemove.insert(loop.id.rc());
 		}
 		else
 		{
+			toUnroll.insert(loop.id);
 			toUnroll.insert(loop.id.rc());
 		}
 	}
