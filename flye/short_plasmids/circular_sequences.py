@@ -74,8 +74,13 @@ def extract_circular_pairs(unmapped_reads_mapping, max_overhang=300):
     has_overlap = False
     is_circular = False
 
+    used_reads = set()
+
     for hit in hits:
         if hit.query == hit.target:
+            continue
+
+        if hit.query in used_reads or hit.target in used_reads:
             continue
 
         if previous_hit is None or \
@@ -84,6 +89,8 @@ def extract_circular_pairs(unmapped_reads_mapping, max_overhang=300):
             if previous_hit is not None and has_overlap and is_circular:
                 if mapping_segments_without_intersection(circular_pair):
                     circular_pairs.append(circular_pair)
+                    used_reads.add(circular_pair[0].target)
+                    used_reads.add(circular_pair[0].query)
 
             circular_pair = [None, None]
             has_overlap = False
