@@ -2388,20 +2388,23 @@ def finalize_int_stats(rep, repeat_edges, side_it, cons_align_path, template,
                             elif side == "out":
                                 out_align = coll_cons_align
                 if not in_align:
+                    in_start = 0
                     in_end = 0
                     temp_start = 0
-                    if in_start is None:
-                        in_start = 0
+                    #if in_start is None:
+                    #    in_start = 0
                 else:
+                    in_start = in_align.qry_start
                     in_end = in_align.qry_end
                     temp_start = in_align.trg_end
-                    if in_start is None:
-                        in_start = in_align.qry_start
+                    #if in_start is None:
+                    #    in_start = in_align.qry_start
                 if not out_align:
                     temp_end = 0
                     out_start = 0
-                    if out_end is None:
-                        out_end = 0
+                    out_end = 0
+                    #if out_end is None:
+                    #    out_end = 0
                     out_qry_seq = ""
                     out_trg_seq = ""
                     out_trg_end = 0
@@ -2409,8 +2412,9 @@ def finalize_int_stats(rep, repeat_edges, side_it, cons_align_path, template,
                 else:
                     temp_end = out_align.trg_start
                     out_start = out_align.qry_start
-                    if out_end is None:
-                        out_end = out_align.qry_end
+                    out_end = out_align.qry_end
+                    #if out_end is None:
+                    #    out_end = out_align.qry_end
                     out_qry_seq = out_align.qry_seq
                     out_trg_seq = out_align.trg_seq
                     out_trg_end = out_align.trg_end
@@ -2785,7 +2789,7 @@ def _construct_repeat_copy(in_file, temp_file, out_file, in_start, in_end,
 
 def init_summary(summary_file):
     with open(summary_file, "w") as f:
-        summ_header_labels = ["Repeat_Id", "Path", "Template", "Cov", "#Conf_Pos", 
+        summ_header_labels = ["Repeat_ID", "Path", "Template", "Cov", "#Conf_Pos", 
                               "Max_Pos_Gap", "Bridged?", "Support", "Against", 
                               "Avg_Div", "Resolution", "Sequences"]
         #spaced_header = map("{:13}".format, summ_header_labels)
