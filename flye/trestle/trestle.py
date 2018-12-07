@@ -368,9 +368,12 @@ def resolve_repeats(args, trestle_dir, repeats_info, summ_file,
                                             args.platform, 
                                             res_vs_res.format(rep, res_one, res_two),
                                             reference_mode=True, sam_output=True)
-                avg_div = int_stats_postscript(rep, repeat_edges, 
-                                               integrated_stats, 
-                                               resolved_rep_path, res_vs_res)
+                if (os.path.isfile(res_one_path) and
+                    os.path.isfile(res_two_path)):
+                    avg_div = int_stats_postscript(rep, repeat_edges, 
+                                                   integrated_stats, 
+                                                   resolved_rep_path, 
+                                                   res_vs_res)
             all_resolved_reps_dict.update(repeat_seqs)
             update_summary(rep, repeats_info[rep].repeat_path, template_len, avg_cov, 
                            summ_vals, avg_div, summ_file)
