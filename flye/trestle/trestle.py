@@ -882,11 +882,13 @@ def locate_consensus_cutpoint(side, read_endpoints, edge_read_file):
             coverage[x] += 1
     window_len = 100
     cutpoint = -1
+    print "Here 1"
     for i in range(len(coverage) - window_len):
         if side == "in":
             window_start = (len(coverage) - window_len) - i
             window_end = len(coverage) - i
             avg_cov = np.mean(coverage[window_start:window_end])
+            print "Here 2", side, window_start, window_end, window_len, avg_cov, MIN_EDGE_COV
             if avg_cov >= MIN_EDGE_COV:
                 cutpoint = window_end
                 break
@@ -894,6 +896,7 @@ def locate_consensus_cutpoint(side, read_endpoints, edge_read_file):
             window_start = i
             window_end = i + window_len
             avg_cov = np.mean(coverage[window_start:window_end])
+            print "Here 3", side, window_start, window_end, window_len, avg_cov, MIN_EDGE_COV
             if avg_cov >= MIN_EDGE_COV:
                 cutpoint = window_start
                 break
