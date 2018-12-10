@@ -150,6 +150,7 @@ void VertexIndex::buildIndexUnevenCoverage(int minCoverage)
 
 	if (_outputProgress) Logger::get().info() << "Filling index table";
 	
+	_solidMultiplier = 2;
 	_kmerIndex.reserve(10000000);
 	std::function<void(const FastaRecord::Id&)> indexUpdate = 
 	[this, minCoverage] (const FastaRecord::Id& readId)
@@ -292,6 +293,7 @@ void VertexIndex::setRepeatCutoff(int minCoverage)
 void VertexIndex::buildIndex(int minCoverage)
 {
 	if (_outputProgress) Logger::get().info() << "Filling index table";
+	_solidMultiplier = 1;
 	
 	//"Replacing" k-mer couns with k-mer index. We need multiple passes
 	//to avoid peaks in memory usage during the hash table extensions +

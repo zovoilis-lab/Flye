@@ -28,7 +28,8 @@ public:
 	}
 	VertexIndex(const SequenceContainer& seqContainer, int sampleRate):
 		_seqContainer(seqContainer), _outputProgress(false), 
-		_sampleRate(sampleRate), _repetitiveFrequency(0)
+		_sampleRate(sampleRate), _repetitiveFrequency(0),
+		_solidMultiplier(1)
 		//_flankRepeatSize(flankRepeatSize)
 	{}
 
@@ -205,7 +206,7 @@ public:
 		return _kmerDistribution;
 	}
 
-	int getSampleRate() const {return _sampleRate;}
+	int getSampleRate() const {return _sampleRate * _solidMultiplier;}
 
 	//int getFlankRepeatSize() const {return _flankRepeatSize;}
 
@@ -217,6 +218,7 @@ private:
 	bool    _outputProgress;
 	int32_t _sampleRate;
 	size_t  _repetitiveFrequency;
+	int32_t _solidMultiplier;
 	//int32_t _flankRepeatSize;
 
 	const size_t MEM_CHUNK = 32 * 1024 * 1024 / sizeof(IndexChunk);
