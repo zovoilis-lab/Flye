@@ -148,10 +148,17 @@ def apply_changes(repeat_graph, trestle_results,
                   resolved_repeats_fasta):
     #repeat_graph.output_dot("before.dot")
     connections = _get_connections(trestle_results)
+    edges_to_remove = set()
     for conn in connections:
         repeat_graph.separate_path(conn.path, conn.id,
                                    resolved_repeats_fasta[conn.sequence])
+        edges_to_remove.update(conn.path[1:-1])
 
+    for edge_id in edges_to_remove:
+        edge = repeat_graph.edges[edge_id]
+        if not edge.self_complement:
+            repeat_graph.remove_edge(repeat_graph.complement_edge(edge))
+        repeat_graph.remove_edge(edge)
     #repeat_graph.output_dot("after.dot")
 
 

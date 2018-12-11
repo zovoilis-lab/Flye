@@ -362,8 +362,8 @@ class JobTrestle(Job):
         tres_graph.dump_repeats(repeats_info,
                                 os.path.join(self.work_dir, "repeats_dump"))
 
-        tres.resolve_repeats(self.args, self.work_dir, repeats_info,
-                             summary_file, resolved_repeats_seqs)
+        #tres.resolve_repeats(self.args, self.work_dir, repeats_info,
+        #                     summary_file, resolved_repeats_seqs)
         tres_graph.apply_changes(repeat_graph, summary_file,
                                  fp.read_sequence_dict(resolved_repeats_seqs))
 
@@ -525,7 +525,8 @@ def _usage():
             "\t     --nano-corr | --subassemblies) file1 [file_2 ...]\n"
             "\t     --genome-size SIZE --out-dir PATH\n"
             "\t     [--threads int] [--iterations int] [--min-overlap int]\n"
-            "\t     [--debug] [--version] [--help] [--resume]")
+            "\t     [--meta] [--plasmids] [--trestle] [--debug]\n"
+            "\t     [--version] [--help] [--resume]")
 
 
 def _epilog():

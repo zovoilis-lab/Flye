@@ -81,6 +81,11 @@ class RepeatGraph:
         edge.node_left.out_edges.append(edge)
         edge.node_right.in_edges.append(edge)
 
+    def remove_edge(self, edge):
+        _remove_from_list(edge.node_left.out_edges, edge)
+        _remove_from_list(edge.node_right.in_edges, edge)
+        del self.edges[edge.edge_id]
+
     def complement_edge(self, edge):
         if edge.self_complement:
             return edge
@@ -203,12 +208,10 @@ class RepeatGraph:
         coverage is modified accordingly) and they aquire attribute 'resolved'.
         Resolved edges could later be cleaned up by using XXX function.
         """
-        def remove_from_list(lst, elem):
-            lst = [x for x in lst if x != elem]
 
         def separate_one(edges_path, new_edge_id, new_edge_seq):
             left_node = self.add_node()
-            remove_from_list(edges_path[0].node_right.in_edges, edges_path[0])
+            _remove_from_list(edges_path[0].node_right.in_edges, edges_path[0])
             edges_path[0].node_right = left_node
             left_node.in_edges.append(edges_path[0])
 
@@ -226,7 +229,7 @@ class RepeatGraph:
                 new_edge.mean_coverage = path_coverage
                 new_edge.edge_sequences.append(new_edge_seq)
 
-            remove_from_list(edges_path[-1].node_left.out_edges, edges_path[-1])
+            _remove_from_list(edges_path[-1].node_left.out_edges, edges_path[-1])
             edges_path[-1].node_left = right_node
             right_node.out_edges.append(edges_path[-1])
 
@@ -249,6 +252,10 @@ class RepeatGraph:
         new_edge_id = max(self.edges.keys()) + 1
         separate_one(fwd_edges, new_edge_id, new_edge_seq)
         separate_one(rev_edges, -new_edge_id, compl_edge_seq)
+
+
+def _remove_from_list(lst, elem):
+    lst = [x for x in lst if x != elem]
 
 
 def _to_signed_id(unsigned_id):
