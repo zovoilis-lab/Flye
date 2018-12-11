@@ -355,28 +355,30 @@ def resolve_repeats(args, trestle_dir, repeats_info, summ_file,
             #9. Generate summary and resolved repeat file
             logger.debug("Generating summary and resolved repeat file")
             avg_div = 0.0
+            both_resolved_present = False
             if bridged:
-                repeat_bridged = True
                 res_inds = range(len(repeat_edges[rep]["in"]))
                 for res_one, res_two in sorted(combinations(res_inds, 2)):
                     res_one_path = resolved_rep_path.format(rep, res_one)
                     res_two_path = resolved_rep_path.format(rep, res_two)
                     if (os.path.isfile(res_one_path) and
                         os.path.isfile(res_two_path)):
+                        both_resolved_present = True
+                        repeat_bridged = True
                         flye_aln.make_alignment(res_two_path, [res_one_path], 
                                             args.threads, orient_dir, 
                                             args.platform, 
                                             res_vs_res.format(rep, res_one, res_two),
                                             reference_mode=True, sam_output=True)
-                if (os.path.isfile(res_one_path) and
-                    os.path.isfile(res_two_path)):
+                if both_resolved_present:
                     avg_div = int_stats_postscript(rep, repeat_edges, 
                                                    integrated_stats, 
                                                    resolved_rep_path, 
                                                    res_vs_res)
-            all_resolved_reps_dict.update(repeat_seqs)
+            if both_resolved_present:
+                all_resolved_reps_dict.update(repeat_seqs)
             update_summary(rep, repeats_info[rep].repeat_path, template_len, avg_cov, 
-                           summ_vals, avg_div, summ_file)
+                           summ_vals, avg_div, summ_file, both_resolved_present)
             remove_unneeded_files(repeat_edges, rep, side_labels, side_it, 
                                   orient_dir, template, extended, pol_temp_dir, 
                                   pol_ext_dir, pre_edge_reads, 
@@ -2801,13 +2803,14 @@ def init_summary(summary_file):
 
 
 def update_summary(rep_id, graph_path, template_len, avg_cov, summ_vals, avg_div, 
-                   summary_file):
+                   summary_file, both_resolved_present):
     (confirmed_pos, max_pos_gap, bridged, 
      support, against, resolution, sequences) = tuple(summ_vals)
 
     avg_cov = "{:.4f}".format(avg_cov)
     avg_div = "{:.4f}".format(avg_div)
     graph_path = ",".join(map(str, graph_path))
+    bridged = bridged and both_resolved_present
 
     summ_out = [rep_id, graph_path, template_len, avg_cov, confirmed_pos, max_pos_gap, 
                 bridged, support, against, avg_div, resolution, sequences]
