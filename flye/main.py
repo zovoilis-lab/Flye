@@ -406,7 +406,7 @@ def _create_job_list(args, work_dir, log_file):
 
 
     #Trestle: Resolve Unbridged Repeats
-    if args.read_type != "subasm":
+    if args.trestle:
         jobs.append(JobTrestle(args, work_dir, log_file,
                     repeat_graph, repeat_graph_edges,
                     reads_alignment))
@@ -442,7 +442,7 @@ def _create_job_list(args, work_dir, log_file):
     return jobs
 
 
-def _set_kmer_size(args):
+def _set_genome_size(args):
     """
     Select k-mer size based on the target genome size
     """
@@ -614,6 +614,9 @@ def main():
     parser.add_argument("--meta", action="store_true",
                         dest="meta", default=False,
                         help="metagenome / uneven coverage mode")
+    parser.add_argument("--trestle", action="store_true",
+                        dest="trestle", default=False,
+                        help="enable Trestle (unbridged repeat resoltuion)")
     parser.add_argument("--resume", action="store_true",
                         dest="resume", default=False,
                         help="resume from the last completed stage")
@@ -657,7 +660,7 @@ def main():
     _enable_logging(args.log_file, args.debug,
                     overwrite=False)
 
-    _set_kmer_size(args)
+    _set_genome_size(args)
     args.asm_config = os.path.join(cfg.vals["pkg_root"],
                                    cfg.vals["bin_cfg"][args.read_type])
 
