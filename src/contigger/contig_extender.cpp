@@ -369,7 +369,7 @@ void ContigExtender::outputScaffoldConnections(const std::string& filename)
 				{
 					dfsStack.push_back(adjEdge);
 				}
-				else if (!adjEdge->isRepetitive() && adjEdge != edge)
+				else if (!adjEdge->isRepetitive())
 				{
 					reachableUnique.insert(adjEdge);
 				}
