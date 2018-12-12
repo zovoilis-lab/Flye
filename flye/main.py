@@ -362,8 +362,8 @@ class JobTrestle(Job):
         tres_graph.dump_repeats(repeats_info,
                                 os.path.join(self.work_dir, "repeats_dump"))
 
-        #tres.resolve_repeats(self.args, self.work_dir, repeats_info,
-        #                     summary_file, resolved_repeats_seqs)
+        tres.resolve_repeats(self.args, self.work_dir, repeats_info,
+                             summary_file, resolved_repeats_seqs)
         tres_graph.apply_changes(repeat_graph, summary_file,
                                  fp.read_sequence_dict(resolved_repeats_seqs))
 
