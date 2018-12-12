@@ -92,6 +92,10 @@ def get_simple_repeats(repeat_graph, alignments, edge_seqs):
                         next_edge.edge_id in outputs):
                     output_reads[next_edge.edge_id].append(next_edge.overlap.cur_id)
 
+        if (not len(inner_reads) or len(input_reads) != MULT or
+                len(output_reads) != MULT):
+            continue
+
         #add edges sequences:
         sequences = {}
         for edge in chain(input_reads, output_reads):
