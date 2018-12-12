@@ -2214,10 +2214,13 @@ def finalize_int_stats(rep, repeat_edges, side_it, cons_align_path, template,
         best_combo = sorted_combos[0][1]
         best_support = sorted_combos[0][0]
         best_against = 0
-        for support, ind in sorted_combos[1:]:
-            best_against += support
-        second_combo = sorted_combos[1][1]
-        second_support = sorted_combos[1][0]
+        second_combo = -1
+        second_support = 0
+        if len(sorted_combos) > 1:
+            for support, ind in sorted_combos[1:]:
+                best_against += support
+            second_combo = sorted_combos[1][1]
+            second_support = sorted_combos[1][0]
         if bridged:
             f.write("BRIDGED\n")
             f.write("Bridging Combo: {0}\n".format(best_combo))
