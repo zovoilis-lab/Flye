@@ -168,6 +168,11 @@ int RepeatResolver::resolveConnections(const std::vector<Connection>& connection
 				spanningConnections.push_back(*conn);
 			}
 		}
+		if (spanningConnections.empty())
+		{
+			Logger::get().warning() << "Empty spanning connections";
+			continue;
+		}
 		std::sort(spanningConnections.begin(), spanningConnections.end(),
 				  [](const Connection c1, const Connection c2)
 				{return c1.readSeq.length() < c2.readSeq.length();});
@@ -543,6 +548,7 @@ std::vector<RepeatResolver::Connection>
 	}
 	Logger::get().debug() << "Total unique edges: " << totalSafe;
 
+	const int32_t MAGIC_100 = 100;
 	std::vector<Connection> readConnections;
 	for (auto& readPath : _aligner.getAlignments())
 	{
@@ -555,6 +561,7 @@ std::vector<RepeatResolver::Connection>
 				if (!safeEdge(aln.edge)) continue;
 				readStart = aln.overlap.curEnd + aln.overlap.extLen - 
 							aln.overlap.extEnd;
+				readStart = std::min(readStart, aln.overlap.curLen - MAGIC_100);
 			}
 
 			currentAln.push_back(aln);
@@ -574,11 +581,19 @@ std::vector<RepeatResolver::Connection>
 
 				int32_t readEnd = aln.overlap.curBegin - aln.overlap.extBegin;
 
-				//TODO: less ad-hoc fix. Currently, if read connects
-				//two consecutive edges (for example, when resolving chimer junctions,
+				//TODO: fix this ad-hoc fix. Currently, if read connects
+				//two consecutive edges (for example, when resolving chimera junctions,
 				//we still would insert a tiny bit of read sequence as a placeholder.
 				//Probably, wouldn't harm, but who knows..
-				readEnd = std::max(readStart + 100, readEnd);	
+				readEnd = std::max(readStart + MAGIC_100 - 1, readEnd);	
+				if (readStart < 0 || readEnd >= aln.overlap.curLen)
+				{
+					Logger::get().warning() 
+						<< "Something is wrong with bridging read sequence";
+					//Logger::get().warning() << readStart << " " 
+					//	<< readEnd << " " << aln.overlap.curLen;
+					break;
+				}
 
 				/*std::string description = "read_seq_" + 
 					std::to_string(aln.overlap.curId.signedId());
@@ -597,6 +612,7 @@ std::vector<RepeatResolver::Connection>
 				currentAln.push_back(aln);
 				readStart = aln.overlap.curEnd + aln.overlap.extLen - 
 							aln.overlap.extEnd;
+				readStart = std::min(readStart, aln.overlap.curLen - MAGIC_100);
 			}
 		}
 	}
