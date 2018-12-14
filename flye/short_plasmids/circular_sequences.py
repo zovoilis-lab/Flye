@@ -7,7 +7,9 @@ import flye.short_plasmids.utils as utils
 import flye.short_plasmids.unmapped_reads as unmapped
 import flye.utils.fasta_parser as fp
 from flye.polishing.alignment import read_paf, PafHit
+import logging
 
+logger = logging.getLogger()
 
 def is_circular_read(hit, max_overhang=150):
     if hit.query != hit.target:
@@ -152,14 +154,18 @@ def extract_unique_plasmids(trimmed_reads_mapping, trimmed_reads_path,
     current_hit = None
     query_mapping_segments = []
     target_mapping_segments = []
+    seq_lengths = {}
 
     for hit in hits:
+        seq_lengths[hit.query] = hit.query_length
+        seq_lengths[hit.target] = hit.target_length
+
         if hit.query == hit.target:
             continue
 
-        if current_hit is None or \
-           hit.query != current_hit.query or \
-           hit.target != current_hit.target:
+        if (current_hit is None or
+                hit.query != current_hit.query or
+                hit.target != current_hit.target):
             if current_hit is not None:
                 query_length = current_hit.query_length
                 target_length = current_hit.target_length
@@ -170,9 +176,9 @@ def extract_unique_plasmids(trimmed_reads_mapping, trimmed_reads_path,
                     unmapped.calc_mapping_rate(target_length,
                                                target_mapping_segments)
 
-                if query_mapping_rate > mapping_rate_threshold and \
-                   target_mapping_rate > mapping_rate_threshold and \
-                   abs(query_length - target_length) < max_length_difference:
+                if (query_mapping_rate > mapping_rate_threshold or
+                        target_mapping_rate > mapping_rate_threshold):
+                    #abs(query_length - target_length) < max_length_difference:
                     vertex1 = read2int[current_hit.query]
                     vertex2 = read2int[current_hit.target]
                     similarity_graph[vertex1].append(vertex2)
@@ -193,6 +199,12 @@ def extract_unique_plasmids(trimmed_reads_mapping, trimmed_reads_path,
     groups = [[] for _ in xrange(n_components)]
     for i in xrange(len(connected_components)):
         groups[connected_components[i]].append(int2read[i])
+
+    #for g in groups:
+    #    logger.debug("Group {0}".format(len(g)))
+    #    for s in g:
+    #        logger.debug("\t{0}".format(seq_lengths[s]))
+
 
     groups = [group for group in groups if len(group) > 1]
     trimmed_reads_dict = fp.read_sequence_dict(trimmed_reads_path)
