@@ -21,4 +21,5 @@ vals = {
         "cons_aln_rate" : 0.01,
         "min_supp_align_len" : 1000,
         "max_supp_align_overlap" : 100
+        "orientations_to_run" : "forward"
     }
