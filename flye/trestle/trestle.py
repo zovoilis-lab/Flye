@@ -65,6 +65,7 @@ def resolve_each_repeat(rep_id, repeat_edges, all_edge_headers, args,
     DEL_THRESH = trestle_config.vals["del_thresh"]
     INS_THRESH = trestle_config.vals["ins_thresh"]
     MAX_ITER = trestle_config.vals["max_iter"]
+    MIN_ALN_RATE = trestle_config.vals["min_aln_rate"]
     NUM_POL_ITERS = trestle_config.vals["num_pol_iters"]
     ORIENT_CONFIG = trestle_config.vals["orientations_to_run"]
     zero_it = 0
@@ -73,7 +74,7 @@ def resolve_each_repeat(rep_id, repeat_edges, all_edge_headers, args,
      pre_file_names, div_file_names, aln_names, 
      middle_file_names, output_file_names) = all_file_names
     
-    repeat_label, orient_labels, side_labels = all_labels
+    repeat_label, side_labels = all_labels
     pol_temp_name, pol_ext_name, pol_cons_name = pol_dir_names
     (template_name, extended_name, repeat_reads_name, 
      pre_partitioning_name) = initial_file_names
@@ -159,7 +160,6 @@ def resolve_each_repeat(rep_id, repeat_edges, all_edge_headers, args,
             template_len = template_info[str(rep)].length
         
         logger.debug("Finding tentative divergence positions")
-        MIN_ALN_RATE = 0.5
         div.find_divergence(alignment_file, polished_template, 
                             template_info, frequency_path, position_path, 
                             summary_path, MIN_ALN_RATE, 
@@ -406,9 +406,8 @@ def resolve_each_repeat(rep_id, repeat_edges, all_edge_headers, args,
 def define_file_names():
     #Defining directory and file names for trestle output
     repeat_label = "repeat_{0}"
-    orient_labels = ["forward", "reverse"]
     side_labels = ["in", "out"]
-    all_labels = repeat_label, orient_labels, side_labels
+    all_labels = repeat_label, side_labels
     
     pol_temp_name = "Polishing.Template"
     pol_ext_name = "Polishing.Extended.{0}.{1}"
@@ -475,8 +474,9 @@ def process_repeats(reads, repeats_dict, work_dir, all_labels,
     MIN_MULT = trestle_config.vals["min_mult"]
     MAX_MULT = trestle_config.vals["max_mult"]
     FLANKING_LEN = trestle_config.vals["flanking_len"]
+    ORIENT_CONFIG = trestle_config.vals["orientations_to_run"]
     
-    repeat_label, orient_labels, side_labels = all_labels
+    repeat_label, side_labels = all_labels
     (template_name, extended_name, repeat_reads_name, 
      pre_partitioning_name) = initial_file_names
     
@@ -530,9 +530,15 @@ def process_repeats(reads, repeats_dict, work_dir, all_labels,
         if not os.path.isdir(repeat_dir):
             os.mkdir(repeat_dir)
         repeat_list.append(rep)
-                
-        orient_reps = [rep, -rep]
-        for curr_label, curr_rep in zip(orient_labels, orient_reps):
+        
+        run_orientations = []
+        if ORIENT_CONFIG == "forward":
+            run_orientations = [("forward", rep)]
+        elif ORIENT_CONFIG == "reverse":
+            run_orientations = [("reverse", -rep)]
+        elif ORIENT_CONFIG == "both":
+            run_orientations = [("forward", rep), ("reverse", -rep)]
+        for curr_label, curr_rep in run_orientations:
             orient_path = os.path.join(repeat_dir, curr_label)
             if not os.path.isdir(orient_path):
                 os.mkdir(orient_path)
