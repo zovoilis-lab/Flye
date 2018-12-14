@@ -10,7 +10,7 @@ vals = {
         "max_iter" : 10, 
         "buffer_count" : 3, 
         "min_edge_cov" : 10, 
-        "min_aln_rate" : 0.5
+        "min_aln_rate" : 0.5,
         "min_bridge_count" : 5, 
         "min_bridge_factor" : 2, 
         "min_mult" : 2, 
