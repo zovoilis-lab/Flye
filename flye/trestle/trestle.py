@@ -13,6 +13,7 @@ import logging
 import numpy as np
 from itertools import combinations, product
 import copy
+import multiprocessing, signal
 
 import flye.polishing.alignment as flye_aln
 from flye.polishing.alignment import Alignment
@@ -28,39 +29,91 @@ logger = logging.getLogger()
 
 def resolve_repeats(args, trestle_dir, repeats_info, summ_file,
                     resolved_repeats_seqs):
-    
     all_file_names = define_file_names()
-    (all_labels, pol_dir_names, initial_file_names, 
-     pre_file_names, div_file_names, aln_names, 
+    (all_labels, pol_dir_names, initial_file_names,
+     pre_file_names, div_file_names, aln_names,
      middle_file_names, output_file_names) = all_file_names
-    
+
     all_resolved_reps_dict = {}
     all_summaries = []
     init_summary(summ_file)
-    
+
     #1. Process repeats from graph - generates a folder for each repeat
     logger.debug("Finding unbridged repeats")
     process_outputs = process_repeats(args.reads, repeats_info,
-                                      trestle_dir, all_labels, 
+                                      trestle_dir, all_labels,
                                       initial_file_names)
     repeat_list, repeat_edges, all_edge_headers = process_outputs
-    #1.5. Re-align reads to template 
     logger.info("Repeats to be resolved: {0}".format(len(repeat_list)))
-    for rep_id in sorted(repeat_list):
-        each_output = resolve_each_repeat(rep_id, repeat_edges, 
-                                          all_edge_headers, args, trestle_dir, 
-                                          repeats_info, all_file_names)
-        resolved_dict, summary_list = each_output
-        all_resolved_reps_dict.update(resolved_dict)
-        all_summaries.extend(summary_list)
-        
+
+    if not repeat_list:
+        return
+
+    #Resolve every repeat in a separate thread
+    def _thread_worker(func_args, log_file, results_queue, error_queue):
+        try:
+            #each thred logs to a separate file
+            log_formatter = \
+                logging.Formatter("[%(asctime)s] %(name)s: %(levelname)s: "
+                                  "%(message)s", "%Y-%m-%d %H:%M:%S")
+            file_handler = logging.FileHandler(log_file, mode="a")
+            file_handler.setFormatter(log_formatter)
+            for handler in logger.handlers[:]:
+                logger.removeHandler(handler)
+            logger.addHandler(file_handler)
+
+            result = resolve_each_repeat(*func_args)
+            results_queue.put(result)
+
+        except Exception as e:
+            error_queue.put(e)
+
+    job_chunks = [repeat_list[i:i + args.threads]
+              for i in xrange(0, len(repeat_list), args.threads)]
+
+    for job_chunk in job_chunks:
+        manager = multiprocessing.Manager()
+        results_queue = manager.Queue()
+        error_queue = manager.Queue()
+
+        repeat_threads = max(1, args.threads / len(job_chunk))
+        orig_sigint = signal.signal(signal.SIGINT, signal.SIG_IGN)
+        threads = []
+        for rep_id in sorted(job_chunk):
+            func_args = (rep_id, repeat_edges, all_edge_headers, args, trestle_dir,
+                         repeats_info, all_file_names, repeat_threads)
+            log_file = os.path.join(trestle_dir,
+                                    "repeat_{0}".format(rep_id), "log.txt")
+            threads.append(multiprocessing.Process(target=_thread_worker,
+                                        args=(func_args, log_file,
+                                              results_queue, error_queue)))
+        signal.signal(signal.SIGINT, orig_sigint)
+
+        for t in threads:
+            t.start()
+        try:
+            for t in threads:
+                t.join()
+        except KeyboardInterrupt:
+            for t in threads:
+                t.terminate()
+
+        if not error_queue.empty():
+            raise error_queue.get()
+
+        while not results_queue.empty():
+            resolved_dict, summary_list = results_queue.get()
+            all_resolved_reps_dict.update(resolved_dict)
+            all_summaries.extend(summary_list)
+
     fp.write_fasta_dict(all_resolved_reps_dict, resolved_repeats_seqs)
     for summ_items in all_summaries:
         update_summary(summ_items, summ_file)
-    #return all_resolved_reps_dict
 
-def resolve_each_repeat(rep_id, repeat_edges, all_edge_headers, args, 
-                        trestle_dir, repeats_info, all_file_names):
+
+def resolve_each_repeat(rep_id, repeat_edges, all_edge_headers, args,
+                        trestle_dir, repeats_info, all_file_names,
+                        num_threads):
     SUB_THRESH = trestle_config.vals["sub_thresh"]
     DEL_THRESH = trestle_config.vals["del_thresh"]
     INS_THRESH = trestle_config.vals["ins_thresh"]
@@ -70,28 +123,28 @@ def resolve_each_repeat(rep_id, repeat_edges, all_edge_headers, args,
     ORIENT_CONFIG = trestle_config.vals["orientations_to_run"]
     zero_it = 0
 
-    (all_labels, pol_dir_names, initial_file_names, 
-     pre_file_names, div_file_names, aln_names, 
+    (all_labels, pol_dir_names, initial_file_names,
+     pre_file_names, div_file_names, aln_names,
      middle_file_names, output_file_names) = all_file_names
-    
+
     repeat_label, side_labels = all_labels
     pol_temp_name, pol_ext_name, pol_cons_name = pol_dir_names
-    (template_name, extended_name, repeat_reads_name, 
+    (template_name, extended_name, repeat_reads_name,
      pre_partitioning_name) = initial_file_names
     pre_edge_reads_name, pre_read_aln_name, partitioning_name = pre_file_names
     div_freq_name, div_pos_name, div_summ_name = div_file_names
-    (reads_template_aln_name, cons_temp_aln_name, 
+    (reads_template_aln_name, cons_temp_aln_name,
      cut_cons_temp_aln_name, reads_cons_aln_name) = aln_names
-    (confirmed_pos_name, edge_reads_name, 
+    (confirmed_pos_name, edge_reads_name,
      cut_cons_name, cons_vs_cons_name) = middle_file_names
-    (side_stats_name, int_stats_name, int_confirmed_pos_name, 
+    (side_stats_name, int_stats_name, int_confirmed_pos_name,
      resolved_rep_name, res_vs_res_name) = output_file_names
-    
+
     logger.info("Resolving repeat {0}: {1}" \
         .format(rep_id, repeats_info[rep_id].repeat_path))
-    repeat_dir = os.path.join(trestle_dir, 
+    repeat_dir = os.path.join(trestle_dir,
                               repeat_label.format(rep_id))
-    
+
     run_orientations = []
     if ORIENT_CONFIG == "forward":
         run_orientations = [("forward", rep_id)]
@@ -117,9 +170,7 @@ def resolve_each_repeat(rep_id, repeat_edges, all_edge_headers, args,
             os.mkdir(pol_temp_dir)
         polished_template, _stats = \
             pol.polish(template, [repeat_reads], pol_temp_dir, NUM_POL_ITERS,
-                       args.threads, args.platform, output_progress=False)
-        #polished_template = _run_polishing(args, [repeat_reads], template, 
-        #                                   pol_temp_dir)
+                       num_threads, args.platform, output_progress=False)
 
         if not os.path.isfile(polished_template):
             for side in side_labels:
@@ -134,11 +185,8 @@ def resolve_each_repeat(rep_id, repeat_edges, all_edge_headers, args,
                 pol_output, _stats = \
                     pol.polish(extended.format(side, edge_id), [repeat_reads],
                                pol_ext_dir.format(side, edge_id), NUM_POL_ITERS, 
-                               args.threads, args.platform,
+                               num_threads, args.platform,
                                output_progress=False)
-                #pol_output = _run_polishing(args, [repeat_reads], 
-                #                            extended.format(side, edge_id), 
-                #                            pol_ext_dir.format(side, edge_id))                    
                 polished_extended[(side, edge_id)] = pol_output
                 if not os.path.isfile(pol_output):
                     term_bool[side] = True
@@ -154,7 +202,7 @@ def resolve_each_repeat(rep_id, repeat_edges, all_edge_headers, args,
         template_len = 0.0
         if os.path.isfile(polished_template):
             flye_aln.make_alignment(polished_template, [repeat_reads], 
-                       args.threads, orient_dir, args.platform, 
+                       num_threads, orient_dir, args.platform, 
                        alignment_file, reference_mode=True, sam_output=True)
             template_info = flye_aln.get_contigs_info(polished_template)
             template_len = template_info[str(rep)].length
@@ -163,7 +211,7 @@ def resolve_each_repeat(rep_id, repeat_edges, all_edge_headers, args,
         div.find_divergence(alignment_file, polished_template, 
                             template_info, frequency_path, position_path, 
                             summary_path, MIN_ALN_RATE, 
-                            args.platform, args.threads,
+                            args.platform, num_threads,
                             SUB_THRESH, DEL_THRESH, INS_THRESH) 
         read_endpoints = find_read_endpoints(alignment_file, 
                                              polished_template)
@@ -199,7 +247,7 @@ def resolve_each_repeat(rep_id, repeat_edges, all_edge_headers, args,
                                  pre_edge_reads.format(side, edge_id))
                 flye_aln.make_alignment(polished_extended[(side, edge_id)], 
                                         [pre_edge_reads.format(side, edge_id)], 
-                                        args.threads, orient_dir, args.platform, 
+                                        num_threads, orient_dir, args.platform, 
                                         pre_read_align.format(side, edge_id),
                                         reference_mode=True, sam_output=True)
             init_partitioning(repeat_edges[rep][side], 
@@ -254,12 +302,8 @@ def resolve_each_repeat(rep_id, repeat_edges, all_edge_headers, args,
                         os.mkdir(pol_con_dir)
                     pol_con_out, _stats = \
                         pol.polish(curr_extended, [curr_reads], pol_con_dir, 
-                                   NUM_POL_ITERS,
-                                   args.threads, args.platform,
+                                   NUM_POL_ITERS, num_threads, args.platform,
                                    output_progress=False)
-                    #pol_con_out = _run_polishing(args, [curr_reads], 
-                    #                        curr_extended, 
-                    #                        pol_con_dir)
                     #7b. Cut consensus where coverage drops
                     cutpoint = locate_consensus_cutpoint(
                                     side, read_endpoints,
@@ -267,7 +311,7 @@ def resolve_each_repeat(rep_id, repeat_edges, all_edge_headers, args,
                     if os.path.isfile(pol_con_out):
                         cons_al_file = cons_align.format(it, side, edge_id)
                         flye_aln.make_alignment(polished_template, [pol_con_out], 
-                                                args.threads, orient_dir, 
+                                                num_threads, orient_dir, 
                                                 args.platform, cons_al_file,
                                                 reference_mode=True, sam_output=True)
                     else:
@@ -286,12 +330,12 @@ def resolve_each_repeat(rep_id, repeat_edges, all_edge_headers, args,
                         cut_cons_al_file = cut_cons_align.format(it, side, 
                                                                  edge_id)
                         flye_aln.make_alignment(polished_template, [curr_cut_cons], 
-                                                args.threads, orient_dir, 
+                                                num_threads, orient_dir, 
                                                 args.platform, cut_cons_al_file,
                                                 reference_mode=True, sam_output=True)
                         read_al_file = read_align.format(it, side, edge_id)
                         flye_aln.make_alignment(curr_cut_cons, [repeat_reads], 
-                                                args.threads, orient_dir, 
+                                                num_threads, orient_dir, 
                                                 args.platform, read_al_file,
                                                 reference_mode=True, sam_output=True)
                     else:
@@ -316,7 +360,7 @@ def resolve_each_repeat(rep_id, repeat_edges, all_edge_headers, args,
                                             it, side, edge_one, 
                                             it, side, edge_two)
                     flye_aln.make_alignment(cons_two, [cons_one], 
-                                            args.threads, orient_dir, 
+                                            num_threads, orient_dir, 
                                             args.platform, cons_cons_file,
                                             reference_mode=True, sam_output=True)
                 side_stat_outputs = update_side_stats(
@@ -373,7 +417,7 @@ def resolve_each_repeat(rep_id, repeat_edges, all_edge_headers, args,
                     both_resolved_present = True
                     repeat_bridged = True
                     flye_aln.make_alignment(res_two_path, [res_one_path], 
-                                        args.threads, orient_dir, 
+                                        num_threads, orient_dir, 
                                         args.platform, 
                                         res_vs_res.format(rep, res_one, res_two),
                                         reference_mode=True, sam_output=True)
@@ -2801,7 +2845,8 @@ def init_summary(summary_file):
                               "Support", "Against", "Avg_Div", "Resolution", 
                               "Sequences"]
         #spaced_header = map("{:13}".format, summ_header_labels)
-        f.write("\t".join(summ_header_labels))
+        f.write(" ".join(map(lambda x: "{:<13}".format(str(x)),
+                             summ_header_labels)))
         f.write("\n")
 
 
@@ -2820,12 +2865,9 @@ def update_summary(summ_items, summary_file):
     summ_out = [rep_id, graph_path, template_len, avg_cov, confirmed_pos, 
                 max_pos_gap, bridged, support, against, avg_div, resolution, 
                 sequences]
-    #summ_out[3] = "{:.4f}".format(summ_out[3])
-    #summ_out[6] = str(summ_out[6])
-    #summ_out[9] = "{:.4f}".format(summ_out[9])
-    #spaced_summ = map("{:13}".format, map(str, summ_out))
     with open(summary_file, "a") as f:
-        f.write("\t".join(map(str, summ_out)))
+        f.write(" ".join(map(lambda x: "{:<13}".format(str(x)),
+                             summ_out)))
         f.write("\n")
 
 def remove_unneeded_files(repeat_edges, rep, side_labels, side_it, orient_dir, 

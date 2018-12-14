@@ -50,6 +50,7 @@ def polish(contig_seqs, read_seqs, work_dir, num_iters, num_threads, error_mode,
     """
     High-level polisher interface
     """
+    logger_state = logger.disabled
     if not output_progress:
         logger.disabled = True
 
@@ -88,7 +89,7 @@ def polish(contig_seqs, read_seqs, work_dir, num_iters, num_threads, error_mode,
         if os.path.getsize(bubbles_file) == 0:
             logger.info("No reads were aligned during polishing")
             if not output_progress:
-                logger.disabled = False
+                logger.disabled = logger_state
             return None, None
 
         _run_polish_bin(bubbles_file, subs_matrix, hopo_matrix,
@@ -107,7 +108,7 @@ def polish(contig_seqs, read_seqs, work_dir, num_iters, num_threads, error_mode,
                     contig_lengths[ctg_id], coverage_stats[ctg_id]))
 
     if not output_progress:
-        logger.disabled = False
+        logger.disabled = logger_state
 
     return prev_assembly, stats_file
 
