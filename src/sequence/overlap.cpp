@@ -276,6 +276,18 @@ namespace
 		if ((tt = v>>16)) return (t = tt>>8) ? 24 + LogTable256[t] : 16 + LogTable256[tt];
 		return (t = v>>8) ? 8 + LogTable256[t] : LogTable256[v];
 	}
+
+	template <class T>
+	void shrinkAndClear(std::vector<T>& vec, float rate)
+	{
+		if (vec.empty()) return;
+		if ((float)vec.capacity() / vec.size() < rate) return;
+		//Logger::get().debug() << "Shrink: " << vec.capacity() << " " << vec.size();
+
+		size_t newCapacity = std::roundf((float)vec.capacity() / rate);
+		vec = std::vector<T>();
+		vec.reserve(newCapacity);
+	}
 }
 
 //This implementation was inspired by Heng Li's minimap2 paper
@@ -305,34 +317,32 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 	//cache memory-intensive containers as
 	//many parallel memory allocations slow us down significantly
 	typedef uint32_t SeqCountType;
-	static thread_local 
-		cuckoohash_map<FastaRecord::Id, SeqCountType> seqHitCount;
-	auto lockedHitCount = seqHitCount.lock_table();
-	thread_local static std::vector<KmerMatch> vecMatches;
-	static thread_local std::vector<KmerMatch> matchesList;
-	static thread_local std::vector<int32_t> scoreTable;
-	static thread_local std::vector<int32_t> backtrackTable;
+	thread_local cuckoohash_map<FastaRecord::Id, SeqCountType> seqHitCount;
+	thread_local std::vector<KmerMatch> vecMatches;
+	thread_local std::vector<KmerMatch> matchesList;
+	thread_local std::vector<int32_t> scoreTable;
+	thread_local std::vector<int32_t> backtrackTable;
 
 	//although once in a while shrink allocated memory size
-	static thread_local auto prevCleanup = 
+	thread_local auto prevCleanup = 
 		std::chrono::system_clock::now() + std::chrono::seconds(rand() % 60);
 	if ((std::chrono::system_clock::now() - prevCleanup) > 
 		std::chrono::seconds(60))
 	{
 		prevCleanup = std::chrono::system_clock::now();
-		vecMatches.shrink_to_fit();
-		matchesList.shrink_to_fit();
-		scoreTable.shrink_to_fit();
-		backtrackTable.shrink_to_fit();
+		shrinkAndClear(vecMatches, 2);
+		shrinkAndClear(matchesList, 2);
+		shrinkAndClear(scoreTable, 2);
+		shrinkAndClear(backtrackTable, 2);
 	}
-	lockedHitCount.clear();
-	vecMatches.clear();
 
 	outSuggestChimeric = false;
 	int32_t curLen = fastaRec.sequence.length();
 	std::vector<int32_t> curFilteredPos;
 
 	//count kmer hits
+	seqHitCount.clear();
+	auto lockedHitCount = seqHitCount.lock_table();	//single-thread mode
 	for (auto curKmerPos : IterKmers(fastaRec.sequence))
 	{
 		if (_vertexIndex.isRepetitive(curKmerPos.kmer))
@@ -391,6 +401,7 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 	}
 
 	//finally full the vector matches
+	vecMatches.clear();
 	for (auto curKmerPos : IterKmers(fastaRec.sequence))
 	{
 		if (!_vertexIndex.isSolid(curKmerPos.kmer)) continue;
