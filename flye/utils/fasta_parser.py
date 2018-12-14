@@ -9,6 +9,7 @@ This module provides some basic FASTA I/O
 import logging
 import gzip
 import io
+import os
 
 from string import maketrans
 
@@ -30,8 +31,9 @@ def read_sequence_dict(filename):
         if not gzipped:
             handle = open(filename, "r")
         else:
-            gz = gzip.open(filename, "rb")
-            handle = io.BufferedReader(gz)
+            handle = os.popen("zcat {0}".format(filename))
+            #gz = gzip.open(filename, "rb")
+            #handle = io.BufferedReader(gz)
 
         if fastq:
             for hdr, seq, qual in _read_fastq(handle):
@@ -63,8 +65,9 @@ def read_sequence_lengths(filename):
         if not gzipped:
             handle = open(filename, "r")
         else:
-            gz = gzip.open(filename, "rb")
-            handle = io.BufferedReader(gz)
+            handle = os.popen("zcat {0}".format(filename))
+            #gz = gzip.open(filename, "rb")
+            #handle = io.BufferedReader(gz)
 
         if fastq:
             for hdr, seq, qual in _read_fastq(handle):
