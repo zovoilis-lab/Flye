@@ -44,7 +44,7 @@ def resolve_repeats(args, trestle_dir, repeats_info, summ_file,
                                       trestle_dir, all_labels,
                                       initial_file_names)
     repeat_list, repeat_edges, all_edge_headers = process_outputs
-    logger.info("Repeats to be resolved: {0}".format(len(repeat_list)))
+    logger.info("Simple unbridged repeats: {0}".format(len(repeat_list)))
 
     if not repeat_list:
         return
@@ -107,8 +107,12 @@ def resolve_repeats(args, trestle_dir, repeats_info, summ_file,
             all_summaries.extend(summary_list)
 
     fp.write_fasta_dict(all_resolved_reps_dict, resolved_repeats_seqs)
+    num_resolved = 0
     for summ_items in all_summaries:
+        if summ_items[6]:
+            num_resolved += 1
         update_summary(summ_items, summ_file)
+    logger.info("Resolved: {0}".format(num_resolved))
 
 
 def resolve_each_repeat(rep_id, repeat_edges, all_edge_headers, args,
