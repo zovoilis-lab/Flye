@@ -58,6 +58,7 @@ def polish(contig_seqs, read_seqs, work_dir, num_iters, num_threads, error_mode,
                                cfg.vals["err_modes"][error_mode]["subs_matrix"])
     hopo_matrix = os.path.join(cfg.vals["pkg_root"],
                                cfg.vals["err_modes"][error_mode]["hopo_matrix"])
+    stats_file = os.path.join(work_dir, "contigs_stats.txt")
 
     prev_assembly = contig_seqs
     contig_lengths = None
@@ -90,7 +91,10 @@ def polish(contig_seqs, read_seqs, work_dir, num_iters, num_threads, error_mode,
             logger.info("No reads were aligned during polishing")
             if not output_progress:
                 logger.disabled = logger_state
-            return None, None
+            open(stats_file, "w").write("seq_name\tlength\tcoverage\n")
+            open(polished_file, "w")
+            return polished_file, stats_file
+            #return None, None
 
         _run_polish_bin(bubbles_file, subs_matrix, hopo_matrix,
                         consensus_out, num_threads, output_progress)
@@ -100,7 +104,6 @@ def polish(contig_seqs, read_seqs, work_dir, num_iters, num_threads, error_mode,
         contig_lengths = polished_lengths
         prev_assembly = polished_file
 
-    stats_file = os.path.join(work_dir, "contigs_stats.txt")
     with open(stats_file, "w") as f:
         f.write("seq_name\tlength\tcoverage\n")
         for ctg_id in contig_lengths:

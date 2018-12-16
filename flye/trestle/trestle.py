@@ -46,8 +46,8 @@ def resolve_repeats(args, trestle_dir, repeats_info, summ_file,
     repeat_list, repeat_edges, all_edge_headers = process_outputs
     logger.info("Simple unbridged repeats: {0}".format(len(repeat_list)))
 
-    if not repeat_list:
-        return
+    #if not repeat_list:
+    #    return
 
     #Resolve every repeat in a separate thread
     def _thread_worker(func_args, log_file, results_queue, error_queue):
@@ -176,7 +176,7 @@ def resolve_each_repeat(rep_id, repeat_edges, all_edge_headers, args,
             pol.polish(template, [repeat_reads], pol_temp_dir, NUM_POL_ITERS,
                        num_threads, args.platform, output_progress=False)
 
-        if not os.path.isfile(polished_template):
+        if not os.path.getsize(polished_template):
             for side in side_labels:
                 term_bool[side] = True
         
@@ -192,7 +192,7 @@ def resolve_each_repeat(rep_id, repeat_edges, all_edge_headers, args,
                                num_threads, args.platform,
                                output_progress=False)
                 polished_extended[(side, edge_id)] = pol_output
-                if not os.path.isfile(pol_output):
+                if not os.path.getsize(pol_output):
                     term_bool[side] = True
         
         #3. Find divergent positions
@@ -204,7 +204,7 @@ def resolve_each_repeat(rep_id, repeat_edges, all_edge_headers, args,
         #logger.info("running Minimap2")
         alignment_file = os.path.join(orient_dir, reads_template_aln_name)
         template_len = 0.0
-        if os.path.isfile(polished_template):
+        if os.path.getsize(polished_template):
             flye_aln.make_alignment(polished_template, [repeat_reads], 
                        num_threads, orient_dir, args.platform, 
                        alignment_file, reference_mode=True, sam_output=True)
@@ -312,7 +312,7 @@ def resolve_each_repeat(rep_id, repeat_edges, all_edge_headers, args,
                     cutpoint = locate_consensus_cutpoint(
                                     side, read_endpoints,
                                     curr_reads)
-                    if os.path.isfile(pol_con_out):
+                    if os.path.getsize(pol_con_out):
                         cons_al_file = cons_align.format(it, side, edge_id)
                         flye_aln.make_alignment(polished_template, [pol_con_out], 
                                                 num_threads, orient_dir, 
