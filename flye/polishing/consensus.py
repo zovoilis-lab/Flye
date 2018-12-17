@@ -72,6 +72,11 @@ def get_consensus(alignment_path, contigs_path, contigs_info, num_proc,
     try:
         for t in threads:
             t.join()
+            if t.exitcode == -9:
+                logger.error("Looks like the system ran out of memory")
+            if t.exitcode != 0:
+                raise Exception("One of the processes exited with code: {0}"
+                                .format(t.exitcode))
     except KeyboardInterrupt:
         for t in threads:
             t.terminate()
