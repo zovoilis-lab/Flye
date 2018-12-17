@@ -399,7 +399,7 @@ def _create_job_list(args, work_dir, log_file):
 
     #Short plasmids
     if args.plasmids:
-        jobs.append(JobShortPlasmidsAssembly(args, work_dir, repeat_graph_edges,
+        jobs.append(JobShortPlasmidsAssembly(args, work_dir, disjointigs,
                                              repeat_graph, repeat_graph_edges))
         repeat_graph_edges = jobs[-1].out_files["repeat_graph_edges"]
         repeat_graph = jobs[-1].out_files["repeat_graph"]
