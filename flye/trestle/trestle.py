@@ -953,7 +953,7 @@ def locate_consensus_cutpoint(side, read_endpoints, edge_read_file):
             if max(endpoint) > max_endpoint:
                 max_endpoint = max(endpoint)
             all_endpoints.append(endpoint)
-    coverage = [0 for _ in range(max_endpoint)]
+    coverage = [0 for _ in range(max_endpoint + 1)]
     for start, end in all_endpoints:
         for x in range(start, end):
             coverage[x] += 1
@@ -963,6 +963,10 @@ def locate_consensus_cutpoint(side, read_endpoints, edge_read_file):
         if side == "in":
             window_start = (len(coverage) - window_len) - i
             window_end = len(coverage) - i
+            if window_start < 0:
+                window_start = 0
+            if window_end > len(coverage):
+                window_end = len(coverage)
             avg_cov = np.mean(coverage[window_start:window_end])
             if avg_cov >= MIN_EDGE_COV:
                 cutpoint = window_end
@@ -970,6 +974,10 @@ def locate_consensus_cutpoint(side, read_endpoints, edge_read_file):
         elif side == "out":
             window_start = i
             window_end = i + window_len
+            if window_start < 0:
+                window_start = 0
+            if window_end > len(coverage):
+                window_end = len(coverage)
             avg_cov = np.mean(coverage[window_start:window_end])
             if avg_cov >= MIN_EDGE_COV:
                 cutpoint = window_start
@@ -1026,9 +1034,9 @@ def _find_consensus_endpoint(cutpoint, aligns, side):
         for i, aln in enumerate(aligns[0]):
             if i == 0 or len(aln.trg_seq) >= MIN_SUPP_ALN_LEN:
                 if cutpoint >= aln.trg_start and cutpoint < aln.trg_end:
-                    trg_aln, aln_trg = _index_mapping(coll_aln.trg_seq)
-                    qry_aln, aln_qry = _index_mapping(coll_aln.qry_seq)
-                    cutpoint_minus_start = cutpoint - coll_aln.trg_start
+                    trg_aln, aln_trg = _index_mapping(aln.trg_seq)
+                    qry_aln, aln_qry = _index_mapping(aln.qry_seq)
+                    cutpoint_minus_start = cutpoint - aln.trg_start
                     aln_ind = trg_aln[cutpoint_minus_start]
                     qry_ind = aln_qry[aln_ind]
                     endpoint = qry_ind + coll_aln.qry_start
