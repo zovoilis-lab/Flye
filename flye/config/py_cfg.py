@@ -10,7 +10,7 @@ import os
 
 vals = {
         "pkg_root" : os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-        "pipeline_version" : 1,
+        "pipeline_version" : 2,
 
         #additional configuration files for binary modules
         "bin_cfg" : {

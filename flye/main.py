@@ -52,7 +52,7 @@ class Job(object):
         self.log_file = None
 
     def run(self):
-        logger.info("\t>>> Running '{0}' stage".format(self.name))
+        logger.info(">>>STAGE: {0}".format(self.name))
 
     def save(self, save_file):
         Job.run_params["stage_name"] = self.name
@@ -102,7 +102,7 @@ class JobAssembly(Job):
         self.log_file = log_file
 
         self.name = "assembly"
-        self.assembly_dir = os.path.join(self.work_dir, "0-assembly")
+        self.assembly_dir = os.path.join(self.work_dir, "00-assembly")
         self.assembly_filename = os.path.join(self.assembly_dir,
                                               "draft_assembly.fasta")
         self.out_files["assembly"] = self.assembly_filename
@@ -126,7 +126,7 @@ class JobShortPlasmidsAssembly(Job):
 
         self.args = args
         self.work_dir = work_dir
-        self.work_dir = os.path.join(work_dir, "3-plasmids")
+        self.work_dir = os.path.join(work_dir, "22-plasmids")
         self.contigs_path = contigs_file
         self.repeat_graph = repeat_graph
         self.graph_edges = graph_edges
@@ -165,7 +165,7 @@ class JobRepeat(Job):
         self.log_file = log_file
         self.name = "repeat"
 
-        self.work_dir = os.path.join(work_dir, "2-repeat")
+        self.work_dir = os.path.join(work_dir, "20-repeat")
         self.out_files["repeat_graph"] = os.path.join(self.work_dir,
                                                       "repeat_graph_dump")
         self.out_files["repeat_graph_edges"] = os.path.join(self.work_dir,
@@ -197,7 +197,7 @@ class JobContigger(Job):
         self.log_file = log_file
         self.name = "contigger"
 
-        self.work_dir = os.path.join(work_dir, "4-contigger")
+        self.work_dir = os.path.join(work_dir, "30-contigger")
         self.out_files["contigs"] = os.path.join(self.work_dir,
                                                  "graph_paths.fasta")
         self.out_files["assembly_graph"] = os.path.join(self.work_dir,
@@ -262,7 +262,7 @@ class JobConsensus(Job):
 
         self.args = args
         self.in_contigs = in_contigs
-        self.consensus_dir = os.path.join(work_dir, "1-consensus")
+        self.consensus_dir = os.path.join(work_dir, "10-consensus")
         self.out_consensus = os.path.join(self.consensus_dir, "consensus.fasta")
         self.name = "consensus"
         self.out_files["consensus"] = self.out_consensus
@@ -296,7 +296,7 @@ class JobPolishing(Job):
         self.in_contigs = in_contigs
         self.in_graph_edges = in_graph_edges
         self.in_graph_gfa = in_graph_gfa
-        self.polishing_dir = os.path.join(work_dir, "5-polishing")
+        self.polishing_dir = os.path.join(work_dir, "40-polishing")
 
         self.name = "polishing"
         final_contigs = os.path.join(self.polishing_dir,
@@ -330,7 +330,7 @@ class JobTrestle(Job):
         super(JobTrestle, self).__init__()
 
         self.args = args
-        self.work_dir = os.path.join(work_dir, "3-trestle")
+        self.work_dir = os.path.join(work_dir, "21-trestle")
         self.log_file = log_file
         #self.repeats_dump = repeats_dump
         self.graph_edges = graph_edges
@@ -356,16 +356,21 @@ class JobTrestle(Job):
         repeat_graph.load_from_file(self.repeat_graph)
         reads_alignment = parse_alignments(self.reads_alignment_file)
 
-        repeats_info = tres_graph \
-            .get_simple_repeats(repeat_graph, reads_alignment,
-                                fp.read_sequence_dict(self.graph_edges))
-        tres_graph.dump_repeats(repeats_info,
-                                os.path.join(self.work_dir, "repeats_dump"))
+        try:
+            repeats_info = tres_graph \
+                .get_simple_repeats(repeat_graph, reads_alignment,
+                                    fp.read_sequence_dict(self.graph_edges))
+            tres_graph.dump_repeats(repeats_info,
+                                    os.path.join(self.work_dir, "repeats_dump"))
 
-        tres.resolve_repeats(self.args, self.work_dir, repeats_info,
-                             summary_file, resolved_repeats_seqs)
-        tres_graph.apply_changes(repeat_graph, summary_file,
-                                 fp.read_sequence_dict(resolved_repeats_seqs))
+            tres.resolve_repeats(self.args, self.work_dir, repeats_info,
+                                 summary_file, resolved_repeats_seqs)
+            tres_graph.apply_changes(repeat_graph, summary_file,
+                                     fp.read_sequence_dict(resolved_repeats_seqs))
+        except Exception as e:
+            logger.warning("Caught unhandled exception: " + str(e))
+            logger.warning("Continuing to the next pipeline stage. "
+                           "Please submit a bug report along with the full log file")
 
         repeat_graph.dump_to_file(self.out_files["repeat_graph"])
         fp.write_fasta_dict(repeat_graph.edges_fasta,
@@ -397,19 +402,18 @@ def _create_job_list(args, work_dir, log_file):
     repeat_graph = jobs[-1].out_files["repeat_graph"]
     reads_alignment = jobs[-1].out_files["reads_alignment"]
 
+    #Trestle: Resolve Unbridged Repeats
+    if not args.no_trestle and not args.meta and args.read_type == "raw":
+        jobs.append(JobTrestle(args, work_dir, log_file,
+                    repeat_graph, repeat_graph_edges,
+                    reads_alignment))
+        repeat_graph_edges = jobs[-1].out_files["repeat_graph_edges"]
+        repeat_graph = jobs[-1].out_files["repeat_graph"]
+
     #Short plasmids
     if args.plasmids:
         jobs.append(JobShortPlasmidsAssembly(args, work_dir, disjointigs,
                                              repeat_graph, repeat_graph_edges))
-        repeat_graph_edges = jobs[-1].out_files["repeat_graph_edges"]
-        repeat_graph = jobs[-1].out_files["repeat_graph"]
-
-
-    #Trestle: Resolve Unbridged Repeats
-    if args.trestle:
-        jobs.append(JobTrestle(args, work_dir, log_file,
-                    repeat_graph, repeat_graph_edges,
-                    reads_alignment))
         repeat_graph_edges = jobs[-1].out_files["repeat_graph_edges"]
         repeat_graph = jobs[-1].out_files["repeat_graph"]
 
@@ -525,7 +529,7 @@ def _usage():
             "\t     --nano-corr | --subassemblies) file1 [file_2 ...]\n"
             "\t     --genome-size SIZE --out-dir PATH\n"
             "\t     [--threads int] [--iterations int] [--min-overlap int]\n"
-            "\t     [--meta] [--plasmids] [--trestle] [--debug]\n"
+            "\t     [--meta] [--plasmids] [--no-trestle] [--debug]\n"
             "\t     [--version] [--help] [--resume]")
 
 
@@ -537,10 +541,13 @@ def _epilog():
             "--subassemblies option performs a consensus assembly of multiple\n"
             "sets of high-quality contigs. You may specify multiple\n"
             "files with reads (separated by spaces). Mixing different read\n"
-            "types is not yet supported.\n\n"
+            "types is not yet supported. --meta option enables the mode\n"
+            "for metagenome/uneven coverage assembly.\n\n"
             "You must provide an estimate of the genome size as input,\n"
             "which is used for solid k-mers selection. Standard size\n"
-            "modificators are supported (e.g. 5m or 2.6g)\n\n"
+            "modificators are supported (e.g. 5m or 2.6g). In case\n"
+            "of metagenome assembly, expected total assembly size\n"
+            "should be provided.\n\n"
             "To reduce memory consumption for large genome assemblies,\n"
             "you can use a subset of the longest reads for initial contig\n"
             "assembly by specifying --asm-coverage option. Typically,\n"
@@ -615,9 +622,9 @@ def main():
     parser.add_argument("--meta", action="store_true",
                         dest="meta", default=False,
                         help="metagenome / uneven coverage mode")
-    parser.add_argument("--trestle", action="store_true",
-                        dest="trestle", default=False,
-                        help="enable Trestle (unbridged repeat resoltuion)")
+    parser.add_argument("--no-trestle", action="store_true",
+                        dest="no_trestle", default=False,
+                        help="skip Trestle stage")
     parser.add_argument("--resume", action="store_true",
                         dest="resume", default=False,
                         help="resume from the last completed stage")
