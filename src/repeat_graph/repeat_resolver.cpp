@@ -436,7 +436,7 @@ void RepeatResolver::findRepeats()
 	}
 
 	//now, check for this structure >-<, in case read alignments were not enough
-	for (auto& path : sortedPaths)
+	/*for (auto& path : sortedPaths)
 	{
 		if (path->path.front()->repetitive || path->isLooped()) continue;
 		if (path->path.front()->nodeLeft->outEdges.size() > 1 ||
@@ -458,7 +458,7 @@ void RepeatResolver::findRepeats()
 			markRepetitive(path);
 			markRepetitive(complPath(path));
 		}
-	}
+	}*/
 }
 
 void RepeatResolver::finalizeGraph()
