@@ -30,24 +30,30 @@ assemble_obj := ${patsubst %.cpp,%.o,${wildcard assemble/*.cpp}}
 flye-assemble: ${assemble_obj} ${sequence_obj} bin/assemble.o
 	${CXX} ${assemble_obj} ${sequence_obj} bin/assemble.o -o ${ASSEMBLE_BIN} ${LDFLAGS}
 
-assemble/%.o: assemble/%.cpp assemble/*.h sequence/*.h common/*.h bin/assemble.cpp
+assemble/%.o: assemble/%.cpp assemble/*.h sequence/*.h common/*.h
 	${CXX} -c ${CXXFLAGS} $< -o $@
+bin/assemble.o: assemble/*.h sequence/*.h common/*.h bin/assemble.cpp
+	${CXX} -c ${CXXFLAGS} bin/assemble.cpp -o $@
 
 #flye-repeat module
 repeat_obj := ${patsubst %.cpp,%.o,${wildcard repeat_graph/*.cpp}}
 flye-repeat: ${repeat_obj} ${sequence_obj} bin/repeat.o
 	${CXX} ${repeat_obj} ${sequence_obj} bin/repeat.o -o ${REPEAT_BIN} ${LDFLAGS}
 
-repeat_graph/%.o: repeat_graph/%.cpp repeat_graph/*.h sequence/*.h common/*.h bin/repeat.cpp
+repeat_graph/%.o: repeat_graph/%.cpp repeat_graph/*.h sequence/*.h common/*.h
 	${CXX} -c ${CXXFLAGS} $< -o $@
+bin/repeat.o: repeat_graph/*.h sequence/*.h common/*.h bin/repeat.cpp
+	${CXX} -c ${CXXFLAGS} bin/repeat.cpp -o $@
 
 #flye-contigger module
 contigger_obj := ${patsubst %.cpp,%.o,${wildcard contigger/*.cpp}}
 flye-contigger: ${contigger_obj} ${sequence_obj} ${repeat_obj} bin/contigger.o
 	${CXX} ${contigger_obj} ${repeat_obj} ${sequence_obj} bin/contigger.o -o ${CONTIGGER_BIN} ${LDFLAGS}
 
-contigger/%.o: contigger/%.cpp repeat_graph/*.h sequence/*.h common/*.h bin/contigger.cpp
+contigger/%.o: contigger/%.cpp repeat_graph/*.h sequence/*.h common/*.h
 	${CXX} -c ${CXXFLAGS} $< -o $@
+bin/contigger.o: repeat_graph/*.h contigger/*.h sequence/*.h common/*.h bin/contigger.cpp
+	${CXX} -c ${CXXFLAGS} bin/contigger.cpp -o $@
 
 
 #flye-polish module
