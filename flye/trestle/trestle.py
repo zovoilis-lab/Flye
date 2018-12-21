@@ -1089,7 +1089,14 @@ def _find_consensus_endpoint(cutpoint, aligns, side):
                     trg_aln, aln_trg = _index_mapping(aln.trg_seq)
                     qry_aln, aln_qry = _index_mapping(aln.qry_seq)
                     cutpoint_minus_start = cutpoint - aln.trg_start
-                    aln_ind = trg_aln[cutpoint_minus_start]
+                    if cutpoint_minus_start < 0:
+                        print aln.qry_id, aln.trg_id, side, cutpoint, cutpoint_minus_start
+                        aln_ind = trg_aln[0]
+                    elif cutpoint_minus_start >= len(trg_aln):
+                        print aln.qry_id, aln.trg_id, side, cutpoint, cutpoint_minus_start
+                        aln_ind = trg_aln[-1]
+                    else:
+                        aln_ind = trg_aln[cutpoint_minus_start]
                     qry_ind = aln_qry[aln_ind]
                     endpoint = qry_ind + coll_aln.qry_start
                     aln_endpoints.append((0, endpoint))
@@ -2265,7 +2272,8 @@ def finalize_int_stats(rep, repeat_edges, side_it, cons_align_path, template,
         bridged_edges = None
         combo_inds = zip(combo_support, range(len(combo_support)))
         sorted_combos = sorted(combo_inds, reverse=True)
-        if (sorted_combos[0][0] >= MIN_BRIDGE_COUNT and 
+        if (len(sorted_combos) > 1 and 
+            sorted_combos[0][0] >= MIN_BRIDGE_COUNT and 
             sorted_combos[0][0] >= sorted_combos[1][0] * MIN_BRIDGE_FACTOR):
             bridged = True
             bridged_edges = all_combos[sorted_combos[0][1]]
