@@ -147,6 +147,7 @@ namespace
 void VertexIndex::buildIndexUnevenCoverage(int minCoverage)
 {
 	static const float SELECT_RATE = 0.25;
+	static const int TANDEM_FREQ = 10;
 
 	if (_outputProgress) Logger::get().info() << "Filling index table";
 	
@@ -160,8 +161,11 @@ void VertexIndex::buildIndexUnevenCoverage(int minCoverage)
 		//int32_t nextKmerPos = _sampleRate;
 		auto cmp = [](const KmerFreq& k1, const KmerFreq& k2)
 							{return k1.freq > k2.freq;};
-		std::priority_queue<KmerFreq, std::vector<KmerFreq>,
-							decltype(cmp)> topKmers(cmp);
+		thread_local std::priority_queue<KmerFreq, std::vector<KmerFreq>,
+									 	 decltype(cmp)> topKmers(cmp);
+		thread_local std::unordered_map<Kmer, size_t> localFreq;
+		localFreq.clear();
+
 		for (auto kmerPos : IterKmers(_seqContainer.getSeq(readId)))
 		{
 			/*if (_sampleRate > 1) //subsampling
@@ -173,6 +177,7 @@ void VertexIndex::buildIndexUnevenCoverage(int minCoverage)
 			{
 				topKmers.push({kmerPos.kmer, (size_t)kmerPos.position, 
 							   _kmerCounts.find(kmerPos.kmer)});
+				++localFreq[kmerPos.kmer];
 				if ((int)topKmers.size() > 
 					SELECT_RATE * _seqContainer.seqLen(readId)) topKmers.pop();
 			}
@@ -184,7 +189,8 @@ void VertexIndex::buildIndexUnevenCoverage(int minCoverage)
 			topKmers.pop();
 
 			int freq = _kmerCounts.find(kmerPos.kmer);
-			if (freq < minCoverage || freq > (int)_repetitiveFrequency) continue;
+			if (freq < minCoverage || freq > (int)_repetitiveFrequency ||
+				localFreq[kmerPos.kmer] > TANDEM_FREQ) continue;
 
 			FastaRecord::Id targetRead = readId;
 			bool revCmp = kmerPos.kmer.standardForm();
