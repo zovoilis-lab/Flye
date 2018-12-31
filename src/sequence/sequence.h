@@ -94,6 +94,9 @@ public:
 
 	DnaSequence& operator=(DnaSequence&& other)
 	{
+		--_data->useCount;
+		if (_data->useCount == 0) delete _data;
+
 		_data = other._data;
 		_complement = other._complement;
 		other._data = nullptr;

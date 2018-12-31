@@ -990,6 +990,8 @@ void RepeatGraph::logEdges()
 
 GraphPath RepeatGraph::complementPath(const GraphPath& path) const
 {
+	if (path.empty()) return {};
+
 	GraphPath complEdges;
 	for (auto itEdge = path.rbegin(); itEdge != path.rend(); ++itEdge)
 	{
