@@ -26,6 +26,7 @@
 #include "../common/parallel.h"
 #include "../common/disjoint_set.h"
 
+
 namespace
 {
 	using namespace std::chrono;
@@ -323,6 +324,19 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 	thread_local std::vector<int32_t> scoreTable;
 	thread_local std::vector<int32_t> backtrackTable;
 
+	/*static std::mutex reportMutex;
+	thread_local auto prevReport = std::chrono::system_clock::now();
+	if ((std::chrono::system_clock::now() - prevReport) > 
+		std::chrono::seconds(60))
+	{
+		std::lock_guard<std::mutex> lock(reportMutex);
+		prevReport = std::chrono::system_clock::now();
+		Logger::get().debug() << ">>Thread " << std::this_thread::get_id() << "\t" 
+			<< vecMatches.capacity() << "\t" << matchesList.capacity()
+			<< "\t" << scoreTable.capacity() << "\t" << backtrackTable.capacity()
+			<< "\t" << seqHitCount.capacity();
+	}*/
+
 	//although once in a while shrink allocated memory size
 	thread_local auto prevCleanup = 
 		std::chrono::system_clock::now() + std::chrono::seconds(rand() % 60);
@@ -391,7 +405,7 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 			}
 		}
 		std::sort(topSeqs.begin(), topSeqs.end(),
-				  [](const std::pair<FastaRecord::Id, SeqCountType> p1, 
+				  [](const std::pair<FastaRecord::Id, SeqCountType>& p1, 
 					 const std::pair<FastaRecord::Id, SeqCountType>& p2) 
 					 {return p1.second > p2.second;});
 		for (size_t i = (size_t)maxOverlaps; i < topSeqs.size(); ++i)
@@ -422,9 +436,14 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 		}
 	}
 	//group by extId
-	std::stable_sort(vecMatches.begin(), vecMatches.end(),
-			  		 [](const KmerMatch& k1, const KmerMatch& k2)
-			  		 {return k1.extId < k2.extId;});
+	//std::stable_sort(vecMatches.begin(), vecMatches.end(),
+	//		  		 [](const KmerMatch& k1, const KmerMatch& k2)
+	//		  		 {return k1.extId < k2.extId;});
+	
+	std::sort(vecMatches.begin(), vecMatches.end(),
+			  [](const KmerMatch& k1, const KmerMatch& k2)
+			  {return k1.extId != k2.extId ? k1.extId < k2.extId : 
+			  								 k1.curPos < k2.curPos;});
 	
   	//clock_t end = clock();
   	//double elapsed_secs = double(end - hashTime) / CLOCKS_PER_SEC;
