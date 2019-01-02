@@ -12,10 +12,13 @@ profile: CXXFLAGS += -pg
 profile: LDFLAGS += -pg
 profile: release
 
-release: CXXFLAGS += -D_LOG -O3 -DNDEBUG
+release: CXXFLAGS += -O3 -DNDEBUG
 release: flye-repeat flye-polish flye-assemble flye-contigger
 
-debug: CXXFLAGS += -Og -D_GLIBCXX_DEBUG -D_DEBUG -D_DEBUG_LOG -D_LOG
+SANITIZE_FLAGS += -fsanitize=address -fsanitize=leak -fsanitize=undefined
+#SANITIZE_FLAGS += -fsanitize=thread
+debug: CXXFLAGS += -Og -D_GLIBCXX_DEBUG ${SANITIZE_FLAGS}
+debug: LDFLAGS += ${SANITIZE_FLAGS}
 debug: flye-repeat flye-polish flye-assemble flye-contigger
 
 
