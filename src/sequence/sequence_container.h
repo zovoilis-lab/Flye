@@ -167,24 +167,28 @@ public:
 
 	const FastaRecord& getRecord(FastaRecord::Id seqId) const
 	{
+		assert(seqId._id - _seqIdOffest < _seqIndex.size());
 		assert(_seqIndex[seqId._id - _seqIdOffest].id == seqId);
 		return _seqIndex[seqId._id - _seqIdOffest];
 	}
 
 	const DnaSequence& getSeq(FastaRecord::Id readId) const
 	{
+		assert(readId._id - _seqIdOffest < _seqIndex.size());
 		assert(_seqIndex[readId._id - _seqIdOffest].id == readId);
 		return _seqIndex[readId._id - _seqIdOffest].sequence;
 	}
 
 	int32_t seqLen(FastaRecord::Id readId) const
 	{
+		assert(readId._id - _seqIdOffest < _seqIndex.size());
 		assert(_seqIndex[readId._id - _seqIdOffest].id == readId);
 		return _seqIndex[readId._id - _seqIdOffest].sequence.length();
 	}
 
 	std::string seqName(FastaRecord::Id readId) const
 	{
+		assert(readId._id - _seqIdOffest < _seqIndex.size());
 		assert(_seqIndex[readId._id - _seqIdOffest].id == readId);
 		return _seqIndex[readId._id - _seqIdOffest].description;
 	}
@@ -195,6 +199,15 @@ public:
 
 	size_t globalPosition(FastaRecord::Id seqId, int32_t position) const
 	{
+		assert(position >= 0 && position < this->seqLen(seqId));
+		assert(seqId._id - _seqIdOffest < _seqIndex.size());
+		#ifndef NDEBUG
+		auto checkGlob = _sequenceOffsets[seqId._id - _seqIdOffest] + position;
+		FastaRecord::Id checkId;
+		int32_t checkPos;
+		this->seqPosition(checkGlob, checkId, checkPos);
+		assert(checkId == seqId && checkPos == position);
+		#endif
 		return _sequenceOffsets[seqId._id - _seqIdOffest] + position;
 	}
 
@@ -206,12 +219,18 @@ public:
 	void seqPosition(size_t globPos, FastaRecord::Id& outSeqId, 
 					 int32_t& outPosition) const
 	{
-		size_t hint = _offsetsHint[globPos / CHUNK];
-		while (hint < _sequenceOffsets.size() &&
-			   _sequenceOffsets[hint] <= globPos) ++hint;
+		assert(globPos < _sequenceOffsets.back());
 
-		outSeqId = FastaRecord::Id(_seqIdOffest + hint - 1);
-		outPosition = globPos - _sequenceOffsets[hint - 1];
+		size_t hint = _offsetsHint[globPos / CHUNK];
+		//while (hint < _sequenceOffsets.size() &&
+		while (_sequenceOffsets[hint + 1] <= globPos) ++hint;
+
+		outSeqId = FastaRecord::Id(_seqIdOffest + hint);
+		outPosition = globPos - _sequenceOffsets[hint];
+
+		assert(outSeqId._id - _seqIdOffest < _seqIndex.size());
+		assert(outPosition >= 0 && outPosition < this->seqLen(outSeqId));
+		//assert(this->globalPosition(outSeqId, outPosition) == globPos);
 	}
 	static size_t g_nextSeqId;
 

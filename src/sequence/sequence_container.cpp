@@ -355,6 +355,7 @@ void SequenceContainer::writeFasta(const std::vector<FastaRecord>& records,
 
 void SequenceContainer::buildPositionIndex()
 {
+	Logger::get().debug() << "Building positional index";
 	size_t offset = 0;
 	_sequenceOffsets.reserve(_seqIndex.size());
 	for (auto& seq : _seqIndex)
@@ -362,18 +363,23 @@ void SequenceContainer::buildPositionIndex()
 		_sequenceOffsets.push_back(offset);
 		offset += seq.sequence.length();
 	}
+	_sequenceOffsets.push_back(offset);
 
 	_offsetsHint.reserve(offset / CHUNK + 1);
+	size_t idx = 0;
 	for (size_t i = 0; i <= offset / CHUNK; ++i)
 	{
-		size_t idx = std::upper_bound(_sequenceOffsets.begin(), 
-									  _sequenceOffsets.end(),
-									  i * CHUNK) - _sequenceOffsets.begin();
+		while (i * CHUNK >= _sequenceOffsets[idx + 1]) ++idx;
+		//size_t newIdx = std::upper_bound(_sequenceOffsets.begin(), 
+		//							     _sequenceOffsets.end(),
+		//							     i * CHUNK) - _sequenceOffsets.begin();
+		//Logger::get().debug() << idx << " " << newIdx;
+		//assert(idx == newIdx);
 		_offsetsHint.push_back(idx);
 	}
 
 	Logger::get().debug() << "Total sequence: " << offset / 2 << " bp";
-	if (offset > MAX_SEQUENCE)
+	if (offset >= MAX_SEQUENCE)
 	{
 		Logger::get().error() << "Maximum sequence limit reached ("
 			<< MAX_SEQUENCE / 2 << ")";
