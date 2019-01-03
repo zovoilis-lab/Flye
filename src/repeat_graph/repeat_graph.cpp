@@ -1147,3 +1147,12 @@ void RepeatGraph::updateEdgeSequences()
 	}
 	_edgeSeqsContainer->buildPositionIndex();
 }
+
+RepeatGraph::~RepeatGraph()
+{
+	std::unordered_set<GraphEdge*> toRemove;
+	for (auto& edge : this->iterEdges()) toRemove.insert(edge);
+	for (auto edge : toRemove) this->removeEdge(edge);
+	for (auto node : _graphNodes) delete node;
+	_graphNodes.clear();
+}

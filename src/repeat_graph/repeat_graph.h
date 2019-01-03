@@ -222,6 +222,7 @@ public:
 	RepeatGraph(const SequenceContainer& asmSeqs, SequenceContainer* graphSeqs):
 		 _nextEdgeId(0), _asmSeqs(asmSeqs), _edgeSeqsContainer(graphSeqs)
 	{}
+	~RepeatGraph();
 
 	void build();
 	void storeGraph(const std::string& filename);
