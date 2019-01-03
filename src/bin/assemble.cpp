@@ -99,7 +99,7 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 
 int main(int argc, char** argv)
 {
-	#ifndef _DEBUG
+	#ifdef NDEBUG
 	signal(SIGSEGV, segfaultHandler);
 	std::set_terminate(exceptionHandler);
 	#endif

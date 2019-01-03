@@ -76,7 +76,7 @@ inline void segfaultHandler(int signal)
 	{
 		Logger::get().error() << "\t" << backtrace[i];
 	}
-	exit(1);
+	abort();
 }
 
 inline void exceptionHandler()
@@ -103,6 +103,6 @@ inline void exceptionHandler()
 	{
 		Logger::get().error() << "\t" << backtrace[i];
 	}
-	exit(1);
+	abort();
 }
 
