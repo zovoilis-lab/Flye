@@ -66,7 +66,7 @@ inline bool fileExists(const std::string& path)
 	return fin.good();
 }
 
-inline void segfaultHandler(int signal)
+inline void segfaultHandler(int signal __attribute__((unused)))
 {
 	void *stackArray[20];
 	size_t size = backtrace(stackArray, 10);

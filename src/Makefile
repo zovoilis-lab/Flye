@@ -1,6 +1,6 @@
 .PHONY: all clean debug profile
 
-CXXFLAGS += -Wall -pthread -std=c++11 -g
+CXXFLAGS += -Wall -Wextra -pthread -std=c++11 -g
 LDFLAGS += -pthread -std=c++11 -rdynamic
 
 ASSEMBLE_BIN := ${BIN_DIR}/flye-assemble
