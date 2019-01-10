@@ -197,7 +197,7 @@ struct OverlapRange
 struct OvlpDivStats
 {
 	static const size_t MAX_STATS = 1000000;
-	OvlpDivStats(): vecSize(0) {}
+	OvlpDivStats(): divVec(MAX_STATS), vecSize(0) {}
 	
 	void add(float val)
 	{
@@ -217,7 +217,7 @@ struct OvlpDivStats
 		divVec[expected] = val;
 	}
 
-	std::array<float, MAX_STATS>  divVec;
+	std::vector<float>  divVec;
 	std::atomic<size_t> vecSize;
 };
 
