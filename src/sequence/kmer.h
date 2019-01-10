@@ -33,7 +33,20 @@ public:
 		}
 	}
 
-	Kmer reverseComplement()
+	std::string toString() const
+	{
+		KmerRepr repr = _representation;
+		std::string result;
+		for (unsigned int i = 0; i < Parameters::get().kmerSize; ++i)
+		{
+			result += "ACGT"[repr & 3];
+			repr >>= 2;
+		}
+		std::reverse(result.begin(), result.end());
+		return result;
+	}
+
+	Kmer reverseComplement() const
 	{
 		KmerRepr tmpRepr = _representation;
 		Kmer newKmer;

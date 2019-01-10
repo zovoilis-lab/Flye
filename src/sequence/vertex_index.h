@@ -208,6 +208,17 @@ public:
 
 	int getSampleRate() const {return _sampleRate * _solidMultiplier;}
 
+	void outputSelectedKmers(int minCov, const std::string& filename)
+	{
+		std::ofstream fout(filename);
+		for (auto& kmerPair : _kmerIndex.lock_table())
+		{
+			fout << std::min(kmerPair.first.toString(), 
+							 kmerPair.first.reverseComplement().toString()) 
+				 << " " << kmerPair.second.size << std::endl;
+		}
+	}
+
 	//int getFlankRepeatSize() const {return _flankRepeatSize;}
 
 private:
