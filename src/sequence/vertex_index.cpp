@@ -223,7 +223,7 @@ void VertexIndex::buildIndexUnevenCoverage(int minCoverage)
 						{
 							newBuffer[i] = rv.data[i];
 						}
-						if (rv.data) delete rv.data;
+						if (rv.data) delete[] rv.data;
 						rv.data = newBuffer;
 						rv.capacity = newSize;
 					}
