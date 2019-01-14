@@ -8,8 +8,8 @@ Table of Contents
 - [Examples](#examples)
 - [Supported Input Data](#inputdata)
 - [Parameter Descriptions](#parameters)
-- [Assembly graph](#graph)
-- [Contigs/scaffolds output](#output)
+- [Flye output](#output)
+- [Repeat graph](#graph)
 - [Running Time and Memory Requirements](#performance)
 - [Algorithm Description](#algorithm)
 
@@ -21,7 +21,8 @@ usage: flye (--pacbio-raw | --pacbio-corr | --nano-raw |
 	     --nano-corr | --subassemblies) file1 [file_2 ...]
 	     --genome-size SIZE --out-dir PATH
 	     [--threads int] [--iterations int] [--min-overlap int]
-	     [--debug] [--version] [--help] [--resume]
+	     [--meta] [--plasmids] [--no-trestle] [--debug]
+	     [--version] [--help] [--resume]
 
 Assembly of long and error-prone reads
 
@@ -48,13 +49,16 @@ optional arguments:
   -m int, --min-overlap int
                         minimum overlap between reads [auto]
   --asm-coverage int    reduced coverage for initial contig assembly [not set]
+  --plasmids            rescue short unassmebled plasmids
+  --meta                metagenome / uneven coverage mode
+  --no-trestle          skip Trestle stage
   --resume              resume from the last completed stage
   --resume-from stage_name
                         resume from a custom stage
   --debug               enable debug output
   -v, --version         show program's version number and exit
-```
 
+```
 
 Input reads could be in FASTA or FASTQ format, uncompressed
 or compressed with gz. Currenlty, raw and corrected reads
@@ -63,11 +67,14 @@ from PacBio and ONT are supported. The expected error rates are
 --subassemblies option performs a consensus assembly of multiple
 sets of high-quality contigs. You may specify multiple
 files with reads (separated by spaces). Mixing different read
-types is not yet supported.
+types is not yet supported. --meta option enables the mode
+for metagenome/uneven coverage assembly.
 
 You must provide an estimate of the genome size as input,
 which is used for solid k-mers selection. Standard size
-modificators are supported (e.g. 5m or 2.6g)
+modificators are supported (e.g. 5m or 2.6g). In case
+of metagenome assembly, expected total assembly size
+should be provided.
 
 To reduce memory consumption for large genome assemblies,
 you can use a subset of the longest reads for initial contig
@@ -107,17 +114,12 @@ The dataset was originally released by the
 ### PacBio data
 
 Flye was tested on raw PacBio reads (P5C3 and P6C4) with error rate ~15%.
-Typically, a bacterial WGS project with 40x coverage can be assembled 
-into a single, structurally concordant contig for each chromosome. However, to get the best 
-nucleotide-level quaity, you might need deeper coverage. For a 50x E. coli dataset,
-Flye makes roughly 30 single nucleotide insertions/deletions.
-
 Note that Flye treats each PacBio subread separately and does not take
-advantage of the PacBio CСS technology (if applies). If you have CСS PacBio data,
+advantage of the PacBio CСS technology. If you have CСS PacBio data,
 consider to call read consensus using the official tools and
 run Flye in error-corrected mode on the resulting sequences.
 
-### Oxford Nanopore Technologies data
+### Oxford Nanopore data
 
 We performed our benchmarks with raw ONT reads (R7-R9) with error rate ~15%.
 Due to the biased error pattern, per-nucleotide accuracy is usually lower for 
@@ -131,12 +133,12 @@ The parameters are optimized for error rates <2%. If you are getting highly
 fragmented assembly - most likely error rates in your reads are higher. In this case,
 consider to assemble using the raw reads instead.
 
-### Consensus of multiple input contig sets
+### Consensus of multiple contig sets
 
 ```--subassemblies``` input mode generates a consensus of multiple high quality contig assemblies
-(such as produced by different short read assemblers). The expected error rate
-is similar <1%. You might want to skip the polishing stage with ```--iterations 0``` argument
-(however, it might still be helpful).
+(such as produced by different short/long read assemblers). The expected error rate
+is <1%. You might want to skip the polishing stage with ```--iterations 0``` argument
+(however, it might still be helpful to correct small structural errors).
 
 
 ### Input data preparation
@@ -162,20 +164,30 @@ supported (e.g. 5m or 2.6g)
 
 This sets a minimum overlap length for two reads to be considered overlapping.
 In the latest Flye versions, this parameter is chosen automatically
-based on the read length distribution and does not require manual setting.
+based on the read length distribution (reads N90) and does not require manual setting.
 Typical value is 3k-5k (and down to 1k for datasets with shorter read length).
 Intuitively, we want to set this parameter as high as possible, so the
 repeat graph is less tangled. However, higher values might lead to assembly gaps.
 In some *rare* cases (for example in case of biased read length distribution)
 it makes sense to set this parameter manualy.
 
+### Metagenome mode
+
+Metagenome assembly mode, deigned for highl coverage variation accross
+the assembled species. This mode is tuned to be sensitive to underrepresented
+sequence at low coverage (as low as 2x). In some examples of simple metagenomes, 
+we observed that the normal (isolate) Flye mode assembled more contigious bacterial
+consensus sequence, while the metagenome mode was not as contigious, but
+revealed the strain mixtures. For relatively complex metagenome `--meta` mode
+is the recommended way.
+
 ### Contig assembly coverage
 
 Typically, assemblies of large genomes at high coverage require
 a lot of RAM. For high coverage assemblies, you can reduce memory usage
 by using only a subset of longest reads for initial contig extension
-stage (typically, the memory bottleneck). The parameter ```--asm-coverage```
-specifies the target coverage of the longest reads. Typically, 40x
+stage (usually, the memory bottleneck). The parameter ```--asm-coverage```
+specifies the target coverage of the longest reads. For a typicall assembly, 40x
 is enough to produce good initial contigs. Regardless of this parameter,
 all reads will be later used for repeat graph analysis.
 
@@ -199,22 +211,44 @@ You might also resume from a particular stage with ```--resume-from stage_name``
 where ```stage_name``` is a choice of ```assembly, consensus, repeat, polishing```.
 For example, you might supply different sets of reads for different stages.
 
-## <a name="graph"></a> Assembly graph
+## <a name="output"></a> Flye output
 
-The final assembly graph is output into the ```assembly_graph.gv``` file.
-It could be visualized using [Graphviz](https://graphviz.gitlab.io/): 
+Each contig is formed by a single unique edge and possibly multiple repetitive
+edges and correponds to a genomic path through the graph.
+Sometimes it is also possible to further order some contigs based on the repeat graph 
+structure. In this case, scaffolds are formed by interleaving the ordered contigs with 100 Ns.
+Scaffolds (along with contigs that are not contained in scaffolds) are output
+into the "scaffolds.fasta" file. 
+
+Extra information about contigs/scaffolds is output into the ```assembly_info.txt``` file.
+The table columns are as follows:
+
+* Sequence id
+* Length
+* Coverage
+* Circular? (if contig represent a circular sequence)
+* Repetitive? (if contig represent repetitive, rather than unique sequence)
+* Multiplicity (inferred contig multiplicity based on coverage)
+* Graph path (the edges of the assembly graph that form this particular contig).
+     Scaffold gaps are marked with "??" symbols, and '*' symbol means
+	 the end of a graph path.
+
+## <a name="graph"></a> Repeat graph
+
+The final repeat (assembly) graph is output into the ```assembly_graph.gv``` file
+(also available in .gfa format). It could be visualized using [Graphviz](https://graphviz.gitlab.io/): 
 ```dot -Tpng -O assembly_graph.gv```. The edges in this graph 
-represent genomic sequences, and nodes simply serve
-as junctions. The genomic chromosomes traverse this graph (in an unknown way) 
-so as each unique edge is covered exactly once. The genomic repeats that were not
-resolved are collapsed into the corresponding edges in the graph
+represent genomic sequences, and nodes define the sequence junstions
+The genome traverses this graph (in an unknown way) so as each unique edge 
+is covered exactly once. The unresolved genomic repeats
+are collapsed into the corresponding edges in the graph
 (therefore genome structure remain umbigious).
 
 <p align="center">
   <img src="graph_example.png" alt="Graph example"/>
 </p>
 
-An example of a final assembly graph of a bacterial genome is above.
+Above is an example of a final assembly graph of a bacterial genome.
 Each edge is labeled with its id, length and coverage. Repetitive edges are shown
 in color, while unique edges are black. The clusters of adjacent repeats are shown with the 
 same color. Note that each edge is represented in two copies: forward and
@@ -229,33 +263,10 @@ As the repeats remained unresolved, there are no reads in the dataset that cover
 those repeats in full.
 
 Initial assembly graph state (before repeats were resolved) could be found in
-the ```2-repeat/graph_before_rr.gv``` file. Additionally, ```.gfa``` versions of
-assembly graphs could be found in ```2-repeat``` directory.
+the ```20-repeat/graph_before_rr.gv``` file. Additionally, ```.gfa``` versions of
+assembly graphs could be found in ```20-repeat``` directory.
 
-## <a name="output"></a> Contigs/scaffolds output
 
-Each contig is formed by a single unique edge and possibly multiple repetitive
-edges and correponds to a genomic path through the graph.
-Final contigs are output into the "contigs.fasta" file. Sometimes it is possible to
-further order some contigs based on the assembly graph structure. In this case,
-scaffolds are formed by interleaving the corresponding contigs with 100 Ns.
-Scaffolds (along with contigs that are not contained in scaffolds) are output
-into the "scaffolds.fasta" file. In case no scaffolds were contructed, 
-the two files will be identical. Scaffolds will potentially have higher N50, 
-but the gap size might not be very accurate.
-
-Extra information about contigs/scaffolds is output into the ```assembly_info.txt``` file.
-The table columns are as follows:
-
-* Sequence id
-* Length
-* Coverage
-* Circular? (if contig represent a circular sequence)
-* Repetitive? (if contig represent repetitive, rather than unique sequence)
-* Multiplicity (inferred contig multiplicity based on coverage)
-* Graph path (the edges of the assembly graph that form this particular contig).
-     Scaffold gaps are marked with "??" symbols, and '*' symbol means
-	 that telomeric region was reached.
 
 ## <a name="performance"></a> Running time and memory requirements
 
@@ -275,7 +286,7 @@ computational node. The more detailed benchmarks are below.
 ## <a name="algorithm"></a> Algorithm Description
 
 This is a brief description of the Flye algorithm. Please refer to the manuscript
-for more detailed information. The assembly pipeline is organized as follows:
+for more detailed information. The draft contig extension is organized as follows:
 
 * Kmer counting / erroneous kmer pre-filtering
 * Solid kmer selection (kmers with sufficient frequency, which are unlikely to be erroneous)
@@ -293,12 +304,13 @@ calls a consensus. Afterwards, Flye performs repeat analysis as follows:
 * The algorithm resolves repeats using the read information and graph structure
 * The unbranching paths in the graph are output as contigs
 
+After resolving bridged repeats, Trestle module attemts to reolve simple unbridged
+repeats (of multiplicity 2) using the heterogenities between repeat copies.
 Finally, Flye performs polishing of the resulting assembly
 to correct the remaining errors:
 
 * Alignment of all reads to the current assembly using minimap2
-* Selection of solid regions
-* Partition the total alignment of all reads into mini-alignments (bubbles)
+* Partition the alignment into into mini-alignments (bubbles)
 * Error correction of each bubble using a maximum likelihood approach
 
 The polishing steps could be repeated, which might slightly increase quality for some datasets.

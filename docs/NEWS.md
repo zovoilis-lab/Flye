@@ -1,3 +1,9 @@
+Flye 2.4 release (14 Jan 2019)
+==============================
+* Metagenome assembly support fully integrated (`--meta` option)
+* New Trestle module for resolving simple unbridged repeats
+* New `--plasmids` option that recovers short unassmbled plasmids
+
 Flye 2.3.7 (14 Nov 2018)
 =======================
 * Improvements in repeat edges detection

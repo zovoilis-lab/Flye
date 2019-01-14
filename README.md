@@ -3,24 +3,32 @@ Flye assembler
 
 [![BioConda Install](https://img.shields.io/conda/dn/bioconda/flye.svg?style=flag&label=BioConda%20install)](https://anaconda.org/bioconda/flye)
 
-### Version: 2.3.7
+### Version: 2.4
 
 Flye is a de novo assembler for long and noisy reads, such as
 those produced by PacBio and Oxford Nanopore Technologies.
-It is built on top of the ABruijn assembler, and features many new
-algorithmic improvements. The core read overlapping algorithm uses an A-Bruijn graph 
-to find the mappings between reads and does not require them to be error-corrected. 
-As a result, Flye is 2-10 times faster then hierarchical assembly pipelines.
-After the initial contig assembly, Flye constructs assembly (repeat) graph and
-accurately resolves repeats using bridging reads. The package also includes a polisher
-module, which produces the final assembly of high nucleotide-level quality.
+The core read overlapping algorithm uses A-Bruijn graph 
+to find the mappings between reads and does not require reads 
+to be error-corrected, which resutlts into a faster assembly. 
 
+Flye transforms an initial set of draft contigs into a repeat graph. 
+It is somewhat similar to de Bruijn graphs, but can tollerate higher noise level
+of long reads. Similarly to short read assemblers, Flye
+maps the original reads back on the graph and uses bridging
+information to accurately resolve repeats.
+The package also includes a polisher module, which produces 
+the final assembly of high nucleotide-level quality.
 
 
 Latest updates
 --------------
 
-### Flye 2.3.7 released (14 Nov)
+### Flye 2.4 release (14 Jan 2019)
+* Metagenome assembly support fully integrated (`--meta` option)
+* New Trestle module for resolving simple unbridged repeats
+* New `--plasmids` option that recovers short unassmbled plasmids
+
+### Flye 2.3.7 released (14 Nov 2018)
 * Improvements in repeat edges detection
 * More precise read mapping - more contigious assemblies for some datasets
 * Memory and performance optimizations for high-coverage datasets
@@ -68,11 +76,11 @@ Manuals
 Assembly graph
 --------------
 
-The Flye algorithms are operating on the assembly (repeat) graph. The edges in this graph 
-represent genomic sequences, and nodes simply serve
-as junctions. The genoimc chromosomes traverse this graph (in an unknown way) 
-so as each unique edge is covered exactly once. The genomic repeats that were not
-resolved are collapsed into the corresponding edges in the graph
+The Flye algorithms are using repeat graph as a core data structure. 
+The edges in this graph represent genomic sequences, and nodes define the
+sequence junctions. The genoime traverses this graph (in an unknown way) 
+so as each unique edge is covered exactly once. The unresolved genomic repeats 
+are collapsed into the corresponding edges in the graph
 (therefore genome structure remain umbigious).
 
 
@@ -80,9 +88,9 @@ resolved are collapsed into the corresponding edges in the graph
   <img src="docs/graph_example.png" alt="Graph example"/>
 </p>
 
-An example of a final assembly graph of a bacterial genome is above.
+Above is an example of a final assembly graph of a bacterial genome.
 Each edge is labeled with its id, length and coverage. Repetitive edges are shown
-in color, while unique edges are black. The clusters of adjacent repeats are shown with the 
+in color, and unique edges are black. The clusters of adjacent repeats are shown with the 
 same color. Note that each edge is represented in two copies: forward and
 reverse complement (marked with +/- signs), therefore the entire genome is
 represented in two copies as well. Sometimes (as in this example), forward and reverse-complement
@@ -115,13 +123,14 @@ Flye is distributed under a BSD license. See the [LICENSE file](LICENSE) for det
 Credits
 -------
 
-Flye was developed in [Pavel Pevzner's lab at UCSD](http://cseweb.ucsd.edu/~ppevzner/)
+Flye is developed in [Pavel Pevzner's lab at UCSD](http://cseweb.ucsd.edu/~ppevzner/)
 
 Code contributions:
 
-* Original assembler code: Yu Lin
-* Original polisher code: Jeffrey Yuan
-* Repeat graph and current package support: Mikhail Kolmogorov
+* Repeat graph and current package maintaining: Mikhail Kolmogorov
+* Trestle module and original polisher code: Jeffrey Yuan
+* Original contig extention code: Yu Lin
+* Short plasmids recovrey module: Evgeny Polevikov
 
 
 Publications
