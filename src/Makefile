@@ -15,9 +15,9 @@ profile: release
 release: CXXFLAGS += -O3 -DNDEBUG
 release: flye-repeat flye-polish flye-assemble flye-contigger
 
-SANITIZE_FLAGS += -fsanitize=address -fsanitize=leak -fsanitize=undefined
+#SANITIZE_FLAGS += -fsanitize=address -fsanitize=leak -fsanitize=undefined
 #SANITIZE_FLAGS += -fsanitize=thread
-debug: CXXFLAGS += -Og -D_GLIBCXX_DEBUG ${SANITIZE_FLAGS}
+debug: CXXFLAGS += -Og ${SANITIZE_FLAGS}
 debug: LDFLAGS += ${SANITIZE_FLAGS}
 debug: flye-repeat flye-polish flye-assemble flye-contigger
 
