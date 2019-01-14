@@ -173,12 +173,12 @@ it makes sense to set this parameter manualy.
 
 ### Metagenome mode
 
-Metagenome assembly mode, deigned for highl coverage variation accross
-the assembled species. This mode is tuned to be sensitive to underrepresented
-sequence at low coverage (as low as 2x). In some examples of simple metagenomes, 
-we observed that the normal (isolate) Flye mode assembled more contigious bacterial
-consensus sequence, while the metagenome mode was not as contigious, but
-revealed the strain mixtures. For relatively complex metagenome `--meta` mode
+Metagenome assembly mode, that is designed for highly non-uniform coverage and 
+is sensitive to underrepresented sequence at low coverage (as low as 2x). 
+In some examples of simple metagenomes,  we observed that the normal (isolate) 
+Flye mode assembled more contigious bacterial
+consensus sequence, while the metagenome mode was slightly more fragmented, but
+revealed strain mixtures. For relatively complex metagenome `--meta` mode
 is the recommended way.
 
 ### Contig assembly coverage
