@@ -10,7 +10,6 @@ Created on Wed Jan  4 03:50:31 2017
 
 import os
 import logging
-import numpy as np
 from itertools import combinations, product
 import copy
 import multiprocessing, signal
@@ -918,8 +917,8 @@ def find_coverage(frequency_file):
         header, freqs = div.read_frequency_path(frequency_file)
         cov_ind = header.index("Cov")
         all_covs = [f[cov_ind] for f in freqs]
-        coverage = np.mean(all_covs)
-        #print min(all_covs), np.mean(all_covs), max(all_covs)
+        coverage = _mean(all_covs)
+        #print min(all_covs), _mean(all_covs), max(all_covs)
     return coverage
 
 
@@ -1019,7 +1018,7 @@ def locate_consensus_cutpoint(side, read_endpoints, edge_read_file):
                 window_start = 0
             if window_end > len(coverage):
                 window_end = len(coverage)
-            avg_cov = np.mean(coverage[window_start:window_end])
+            avg_cov = _mean(coverage[window_start:window_end])
             if avg_cov >= MIN_EDGE_COV:
                 cutpoint = window_end
                 break
@@ -1030,7 +1029,7 @@ def locate_consensus_cutpoint(side, read_endpoints, edge_read_file):
                 window_start = 0
             if window_end > len(coverage):
                 window_end = len(coverage)
-            avg_cov = np.mean(coverage[window_start:window_end])
+            avg_cov = _mean(coverage[window_start:window_end])
             if avg_cov >= MIN_EDGE_COV:
                 cutpoint = window_start
                 break
@@ -2210,7 +2209,7 @@ def finalize_int_stats(rep, repeat_edges, side_it, cons_align_path, template,
             position_gaps[i] = p - curr_pos
             curr_pos = p
         position_gaps[-1] = template_len - curr_pos
-        mean_position_gap = np.mean(position_gaps)
+        mean_position_gap = _mean(position_gaps)
         max_position_gap = max(position_gaps)
         f.write("{0:26}\t{1}\n".format("Template Length:", template_len))
         f.write("{0:26}\t{1}\n".format("# Confirmed Positions:", 
@@ -2362,10 +2361,10 @@ def finalize_int_stats(rep, repeat_edges, side_it, cons_align_path, template,
                             div_rates[side].append(edge_rate)
             mean_in_div = 0.0
             if div_rates["in"]:
-                mean_in_div = np.mean(div_rates["in"])
+                mean_in_div = _mean(div_rates["in"])
             mean_out_div = 0.0
             if div_rates["out"]:
-                mean_out_div = np.mean(div_rates["out"])
+                mean_out_div = _mean(div_rates["out"])
             weighted_mean_div = 0.0
             if side_lens["in"] + side_lens["out"] != 0:
                 weighted_mean_div = (mean_in_div*side_lens["in"] + 
@@ -2634,7 +2633,7 @@ def int_stats_postscript(rep, repeat_edges, integrated_stats,
             divs.append(div_rate)
             f.write("{0:26}\t{1:.4f}\n".format("Divergence Rate:", div_rate))
         f.write("\n")
-    return np.mean(divs)
+    return _mean(divs)
         
 
 def _get_partitioning_info(part_list, edges):
@@ -2993,4 +2992,9 @@ def remove_unneeded_files(repeat_edges, rep, side_labels, side_it, orient_dir,
             split_path = os.path.split(f)
             new_file = os.path.join(split_path[0], add_dir_name, split_path[1])
             os.rename(f, new_file)
-            
+
+
+def _mean(lst):
+    if not lst:
+        return 0
+    return float(sum(lst)) / len(lst)

@@ -13,7 +13,6 @@ from collections import defaultdict
 from itertools import izip
 import multiprocessing
 import signal
-import numpy as np
 import os.path
 
 from flye.polishing.alignment import shift_gaps, SynchronizedSamReader
@@ -296,7 +295,7 @@ def _write_div_summary(div_sum_path, sum_header, positions,
         curr_pos = p
     position_gaps[-1] = seq_len-curr_pos
     
-    mean_position_gap = np.mean(position_gaps)
+    mean_position_gap = _mean(position_gaps)
     max_position_gap = max(position_gaps)
     
     window_len = 1000
@@ -321,8 +320,8 @@ def _write_div_summary(div_sum_path, sum_header, positions,
         if curr_window_len != 0:
             window_divs[i] = position_counts[i]/float(curr_window_len)
     
-    mean_window_div = np.mean(window_divs)
-    median_window_div = np.median(window_divs)
+    mean_window_div = _mean(window_divs)
+    median_window_div = _get_median(window_divs)
     min_window_div = min(window_divs)
     
     with open(div_sum_path, 'w') as f:
@@ -396,3 +395,21 @@ def read_positions(positions_file):
     except IOError as e:
         raise PositionIOError(e)
     return headers, positions
+
+
+def _get_median(lst):
+    if not lst:
+        raise ValueError("_get_median() arg is an empty sequence")
+    sorted_list = sorted(lst)
+    if len(lst) % 2 == 1:
+        return sorted_list[len(lst)/2]
+    else:
+        mid1 = sorted_list[(len(lst)/2) - 1]
+        mid2 = sorted_list[(len(lst)/2)]
+        return float(mid1 + mid2) / 2
+
+
+def _mean(lst):
+    if not lst:
+        return 0
+    return float(sum(lst)) / len(lst)
