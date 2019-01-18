@@ -357,7 +357,7 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 	//count kmer hits
 	seqHitCount.clear();
 	auto lockedHitCount = seqHitCount.lock_table();	//single-thread mode
-	for (auto curKmerPos : IterKmers(fastaRec.sequence))
+	for (const auto& curKmerPos : IterKmers(fastaRec.sequence))
 	{
 		if (_vertexIndex.isRepetitive(curKmerPos.kmer))
 		{
@@ -397,7 +397,7 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 	{
 		std::vector<std::pair<FastaRecord::Id, SeqCountType>> topSeqs;
 		topSeqs.reserve(lockedHitCount.size());
-		for (auto seqCount : lockedHitCount)
+		for (const auto& seqCount : lockedHitCount)
 		{
 			if (seqCount.second >= minKmerSruvivalRate * _minOverlap)
 			{
@@ -416,7 +416,7 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 
 	//finally full the vector matches
 	vecMatches.clear();
-	for (auto curKmerPos : IterKmers(fastaRec.sequence))
+	for (const auto& curKmerPos : IterKmers(fastaRec.sequence))
 	{
 		if (!_vertexIndex.isSolid(curKmerPos.kmer)) continue;
 
@@ -471,7 +471,7 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 		int32_t maxCur = matchesList.back().curPos;
 		int32_t minExt = std::numeric_limits<int32_t>::max();
 		int32_t maxExt = std::numeric_limits<int32_t>::min();
-		for (auto& match : matchesList)
+		for (const auto& match : matchesList)
 		{
 			minExt = std::min(minExt, match.extPos);
 			maxExt = std::max(maxExt, match.extPos);
@@ -705,8 +705,8 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 		//selecting the best
 		if (_onlyMaxExt)
 		{
-			OverlapRange* maxOvlp = nullptr;
-			for (auto& ovlp : extOverlaps)
+			const OverlapRange* maxOvlp = nullptr;
+			for (const auto& ovlp : extOverlaps)
 			{
 				if (!maxOvlp || ovlp.score > maxOvlp->score)
 				{
@@ -723,10 +723,10 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 					  [](const OverlapRange& r1, const OverlapRange& r2)
 					  {return r1.score > r2.score;});
 			
-			for (auto& ovlp : extOverlaps)
+			for (const auto& ovlp : extOverlaps)
 			{
 				bool isContained = false;
-				for (auto& prim : primOverlaps)
+				for (const auto& prim : primOverlaps)
 				{
 					if (ovlp.containedBy(prim) && prim.score > ovlp.score)
 					{
@@ -739,7 +739,7 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 					primOverlaps.push_back(ovlp);
 				}
 			}
-			for (auto& ovlp : primOverlaps)
+			for (const auto& ovlp : primOverlaps)
 			{
 				detectedOverlaps.push_back(ovlp);
 			}
@@ -747,7 +747,7 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 		//totalBackLoop += double(clock() - dpEnd) / CLOCKS_PER_SEC;
 	}
 
-	for (auto ovlp : divStatWindows)
+	for (const auto& ovlp : divStatWindows)
 	{
 		if (ovlp.curRange() > 0)
 		{
@@ -817,7 +817,7 @@ const std::vector<OverlapRange>&
 
 	std::vector<OverlapRange> revOverlaps;
 	revOverlaps.reserve(overlaps.size());
-	for (auto& ovlp : overlaps) revOverlaps.push_back(ovlp.complement());
+	for (const auto& ovlp : overlaps) revOverlaps.push_back(ovlp.complement());
 
 	_overlapIndex.update_fn(readId,
 		[&wrapper, &overlaps, &revOverlaps, &suggestChimeric, &flipped, this]
@@ -842,16 +842,16 @@ void OverlapContainer::ensureTransitivity(bool onlyMaxExt)
 	Logger::get().debug() << "Computing transitive closure for overlaps";
 	
 	std::vector<FastaRecord::Id> allSeqs;
-	for (auto& seqIt : _overlapIndex.lock_table()) 
+	for (const auto& seqIt : _overlapIndex.lock_table()) 
 	{
 		allSeqs.push_back(seqIt.first);
 		allSeqs.push_back(seqIt.first.rc());
 	}
 
 	int totalOverlaps = 0;
-	for (auto& seq : allSeqs)
+	for (const auto& seq : allSeqs)
 	{
-		auto& curOvlps = this->unsafeSeqOverlaps(seq);
+		const auto& curOvlps = this->unsafeSeqOverlaps(seq);
 		totalOverlaps += curOvlps.size();
 		std::vector<OverlapRange> ovlpsToAdd;
 		for (auto& curOvlp : curOvlps)
@@ -883,7 +883,7 @@ void OverlapContainer::ensureTransitivity(bool onlyMaxExt)
 				ovlpsToAdd.push_back(curOvlp.reverse());
 			}
 		}
-		for (auto& ovlp : ovlpsToAdd)
+		for (const auto& ovlp : ovlpsToAdd)
 		{
 			this->unsafeSeqOverlaps(ovlp.curId).push_back(ovlp);
 		}
@@ -895,7 +895,7 @@ void OverlapContainer::findAllOverlaps()
 {
 	//Logger::get().info() << "Finding overlaps:";
 	std::vector<FastaRecord::Id> allQueries;
-	for (auto& seq : _queryContainer.iterSeqs())
+	for (const auto& seq : _queryContainer.iterSeqs())
 	{
 		allQueries.push_back(seq.id);
 	}
@@ -911,7 +911,7 @@ void OverlapContainer::findAllOverlaps()
 	this->ensureTransitivity(false);
 
 	int numOverlaps = 0;
-	for (auto& seqOvlps : _overlapIndex.lock_table()) 
+	for (const auto& seqOvlps : _overlapIndex.lock_table()) 
 	{
 		numOverlaps += seqOvlps.second.fwdOverlaps->size() * 2;
 	}
@@ -920,7 +920,7 @@ void OverlapContainer::findAllOverlaps()
 	this->filterOverlaps();
 
 	numOverlaps = 0;
-	for (auto& seqOvlps : _overlapIndex.lock_table()) 
+	for (const auto& seqOvlps : _overlapIndex.lock_table()) 
 	{
 		numOverlaps += seqOvlps.second.fwdOverlaps->size() * 2;
 	}
@@ -944,7 +944,7 @@ void OverlapContainer::filterOverlaps()
 	static const int MAX_ENDS_DIFF = Parameters::get().kmerSize;
 
 	std::vector<FastaRecord::Id> seqIds;
-	for (auto& seq : _queryContainer.iterSeqs())
+	for (const auto& seq : _queryContainer.iterSeqs())
 	{
 		seqIds.push_back(seq.id);
 	}
@@ -978,7 +978,7 @@ void OverlapContainer::filterOverlaps()
 		}
 		auto clusters = groupBySet(overlapSets);
 		std::vector<OverlapRange> newOvlps;
-		for (auto& cluster : clusters)
+		for (const auto& cluster : clusters)
 		{
 			OverlapRange* maxOvlp = nullptr;
 			for (auto& ovlp : cluster.second)
@@ -1065,25 +1065,25 @@ void OverlapContainer::buildIntervalTree()
 {
 	//Logger::get().debug() << "Building interval tree";
 	std::vector<FastaRecord::Id> allSeqs;
-	for (auto& seqIt : _overlapIndex.lock_table()) 
+	for (const auto& seqIt : _overlapIndex.lock_table()) 
 	{
 		allSeqs.push_back(seqIt.first);
 		allSeqs.push_back(seqIt.first.rc());
 	}
 
-	for (auto& seq : allSeqs)
+	for (const auto& seq : allSeqs)
 	{
-		std::vector<Interval<OverlapRange*>> intervals;
+		std::vector<Interval<const OverlapRange*>> intervals;
 		auto& overlaps = this->unsafeSeqOverlaps(seq);
-		for (auto& ovlp : overlaps)
+		for (const auto& ovlp : overlaps)
 		{
 			intervals.emplace_back(ovlp.curBegin, ovlp.curEnd, &ovlp);
 		}
-		_ovlpTree[seq] = IntervalTree<OverlapRange*>(intervals);
+		_ovlpTree[seq] = IntervalTree<const OverlapRange*>(intervals);
 	}
 }
 
-std::vector<Interval<OverlapRange*>> 
+std::vector<Interval<const OverlapRange*>> 
 	OverlapContainer::getCoveringOverlaps(FastaRecord::Id seqId, 
 								  int32_t start, int32_t end) const
 {

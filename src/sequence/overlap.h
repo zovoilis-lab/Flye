@@ -332,7 +332,7 @@ public:
 	//Computes and stores all-vs-all overlaps
 	void findAllOverlaps();
 	void buildIntervalTree();
-	std::vector<Interval<OverlapRange*>> 
+	std::vector<Interval<const OverlapRange*>> 
 		getCoveringOverlaps(FastaRecord::Id seqId, int32_t start, 
 							int32_t end) const;
 
@@ -349,5 +349,5 @@ private:
 	OverlapIndex _overlapIndex;
 	std::atomic<size_t> _indexSize;
 	std::unordered_map<FastaRecord::Id, 
-					   IntervalTree<OverlapRange*>> _ovlpTree;
+					   IntervalTree<const OverlapRange*>> _ovlpTree;
 };

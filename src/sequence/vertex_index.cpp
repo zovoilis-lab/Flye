@@ -38,7 +38,7 @@ void VertexIndex::countKmers(size_t hardThreshold, int genomeSize)
 	for (size_t i = 0; i < preCountSize; ++i) preCounters[i] = 0;
 
 	std::vector<FastaRecord::Id> allReads;
-	for (auto& seq : _seqContainer.iterSeqs())
+	for (const auto& seq : _seqContainer.iterSeqs())
 	{
 		allReads.push_back(seq.id);
 	}
@@ -126,7 +126,7 @@ void VertexIndex::countKmers(size_t hardThreshold, int genomeSize)
 	processInParallel(allReads, countUpdate, 
 					  Parameters::get().numThreads, _outputProgress);
 	
-	for (auto kmer : _kmerCounts.lock_table())
+	for (const auto& kmer : _kmerCounts.lock_table())
 	{
 		_kmerDistribution[kmer.second] += 1;
 		_repetitiveFrequency = std::max(_repetitiveFrequency, kmer.second);
@@ -166,7 +166,7 @@ void VertexIndex::buildIndexUnevenCoverage(int minCoverage)
 		thread_local std::unordered_map<Kmer, size_t> localFreq;
 		localFreq.clear();
 
-		for (auto kmerPos : IterKmers(_seqContainer.getSeq(readId)))
+		for (const auto& kmerPos : IterKmers(_seqContainer.getSeq(readId)))
 		{
 			/*if (_sampleRate > 1) //subsampling
 			{
@@ -235,7 +235,7 @@ void VertexIndex::buildIndexUnevenCoverage(int minCoverage)
 		}
 	};
 	std::vector<FastaRecord::Id> allReads;
-	for (auto& seq : _seqContainer.iterSeqs())
+	for (const auto& seq : _seqContainer.iterSeqs())
 	{
 		allReads.push_back(seq.id);
 	}
@@ -243,7 +243,7 @@ void VertexIndex::buildIndexUnevenCoverage(int minCoverage)
 					  Parameters::get().numThreads, _outputProgress);
 	
 	size_t totalEntries = 0;
-	for (auto kmerRec : _kmerIndex.lock_table())
+	for (const auto& kmerRec : _kmerIndex.lock_table())
 	{
 		totalEntries += kmerRec.second.size;
 	}
@@ -307,7 +307,7 @@ void VertexIndex::buildIndex(int minCoverage)
 	
 	size_t kmerEntries = 0;
 	size_t solidKmers = 0;
-	for (auto& kmer : _kmerCounts.lock_table())
+	for (const auto& kmer : _kmerCounts.lock_table())
 	{
 		if ((size_t)minCoverage <= kmer.second &&
 			kmer.second < _repetitiveFrequency)
@@ -327,7 +327,7 @@ void VertexIndex::buildIndex(int minCoverage)
 		<< (float)kmerEntries / solidKmers;
 
 	_kmerIndex.reserve(solidKmers);
-	for (auto& kmer : _kmerCounts.lock_table())
+	for (const auto& kmer : _kmerCounts.lock_table())
 	{
 		if ((size_t)minCoverage <= kmer.second &&
 			kmer.second < _repetitiveFrequency)
@@ -402,7 +402,7 @@ void VertexIndex::buildIndex(int minCoverage)
 		}
 	};
 	std::vector<FastaRecord::Id> allReads;
-	for (auto& seq : _seqContainer.iterSeqs())
+	for (const auto& seq : _seqContainer.iterSeqs())
 	{
 		allReads.push_back(seq.id);
 	}
@@ -410,7 +410,7 @@ void VertexIndex::buildIndex(int minCoverage)
 					  Parameters::get().numThreads, _outputProgress);
 
 	Logger::get().debug() << "Sorting k-mer index";
-	for (auto& kmerVec : _kmerIndex.lock_table())
+	for (const auto& kmerVec : _kmerIndex.lock_table())
 	{
 		std::sort(kmerVec.second.data, kmerVec.second.data + kmerVec.second.size,
 				  [](const IndexChunk& p1, const IndexChunk& p2)

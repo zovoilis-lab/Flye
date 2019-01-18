@@ -30,7 +30,7 @@ Extender::ExtensionInfo Extender::extendContig(FastaRecord::Id startRead)
 
 	auto leftExtendsStart = [startRead, this](const FastaRecord::Id readId)
 	{
-		for (auto& ovlp : _ovlpContainer.lazySeqOverlaps(startRead))
+		for (const auto& ovlp : _ovlpContainer.lazySeqOverlaps(startRead))
 		{
 			if (ovlp.extId == readId &&
 				ovlp.leftShift < -(int)Config::get("maximum_jump")) 
@@ -43,10 +43,10 @@ Extender::ExtensionInfo Extender::extendContig(FastaRecord::Id startRead)
 
 	while(true)
 	{
-		auto& overlaps = _ovlpContainer.lazySeqOverlaps(currentRead);
+		const auto& overlaps = _ovlpContainer.lazySeqOverlaps(currentRead);
 		std::vector<OverlapRange> extensions;
 		//int innerOverlaps = 0;
-		for (auto& ovlp : overlaps)
+		for (const auto& ovlp : overlaps)
 		{
 			//if (_innerReads.contains(ovlp.extId)) ++innerOverlaps;
 			if (this->extendsRight(ovlp)) extensions.push_back(ovlp);
@@ -80,8 +80,8 @@ Extender::ExtensionInfo Extender::extendContig(FastaRecord::Id startRead)
 			}
 		}*/
 
-		OverlapRange* maxExtension = nullptr;
-		for (auto& ovlp : extensions)
+		const OverlapRange* maxExtension = nullptr;
+		for (const auto& ovlp : extensions)
 		{
 			//need to check this condition, otherwise there will
 			//be complications when we initiate extension of startRead
@@ -188,7 +188,7 @@ void Extender::assembleContigs()
 	cuckoohash_map<FastaRecord::Id, size_t> coveredReads;
 	
 	int totalReads = 0;
-	for (auto& read : _readsContainer.iterSeqs())
+	for (const auto& read : _readsContainer.iterSeqs())
 	{
 		if ((int)read.sequence.length() > 
 			Parameters::get().minimumOverlap) ++totalReads;
@@ -212,11 +212,11 @@ void Extender::assembleContigs()
 														  /*max overlaps*/ 100);
 		std::vector<OverlapRange> revOverlaps;
 		revOverlaps.reserve(startOvlps.size());
-		for (auto& ovlp : startOvlps) revOverlaps.push_back(ovlp.complement());
+		for (const auto& ovlp : startOvlps) revOverlaps.push_back(ovlp.complement());
 
 		int numInnerOvlp = 0;
 		int totalOverlaps = 0;
-		for (auto& ovlp : startOvlps)
+		for (const auto& ovlp : startOvlps)
 		{
 			if (_innerReads.contains(ovlp.extId)) ++numInnerOvlp;
 			++totalOverlaps;
@@ -286,7 +286,7 @@ void Extender::assembleContigs()
 		std::unordered_set<FastaRecord::Id> rightExtended;
 		std::unordered_set<FastaRecord::Id> leftExtended;
 		std::vector<OverlapRange> allOverlaps;
-		for (auto& readId : exInfo.reads)
+		for (const auto& readId : exInfo.reads)
 		{
 			coveredReads.insert(readId, true);
 			coveredReads.insert(readId.rc(), true);
@@ -299,14 +299,14 @@ void Extender::assembleContigs()
 			//	this->countRightExtensions(readId.rc()) > maxExtensions) continue;
 
 			//so each read is covered from the left and right
-			for (auto& ovlp : _ovlpContainer.lazySeqOverlaps(readId))
+			for (const auto& ovlp : _ovlpContainer.lazySeqOverlaps(readId))
 			{
 				allOverlaps.push_back(ovlp);
 				coveredReads.insert(ovlp.extId, true);
 				coveredReads.insert(ovlp.extId.rc(), true);
 			}
 		}
-		for (auto read : this->getInnerReads(allOverlaps))
+		for (const auto& read : this->getInnerReads(allOverlaps))
 		{
 			_innerReads.insert(read, true);
 			_innerReads.insert(read.rc(), true);
@@ -325,7 +325,7 @@ void Extender::assembleContigs()
 		processRead(readId);
 	};
 	std::vector<FastaRecord::Id> allReads;
-	for (auto& seq : _readsContainer.iterSeqs())
+	for (const auto& seq : _readsContainer.iterSeqs())
 	{
 		if (seq.sequence.length() > (size_t)Parameters::get().minimumOverlap &&
 			seq.id.strand())
@@ -342,7 +342,7 @@ void Extender::assembleContigs()
 	if (addSingletons)
 	{
 		std::vector<FastaRecord::Id> sortedByLength;
-		for (auto& seq : _readsContainer.iterSeqs())
+		for (const auto& seq : _readsContainer.iterSeqs())
 		{
 			if (seq.id.strand() && !_innerReads.contains(seq.id) &&
 				_readsContainer.seqLen(seq.id) > Parameters::get().minimumOverlap)
@@ -357,11 +357,11 @@ void Extender::assembleContigs()
 
 		int singletonsAdded = 0;
 		std::unordered_set<FastaRecord::Id> coveredLocal;
-		for (auto readId : sortedByLength)
+		for (const auto& readId : sortedByLength)
 		{
 			if (!coveredLocal.count(readId))
 			{
-				for (auto& ovlp : _ovlpContainer.lazySeqOverlaps(readId))
+				for (const auto& ovlp : _ovlpContainer.lazySeqOverlaps(readId))
 				{
 					if (ovlp.leftShift >= 0 && ovlp.rightShift <= 0)
 					{
@@ -392,7 +392,7 @@ std::vector<FastaRecord::Id>
 
 	std::unordered_map<FastaRecord::Id, 
 					   std::vector<int32_t>> readsCoverage;
-	for (auto& ovlp: ovlps)
+	for (const auto& ovlp: ovlps)
 	{
 		auto& coverage = readsCoverage[ovlp.extId];
 		if (coverage.empty())
@@ -453,7 +453,7 @@ std::vector<FastaRecord::Id>
 
 void Extender::convertToContigs()
 {
-	for (auto& exInfo : _readLists)
+	for (const auto& exInfo : _readLists)
 	{
 		ContigPath path;
 		if (!exInfo.singleton)
@@ -474,7 +474,7 @@ void Extender::convertToContigs()
 			bool found = false;
 			OverlapRange readsOvlp;
 
-			for (auto& ovlp : _ovlpContainer.lazySeqOverlaps(exInfo.reads[i]))
+			for (const auto& ovlp : _ovlpContainer.lazySeqOverlaps(exInfo.reads[i]))
 			{
 				if (ovlp.extId == exInfo.reads[i + 1]) 
 				{
@@ -485,7 +485,7 @@ void Extender::convertToContigs()
 			}
 			if (!found)
 			{
-				for (auto& ovlp : _ovlpContainer.lazySeqOverlaps(exInfo.reads[i + 1]))
+				for (const auto& ovlp : _ovlpContainer.lazySeqOverlaps(exInfo.reads[i + 1]))
 				{
 					if (ovlp.extId == exInfo.reads[i]) 
 					{
@@ -508,7 +508,7 @@ void Extender::convertToContigs()
 int Extender::countRightExtensions(const std::vector<OverlapRange>& ovlps) const
 {
 	int count = 0;
-	for (auto& ovlp : ovlps)
+	for (const auto& ovlp : ovlps)
 	{
 		if (this->extendsRight(ovlp)) ++count;
 	}
