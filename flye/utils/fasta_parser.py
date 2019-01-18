@@ -40,13 +40,13 @@ def read_sequence_dict(filename):
                 if not _validate_seq(seq):
                     raise FastaError("Invalid char while reading {0}"
                                      .format(filename))
-                seq_dict[hdr] = seq
+                seq_dict[hdr] = to_acgt(seq)
         else:
             for hdr, seq in _read_fasta(handle):
                 if not _validate_seq(seq):
                     raise FastaError("Invalid char while reading {0}"
                                      .format(filename))
-                seq_dict[hdr] = seq
+                seq_dict[hdr] = to_acgt(seq)
 
         return seq_dict
 
@@ -176,8 +176,26 @@ def reverse_complement(string):
     return string[::-1].translate(COMPL)
 
 
+VALID_CHARS = "ACGTURYKMSWBDHVNXatgcurykmswbvdhnx"
 def _validate_seq(sequence):
-    VALID_CHARS = "ACGTURYKMSWBDHVNXatgcurykmswbvdhnx"
     if len(sequence.translate(None, VALID_CHARS)):
         return False
     return True
+
+
+ACGT_CHARS = "ACGTacgt"
+TO_ACGT = maketrans("URYKMSWBVDHNXurykmswbvdhnx",
+                    "ACGTACGTACGTAacgtacgtacgta")
+def to_acgt(dna_str):
+    """
+    assumes tha all characters are valid
+    """
+    if len(dna_str.translate(None, ACGT_CHARS)) == 0:
+        return dna_str
+    else:
+        if not to_acgt.ACGT_WARN:
+            to_acgt.ACGT_WARN = True
+            logger.warning("Input contain non-ACGT characters - "
+                           "they will be converted to arbitrary ACGTs")
+        return dna_str.translate(TO_ACGT)
+to_acgt.ACGT_WARN = False
