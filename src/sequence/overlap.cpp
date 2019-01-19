@@ -357,7 +357,7 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 	thread_local std::vector<KmerMatch> matchesList;
 	thread_local std::vector<int32_t> scoreTable;
 	thread_local std::vector<int32_t> backtrackTable;
-	thread_local std::vector<SeqCountType> seqHitCount(100000);
+	thread_local std::vector<SeqCountType> seqHitCount(1000000);
 	thread_local auto prevCleanup = 
 		std::chrono::system_clock::now() + std::chrono::seconds(rand() % 60);
 	if ((std::chrono::system_clock::now() - prevCleanup) > 
@@ -375,6 +375,7 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 
 	//count kmer hits
 	seqHitCount.assign(seqHitCount.size(), 0);
+	vecMatches.clear();
 	for (const auto& curKmerPos : IterKmers(fastaRec.sequence))
 	{
 		if (_vertexIndex.isRepetitive(curKmerPos.kmer))
@@ -403,6 +404,10 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 				}
 			}
 			prevSeqId = extReadPos.readId;
+
+			vecMatches.emplace_back(curKmerPos.position, 
+									extReadPos.position,
+									extReadPos.readId);
 		}
 	}
 	timeKmerIndexFirst += std::chrono::duration_cast<std::chrono::duration<float>>
@@ -438,8 +443,21 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 								(std::chrono::system_clock::now() - timeStart).count();
 	timeStart = std::chrono::system_clock::now();
 
+	//prune the vector
+	size_t insertPoint = 0;
+	for (size_t i = 0; i < vecMatches.size(); ++i)
+	{
+		if (seqHitCount[vecMatches[i].extId.hash() % seqHitCount.size()] >=
+			minKmerSruvivalRate * _minOverlap)
+		{
+			if (insertPoint != i) vecMatches[insertPoint] = vecMatches[i];
+			++insertPoint;
+		}
+	}
+	vecMatches.erase(vecMatches.begin() + insertPoint, vecMatches.end());
+
 	//finally fill the vector matches
-	vecMatches.clear();
+	/*vecMatches.clear();
 	for (const auto& curKmerPos : IterKmers(fastaRec.sequence))
 	{
 		if (!_vertexIndex.isSolid(curKmerPos.kmer)) continue;
@@ -458,12 +476,9 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 										extReadPos.readId);
 			}
 		}
-	}
+	}*/
 
 	//group by extId
-	//std::stable_sort(vecMatches.begin(), vecMatches.end(),
-	//		  		 [](const KmerMatch& k1, const KmerMatch& k2)
-	//		  		 {return k1.extId < k2.extId;});
 	std::sort(vecMatches.begin(), vecMatches.end(),
 			  [](const KmerMatch& k1, const KmerMatch& k2)
 			  {return k1.extId != k2.extId ? k1.extId < k2.extId : 
