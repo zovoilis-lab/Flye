@@ -299,6 +299,8 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 								OvlpDivStats& divStats,
 								int maxOverlaps) const
 {
+	//static std::ofstream fout("../kmers.txt");
+	
 	//const int MAX_LOOK_BACK = 50;
 	const int kmerSize = Parameters::get().kmerSize;
 	//const float minKmerSruvivalRate = std::exp(-_maxDivergence * kmerSize);
@@ -306,24 +308,11 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 	const float LG_GAP = 2;
 	const float SM_GAP = 0.5;
 
-	//static std::ofstream fout("../kmers.txt");
+	outSuggestChimeric = false;
+	int32_t curLen = fastaRec.sequence.length();
+	std::vector<int32_t> curFilteredPos;
 
-	//static float totalDpTime = 0;
-	//static float totalKmerTime = 0;
-	//static float totalHashTime = 0;
-	//static float totalDpLoop = 0;
-	//static float totalBackLoop = 0;
-	//clock_t begin = clock();
-
-	//cache memory-intensive containers as
-	//many parallel memory allocations slow us down significantly
-	typedef uint32_t SeqCountType;
-	thread_local cuckoohash_map<FastaRecord::Id, SeqCountType> seqHitCount;
-	thread_local std::vector<KmerMatch> vecMatches;
-	thread_local std::vector<KmerMatch> matchesList;
-	thread_local std::vector<int32_t> scoreTable;
-	thread_local std::vector<int32_t> backtrackTable;
-
+	//memory benchmarks
 	/*static std::mutex reportMutex;
 	thread_local auto prevReport = std::chrono::system_clock::now();
 	if ((std::chrono::system_clock::now() - prevReport) > 
@@ -337,7 +326,38 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 			<< "\t" << seqHitCount.capacity();
 	}*/
 
+	//speed benchmarks
+	thread_local float timeMemory = 0;
+	thread_local float timeKmerIndexFirst = 0;
+	thread_local float timeKmerIndexFilter = 0;
+	thread_local float timeKmerIndexSecond = 0;
+	thread_local float timeDp = 0;
+	auto timeStart = std::chrono::system_clock::now();
+
+	static std::mutex reportMutex;
+	thread_local auto prevReport = std::chrono::system_clock::now();
+	if ((std::chrono::system_clock::now() - prevReport) > 
+		std::chrono::seconds(60))
+	{
+		std::lock_guard<std::mutex> lock(reportMutex);
+		prevReport = std::chrono::system_clock::now();
+		Logger::get().debug() << ">>Thread " << std::this_thread::get_id() 
+			<< " kmerFirst:" << timeKmerIndexFirst 
+			<< " kmerFilter:" << timeKmerIndexFilter
+			<< " kmerSecond:" << timeKmerIndexSecond 
+			<< " dp:" << timeDp;
+	}
+
+	timeStart = std::chrono::system_clock::now();
+	//cache memory-intensive containers as
+	//many parallel memory allocations slow us down significantly
 	//although once in a while shrink allocated memory size
+	typedef uint32_t SeqCountType;
+	thread_local std::vector<KmerMatch> vecMatches;
+	thread_local std::vector<KmerMatch> matchesList;
+	thread_local std::vector<int32_t> scoreTable;
+	thread_local std::vector<int32_t> backtrackTable;
+	thread_local std::vector<SeqCountType> seqHitCount(100000);
 	thread_local auto prevCleanup = 
 		std::chrono::system_clock::now() + std::chrono::seconds(rand() % 60);
 	if ((std::chrono::system_clock::now() - prevCleanup) > 
@@ -349,14 +369,12 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 		shrinkAndClear(scoreTable, 2);
 		shrinkAndClear(backtrackTable, 2);
 	}
-
-	outSuggestChimeric = false;
-	int32_t curLen = fastaRec.sequence.length();
-	std::vector<int32_t> curFilteredPos;
+	timeMemory += std::chrono::duration_cast<std::chrono::duration<float>>
+						(std::chrono::system_clock::now() - timeStart).count();
+	timeStart = std::chrono::system_clock::now();
 
 	//count kmer hits
-	seqHitCount.clear();
-	auto lockedHitCount = seqHitCount.lock_table();	//single-thread mode
+	seqHitCount.assign(seqHitCount.size(), 0);
 	for (const auto& curKmerPos : IterKmers(fastaRec.sequence))
 	{
 		if (_vertexIndex.isRepetitive(curKmerPos.kmer))
@@ -378,43 +396,49 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 			if (prevSeqId != extReadPos.readId &&
 				prevSeqId != extReadPos.readId.rc())
 			{
-				if (lockedHitCount[extReadPos.readId] <
+				if (seqHitCount[extReadPos.readId.hash() % seqHitCount.size()] < 
 					std::numeric_limits<SeqCountType>::max())
 				{
-					++lockedHitCount[extReadPos.readId];
+					++seqHitCount[extReadPos.readId.hash() % seqHitCount.size()];
 				}
 			}
 			prevSeqId = extReadPos.readId;
 		}
 	}
-	//auto hashTime = clock();
-	//totalHashTime += double(hashTime - begin) / CLOCKS_PER_SEC;
+	timeKmerIndexFirst += std::chrono::duration_cast<std::chrono::duration<float>>
+							(std::chrono::system_clock::now() - timeStart).count();
+	timeStart = std::chrono::system_clock::now();
 
 	//if there is a limit on the number of sequences to consider,
 	//sort by the decreasing number of k-mer hits and filter
 	//some out if needed
 	if (maxOverlaps > 0)
 	{
-		std::vector<std::pair<FastaRecord::Id, SeqCountType>> topSeqs;
-		topSeqs.reserve(lockedHitCount.size());
-		for (const auto& seqCount : lockedHitCount)
+		std::vector<SeqCountType> topCounts;
+		topCounts.reserve(seqHitCount.size());
+		for (SeqCountType count : seqHitCount)
 		{
-			if (seqCount.second >= minKmerSruvivalRate * _minOverlap)
+			if (count >= minKmerSruvivalRate * _minOverlap)
 			{
-				topSeqs.emplace_back(seqCount.first, seqCount.second);
+				topCounts.emplace_back(count);
 			}
 		}
-		std::sort(topSeqs.begin(), topSeqs.end(),
-				  [](const std::pair<FastaRecord::Id, SeqCountType>& p1, 
-					 const std::pair<FastaRecord::Id, SeqCountType>& p2) 
-					 {return p1.second > p2.second;});
-		for (size_t i = (size_t)maxOverlaps; i < topSeqs.size(); ++i)
+		if (topCounts.size() > (size_t)maxOverlaps)
 		{
-			lockedHitCount[topSeqs[i].first] = 0;
+			std::sort(topCounts.begin(), topCounts.end());
+			SeqCountType minCount = topCounts[topCounts.size() - 
+											  (size_t)maxOverlaps];
+			for (size_t i = 0; i < seqHitCount.size(); ++i)
+			{
+				if (seqHitCount[i] < minCount) seqHitCount[i] = 0;
+			}
 		}
 	}
+	timeKmerIndexFilter += std::chrono::duration_cast<std::chrono::duration<float>>
+								(std::chrono::system_clock::now() - timeStart).count();
+	timeStart = std::chrono::system_clock::now();
 
-	//finally full the vector matches
+	//finally fill the vector matches
 	vecMatches.clear();
 	for (const auto& curKmerPos : IterKmers(fastaRec.sequence))
 	{
@@ -426,7 +450,7 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 			if ((extReadPos.readId == fastaRec.id &&
 				extReadPos.position == curKmerPos.position)) continue;
 
-			if (lockedHitCount[extReadPos.readId] >= 
+			if (seqHitCount[extReadPos.readId.hash() % seqHitCount.size()] >= 
 				minKmerSruvivalRate * _minOverlap)
 			{
 				vecMatches.emplace_back(curKmerPos.position, 
@@ -435,19 +459,19 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 			}
 		}
 	}
+
 	//group by extId
 	//std::stable_sort(vecMatches.begin(), vecMatches.end(),
 	//		  		 [](const KmerMatch& k1, const KmerMatch& k2)
 	//		  		 {return k1.extId < k2.extId;});
-	
 	std::sort(vecMatches.begin(), vecMatches.end(),
 			  [](const KmerMatch& k1, const KmerMatch& k2)
 			  {return k1.extId != k2.extId ? k1.extId < k2.extId : 
 			  								 k1.curPos < k2.curPos;});
-	
-  	//clock_t end = clock();
-  	//double elapsed_secs = double(end - hashTime) / CLOCKS_PER_SEC;
-	//totalKmerTime += elapsed_secs;
+
+	timeKmerIndexSecond += std::chrono::duration_cast<std::chrono::duration<float>>
+								(std::chrono::system_clock::now() - timeStart).count();
+	timeStart = std::chrono::system_clock::now();
 	
 	const int STAT_WND = 10000;
 	std::vector<OverlapRange> divStatWindows(curLen / STAT_WND + 1);
@@ -747,6 +771,10 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 		//totalBackLoop += double(clock() - dpEnd) / CLOCKS_PER_SEC;
 	}
 
+	timeDp += std::chrono::duration_cast<std::chrono::duration<float>>
+				(std::chrono::system_clock::now() - timeStart).count();
+	timeStart = std::chrono::system_clock::now();
+
 	for (const auto& ovlp : divStatWindows)
 	{
 		if (ovlp.curRange() > 0)
@@ -754,22 +782,6 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 			divStats.add(ovlp.seqDivergence);
 		}
 	}
-
-	/*Logger::get().debug() << "---------";
-	Logger::get().debug() << " " << vecMatches.size() << " "
-		<< seqMatches.size() << " " << uniqueCandidates
-		<< " " << detectedOverlaps.size();
-	Logger::get().debug() << "Repeat intensity: "
-		<< vecMatches.size() / (solidPos.size() + 1);
-	Logger::get().debug() << "hash: " << totalHashTime << " k-mer: "
-		<< totalKmerTime << " dp: " << totalDpTime
-		<< " dpLoop: " << totalDpLoop << " backLoop: " << totalBackLoop;*/
-
-
-	//clock_t ff = clock();
-	//double es = double(ff - end) / CLOCKS_PER_SEC;
-	//totalDpTime += es;
-
 	return detectedOverlaps;
 }
 
