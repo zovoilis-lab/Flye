@@ -241,6 +241,14 @@ void VertexIndex::buildIndexUnevenCoverage(int minCoverage)
 	}
 	processInParallel(allReads, indexUpdate, 
 					  Parameters::get().numThreads, _outputProgress);
+
+	Logger::get().debug() << "Sorting k-mer index";
+	for (const auto& kmerVec : _kmerIndex.lock_table())
+	{
+		std::sort(kmerVec.second.data, kmerVec.second.data + kmerVec.second.size,
+				  [](const IndexChunk& p1, const IndexChunk& p2)
+				  	{return p1.get() < p2.get();});
+	}
 	
 	size_t totalEntries = 0;
 	for (const auto& kmerRec : _kmerIndex.lock_table())
@@ -249,6 +257,9 @@ void VertexIndex::buildIndexUnevenCoverage(int minCoverage)
 	}
 	Logger::get().debug() << "Selected kmers: " << _kmerIndex.size();
 	Logger::get().debug() << "Index size: " << totalEntries;
+
+	_kmerCounts.clear();
+	_kmerCounts.reserve(0);
 }
 
 namespace
