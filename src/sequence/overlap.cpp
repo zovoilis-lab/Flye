@@ -331,6 +331,7 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 	thread_local float timeKmerIndexFirst = 0;
 	thread_local float timeKmerIndexFilter = 0;
 	thread_local float timeKmerIndexSecond = 0;
+	//thread_local float timeKmerTest = 0;
 	thread_local float timeDp = 0;
 	auto timeStart = std::chrono::system_clock::now();
 
@@ -342,6 +343,7 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 		std::lock_guard<std::mutex> lock(reportMutex);
 		prevReport = std::chrono::system_clock::now();
 		Logger::get().debug() << ">>Thread " << std::this_thread::get_id() 
+			//<< " kmerTest:" << timeKmerTest
 			<< " kmerFirst:" << timeKmerIndexFirst 
 			<< " kmerFilter:" << timeKmerIndexFilter
 			<< " kmerSecond:" << timeKmerIndexSecond 
@@ -373,14 +375,12 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 						(std::chrono::system_clock::now() - timeStart).count();
 	timeStart = std::chrono::system_clock::now();
 
-	//count kmer hits
-	seqHitCount.assign(seqHitCount.size(), 0);
-	vecMatches.clear();
-	for (const auto& curKmerPos : IterKmers(fastaRec.sequence))
+	//k-mer test:
+	/*for (const auto& curKmerPos : IterKmers(fastaRec.sequence))
 	{
 		if (_vertexIndex.isRepetitive(curKmerPos.kmer))
 		{
-			curFilteredPos.push_back(curKmerPos.position);
+			//curFilteredPos.push_back(curKmerPos.position);
 		}
 		if (!_vertexIndex.isSolid(curKmerPos.kmer)) continue;
 
@@ -397,46 +397,132 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 			if (prevSeqId != extReadPos.readId &&
 				prevSeqId != extReadPos.readId.rc())
 			{
+				//++timeKmerIndexFilter;
+				//++seqHitCount[abs(extReadPos.readId.signedId()) % 100];
+				//++seqHitCount[x];
+				//x = (x + 21) % seqHitCount.size();
+				if (seqHitCount[abs(extReadPos.readId.signedId()) % seqHitCount.size()] < 
+					std::numeric_limits<SeqCountType>::max())
+				{
+					++seqHitCount[abs(extReadPos.readId.signedId()) % seqHitCount.size()];
+				}
+			}
+			prevSeqId = extReadPos.readId;
+		}
+	}
+
+	timeKmerTest += std::chrono::duration_cast<std::chrono::duration<float>>
+						(std::chrono::system_clock::now() - timeStart).count();
+	timeStart = std::chrono::system_clock::now();*/
+
+	//count kmer hits
+	seqHitCount.assign(seqHitCount.size(), 0);
+	vecMatches.clear();
+	for (const auto& curKmerPos : IterKmers(fastaRec.sequence))
+	{
+		if (_vertexIndex.isRepetitive(curKmerPos.kmer))
+		{
+			curFilteredPos.push_back(curKmerPos.position);
+		}
+		if (!_vertexIndex.isSolid(curKmerPos.kmer)) continue;
+
+		//FastaRecord::Id prevSeqId = FastaRecord::ID_NONE;
+		for (const auto& extReadPos : _vertexIndex.iterKmerPos(curKmerPos.kmer))
+		{
+			//no trivial matches
+			if ((extReadPos.readId == fastaRec.id &&
+				extReadPos.position == curKmerPos.position)) continue;
+
+			//count one seq match for one unique k-mer
+			//since k-mers in vector are stored relative to fwd strand,
+			//check both read orientations
+			/*if (prevSeqId != extReadPos.readId &&
+				prevSeqId != extReadPos.readId.rc())
+			{
 				if (seqHitCount[extReadPos.readId.hash() % seqHitCount.size()] < 
 					std::numeric_limits<SeqCountType>::max())
 				{
 					++seqHitCount[extReadPos.readId.hash() % seqHitCount.size()];
 				}
 			}
-			prevSeqId = extReadPos.readId;
+			prevSeqId = extReadPos.readId;*/
 
 			vecMatches.emplace_back(curKmerPos.position, 
 									extReadPos.position,
 									extReadPos.readId);
 		}
 	}
+	/*FastaRecord::Id prevSeqId = FastaRecord::ID_NONE;
+	for (const auto& match : vecMatches)
+	{
+		//count one seq match for one unique k-mer
+		//since k-mers in vector are stored relative to fwd strand,
+		//check both read orientations
+		if (prevSeqId != match.extId &&
+			prevSeqId != match.extId.rc())
+		{
+			if (seqHitCount[match.extId.hash() % seqHitCount.size()] < 
+				std::numeric_limits<SeqCountType>::max())
+			{
+				++seqHitCount[match.extId.hash() % seqHitCount.size()];
+			}
+		}
+		prevSeqId = match.extId;
+	}*/
 	timeKmerIndexFirst += std::chrono::duration_cast<std::chrono::duration<float>>
 							(std::chrono::system_clock::now() - timeStart).count();
 	timeStart = std::chrono::system_clock::now();
 
+	std::sort(vecMatches.begin(), vecMatches.end(),
+			  [](const KmerMatch& k1, const KmerMatch& k2)
+			  {return k1.extId != k2.extId ? k1.extId < k2.extId : 
+			  								 k1.curPos < k2.curPos;});
+
+	timeKmerIndexSecond += std::chrono::duration_cast<std::chrono::duration<float>>
+								(std::chrono::system_clock::now() - timeStart).count();
+	timeStart = std::chrono::system_clock::now();
+
+	size_t minMatches = minKmerSruvivalRate * _minOverlap;
 	//if there is a limit on the number of sequences to consider,
 	//sort by the decreasing number of k-mer hits and filter
 	//some out if needed
 	if (maxOverlaps > 0)
 	{
 		std::vector<SeqCountType> topCounts;
-		topCounts.reserve(seqHitCount.size());
-		for (SeqCountType count : seqHitCount)
+		topCounts.reserve(100000);
+		/*for (SeqCountType count : seqHitCount)
 		{
 			if (count >= minKmerSruvivalRate * _minOverlap)
 			{
 				topCounts.emplace_back(count);
 			}
+		}*/
+		FastaRecord::Id prevSeqId = FastaRecord::ID_NONE;
+		int32_t prevPosition = 0;
+		size_t kmerCounter = 0;
+		for (const auto& match : vecMatches)
+		{
+			if (match.extId != prevSeqId)
+			{
+				prevSeqId = match.extId;
+				if (kmerCounter > 0) topCounts.push_back(kmerCounter);
+				kmerCounter = 0;
+			}
+			if (match.curPos != prevPosition)
+			{
+				prevPosition = match.curPos;
+				++kmerCounter;
+			}
 		}
 		if (topCounts.size() > (size_t)maxOverlaps)
 		{
 			std::sort(topCounts.begin(), topCounts.end());
-			SeqCountType minCount = topCounts[topCounts.size() - 
-											  (size_t)maxOverlaps];
-			for (size_t i = 0; i < seqHitCount.size(); ++i)
+			minMatches = topCounts[topCounts.size() - 
+									(size_t)maxOverlaps];
+			/*for (size_t i = 0; i < seqHitCount.size(); ++i)
 			{
 				if (seqHitCount[i] < minCount) seqHitCount[i] = 0;
-			}
+			}*/
 		}
 	}
 	timeKmerIndexFilter += std::chrono::duration_cast<std::chrono::duration<float>>
@@ -444,7 +530,7 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 	timeStart = std::chrono::system_clock::now();
 
 	//prune the vector
-	size_t insertPoint = 0;
+	/*size_t insertPoint = 0;
 	for (size_t i = 0; i < vecMatches.size(); ++i)
 	{
 		if (seqHitCount[vecMatches[i].extId.hash() % seqHitCount.size()] >=
@@ -454,39 +540,13 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 			++insertPoint;
 		}
 	}
-	vecMatches.erase(vecMatches.begin() + insertPoint, vecMatches.end());
-
-	//finally fill the vector matches
-	/*vecMatches.clear();
-	for (const auto& curKmerPos : IterKmers(fastaRec.sequence))
-	{
-		if (!_vertexIndex.isSolid(curKmerPos.kmer)) continue;
-
-		for (const auto& extReadPos : _vertexIndex.iterKmerPos(curKmerPos.kmer))
-		{
-			//no trivial matches
-			if ((extReadPos.readId == fastaRec.id &&
-				extReadPos.position == curKmerPos.position)) continue;
-
-			if (seqHitCount[extReadPos.readId.hash() % seqHitCount.size()] >= 
-				minKmerSruvivalRate * _minOverlap)
-			{
-				vecMatches.emplace_back(curKmerPos.position, 
-										extReadPos.position,
-										extReadPos.readId);
-			}
-		}
-	}*/
+	vecMatches.erase(vecMatches.begin() + insertPoint, vecMatches.end());*/
 
 	//group by extId
-	std::sort(vecMatches.begin(), vecMatches.end(),
+	/*std::sort(vecMatches.begin(), vecMatches.end(),
 			  [](const KmerMatch& k1, const KmerMatch& k2)
 			  {return k1.extId != k2.extId ? k1.extId < k2.extId : 
-			  								 k1.curPos < k2.curPos;});
-
-	timeKmerIndexSecond += std::chrono::duration_cast<std::chrono::duration<float>>
-								(std::chrono::system_clock::now() - timeStart).count();
-	timeStart = std::chrono::system_clock::now();
+			  								 k1.curPos < k2.curPos;});*/
 	
 	const int STAT_WND = 10000;
 	std::vector<OverlapRange> divStatWindows(curLen / STAT_WND + 1);
@@ -497,9 +557,21 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 	while(extRangeEnd < vecMatches.size())
 	{
 		extRangeBegin = extRangeEnd;
+		size_t uniqueMatches = 0;
+		int32_t prevPos = 0;
 		while (extRangeEnd < vecMatches.size() &&
 			   vecMatches[extRangeBegin].extId == 
-			   vecMatches[extRangeEnd].extId) ++extRangeEnd;
+			   vecMatches[extRangeEnd].extId)
+		{
+			if (vecMatches[extRangeEnd].curPos != prevPos)
+			{
+				++uniqueMatches;
+				prevPos = vecMatches[extRangeEnd].curPos;
+			}
+			++extRangeEnd;
+		}
+		if (uniqueMatches < minMatches) continue;
+
 		matchesList.assign(vecMatches.begin() + extRangeBegin,
 						   vecMatches.begin() + extRangeEnd);
 		FastaRecord::Id extId = vecMatches[extRangeBegin].extId;
