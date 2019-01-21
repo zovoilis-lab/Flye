@@ -103,12 +103,12 @@ public:
 		KmerPosIterator(ReadVector rv, size_t index, bool revComp, 
 						const SequenceContainer& seqContainer):
 			rv(rv), index(index), revComp(revComp), 
-			seqContainer(seqContainer) 
+			seqContainer(seqContainer), kmerSize(Parameters::get().kmerSize) 
 		{}
 
 		bool operator==(const KmerPosIterator& other) const
 		{
-			return rv.data == other.rv.data && index == other.index;
+			return index == other.index && rv.data == other.rv.data;
 		}
 		bool operator!=(const KmerPosIterator& other) const
 		{
@@ -121,17 +121,17 @@ public:
 			size_t globPos = rv.data[index].get();
 			FastaRecord::Id seqId;
 			int32_t position;
-			seqContainer.seqPosition(globPos, seqId, position);
+			int32_t seqLen;
+			seqContainer.seqPosition(globPos, seqId, position, seqLen);
 
-			ReadPosition pos(seqId, position);
-			if (revComp)
+			if (!revComp)
 			{
-				pos.readId = pos.readId.rc();
-				int32_t seqLen = seqContainer.seqLen(pos.readId);
-				pos.position = seqLen - pos.position - 
-							   Parameters::get().kmerSize;
+				return ReadPosition(seqId, position);
 			}
-			return pos;
+			else
+			{
+				return ReadPosition(seqId.rc(), seqLen - position - kmerSize);
+			}
 		}
 
 		KmerPosIterator& operator++()
@@ -143,8 +143,9 @@ public:
 	private:
 		ReadVector rv;
 		size_t index;
-		bool revComp;
-		const SequenceContainer& seqContainer;
+		bool   revComp;
+		const  SequenceContainer& seqContainer;
+		size_t kmerSize;
 	};
 
 	class IterHelper

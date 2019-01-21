@@ -360,16 +360,16 @@ void SequenceContainer::buildPositionIndex()
 	_sequenceOffsets.reserve(_seqIndex.size());
 	for (const auto& seq : _seqIndex)
 	{
-		_sequenceOffsets.push_back(offset);
+		_sequenceOffsets.push_back({offset, seq.sequence.length()});
 		offset += seq.sequence.length();
 	}
-	_sequenceOffsets.push_back(offset);
+	_sequenceOffsets.push_back({offset, 0});
 
 	_offsetsHint.reserve(offset / CHUNK + 1);
 	size_t idx = 0;
 	for (size_t i = 0; i <= offset / CHUNK; ++i)
 	{
-		while (i * CHUNK >= _sequenceOffsets[idx + 1]) ++idx;
+		while (i * CHUNK >= _sequenceOffsets[idx + 1].offset) ++idx;
 		//size_t newIdx = std::upper_bound(_sequenceOffsets.begin(), 
 		//							     _sequenceOffsets.end(),
 		//							     i * CHUNK) - _sequenceOffsets.begin();

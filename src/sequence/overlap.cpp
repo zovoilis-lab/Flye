@@ -376,7 +376,8 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 	timeStart = std::chrono::system_clock::now();
 
 	//k-mer test:
-	/*for (const auto& curKmerPos : IterKmers(fastaRec.sequence))
+	/*vecMatches.clear();
+	for (const auto& curKmerPos : IterKmers(fastaRec.sequence))
 	{
 		if (_vertexIndex.isRepetitive(curKmerPos.kmer))
 		{
@@ -384,33 +385,21 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 		}
 		if (!_vertexIndex.isSolid(curKmerPos.kmer)) continue;
 
-		FastaRecord::Id prevSeqId = FastaRecord::ID_NONE;
-		for (const auto& extReadPos : _vertexIndex.iterKmerPos(curKmerPos.kmer))
+		//for (const auto& extReadPos : _vertexIndex.iterKmerPos(curKmerPos.kmer))
+		for (auto itBegin = _vertexIndex.iterKmerPos(curKmerPos.kmer).begin(),
+			 itEnd = _vertexIndex.iterKmerPos(curKmerPos.kmer).end();
+			 itBegin != itEnd; ++itBegin)
 		{
 			//no trivial matches
+			auto extReadPos = *itBegin;
 			if ((extReadPos.readId == fastaRec.id &&
 				extReadPos.position == curKmerPos.position)) continue;
 
-			//count one seq match for one unique k-mer
-			//since k-mers in vector are stored relative to fwd strand,
-			//check both read orientations
-			if (prevSeqId != extReadPos.readId &&
-				prevSeqId != extReadPos.readId.rc())
-			{
-				//++timeKmerIndexFilter;
-				//++seqHitCount[abs(extReadPos.readId.signedId()) % 100];
-				//++seqHitCount[x];
-				//x = (x + 21) % seqHitCount.size();
-				if (seqHitCount[abs(extReadPos.readId.signedId()) % seqHitCount.size()] < 
-					std::numeric_limits<SeqCountType>::max())
-				{
-					++seqHitCount[abs(extReadPos.readId.signedId()) % seqHitCount.size()];
-				}
-			}
-			prevSeqId = extReadPos.readId;
+			vecMatches.emplace_back(curKmerPos.position, 
+									extReadPos.position,
+									extReadPos.readId);
 		}
 	}
-
 	timeKmerTest += std::chrono::duration_cast<std::chrono::duration<float>>
 						(std::chrono::system_clock::now() - timeStart).count();
 	timeStart = std::chrono::system_clock::now();*/
@@ -433,50 +422,22 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 			if ((extReadPos.readId == fastaRec.id &&
 				extReadPos.position == curKmerPos.position)) continue;
 
-			//count one seq match for one unique k-mer
-			//since k-mers in vector are stored relative to fwd strand,
-			//check both read orientations
-			/*if (prevSeqId != extReadPos.readId &&
-				prevSeqId != extReadPos.readId.rc())
-			{
-				if (seqHitCount[extReadPos.readId.hash() % seqHitCount.size()] < 
-					std::numeric_limits<SeqCountType>::max())
-				{
-					++seqHitCount[extReadPos.readId.hash() % seqHitCount.size()];
-				}
-			}
-			prevSeqId = extReadPos.readId;*/
-
 			vecMatches.emplace_back(curKmerPos.position, 
 									extReadPos.position,
 									extReadPos.readId);
 		}
 	}
-	/*FastaRecord::Id prevSeqId = FastaRecord::ID_NONE;
-	for (const auto& match : vecMatches)
-	{
-		//count one seq match for one unique k-mer
-		//since k-mers in vector are stored relative to fwd strand,
-		//check both read orientations
-		if (prevSeqId != match.extId &&
-			prevSeqId != match.extId.rc())
-		{
-			if (seqHitCount[match.extId.hash() % seqHitCount.size()] < 
-				std::numeric_limits<SeqCountType>::max())
-			{
-				++seqHitCount[match.extId.hash() % seqHitCount.size()];
-			}
-		}
-		prevSeqId = match.extId;
-	}*/
 	timeKmerIndexFirst += std::chrono::duration_cast<std::chrono::duration<float>>
 							(std::chrono::system_clock::now() - timeStart).count();
 	timeStart = std::chrono::system_clock::now();
 
-	std::sort(vecMatches.begin(), vecMatches.end(),
+	//std::sort(vecMatches.begin(), vecMatches.end(),
+	//		  [](const KmerMatch& k1, const KmerMatch& k2)
+	//		  {return k1.extId != k2.extId ? k1.extId < k2.extId : 
+	//		  								 k1.curPos < k2.curPos;});
+	std::stable_sort(vecMatches.begin(), vecMatches.end(),
 			  [](const KmerMatch& k1, const KmerMatch& k2)
-			  {return k1.extId != k2.extId ? k1.extId < k2.extId : 
-			  								 k1.curPos < k2.curPos;});
+			  {return k1.extId < k2.extId;});
 
 	timeKmerIndexSecond += std::chrono::duration_cast<std::chrono::duration<float>>
 								(std::chrono::system_clock::now() - timeStart).count();
@@ -490,13 +451,6 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 	{
 		std::vector<SeqCountType> topCounts;
 		topCounts.reserve(100000);
-		/*for (SeqCountType count : seqHitCount)
-		{
-			if (count >= minKmerSruvivalRate * _minOverlap)
-			{
-				topCounts.emplace_back(count);
-			}
-		}*/
 		FastaRecord::Id prevSeqId = FastaRecord::ID_NONE;
 		int32_t prevPosition = 0;
 		size_t kmerCounter = 0;
@@ -519,35 +473,12 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 			std::sort(topCounts.begin(), topCounts.end());
 			minMatches = topCounts[topCounts.size() - 
 									(size_t)maxOverlaps];
-			/*for (size_t i = 0; i < seqHitCount.size(); ++i)
-			{
-				if (seqHitCount[i] < minCount) seqHitCount[i] = 0;
-			}*/
 		}
 	}
 	timeKmerIndexFilter += std::chrono::duration_cast<std::chrono::duration<float>>
 								(std::chrono::system_clock::now() - timeStart).count();
 	timeStart = std::chrono::system_clock::now();
 
-	//prune the vector
-	/*size_t insertPoint = 0;
-	for (size_t i = 0; i < vecMatches.size(); ++i)
-	{
-		if (seqHitCount[vecMatches[i].extId.hash() % seqHitCount.size()] >=
-			minKmerSruvivalRate * _minOverlap)
-		{
-			if (insertPoint != i) vecMatches[insertPoint] = vecMatches[i];
-			++insertPoint;
-		}
-	}
-	vecMatches.erase(vecMatches.begin() + insertPoint, vecMatches.end());*/
-
-	//group by extId
-	/*std::sort(vecMatches.begin(), vecMatches.end(),
-			  [](const KmerMatch& k1, const KmerMatch& k2)
-			  {return k1.extId != k2.extId ? k1.extId < k2.extId : 
-			  								 k1.curPos < k2.curPos;});*/
-	
 	const int STAT_WND = 10000;
 	std::vector<OverlapRange> divStatWindows(curLen / STAT_WND + 1);
 
