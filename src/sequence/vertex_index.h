@@ -174,7 +174,8 @@ public:
 	void countKmers(size_t hardThreshold, int genomeSize);
 	void setRepeatCutoff(int minCoverage);
 	void buildIndex(int minCoverage);
-	void buildIndexUnevenCoverage(int minCoverage);
+	void buildIndexUnevenCoverage(int minCoverage, float selectRate, 
+								  int tandemFreq);
 	void clear();
 
 	IterHelper iterKmerPos(Kmer kmer) const
