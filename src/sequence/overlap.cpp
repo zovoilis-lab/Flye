@@ -431,13 +431,13 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 							(std::chrono::system_clock::now() - timeStart).count();
 	timeStart = std::chrono::system_clock::now();
 
-	//std::sort(vecMatches.begin(), vecMatches.end(),
-	//		  [](const KmerMatch& k1, const KmerMatch& k2)
-	//		  {return k1.extId != k2.extId ? k1.extId < k2.extId : 
-	//		  								 k1.curPos < k2.curPos;});
-	std::stable_sort(vecMatches.begin(), vecMatches.end(),
+	std::sort(vecMatches.begin(), vecMatches.end(),
 			  [](const KmerMatch& k1, const KmerMatch& k2)
-			  {return k1.extId < k2.extId;});
+			  {return k1.extId != k2.extId ? k1.extId < k2.extId : 
+			  								 k1.curPos < k2.curPos;});
+	//std::stable_sort(vecMatches.begin(), vecMatches.end(),
+	//		  [](const KmerMatch& k1, const KmerMatch& k2)
+	//		  {return k1.extId < k2.extId;});
 
 	timeKmerIndexSecond += std::chrono::duration_cast<std::chrono::duration<float>>
 								(std::chrono::system_clock::now() - timeStart).count();
