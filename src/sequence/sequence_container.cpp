@@ -103,7 +103,7 @@ int SequenceContainer::computeNxStat(float fraction) const
 {
 	std::vector<int32_t> readLengths;
 	int64_t totalLengh = 0;
-	for (auto& read : _seqIndex) 
+	for (const auto& read : _seqIndex) 
 	{
 		readLengths.push_back(read.sequence.length());
 		totalLengh += read.sequence.length();
@@ -334,7 +334,7 @@ void SequenceContainer::writeFasta(const std::vector<FastaRecord>& records,
 	FILE* fout = fopen(filename.c_str(), "w");
 	if (!fout) throw std::runtime_error("Can't open " + filename);
 	
-	for (auto& rec : records)
+	for (const auto& rec : records)
 	{
 		if (onlyPositiveStrand && !rec.id.strand()) continue;
 
@@ -358,7 +358,7 @@ void SequenceContainer::buildPositionIndex()
 	Logger::get().debug() << "Building positional index";
 	size_t offset = 0;
 	_sequenceOffsets.reserve(_seqIndex.size());
-	for (auto& seq : _seqIndex)
+	for (const auto& seq : _seqIndex)
 	{
 		_sequenceOffsets.push_back(offset);
 		offset += seq.sequence.length();

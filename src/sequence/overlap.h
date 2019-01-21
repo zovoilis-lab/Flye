@@ -197,7 +197,7 @@ struct OverlapRange
 struct OvlpDivStats
 {
 	static const size_t MAX_STATS = 1000000;
-	OvlpDivStats(): vecSize(0) {}
+	OvlpDivStats(): divVec(MAX_STATS), vecSize(0) {}
 	
 	void add(float val)
 	{
@@ -217,7 +217,7 @@ struct OvlpDivStats
 		divVec[expected] = val;
 	}
 
-	std::array<float, MAX_STATS>  divVec;
+	std::vector<float>  divVec;
 	std::atomic<size_t> vecSize;
 };
 
@@ -332,7 +332,7 @@ public:
 	//Computes and stores all-vs-all overlaps
 	void findAllOverlaps();
 	void buildIntervalTree();
-	std::vector<Interval<OverlapRange*>> 
+	std::vector<Interval<const OverlapRange*>> 
 		getCoveringOverlaps(FastaRecord::Id seqId, int32_t start, 
 							int32_t end) const;
 
@@ -349,5 +349,5 @@ private:
 	OverlapIndex _overlapIndex;
 	std::atomic<size_t> _indexSize;
 	std::unordered_map<FastaRecord::Id, 
-					   IntervalTree<OverlapRange*>> _ovlpTree;
+					   IntervalTree<const OverlapRange*>> _ovlpTree;
 };

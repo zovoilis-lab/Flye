@@ -391,7 +391,7 @@ def _get_bubble_seqs(alignment, platform, profile, partition, contig_info):
 
             if trg_pos >= next_bubble_start or trg_pos == 0:
                 if not first_segment or chromosome_start:
-                    branch_seq = aln.qry_seq[branch_start : i].replace("-", "")
+                    branch_seq = fp.to_acgt(aln.qry_seq[branch_start : i].replace("-", ""))
                     bubbles[bubble_id].branches.append(branch_seq)
 
                 first_segment = False
@@ -402,7 +402,7 @@ def _get_bubble_seqs(alignment, platform, profile, partition, contig_info):
             trg_pos += 1
 
         if chromosome_end:
-            branch_seq = aln.qry_seq[branch_start:].replace("-", "")
+            branch_seq = fp.to_acgt(aln.qry_seq[branch_start:].replace("-", ""))
             bubbles[-1].branches.append(branch_seq)
 
     return bubbles

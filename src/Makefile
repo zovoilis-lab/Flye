@@ -1,6 +1,6 @@
 .PHONY: all clean debug profile
 
-CXXFLAGS += -Wall -pthread -std=c++11 -g
+CXXFLAGS += -Wall -Wextra -pthread -std=c++11 -g
 LDFLAGS += -pthread -std=c++11 -rdynamic
 
 ASSEMBLE_BIN := ${BIN_DIR}/flye-assemble
@@ -15,9 +15,10 @@ profile: release
 release: CXXFLAGS += -O3 -DNDEBUG
 release: flye-repeat flye-polish flye-assemble flye-contigger
 
-SANITIZE_FLAGS += -fsanitize=address -fsanitize=leak -fsanitize=undefined
-#SANITIZE_FLAGS += -fsanitize=thread
-debug: CXXFLAGS += -Og -D_GLIBCXX_DEBUG ${SANITIZE_FLAGS}
+SANITIZE_FLAGS += -D_GLIBCXX_SANITIZE_VECTOR -U_FORTIFY_SOURCE -fsanitize=address -fno-omit-frame-pointer -fsanitize=undefined
+#SANITIZE_FLAGS += -fsanitize=thread -fsanitize=leak -fsanitize=undefined
+debug: CXXFLAGS += -Og ${SANITIZE_FLAGS}
+#debug: CXXFLAGS += -D_GLIBCXX_DEBUG
 debug: LDFLAGS += ${SANITIZE_FLAGS}
 debug: flye-repeat flye-polish flye-assemble flye-contigger
 

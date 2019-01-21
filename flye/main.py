@@ -680,7 +680,7 @@ def main():
         _run(args)
     except (aln.AlignmentException, pol.PolishException,
             asm.AssembleException, repeat.RepeatException,
-            ResumeException) as e:
+            ResumeException, fp.FastaError) as e:
         logger.error(e)
         return 1
 

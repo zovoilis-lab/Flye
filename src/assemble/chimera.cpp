@@ -19,7 +19,7 @@ bool ChimeraDetector::isChimeric(FastaRecord::Id readId)
 {
 	if (!_chimeras.contains(readId))
 	{
-		auto ovlps = _ovlpContainer.lazySeqOverlaps(readId);
+		const auto& ovlps = _ovlpContainer.lazySeqOverlaps(readId);
 		bool result = this->testReadByCoverage(readId, ovlps) ||
 					  _ovlpContainer.hasSelfOverlaps(readId);
 		_chimeras.insert(readId, result);
@@ -35,7 +35,7 @@ bool ChimeraDetector::isChimeric(FastaRecord::Id readId,
 	if (!_chimeras.contains(readId))
 	{
 		bool result = this->testReadByCoverage(readId, readOvlps);
-		for (auto& ovlp : readOvlps)
+		for (const auto& ovlp : readOvlps)
 		{
 			if (ovlp.curId == ovlp.extId.rc()) 
 			{
@@ -71,10 +71,10 @@ void ChimeraDetector::estimateGlobalCoverage()
 
 	int64_t sum = 0;
 	int64_t num = 0;
-	for (auto& seq : _seqContainer.iterSeqs())
+	for (const auto& seq : _seqContainer.iterSeqs())
 	{
 		if (rand() % sampleRate) continue;
-		auto overlaps = _ovlpContainer.lazySeqOverlaps(seq.id);
+		const auto& overlaps = _ovlpContainer.lazySeqOverlaps(seq.id);
 		auto coverage = this->getReadCoverage(seq.id, overlaps);
 		bool nonZero = false;
 		for (auto c : coverage) nonZero |= (c != 0);
@@ -116,7 +116,7 @@ std::vector<int32_t>
 	if (numWindows - 2 * FLANK <= 0) return {0};
 
 	coverage.assign(numWindows - 2 * FLANK, 0);
-	for (auto& ovlp : readOverlaps)
+	for (const auto& ovlp : readOverlaps)
 	{
 		if (ovlp.curId == ovlp.extId.rc()) continue;
 

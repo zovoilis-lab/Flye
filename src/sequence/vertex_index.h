@@ -115,7 +115,7 @@ public:
 			return !(*this == other);
 		}
 
-		__attribute__((always_inline))
+		//__attribute__((always_inline))
 		ReadPosition operator*() const
 		{
 			size_t globPos = rv.data[index].get();
@@ -173,7 +173,8 @@ public:
 	void countKmers(size_t hardThreshold, int genomeSize);
 	void setRepeatCutoff(int minCoverage);
 	void buildIndex(int minCoverage);
-	void buildIndexUnevenCoverage(int minCoverage);
+	void buildIndexUnevenCoverage(int minCoverage, float selectRate, 
+								  int tandemFreq);
 	void clear();
 
 	IterHelper iterKmerPos(Kmer kmer) const
@@ -183,7 +184,7 @@ public:
 						  _seqContainer);
 	}
 
-	__attribute__((always_inline))
+	//__attribute__((always_inline))
 	bool isSolid(Kmer kmer) const
 	{
 		kmer.standardForm();
