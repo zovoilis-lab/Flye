@@ -190,7 +190,10 @@ int main(int argc, char** argv)
 	}
 	else
 	{
-		vertexIndex.buildIndexUnevenCoverage(/*min coverage*/ 2);
+		static const float SELECT_RATE = 0.25;
+		static const int TANDEM_FREQ = 10;
+		vertexIndex.buildIndexUnevenCoverage(/*min coverage*/ 2, SELECT_RATE, 
+											 TANDEM_FREQ);
 	}
 
 	Logger::get().debug() << "Peak RAM usage: " 
