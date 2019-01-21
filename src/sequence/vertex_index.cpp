@@ -183,11 +183,9 @@ void VertexIndex::buildIndexUnevenCoverage(int minCoverage, float selectRate,
 		while (!topKmers.empty())
 		{
 			Kmer kmer = topKmers.top().kmer;
-			kmer.standardForm();
+			size_t freq = topKmers.top().freq;
 			topKmers.pop();
 
-			size_t freq = 1;
-			_kmerCounts.find(kmer, freq);
 			if (freq < (size_t)minCoverage || freq > _repetitiveFrequency ||
 				localFreq[kmer] > (size_t)tandemFreq) continue;
 
@@ -234,20 +232,21 @@ void VertexIndex::buildIndexUnevenCoverage(int minCoverage, float selectRate,
 		localFreq.clear();
 
 		size_t maxKmers = selectRate * _seqContainer.seqLen(readId);
-		for (auto kmerPos : IterKmers(_seqContainer.getSeq(readId)))
+		for (const auto& kmerPos : IterKmers(_seqContainer.getSeq(readId)))
 		{
-			kmerPos.kmer.standardForm();
+			auto stdKmer = kmerPos;
+			stdKmer.kmer.standardForm();
 			size_t freq = 1;
-			_kmerCounts.find(kmerPos.kmer, freq);
+			_kmerCounts.find(stdKmer.kmer, freq);
+
+			++localFreq[stdKmer.kmer];
 			topKmers.push({kmerPos.kmer, (size_t)kmerPos.position, freq});
-			++localFreq[kmerPos.kmer];
 			if (topKmers.size() > maxKmers) topKmers.pop();
 		}
 
 		while (!topKmers.empty())
 		{
 			KmerPosition kmerPos(topKmers.top().kmer, topKmers.top().position);
-			topKmers.pop();
 			FastaRecord::Id targetRead = readId;
 			bool revCmp = kmerPos.kmer.standardForm();
 			if (revCmp)
@@ -258,8 +257,9 @@ void VertexIndex::buildIndexUnevenCoverage(int minCoverage, float selectRate,
 				targetRead = targetRead.rc();
 			}
 
-			size_t freq = 1;
-			_kmerCounts.find(kmerPos.kmer, freq);
+			size_t freq = topKmers.top().freq;
+			topKmers.pop();
+
 			if (freq < (size_t)minCoverage || freq > _repetitiveFrequency ||
 				localFreq[kmerPos.kmer] > (size_t)tandemFreq) continue;
 
