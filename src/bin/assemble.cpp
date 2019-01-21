@@ -195,7 +195,7 @@ int main(int argc, char** argv)
 		vertexIndex.buildIndexUnevenCoverage(/*min coverage*/ 2, SELECT_RATE, 
 											 TANDEM_FREQ);
 	}
-	//vertexIndex.outputSelectedKmers(minKmerCov, "../kmers.txt");
+	vertexIndex.outputSelectedKmers("../kmers.txt");
 
 	Logger::get().debug() << "Peak RAM usage: " 
 		<< getPeakRSS() / 1024 / 1024 / 1024 << " Gb";

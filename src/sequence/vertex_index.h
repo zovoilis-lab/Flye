@@ -209,7 +209,7 @@ public:
 
 	int getSampleRate() const {return _sampleRate * _solidMultiplier;}
 
-	void outputSelectedKmers(int minCov, const std::string& filename)
+	void outputSelectedKmers(const std::string& filename)
 	{
 		std::ofstream fout(filename);
 		for (auto& kmerPair : _kmerIndex.lock_table())
