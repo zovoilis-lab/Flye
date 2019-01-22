@@ -28,6 +28,7 @@ from flye.utils.bytes2human import human2bytes
 import flye.utils.fasta_parser as fp
 import flye.short_plasmids.plasmids as plas
 import flye.trestle.trestle as tres
+import flye.trestle.phase as phase
 import flye.trestle.graph_resolver as tres_graph
 from flye.repeat_graph.repeat_graph import RepeatGraph
 from flye.repeat_graph.graph_alignment import parse_alignments
@@ -375,6 +376,58 @@ class JobTrestle(Job):
         repeat_graph.dump_to_file(self.out_files["repeat_graph"])
         fp.write_fasta_dict(repeat_graph.edges_fasta,
                             self.out_files["repeat_graph_edges"])
+
+
+class JobPhase(Job):
+    def __init__(self, args, work_dir, log_file, repeat_graph,
+                 graph_edges, reads_alignment_file):
+        super(JobPhase, self).__init__()
+
+        self.args = args
+        self.work_dir = os.path.join(work_dir, "23-phase")
+        self.log_file = log_file
+        #self.repeats_dump = repeats_dump
+        self.graph_edges = graph_edges
+        self.repeat_graph = repeat_graph
+        self.reads_alignment_file = reads_alignment_file
+
+        self.name = "trestle"
+        self.out_files["repeat_graph"] = os.path.join(self.work_dir,
+                                                      "repeat_graph_dump")
+        self.out_files["repeat_graph_edges"] = \
+            os.path.join(self.work_dir, "repeat_graph_edges.fasta")
+
+    def run(self):
+        super(JobPhase, self).run()
+
+        if not os.path.isdir(self.work_dir):
+            os.mkdir(self.work_dir)
+
+        summary_file = os.path.join(self.work_dir, "phase_summary.txt")
+        phased_seqs = os.path.join(self.work_dir, "phased_copies.fasta")
+        repeat_graph = RepeatGraph(fp.read_sequence_dict(self.graph_edges))
+        repeat_graph.load_from_file(self.repeat_graph)
+        reads_alignment = parse_alignments(self.reads_alignment_file)
+
+        try:
+            uniques_info = tres_graph \
+                .get_unique_edges(repeat_graph, reads_alignment,
+                                    fp.read_sequence_dict(self.graph_edges))
+            tres_graph.dump_uniques(uniques_info,
+                                    os.path.join(self.work_dir, "uniques_dump"))
+
+            phase.phase_uniques(self.args, self.work_dir, uniques_info,
+                                 summary_file, phased_seqs)
+            #tres_graph.apply_changes(repeat_graph, summary_file,
+            #                         fp.read_sequence_dict(phased_seqs))
+        except Exception as e:
+            logger.warning("Caught unhandled exception: " + str(e))
+            logger.warning("Continuing to the next pipeline stage. "
+                           "Please submit a bug report along with the full log file")
+
+        #repeat_graph.dump_to_file(self.out_files["repeat_graph"])
+        #fp.write_fasta_dict(repeat_graph.edges_fasta,
+        #                    self.out_files["repeat_graph_edges"])
 
 
 def _create_job_list(args, work_dir, log_file):

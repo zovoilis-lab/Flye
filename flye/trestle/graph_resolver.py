@@ -195,3 +195,75 @@ def _get_connections(trestle_results):
                                     Connection(new_seq_id + "2", connection_2, seq_2)])
 
     return connections
+
+
+class UniqueInfo:
+    __slots__ = ("id", "path", "all_reads", "sequences")
+
+    def __init__(self, id, path, all_reads, sequences):
+        self.id = id
+        self.path = path
+        self.all_reads = all_reads
+        self.sequences = sequences
+
+
+def get_unique_edges(repeat_graph, alignments, edge_seqs):
+    next_path_id = 1
+    path_ids = {}
+    unique_dict = {}
+
+    for path in repeat_graph.get_unbranching_paths():
+        if path[0].repetitive or path[0].self_complement:
+            continue
+
+        if path[0].edge_id not in path_ids:
+            path_ids[path[0].edge_id] = next_path_id
+            path_ids[-path[-1].edge_id] = -next_path_id
+            next_path_id += 1
+        path_id = path_ids[path[0].edge_id]
+        unique_edge_ids = set(map(lambda e: e.edge_id, path))
+        
+        inner_reads = []
+        for read_aln in alignments:
+            unique_read = False
+            for edge_aln in read_aln:
+                if edge_aln.edge_id in unique_edge_ids:
+                    unique_read = True
+            if not unique_read:
+                continue
+
+            inner_reads.append(read_aln[0].overlap.cur_id)
+
+        if not len(inner_reads):
+            continue
+
+        #add edges sequences:
+        sequences = {}
+        template_seq = ""
+        for edge in path:
+            seq_id = edge.edge_sequences[0].edge_seq_name
+            seq = edge_seqs[seq_id[1:]]
+            if seq_id[0] == "-":
+                seq = fp.reverse_complement(seq)
+            template_seq += seq
+        sequences["template"] = template_seq
+
+        #print path_id
+        #for h, s in sequences.items():
+        #    print h, s[:100]
+
+        unique_dict[path_id] = UniqueInfo(path_id, map(lambda e: e.edge_id, path),
+                                           inner_reads, sequences)
+
+    return unique_dict
+
+
+def dump_uniques(uniques_info, filename):
+    with open(filename, "w") as f:
+        for unique_id, info in uniques_info.iteritems():
+            f.write("#Unique {0}\n\n".format(unique_id))
+
+            f.write("#All reads\t{0}\n".format(len(info.all_reads)))
+            for read in info.all_reads:
+                f.write(read + "\n")
+            f.write("\n")
