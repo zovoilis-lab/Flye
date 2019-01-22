@@ -343,7 +343,7 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 		std::lock_guard<std::mutex> lock(reportMutex);
 		prevReport = std::chrono::system_clock::now();
 		Logger::get().debug() << ">>Thread " << std::this_thread::get_id() 
-			//<< " kmerTest:" << timeKmerTest
+			<< " mem:" << timeMemory
 			<< " kmerFirst:" << timeKmerIndexFirst 
 			<< " kmerFilter:" << timeKmerIndexFilter
 			<< " kmerSecond:" << timeKmerIndexSecond 
@@ -407,13 +407,20 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 	//count kmer hits
 	seqHitCount.assign(seqHitCount.size(), 0);
 	vecMatches.clear();
+	size_t numberMatches = 0;
+	for (const auto& curKmerPos : IterKmers(fastaRec.sequence))
+	{
+		numberMatches += _vertexIndex.kmerFreq(curKmerPos.kmer);
+	}
+	vecMatches.reserve(numberMatches);
+
 	for (const auto& curKmerPos : IterKmers(fastaRec.sequence))
 	{
 		if (_vertexIndex.isRepetitive(curKmerPos.kmer))
 		{
 			curFilteredPos.push_back(curKmerPos.position);
 		}
-		if (!_vertexIndex.isSolid(curKmerPos.kmer)) continue;
+		if (!_vertexIndex.kmerFreq(curKmerPos.kmer)) continue;
 
 		//FastaRecord::Id prevSeqId = FastaRecord::ID_NONE;
 		for (const auto& extReadPos : _vertexIndex.iterKmerPos(curKmerPos.kmer))

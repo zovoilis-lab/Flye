@@ -83,12 +83,6 @@ private:
 	{
 		ReadVector(uint32_t capacity = 0, uint32_t size = 0): 
 			capacity(capacity), size(size), data(nullptr) {}
-		ReadVector(const IndexChunk& pos):	//construct a vector with single element
-			capacity(1), size(1)
-		{
-			data = new IndexChunk[1];
-			data[0] = pos;
-		}
 		uint32_t capacity;
 		uint32_t size;
 		IndexChunk* data;
@@ -186,16 +180,24 @@ public:
 	}
 
 	//__attribute__((always_inline))
-	bool isSolid(Kmer kmer) const
+	/*bool isSolid(Kmer kmer) const
 	{
 		kmer.standardForm();
 		return _kmerIndex.contains(kmer);
-	}
+	}*/
 
 	bool isRepetitive(Kmer kmer) const
 	{
 		kmer.standardForm();
 		return _repetitiveKmers.contains(kmer);
+	}
+	
+	size_t kmerFreq(Kmer kmer) const
+	{
+		kmer.standardForm();
+		ReadVector rv;
+		_kmerIndex.find(kmer, rv);
+		return rv.size;
 	}
 
 	void outputProgress(bool set) 
@@ -210,8 +212,6 @@ public:
 
 	int getSampleRate() const {return _sampleRate * _solidMultiplier;}
 
-	//int getFlankRepeatSize() const {return _flankRepeatSize;}
-
 private:
 	void addFastaSequence(const FastaRecord& fastaRecord);
 
@@ -221,7 +221,6 @@ private:
 	int32_t _sampleRate;
 	size_t  _repetitiveFrequency;
 	int32_t _solidMultiplier;
-	//int32_t _flankRepeatSize;
 
 	const size_t MEM_CHUNK = 32 * 1024 * 1024 / sizeof(IndexChunk);
 	std::vector<IndexChunk*> _memoryChunks;
