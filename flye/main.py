@@ -65,7 +65,7 @@ class Job(object):
             data = json.load(fp)
             if (not "pipeline_version" in data or
                     data["pipeline_version"] != cfg.vals["pipeline_version"]):
-                raise ResumeException("Inconsistent pipelnie version")
+                raise ResumeException("Inconsistent pipeline version")
 
             Job.run_params = data
 
@@ -140,7 +140,7 @@ class JobShortPlasmidsAssembly(Job):
 
     def run(self):
         super(JobShortPlasmidsAssembly, self).run()
-        logger.info("Recovering short unassebmled sequences")
+        logger.info("Recovering short unassembled sequences")
         if not os.path.isdir(self.work_dir):
             os.mkdir(self.work_dir)
         plasmids = plas.assemble_short_plasmids(self.args, self.work_dir,
@@ -534,23 +534,23 @@ def _usage():
 
 
 def _epilog():
-    return ("Input reads could be in FASTA or FASTQ format, uncompressed\n"
-            "or compressed with gz. Currenlty, raw and corrected reads\n"
-            "from PacBio and ONT are supported. The expected error rates are\n"
-            "<30% for raw and <2% for corrected reads. Additionally,\n"
+    return ("Input reads can be in FASTA or FASTQ format, uncompressed\n"
+            "or compressed with gz. Currently, raw and corrected reads\n"
+            "from PacBio and ONT are supported. Expected error rates are\n"
+            "<30% for raw and <2% for corrected reads. Additionally, the\n"
             "--subassemblies option performs a consensus assembly of multiple\n"
             "sets of high-quality contigs. You may specify multiple\n"
             "files with reads (separated by spaces). Mixing different read\n"
-            "types is not yet supported. --meta option enables the mode\n"
+            "types is not yet supported. The --meta option enables the mode\n"
             "for metagenome/uneven coverage assembly.\n\n"
             "You must provide an estimate of the genome size as input,\n"
             "which is used for solid k-mers selection. Standard size\n"
-            "modificators are supported (e.g. 5m or 2.6g). In case\n"
-            "of metagenome assembly, expected total assembly size\n"
+            "modificators are supported (e.g. 5m or 2.6g). In the case\n"
+            "of metagenome assembly, the expected total assembly size\n"
             "should be provided.\n\n"
             "To reduce memory consumption for large genome assemblies,\n"
             "you can use a subset of the longest reads for initial contig\n"
-            "assembly by specifying --asm-coverage option. Typically,\n"
+            "assembly by specifying the --asm-coverage option. Typically,\n"
             "40x coverage is enough to produce good draft contigs.")
 
 
@@ -570,7 +570,7 @@ def main():
     def check_int_range(value, min_val, max_val, require_odd=False):
         ival = int(value)
         if ival < min_val or ival > max_val:
-             raise argparse.ArgumentTypeError("value should be in "
+             raise argparse.ArgumentTypeError("value should be in the "
                             "range [{0}, {1}]".format(min_val, max_val))
         if require_odd and ival % 2 == 0:
             raise argparse.ArgumentTypeError("should be an odd number")
@@ -618,7 +618,7 @@ def main():
                         "contig assembly [not set]", type=int)
     parser.add_argument("--plasmids", action="store_true",
                         dest="plasmids", default=False,
-                        help="rescue short unassmebled plasmids")
+                        help="rescue short unassembled plasmids")
     parser.add_argument("--meta", action="store_true",
                         dest="meta", default=False,
                         help="metagenome / uneven coverage mode")

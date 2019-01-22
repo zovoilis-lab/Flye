@@ -273,7 +273,7 @@ void Extender::assembleContigs()
 			<< "\n\tAt position: " << exInfo.stepsToTurn
 			<< "\n\tleftTip: " << exInfo.leftTip 
 			<< " rightTip: " << exInfo.rightTip
-			<< "\n\tSuspicios: " << exInfo.numSuspicious
+			<< "\n\tSuspicious: " << exInfo.numSuspicious
 			<< "\n\tMean extensions: " << exInfo.meanOverlaps
 			<< "\n\tAvg overlap len: " << exInfo.avgOverlapSize
 			<< "\n\tMin overlap len: " << exInfo.minOverlapSize

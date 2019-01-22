@@ -82,7 +82,7 @@ def read_paf(filename):
 
 class SynchronizedSamReader(object):
     """
-    Parsing SAM file in multiple threads. Filters out secondary alignments,
+    Parses SAM file in multiple threads. Filters out secondary alignments,
     but keeps supplementary (split) alignments
     """
     def __init__(self, sam_alignment, reference_fasta,
