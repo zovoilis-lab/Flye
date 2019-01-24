@@ -329,7 +329,7 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 	//speed benchmarks
 	thread_local float timeMemory = 0;
 	thread_local float timeKmerIndexFirst = 0;
-	thread_local float timeKmerIndexFilter = 0;
+	//thread_local float timeKmerIndexFilter = 0;
 	thread_local float timeKmerIndexSecond = 0;
 	//thread_local float timeKmerTest = 0;
 	thread_local float timeDp = 0;
@@ -345,7 +345,7 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 		Logger::get().debug() << ">>Thread " << std::this_thread::get_id() 
 			<< " mem:" << timeMemory
 			<< " kmerFirst:" << timeKmerIndexFirst 
-			<< " kmerFilter:" << timeKmerIndexFilter
+			//<< " kmerFilter:" << timeKmerIndexFilter
 			<< " kmerSecond:" << timeKmerIndexSecond 
 			<< " dp:" << timeDp;
 	}
@@ -354,12 +354,12 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 	//cache memory-intensive containers as
 	//many parallel memory allocations slow us down significantly
 	//although once in a while shrink allocated memory size
-	typedef uint32_t SeqCountType;
+	//typedef uint32_t SeqCountType;
 	thread_local std::vector<KmerMatch> vecMatches;
 	thread_local std::vector<KmerMatch> matchesList;
 	thread_local std::vector<int32_t> scoreTable;
 	thread_local std::vector<int32_t> backtrackTable;
-	thread_local std::vector<SeqCountType> seqHitCount(1000000);
+	//thread_local std::vector<SeqCountType> seqHitCount(1000000);
 	thread_local auto prevCleanup = 
 		std::chrono::system_clock::now() + std::chrono::seconds(rand() % 60);
 	if ((std::chrono::system_clock::now() - prevCleanup) > 
@@ -405,7 +405,7 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 	timeStart = std::chrono::system_clock::now();*/
 
 	//count kmer hits
-	seqHitCount.assign(seqHitCount.size(), 0);
+	//seqHitCount.assign(seqHitCount.size(), 0);
 	vecMatches.clear();
 	size_t numberMatches = 0;
 	for (const auto& curKmerPos : IterKmers(fastaRec.sequence))
@@ -450,13 +450,13 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 								(std::chrono::system_clock::now() - timeStart).count();
 	timeStart = std::chrono::system_clock::now();
 
-	size_t minMatches = minKmerSruvivalRate * _minOverlap;
+	/*size_t minMatches = minKmerSruvivalRate * _minOverlap;
 	//if there is a limit on the number of sequences to consider,
 	//sort by the decreasing number of k-mer hits and filter
 	//some out if needed
 	if (maxOverlaps > 0)
 	{
-		std::vector<SeqCountType> topCounts;
+		std::vector<size_t> topCounts;
 		topCounts.reserve(100000);
 		FastaRecord::Id prevSeqId = FastaRecord::ID_NONE;
 		int32_t prevPosition = 0;
@@ -478,13 +478,15 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 		if (topCounts.size() > (size_t)maxOverlaps)
 		{
 			std::sort(topCounts.begin(), topCounts.end());
-			minMatches = topCounts[topCounts.size() - 
-									(size_t)maxOverlaps];
+			minMatches = std::max(minMatches, topCounts[topCounts.size() - 
+											  (size_t)maxOverlaps]);
 		}
+		Logger::get().debug() << "Min match " << minMatches << " " 
+			<< minKmerSruvivalRate * _minOverlap;
 	}
 	timeKmerIndexFilter += std::chrono::duration_cast<std::chrono::duration<float>>
 								(std::chrono::system_clock::now() - timeStart).count();
-	timeStart = std::chrono::system_clock::now();
+	timeStart = std::chrono::system_clock::now();*/
 
 	const int STAT_WND = 10000;
 	std::vector<OverlapRange> divStatWindows(curLen / STAT_WND + 1);
@@ -494,6 +496,9 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 	size_t extRangeEnd = 0;
 	while(extRangeEnd < vecMatches.size())
 	{
+		if (maxOverlaps != 0 &&
+			detectedOverlaps.size() >= (size_t)maxOverlaps) break;
+
 		extRangeBegin = extRangeEnd;
 		size_t uniqueMatches = 0;
 		int32_t prevPos = 0;
@@ -508,7 +513,7 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 			}
 			++extRangeEnd;
 		}
-		if (uniqueMatches < minMatches) continue;
+		if (uniqueMatches < minKmerSruvivalRate * _minOverlap) continue;
 
 		matchesList.assign(vecMatches.begin() + extRangeBegin,
 						   vecMatches.begin() + extRangeEnd);
