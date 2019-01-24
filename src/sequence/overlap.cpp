@@ -282,7 +282,7 @@ namespace
 	void shrinkAndClear(std::vector<T>& vec, float rate)
 	{
 		if (vec.empty()) return;
-		if ((float)vec.capacity() / vec.size() < rate) return;
+		//if ((float)vec.capacity() / vec.size() < rate) return;
 		//Logger::get().debug() << "Shrink: " << vec.capacity() << " " << vec.size();
 
 		size_t newCapacity = std::roundf((float)vec.capacity() / rate);
@@ -312,19 +312,14 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 	int32_t curLen = fastaRec.sequence.length();
 	std::vector<int32_t> curFilteredPos;
 
-	//memory benchmarks
-	/*static std::mutex reportMutex;
-	thread_local auto prevReport = std::chrono::system_clock::now();
-	if ((std::chrono::system_clock::now() - prevReport) > 
-		std::chrono::seconds(60))
-	{
-		std::lock_guard<std::mutex> lock(reportMutex);
-		prevReport = std::chrono::system_clock::now();
-		Logger::get().debug() << ">>Thread " << std::this_thread::get_id() << "\t" 
-			<< vecMatches.capacity() << "\t" << matchesList.capacity()
-			<< "\t" << scoreTable.capacity() << "\t" << backtrackTable.capacity()
-			<< "\t" << seqHitCount.capacity();
-	}*/
+	//cache memory-intensive containers as
+	//many parallel memory allocations slow us down significantly
+	typedef uint32_t SeqCountType;
+	thread_local std::vector<KmerMatch> vecMatches;
+	thread_local std::deque<size_t> numMatchesHistory;
+	thread_local std::vector<KmerMatch> matchesList;
+	thread_local std::vector<int32_t> scoreTable;
+	thread_local std::vector<int32_t> backtrackTable;
 
 	//speed benchmarks
 	thread_local float timeMemory = 0;
@@ -336,36 +331,44 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 	auto timeStart = std::chrono::system_clock::now();
 
 	static std::mutex reportMutex;
+	thread_local int threadId = rand() % 1000; 
+	thread_local int numTicks = 0;
+	//thread_local int numberGrows = 0;
+	//thread_local int numberShrinks = 0;
+	++numTicks;
 	thread_local auto prevReport = std::chrono::system_clock::now();
 	if ((std::chrono::system_clock::now() - prevReport) > 
 		std::chrono::seconds(60))
 	{
 		std::lock_guard<std::mutex> lock(reportMutex);
 		prevReport = std::chrono::system_clock::now();
-		Logger::get().debug() << ">>Thread " << std::this_thread::get_id() 
+		//size_t medianSize = !numMatchesHistory.empty() ? median(numMatchesHistory) : 0;
+		Logger::get().debug() << ">Perf " << threadId
 			<< " mem:" << timeMemory
-			<< " kmerFirst:" << timeKmerIndexFirst 
-			//<< " kmerFilter:" << timeKmerIndexFilter
-			<< " kmerSecond:" << timeKmerIndexSecond 
-			<< " dp:" << timeDp;
-	}
+			<< " kmFst:" << timeKmerIndexFirst 
+			<< " kmSnd:" << timeKmerIndexSecond 
+			<< " dp:" << timeDp << " ticks: " << numTicks; 
+		Logger::get().debug() << ">Mem  " << threadId << " vecCap:" << vecMatches.capacity()
+			<< " vecSize: " << vecMatches.size();
 
+		timeMemory = 0;
+		timeKmerIndexFirst = 0;
+		//timeKmerIndexFilter = 0;
+		timeKmerIndexSecond = 0;
+		timeDp = 0;
+		numTicks = 0;
+		//numberGrows = 0;
+		//numberShrinks = 0;
+	}
 	timeStart = std::chrono::system_clock::now();
-	//cache memory-intensive containers as
-	//many parallel memory allocations slow us down significantly
+
 	//although once in a while shrink allocated memory size
-	//typedef uint32_t SeqCountType;
-	thread_local std::vector<KmerMatch> vecMatches;
-	thread_local std::vector<KmerMatch> matchesList;
-	thread_local std::vector<int32_t> scoreTable;
-	thread_local std::vector<int32_t> backtrackTable;
-	//thread_local std::vector<SeqCountType> seqHitCount(1000000);
-	thread_local auto prevCleanup = 
-		std::chrono::system_clock::now() + std::chrono::seconds(rand() % 60);
-	if ((std::chrono::system_clock::now() - prevCleanup) > 
-		std::chrono::seconds(60))
+	//thread_local auto prevCleanup = 
+	//	std::chrono::system_clock::now() + std::chrono::seconds(rand() % 60);
+	thread_local int prevCleanup = 0;
+	if (++prevCleanup > 50)
 	{
-		prevCleanup = std::chrono::system_clock::now();
+		prevCleanup = 0;
 		shrinkAndClear(vecMatches, 2);
 		shrinkAndClear(matchesList, 2);
 		shrinkAndClear(scoreTable, 2);
@@ -407,12 +410,12 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 	//count kmer hits
 	//seqHitCount.assign(seqHitCount.size(), 0);
 	vecMatches.clear();
-	size_t numberMatches = 0;
+	/*size_t numberMatches = 0;
 	for (const auto& curKmerPos : IterKmers(fastaRec.sequence))
 	{
 		numberMatches += _vertexIndex.kmerFreq(curKmerPos.kmer);
 	}
-	vecMatches.reserve(numberMatches);
+	vecMatches.reserve(numberMatches);*/
 
 	for (const auto& curKmerPos : IterKmers(fastaRec.sequence))
 	{
