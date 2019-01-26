@@ -456,6 +456,18 @@ def _set_genome_size(args):
         args.genome_size = human2bytes(args.genome_size.upper())
 
 
+def _run_polisher_only(args):
+    """
+    Runs standalone polisher
+    """
+    logger.info("Running Flye polisher")
+    logger.debug("Cmd: {0}".format(" ".join(sys.argv)))
+
+    pol.polish(args.polish_target, args.reads, args.out_dir,
+               args.num_iters, args.threads, args.platform,
+               output_progress=True)
+
+
 def _run(args):
     """
     Runs the pipeline
@@ -529,8 +541,8 @@ def _usage():
             "\t     --nano-corr | --subassemblies) file1 [file_2 ...]\n"
             "\t     --genome-size SIZE --out-dir PATH\n"
             "\t     [--threads int] [--iterations int] [--min-overlap int]\n"
-            "\t     [--meta] [--plasmids] [--no-trestle] [--debug]\n"
-            "\t     [--version] [--help] [--resume]")
+            "\t     [--meta] [--plasmids] [--no-trestle] [--polish-target]\n"
+            "\t     [--debug] [--version] [--help] [--resume]")
 
 
 def _epilog():
@@ -551,7 +563,9 @@ def _epilog():
             "To reduce memory consumption for large genome assemblies,\n"
             "you can use a subset of the longest reads for initial contig\n"
             "assembly by specifying --asm-coverage option. Typically,\n"
-            "40x coverage is enough to produce good draft contigs.")
+            "40x coverage is enough to produce good draft contigs.\n\n"
+            "You can separately run Flye polisher on a target sequence \n"
+            "using --polish-target option.")
 
 
 def _version():
@@ -598,7 +612,7 @@ def main():
                         default=None, metavar="path",
                         help="high-quality contigs input")
     parser.add_argument("-g", "--genome-size", dest="genome_size",
-                        metavar="size", required=True,
+                        metavar="size", required=False,
                         help="estimated genome size (for example, 5m or 2.6g)")
     parser.add_argument("-o", "--out-dir", dest="out_dir",
                         default=None, required=True,
@@ -625,6 +639,9 @@ def main():
     parser.add_argument("--no-trestle", action="store_true",
                         dest="no_trestle", default=False,
                         help="skip Trestle stage")
+    parser.add_argument("--polish-target", dest="polish_target",
+                        metavar="path", required=False,
+                        help="run polisher on the target sequence")
     parser.add_argument("--resume", action="store_true",
                         dest="resume", default=False,
                         help="resume from the last completed stage")
@@ -638,6 +655,10 @@ def main():
                         help="enable debug output")
     parser.add_argument("-v", "--version", action="version", version=_version())
     args = parser.parse_args()
+
+    if not args.genome_size and not args.polish_target:
+        parser.error("Genome size argument (-g/--genome-size) "
+                     "is required for assembly")
 
     if args.pacbio_raw:
         args.reads = args.pacbio_raw
@@ -668,7 +689,6 @@ def main():
     _enable_logging(args.log_file, args.debug,
                     overwrite=False)
 
-    _set_genome_size(args)
     args.asm_config = os.path.join(cfg.vals["pkg_root"],
                                    cfg.vals["bin_cfg"][args.read_type])
 
@@ -677,7 +697,13 @@ def main():
         pol.check_binaries()
         asm.check_binaries()
         repeat.check_binaries()
-        _run(args)
+
+        if not args.polish_target:
+            _set_genome_size(args)
+            _run(args)
+        else:
+            _run_polisher_only(args)
+
     except (aln.AlignmentException, pol.PolishException,
             asm.AssembleException, repeat.RepeatException,
             ResumeException, fp.FastaError) as e:
