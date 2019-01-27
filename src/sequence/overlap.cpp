@@ -25,6 +25,7 @@
 #include "../common/utils.h"
 #include "../common/parallel.h"
 #include "../common/disjoint_set.h"
+#include "../common/bfcontainer.h"
 
 
 namespace
@@ -315,11 +316,14 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 	//cache memory-intensive containers as
 	//many parallel memory allocations slow us down significantly
 	typedef uint32_t SeqCountType;
-	thread_local std::vector<KmerMatch> vecMatches;
+	//thread_local std::vector<KmerMatch> vecMatches;
 	thread_local std::deque<size_t> numMatchesHistory;
 	thread_local std::vector<KmerMatch> matchesList;
 	thread_local std::vector<int32_t> scoreTable;
 	thread_local std::vector<int32_t> backtrackTable;
+
+	static ChunkPool<KmerMatch> sharedChunkPool;	//shared accoress threads
+	BFContainer<KmerMatch> vecMatches(sharedChunkPool);
 
 	//speed benchmarks
 	thread_local float timeMemory = 0;
@@ -348,8 +352,8 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 			<< " kmFst:" << timeKmerIndexFirst 
 			<< " kmSnd:" << timeKmerIndexSecond 
 			<< " dp:" << timeDp << " ticks: " << numTicks; 
-		Logger::get().debug() << ">Mem  " << threadId << " vecCap:" << vecMatches.capacity()
-			<< " vecSize: " << vecMatches.size();
+		Logger::get().debug() << ">Mem  " << threadId 
+			<< " chunks:" << sharedChunkPool.numberChunks();
 
 		timeMemory = 0;
 		timeKmerIndexFirst = 0;
@@ -369,7 +373,7 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 	if (++prevCleanup > 50)
 	{
 		prevCleanup = 0;
-		shrinkAndClear(vecMatches, 2);
+		//shrinkAndClear(vecMatches, 2);
 		shrinkAndClear(matchesList, 2);
 		shrinkAndClear(scoreTable, 2);
 		shrinkAndClear(backtrackTable, 2);
