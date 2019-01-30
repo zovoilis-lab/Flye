@@ -66,7 +66,7 @@ class Job(object):
             data = json.load(fp)
             if (not "pipeline_version" in data or
                     data["pipeline_version"] != cfg.vals["pipeline_version"]):
-                raise ResumeException("Inconsistent pipelnie version")
+                raise ResumeException("Inconsistent pipeline version")
 
             Job.run_params = data
 
@@ -391,11 +391,11 @@ class JobPhase(Job):
         self.repeat_graph = repeat_graph
         self.reads_alignment_file = reads_alignment_file
 
-        self.name = "trestle"
-        self.out_files["repeat_graph"] = os.path.join(self.work_dir,
-                                                      "repeat_graph_dump")
-        self.out_files["repeat_graph_edges"] = \
-            os.path.join(self.work_dir, "repeat_graph_edges.fasta")
+        self.name = "phase"
+        #self.out_files["repeat_graph"] = os.path.join(self.work_dir,
+        #                                              "repeat_graph_dump")
+        #self.out_files["repeat_graph_edges"] = \
+        #    os.path.join(self.work_dir, "repeat_graph_edges.fasta")
 
     def run(self):
         super(JobPhase, self).run()
@@ -416,7 +416,7 @@ class JobPhase(Job):
             tres_graph.dump_uniques(uniques_info,
                                     os.path.join(self.work_dir, "uniques_dump"))
 
-            phase.phase_uniques(self.args, self.work_dir, uniques_info,
+            phase.phase_uniques(self.args, self.work_dir, uniques_info[:1],
                                  summary_file, phased_seqs)
             #tres_graph.apply_changes(repeat_graph, summary_file,
             #                         fp.read_sequence_dict(phased_seqs))
@@ -462,8 +462,13 @@ def _create_job_list(args, work_dir, log_file):
                     reads_alignment))
         repeat_graph_edges = jobs[-1].out_files["repeat_graph_edges"]
         repeat_graph = jobs[-1].out_files["repeat_graph"]
-
-    #Short plasmids
+    
+    if args.phase:
+        jobs.append(JobPhase(args, work_dir, log_file,
+                    repeat_graph, repeat_graph_edges,
+                    reads_alignment))
+        
+    """#Short plasmids
     if args.plasmids:
         jobs.append(JobShortPlasmidsAssembly(args, work_dir, disjointigs,
                                              repeat_graph, repeat_graph_edges))
@@ -494,7 +499,7 @@ def _create_job_list(args, work_dir, log_file):
     #Report results
     jobs.append(JobFinalize(args, work_dir, log_file, contigs_file,
                             graph_file, repeat_stats, polished_stats,
-                            polished_gfa, scaffold_links))
+                            polished_gfa, scaffold_links))"""
 
     return jobs
 
@@ -678,6 +683,9 @@ def main():
     parser.add_argument("--no-trestle", action="store_true",
                         dest="no_trestle", default=False,
                         help="skip Trestle stage")
+    parser.add_argument("--phase", action="store_true",
+                        dest="phase", default=False,
+                        help="phase haplotypes")
     parser.add_argument("--resume", action="store_true",
                         dest="resume", default=False,
                         help="resume from the last completed stage")
