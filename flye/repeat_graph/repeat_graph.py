@@ -3,7 +3,7 @@
 #Released under the BSD license (see LICENSE file)
 
 """
-This module provides repeat gaph parsing/serializing functions,
+This module provides repeat graph parsing/serializing functions,
 (as output by repeat graph construction module)
 as well as some basic operations
 """
@@ -202,10 +202,10 @@ class RepeatGraph:
         First and last edges in the path are disconnected from the graph,
         and then connected by a new edge. For example,
         a path (A -> X -> Y -> ... -> Z -> B) will be transformed
-        into a new unbranching path path A -> N -> B,
+        into a new unbranching path A -> N -> B,
         where N represents a new edge with the given sequence.
-        The intermediate path edges remain in the graph (their mean
-        coverage is modified accordingly) and they aquire attribute 'resolved'.
+        The intermediate path edges remain in the graph (their mean coverage 
+        is modified accordingly) and they acquire the attribute 'resolved'.
         Resolved edges could later be cleaned up by using XXX function.
         """
 
