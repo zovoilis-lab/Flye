@@ -21,8 +21,7 @@ namespace
 //into non-overlapping chains (could be more than one chain per read
 //in case of chimera) with maximum score
 std::vector<GraphAlignment>
-	ReadAligner::chainReadAlignments(const SequenceContainer& edgeSeqs,
-								 	 const std::vector<EdgeAlignment>& ovlps) const
+	ReadAligner::chainReadAlignments(const std::vector<EdgeAlignment>& ovlps) const
 {
 	static const int32_t MAX_JUMP = Config::get("maximum_jump");
 	//static const int32_t MAX_SEP = Config::get("max_separation");
@@ -183,7 +182,7 @@ void ReadAligner::alignReads()
 		std::sort(alignments.begin(), alignments.end(),
 		  [](const EdgeAlignment& e1, const EdgeAlignment& e2)
 			{return e1.overlap.curBegin < e2.overlap.curBegin;});
-		auto readChains = this->chainReadAlignments(_graph.edgeSequences(), alignments);
+		auto readChains = this->chainReadAlignments(alignments);
 
 		std::vector<GraphAlignment> complChains(readChains);
 		for (auto& chain : complChains)
