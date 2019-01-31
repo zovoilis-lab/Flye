@@ -15,7 +15,7 @@
 #include <vector>
 #include <mutex>
 
-template <class T, int ChunkSize = 32 * 1024 * 1024>
+template <class T, int ChunkSize = 1024 * 1024>
 class ChunkPool
 {
 public:
@@ -42,7 +42,7 @@ public:
 		}
 		else
 		{
-			return new T[chunkCapacity()];
+			return new T[ChunkSize];
 		}
 	}
 
@@ -50,11 +50,6 @@ public:
 	{
 		std::lock_guard<std::mutex> lock(_chunkMutex);
 		_freeChunks.push_back(chunk);
-	}
-
-	size_t chunkCapacity()
-	{
-		return ChunkSize / sizeof(T);
 	}
 
 	size_t numberChunks() {return _freeChunks.size();}
@@ -65,13 +60,13 @@ private:
 };
 
 
-template <class T>
+template <class T, size_t ChunkSize = 1024 * 1024>
 class BFContainer
 {
 public:
 	BFContainer(ChunkPool<T>& chunkPool): 
-		_pool(chunkPool), _chunkCapacity(chunkPool.chunkCapacity()),
-		_size(0), _lastChunkOffset(_chunkCapacity) {}
+		_pool(chunkPool),
+		_size(0), _lastChunkOffset(ChunkSize) {}
 
 	BFContainer(const BFContainer& other) = delete;
 	BFContainer(BFContainer&& other) = delete;
@@ -84,19 +79,20 @@ public:
 
 	void push_back(T&& elem)
 	{
-		if (_lastChunkOffset == _chunkCapacity)
+		if (_lastChunkOffset == ChunkSize)
 		{
 			_chunks.push_back(_pool.getChunk());
 			_lastChunkOffset = 0;
 		}
-		_chunks.back()[_lastChunkOffset++] = elem;
+		_chunks.back()[_lastChunkOffset] = elem;
+		++_lastChunkOffset;
 		++_size;
 	}
 
 	template <typename ... Args>
 	void emplace_back(Args&& ... args)
 	{
-		if (_lastChunkOffset == _chunkCapacity)
+		if (_lastChunkOffset == ChunkSize)
 		{
 			_chunks.push_back(_pool.getChunk());
 			_lastChunkOffset = 0;
@@ -110,7 +106,9 @@ public:
 
 	T& operator[](size_t index)
 	{
-		return _chunks[index / _chunkCapacity][index % _chunkCapacity];
+		const size_t chunkId = index / ChunkSize;
+		const size_t chunkOffset = index - chunkId * ChunkSize;
+		return _chunks[chunkId][chunkOffset];
 	}
 
 	void clear()
@@ -119,61 +117,155 @@ public:
 		{
 			_pool.returnChunk(chunk);
 			_chunks.clear();
-			_lastChunkOffset = _chunkCapacity;
+			_lastChunkOffset = ChunkSize;
 		}
 	}
 
 	class BFIterator: public std::iterator<std::random_access_iterator_tag, T>
 	{
 	private:
-		BFContainer* _container;
-		size_t _index;
+		T** _map;
+		T*  _chunkStart;
+		T*  _chunkCur;
+		T*  _chunkEnd;
 
     public:
-        BFIterator(BFContainer* cont=nullptr, size_t idx=0): 
-			_container(cont), _index(idx) {}
+		typedef ptrdiff_t difference_type;
+
+        BFIterator(T** map=nullptr, T* chunkStart=nullptr,
+				   T* chunkCur=nullptr, T* chunkEnd=nullptr): 
+			_map(map), _chunkStart(chunkStart), 
+			_chunkCur(chunkCur), _chunkEnd(chunkEnd) {}
 
         BFIterator& operator=(const BFIterator &rhs) 
-			{_container = rhs._container; _index = rhs._index; return *this;}
-        BFIterator& operator+=(size_t rhs) {_index += rhs; return *this;}
-        BFIterator& operator-=(size_t rhs) {_index -= rhs; return *this;}
-		T& operator*() {return (*_container)[_index];}
-        //T* operator->() {return &(*_container)[_index];}
-		T& operator[](size_t rhs) {return _container[_index + rhs];}
+		{
+			_map = rhs._map; 
+			_chunkStart = rhs._chunkStart; 
+			_chunkCur = rhs._chunkCur; 
+			_chunkEnd = rhs._chunkEnd; 
+			return *this;
+		}
 
-    	bool operator==(const BFIterator& rhs) {return _index == rhs._index;}
-        bool operator!=(const BFIterator& rhs) {return !(*this == rhs);}
-        bool operator> (const BFIterator& rhs) {return _index > rhs._index;}
-        bool operator< (const BFIterator& rhs) {return _index < rhs._index;}
-        bool operator>=(const BFIterator& rhs) {return _index >= rhs._index;}
-        bool operator<=(const BFIterator& rhs) {return _index <= rhs._index;}
+		void setNode(T** node)
+		{
+			_map = node;
+			_chunkStart = *_map;
+			_chunkEnd = _chunkStart + ChunkSize;
+		}
+
+        BFIterator& operator+=(difference_type n) 
+		{
+			const difference_type offset = n + (_chunkCur - _chunkStart);
+			if (offset >= 0 && offset < difference_type(ChunkSize))
+			{
+				_chunkCur += n;
+			}
+			else
+			{
+				const difference_type nodeOffset = 
+					(offset > 0) ? offset / difference_type(ChunkSize) :
+			   					   -difference_type((-offset - 1) / ChunkSize) - 1;
+				setNode(_map + nodeOffset);
+				_chunkCur = _chunkStart + (offset - nodeOffset * ChunkSize);
+			}
+			return *this;
+		}
+
+        BFIterator& operator-=(difference_type n) 
+		{
+			return *this += -n;
+		}
+
+		BFIterator operator+(difference_type n) 
+		{
+			auto tmp = *this;
+			return tmp += n;
+		}
+
+		friend BFIterator operator+(difference_type lhs, const BFIterator& rhs) 
+		{
+			return rhs + lhs;
+		}
 		
-		BFIterator& operator++() {++_index; return *this;}
-        BFIterator& operator--() {--_index; return *this;}
-        BFIterator& operator++(int) {BFIterator tmp(*this); ++_index; return tmp;}
-        BFIterator& operator--(int) {BFIterator tmp(*this); --_index; return tmp;}
+        BFIterator operator-(difference_type n) 
+		{
+			auto tmp = *this;
+			return tmp -= n;
+		}
 
-        BFIterator operator+(size_t rhs) 
-			{return BFIterator(_container, _index + rhs);}
-		friend BFIterator operator+(size_t lhs, const BFIterator& rhs) 
-			{return rhs + lhs;}
+        difference_type operator-(const BFIterator& rhs) 
+		{
+			return difference_type(ChunkSize) * (_map - rhs._map - 1) + 
+						(_chunkCur - _chunkStart) +
+						(rhs._chunkEnd - rhs._chunkCur);
+		}
+
+		BFIterator& operator++() 
+		{
+			++_chunkCur;
+			if (_chunkCur == _chunkEnd)
+	  		{
+	    		setNode(_map + 1);
+	    		_chunkCur = _chunkStart;
+	  		}
+			return *this;
+		}
+
+        BFIterator& operator++(int) 
+		{
+			auto tmp(*this); 
+			++(*tmp); 
+			return tmp;
+		}
+
+        BFIterator& operator--() 
+		{
+			if (_chunkCur == _chunkStart)
+	  		{
+	    		setNode(_map - 1);
+	    		_chunkCur = _chunkEnd;
+	  		}
+			--_chunkCur;
+			return *this;
+		}
+
+        BFIterator& operator--(int) 
+		{
+			auto tmp(*this); 
+			--tmp; 
+			return tmp;
+		}
+
+		T& operator[](difference_type n) {return *(*this += n);}
+
+		T& operator*() {return *_chunkCur;}
+        T* operator->() {return _chunkCur;}
+
+    	bool operator==(const BFIterator& rhs) 
+			{return _chunkCur == rhs._chunkCur;}
+        bool operator!=(const BFIterator& rhs) 
+			{return !(*this == rhs);}
+        bool operator> (const BFIterator& rhs) 
+			{return _map == rhs._map ? _chunkCur < rhs._chunkCur : _map < rhs._map;}
+        bool operator< (const BFIterator& rhs)
+			{return _map == rhs._map ? _chunkCur > rhs._chunkCur : _map > rhs._map;}
+        //bool operator>=(const BFIterator& rhs)
+		//	{return _map == rhs._map ? _chunkCur >= rhs._chunkCur : _map >= rhs._map;}
+        //bool operator<=(const BFIterator& rhs)
+		//	{return _map == rhs._map ? _chunkCur <= rhs._chunkCur : _map <= rhs._map;}
 		
-        BFIterator operator-(size_t rhs) 
-			{return BFIterator(_container, _index - rhs);}
-        size_t operator-(const BFIterator& rhs) 
-			{return _index - rhs._index;}
-
 	};
 
-	BFIterator begin() {return BFIterator(this, 0);}
-	BFIterator end() {return BFIterator(this, _size);}
+	BFIterator begin() {return BFIterator(&_chunks[0], _chunks[0], 
+										  _chunks[0], _chunks[0] + ChunkSize);}
+	BFIterator end() {return BFIterator(&_chunks.back(), _chunks.back(), 
+										_chunks.back() + _size % ChunkSize + 1, 
+										_chunks.back() + ChunkSize);}
 
 private:
 
 	ChunkPool<T>& 	_pool;
 	std::vector<T*> _chunks;
-	size_t 			_chunkCapacity;
 	size_t 			_size;
 	size_t 			_lastChunkOffset;
 };
-
