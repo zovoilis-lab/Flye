@@ -78,7 +78,7 @@ public:
 		_graph(graph), _asmSeqs(asmSeqs) {}
 
 	void fixChimericJunctions();
-	void trimTips();
+	//void trimTips();
 	std::vector<UnbranchingPath> getUnbranchingPaths() const;
 	std::vector<UnbranchingPath> getEdgesPaths() const;
 

@@ -25,6 +25,7 @@ public:
 
 	void collapseHeterozygousLoops();
 	void collapseHeterozygousBulges();
+	void trimTips();
 
 	//coverage threshold for an edge to be considered "unique"
 	int  getUniqueCovThreshold() const 	{return _uniqueCovThreshold;}
