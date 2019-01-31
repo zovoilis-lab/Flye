@@ -64,7 +64,7 @@ template <class T, size_t ChunkSize = 1024 * 1024>
 class BFContainer
 {
 public:
-	BFContainer(ChunkPool<T>& chunkPool): 
+	BFContainer(ChunkPool<T, ChunkSize>& chunkPool): 
 		_pool(chunkPool),
 		_size(0), _lastChunkOffset(ChunkSize) {}
 
@@ -242,18 +242,25 @@ public:
         T* operator->() {return _chunkCur;}
 
     	bool operator==(const BFIterator& rhs) 
-			{return _chunkCur == rhs._chunkCur;}
+		{
+			return _chunkCur == rhs._chunkCur;
+		}
         bool operator!=(const BFIterator& rhs) 
-			{return !(*this == rhs);}
-        bool operator> (const BFIterator& rhs) 
-			{return _map == rhs._map ? _chunkCur < rhs._chunkCur : _map < rhs._map;}
+		{
+			return !(*this == rhs);
+		}
         bool operator< (const BFIterator& rhs)
-			{return _map == rhs._map ? _chunkCur > rhs._chunkCur : _map > rhs._map;}
+		{
+			return _map == rhs._map ? _chunkCur < rhs._chunkCur : _map < rhs._map;
+		}
+        bool operator> (const BFIterator& rhs) 
+		{
+			return rhs < *this;
+		}
         //bool operator>=(const BFIterator& rhs)
 		//	{return _map == rhs._map ? _chunkCur >= rhs._chunkCur : _map >= rhs._map;}
         //bool operator<=(const BFIterator& rhs)
 		//	{return _map == rhs._map ? _chunkCur <= rhs._chunkCur : _map <= rhs._map;}
-		
 	};
 
 	BFIterator begin() {return BFIterator(&_chunks[0], _chunks[0], 
