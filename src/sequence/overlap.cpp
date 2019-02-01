@@ -413,7 +413,7 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 
 	//count kmer hits
 	//seqHitCount.assign(seqHitCount.size(), 0);
-	vecMatches.clear();
+	//vecMatches.clear();
 	/*size_t numberMatches = 0;
 	for (const auto& curKmerPos : IterKmers(fastaRec.sequence))
 	{

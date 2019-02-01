@@ -119,9 +119,9 @@ public:
 		for (T* chunk : _chunks)
 		{
 			_pool.returnChunk(chunk);
-			_chunks.clear();
-			_lastChunkOffset = ChunkSize;
 		}
+		_chunks.clear();
+		//_lastChunkOffset = ChunkSize;
 	}
 
 	class BFIterator: public std::iterator<std::random_access_iterator_tag, T>
