@@ -66,7 +66,10 @@ class BFContainer
 public:
 	BFContainer(ChunkPool<T, ChunkSize>& chunkPool): 
 		_pool(chunkPool),
-		_size(0), _lastChunkOffset(ChunkSize) {}
+		_size(0), _lastChunkOffset(0) 
+	{
+		_chunks.push_back(_pool.getChunk());
+	}
 
 	BFContainer(const BFContainer& other) = delete;
 	BFContainer(BFContainer&& other) = delete;
