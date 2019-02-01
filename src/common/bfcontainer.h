@@ -86,27 +86,27 @@ public:
 
 	void push_back(T&& elem)
 	{
+		_chunks.back()[_lastChunkOffset] = elem;
+		++_lastChunkOffset;
+		++_size;
 		if (_lastChunkOffset == ChunkSize)
 		{
 			_chunks.push_back(_pool.getChunk());
 			_lastChunkOffset = 0;
 		}
-		_chunks.back()[_lastChunkOffset] = elem;
-		++_lastChunkOffset;
-		++_size;
 	}
 
 	template <typename ... Args>
 	void emplace_back(Args&& ... args)
 	{
+		new (_chunks.back() + _lastChunkOffset) T(std::forward<Args>(args)...);
+		++_lastChunkOffset;
+		++_size;
 		if (_lastChunkOffset == ChunkSize)
 		{
 			_chunks.push_back(_pool.getChunk());
 			_lastChunkOffset = 0;
 		}
-		new (_chunks.back() + _lastChunkOffset) T(std::forward<Args>(args)...);
-		++_lastChunkOffset;
-		++_size;
 	}
 
 	size_t size() {return _size;}
@@ -264,16 +264,18 @@ public:
 		//	{return _map == rhs._map ? _chunkCur <= rhs._chunkCur : _map <= rhs._map;}
 	};
 
-	BFIterator begin() {return BFIterator(&_chunks[0], _chunks[0], 
-										  _chunks[0], _chunks[0] + ChunkSize);}
+	BFIterator begin() {return BFIterator(&_chunks.front(), _chunks.front(), 
+										  _chunks.front(), 
+										  _chunks.front() + ChunkSize);}
+
 	BFIterator end() {return BFIterator(&_chunks.back(), _chunks.back(), 
-										_chunks.back() + _size % ChunkSize + 1, 
+										_chunks.back() + _lastChunkOffset, 
 										_chunks.back() + ChunkSize);}
 
 private:
 
-	ChunkPool<T>& 	_pool;
-	std::vector<T*> _chunks;
-	size_t 			_size;
-	size_t 			_lastChunkOffset;
+	ChunkPool<T, ChunkSize>& 	_pool;
+	std::vector<T*> 			_chunks;
+	size_t 						_size;
+	size_t 						_lastChunkOffset;
 };
