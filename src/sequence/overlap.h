@@ -214,6 +214,7 @@ struct OvlpDivStats
 				break;
 			}
 		}
+		assert(expected < divVec.size());
 		divVec[expected] = val;
 	}
 
@@ -241,8 +242,8 @@ public:
 		_maxDivergence(maxDivergence),
 		_badEndAdjustment(badEndAdjustment),
 		_vertexIndex(vertexIndex),
-		_seqContainer(seqContainer),
-		_seqHitCounter(_seqContainer.getMaxSeqId())
+		_seqContainer(seqContainer)
+		//_seqHitCounter(_seqContainer.getMaxSeqId())
 	{
 	}
 
@@ -271,8 +272,8 @@ private:
 	const VertexIndex& _vertexIndex;
 	const SequenceContainer& _seqContainer;
 
-	typedef unsigned char CounterType;
-	std::vector<CounterType> _seqHitCounter;
+	//typedef unsigned char CounterType;
+	//std::vector<CounterType> _seqHitCounter;
 };
 
 

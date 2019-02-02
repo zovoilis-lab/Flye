@@ -205,7 +205,8 @@ public:
 		auto checkGlob = _sequenceOffsets[seqId._id - _seqIdOffest].offset + position;
 		FastaRecord::Id checkId;
 		int32_t checkPos;
-		this->seqPosition(checkGlob, checkId, checkPos);
+		int32_t outLen;
+		this->seqPosition(checkGlob, checkId, checkPos, outLen);
 		assert(checkId == seqId && checkPos == position);
 		#endif
 		return _sequenceOffsets[seqId._id - _seqIdOffest].offset + position;
@@ -229,7 +230,7 @@ public:
 		outLen = (int32_t)_sequenceOffsets[hint].length;
 
 		assert(outSeqId._id - _seqIdOffest < _seqIndex.size());
-		assert(outPosition >= 0 && outPosition < this->seqLen(outSeqId));
+		assert(outPosition >= 0 && outPosition < outLen);
 		//assert(this->globalPosition(outSeqId, outPosition) == globPos);
 	}
 	static size_t g_nextSeqId;
