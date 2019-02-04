@@ -209,8 +209,8 @@ void MultiplicityInferer::removeUnsupportedConnections()
 		}
 	}
 
-	GraphProcessor proc(_graph, _asmSeqs);
-	proc.trimTips();
+	//GraphProcessor proc(_graph, _asmSeqs);
+	//proc.trimTips();
 	_aligner.updateAlignments();
 }
 
@@ -303,6 +303,72 @@ void MultiplicityInferer::collapseHeterozygousLoops()
 		<< " heterozygous loops";
 	_aligner.updateAlignments();
 }
+
+void MultiplicityInferer::trimTips()
+{
+	const int MAX_TIP = 100000;
+	const int MIN_COV_DIFF = 3;
+
+	//const int TIP_THRESHOLD = Config::get("tip_length_threshold");
+	std::unordered_set<FastaRecord::Id> toRemove;
+	GraphProcessor proc(_graph, _asmSeqs);
+	auto unbranchingPaths = proc.getUnbranchingPaths();
+
+	for (auto& tipPath : unbranchingPaths)
+	{
+		if (tipPath.nodeRight()->outEdges.size() > 0) continue;
+		if (tipPath.length > MAX_TIP) continue;
+
+		GraphNode* tipNode = tipPath.nodeLeft();
+
+		//get "non-tip" node's entrance and exit
+		std::vector<UnbranchingPath*> entrances;
+		for (GraphEdge* edge : tipNode->inEdges)
+		{
+			for (auto& path : unbranchingPaths)
+			{
+				if (path.path.back() == edge && !path.isLooped() &&
+					path.nodeLeft()->inEdges.size() > 0) entrances.push_back(&path);
+			}
+		}
+		std::vector<UnbranchingPath*> exits;
+		for (GraphEdge* edge : tipNode->outEdges)
+		{
+			for (auto& path : unbranchingPaths)
+			{
+				if (path.path.front() == edge && !path.isLooped() &&
+					path.nodeRight()->outEdges.size() > 0) exits.push_back(&path);
+			}
+		}
+		if (entrances.size() != 1 || exits.size() != 1) continue;
+
+		if (entrances.front()->meanCoverage > MIN_COV_DIFF * tipPath.meanCoverage &&
+			exits.front()->meanCoverage > MIN_COV_DIFF * tipPath.meanCoverage)
+		{
+			toRemove.insert(tipPath.id);
+		}
+	}
+
+	for (auto& path : unbranchingPaths)
+	{
+		if (toRemove.count(path.id))
+		{
+			GraphEdge* targetEdge = path.path.front();
+			GraphEdge* complEdge = _graph.complementEdge(targetEdge);
+
+			vecRemove(targetEdge->nodeLeft->outEdges, targetEdge);
+			targetEdge->nodeLeft = _graph.addNode();
+			targetEdge->nodeLeft->outEdges.push_back(targetEdge);
+
+			vecRemove(complEdge->nodeRight->inEdges, complEdge);
+			complEdge->nodeRight = _graph.addNode();
+			complEdge->nodeRight->inEdges.push_back(complEdge);
+		}
+	}
+	Logger::get().debug() << toRemove.size() << " tips clipped";
+	_aligner.updateAlignments();
+}
+
 
 void MultiplicityInferer::collapseHeterozygousBulges()
 {

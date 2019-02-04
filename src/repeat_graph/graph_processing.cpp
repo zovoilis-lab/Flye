@@ -138,7 +138,7 @@ void GraphProcessor::collapseBulges()
 }
 
 //Removing tips
-void GraphProcessor::trimTips()
+/*void GraphProcessor::trimTips()
 {
 	const int TIP_THRESHOLD = Config::get("tip_length_threshold");
 	std::unordered_set<GraphEdge*> toRemove;
@@ -168,7 +168,7 @@ void GraphProcessor::trimTips()
 		complEdge->nodeRight->inEdges.push_back(complEdge);
 	}
 	Logger::get().debug() << toRemove.size() << " tips clipped";
-}
+}*/
 
 //This function collapses non-branching edges paths in the graph.
 //The tricky part is the sequence representation of the new edges.

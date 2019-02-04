@@ -18,7 +18,7 @@ public:
 	RepeatResolver(RepeatGraph& graph, const SequenceContainer& asmSeqs,
 				   const SequenceContainer& readSeqs, 
 				   ReadAligner& aligner,
-				   const MultiplicityInferer& multInf): 
+				   MultiplicityInferer& multInf): 
 		_graph(graph), _asmSeqs(asmSeqs), _readSeqs(readSeqs), 
 		_aligner(aligner), _multInf(multInf) {}
 
@@ -55,6 +55,6 @@ private:
 	const SequenceContainer&   _asmSeqs;
 	const SequenceContainer&   _readSeqs;
 	ReadAligner& _aligner;
-	const MultiplicityInferer& _multInf;
+	MultiplicityInferer& _multInf;
 	std::unordered_map<GraphEdge*, int> _substractedCoverage;
 };
