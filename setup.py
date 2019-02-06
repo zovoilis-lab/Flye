@@ -13,6 +13,7 @@ if sys.version_info[:2] != (2, 7):
 
 from distutils.core import setup
 from distutils.command.build import build as DistutilsBuild
+from distutils.spawn import find_executable
 import subprocess
 
 from flye.__version__ import __version__
@@ -20,8 +21,11 @@ from flye.__version__ import __version__
 
 class MakeBuild(DistutilsBuild):
     def run(self):
+        if not find_executable("make"):
+            print ("ERROR: 'make' command is unavailable")
+            sys.exit(1)
         try:
-            subprocess.check_call(['make'])
+            subprocess.check_call(["make"])
         except subprocess.CalledProcessError as e:
             print ("Compilation error: ", e)
             sys.exit(1)
