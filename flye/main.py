@@ -117,6 +117,8 @@ class JobAssembly(Job):
             raise asm.AssembleException("No contigs were assembled - "
                                         "please check if the read type and genome "
                                         "size parameters are correct")
+        asm_len, asm_n50 = scf.short_statistics(self.assembly_filename)
+        logger.debug("Disjointigs length: {0}, N50: {1}".format(asm_len, asm_n50))
 
 
 class JobShortPlasmidsAssembly(Job):
@@ -250,9 +252,18 @@ class JobFinalize(Job):
 
         scaffolds = scf.generate_scaffolds(self.contigs_file, self.scaffold_links,
                                            self.out_files["scaffolds"])
+
+        logger.debug("---Output dir contents:----")
+        try:
+            ls_out = subprocess.check_output(["ls", "-ARGg",
+                                             os.path.abspath(self.args.out_dir)])
+            logger.debug("\n\n" + ls_out)
+        except (subprocess.CalledProcessError, OSError):
+            pass
+        logger.debug("--------------------------")
+
         scf.generate_stats(self.repeat_stats, self.polished_stats, scaffolds,
                            self.out_files["stats"])
-
         logger.info("Final assembly: {0}".format(self.out_files["scaffolds"]))
 
 
