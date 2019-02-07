@@ -93,14 +93,17 @@ def resolve_repeats(args, trestle_dir, repeats_info, summ_file,
         try:
             for t in threads:
                 t.join()
+                if t.exitcode == -9:
+                    logger.error("Looks like the system ran out of memory")
+                if t.exitcode != 0:
+                    raise Exception("One of the processes exited with code: {0}"
+                                    .format(t.exitcode))
+
         except KeyboardInterrupt:
             for t in threads:
                 t.terminate()
-            if t.exitcode == -9:
-                logger.error("Looks like the system ran out of memory")
-            if t.exitcode != 0:
-                raise Exception("One of the processes exited with code: {0}"
-                                .format(t.exitcode))
+            raise
+
         if not error_queue.empty():
             raise error_queue.get()
 
@@ -518,10 +521,45 @@ class ProcessingException(Exception):
     pass
 
 
-def process_repeats(reads, repeats_dict, work_dir, all_labels, 
+def process_repeats(reads, repeats_dict, work_dir, all_labels,
                     initial_file_names):
-    """Generates repeat dirs and files given reads, repeats_dump and
-    graph_edges files. Only returns repeats between min_mult and max_mult"""
+    """
+    Generates repeat dirs and files given reads, repeats_dump and
+    graph_edges files. Only returns repeats between min_mult and max_mult
+    """
+
+    #creates a separate process to make sure that
+    #read dictionary is released after the function exits
+    manager = multiprocessing.Manager()
+    return_queue = manager.Queue()
+
+    orig_sigint = signal.signal(signal.SIGINT, signal.SIG_IGN)
+    thread = multiprocessing.Process(target=_process_repeats_impl,
+                                        args=(reads, repeats_dict,
+                                              work_dir, all_labels,
+                                              initial_file_names,
+                                              return_queue))
+    signal.signal(signal.SIGINT, orig_sigint)
+    thread.start()
+    try:
+        thread.join()
+        if thread.exitcode == -9:
+            logger.error("Looks like the system ran out of memory")
+        if thread.exitcode != 0:
+            raise Exception("One of the processes exited with code: {0}"
+                                .format(thread.exitcode))
+    except KeyboardInterrupt:
+        thread.terminate()
+        raise
+
+    return return_queue.get()
+
+
+def _process_repeats_impl(reads, repeats_dict, work_dir, all_labels,
+                          initial_file_names, return_queue):
+    """
+    This function is called in a separate process
+    """
     MIN_MULT = trestle_config.vals["min_mult"]
     MAX_MULT = trestle_config.vals["max_mult"]
     FLANKING_LEN = trestle_config.vals["flanking_len"]
@@ -804,7 +842,8 @@ def process_repeats(reads, repeats_dict, work_dir, all_labels,
                     raise ProcessingException(
                         "Empty partitioning file {0}".format(
                             partitioning_path.format(side)))
-    return repeat_list, repeat_edges, all_edge_headers
+
+    return_queue.put((repeat_list, repeat_edges, all_edge_headers))
 
 
 def _read_repeats_dump(repeats_dump):

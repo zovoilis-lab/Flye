@@ -378,6 +378,8 @@ class JobTrestle(Job):
                                  summary_file, resolved_repeats_seqs)
             tres_graph.apply_changes(repeat_graph, summary_file,
                                      fp.read_sequence_dict(resolved_repeats_seqs))
+        except KeyboardInterrupt as e:
+            raise
         except Exception as e:
             logger.warning("Caught unhandled exception: " + str(e))
             logger.warning("Continuing to the next pipeline stage. "

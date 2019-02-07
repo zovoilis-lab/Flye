@@ -118,6 +118,7 @@ def make_bubbles(alignment_path, contigs_info, contigs_path,
     except KeyboardInterrupt:
         for t in threads:
             t.terminate()
+        raise
 
     if not error_queue.empty():
         raise error_queue.get()
