@@ -528,6 +528,9 @@ def process_repeats(reads, repeats_dict, work_dir, all_labels,
     graph_edges files. Only returns repeats between min_mult and max_mult
     """
 
+    if not repeats_dict:
+        return [], {}, {}
+
     #creates a separate process to make sure that
     #read dictionary is released after the function exits
     manager = multiprocessing.Manager()
@@ -569,12 +572,6 @@ def _process_repeats_impl(reads, repeats_dict, work_dir, all_labels,
     (template_name, extended_name, repeat_reads_name, 
      pre_partitioning_name) = initial_file_names
     
-    #Reads input files
-    #repeats_dict = _read_repeats_dump(repeats_dump)
-    if not repeats_dict:
-        #logger.debug("Empty repeats_dump file: {0}".format(repeats_dump))
-        return [], {}, {}
-        
     reads_dict = {}
     for read_file in reads:
         reads_dict.update(fp.read_sequence_dict(read_file))
