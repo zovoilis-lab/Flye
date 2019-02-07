@@ -11,6 +11,7 @@ from itertools import izip, chain
 from collections import defaultdict
 
 import flye.utils.fasta_parser as fp
+from flye.repeat_graph.graph_alignment import parse_alignments
 
 logger = logging.getLogger()
 
@@ -38,7 +39,7 @@ class RepeatInfo:
         self.multiplicity = multiplicity
 
 
-def get_simple_repeats(repeat_graph, alignments, edge_seqs):
+def get_simple_repeats(repeat_graph, alignments_file, edge_seqs):
     next_path_id = 1
     path_ids = {}
     repeats_dict = {}
@@ -74,7 +75,7 @@ def get_simple_repeats(repeat_graph, alignments, edge_seqs):
         inner_reads = []
         input_reads = defaultdict(list)
         output_reads = defaultdict(list)
-        for read_aln in alignments:
+        for read_aln in parse_alignments(alignments_file):
             repeat_read = False
             for edge_aln in read_aln:
                 if edge_aln.edge_id in repeat_edge_ids:

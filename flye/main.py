@@ -30,7 +30,6 @@ import flye.short_plasmids.plasmids as plas
 import flye.trestle.trestle as tres
 import flye.trestle.graph_resolver as tres_graph
 from flye.repeat_graph.repeat_graph import RepeatGraph
-from flye.repeat_graph.graph_alignment import parse_alignments
 
 logger = logging.getLogger()
 
@@ -365,11 +364,10 @@ class JobTrestle(Job):
                                              "resolved_copies.fasta")
         repeat_graph = RepeatGraph(fp.read_sequence_dict(self.graph_edges))
         repeat_graph.load_from_file(self.repeat_graph)
-        reads_alignment = parse_alignments(self.reads_alignment_file)
 
         try:
             repeats_info = tres_graph \
-                .get_simple_repeats(repeat_graph, reads_alignment,
+                .get_simple_repeats(repeat_graph, self.reads_alignment_file,
                                     fp.read_sequence_dict(self.graph_edges))
             tres_graph.dump_repeats(repeats_info,
                                     os.path.join(self.work_dir, "repeats_dump"))
