@@ -38,7 +38,7 @@ class GraphAlignment:
         self.overlap = overlap
 
 
-def parse_alignments(filename):
+def iter_alignments(filename):
     """
     Returns alignment generator
     """

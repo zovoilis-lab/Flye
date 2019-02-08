@@ -11,7 +11,7 @@ from itertools import izip, chain
 from collections import defaultdict
 
 import flye.utils.fasta_parser as fp
-from flye.repeat_graph.graph_alignment import parse_alignments
+from flye.repeat_graph.graph_alignment import iter_alignments
 
 logger = logging.getLogger()
 
@@ -45,6 +45,8 @@ def get_simple_repeats(repeat_graph, alignments_file, edge_seqs):
     repeats_dict = {}
     MULT = 2
 
+    paths_to_resolve = []
+    interesting_edges = set()
     for path in repeat_graph.get_unbranching_paths():
         if not path[0].repetitive or path[0].self_complement:
             continue
@@ -65,6 +67,19 @@ def get_simple_repeats(repeat_graph, alignments_file, edge_seqs):
         if not is_simple or len(inputs) != MULT or len(outputs) != MULT:
             continue
 
+        paths_to_resolve.append((path, inputs, outputs))
+        interesting_edges.update(set(map(lambda e: e.edge_id, path)))
+
+    interesting_alignments = []
+    for read_aln in iter_alignments(alignments_file):
+        repeat_read = False
+        for edge_aln in read_aln:
+            if edge_aln.edge_id in interesting_edges:
+                repeat_read = True
+        if repeat_read:
+            interesting_alignments.append(read_aln)
+
+    for path, inputs, outputs in paths_to_resolve:
         if path[0].edge_id not in path_ids:
             path_ids[path[0].edge_id] = next_path_id
             path_ids[-path[-1].edge_id] = -next_path_id
@@ -75,7 +90,7 @@ def get_simple_repeats(repeat_graph, alignments_file, edge_seqs):
         inner_reads = []
         input_reads = defaultdict(list)
         output_reads = defaultdict(list)
-        for read_aln in parse_alignments(alignments_file):
+        for read_aln in interesting_alignments:
             repeat_read = False
             for edge_aln in read_aln:
                 if edge_aln.edge_id in repeat_edge_ids:
