@@ -13,6 +13,8 @@ import logging
 from itertools import combinations, product
 import copy
 import multiprocessing, signal
+from scipy.cluster.hierarchy import linkage, dendrogram, fcluster
+from sklearn.cluster import AgglomerativeClustering
 
 import flye.polishing.alignment as flye_aln
 from flye.polishing.alignment import Alignment
@@ -28,22 +30,22 @@ logger = logging.getLogger()
 def phase_uniques(args, phasing_dir, uniques_info, summ_file,
                     phased_seqs):
     all_file_names = define_file_names()
-    (edge_label, pol_dir_names, initial_file_names,
+    (pol_dir_names, initial_file_names,
      pre_file_names, div_file_names, aln_names,
      middle_file_names, output_file_names) = all_file_names
-
+    print "Here 1"
     all_resolved_reps_dict = {}
     all_summaries = []
     init_summary(summ_file)
-
+    print "Here 2"
     #1. Process repeats from graph - generates a folder for each repeat
     logger.debug("Finding unique edges")
     process_outputs = process_repeats(args.reads, uniques_info,
-                                      phasing_dir, edge_label,
+                                      phasing_dir,
                                       initial_file_names)
     edge_list, all_edge_headers = process_outputs
     logger.info("Unique edges: {0}".format(len(edge_list)))
-
+    print "Here 3"
     #if not repeat_list:
     #    return
 
@@ -130,6 +132,7 @@ def phase_each_edge(edge_id, all_edge_headers, args,
     zero_it = 0
     side_labels = ["in", "out"]
 
+    print "Here 4"
     (pol_dir_names, initial_file_names,
      pre_file_names, div_file_names, aln_names,
      middle_file_names, output_file_names) = all_file_names
@@ -146,8 +149,8 @@ def phase_each_edge(edge_id, all_edge_headers, args,
     (side_stats_name, int_stats_name, int_confirmed_pos_name,
      resolved_rep_name, res_vs_res_name) = output_file_names
 
-    logger.info("Resolving repeat {0}: {1}" \
-        .format(edge_id, uniques_info[edge_id].repeat_path))
+    logger.info("Phasing unique edge {0}: {1}" \
+        .format(edge_id, uniques_info[edge_id].path))
     repeat_dir = os.path.join(phasing_dir,
                               edge_label.format(edge_id))
 
@@ -168,6 +171,7 @@ def phase_each_edge(edge_id, all_edge_headers, args,
         initial_reads = os.path.join(orient_dir, initial_reads_name)
         term_bool = {s:False for s in side_labels}
         
+        print "Here 5"
         #2. Polish template and extended templates
         logger.debug("Polishing templates")
         pol_temp_dir = os.path.join(orient_dir, pol_temp_name)
@@ -181,7 +185,7 @@ def phase_each_edge(edge_id, all_edge_headers, args,
             for side in side_labels:
                 term_bool[side] = True
         
-        
+        print "Here 6"
         #3. Find divergent positions
         logger.debug("Estimating divergence")
         frequency_path = os.path.join(orient_dir, div_freq_name)
@@ -208,12 +212,18 @@ def phase_each_edge(edge_id, all_edge_headers, args,
                                              polished_template)
         avg_cov = find_coverage(frequency_path)
         
+        print "Here 7"
+        print edge
+        window_size = 1000
+        left_part_file = os.path.join(orient_dir, "left_partition.txt")
+        right_part_file = os.path.join(orient_dir, "right_partition.txt")
         #4. Get initial set of read partitions
         #given the alignment of all reads against the genome,
         #the divergent positions, etc.
-        test_find_div(positions_path, window_size)
-        find_div_regions(positions_path, window_size, threshold)
-        initial_partition(position_path, pre_partitioning)
+        _find_div_region(position_path, polished_template, 
+                         alignment_file, left_part_file, 
+                         right_part_file, window_size)
+        return
         
         #5. Initialize paths, variables, and stats
         pre_partitioning = os.path.join(orient_dir, pre_partitioning_name)
@@ -426,7 +436,7 @@ def phase_each_edge(edge_id, all_edge_headers, args,
                                                res_vs_res)
         if both_resolved_present:
             resolved_dict.update(repeat_seqs)
-        summary_list.append((rep, uniques_info[rep].repeat_path, template_len, 
+        summary_list.append((rep, uniques_info[rep].path, template_len, 
                              avg_cov, summ_vals, avg_div, 
                              both_resolved_present))
         remove_unneeded_files(repeat_edges, rep, side_labels, side_it, 
@@ -444,6 +454,116 @@ def phase_each_edge(edge_id, all_edge_headers, args,
     else:
         logger.info("Repeat not resolved")
     return resolved_dict, summary_list
+
+def _find_div_region(pos_file, pol_template_file, alignment_file, left_part_file, 
+                    right_part_file, window_size):
+    CONS_ALN_RATE = trestle_config.vals["cons_aln_rate"]
+    
+    template_dict = fp.read_sequence_dict(pol_template_file)
+    template = template_dict.values()[0]
+    
+    pos_headers, positions = div.read_positions(pos_file)
+    all_pos = positions["total"]
+    num_windows = ((len(template) - 1) / window_size) + 1
+    win_count = [0 for _ in range(num_windows)]
+    curr_win = 0
+    high_win = -1
+    high_count = 0
+    for p in sorted(all_pos):
+        while p >= (curr_win + 1) * window_size:
+            curr_win += 1
+        win_count[curr_win] += 1
+        if win_count[curr_win] >= high_count:
+            high_win = curr_win
+            high_count = win_count[curr_win]
+        
+    aligns = _read_alignment(alignment_file, pol_template_file, CONS_ALN_RATE)
+    if aligns and aligns[0]:
+        win_output = _all_reads_in_win(aligns[0], high_win, window_size)
+        win_headers, win_dists, left_reads, right_reads = win_output
+        
+        labels = []
+        headers = []
+        distances = []
+        for i, (h, d) in enumerate(sorted(zip(win_headers, win_dists))):
+            labels.append(i)
+            headers.append(h)
+            distances.append([d])
+    
+        clustering = AgglomerativeClustering(affinity='euclidean', 
+                                        n_clusters=2, 
+                                        linkage='average')
+        model = clustering.fit(distances)
+        print model.labels_
+        cluster_one = []
+        cluster_two = []
+        for i, lab in enumerate(model.labels_):
+            if lab == 0:
+                cluster_one.append(headers[i])
+            elif lab == 1:
+                cluster_two.append(headers[i])
+        
+        left_parts = _make_part_list(cluster_one, cluster_two, left_reads)
+        _write_partitioning_file(left_parts, left_part_file)
+        right_parts = _make_part_list(cluster_one, cluster_two, right_reads)
+        _write_partitioning_file(right_parts, right_part_file)
+    else:
+        raise Exception("Unreadable alignment: {0}".format(alignment_file))
+    
+    
+def _all_reads_in_win(alns, high_win, win_size):
+    #require that the read completely overlaps the window
+    win_st = high_win * win_size
+    win_end = (high_win + 1) * win_size
+    """
+    Reads and returns all lines in a sam file
+    0    1    2      3    4      5     6    7      8      9   10    11   12
+    qID tID qStart qEnd qStrand qLen tStart tEnd tStrand tLen qSeq tSeq errRate
+    """
+    win_headers = []
+    win_dists = []
+    left_reads = []
+    right_reads = []
+    all_reads = set()
+    #Assumes all strands are forward strands
+    for i, aln in enumerate(alns):
+        q_id = aln.qry_id
+        t_st = aln.trg_start
+        t_end = aln.trg_end
+        #t_strand = aln.trg_sign
+        q_align = aln.qry_seq
+        t_align = aln.trg_seq
+        if q_id in all_reads:
+            continue
+        if win_st >= t_st and t_end >= win_end:
+            #Get read segments for each window
+            trg_aln, aln_trg = _index_mapping(aln.trg_seq)
+            al_st = trg_aln[win_st - t_st]
+            al_end = trg_aln[win_end - t_st]
+            matches = 0
+            for q, t in zip(q_align[al_st:al_end], t_align[al_st:al_end]):
+                if q == t:
+                    matches += 1
+            win_dists.append(1 - matches/float(al_end - al_st))
+            win_headers.append(q_id)
+        elif t_end < win_end:
+            left_reads.append((i, q_id))
+        elif win_st < t_st:
+            right_reads.append((i, q_id))
+        all_reads.add(q_id)
+        
+    return win_headers, win_dists, left_reads, right_reads
+
+def _make_part_list(cluster_one, cluster_two, inner_reads):
+    part_list = []
+    for i, h in cluster_one:
+        part_list.append((i, "Partitioned", 1, 1, 0, h))
+    for i, h in cluster_two:
+        part_list.append((i, "Partitioned", 2, 1, 0, h))
+    for i, h in inner_reads:
+        part_list.append((i, "None", "NA", 0, 0, h))
+    return part_list
+
 
 def define_file_names():
     #Defining directory and file names for phasing output

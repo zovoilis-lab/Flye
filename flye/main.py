@@ -416,7 +416,7 @@ class JobPhase(Job):
             tres_graph.dump_uniques(uniques_info,
                                     os.path.join(self.work_dir, "uniques_dump"))
 
-            phase.phase_uniques(self.args, self.work_dir, uniques_info[:1],
+            phase.phase_uniques(self.args, self.work_dir, uniques_info,
                                  summary_file, phased_seqs)
             #tres_graph.apply_changes(repeat_graph, summary_file,
             #                         fp.read_sequence_dict(phased_seqs))
