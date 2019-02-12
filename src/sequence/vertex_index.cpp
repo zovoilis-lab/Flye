@@ -147,8 +147,8 @@ namespace
 void VertexIndex::buildIndexUnevenCoverage(int minCoverage, float selectRate,
 										   int tandemFreq)
 {
-	//_solidMultiplier = 2;
-	_solidMultiplier = 1;
+	_solidMultiplier = 2;
+	//_solidMultiplier = 1;
 
 	std::vector<FastaRecord::Id> allReads;
 	for (const auto& seq : _seqContainer.iterSeqs())
