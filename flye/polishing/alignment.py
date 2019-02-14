@@ -226,7 +226,8 @@ class SynchronizedSamReader(object):
                 is_secondary = flags & 0x100
                 is_supplementary = flags & 0x800    #allow supplementary
 
-                if is_unmapped or is_secondary: continue
+                #if is_unmapped or is_secondary: continue
+                if is_unmapped: continue
                 if read_contig in self.processed_contigs:
                     raise AlignmentException("Alignment file is not sorted")
 
@@ -258,6 +259,9 @@ class SynchronizedSamReader(object):
             ctg_pos = int(tokens[3])
             flags = int(tokens[1])
             is_reversed = flags & 0x16
+
+            if read_str == "*":
+                raise Exception("Error parsing SAM: record without read sequence")
 
             (trg_start, trg_end, trg_len, trg_seq,
             qry_start, qry_end, qry_len, qry_seq, err_rate) = \
@@ -303,29 +307,66 @@ def make_alignment(reference_file, reads_file, num_proc,
                  out_alignment, sam_output)
 
     if sam_output:
-        #logger.debug("Sorting alignment file")
-        sorted_file = out_alignment + "_sorted"
-        merged_file = out_alignment + "_merged"
-        env = os.environ.copy()
-        env["LC_ALL"] = "C"
-        subprocess.check_call(["sort", "-k", "3,3", "-T", work_dir, out_alignment],
-                              stdout=open(sorted_file, "w"), env=env)
+        _preprocess_sam(out_alignment, work_dir)
 
-        #puting back SAM headers
-        with open(merged_file, "w") as f:
-            for line in open(out_alignment, "r"):
-                if not _is_sam_header(line):
-                    break
-                f.write(line)
 
-            os.remove(out_alignment)
+def _preprocess_sam(sam_file, work_dir):
+    """
+    Proprocesses minimap2 output by adding SEQ
+    to secondary alignments, removing
+    unaligned reads and then sorting
+    file by reference sequence id
+    """
+    expanded_sam = sam_file + "_expanded"
+    with open(sam_file, "r") as fin, open(expanded_sam, "w") as fout:
+        prev_id = None
+        prev_seq = None
+        for line in fin:
+            if _is_sam_header(line):
+                continue
 
-            for line in open(sorted_file, "r"):
-                if not _is_sam_header(line):
-                    f.write(line)
+            tokens = line.strip().split()
+            is_unmapped = int(tokens[1]) & 0x4
+            if is_unmapped:
+                continue
+            read_id, read_seq = tokens[0], tokens[9]
 
-        os.remove(sorted_file)
-        os.rename(merged_file, out_alignment)
+            if read_seq == "*":
+                if read_id != prev_id:
+                    raise Exception("SAM file is not sorted by read names")
+                tokens[9] = prev_seq
+            elif prev_id != read_id:
+                prev_id = read_id
+                prev_seq = read_seq
+
+            fout.write("\t".join(tokens) + "\n")
+
+    #logger.debug("Sorting alignment file")
+    sorted_file = sam_file + "_sorted"
+    env = os.environ.copy()
+    env["LC_ALL"] = "C"
+    subprocess.check_call(["sort", "-k", "3,3", "-T", work_dir, expanded_sam],
+                          stdout=open(sorted_file, "w"), env=env)
+
+    #puting back SAM headers
+    merged_file = sam_file + "_merged"
+    with open(sam_file, "r") as hdr_in, \
+         open(sorted_file, "r") as sort_in, \
+         open(merged_file, "w") as fout:
+
+        for line in hdr_in:
+            if not _is_sam_header(line):
+                break
+            fout.write(line)
+
+        for line in sort_in:
+            if not _is_sam_header(line):
+                fout.write(line)
+
+    os.remove(expanded_sam)
+    os.remove(sam_file)
+    os.remove(sorted_file)
+    os.rename(merged_file, sam_file)
 
 
 def get_contigs_info(contigs_file):
@@ -372,7 +413,8 @@ def _run_minimap(reference_file, reads_files, num_proc, mode, out_file,
     cmdline.extend(reads_files)
     cmdline.extend(["-x", mode, "-t", str(num_proc)])
     if sam_output:
-        cmdline.append("-a")
+        #a = SAM output, Y = soft clipping for supplementary alignments
+        cmdline.extend(["-a", "-Y"])
     """
     cmdline.extend(["-Q", "-w5", "-m100", "-g10000", "--max-chain-skip",
                     "25", "-t", str(num_proc)])
