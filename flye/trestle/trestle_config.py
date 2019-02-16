@@ -23,5 +23,6 @@ vals = {
         "min_supp_align_len" : 1000,
         "max_supp_align_overlap" : 100,
         "orientations_to_run" : "forward",
-        "num_pol_iters" : 1
+        "num_pol_iters" : 1,
+        "phased_thresh" : 1000
     }

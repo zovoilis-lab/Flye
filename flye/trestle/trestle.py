@@ -111,7 +111,7 @@ def resolve_repeats(args, trestle_dir, repeats_info, summ_file,
 
     fp.write_fasta_dict(all_resolved_reps_dict, resolved_repeats_seqs)
     num_resolved = 0
-    for summ_items in all_summaries:
+    for summ_items in sorted(all_summaries):
         if summ_items[6]:
             num_resolved += 1
         update_summary(summ_items, summ_file)
@@ -2473,6 +2473,10 @@ def finalize_int_stats(rep, repeat_edges, side_it, cons_align_path, template,
                     temp_start = in_align.trg_end
                     #if in_start is None:
                     #    in_start = in_align.qry_start
+                    #f.write("CHECK: in qry {0} - {1} of {2}\n".format(in_align.qry_start, 
+                    #                in_align.qry_end, in_align.qry_len))
+                    #f.write("CHECK: in trg {0} - {1} of {2}\n".format(in_align.trg_start, 
+                    #                in_align.trg_end, in_align.trg_len))
                 if not out_align:
                     temp_end = 0
                     out_start = 0
@@ -2493,6 +2497,10 @@ def finalize_int_stats(rep, repeat_edges, side_it, cons_align_path, template,
                     out_trg_seq = out_align.trg_seq
                     out_trg_end = out_align.trg_end
                     out_qry_end = out_align.qry_end
+                    #f.write("CHECK: out qry {0} - {1} of {2}\n".format(out_align.qry_start, 
+                    #                out_align.qry_end, out_align.qry_len))
+                    #f.write("CHECK: out trg {0} - {1} of {2}\n".format(out_align.trg_start, 
+                    #                out_align.trg_end, out_align.trg_len))
                 f.write("Alignment Indices:\n")
                 f.write("{0:10}\t{1:5} - {2:5}\n".format("in", 
                                                          in_start, in_end))
@@ -2515,16 +2523,24 @@ def finalize_int_stats(rep, repeat_edges, side_it, cons_align_path, template,
                     out_qry_aln, out_aln_qry = _index_mapping(out_qry_seq)
                     out_trg_aln, out_aln_trg = _index_mapping(out_trg_seq)
                     
+                    
+                    
                     in_edge = edge_pair[0][1]
                     out_edge = edge_pair[1][1]
                     if temp_start >= out_trg_end:
+                        #f.write("CHECK, unhelpful case, temp_start {0}\n".format(temp_start))
                         new_out_start = out_qry_end
                     else:
-                        if temp_start < len(out_trg_aln):
-                            out_aln_ind = out_trg_aln[temp_start]
+                        #f.write("CHECK: temp_start {0}, len(out_trg_aln) {1}\n".format(temp_start, len(out_trg_aln)))
+                        temp_trg_start = temp_start - temp_end
+                        if temp_trg_start < len(out_trg_aln):
+                            out_aln_ind = out_trg_aln[temp_trg_start]
+                            #f.write("CHECK: out_aln_ind {0}, len(out_aln_qry) {1}\n".format(out_aln_ind, len(out_aln_qry)))
                             if out_aln_ind < len(out_aln_qry):
                                 new_out_start = (out_start + 
                                                  out_aln_qry[out_aln_ind])
+                                #f.write("CHECK: new_out_start {0}\n".format(new_out_start))
+                                
                     """_check_overlap(
                             consensuses[(side_it["in"], "in", in_edge)], 
                             template,
