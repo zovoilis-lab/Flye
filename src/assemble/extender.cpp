@@ -251,6 +251,7 @@ void Extender::assembleContigs()
 		
 		int innerCount = 0;
 		//do not count first and last reads - they are inner by defalut
+		assert(exInfo.reads.size() >= 4);
 		for (size_t i = 1; i < exInfo.reads.size() - 1; ++i)
 		{
 			if (_innerReads.contains(exInfo.reads[i])) ++innerCount;

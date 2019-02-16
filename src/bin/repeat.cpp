@@ -173,23 +173,32 @@ int main(int argc, char** argv)
 
 	MultiplicityInferer multInf(rg, aligner, seqAssembly, seqReads);
 	multInf.estimateCoverage();
+
+	//remove edges/connections with low coverage
 	multInf.removeUnsupportedEdges();
 	multInf.removeUnsupportedConnections();
 
-	//for diploid genomes, turned off by default
+	//collapse graph structures cause by heterogenity
 	multInf.collapseHeterozygousLoops();
 	multInf.collapseHeterozygousBulges();
 
 	Logger::get().info() << "Resolving repeats";
 	RepeatResolver resolver(rg, seqAssembly, seqReads, aligner, multInf);
 	resolver.findRepeats();
-
 	outGen.outputDot(proc.getEdgesPaths(), outFolder + "/graph_before_rr.gv");
 	//outGen.outputGfa(proc.getEdgesPaths(), outFolder + "/graph_before_rr.gfa");
 	outGen.outputFasta(proc.getEdgesPaths(), outFolder + "/graph_before_rr.fasta");
-	//outGen.detailedFasta(outFolder + "/before_rr_detailed.fasta");
-
 	resolver.resolveRepeats();
+
+	//collapse again after repeat resolution
+	multInf.collapseHeterozygousLoops();
+	multInf.collapseHeterozygousBulges();
+
+	//do tip trimming only after repeat resolution, since those
+	//tips might actually help to resolve some repeats,
+	//and help to identify repeat boundaries
+	multInf.trimTips();
+
 	resolver.finalizeGraph();
 
 	outGen.outputDot(proc.getEdgesPaths(), outFolder + "/graph_after_rr.gv");
@@ -198,25 +207,6 @@ int main(int argc, char** argv)
 	SequenceContainer::writeFasta(edgeSequences.iterSeqs(), 
 								  outFolder + "/repeat_graph_edges.fasta",
 								  /*only pos strand*/ true);
-	//outGen.dumpRepeats(proc.getEdgesPaths(),
-	//				   outFolder + "/repeats_dump");
-
-	/*Logger::get().info() << "Generating contigs";
-
-	ContigExtender extender(rg2, aln2, seqAssembly2, seqReads2, 
-							multInf.getMeanCoverage());
-	extender.generateUnbranchingPaths();
-	extender.generateContigs();
-	extender.outputContigs(outFolder + "/graph_paths.fasta");
-	extender.outputStatsTable(outFolder + "/contigs_stats.txt");
-	extender.outputScaffoldConnections(outFolder + "/scaffolds_links.txt");
-
-	outGen2.outputDot(extender.getUnbranchingPaths(),
-					 outFolder + "/graph_final.gv");
-	outGen2.outputFasta(extender.getUnbranchingPaths(),
-					   outFolder + "/graph_final.fasta");
-	outGen2.outputGfa(extender.getUnbranchingPaths(),
-					 outFolder + "/graph_final.gfa");*/
 
 	Logger::get().debug() << "Peak RAM usage: " 
 		<< getPeakRSS() / 1024 / 1024 / 1024 << " Gb";

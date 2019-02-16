@@ -38,8 +38,11 @@ class GraphAlignment:
         self.overlap = overlap
 
 
-def parse_alignments(filename):
-    alignments = []
+def iter_alignments(filename):
+    """
+    Returns alignment generator
+    """
+    #alignments = []
     current_chain = []
     with open(filename, "r") as f:
         for line in f:
@@ -48,7 +51,8 @@ def parse_alignments(filename):
             tokens = line.strip().split()
             if tokens[0] == "Chain":
                 if current_chain:
-                    alignments.append(current_chain)
+                    yield current_chain
+                    #alignments.append(current_chain)
                     current_chain = []
 
             elif tokens[0] == "Aln":
@@ -65,7 +69,8 @@ def parse_alignments(filename):
             else:
                 raise Exception("Error parsing " + filename)
 
-    return alignments
+        if current_chain:
+            yield current_chain
 
 
 #TODO:

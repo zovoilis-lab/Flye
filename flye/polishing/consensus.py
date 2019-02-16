@@ -80,6 +80,7 @@ def get_consensus(alignment_path, contigs_path, contigs_info, num_proc,
     except KeyboardInterrupt:
         for t in threads:
             t.terminate()
+        raise
 
     if not error_queue.empty():
         raise error_queue.get()

@@ -506,22 +506,17 @@ void RepeatResolver::finalizeGraph()
 void RepeatResolver::resolveRepeats()
 {
 	//make the first iteration resolve only high-confidence connections
-	//bool perfectIter = true;	
-	bool perfectIter = false;	
 	while (true)
 	{
-		float minSupport = perfectIter ? 1.0f : 
-						   Config::get("min_repeat_res_support");
+		float minSupport = Config::get("min_repeat_res_support");
 		auto connections = this->getConnections();
 		int resolvedConnections = 
 			this->resolveConnections(connections, minSupport);
 
 		this->clearResolvedRepeats();
-		_aligner.updateAlignments();
-
-		if (!resolvedConnections && !perfectIter) break;
+		
+		if (!resolvedConnections) break;
 		this->findRepeats();
-		perfectIter = false;
 	}
 
 	GraphProcessor proc(_graph, _asmSeqs);
@@ -699,4 +694,5 @@ void RepeatResolver::clearResolvedRepeats()
 	}
 
 	for (auto node : toRemove) _graph.removeNode(node);
+	_aligner.updateAlignments();
 }

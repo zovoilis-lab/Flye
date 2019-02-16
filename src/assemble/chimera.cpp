@@ -126,6 +126,7 @@ std::vector<int32_t>
 			if (pos - FLANK >= 0 && 
 				pos - FLANK < (int)coverage.size())
 			{
+				assert(pos - FLANK >= 0 && pos - FLANK < (int)coverage.size());
 				++coverage[pos - FLANK];
 			}
 		}
