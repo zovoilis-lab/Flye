@@ -193,12 +193,12 @@ int main(int argc, char** argv)
 	//collapse again after repeat resolution
 	multInf.collapseHeterozygousLoops();
 	multInf.collapseHeterozygousBulges();
-
 	//do tip trimming only after repeat resolution, since those
 	//tips might actually help to resolve some repeats,
 	//and help to identify repeat boundaries
 	multInf.trimTips();
 
+	resolver.findRepeats();
 	resolver.finalizeGraph();
 
 	outGen.outputDot(proc.getEdgesPaths(), outFolder + "/graph_after_rr.gv");
