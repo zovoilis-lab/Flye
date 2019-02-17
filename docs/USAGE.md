@@ -114,10 +114,12 @@ The dataset was originally released by the
 ### PacBio data
 
 Flye was tested on raw PacBio reads (P5C3 and P6C4) with error rate ~15%.
-Note that Flye treats each PacBio subread separately and does not take
-advantage of the PacBio CСS technology. If you have CСS PacBio data,
-consider to call read consensus using the official tools and
-run Flye in error-corrected mode on the resulting sequences.
+Note that Flye assumes that the input files represent PacBio subreads,
+e.g. adaptors and noise are trimmed and multiple passes of the same insertion
+sequence are separated. This is typically handled by PacBio instruments/toolchains,
+however we saw examples of incorrect third-party raw -> fastq conversions, 
+which resulted into incorrectly trimmed data. In case Flye is failing to
+get reaonable assemblies, make sure that your reads are properly preprocessed.
 
 ### Oxford Nanopore data
 

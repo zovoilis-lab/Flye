@@ -93,14 +93,17 @@ def resolve_repeats(args, trestle_dir, repeats_info, summ_file,
         try:
             for t in threads:
                 t.join()
+                if t.exitcode == -9:
+                    logger.error("Looks like the system ran out of memory")
+                if t.exitcode != 0:
+                    raise Exception("One of the processes exited with code: {0}"
+                                    .format(t.exitcode))
+
         except KeyboardInterrupt:
             for t in threads:
                 t.terminate()
-            if t.exitcode == -9:
-                logger.error("Looks like the system ran out of memory")
-            if t.exitcode != 0:
-                raise Exception("One of the processes exited with code: {0}"
-                                .format(t.exitcode))
+            raise
+
         if not error_queue.empty():
             raise error_queue.get()
 
@@ -518,10 +521,48 @@ class ProcessingException(Exception):
     pass
 
 
-def process_repeats(reads, repeats_dict, work_dir, all_labels, 
+def process_repeats(reads, repeats_dict, work_dir, all_labels,
                     initial_file_names):
-    """Generates repeat dirs and files given reads, repeats_dump and
-    graph_edges files. Only returns repeats between min_mult and max_mult"""
+    """
+    Generates repeat dirs and files given reads, repeats_dump and
+    graph_edges files. Only returns repeats between min_mult and max_mult
+    """
+
+    if not repeats_dict:
+        return [], {}, {}
+
+    #creates a separate process to make sure that
+    #read dictionary is released after the function exits
+    manager = multiprocessing.Manager()
+    return_queue = manager.Queue()
+
+    orig_sigint = signal.signal(signal.SIGINT, signal.SIG_IGN)
+    thread = multiprocessing.Process(target=_process_repeats_impl,
+                                        args=(reads, repeats_dict,
+                                              work_dir, all_labels,
+                                              initial_file_names,
+                                              return_queue))
+    signal.signal(signal.SIGINT, orig_sigint)
+    thread.start()
+    try:
+        thread.join()
+        if thread.exitcode == -9:
+            logger.error("Looks like the system ran out of memory")
+        if thread.exitcode != 0:
+            raise Exception("One of the processes exited with code: {0}"
+                                .format(thread.exitcode))
+    except KeyboardInterrupt:
+        thread.terminate()
+        raise
+
+    return return_queue.get()
+
+
+def _process_repeats_impl(reads, repeats_dict, work_dir, all_labels,
+                          initial_file_names, return_queue):
+    """
+    This function is called in a separate process
+    """
     MIN_MULT = trestle_config.vals["min_mult"]
     MAX_MULT = trestle_config.vals["max_mult"]
     FLANKING_LEN = trestle_config.vals["flanking_len"]
@@ -531,12 +572,6 @@ def process_repeats(reads, repeats_dict, work_dir, all_labels,
     (template_name, extended_name, repeat_reads_name, 
      pre_partitioning_name) = initial_file_names
     
-    #Reads input files
-    #repeats_dict = _read_repeats_dump(repeats_dump)
-    if not repeats_dict:
-        #logger.debug("Empty repeats_dump file: {0}".format(repeats_dump))
-        return [], {}, {}
-        
     reads_dict = {}
     for read_file in reads:
         reads_dict.update(fp.read_sequence_dict(read_file))
@@ -804,7 +839,8 @@ def process_repeats(reads, repeats_dict, work_dir, all_labels,
                     raise ProcessingException(
                         "Empty partitioning file {0}".format(
                             partitioning_path.format(side)))
-    return repeat_list, repeat_edges, all_edge_headers
+
+    return_queue.put((repeat_list, repeat_edges, all_edge_headers))
 
 
 def _read_repeats_dump(repeats_dump):
@@ -2473,6 +2509,10 @@ def finalize_int_stats(rep, repeat_edges, side_it, cons_align_path, template,
                     temp_start = in_align.trg_end
                     #if in_start is None:
                     #    in_start = in_align.qry_start
+                    #f.write("CHECK: in qry {0} - {1} of {2}\n".format(in_align.qry_start, 
+                    #                in_align.qry_end, in_align.qry_len))
+                    #f.write("CHECK: in trg {0} - {1} of {2}\n".format(in_align.trg_start, 
+                    #                in_align.trg_end, in_align.trg_len))
                 if not out_align:
                     temp_end = 0
                     out_start = 0
@@ -2493,6 +2533,10 @@ def finalize_int_stats(rep, repeat_edges, side_it, cons_align_path, template,
                     out_trg_seq = out_align.trg_seq
                     out_trg_end = out_align.trg_end
                     out_qry_end = out_align.qry_end
+                    #f.write("CHECK: out qry {0} - {1} of {2}\n".format(out_align.qry_start, 
+                    #                out_align.qry_end, out_align.qry_len))
+                    #f.write("CHECK: out trg {0} - {1} of {2}\n".format(out_align.trg_start, 
+                    #                out_align.trg_end, out_align.trg_len))
                 f.write("Alignment Indices:\n")
                 f.write("{0:10}\t{1:5} - {2:5}\n".format("in", 
                                                          in_start, in_end))
@@ -2515,16 +2559,24 @@ def finalize_int_stats(rep, repeat_edges, side_it, cons_align_path, template,
                     out_qry_aln, out_aln_qry = _index_mapping(out_qry_seq)
                     out_trg_aln, out_aln_trg = _index_mapping(out_trg_seq)
                     
+                    
+                    
                     in_edge = edge_pair[0][1]
                     out_edge = edge_pair[1][1]
                     if temp_start >= out_trg_end:
+                        #f.write("CHECK, unhelpful case, temp_start {0}\n".format(temp_start))
                         new_out_start = out_qry_end
                     else:
-                        if temp_start < len(out_trg_aln):
-                            out_aln_ind = out_trg_aln[temp_start]
+                        #f.write("CHECK: temp_start {0}, len(out_trg_aln) {1}\n".format(temp_start, len(out_trg_aln)))
+                        temp_trg_start = temp_start - temp_end
+                        if temp_trg_start < len(out_trg_aln):
+                            out_aln_ind = out_trg_aln[temp_trg_start]
+                            #f.write("CHECK: out_aln_ind {0}, len(out_aln_qry) {1}\n".format(out_aln_ind, len(out_aln_qry)))
                             if out_aln_ind < len(out_aln_qry):
                                 new_out_start = (out_start + 
                                                  out_aln_qry[out_aln_ind])
+                                #f.write("CHECK: new_out_start {0}\n".format(new_out_start))
+                                
                     """_check_overlap(
                             consensuses[(side_it["in"], "in", in_edge)], 
                             template,

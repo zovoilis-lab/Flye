@@ -48,7 +48,7 @@ void GraphProcessor::fixChimericJunctions()
 
 	//more common case: 2 in - 2 out
 	std::unordered_set<GraphNode*> complexCases;
-	/*for (auto& node : _graph.iterNodes())
+	for (auto& node : _graph.iterNodes())
 	{
 		if (node->inEdges.size() != 2 ||
 			node->outEdges.size() != 2) continue;
@@ -76,7 +76,7 @@ void GraphProcessor::fixChimericJunctions()
 
 		node->inEdges.pop_back();
 		node->outEdges.erase(node->outEdges.begin());
-	}*/
+	}
 
 	Logger::get().debug() << "Removed " 
 		<< simpleCases.size() << " simple and " << complexCases.size()
@@ -138,7 +138,7 @@ void GraphProcessor::collapseBulges()
 }
 
 //Removing tips
-void GraphProcessor::trimTips()
+/*void GraphProcessor::trimTips()
 {
 	const int TIP_THRESHOLD = Config::get("tip_length_threshold");
 	std::unordered_set<GraphEdge*> toRemove;
@@ -168,7 +168,7 @@ void GraphProcessor::trimTips()
 		complEdge->nodeRight->inEdges.push_back(complEdge);
 	}
 	Logger::get().debug() << toRemove.size() << " tips clipped";
-}
+}*/
 
 //This function collapses non-branching edges paths in the graph.
 //The tricky part is the sequence representation of the new edges.

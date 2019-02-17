@@ -205,6 +205,14 @@ def generate_stats(repeat_file, polished_file, scaffolds, out_stats):
                         num_scaffolds, scf_n50, largest_scf, mean_read_cov))
 
 
+def short_statistics(fasta_file):
+    lengths = fp.read_sequence_lengths(fasta_file).values()
+    if not lengths:
+        return 0, 0
+    total_size = sum(lengths)
+    return total_size, _calc_n50(lengths, total_size)
+
+
 def rc(sign):
     return "+" if sign == "-" else "-"
 

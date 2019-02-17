@@ -34,8 +34,7 @@ public:
 
 private:
 	std::vector<GraphAlignment> 
-		chainReadAlignments(const SequenceContainer& edgeSeqs,
-							const std::vector<EdgeAlignment>& ovlps) const;
+		chainReadAlignments(const std::vector<EdgeAlignment>& ovlps) const;
 
 	std::vector<GraphAlignment> _readAlignments;
 

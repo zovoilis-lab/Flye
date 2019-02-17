@@ -30,7 +30,6 @@ import flye.short_plasmids.plasmids as plas
 import flye.trestle.trestle as tres
 import flye.trestle.graph_resolver as tres_graph
 from flye.repeat_graph.repeat_graph import RepeatGraph
-from flye.repeat_graph.graph_alignment import parse_alignments
 
 logger = logging.getLogger()
 
@@ -65,7 +64,7 @@ class Job(object):
             data = json.load(fp)
             if (not "pipeline_version" in data or
                     data["pipeline_version"] != cfg.vals["pipeline_version"]):
-                raise ResumeException("Inconsistent pipelnie version")
+                raise ResumeException("Inconsistent pipeline version")
 
             Job.run_params = data
 
@@ -117,6 +116,8 @@ class JobAssembly(Job):
             raise asm.AssembleException("No contigs were assembled - "
                                         "please check if the read type and genome "
                                         "size parameters are correct")
+        asm_len, asm_n50 = scf.short_statistics(self.assembly_filename)
+        logger.debug("Disjointigs length: {0}, N50: {1}".format(asm_len, asm_n50))
 
 
 class JobShortPlasmidsAssembly(Job):
@@ -140,7 +141,7 @@ class JobShortPlasmidsAssembly(Job):
 
     def run(self):
         super(JobShortPlasmidsAssembly, self).run()
-        logger.info("Recovering short unassebmled sequences")
+        logger.info("Recovering short unassembled sequences")
         if not os.path.isdir(self.work_dir):
             os.mkdir(self.work_dir)
         plasmids = plas.assemble_short_plasmids(self.args, self.work_dir,
@@ -250,9 +251,18 @@ class JobFinalize(Job):
 
         scaffolds = scf.generate_scaffolds(self.contigs_file, self.scaffold_links,
                                            self.out_files["scaffolds"])
+
+        logger.debug("---Output dir contents:----")
+        try:
+            ls_out = subprocess.check_output(["ls", "-ARGg",
+                                             os.path.abspath(self.args.out_dir)])
+            logger.debug("\n\n" + ls_out)
+        except (subprocess.CalledProcessError, OSError):
+            pass
+        logger.debug("--------------------------")
+
         scf.generate_stats(self.repeat_stats, self.polished_stats, scaffolds,
                            self.out_files["stats"])
-
         logger.info("Final assembly: {0}".format(self.out_files["scaffolds"]))
 
 
@@ -354,11 +364,10 @@ class JobTrestle(Job):
                                              "resolved_copies.fasta")
         repeat_graph = RepeatGraph(fp.read_sequence_dict(self.graph_edges))
         repeat_graph.load_from_file(self.repeat_graph)
-        reads_alignment = parse_alignments(self.reads_alignment_file)
 
         try:
             repeats_info = tres_graph \
-                .get_simple_repeats(repeat_graph, reads_alignment,
+                .get_simple_repeats(repeat_graph, self.reads_alignment_file,
                                     fp.read_sequence_dict(self.graph_edges))
             tres_graph.dump_repeats(repeats_info,
                                     os.path.join(self.work_dir, "repeats_dump"))
@@ -367,6 +376,8 @@ class JobTrestle(Job):
                                  summary_file, resolved_repeats_seqs)
             tres_graph.apply_changes(repeat_graph, summary_file,
                                      fp.read_sequence_dict(resolved_repeats_seqs))
+        except KeyboardInterrupt as e:
+            raise
         except Exception as e:
             logger.warning("Caught unhandled exception: " + str(e))
             logger.warning("Continuing to the next pipeline stage. "
@@ -456,6 +467,18 @@ def _set_genome_size(args):
         args.genome_size = human2bytes(args.genome_size.upper())
 
 
+def _run_polisher_only(args):
+    """
+    Runs standalone polisher
+    """
+    logger.info("Running Flye polisher")
+    logger.debug("Cmd: {0}".format(" ".join(sys.argv)))
+
+    pol.polish(args.polish_target, args.reads, args.out_dir,
+               args.num_iters, args.threads, args.platform,
+               output_progress=True)
+
+
 def _run(args):
     """
     Runs the pipeline
@@ -529,29 +552,31 @@ def _usage():
             "\t     --nano-corr | --subassemblies) file1 [file_2 ...]\n"
             "\t     --genome-size SIZE --out-dir PATH\n"
             "\t     [--threads int] [--iterations int] [--min-overlap int]\n"
-            "\t     [--meta] [--plasmids] [--no-trestle] [--debug]\n"
-            "\t     [--version] [--help] [--resume]")
+            "\t     [--meta] [--plasmids] [--no-trestle] [--polish-target]\n"
+            "\t     [--debug] [--version] [--help] [--resume]")
 
 
 def _epilog():
-    return ("Input reads could be in FASTA or FASTQ format, uncompressed\n"
-            "or compressed with gz. Currenlty, raw and corrected reads\n"
-            "from PacBio and ONT are supported. The expected error rates are\n"
-            "<30% for raw and <2% for corrected reads. Additionally,\n"
+    return ("Input reads can be in FASTA or FASTQ format, uncompressed\n"
+            "or compressed with gz. Currently, raw and corrected reads\n"
+            "from PacBio and ONT are supported. Expected error rates are\n"
+            "<30% for raw and <2% for corrected reads. Additionally, the\n"
             "--subassemblies option performs a consensus assembly of multiple\n"
             "sets of high-quality contigs. You may specify multiple\n"
             "files with reads (separated by spaces). Mixing different read\n"
-            "types is not yet supported. --meta option enables the mode\n"
+            "types is not yet supported. The --meta option enables the mode\n"
             "for metagenome/uneven coverage assembly.\n\n"
             "You must provide an estimate of the genome size as input,\n"
             "which is used for solid k-mers selection. Standard size\n"
-            "modificators are supported (e.g. 5m or 2.6g). In case\n"
-            "of metagenome assembly, expected total assembly size\n"
+            "modificators are supported (e.g. 5m or 2.6g). In the case\n"
+            "of metagenome assembly, the expected total assembly size\n"
             "should be provided.\n\n"
             "To reduce memory consumption for large genome assemblies,\n"
             "you can use a subset of the longest reads for initial contig\n"
             "assembly by specifying --asm-coverage option. Typically,\n"
-            "40x coverage is enough to produce good draft contigs.")
+            "40x coverage is enough to produce good draft contigs.\n\n"
+            "You can separately run Flye polisher on a target sequence \n"
+            "using --polish-target option.")
 
 
 def _version():
@@ -570,7 +595,7 @@ def main():
     def check_int_range(value, min_val, max_val, require_odd=False):
         ival = int(value)
         if ival < min_val or ival > max_val:
-             raise argparse.ArgumentTypeError("value should be in "
+             raise argparse.ArgumentTypeError("value should be in the "
                             "range [{0}, {1}]".format(min_val, max_val))
         if require_odd and ival % 2 == 0:
             raise argparse.ArgumentTypeError("should be an odd number")
@@ -598,7 +623,7 @@ def main():
                         default=None, metavar="path",
                         help="high-quality contigs input")
     parser.add_argument("-g", "--genome-size", dest="genome_size",
-                        metavar="size", required=True,
+                        metavar="size", required=False,
                         help="estimated genome size (for example, 5m or 2.6g)")
     parser.add_argument("-o", "--out-dir", dest="out_dir",
                         default=None, required=True,
@@ -618,13 +643,16 @@ def main():
                         "contig assembly [not set]", type=int)
     parser.add_argument("--plasmids", action="store_true",
                         dest="plasmids", default=False,
-                        help="rescue short unassmebled plasmids")
+                        help="rescue short unassembled plasmids")
     parser.add_argument("--meta", action="store_true",
                         dest="meta", default=False,
                         help="metagenome / uneven coverage mode")
     parser.add_argument("--no-trestle", action="store_true",
                         dest="no_trestle", default=False,
                         help="skip Trestle stage")
+    parser.add_argument("--polish-target", dest="polish_target",
+                        metavar="path", required=False,
+                        help="run polisher on the target sequence")
     parser.add_argument("--resume", action="store_true",
                         dest="resume", default=False,
                         help="resume from the last completed stage")
@@ -638,6 +666,10 @@ def main():
                         help="enable debug output")
     parser.add_argument("-v", "--version", action="version", version=_version())
     args = parser.parse_args()
+
+    if not args.genome_size and not args.polish_target:
+        parser.error("Genome size argument (-g/--genome-size) "
+                     "is required for assembly")
 
     if args.pacbio_raw:
         args.reads = args.pacbio_raw
@@ -668,7 +700,6 @@ def main():
     _enable_logging(args.log_file, args.debug,
                     overwrite=False)
 
-    _set_genome_size(args)
     args.asm_config = os.path.join(cfg.vals["pkg_root"],
                                    cfg.vals["bin_cfg"][args.read_type])
 
@@ -677,7 +708,13 @@ def main():
         pol.check_binaries()
         asm.check_binaries()
         repeat.check_binaries()
-        _run(args)
+
+        if not args.polish_target:
+            _set_genome_size(args)
+            _run(args)
+        else:
+            _run_polisher_only(args)
+
     except (aln.AlignmentException, pol.PolishException,
             asm.AssembleException, repeat.RepeatException,
             ResumeException, fp.FastaError) as e:

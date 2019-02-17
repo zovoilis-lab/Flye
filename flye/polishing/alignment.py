@@ -82,7 +82,7 @@ def read_paf(filename):
 
 class SynchronizedSamReader(object):
     """
-    Parsing SAM file in multiple threads. Filters out secondary alignments,
+    Parses SAM file in multiple threads. Filters out secondary alignments,
     but keeps supplementary (split) alignments
     """
     def __init__(self, sam_alignment, reference_fasta,
@@ -101,7 +101,7 @@ class SynchronizedSamReader(object):
 
         with open(self.aln_path, "r") as f:
             for line in f:
-                if not line or not line.startswith("@"):
+                if not line or not _is_sam_header(line):
                     break
                 if line.startswith("@SQ"):
                     seq_name = None
@@ -213,7 +213,7 @@ class SynchronizedSamReader(object):
                 self.position.value = self.aln_file.tell()
                 line = self.aln_file.readline()
                 if not line: break
-                if line.startswith("@"): continue   #ignore headers
+                if _is_sam_header(line): continue
 
                 tokens = line.strip().split()
                 if len(tokens) < 11:
@@ -314,14 +314,14 @@ def make_alignment(reference_file, reads_file, num_proc,
         #puting back SAM headers
         with open(merged_file, "w") as f:
             for line in open(out_alignment, "r"):
-                if not line.startswith("@"):
+                if not _is_sam_header(line):
                     break
                 f.write(line)
 
             os.remove(out_alignment)
 
             for line in open(sorted_file, "r"):
-                if not line.startswith("@"):
+                if not _is_sam_header(line):
                     f.write(line)
 
         os.remove(sorted_file)
@@ -391,3 +391,7 @@ def _run_minimap(reference_file, reads_files, num_proc, mode, out_file,
         if e.returncode == -9:
             logger.error("Looks like the system ran out of memory")
         raise AlignmentException(str(e))
+
+
+def _is_sam_header(line):
+    return line[:3] in ["@PG", "@HD", "@SQ", "@RG", "@CO"]

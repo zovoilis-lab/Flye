@@ -23,7 +23,7 @@ class RepeatException(Exception):
 
 def check_binaries():
     if not which(REPEAT_BIN) or not which(CONTIGGER_BIN):
-        raise RepeatException("Repeat/contgger binaries were not found. "
+        raise RepeatException("Repeat/contigger binaries were not found. "
                               "Did you run 'make'?")
     try:
         devnull = open(os.devnull, "w")
