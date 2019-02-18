@@ -26,5 +26,6 @@ vals = {
         "num_pol_iters" : 1,
         "phased_thresh" : 1000,
         "phase_min_longest_div" : 0.008,
-        "phase_min_any_div" : 0.005
+        "phase_min_any_div" : 0.005,
+        "phase_min_win_div" : 0.01
     }

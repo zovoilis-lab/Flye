@@ -633,6 +633,7 @@ def phase_each_edge(edge_id, all_edge_headers, args,
 def _find_div_region(pos_file, pol_template_file, alignment_file, left_part_file, 
                     right_part_file, window_size, phase_labels):
     CONS_ALN_RATE = trestle_config.vals["cons_aln_rate"]
+    PHASE_MIN_WIN_DIV = trestle_config.vals["phase_min_win_div"]
     
     template = ""
     if os.path.getsize(pol_template_file):
@@ -654,44 +655,49 @@ def _find_div_region(pos_file, pol_template_file, alignment_file, left_part_file
             if win_count[curr_win] >= high_count:
                 high_win = curr_win
                 high_count = win_count[curr_win]
-        
-    aligns = _read_alignment(alignment_file, pol_template_file, CONS_ALN_RATE)
-    if aligns and aligns[0]:
-        win_output = _all_reads_in_win(aligns[0], high_win, window_size)
-        win_headers, win_dists, left_reads, right_reads = win_output
-        
-        head_ids = []
-        headers = []
-        distances = []
-        for i, (h, d) in enumerate(sorted(zip(win_headers, win_dists))):
-            head_ids.append(i)
-            headers.append(h)
-            distances.append([d])
-        
-        labels = []
-        if len(distances) >= 2:
-            clustering = AgglomerativeClustering(affinity='euclidean', 
-                                            n_clusters=2, 
-                                            linkage='average')
-            model = clustering.fit(distances)
-            print model.labels_
-            labels = model.labels_
-        cluster_one = []
-        cluster_two = []
-        for i, lab in enumerate(labels):
-            if lab == 0:
-                cluster_one.append(headers[i])
-            elif lab == 1:
-                cluster_two.append(headers[i])
-        
-        left_parts = _make_part_list(cluster_one, cluster_two, left_reads, 
-                                     phase_labels)
-        _write_partitioning_file(left_parts, left_part_file)
-        right_parts = _make_part_list(cluster_one, cluster_two, right_reads, 
-                                      phase_labels)
-        _write_partitioning_file(right_parts, right_part_file)
+    
+    if high_count < PHASE_MIN_WIN_DIV * window_size:
+        _write_partitioning_file([], left_part_file)
+        _write_partitioning_file([], right_part_file)
     else:
-        raise Exception("Unreadable alignment: {0}".format(alignment_file))
+        aligns = _read_alignment(alignment_file, pol_template_file,
+                                 CONS_ALN_RATE)
+        if aligns and aligns[0]:
+            win_output = _all_reads_in_win(aligns[0], high_win, window_size)
+            win_headers, win_dists, left_reads, right_reads = win_output
+            
+            head_ids = []
+            headers = []
+            distances = []
+            for i, (h, d) in enumerate(sorted(zip(win_headers, win_dists))):
+                head_ids.append(i)
+                headers.append(h)
+                distances.append([d])
+            
+            labels = []
+            if len(distances) >= 2:
+                clustering = AgglomerativeClustering(affinity='euclidean', 
+                                                n_clusters=2, 
+                                                linkage='average')
+                model = clustering.fit(distances)
+                print model.labels_
+                labels = model.labels_
+            cluster_one = []
+            cluster_two = []
+            for i, lab in enumerate(labels):
+                if lab == 0:
+                    cluster_one.append(headers[i])
+                elif lab == 1:
+                    cluster_two.append(headers[i])
+            
+            left_parts = _make_part_list(cluster_one, cluster_two, left_reads, 
+                                         phase_labels)
+            _write_partitioning_file(left_parts, left_part_file)
+            right_parts = _make_part_list(cluster_one, cluster_two, right_reads, 
+                                          phase_labels)
+            _write_partitioning_file(right_parts, right_part_file)
+        else:
+            raise Exception("Unreadable alignment: {0}".format(alignment_file))
     
     
 def _all_reads_in_win(alns, high_win, win_size):
