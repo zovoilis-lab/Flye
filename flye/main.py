@@ -415,11 +415,16 @@ class JobPhase(Job):
                                     fp.read_sequence_dict(self.graph_edges))
             tres_graph.dump_uniques(uniques_info,
                                     os.path.join(self.work_dir, "uniques_dump"))
-
-            phase.phase_uniques(self.args, self.work_dir, uniques_info,
-                                 summary_file, phased_seqs)
-            #tres_graph.apply_changes(repeat_graph, summary_file,
-            #                         fp.read_sequence_dict(phased_seqs))
+            haploid = phase.test_divergence(self.args, self.work_dir, 
+                                            uniques_info)
+            if not haploid:
+                phase.phase_uniques(self.args, self.work_dir, uniques_info,
+                                    summary_file, phased_seqs)
+                #tres_graph.apply_changes(repeat_graph, summary_file,
+                #                         fp.read_sequence_dict(phased_seqs))
+            else:
+                logger.info("Skipping 'phase' stage")
+            
         except Exception as e:
             logger.warning("Caught unhandled exception: " + str(e))
             logger.warning("Continuing to the next pipeline stage. "
@@ -468,7 +473,7 @@ def _create_job_list(args, work_dir, log_file):
                     repeat_graph, repeat_graph_edges,
                     reads_alignment))
         
-    """#Short plasmids
+    #Short plasmids
     if args.plasmids:
         jobs.append(JobShortPlasmidsAssembly(args, work_dir, disjointigs,
                                              repeat_graph, repeat_graph_edges))
@@ -499,7 +504,7 @@ def _create_job_list(args, work_dir, log_file):
     #Report results
     jobs.append(JobFinalize(args, work_dir, log_file, contigs_file,
                             graph_file, repeat_stats, polished_stats,
-                            polished_gfa, scaffold_links))"""
+                            polished_gfa, scaffold_links))
 
     return jobs
 
