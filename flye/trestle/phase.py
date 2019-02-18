@@ -2409,7 +2409,7 @@ def finalize_int_stats(edge, side_labels, phase_labels, side_it,
                     right_align.trg_start, right_align.trg_end, right_align.trg_len))
             f.write("\tRemaining unspanned:\n\t\t{0}\n\n".format(
                 phase_rem_gap[phase_id]))
-            if phase_rem_gap[phase_id] > PHASED_THRESH:
+            if phase_rem_gap[phase_id] / float(template_len) > PHASED_THRESH:
                 phased = False
             
             #in sequence used to represent overlapping segment
