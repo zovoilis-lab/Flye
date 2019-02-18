@@ -39,7 +39,8 @@ def test_divergence(args, phasing_dir, uniques_dict):
     (pol_dir_names, initial_file_names,
      pre_file_names, div_file_names, aln_names,
      middle_file_names, output_file_names) = all_file_names
-    (edge_label, template_name, initial_reads_name) = initial_file_names
+    (edge_label, template_name, initial_reads_name, 
+     left_reads_name, right_reads_name) = initial_file_names
     
     reads_dict = {}
     for read_file in args.reads:
@@ -294,7 +295,8 @@ def phase_each_edge(edge_id, all_edge_headers, args,
      middle_file_names, output_file_names) = all_file_names
 
     pol_temp_name, pol_cons_name = pol_dir_names
-    (edge_label, template_name, initial_reads_name) = initial_file_names
+    (edge_label, template_name, initial_reads_name, 
+     left_reads_name, right_reads_name) = initial_file_names
     (pre_phased_reads_name, pre_read_aln_name, pre_partitioning_name,
      partitioning_name) = pre_file_names
     div_freq_name, div_pos_name, div_summ_name = div_file_names
@@ -419,12 +421,17 @@ def phase_each_edge(edge_id, all_edge_headers, args,
         #the divergent positions, etc.
         print "Edge",edge
         window_size = 1000
+        left_reads_file = os.path.join(orient_dir, left_reads_name)
+        right_reads_file = os.path.join(orient_dir, right_reads_name)
         left_part = partitioning.format(zero_it, "left")
         right_part = partitioning.format(zero_it, "right")
-        _find_div_region(position_path, polished_template, 
-                         alignment_file, left_part, 
-                         right_part, window_size, phase_labels)
-        
+        win_inds = _find_div_region(position_path, polished_template, 
+                                    alignment_file, left_part, right_part, 
+                                    window_size, phase_labels, 
+                                    left_reads_file, right_reads_file, 
+                                    initial_reads)
+        win_start, win_end = win_inds
+        print "win_st, win_end", win_start, win_end
         cut_consensus = {}
         side_it = {s:0 for s in side_labels}
         iter_pairs = []
@@ -457,6 +464,10 @@ def phase_each_edge(edge_id, all_edge_headers, args,
                     logger.debug("Iteration {0}, '{1}'".format(it, side))
                     both_break = False
                 print "Here 16"
+                if side == "left":
+                    side_reads = left_reads_file
+                elif side == "right":
+                    side_reads = right_reads_file
                 for phase_id in phase_labels:
                     #7a. Call consensus on partitioned reads
                     pol_con_dir = polishing_dir.format(
@@ -464,7 +475,7 @@ def phase_each_edge(edge_id, all_edge_headers, args,
                     curr_reads = phased_reads.format(it, side, phase_id)
                     write_phased_reads(
                                 it, side, phase_id,
-                                initial_reads, 
+                                side_reads, 
                                 partitioning.format(it - 1, side), 
                                 curr_reads)
                     pol_reads_str = "\tPolishing '{0} {1}' reads"
@@ -479,6 +490,10 @@ def phase_each_edge(edge_id, all_edge_headers, args,
                                    output_progress=False)
                     print "Here 18"
                     #7b. Cut consensus where coverage drops
+                    if side == "left":
+                        win_cutpoint = win_end
+                    elif side == "right":
+                        win_cutpoint = win_start
                     cutpoint = locate_consensus_cutpoint(
                                     side, read_endpoints,
                                     curr_reads)
@@ -495,7 +510,8 @@ def phase_each_edge(edge_id, all_edge_headers, args,
                     if os.path.isfile(cons_al_file):
                         truncate_consensus(side, cutpoint, cons_al_file, 
                                            polished_template,
-                                           pol_con_out, curr_cut_cons)
+                                           pol_con_out, curr_cut_cons, 
+                                           win_cutpoint)
                     else:
                         term_bool[side] = True
                     print "Here 19"
@@ -509,7 +525,7 @@ def phase_each_edge(edge_id, all_edge_headers, args,
                                                 args.platform, cut_cons_al_file,
                                                 reference_mode=True, sam_output=True)
                         read_al_file = read_align.format(it, side, phase_id)
-                        flye_aln.make_alignment(curr_cut_cons, [initial_reads], 
+                        flye_aln.make_alignment(curr_cut_cons, [side_reads], 
                                                 num_threads, orient_dir, 
                                                 args.platform, read_al_file,
                                                 reference_mode=True, sam_output=True)
@@ -630,8 +646,9 @@ def phase_each_edge(edge_id, all_edge_headers, args,
         logger.info("Edge not phased")
     return phased_dict, summary_list
 
-def _find_div_region(pos_file, pol_template_file, alignment_file, left_part_file, 
-                    right_part_file, window_size, phase_labels):
+def _find_div_region(pos_file, pol_template_file, alignment_file, 
+                     left_part_file, right_part_file, window_size, phase_labels, 
+                     left_reads_file, right_reads_file, initial_reads_file):
     CONS_ALN_RATE = trestle_config.vals["cons_aln_rate"]
     PHASE_MIN_WIN_DIV = trestle_config.vals["phase_min_win_div"]
     
@@ -656,6 +673,8 @@ def _find_div_region(pos_file, pol_template_file, alignment_file, left_part_file
                 high_win = curr_win
                 high_count = win_count[curr_win]
     
+    win_start = high_win * window_size
+    win_end = (high_win + 1) * window_size
     if high_count < PHASE_MIN_WIN_DIV * window_size:
         _write_partitioning_file([], left_part_file)
         _write_partitioning_file([], right_part_file)
@@ -693,11 +712,14 @@ def _find_div_region(pos_file, pol_template_file, alignment_file, left_part_file
             left_parts = _make_part_list(cluster_one, cluster_two, left_reads, 
                                          phase_labels)
             _write_partitioning_file(left_parts, left_part_file)
+            write_side_reads(initial_reads_file, left_part_file, left_reads_file)
             right_parts = _make_part_list(cluster_one, cluster_two, right_reads, 
                                           phase_labels)
             _write_partitioning_file(right_parts, right_part_file)
+            write_side_reads(initial_reads_file, right_part_file, right_reads_file)
         else:
             raise Exception("Unreadable alignment: {0}".format(alignment_file))
+    return win_start, win_end
     
     
 def _all_reads_in_win(alns, high_win, win_size):
@@ -753,6 +775,17 @@ def _make_part_list(cluster_one, cluster_two, inner_reads, phase_labels):
         part_list.append((i, "None", "NA", 0, 0, h))
     return part_list
 
+def write_side_reads(all_reads, partitioning, out_file):
+    all_reads_dict = fp.read_sequence_dict(all_reads)
+    part_list = _read_partitioning_file(partitioning)
+    side_reads = {}
+    for part in part_list:
+        read_id, status, phase, top_sc, total_sc, header = part
+        seq = all_reads_dict[header]
+        side_reads[header] = seq
+    if side_reads and side_reads.values()[0]:
+        fp.write_fasta_dict(side_reads, out_file)
+        
 
 def define_file_names():
     #Defining directory and file names for phasing output
@@ -763,7 +796,10 @@ def define_file_names():
     edge_label = "edge_{0}"
     template_name = "template.fasta"
     initial_reads_name = "initial_reads.fasta"
-    initial_file_names = (edge_label, template_name, initial_reads_name)
+    left_reads_name = "left_reads.fasta"
+    right_reads_name = "right_reads.fasta"
+    initial_file_names = (edge_label, template_name, initial_reads_name, 
+                          left_reads_name, right_reads_name)
     
     pre_phased_reads_name = "pre_phased_reads.{0}.{1}.txt"
     pre_read_aln_name = "pre_phased_reads.{0}.{1}.vs.extended.minimap.sam"
@@ -817,7 +853,8 @@ def process_repeats(reads, uniques_dict, work_dir, initial_file_names):
     graph_edges files."""
     ORIENT_CONFIG = trestle_config.vals["orientations_to_run"]
     
-    (edge_label, template_name, initial_reads_name) = initial_file_names
+    (edge_label, template_name, initial_reads_name, 
+     left_reads_name, right_reads_name) = initial_file_names
     
     #Reads input files
     #repeats_dict = _read_repeats_dump(repeats_dump)
@@ -1112,7 +1149,7 @@ def locate_consensus_cutpoint(side, read_endpoints, phased_read_file):
 
 
 def truncate_consensus(side, cutpoint, cons_al_file, template,
-                       polished_consensus, cut_cons_file):
+                       polished_consensus, cut_cons_file, win_cutpoint):
     if cutpoint == -1:
         logger.debug("No cutpoint for consensus file")
         return
@@ -1121,27 +1158,30 @@ def truncate_consensus(side, cutpoint, cons_al_file, template,
     cons_al = _read_alignment(cons_al_file, template, CONS_ALN_RATE)
     consensus_endpoint = -1
     if cons_al and cons_al[0]:
-        consensus_endpoint = _find_consensus_endpoint(cutpoint, cons_al, side)
+        consensus_endpoint = _find_consensus_endpoint(cutpoint, cons_al, side,
+                                                      False)
+        win_endpoint = _find_consensus_endpoint(win_cutpoint, cons_al, side,
+                                                      True)
     else:
         logger.debug("No cons alignment to template, no cut consensus")
         return
     
-    if consensus_endpoint != -1:
+    if consensus_endpoint != -1 and win_endpoint != -1:
         cons_seqs = fp.read_sequence_dict(polished_consensus)
         cons_head = cons_seqs.keys()[0]
         consensus = cons_seqs.values()[0]
         if side == "right":
-            start = 0
+            start = win_endpoint
             end = consensus_endpoint
         elif side == "left":
             start = consensus_endpoint
-            end = len(consensus)
+            end = win_endpoint
         cut_head = "".join([cons_head, "|{0}_{1}".format(start, end)])
         cut_dict = {cut_head:consensus[start:end]}
         fp.write_fasta_dict(cut_dict, cut_cons_file)
 
 
-def _find_consensus_endpoint(cutpoint, aligns, side):
+def _find_consensus_endpoint(cutpoint, aligns, side, win_bool):
     consensus_endpoint = -1
     #first try collapsing
     coll_aln = _collapse_cons_aln(aligns)
@@ -1164,23 +1204,31 @@ def _find_consensus_endpoint(cutpoint, aligns, side):
                     qry_aln, aln_qry = _index_mapping(aln.qry_seq)
                     cutpoint_minus_start = cutpoint - aln.trg_start
                     if cutpoint_minus_start < 0:
-                        print aln.qry_id, aln.trg_id, side, cutpoint, cutpoint_minus_start
+                        #print aln.qry_id, aln.trg_id, side, cutpoint, cutpoint_minus_start
                         aln_ind = trg_aln[0]
                     elif cutpoint_minus_start >= len(trg_aln):
-                        print aln.qry_id, aln.trg_id, side, cutpoint, cutpoint_minus_start
+                        #print aln.qry_id, aln.trg_id, side, cutpoint, cutpoint_minus_start
                         aln_ind = trg_aln[-1]
                     else:
                         aln_ind = trg_aln[cutpoint_minus_start]
                     qry_ind = aln_qry[aln_ind]
                     endpoint = qry_ind + coll_aln.qry_start
                     aln_endpoints.append((0, endpoint))
-                elif side == "right" and cutpoint >= aln.trg_end:
+                elif side == "right" and cutpoint >= aln.trg_end and not win_bool:
                     endpoint = aln.qry_end
                     distance = cutpoint - aln.trg_end
                     aln_endpoints.append((distance, endpoint))
-                elif side == "left" and cutpoint < aln.trg_start:
+                elif side == "left" and cutpoint < aln.trg_start and not win_bool:
                     endpoint = aln.qry_start
                     distance = aln.trg_start - cutpoint
+                    aln_endpoints.append((distance, endpoint))
+                elif side == "right" and cutpoint < aln.trg_start and win_bool:
+                    endpoint = aln.qry_start
+                    distance = aln.trg_start - cutpoint
+                    aln_endpoints.append((distance, endpoint))
+                elif side == "left" and cutpoint >= aln.trg_end and win_bool:
+                    endpoint = aln.qry_end
+                    distance = cutpoint - aln.trg_end
                     aln_endpoints.append((distance, endpoint))
         if aln_endpoints:
             consensus_endpoint = sorted(aln_endpoints)[0][1]
