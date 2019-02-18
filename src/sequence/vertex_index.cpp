@@ -173,9 +173,10 @@ void VertexIndex::buildIndexUnevenCoverage(int minCoverage, float selectRate,
 		size_t maxKmers = selectRate * _seqContainer.seqLen(readId);
 		for (auto kmerPos : IterKmers(_seqContainer.getSeq(readId)))
 		{
-			kmerPos.kmer.standardForm();
+			//kmerPos.kmer.standardForm();
 			size_t freq = 1;
 			_kmerCounts.find(kmerPos.kmer, freq);
+			//if (kmerPos.kmer.hash() % 2) freq = 1;
 			topKmers.push({kmerPos.kmer, (size_t)kmerPos.position, freq});
 			++localFreq[kmerPos.kmer];
 			if (topKmers.size() > maxKmers) topKmers.pop();
@@ -236,9 +237,10 @@ void VertexIndex::buildIndexUnevenCoverage(int minCoverage, float selectRate,
 		for (const auto& kmerPos : IterKmers(_seqContainer.getSeq(readId)))
 		{
 			auto stdKmer = kmerPos;
-			stdKmer.kmer.standardForm();
+			//stdKmer.kmer.standardForm();
 			size_t freq = 1;
 			_kmerCounts.find(stdKmer.kmer, freq);
+			//if (stdKmer.kmer.hash() % 2) freq = 1;
 
 			++localFreq[stdKmer.kmer];
 			topKmers.push({kmerPos.kmer, (size_t)kmerPos.position, freq});
