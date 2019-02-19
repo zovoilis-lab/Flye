@@ -771,7 +771,8 @@ def _make_part_list(cluster_one, cluster_two, inner_reads, phase_labels):
         part_list.append((i, "Partitioned", phase_labels[0], 1, 0, h))
     for i, h in enumerate(cluster_two):
         part_list.append((i, "Partitioned", phase_labels[1], 1, 0, h))
-    for i, h in enumerate(inner_reads):
+    #Note that the qid is saved for the inner reads but not the clusters
+    for i, h in inner_reads:
         part_list.append((i, "None", "NA", 0, 0, h))
     return part_list
 

@@ -24,8 +24,8 @@ vals = {
         "max_supp_align_overlap" : 100,
         "orientations_to_run" : "forward",
         "num_pol_iters" : 1,
-        "phased_thresh" : 10000,
-        "phase_min_longest_div" : 0.008,
-        "phase_min_any_div" : 0.005,
+        "phased_thresh" : 0.1,
+        "phase_min_longest_div" : 0.005,
+        "phase_min_any_div" : 0.001,
         "phase_min_win_div" : 0.01
     }
