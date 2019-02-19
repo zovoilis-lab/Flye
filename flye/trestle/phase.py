@@ -2428,6 +2428,8 @@ def finalize_int_stats(edge, side_labels, phase_labels, side_it,
                     if right_aln_ind < len(right_aln_qry):
                         adj_right_qry_start = (right_start + 
                                                 right_aln_qry[right_aln_ind])
+                elif trg_end_ind == len(right_trg_aln):
+                    adj_right_qry_start = right_end
             if adj_right_qry_start:
                 right_start = adj_right_qry_start            
             f.write("\tAdj Right trg start\t{0}\n".format(adj_right_trg_start))
