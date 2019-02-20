@@ -268,7 +268,7 @@ def phase_uniques(args, phasing_dir, uniques_info, summ_file,
     fp.write_fasta_dict(all_phased_dict, phased_seqs)
     num_phased = 0
     for summ_items in sorted(all_summaries):
-        if summ_items[5]:
+        if summ_items and len(summ_items) > 5 and summ_items[5]:
             num_phased += 1
         update_summary(summ_items, summ_file)
     logger.info("Phased: {0}".format(num_phased))
@@ -1172,11 +1172,19 @@ def truncate_consensus(side, cutpoint, cons_al_file, template,
         cons_head = cons_seqs.keys()[0]
         consensus = cons_seqs.values()[0]
         if side == "right":
-            start = win_endpoint
-            end = consensus_endpoint
+            start = 0
+            if win_endpoint >= 0:
+                start = win_endpoint
+            end = len(consensus)
+            if consensus_endpoint < len(consensus):
+                end = consensus_endpoint
         elif side == "left":
-            start = consensus_endpoint
-            end = win_endpoint
+            start = 0
+            if win_endpoint >= 0:
+                start = win_endpoint
+            end = len(consensus)
+            if win_endpoint < len(consensus):
+                end = win_endpoint
         cut_head = "".join([cons_head, "|{0}_{1}".format(start, end)])
         cut_dict = {cut_head:consensus[start:end]}
         fp.write_fasta_dict(cut_dict, cut_cons_file)
@@ -1193,6 +1201,8 @@ def _find_consensus_endpoint(cutpoint, aligns, side, win_bool):
         aln_ind = trg_aln[cutpoint_minus_start]
         qry_ind = aln_qry[aln_ind]
         consensus_endpoint = qry_ind + coll_aln.qry_start
+    elif cutpoint == coll_aln.trg_end:
+        consensus_endpoint = coll_aln.qry_end
     else:
         #otherwise try each alignment
         MIN_SUPP_ALN_LEN = trestle_config.vals["min_supp_align_len"]
