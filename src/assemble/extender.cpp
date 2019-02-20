@@ -86,11 +86,12 @@ Extender::ExtensionInfo Extender::extendContig(FastaRecord::Id startRead)
 			//need to check this condition, otherwise there will
 			//be complications when we initiate extension of startRead
 			//to the left
-			if(leftExtendsStart(ovlp.extId)) continue;
+			if (leftExtendsStart(ovlp.extId)) continue;
+			if (_ovlpContainer.hasSelfOverlaps(ovlp.extId)) continue;
 
 			//try to find a good one
 			if (!_chimDetector.isChimeric(ovlp.extId) &&
-				this->countRightExtensions(ovlp.extId) > minExtensions)
+				this->countRightExtensions(ovlp.extId) >= minExtensions)
 			{
 				foundExtension = true;
 				maxExtension = &ovlp;
