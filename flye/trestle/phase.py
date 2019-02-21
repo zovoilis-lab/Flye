@@ -567,8 +567,8 @@ def phase_each_edge(edge_id, all_edge_headers, args,
                 phase_below_cov[side], dup_part[side] = side_stat_outputs
                 side_it[side] = it
                 print "Here 23"
-            iter_pairs.append((side_it[side_labels[0]], 
-                               side_it[side_labels[1]]))
+            #iter_pairs.append((side_it[side_labels[0]], 
+            #                   side_it[side_labels[1]]))
             update_int_stats(edge, side_labels, phase_labels, side_it, cut_cons_align, 
                                 polished_template, 
                                 template_len,
@@ -656,7 +656,8 @@ def _find_div_region(pos_file, pol_template_file, alignment_file,
     template = ""
     if os.path.getsize(pol_template_file):
         template_dict = fp.read_sequence_dict(pol_template_file)
-        template = template_dict.values()[0]
+        if template_dict and len(template_dict.values()) >= 1:
+            template = template_dict.values()[0]
     
     pos_headers, positions = div.read_positions(pos_file)
     all_pos = positions["total"]
@@ -705,9 +706,9 @@ def _find_div_region(pos_file, pol_template_file, alignment_file,
             cluster_one = []
             cluster_two = []
             for i, lab in enumerate(labels):
-                if lab == 0:
+                if lab == 0 and i < len(headers):
                     cluster_one.append(headers[i])
-                elif lab == 1:
+                elif lab == 1 and i < len(headers):
                     cluster_two.append(headers[i])
             
             left_parts = _make_part_list(cluster_one, cluster_two, left_reads, 
@@ -750,8 +751,11 @@ def _all_reads_in_win(alns, high_win, win_size):
         if win_st >= t_st and t_end >= win_end:
             #Get read segments for each window
             trg_aln, aln_trg = _index_mapping(aln.trg_seq)
-            al_st = trg_aln[win_st - t_st]
-            al_end = trg_aln[win_end - t_st]
+            al_st = 0
+            al_end = len(aln.trg_seq)
+            if 0 <= win_st - t_st < len(trg_aln):
+                al_st = trg_aln[win_st - t_st]
+                al_end = trg_aln[win_end - t_st]
             matches = 0
             for q, t in zip(q_align[al_st:al_end], t_align[al_st:al_end]):
                 if q == t:
@@ -1020,8 +1024,8 @@ def _read_partitioning_file(partitioning_file):
     part_list = []
     with open(partitioning_file, "r") as f:
         for i, line in enumerate(f):
-            if i > 0:
-                line = line.strip()
+            line = line.strip()
+            if i > 0 and line:
                 tokens = [t.strip() for t in line.split("\t")]
                 for int_ind in [0, 3, 4]:
                     tokens[int_ind] = int(tokens[int_ind])
@@ -1116,7 +1120,9 @@ def locate_consensus_cutpoint(side, read_endpoints, phased_read_file):
     phased_reads = fp.read_sequence_dict(phased_read_file)
     for phase_header in phased_reads:
         parts = phase_header.split("|")
-        read_header = parts[-1]
+        read_header = ""
+        if parts and parts[-1]:
+            read_header = parts[-1]
         if read_header in read_endpoints:
             endpoint = read_endpoints[read_header]
             if max(endpoint) > max_endpoint:
@@ -1125,7 +1131,8 @@ def locate_consensus_cutpoint(side, read_endpoints, phased_read_file):
     coverage = [0 for _ in range(max_endpoint + 1)]
     for start, end in all_endpoints:
         for x in range(start, end):
-            coverage[x] += 1
+            if x < len(coverage):
+                coverage[x] += 1
     window_len = 100
     cutpoint = -1
     for i in range(len(coverage) - window_len):
@@ -1172,7 +1179,7 @@ def truncate_consensus(side, cutpoint, cons_al_file, template,
         logger.debug("No cons alignment to template, no cut consensus")
         return
     
-    if consensus_endpoint != -1 and win_endpoint != -1:
+    if consensus_endpoint != -1 and win_endpoint != -1 and os.path.getsize(polished_consensus):
         cons_seqs = fp.read_sequence_dict(polished_consensus)
         cons_head = cons_seqs.keys()[0]
         consensus = cons_seqs.values()[0]
@@ -1216,39 +1223,46 @@ def _find_consensus_endpoint(cutpoint, aligns, side, win_bool):
         MIN_SUPP_ALN_LEN = trestle_config.vals["min_supp_align_len"]
         #save tuples of cutpoint distance, cutpoint
         aln_endpoints = []
-        for i, aln in enumerate(aligns[0]):
-            if i == 0 or len(aln.trg_seq) >= MIN_SUPP_ALN_LEN:
-                if cutpoint >= aln.trg_start and cutpoint < aln.trg_end:
-                    trg_aln, aln_trg = _index_mapping(aln.trg_seq)
-                    qry_aln, aln_qry = _index_mapping(aln.qry_seq)
-                    cutpoint_minus_start = cutpoint - aln.trg_start
-                    if cutpoint_minus_start < 0:
-                        #print aln.qry_id, aln.trg_id, side, cutpoint, cutpoint_minus_start
-                        aln_ind = trg_aln[0]
-                    elif cutpoint_minus_start >= len(trg_aln):
-                        #print aln.qry_id, aln.trg_id, side, cutpoint, cutpoint_minus_start
-                        aln_ind = trg_aln[-1]
-                    else:
-                        aln_ind = trg_aln[cutpoint_minus_start]
-                    qry_ind = aln_qry[aln_ind]
-                    endpoint = qry_ind + coll_aln.qry_start
-                    aln_endpoints.append((0, endpoint))
-                elif side == "right" and cutpoint >= aln.trg_end and not win_bool:
-                    endpoint = aln.qry_end
-                    distance = cutpoint - aln.trg_end
-                    aln_endpoints.append((distance, endpoint))
-                elif side == "left" and cutpoint < aln.trg_start and not win_bool:
-                    endpoint = aln.qry_start
-                    distance = aln.trg_start - cutpoint
-                    aln_endpoints.append((distance, endpoint))
-                elif side == "right" and cutpoint < aln.trg_start and win_bool:
-                    endpoint = aln.qry_start
-                    distance = aln.trg_start - cutpoint
-                    aln_endpoints.append((distance, endpoint))
-                elif side == "left" and cutpoint >= aln.trg_end and win_bool:
-                    endpoint = aln.qry_end
-                    distance = cutpoint - aln.trg_end
-                    aln_endpoints.append((distance, endpoint))
+        if aligns:
+            for i, aln in enumerate(aligns[0]):
+                if i == 0 or len(aln.trg_seq) >= MIN_SUPP_ALN_LEN:
+                    if cutpoint >= aln.trg_start and cutpoint < aln.trg_end:
+                        trg_aln, aln_trg = _index_mapping(aln.trg_seq)
+                        qry_aln, aln_qry = _index_mapping(aln.qry_seq)
+                        cutpoint_minus_start = cutpoint - aln.trg_start
+                        if cutpoint_minus_start < 0:
+                            #print aln.qry_id, aln.trg_id, side, cutpoint, cutpoint_minus_start
+                            aln_ind = trg_aln[0]
+                        elif cutpoint_minus_start >= len(trg_aln):
+                            #print aln.qry_id, aln.trg_id, side, cutpoint, cutpoint_minus_start
+                            aln_ind = trg_aln[-1]
+                        else:
+                            aln_ind = None
+                            if 0 <= cutpoint_minus_start < len(trg_aln):
+                                aln_ind = trg_aln[cutpoint_minus_start]
+                        if aln_ind and aln_ind < len(aln_qry):
+                            qry_ind = aln_qry[aln_ind]
+                        if qry_ind:
+                            endpoint = qry_ind + aln.qry_start
+                        else:
+                            endpoint = aln.qry_end
+                        aln_endpoints.append((0, endpoint))
+                    elif side == "right" and cutpoint >= aln.trg_end and not win_bool:
+                        endpoint = aln.qry_end
+                        distance = cutpoint - aln.trg_end
+                        aln_endpoints.append((distance, endpoint))
+                    elif side == "left" and cutpoint < aln.trg_start and not win_bool:
+                        endpoint = aln.qry_start
+                        distance = aln.trg_start - cutpoint
+                        aln_endpoints.append((distance, endpoint))
+                    elif side == "right" and cutpoint < aln.trg_start and win_bool:
+                        endpoint = aln.qry_start
+                        distance = aln.trg_start - cutpoint
+                        aln_endpoints.append((distance, endpoint))
+                    elif side == "left" and cutpoint >= aln.trg_end and win_bool:
+                        endpoint = aln.qry_end
+                        distance = cutpoint - aln.trg_end
+                        aln_endpoints.append((distance, endpoint))
         if aln_endpoints:
             consensus_endpoint = sorted(aln_endpoints)[0][1]
     return consensus_endpoint
@@ -1749,30 +1763,31 @@ def _classify_reads(read_aligns, consensus_pos,
     read_scores = {}    
     for phase_id in read_aligns:
         read_counts = {}
-        for aln in read_aligns[phase_id][0]:
-            read_header = aln.qry_id
-            cons_header = aln.trg_id
-            #Unmapped segments will not be scored
-            if cons_header == "*":
-                continue
-            if read_header not in read_scores:
-                read_scores[read_header] = {}
-            read_scores[read_header][phase_id] = 0
-            if read_header not in read_counts:
-                read_counts[read_header] = 1
-            else:
-                read_counts[read_header] += 1
-            #Any alignments after the first supplementary will not be scored
-            if read_counts[read_header] > 2:
-                continue
-            positions = consensus_pos[phase_id]
-            trg_aln, aln_trg = _index_mapping(aln.trg_seq)
-            for pos in positions:
-                if pos >= aln.trg_start and pos < aln.trg_end:
-                    pos_minus_start = pos - aln.trg_start
-                    aln_ind = trg_aln[pos_minus_start]
-                    if aln.qry_seq[aln_ind] == aln.trg_seq[aln_ind]:
-                        read_scores[read_header][phase_id] += 1
+        if read_aligns[phase_id]:
+            for aln in read_aligns[phase_id][0]:
+                read_header = aln.qry_id
+                cons_header = aln.trg_id
+                #Unmapped segments will not be scored
+                if cons_header == "*":
+                    continue
+                if read_header not in read_scores:
+                    read_scores[read_header] = {}
+                read_scores[read_header][phase_id] = 0
+                if read_header not in read_counts:
+                    read_counts[read_header] = 1
+                else:
+                    read_counts[read_header] += 1
+                #Any alignments after the first supplementary will not be scored
+                if read_counts[read_header] > 2:
+                    continue
+                positions = consensus_pos[phase_id]
+                trg_aln, aln_trg = _index_mapping(aln.trg_seq)
+                for pos in positions:
+                    if pos >= aln.trg_start and pos < aln.trg_end:
+                        pos_minus_start = pos - aln.trg_start
+                        aln_ind = trg_aln[pos_minus_start]
+                        if aln.qry_seq[aln_ind] == aln.trg_seq[aln_ind]:
+                            read_scores[read_header][phase_id] += 1
     #Iterate through all read_headers so partitioning will be a complete set
     for read_header in headers_to_id:
         read_id = headers_to_id[read_header]
@@ -2318,8 +2333,9 @@ def finalize_int_stats(edge, side_labels, phase_labels, side_it,
         position_gaps = [0 for x in range(len(int_confirmed["total"]) + 1)]
         curr_pos = 0
         for i, p in enumerate(int_confirmed["total"]):
-            position_gaps[i] = p - curr_pos
-            curr_pos = p
+            if i < len(position_gaps):
+                position_gaps[i] = p - curr_pos
+                curr_pos = p
         position_gaps[-1] = template_len - curr_pos
         mean_position_gap = _mean(position_gaps)
         max_position_gap = max(position_gaps)
@@ -2468,6 +2484,10 @@ def finalize_int_stats(edge, side_labels, phase_labels, side_it,
             print "Here D"
             phased_edges[header] = copy_seq
             if copy_seq:
+                print "Here E", edge, phase_id, left_start, left_end,  right_start, right_end
+                f.write("Phased Seq {0}:\n".format(phase_id))
+                f.write("\tLeft:\t{0} - {1}\n".format(left_start, left_end))
+                f.write("\tRight:\t{0} - {1}\n".format(right_start, right_end))
                 seq_dict = {header:copy_seq}
                 fp.write_fasta_dict(seq_dict, 
                                     phased_seq_file.format(edge, phase_id))
@@ -2747,8 +2767,8 @@ def _check_overlap(in_file, temp_file, out_file, overlap, in_start, in_end,
 
 def _construct_repeat_copy(left_file, right_file, left_start, left_end, 
                            right_start, right_end):
-    if (not os.path.isfile(left_file) or 
-        not os.path.isfile(right_file)):
+    if (not os.path.getsize(left_file) or 
+        not os.path.getsize(right_file)):
         return ""
     left_dict = fp.read_sequence_dict(left_file)
     left_seq = left_dict.values()[0]

@@ -7,7 +7,7 @@ File with Trestle configurations
 """
 
 vals = {
-        "max_iter" : 10, 
+        "max_iter" : 20, 
         "buffer_count" : 3, 
         "min_edge_cov" : 10, 
         "min_aln_rate" : 0.5,
