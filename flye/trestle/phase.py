@@ -268,7 +268,7 @@ def phase_uniques(args, phasing_dir, uniques_info, summ_file,
     fp.write_fasta_dict(all_phased_dict, phased_seqs)
     num_phased = 0
     for summ_items in sorted(all_summaries):
-        if summ_items and len(summ_items) > 5 and summ_items[5]:
+        if len(summ_items) > 5 and summ_items[5]:
             num_phased += 1
         update_summary(summ_items, summ_file)
     logger.info("Phased: {0}".format(num_phased))
@@ -429,7 +429,7 @@ def phase_each_edge(edge_id, all_edge_headers, args,
                                     alignment_file, left_part, right_part, 
                                     window_size, phase_labels, 
                                     left_reads_file, right_reads_file, 
-                                    initial_reads)
+                                    initial_reads, all_edge_headers[edge])
         win_start, win_end = win_inds
         print "win_st, win_end", win_start, win_end
         cut_consensus = {}
@@ -507,7 +507,7 @@ def phase_each_edge(edge_id, all_edge_headers, args,
                         term_bool[side] = True
                     curr_cut_cons = cut_cons.format(it, side, phase_id)
                     cut_consensus[(it, side, phase_id)] = curr_cut_cons
-                    if os.path.isfile(cons_al_file):
+                    if os.path.getsize(pol_con_out) and os.path.isfile(cons_al_file):
                         truncate_consensus(side, cutpoint, cons_al_file, 
                                            polished_template,
                                            pol_con_out, curr_cut_cons, 
@@ -648,7 +648,8 @@ def phase_each_edge(edge_id, all_edge_headers, args,
 
 def _find_div_region(pos_file, pol_template_file, alignment_file, 
                      left_part_file, right_part_file, window_size, phase_labels, 
-                     left_reads_file, right_reads_file, initial_reads_file):
+                     left_reads_file, right_reads_file, initial_reads_file, 
+                     headers_to_id):
     CONS_ALN_RATE = trestle_config.vals["cons_aln_rate"]
     PHASE_MIN_WIN_DIV = trestle_config.vals["phase_min_win_div"]
     
@@ -710,11 +711,11 @@ def _find_div_region(pos_file, pol_template_file, alignment_file,
                     cluster_two.append(headers[i])
             
             left_parts = _make_part_list(cluster_one, cluster_two, left_reads, 
-                                         phase_labels)
+                                         phase_labels, headers_to_id)
             _write_partitioning_file(left_parts, left_part_file)
             write_side_reads(initial_reads_file, left_part_file, left_reads_file)
             right_parts = _make_part_list(cluster_one, cluster_two, right_reads, 
-                                          phase_labels)
+                                          phase_labels, headers_to_id)
             _write_partitioning_file(right_parts, right_part_file)
             write_side_reads(initial_reads_file, right_part_file, right_reads_file)
         else:
@@ -758,22 +759,26 @@ def _all_reads_in_win(alns, high_win, win_size):
             win_dists.append(1 - matches/float(al_end - al_st))
             win_headers.append(q_id)
         elif t_end < win_end:
-            left_reads.append((i, q_id))
+            left_reads.append(q_id)
         elif win_st < t_st:
-            right_reads.append((i, q_id))
+            right_reads.append(q_id)
         all_reads.add(q_id)
         
     return win_headers, win_dists, left_reads, right_reads
 
-def _make_part_list(cluster_one, cluster_two, inner_reads, phase_labels):
+def _make_part_list(cluster_one, cluster_two, inner_reads, phase_labels, 
+                    headers_to_id):
     part_list = []
-    for i, h in enumerate(cluster_one):
-        part_list.append((i, "Partitioned", phase_labels[0], 1, 0, h))
-    for i, h in enumerate(cluster_two):
-        part_list.append((i, "Partitioned", phase_labels[1], 1, 0, h))
+    for h in cluster_one:
+        read_id = headers_to_id[h]
+        part_list.append((read_id, "Partitioned", phase_labels[0], 1, 0, h))
+    for h in cluster_two:
+        read_id = headers_to_id[h]
+        part_list.append((read_id, "Partitioned", phase_labels[1], 1, 0, h))
     #Note that the qid is saved for the inner reads but not the clusters
-    for i, h in inner_reads:
-        part_list.append((i, "None", "NA", 0, 0, h))
+    for h in inner_reads:
+        read_id = headers_to_id[h]
+        part_list.append((read_id, "None", "NA", 0, 0, h))
     return part_list
 
 def write_side_reads(all_reads, partitioning, out_file):
@@ -1180,8 +1185,8 @@ def truncate_consensus(side, cutpoint, cons_al_file, template,
                 end = consensus_endpoint
         elif side == "left":
             start = 0
-            if win_endpoint >= 0:
-                start = win_endpoint
+            if consensus_endpoint >= 0:
+                start = consensus_endpoint
             end = len(consensus)
             if win_endpoint < len(consensus):
                 end = win_endpoint
@@ -1194,11 +1199,14 @@ def _find_consensus_endpoint(cutpoint, aligns, side, win_bool):
     consensus_endpoint = -1
     #first try collapsing
     coll_aln = _collapse_cons_aln(aligns)
+    print "Here z", cutpoint, win_bool, coll_aln.trg_end
     if cutpoint >= coll_aln.trg_start and cutpoint < coll_aln.trg_end:
         trg_aln, aln_trg = _index_mapping(coll_aln.trg_seq)
         qry_aln, aln_qry = _index_mapping(coll_aln.qry_seq)
         cutpoint_minus_start = cutpoint - coll_aln.trg_start
+        print "Here a", cutpoint_minus_start, len(trg_aln)
         aln_ind = trg_aln[cutpoint_minus_start]
+        print "Here a", aln_ind, len(aln_qry)
         qry_ind = aln_qry[aln_ind]
         consensus_endpoint = qry_ind + coll_aln.qry_start
     elif cutpoint == coll_aln.trg_end:
@@ -2434,9 +2442,9 @@ def finalize_int_stats(edge, side_labels, phase_labels, side_it,
                 adj_right_qry_start = right_start
             else:
                 trg_end_ind = adj_right_trg_start - right_trg_start
-                if trg_end_ind < len(right_trg_aln):
+                if 0 <= trg_end_ind < len(right_trg_aln):
                     right_aln_ind = right_trg_aln[trg_end_ind]
-                    if right_aln_ind < len(right_aln_qry):
+                    if 0 <= right_aln_ind < len(right_aln_qry):
                         adj_right_qry_start = (right_start + 
                                                 right_aln_qry[right_aln_ind])
                 elif trg_end_ind == len(right_trg_aln):
@@ -2448,6 +2456,7 @@ def finalize_int_stats(edge, side_labels, phase_labels, side_it,
             f.write("\tAdj aln ind        \t{0}\n".format(right_aln_ind))
             f.write("\tNew Right qry start\t{0}\n\n".format(right_start))
             
+            print "Here C", side_it["left"], side_it["right"]
             header = "edge_{0}_haplotype_{1}".format(edge, phase_id)
             copy_seq = ""
             if side_it["left"] > 0 and side_it["right"] > 0:
@@ -2456,6 +2465,7 @@ def finalize_int_stats(edge, side_labels, phase_labels, side_it,
                         consensuses[(side_it["right"], "right", phase_id)], 
                         left_start, left_end, 
                         right_start, right_end)
+            print "Here D"
             phased_edges[header] = copy_seq
             if copy_seq:
                 seq_dict = {header:copy_seq}
@@ -2744,8 +2754,13 @@ def _construct_repeat_copy(left_file, right_file, left_start, left_end,
     left_seq = left_dict.values()[0]
     right_dict = fp.read_sequence_dict(right_file)
     right_seq = right_dict.values()[0]
-    seq = ''.join([left_seq[left_start:left_end], 
-                   right_seq[right_start:right_end]])
+    seq = ""
+    if (0 <= left_start <= len(left_seq) and
+            0 <= left_end <= len(left_seq) and
+            0 <= right_start <= len(right_seq) and
+            0 <= right_end <= len(right_seq)):
+        seq = ''.join([left_seq[left_start:left_end], 
+                       right_seq[right_start:right_end]])
     return seq
 
 def init_summary(summary_file):
