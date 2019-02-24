@@ -165,21 +165,22 @@ def test_divergence(args, phasing_dir, uniques_dict):
                    alignment_file, reference_mode=True, sam_output=True)
         template_info = flye_aln.get_contigs_info(polished_template)
         template_len = template_info[str(edge)].length
-
+    
     logger.debug("Finding tentative divergence positions")
-    div.find_divergence(alignment_file, polished_template, 
-                        template_info, frequency_path, position_path, 
-                        summary_path, MIN_ALN_RATE, 
-                        args.platform, args.threads,
-                        SUB_THRESH, DEL_THRESH, INS_THRESH)
-
-    pos_headers, pos = div.read_positions(position_path)
-    num_pos = len(pos["total"])
-    div_rate = num_pos / float(template_len)
-    logger.debug("Edge {0}: divergence rate = {1} pos / {2} bp = {3}".format(
-                        curr_edge, num_pos, template_len, div_rate))
-    if div_rate >= PHASE_MIN_LONGEST_DIV:
-        haploid = False
+    if os.path.getsize(polished_template):
+        div.find_divergence(alignment_file, polished_template, 
+                            template_info, frequency_path, position_path, 
+                            summary_path, MIN_ALN_RATE, 
+                            args.platform, args.threads,
+                            SUB_THRESH, DEL_THRESH, INS_THRESH)
+    
+        pos_headers, pos = div.read_positions(position_path)
+        num_pos = len(pos["total"])
+        div_rate = num_pos / float(template_len)
+        logger.debug("Edge {0}: divergence rate = {1} pos / {2} bp = {3}".format(
+                            curr_edge, num_pos, template_len, div_rate))
+        if div_rate >= PHASE_MIN_LONGEST_DIV:
+            haploid = False
     return haploid
 
 def phase_uniques(args, phasing_dir, uniques_info, summ_file,
@@ -216,9 +217,12 @@ def phase_uniques(args, phasing_dir, uniques_info, summ_file,
             logger.addHandler(file_handler)
 
             result = phase_each_edge(*func_args)
+            print "Here 30"
             results_queue.put(result)
+            print "Here 31"
 
         except Exception as e:
+            print "Here 32"
             error_queue.put(e)
     print "Here 3"
     job_chunks = [edge_list[i:i + args.threads]
@@ -238,6 +242,7 @@ def phase_uniques(args, phasing_dir, uniques_info, summ_file,
                          uniques_info, all_file_names, phase_threads)
             log_file = os.path.join(phasing_dir,
                                     "edge_{0}".format(edge_id), "log.txt")
+            print "Here 33, Edge",edge_id
             threads.append(multiprocessing.Process(target=_thread_worker,
                                         args=(func_args, log_file,
                                               results_queue, error_queue)))
@@ -261,6 +266,7 @@ def phase_uniques(args, phasing_dir, uniques_info, summ_file,
             raise error_queue.get()
         print "Here 6"
         while not results_queue.empty():
+            print "Here 35"
             phased_dict, summary_list = results_queue.get()
             all_phased_dict.update(phased_dict)
             all_summaries.extend(summary_list)
@@ -360,6 +366,9 @@ def phase_each_edge(edge_id, all_edge_headers, args,
                        alignment_file, reference_mode=True, sam_output=True)
             template_info = flye_aln.get_contigs_info(polished_template)
             template_len = template_info[str(edge)].length
+        else:
+            logger.debug("No polished template")
+            return phased_dict, summary_list
         print "Here 12"
         logger.debug("Finding tentative divergence positions")
         div.find_divergence(alignment_file, polished_template, 
@@ -463,7 +472,6 @@ def phase_each_edge(edge_id, all_edge_headers, args,
                 else:
                     logger.debug("Iteration {0}, '{1}'".format(it, side))
                     both_break = False
-                print "Here 16"
                 if side == "left":
                     side_reads = left_reads_file
                 elif side == "right":
@@ -480,7 +488,6 @@ def phase_each_edge(edge_id, all_edge_headers, args,
                                 curr_reads)
                     pol_reads_str = "\tPolishing '{0} {1}' reads"
                     logger.debug(pol_reads_str.format(side, phase_id))
-                    print "Here 17"
                     
                     if not os.path.isdir(pol_con_dir):
                         os.mkdir(pol_con_dir)
@@ -488,7 +495,6 @@ def phase_each_edge(edge_id, all_edge_headers, args,
                         pol.polish(polished_template, [curr_reads], pol_con_dir, 
                                    NUM_POL_ITERS, num_threads, args.platform,
                                    output_progress=False)
-                    print "Here 18"
                     #7b. Cut consensus where coverage drops
                     if side == "left":
                         win_cutpoint = win_end
@@ -514,7 +520,6 @@ def phase_each_edge(edge_id, all_edge_headers, args,
                                            win_cutpoint)
                     else:
                         term_bool[side] = True
-                    print "Here 19"
                     #7c. Align consensuses to template 
                     #    and reads to consensuses
                     if os.path.isfile(curr_cut_cons):
@@ -539,7 +544,6 @@ def phase_each_edge(edge_id, all_edge_headers, args,
                                    polished_template, read_align, 
                                    cut_consensus, confirmed_pos_path, 
                                    partitioning, all_edge_headers[edge])
-                print "Here 21"
                 #7e. Write stats file for current iteration
                 phase_pairs = sorted(combinations(phase_labels, 
                                                  2))
@@ -626,6 +630,7 @@ def phase_each_edge(edge_id, all_edge_headers, args,
                                                res_vs_res)
         print "Here 27"
         if both_phased_present:
+            print "Here 27a"
             phased_dict.update(phased_edges)
         summary_list.append((edge, template_len, 
                              avg_cov, summ_vals, avg_div, 
@@ -652,14 +657,15 @@ def _find_div_region(pos_file, pol_template_file, alignment_file,
                      headers_to_id):
     CONS_ALN_RATE = trestle_config.vals["cons_aln_rate"]
     PHASE_MIN_WIN_DIV = trestle_config.vals["phase_min_win_div"]
-    
+    print "Here 44"
     template = ""
     if os.path.getsize(pol_template_file):
         template_dict = fp.read_sequence_dict(pol_template_file)
         if template_dict and len(template_dict.values()) >= 1:
             template = template_dict.values()[0]
-    
+    print "Here 45"
     pos_headers, positions = div.read_positions(pos_file)
+    print "Here 46"
     all_pos = positions["total"]
     num_windows = ((len(template) - 1) / window_size) + 1
     win_count = [0 for _ in range(num_windows)]
@@ -674,19 +680,20 @@ def _find_div_region(pos_file, pol_template_file, alignment_file,
             if win_count[curr_win] >= high_count:
                 high_win = curr_win
                 high_count = win_count[curr_win]
-    
+    print "Here 48"
     win_start = high_win * window_size
     win_end = (high_win + 1) * window_size
     if high_count < PHASE_MIN_WIN_DIV * window_size:
         _write_partitioning_file([], left_part_file)
         _write_partitioning_file([], right_part_file)
+        print "Here 49"
     else:
+        print "Here 50"
         aligns = _read_alignment(alignment_file, pol_template_file,
                                  CONS_ALN_RATE)
         if aligns and aligns[0]:
             win_output = _all_reads_in_win(aligns[0], high_win, window_size)
             win_headers, win_dists, left_reads, right_reads = win_output
-            
             head_ids = []
             headers = []
             distances = []
@@ -694,15 +701,16 @@ def _find_div_region(pos_file, pol_template_file, alignment_file,
                 head_ids.append(i)
                 headers.append(h)
                 distances.append([d])
-            
             labels = []
             if len(distances) >= 2:
+                print "Here 61"
                 clustering = AgglomerativeClustering(affinity='euclidean', 
                                                 n_clusters=2, 
                                                 linkage='average')
                 model = clustering.fit(distances)
                 print model.labels_
                 labels = model.labels_
+            print "Here 62", labels, headers, head_ids
             cluster_one = []
             cluster_two = []
             for i, lab in enumerate(labels):
@@ -710,7 +718,6 @@ def _find_div_region(pos_file, pol_template_file, alignment_file,
                     cluster_one.append(headers[i])
                 elif lab == 1 and i < len(headers):
                     cluster_two.append(headers[i])
-            
             left_parts = _make_part_list(cluster_one, cluster_two, left_reads, 
                                          phase_labels, headers_to_id)
             _write_partitioning_file(left_parts, left_part_file)
@@ -719,6 +726,7 @@ def _find_div_region(pos_file, pol_template_file, alignment_file,
                                           phase_labels, headers_to_id)
             _write_partitioning_file(right_parts, right_part_file)
             write_side_reads(initial_reads_file, right_part_file, right_reads_file)
+            print "Here 64"
         else:
             raise Exception("Unreadable alignment: {0}".format(alignment_file))
     return win_start, win_end
@@ -738,6 +746,7 @@ def _all_reads_in_win(alns, high_win, win_size):
     left_reads = []
     right_reads = []
     all_reads = set()
+    print "Here 53"
     #Assumes all strands are forward strands
     for i, aln in enumerate(alns):
         q_id = aln.qry_id
@@ -746,16 +755,27 @@ def _all_reads_in_win(alns, high_win, win_size):
         #t_strand = aln.trg_sign
         q_align = aln.qry_seq
         t_align = aln.trg_seq
+        print "Here 54"
         if q_id in all_reads:
             continue
         if win_st >= t_st and t_end >= win_end:
+            print "Here 55"
             #Get read segments for each window
             trg_aln, aln_trg = _index_mapping(aln.trg_seq)
             al_st = 0
-            al_end = len(aln.trg_seq)
+            al_end = aln.trg_end
+            print "Here 56"
             if 0 <= win_st - t_st < len(trg_aln):
                 al_st = trg_aln[win_st - t_st]
+            else:
+                print "CASE 1", win_st, t_st, win_end, t_end
+            if 0 <= win_end - t_st < len(trg_aln):
                 al_end = trg_aln[win_end - t_st]
+            elif win_st - t_st == len(trg_aln):
+                al_end = aln.trg_end
+            else:
+                print "CASE 2", win_st, t_st, win_end, t_end
+            print "Here 57"
             matches = 0
             for q, t in zip(q_align[al_st:al_end], t_align[al_st:al_end]):
                 if q == t:
@@ -767,7 +787,7 @@ def _all_reads_in_win(alns, high_win, win_size):
         elif win_st < t_st:
             right_reads.append(q_id)
         all_reads.add(q_id)
-        
+        print "Here 59"
     return win_headers, win_dists, left_reads, right_reads
 
 def _make_part_list(cluster_one, cluster_two, inner_reads, phase_labels, 
@@ -1213,7 +1233,7 @@ def _find_consensus_endpoint(cutpoint, aligns, side, win_bool):
         cutpoint_minus_start = cutpoint - coll_aln.trg_start
         print "Here a", cutpoint_minus_start, len(trg_aln)
         aln_ind = trg_aln[cutpoint_minus_start]
-        print "Here a", aln_ind, len(aln_qry)
+        print "Here b", aln_ind, len(aln_qry)
         qry_ind = aln_qry[aln_ind]
         consensus_endpoint = qry_ind + coll_aln.qry_start
     elif cutpoint == coll_aln.trg_end:
@@ -1240,6 +1260,7 @@ def _find_consensus_endpoint(cutpoint, aligns, side, win_bool):
                             aln_ind = None
                             if 0 <= cutpoint_minus_start < len(trg_aln):
                                 aln_ind = trg_aln[cutpoint_minus_start]
+                        qry_ind = None
                         if aln_ind and aln_ind < len(aln_qry):
                             qry_ind = aln_qry[aln_ind]
                         if qry_ind:
@@ -2475,7 +2496,10 @@ def finalize_int_stats(edge, side_labels, phase_labels, side_it,
             print "Here C", side_it["left"], side_it["right"]
             header = "edge_{0}_haplotype_{1}".format(edge, phase_id)
             copy_seq = ""
-            if side_it["left"] > 0 and side_it["right"] > 0:
+            if (side_it["left"] > 0 and side_it["right"] > 0 and
+                    left_align and right_align and
+                    os.path.isfile(consensuses[(side_it["left"], "left", phase_id)]) and
+                    os.path.isfile(consensuses[(side_it["right"], "right", phase_id)])):
                 copy_seq = _construct_repeat_copy(
                         consensuses[(side_it["left"], "left", phase_id)], 
                         consensuses[(side_it["right"], "right", phase_id)], 
