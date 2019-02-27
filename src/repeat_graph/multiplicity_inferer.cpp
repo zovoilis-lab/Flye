@@ -313,6 +313,11 @@ void MultiplicityInferer::trimTips()
 	std::unordered_set<FastaRecord::Id> toRemove;
 	GraphProcessor proc(_graph, _asmSeqs);
 	auto unbranchingPaths = proc.getUnbranchingPaths();
+	std::unordered_map<GraphEdge*, UnbranchingPath*> ubIndex;
+	for (auto& path : unbranchingPaths)
+	{
+		for (auto& edge: path.path) ubIndex[edge] = &path;
+	}
 
 	for (auto& tipPath : unbranchingPaths)
 	{
@@ -325,20 +330,22 @@ void MultiplicityInferer::trimTips()
 		std::vector<UnbranchingPath*> entrances;
 		for (GraphEdge* edge : tipNode->inEdges)
 		{
-			for (auto& path : unbranchingPaths)
-			{
-				if (path.path.back() == edge && !path.isLooped() &&
-					path.nodeLeft()->inEdges.size() > 0) entrances.push_back(&path);
-			}
+			//for (auto& path : unbranchingPaths)
+			//{
+			UnbranchingPath& path = *ubIndex[edge];
+			if (path.path.back() == edge && !path.isLooped() &&
+				path.nodeLeft()->inEdges.size() > 0) entrances.push_back(&path);
+			//}
 		}
 		std::vector<UnbranchingPath*> exits;
 		for (GraphEdge* edge : tipNode->outEdges)
 		{
-			for (auto& path : unbranchingPaths)
-			{
-				if (path.path.front() == edge && !path.isLooped() &&
-					path.nodeRight()->outEdges.size() > 0) exits.push_back(&path);
-			}
+			//for (auto& path : unbranchingPaths)
+			//{
+			UnbranchingPath& path = *ubIndex[edge];
+			if (path.path.front() == edge && !path.isLooped() &&
+				path.nodeRight()->outEdges.size() > 0) exits.push_back(&path);
+			//}
 		}
 		if (entrances.size() != 1 || exits.size() != 1) continue;
 
