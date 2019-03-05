@@ -236,7 +236,7 @@ in the assembly file (with a `scaffold_` prefix).  Since it is hard to give a re
 gap size, those gaps are represented with the default 100 Ns. `assembly_info.txt`
 file (below) contains additional information about how scaffolds were formed.
 
-Extra information about contigs/scaffolds is output into the ```assembly_info.txt``` file.
+Extra information about contigs/scaffolds is output into the `assembly_info.txt` file.
 It is a tab-delimeted table with the columns as follows:
 
 * Contig/scaffold id
@@ -246,7 +246,7 @@ It is a tab-delimeted table with the columns as follows:
 * Is repetitive (represents repeated, rather than unique sequence)
 * Multiplicity (inferred multiplicity based on coverage)
 * Graph path (repeat grapth path corresponding to this contig/scaffold).
-Scaffold gaps are marked with "??" symbols, and '*' symbol denotes a
+Scaffold gaps are marked with `??` symbols, and `*` symbol denotes a
 terminal graph node.
 
 ## <a name="graph"></a> Repeat graph
