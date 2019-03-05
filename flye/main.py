@@ -239,6 +239,7 @@ class JobFinalize(Job):
 
         #self.out_files["contigs"] = os.path.join(work_dir, "contigs.fasta")
         self.out_files["scaffolds"] = os.path.join(work_dir, "scaffolds.fasta")
+        self.out_files["assembly"] = os.path.join(work_dir, "assembly.fasta")
         self.out_files["stats"] = os.path.join(work_dir, "assembly_info.txt")
         self.out_files["graph"] = os.path.join(work_dir, "assembly_graph.gv")
         self.out_files["gfa"] = os.path.join(work_dir, "assembly_graph.gfa")
@@ -250,7 +251,7 @@ class JobFinalize(Job):
         shutil.copy2(self.polished_gfa, self.out_files["gfa"])
 
         scaffolds = scf.generate_scaffolds(self.contigs_file, self.scaffold_links,
-                                           self.out_files["scaffolds"])
+                                           self.out_files["assembly"])
 
         logger.debug("---Output dir contents:----")
         try:
@@ -263,7 +264,11 @@ class JobFinalize(Job):
 
         scf.generate_stats(self.repeat_stats, self.polished_stats, scaffolds,
                            self.out_files["stats"])
-        logger.info("Final assembly: {0}".format(self.out_files["scaffolds"]))
+        try:
+            os.symlink(self.out_files["assembly"], self.out_files["scaffolds"])
+        except OSError as e:
+            logger.debug(e)
+        logger.info("Final assembly: {0}".format(self.out_files["assembly"]))
 
 
 class JobConsensus(Job):
