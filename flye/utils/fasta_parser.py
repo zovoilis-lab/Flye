@@ -141,7 +141,8 @@ def _read_fastq(file_handle):
 
         if state_counter == 0:
             if line[0] != "@":
-                raise FastaError("Fastq format error on line {0}".format(no))
+                raise FastaError("Fastq format error: {0} at line {1}"
+                                    .format(file_handle.name, no))
             header = line[1:].split(" ")[0]
 
         if state_counter == 1:
@@ -149,7 +150,8 @@ def _read_fastq(file_handle):
 
         if state_counter == 2:
             if line[0] != "+":
-                raise FastaError("Fastq format error on line {0}".format(no))
+                raise FastaError("Fastq format error: {0} at line {1}"
+                                    .format(file_handle.name, no))
 
         if state_counter == 3:
             qual = line
