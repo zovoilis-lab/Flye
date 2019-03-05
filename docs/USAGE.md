@@ -215,25 +215,39 @@ For example, you might supply different sets of reads for different stages.
 
 ## <a name="output"></a> Flye output
 
-Each contig is formed by a single unique edge and possibly multiple repetitive
-edges and correponds to a genomic path through the graph.
-Sometimes it is also possible to further order some contigs based on the repeat graph 
-structure. In this case, scaffolds are formed by interleaving the ordered contigs with 100 Ns.
-Scaffolds (along with contigs that are not contained in scaffolds) are output
-into the "scaffolds.fasta" file. 
+The main output files are:
+
+* `assembly.fasta` - Final assembly. Contains contigs and possibly scaffolds (see below).
+* `assembly_graph.{gfa|gv}` - Final repeat graph. Note that the edge sequences might be
+different (shorter) than contig sequences, because contigs migh include multiple
+graph edges (see below).
+* `assembly_info.txt` - Extra information about contigs (such as length or coverage).
+
+Each contig is formed by a single unique graph edge. If possble, unique contigs are
+extended with the sequence from flanking unresolved repeats on the graph. Thus,
+a contig fully contains the corresponding graph edge (with the same id), but might
+be longer then this edge. This is somewhat similar to unitig-contig relation
+in OLC assemblers. In the rare case when a repetitive graph edge is not covered by 
+the set of "extended" contigs, it will be also output in the assembly file.
+
+Sometimes it is possible to further order some contigs into scaffolds based on the 
+repeat graph structure. Since it is hard to give a reliable estimate of the
+gap size, those gaps are represented with the default 100 Ns. If a contig is a part 
+of a scaffold, it will not be output separately to avoid duplications. `assembly_info.txt`
+file (below) contains additional information about how the scaffolds were formed.
 
 Extra information about contigs/scaffolds is output into the ```assembly_info.txt``` file.
-The table columns are as follows:
+It is a tab-delimeted table with the columns as follows:
 
-* Sequence id
+* Contig/scaffold id
 * Length
 * Coverage
-* Circular? (if contig represent a circular sequence)
-* Repetitive? (if contig represent repetitive, rather than unique sequence)
-* Multiplicity (inferred contig multiplicity based on coverage)
-* Graph path (the edges of the assembly graph that form this particular contig).
-     Scaffold gaps are marked with "??" symbols, and '*' symbol means
-	 the end of a graph path.
+* Is circular (representing circular sequence, such as bacterial chromosome or plasmid)
+* Is repetitive (represents repeated, rather than unique sequence)
+* Multiplicity (inferred multiplicity based on coverage)
+* Graph path (repeat grapth path corresponding to this contig/scaffold).
+Scaffold gaps are marked with "??" symbols, and '*' symbol denotes a
+terminal graph node.
 
 ## <a name="graph"></a> Repeat graph
 
