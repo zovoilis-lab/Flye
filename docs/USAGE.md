@@ -227,14 +227,14 @@ Each contig is formed by a single unique graph edge. If possble, unique contigs 
 extended with the sequence from flanking unresolved repeats on the graph. Thus,
 a contig fully contains the corresponding graph edge (with the same id), but might
 be longer then this edge. This is somewhat similar to unitig-contig relation
-in OLC assemblers. In the rare case when a repetitive graph edge is not covered by 
+in OLC assemblers. In a rare case when a repetitive graph edge is not covered by 
 the set of "extended" contigs, it will be also output in the assembly file.
 
-Sometimes it is possible to further order some contigs into scaffolds based on the 
-repeat graph structure. Since it is hard to give a reliable estimate of the
-gap size, those gaps are represented with the default 100 Ns. If a contig is a part 
-of a scaffold, it will not be output separately to avoid duplications. `assembly_info.txt`
-file (below) contains additional information about how the scaffolds were formed.
+Sometimes it is possible to further order contigs into scaffolds based on the 
+repeat graph structure. These ordered contigs will be output as a part of scaffold
+in the assembly file (with a `scaffold_` prefix).  Since it is hard to give a reliable estimate of the
+gap size, those gaps are represented with the default 100 Ns. `assembly_info.txt`
+file (below) contains additional information about how scaffolds were formed.
 
 Extra information about contigs/scaffolds is output into the ```assembly_info.txt``` file.
 It is a tab-delimeted table with the columns as follows:
