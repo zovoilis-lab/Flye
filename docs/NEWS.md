@@ -1,3 +1,9 @@
+Flye 2.4.1 release (05 Mar 2019)
+================================
+* Speed and stability improvements for large datasets
+* New option `--polish-target` to run Flye polisher on the target sequence
+
+
 Flye 2.4 release (14 Jan 2019)
 ==============================
 * Metagenome assembly support fully integrated (`--meta` option)
