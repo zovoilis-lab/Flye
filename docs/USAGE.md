@@ -10,7 +10,7 @@ Table of Contents
 - [Parameter Descriptions](#parameters)
 - [Flye output](#output)
 - [Repeat graph](#graph)
-- [Running Time and Memory Requirements](#performance)
+- [Flye benchmarks](#performance)
 - [Algorithm Description](#algorithm)
 
 
@@ -289,20 +289,26 @@ Repeat graph before repeat resolution could be found in
 the `20-repeat/graph_before_rr.gv` file.
 
 
-## <a name="performance"></a> Running time and memory requirements
+## <a name="performance"></a> Flye benchmarks
 
 
-Typically, assembly of a bacteria or small eukaryote coverage takes less than half an hour 
-on a modern desktop. C. elegans can be assembled within a few hours on a 
-computational node. The more detailed benchmarks are below.
+| Genome               | Data       | Asm.Size  | NG50     | CPU time  | RAM    |
+|----------------------|------------|-----------|----------|-----------|--------|
+| [E.coli][ecoli]      | PB 50x     | 4.6 Mb    | 4.6 Mb   | 2 h       | 2 Gb   |
+| [C.elegans][ce]      | PB 40x     | 102 Mb    | 2.9 Mb   | 100 h     | 31 Gb  |
+| [A.thaliana][at]     | PB 75x     | 120 Mb    | 11.2 Mb  | 240 h     | 46 Gb  |
+| [D.melanogaster][dm] | PB 120x    | 142 Mb    | 17.5 Mb  | 190 h     | 75 Gb  |     
+| [NA12878][na12878]   | ONT UL 35x | 2.9 Gb    | 20.8 Mb  | 5000 h    | 600 Gb |
+| [HG002][hg002]       | PB CCS 30x | 2.9 Gb    | 24.6 Mb  | 900 h     | 300 Gb |
+| [HMP mock][hmp]      | PB meta    | 66 Mb     | 2.7 Mb   | 60 h      | 44 Gb  |
 
-|Genome        | Size   | Coverage | CPU time  | RAM    |
-|--------------|--------|----------|-----------|--------|
-| E.coli       | 5 Mb   | 50       | 170 m     | 2 Gb   |
-| S.cerevisiae | 12 Mb  | 30       | 180 m     | 7 Gb   |
-| C.elegans    | 100 Mb | 30       | 160 h     | 23 Gb  |
-| H.sapiens    | 3 Gb   | 30       | 5000 h    | 500 Gb |
-
+[na12878]: https://github.com/nanopore-wgs-consortium/NA12878/blob/master/rel5.md
+[ce]: https://github.com/PacificBiosciences/DevNet/wiki/C.-elegans-data-set
+[at]: https://downloads.pacbcloud.com/public/SequelData/ArabidopsisDemoData/
+[dm]: https://github.com/PacificBiosciences/DevNet/wiki/Drosophila-sequence-and-assembly
+[hg002]: https://ftp-trace.ncbi.nlm.nih.gov/giab/ftp/data/AshkenazimTrio/HG002_NA24385_son/PacBio_CCS_15kb/
+[ecoli]: https://github.com/PacificBiosciences/DevNet/wiki/E.-coli-Bacterial-Assembly
+[hmp]: https://github.com/PacificBiosciences/DevNet/wiki/Human_Microbiome_Project_MockB_Shotgun 
 
 ## <a name="algorithm"></a> Algorithm Description
 
