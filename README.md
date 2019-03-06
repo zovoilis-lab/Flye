@@ -91,6 +91,8 @@ Flye benchmarks
 [ecoli]: https://github.com/PacificBiosciences/DevNet/wiki/E.-coli-Bacterial-Assembly
 [hmp]: https://github.com/PacificBiosciences/DevNet/wiki/Human_Microbiome_Project_MockB_Shotgun 
 
+The assemblies generated using Flye 2.4 could be downloaded from [Zenodo](https://zenodo.org/record/2586130)
+
 Third-party
 -----------
 

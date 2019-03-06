@@ -312,6 +312,8 @@ the `20-repeat/graph_before_rr.gv` file.
 [ecoli]: https://github.com/PacificBiosciences/DevNet/wiki/E.-coli-Bacterial-Assembly
 [hmp]: https://github.com/PacificBiosciences/DevNet/wiki/Human_Microbiome_Project_MockB_Shotgun 
 
+The assemblies generated using Flye 2.4 could be downloaded from [Zenodo](https://zenodo.org/record/2586130)
+
 ## <a name="algorithm"></a> Algorithm Description
 
 This is a brief description of the Flye algorithm. Please refer to the manuscript
