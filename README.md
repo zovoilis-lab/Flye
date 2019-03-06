@@ -14,7 +14,7 @@ pipeline: it takes raw PB / ONT reads as input and outputs polished contigs.
 Flye is using repeat graphs to identify genomic repeats
 and optimally resolve them, which results into accurate assemblies.
 In difference to the current state-of-the-art approaches, Flye does
-not error-correct input reads, thus the assembly is faster.
+not error-correct input reads, thus the process is faster.
 Flye also includes a special mode for metagenome assembly.
 
 Latest updates
@@ -49,7 +49,7 @@ The edges of repeat graph represent genomic sequence, and nodes define
 the junctions. All edges are classified into uniqe and repetitive.
 The genome traverses the graph in an unknown way, so as each unique
 edge appears exactly once in this traversal. Repeat graphs are useful
-for repeat analysis and resolution - which are one of the key 
+for repeat analysis and resolution - which is one of the key 
 genome assembly challenges.
 
 
@@ -116,6 +116,6 @@ Yu Lin, Jeffrey Yuan, Mikhail Kolmogorov, Max W Shen, Mark Chaisson and Pavel Pe
 
 Contacts
 --------
-Please report any problems to the [issue tracker](https://github.com/fenderglass/Flye).
+Please report any problems to the [issue tracker](https://github.com/fenderglass/Flye/issues).
 If possible, please include "flye.log" file from the output directory
 for faster feedback. Alternatively, you can write directly to fenderglass@gmail.com.

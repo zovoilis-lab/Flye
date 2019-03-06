@@ -62,13 +62,13 @@ optional arguments:
 ```
 
 Input reads can be in FASTA or FASTQ format, uncompressed
-or compressed with gz. Currently, raw and corrected reads
+or compressed with `.gz`. Currently, raw and corrected reads
 from PacBio and ONT are supported. Expected error rates are
 <30% for raw and <2% for corrected reads. Additionally, the
---subassemblies option performs a consensus assembly of multiple
+`--subassemblies` option performs a consensus assembly of multiple
 sets of high-quality contigs. You may specify multiple
 files with reads (separated by spaces). Mixing different read
-types is not yet supported. The --meta option enables the mode
+types is not yet supported. The `--meta` option enables the mode
 for metagenome/uneven coverage assembly.
 
 You must provide an estimate of the genome size as input,
@@ -79,11 +79,11 @@ should be provided.
 
 To reduce memory consumption for large genome assemblies,
 you can use a subset of the longest reads for initial contig
-assembly by specifying --asm-coverage option. Typically,
-40x coverage is enough to produce good draft contigs.
+assembly by specifying `--asm-coverage` option. Typically,
+30x coverage is enough to produce good draft contigs.
 
 You can separately run Flye polisher on a target sequence 
-using --polish-target option.
+using `--polish-target` option.
 
 
 ## <a name="examples"></a> Examples
@@ -186,7 +186,7 @@ consensus sequence, while the metagenome mode was slightly more fragmented, but
 revealed strain mixtures. For relatively complex metagenome `--meta` mode
 is the recommended way.
 
-### Contig assembly coverage
+### Reduced contig assembly coverage
 
 Typically, assemblies of large genomes at high coverage require
 a hundreds of RAM. For high coverage assemblies, you can reduce memory usage
@@ -198,13 +198,10 @@ all reads will be used at the later pipeline stages.
 
 ### Number of polishing iterations
 
-Flye first constructs a draft assembly of the genome, which is a 
-concatenation of a collection of raw read segments. In the end, the draft assembly
-is polished into a high quality sequence. By default, Flye runs one polishing 
-iteration. The number could be increased, which might correct a small number of additional
-errors (due to improvements on how reads may align to the corrected assembly; 
-especially for ONT datasets). If the parameter is set to 0, the polishing will
-not be performed.
+Polishing is performed as the final assembly stage. By default, Flye runs one polishing 
+iteration. Additional iterations might correct a small number of extra
+errors (due to improvements on how reads may align to the corrected assembly). 
+If the parameter is set to 0, the polishing is not performed.
 
 ### Re-starting from a particular assembly stage
 

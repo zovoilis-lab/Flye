@@ -579,7 +579,7 @@ def _epilog():
             "To reduce memory consumption for large genome assemblies,\n"
             "you can use a subset of the longest reads for initial contig\n"
             "assembly by specifying --asm-coverage option. Typically,\n"
-            "40x coverage is enough to produce good draft contigs.\n\n"
+            "30x coverage is enough to produce good draft contigs.\n\n"
             "You can separately run Flye polisher on a target sequence \n"
             "using --polish-target option.")
 
