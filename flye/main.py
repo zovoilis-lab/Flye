@@ -573,7 +573,7 @@ def _epilog():
             "for metagenome/uneven coverage assembly.\n\n"
             "You must provide an estimate of the genome size as input,\n"
             "which is used for solid k-mers selection. Standard size\n"
-            "modificators are supported (e.g. 5m or 2.6g). In the case\n"
+            "modifiers are supported (e.g. 5m or 2.6g). In the case\n"
             "of metagenome assembly, the expected total assembly size\n"
             "should be provided.\n\n"
             "To reduce memory consumption for large genome assemblies,\n"

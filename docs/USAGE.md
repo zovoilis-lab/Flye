@@ -73,7 +73,7 @@ for metagenome/uneven coverage assembly.
 
 You must provide an estimate of the genome size as input,
 which is used for solid k-mers selection. Standard size
-modificators are supported (e.g. 5m or 2.6g). In the case
+modifiers are supported (e.g. 5m or 2.6g). In the case
 of metagenome assembly, the expected total assembly size
 should be provided.
 
@@ -122,7 +122,7 @@ e.g. adaptors and noise are trimmed and multiple passes of the same insertion
 sequence are separated. This is typically handled by PacBio instruments/toolchains,
 however we saw examples of incorrect third-party raw -> fastq conversions, 
 which resulted into incorrectly trimmed data. In case Flye is failing to
-get reaonable assemblies, make sure that your reads are properly preprocessed.
+get reasonable assemblies, make sure that your reads are properly preprocessed.
 
 ### Oxford Nanopore data
 
@@ -223,7 +223,7 @@ different (shorter) than contig sequences, because contigs migh include multiple
 graph edges (see below).
 * `assembly_info.txt` - Extra information about contigs (such as length or coverage).
 
-Each contig is formed by a single unique graph edge. If possble, unique contigs are
+Each contig is formed by a single unique graph edge. If possible, unique contigs are
 extended with the sequence from flanking unresolved repeats on the graph. Thus,
 a contig fully contains the corresponding graph edge (with the same id), but might
 be longer then this edge. This is somewhat similar to unitig-contig relation
@@ -237,7 +237,7 @@ gap size, those gaps are represented with the default 100 Ns. `assembly_info.txt
 file (below) contains additional information about how scaffolds were formed.
 
 Extra information about contigs/scaffolds is output into the `assembly_info.txt` file.
-It is a tab-delimeted table with the columns as follows:
+It is a tab-delimited table with the columns as follows:
 
 * Contig/scaffold id
 * Length
@@ -245,22 +245,22 @@ It is a tab-delimeted table with the columns as follows:
 * Is circular (representing circular sequence, such as bacterial chromosome or plasmid)
 * Is repetitive (represents repeated, rather than unique sequence)
 * Multiplicity (inferred multiplicity based on coverage)
-* Graph path (repeat grapth path corresponding to this contig/scaffold).
+* Graph path (repeat graph path corresponding to this contig/scaffold).
 Scaffold gaps are marked with `??` symbols, and `*` symbol denotes a
 terminal graph node.
 
 `scaffolds.fasta` file is a symlink to the `assembly.fasta`, which is
-retained for the backward compatability.
+retained for the backward compatibility.
 
 ## <a name="graph"></a> Repeat graph
 
 The Flye algorithms are using repeat graph as a core data structure. 
 In difference to de Bruijn graphs which require exact k-mer matches,
-repeat graphs are built using apporximate sequence matches, thus
+repeat graphs are built using approximate sequence matches, thus
 can tollerate higher noise of SMS reads.
 
 The edges of repeat graph represent genomic sequence, and nodes define
-the junctions. All edges are classified into uniqe and repetitive.
+the junctions. All edges are classified into uniquue and repetitive.
 The genome traverses the graph in an unknown way, so as each unique
 edge appears exactly once in this traversal. Repeat graphs are useful
 for repeat analysis and resolution - which are one of the key 
@@ -309,8 +309,8 @@ computational node. The more detailed benchmarks are below.
 This is a brief description of the Flye algorithm. Please refer to the manuscript
 for more detailed information. The draft contig extension is organized as follows:
 
-* Kmer counting / erroneous kmer pre-filtering
-* Solid kmer selection (kmers with sufficient frequency, which are unlikely to be erroneous)
+* K-mer counting / erroneous k-mer pre-filtering
+* Solid k-mer selection (k-mers with sufficient frequency, which are unlikely to be erroneous)
 * Contig extension. The algorithm starts from a single read and extends it
   with a next overlapping read (overlaps are dynamically detected using the selected
   solid k-mers).
@@ -325,8 +325,8 @@ calls a consensus. Afterwards, Flye performs repeat analysis as follows:
 * The algorithm resolves repeats using the read information and graph structure
 * The unbranching paths in the graph are output as contigs
 
-After resolving bridged repeats, Trestle module attemts to reolve simple unbridged
-repeats (of multiplicity 2) using the heterogenities between repeat copies.
+After resolving bridged repeats, Trestle module attempts to resolve simple unbridged
+repeats (of multiplicity 2) using the heterogeneities between repeat copies.
 Finally, Flye performs polishing of the resulting assembly
 to correct the remaining errors:
 

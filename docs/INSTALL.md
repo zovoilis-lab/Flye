@@ -13,7 +13,7 @@ You can get the latest stable release through Bioconda:
 
     conda install flye
 
-Alternatively, you can get a release verson from the github "releases" page
+Alternatively, you can get a release version from the github releases page
 
 
 Building Requirements

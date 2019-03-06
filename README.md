@@ -8,7 +8,7 @@ Flye assembler
 Flye is a de novo assembler for single molecule sequencing reads,
 such as those produced by PacBio and Oxford Nanopore Technologies.
 We support a wide range of datasets, from small bacterial projects
-to large mammalian-scale assemblies. The package represets a complete
+to large mammalian-scale assemblies. The package represents a complete
 pipeline: it takes raw PB / ONT reads as input and outputs polished contigs.
 
 Flye is using repeat graphs to identify genomic repeats
@@ -27,7 +27,7 @@ Latest updates
 ### Flye 2.4 release (14 Jan 2019)
 * Metagenome assembly support fully integrated (`--meta` option)
 * New Trestle module for resolving simple unbridged repeats
-* New `--plasmids` option that recovers short unassmbled plasmids
+* New `--plasmids` option that recovers short unassembled plasmids
 
 
 Manuals
@@ -42,11 +42,11 @@ Repeat graph
 
 The Flye algorithms are using repeat graph as a core data structure. 
 In difference to de Bruijn graphs which require exact k-mer matches,
-repeat graphs are built using apporximate sequence matches, thus
-can tollerate higher noise of SMS reads.
+repeat graphs are built using approximate sequence matches, thus
+can tolerate higher noise of SMS reads.
 
 The edges of repeat graph represent genomic sequence, and nodes define
-the junctions. All edges are classified into uniqe and repetitive.
+the junctions. All edges are classified into unique and repetitive.
 The genome traverses the graph in an unknown way, so as each unique
 edge appears exactly once in this traversal. Repeat graphs are useful
 for repeat analysis and resolution - which is one of the key 
@@ -99,8 +99,8 @@ Code contributions:
 
 * Repeat graph and current package maintaining: Mikhail Kolmogorov
 * Trestle module and original polisher code: Jeffrey Yuan
-* Original contig extention code: Yu Lin
-* Short plasmids recovrey module: Evgeny Polevikov
+* Original contig extension code: Yu Lin
+* Short plasmids recovery module: Evgeny Polevikov
 
 
 Publications
