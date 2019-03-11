@@ -1,13 +1,19 @@
+Flye 2.4.1 release (05 Mar 2019)
+================================
+* Speed and stability improvements for large datasets
+* New option `--polish-target` to run Flye polisher on the target sequence
+
+
 Flye 2.4 release (14 Jan 2019)
 ==============================
 * Metagenome assembly support fully integrated (`--meta` option)
 * New Trestle module for resolving simple unbridged repeats
-* New `--plasmids` option that recovers short unassmbled plasmids
+* New `--plasmids` option that recovers short unassembled plasmids
 
 Flye 2.3.7 (14 Nov 2018)
 =======================
 * Improvements in repeat edges detection
-* More precise read mapping - more contigious assemblies for some datasets
+* More precise read mapping - more contiguous assemblies for some datasets
 * Memory and performance optimizations for high-coverage datasets
 * More accurate repeat graphs for complex datasets
 
@@ -57,7 +63,7 @@ Flye 2.3 (04 Jan 2018)
 * Stable version of the repeat analysis module
 * New command-line syntax (fallback mode with the old syntax is available)
 * New --subassemblies mode for generating consensus of multiple assemblies
-* Improved preformance and reduced memory footprint (now scales to human genome)
+* Improved performance and reduced memory footprint (now scales to human genome)
 * Corrected reads are now supported
 * Extra output with information about the contigs (coverage, multiplicity, graph paths etc.)
 * Gzipped Fasta/q support

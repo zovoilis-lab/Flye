@@ -147,8 +147,8 @@ namespace
 void VertexIndex::buildIndexUnevenCoverage(int minCoverage, float selectRate,
 										   int tandemFreq)
 {
-	_solidMultiplier = 2;
-	//_solidMultiplier = 1;
+	//_solidMultiplier = 2;
+	_solidMultiplier = 1;
 
 	std::vector<FastaRecord::Id> allReads;
 	for (const auto& seq : _seqContainer.iterSeqs())
@@ -158,44 +158,44 @@ void VertexIndex::buildIndexUnevenCoverage(int minCoverage, float selectRate,
 
 	//first, count the number of k-mers that will be actually stored in the index
 	_kmerIndex.reserve(_kmerCounts.size() / 10);
+	if (_outputProgress) Logger::get().info() << "Filling index table (1/2)";
 	std::function<void(const FastaRecord::Id&)> initializeIndex = 
 	[this, minCoverage, selectRate, tandemFreq] (const FastaRecord::Id& readId)
 	{
 		if (!readId.strand()) return;
 
-		auto cmp = [](const KmerFreq& k1, const KmerFreq& k2)
-							{return k1.freq > k2.freq;};
-		thread_local std::priority_queue<KmerFreq, std::vector<KmerFreq>,
-									 	 decltype(cmp)> topKmers(cmp);
 		thread_local std::unordered_map<Kmer, size_t> localFreq;
 		localFreq.clear();
+		std::vector<KmerFreq> topKmers(_seqContainer.seqLen(readId));
 
-		size_t maxKmers = selectRate * _seqContainer.seqLen(readId);
 		for (auto kmerPos : IterKmers(_seqContainer.getSeq(readId)))
 		{
-			//kmerPos.kmer.standardForm();
+			kmerPos.kmer.standardForm();
 			size_t freq = 1;
 			_kmerCounts.find(kmerPos.kmer, freq);
-			//if (kmerPos.kmer.hash() % 2) freq = 1;
-			topKmers.push({kmerPos.kmer, (size_t)kmerPos.position, freq});
+
+			topKmers.push_back({kmerPos.kmer, (size_t)kmerPos.position, freq});
 			++localFreq[kmerPos.kmer];
-			if (topKmers.size() > maxKmers) topKmers.pop();
 		}
 
-		while (!topKmers.empty())
-		{
-			Kmer kmer = topKmers.top().kmer;
-			size_t freq = topKmers.top().freq;
-			topKmers.pop();
+		if (topKmers.empty()) return;
+		std::sort(topKmers.begin(), topKmers.end(),
+				  [](const KmerFreq& k1, const KmerFreq& k2)
+				   {return k1.freq > k2.freq;});
+		const size_t maxKmers = selectRate * topKmers.size();
+		const size_t minFreq = std::max((size_t)minCoverage, topKmers[maxKmers].freq);
 
-			if (freq < (size_t)minCoverage || freq > _repetitiveFrequency ||
-				localFreq[kmer] > (size_t)tandemFreq) continue;
+		for (auto kmerFreq : topKmers)
+		{
+			if (kmerFreq.freq < minFreq) break;
+			if (kmerFreq.freq > _repetitiveFrequency ||
+				localFreq[kmerFreq.kmer] > (size_t)tandemFreq) continue;
 
 			ReadVector defVec((uint32_t)1, (uint32_t)0);
-			_kmerIndex.upsert(kmer, [](ReadVector& rv){++rv.capacity;}, defVec);
+			_kmerIndex.upsert(kmerFreq.kmer, 
+							  [](ReadVector& rv){++rv.capacity;}, defVec);
 		}
 	};
-	if (_outputProgress) Logger::get().info() << "Filling index table (1/2)";
 	processInParallel(allReads, initializeIndex, 
 					  Parameters::get().numThreads, _outputProgress);
 	
@@ -226,30 +226,33 @@ void VertexIndex::buildIndexUnevenCoverage(int minCoverage, float selectRate,
 	{
 		if (!readId.strand()) return;
 
-		auto cmp = [](const KmerFreq& k1, const KmerFreq& k2)
-							{return k1.freq > k2.freq;};
-		thread_local std::priority_queue<KmerFreq, std::vector<KmerFreq>,
-									 	 decltype(cmp)> topKmers(cmp);
 		thread_local std::unordered_map<Kmer, size_t> localFreq;
 		localFreq.clear();
+		std::vector<KmerFreq> topKmers(_seqContainer.seqLen(readId));
 
-		size_t maxKmers = selectRate * _seqContainer.seqLen(readId);
 		for (const auto& kmerPos : IterKmers(_seqContainer.getSeq(readId)))
 		{
-			auto stdKmer = kmerPos;
-			//stdKmer.kmer.standardForm();
+			auto stdKmer = kmerPos.kmer;
+			stdKmer.standardForm();
 			size_t freq = 1;
-			_kmerCounts.find(stdKmer.kmer, freq);
-			//if (stdKmer.kmer.hash() % 2) freq = 1;
+			_kmerCounts.find(stdKmer, freq);
 
-			++localFreq[stdKmer.kmer];
-			topKmers.push({kmerPos.kmer, (size_t)kmerPos.position, freq});
-			if (topKmers.size() > maxKmers) topKmers.pop();
+			++localFreq[stdKmer];
+			topKmers.push_back({kmerPos.kmer, (size_t)kmerPos.position, freq});
 		}
 
-		while (!topKmers.empty())
+		if (topKmers.empty()) return;
+		std::sort(topKmers.begin(), topKmers.end(),
+				  [](const KmerFreq& k1, const KmerFreq& k2)
+				   {return k1.freq > k2.freq;});
+		const size_t maxKmers = selectRate * topKmers.size();
+		const size_t minFreq = std::max((size_t)minCoverage, topKmers[maxKmers].freq);
+
+		for (auto kmerFreq : topKmers)
 		{
-			KmerPosition kmerPos(topKmers.top().kmer, topKmers.top().position);
+			if (kmerFreq.freq < minFreq) break;
+
+			KmerPosition kmerPos(kmerFreq.kmer, kmerFreq.position);
 			FastaRecord::Id targetRead = readId;
 			bool revCmp = kmerPos.kmer.standardForm();
 			if (revCmp)
@@ -260,10 +263,7 @@ void VertexIndex::buildIndexUnevenCoverage(int minCoverage, float selectRate,
 				targetRead = targetRead.rc();
 			}
 
-			size_t freq = topKmers.top().freq;
-			topKmers.pop();
-
-			if (freq < (size_t)minCoverage || freq > _repetitiveFrequency ||
+			if (kmerFreq.freq > _repetitiveFrequency ||
 				localFreq[kmerPos.kmer] > (size_t)tandemFreq) continue;
 
 			//in case kmer not in index yet, creates a new vector
@@ -273,7 +273,7 @@ void VertexIndex::buildIndexUnevenCoverage(int minCoverage, float selectRate,
 				{
 					if (rv.size == rv.capacity) 
 					{
-						Logger::get().warning() << "Index size missmatch";
+						Logger::get().warning() << "Index size missmatch " << rv.capacity;
 						return;
 					}
 					size_t globPos = _seqContainer

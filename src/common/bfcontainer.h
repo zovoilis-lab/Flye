@@ -242,26 +242,30 @@ public:
 		T& operator*() {return *_chunkCur;}
         T* operator->() {return _chunkCur;}
 
-    	bool operator==(const BFIterator& rhs) 
+    	bool operator==(const BFIterator& rhs) const
 		{
 			return _chunkCur == rhs._chunkCur;
 		}
-        bool operator!=(const BFIterator& rhs) 
+        bool operator!=(const BFIterator& rhs) const
 		{
 			return !(*this == rhs);
 		}
-        bool operator< (const BFIterator& rhs)
+        bool operator< (const BFIterator& rhs) const
 		{
 			return _map == rhs._map ? _chunkCur < rhs._chunkCur : _map < rhs._map;
 		}
-        bool operator> (const BFIterator& rhs) 
+        bool operator> (const BFIterator& rhs) const
 		{
 			return rhs < *this;
 		}
-        //bool operator>=(const BFIterator& rhs)
-		//	{return _map == rhs._map ? _chunkCur >= rhs._chunkCur : _map >= rhs._map;}
-        //bool operator<=(const BFIterator& rhs)
-		//	{return _map == rhs._map ? _chunkCur <= rhs._chunkCur : _map <= rhs._map;}
+        bool operator<=(const BFIterator& rhs) const
+		{
+			return _map == rhs._map ? _chunkCur <= rhs._chunkCur : _map < rhs._map;
+		}
+        bool operator>=(const BFIterator& rhs) const
+		{
+			return rhs <= *this;
+		}
 	};
 
 	BFIterator begin() {return BFIterator(&_chunks.front(), _chunks.front(), 

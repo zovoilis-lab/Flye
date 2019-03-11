@@ -239,6 +239,7 @@ class JobFinalize(Job):
 
         #self.out_files["contigs"] = os.path.join(work_dir, "contigs.fasta")
         self.out_files["scaffolds"] = os.path.join(work_dir, "scaffolds.fasta")
+        self.out_files["assembly"] = os.path.join(work_dir, "assembly.fasta")
         self.out_files["stats"] = os.path.join(work_dir, "assembly_info.txt")
         self.out_files["graph"] = os.path.join(work_dir, "assembly_graph.gv")
         self.out_files["gfa"] = os.path.join(work_dir, "assembly_graph.gfa")
@@ -250,7 +251,7 @@ class JobFinalize(Job):
         shutil.copy2(self.polished_gfa, self.out_files["gfa"])
 
         scaffolds = scf.generate_scaffolds(self.contigs_file, self.scaffold_links,
-                                           self.out_files["scaffolds"])
+                                           self.out_files["assembly"])
 
         logger.debug("---Output dir contents:----")
         try:
@@ -263,7 +264,11 @@ class JobFinalize(Job):
 
         scf.generate_stats(self.repeat_stats, self.polished_stats, scaffolds,
                            self.out_files["stats"])
-        logger.info("Final assembly: {0}".format(self.out_files["scaffolds"]))
+        try:
+            os.symlink(self.out_files["assembly"], self.out_files["scaffolds"])
+        except OSError as e:
+            logger.debug(e)
+        logger.info("Final assembly: {0}".format(self.out_files["assembly"]))
 
 
 class JobConsensus(Job):
@@ -568,13 +573,13 @@ def _epilog():
             "for metagenome/uneven coverage assembly.\n\n"
             "You must provide an estimate of the genome size as input,\n"
             "which is used for solid k-mers selection. Standard size\n"
-            "modificators are supported (e.g. 5m or 2.6g). In the case\n"
+            "modifiers are supported (e.g. 5m or 2.6g). In the case\n"
             "of metagenome assembly, the expected total assembly size\n"
             "should be provided.\n\n"
             "To reduce memory consumption for large genome assemblies,\n"
             "you can use a subset of the longest reads for initial contig\n"
             "assembly by specifying --asm-coverage option. Typically,\n"
-            "40x coverage is enough to produce good draft contigs.\n\n"
+            "30x coverage is enough to produce good draft contigs.\n\n"
             "You can separately run Flye polisher on a target sequence \n"
             "using --polish-target option.")
 

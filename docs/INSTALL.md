@@ -13,11 +13,11 @@ You can get the latest stable release through Bioconda:
 
     conda install flye
 
-Alternatively, you can get a release verson from the github "releases" page
+Alternatively, you can get a release version from the github releases page
 
 
-Requirements
-------------
+Building Requirements
+---------------------
 
 * C++ compiler with C++11 support (GCC 4.8+ / Clang 3.3+ / Apple Clang 5.0+)
 * GNU make
