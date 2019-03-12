@@ -31,7 +31,8 @@ public:
 		_sampleRate(sampleRate), _repetitiveFrequency(0),
 		_solidMultiplier(1)
 		//_flankRepeatSize(flankRepeatSize)
-	{}
+	{
+	}
 
 	VertexIndex(const VertexIndex&) = delete;
 	void operator=(const VertexIndex&) = delete;
@@ -223,6 +224,21 @@ public:
 		}
 	}
 
+	void loadTrueKmers(const std::string& kmerFile)
+	{
+		std::ifstream fin(kmerFile);
+		if (!fin.is_open()) throw std::runtime_error("Can't open" + kmerFile);
+
+		std::string buf;
+		while (!fin.eof())
+		{
+			fin >> buf;
+			Kmer kmer(DnaSequence(buf), 0, buf.size());
+			kmer.standardForm();
+			_trueKmers.insert(kmer, true);
+		}
+	}
+
 	//int getFlankRepeatSize() const {return _flankRepeatSize;}
 
 private:
@@ -241,4 +257,5 @@ private:
 	cuckoohash_map<Kmer, ReadVector> _kmerIndex;
 	cuckoohash_map<Kmer, size_t> 	 _kmerCounts;
 	cuckoohash_map<Kmer, char> 	 	 _repetitiveKmers;
+	cuckoohash_map<Kmer, bool>		 _trueKmers;
 };

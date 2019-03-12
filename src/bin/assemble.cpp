@@ -160,6 +160,7 @@ int main(int argc, char** argv)
 	VertexIndex vertexIndex(readsContainer, 
 							(int)Config::get("assemble_kmer_sample"));
 	vertexIndex.outputProgress(true);
+	vertexIndex.loadTrueKmers("../true_kmers.txt");
 
 	int64_t sumLength = 0;
 	for (auto& seq : readsContainer.iterSeqs())

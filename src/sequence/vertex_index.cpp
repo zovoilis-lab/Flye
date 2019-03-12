@@ -166,7 +166,8 @@ void VertexIndex::buildIndexUnevenCoverage(int minCoverage, float selectRate,
 
 		thread_local std::unordered_map<Kmer, size_t> localFreq;
 		localFreq.clear();
-		std::vector<KmerFreq> topKmers(_seqContainer.seqLen(readId));
+		std::vector<KmerFreq> topKmers;
+		topKmers.reserve(_seqContainer.seqLen(readId));
 
 		for (auto kmerPos : IterKmers(_seqContainer.getSeq(readId)))
 		{
@@ -220,15 +221,23 @@ void VertexIndex::buildIndexUnevenCoverage(int minCoverage, float selectRate,
 		chunkOffset += kmer.second.capacity + PADDING;
 	}
 
+	std::atomic<size_t> totalTrue(0);
+	std::atomic<size_t> totalFalse(0);
+	std::atomic<size_t> trueSelected(0);
+	std::atomic<size_t> falseSelected(0);
+
 	if (_outputProgress) Logger::get().info() << "Filling index table (2/2)";
 	std::function<void(const FastaRecord::Id&)> indexUpdate = 
-	[this, minCoverage, selectRate, tandemFreq] (const FastaRecord::Id& readId)
+	[this, minCoverage, selectRate, tandemFreq,
+	 &totalTrue, &totalFalse, &trueSelected, &falseSelected] 
+	 	(const FastaRecord::Id& readId)
 	{
 		if (!readId.strand()) return;
 
 		thread_local std::unordered_map<Kmer, size_t> localFreq;
 		localFreq.clear();
-		std::vector<KmerFreq> topKmers(_seqContainer.seqLen(readId));
+		std::vector<KmerFreq> topKmers;
+		topKmers.reserve(_seqContainer.seqLen(readId));
 
 		for (const auto& kmerPos : IterKmers(_seqContainer.getSeq(readId)))
 		{
@@ -250,7 +259,20 @@ void VertexIndex::buildIndexUnevenCoverage(int minCoverage, float selectRate,
 
 		for (auto kmerFreq : topKmers)
 		{
-			if (kmerFreq.freq < minFreq) break;
+			Kmer tmp = kmerFreq.kmer;
+			tmp.standardForm();
+			if (_trueKmers.contains(tmp))
+			{
+				++totalTrue;
+				if (kmerFreq.freq >= minFreq) ++trueSelected;
+			}
+			else
+			{
+				++totalFalse;
+				if (kmerFreq.freq >= minFreq) ++falseSelected;
+			}
+
+			if (kmerFreq.freq < minFreq) continue;
 
 			KmerPosition kmerPos(kmerFreq.kmer, kmerFreq.position);
 			FastaRecord::Id targetRead = readId;
@@ -304,6 +326,11 @@ void VertexIndex::buildIndexUnevenCoverage(int minCoverage, float selectRate,
 	}
 	Logger::get().debug() << "Selected kmers: " << _kmerIndex.size();
 	Logger::get().debug() << "Index size: " << totalEntries;
+
+	Logger::get().info() << "Total true: " << totalTrue;
+	Logger::get().info() << "Total false: " << totalFalse;
+	Logger::get().info() << "True selected: " << trueSelected;
+	Logger::get().info() << "False selected: " << falseSelected;
 }
 
 namespace
@@ -417,8 +444,14 @@ void VertexIndex::buildIndex(int minCoverage)
 	//Logger::get().debug() << "Total chunks " << _memoryChunks.size()
 	//	<< " wasted space: " << wasted;
 
+	std::atomic<size_t> totalTrue(0);
+	std::atomic<size_t> totalFalse(0);
+	std::atomic<size_t> trueSelected(0);
+	std::atomic<size_t> falseSelected(0);
+
 	std::function<void(const FastaRecord::Id&)> indexUpdate = 
-	[this] (const FastaRecord::Id& readId)
+	[this, &totalTrue, &totalFalse, &trueSelected, &falseSelected] 
+		(const FastaRecord::Id& readId)
 	{
 		if (!readId.strand()) return;
 
@@ -441,6 +474,17 @@ void VertexIndex::buildIndex(int minCoverage)
 										kmerPos.position -
 										Parameters::get().kmerSize;
 				targetRead = targetRead.rc();
+			}
+
+			if (_trueKmers.contains(kmerPos.kmer))
+			{
+				++totalTrue;
+				if (_kmerIndex.contains(kmerPos.kmer)) ++trueSelected;
+			}
+			else
+			{
+				++totalFalse;
+				if (_kmerIndex.contains(kmerPos.kmer)) ++falseSelected;
 			}
 			
 			_kmerIndex.update_fn(kmerPos.kmer, 
@@ -471,6 +515,11 @@ void VertexIndex::buildIndex(int minCoverage)
 				  [](const IndexChunk& p1, const IndexChunk& p2)
 				  	{return p1.get() < p2.get();});
 	}
+
+	Logger::get().info() << "Total true: " << totalTrue;
+	Logger::get().info() << "Total false: " << totalFalse;
+	Logger::get().info() << "True selected: " << trueSelected;
+	Logger::get().info() << "False selected: " << falseSelected;
 }
 
 
