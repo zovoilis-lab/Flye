@@ -166,7 +166,8 @@ void VertexIndex::buildIndexUnevenCoverage(int minCoverage, float selectRate,
 
 		thread_local std::unordered_map<Kmer, size_t> localFreq;
 		localFreq.clear();
-		std::vector<KmerFreq> topKmers(_seqContainer.seqLen(readId));
+		std::vector<KmerFreq> topKmers;
+		topKmers.reserve(_seqContainer.seqLen(readId));
 
 		for (auto kmerPos : IterKmers(_seqContainer.getSeq(readId)))
 		{
@@ -228,7 +229,8 @@ void VertexIndex::buildIndexUnevenCoverage(int minCoverage, float selectRate,
 
 		thread_local std::unordered_map<Kmer, size_t> localFreq;
 		localFreq.clear();
-		std::vector<KmerFreq> topKmers(_seqContainer.seqLen(readId));
+		std::vector<KmerFreq> topKmers;
+		topKmers.reserve(_seqContainer.seqLen(readId));
 
 		for (const auto& kmerPos : IterKmers(_seqContainer.getSeq(readId)))
 		{
