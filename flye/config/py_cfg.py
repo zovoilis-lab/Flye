@@ -20,7 +20,7 @@ vals = {
         },
 
         #assembly parameters
-        "big_genome_kmer" : 90000000,
+        "big_genome_kmer" : 29000000,
         "kmer_size" : {
             "raw" : [15, 17],
             "corrected" : [17, 17],
