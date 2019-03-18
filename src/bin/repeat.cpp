@@ -106,7 +106,7 @@ int main(int argc, char** argv)
 	bool debugging = false;
 	size_t numThreads = 1;
 	int kmerSize = 15;
-	int minOverlap = 5000;
+	int minOverlap = 1000;
 	bool unevenCov = false;
 	std::string readsFasta;
 	std::string inAssembly;
@@ -139,23 +139,24 @@ int main(int argc, char** argv)
 	Logger::get().debug() << "Metagenome mode: " << "NY"[unevenCov];
 
 	Logger::get().info() << "Reading sequences";
+
 	SequenceContainer seqAssembly; 
 	SequenceContainer seqReads;
-	std::vector<std::string> readsList = splitString(readsFasta, ',');
+	//std::vector<std::string> readsList = splitString(readsFasta, ',');
 	try
 	{
 		seqAssembly.loadFromFile(inAssembly);
-		for (auto& readsFile : readsList)
-		{
-			seqReads.loadFromFile(readsFile);
-		}
+		//for (auto& readsFile : readsList)
+		//{
+		//	seqReads.loadFromFile(readsFile);
+		//}
 	}
 	catch (SequenceContainer::ParseException& e)
 	{
 		Logger::get().error() << e.what();
 		return 1;
 	}
-	seqReads.buildPositionIndex();
+	//seqReads.buildPositionIndex();
 	seqAssembly.buildPositionIndex();
 
 	SequenceContainer edgeSequences;
@@ -168,45 +169,45 @@ int main(int argc, char** argv)
 	rg.build();
 	//outGen.outputDot(proc.getEdgesPaths(), outFolder + "/graph_raw.gv");
 
-	Logger::get().info() << "Aligning reads to the graph";
-	aligner.alignReads();
+	//Logger::get().info() << "Aligning reads to the graph";
+	//aligner.alignReads();
 
-	MultiplicityInferer multInf(rg, aligner, seqAssembly, seqReads);
-	multInf.estimateCoverage();
+	//MultiplicityInferer multInf(rg, aligner, seqAssembly, seqReads);
+	//multInf.estimateCoverage();
 
 	//remove edges/connections with low coverage
-	multInf.removeUnsupportedEdges();
-	multInf.removeUnsupportedConnections();
+	//multInf.removeUnsupportedEdges();
+	//multInf.removeUnsupportedConnections();
 
 	//collapse graph structures cause by heterogenity
-	multInf.collapseHeterozygousLoops();
-	multInf.collapseHeterozygousBulges();
+	//multInf.collapseHeterozygousLoops();
+	//multInf.collapseHeterozygousBulges();
 
-	Logger::get().info() << "Resolving repeats";
-	RepeatResolver resolver(rg, seqAssembly, seqReads, aligner, multInf);
-	resolver.findRepeats();
-	outGen.outputDot(proc.getEdgesPaths(), outFolder + "/graph_before_rr.gv");
-	//outGen.outputGfa(proc.getEdgesPaths(), outFolder + "/graph_before_rr.gfa");
-	outGen.outputFasta(proc.getEdgesPaths(), outFolder + "/graph_before_rr.fasta");
-	resolver.resolveRepeats();
+	//Logger::get().info() << "Resolving repeats";
+	//RepeatResolver resolver(rg, seqAssembly, seqReads, aligner, multInf);
+	//resolver.findRepeats();
+	//outGen.outputDot(proc.getEdgesPaths(), outFolder + "/graph_before_rr.gv");
+	outGen.outputGfa(proc.getEdgesPaths(), outFolder + "/assembly_graph.gfa");
+	//outGen.outputFasta(proc.getEdgesPaths(), outFolder + "/graph_before_rr.fasta");
+	//resolver.resolveRepeats();
 
 	//collapse again after repeat resolution
-	multInf.collapseHeterozygousLoops();
-	multInf.collapseHeterozygousBulges();
+	//multInf.collapseHeterozygousLoops();
+	//multInf.collapseHeterozygousBulges();
 	//do tip trimming only after repeat resolution, since those
 	//tips might actually help to resolve some repeats,
 	//and help to identify repeat boundaries
-	multInf.trimTips();
+	//multInf.trimTips();
 
-	resolver.findRepeats();
-	resolver.finalizeGraph();
+	//resolver.findRepeats();
+	//resolver.finalizeGraph();
 
-	outGen.outputDot(proc.getEdgesPaths(), outFolder + "/graph_after_rr.gv");
-	rg.storeGraph(outFolder + "/repeat_graph_dump");
-	aligner.storeAlignments(outFolder + "/read_alignment_dump");
-	SequenceContainer::writeFasta(edgeSequences.iterSeqs(), 
-								  outFolder + "/repeat_graph_edges.fasta",
-								  /*only pos strand*/ true);
+	//outGen.outputDot(proc.getEdgesPaths(), outFolder + "/graph_after_rr.gv");
+	//rg.storeGraph(outFolder + "/repeat_graph_dump");
+	//aligner.storeAlignments(outFolder + "/read_alignment_dump");
+	//SequenceContainer::writeFasta(edgeSequences.iterSeqs(), 
+	//							  outFolder + "/repeat_graph_edges.fasta",
+	//							  /*only pos strand*/ true);
 
 	Logger::get().debug() << "Peak RAM usage: " 
 		<< getPeakRSS() / 1024 / 1024 / 1024 << " Gb";
