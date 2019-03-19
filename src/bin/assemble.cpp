@@ -213,12 +213,13 @@ int main(int argc, char** argv)
 	OverlapContainer readOverlaps(ovlp, readsContainer);
 
 	Extender extender(readsContainer, readOverlaps);
-	extender.assembleContigs();
+	extender.assembleDisjointigs();
 	vertexIndex.clear();
 
 	ConsensusGenerator consGen;
-	auto contigsFasta = consGen.generateConsensuses(extender.getContigPaths());
-	SequenceContainer::writeFasta(contigsFasta, outAssembly);
+	auto disjointigsFasta = 
+		consGen.generateConsensuses(extender.getDisjointigPaths());
+	SequenceContainer::writeFasta(disjointigsFasta, outAssembly);
 
 	Logger::get().debug() << "Peak RAM usage: " 
 		<< getPeakRSS() / 1024 / 1024 / 1024 << " Gb";

@@ -113,7 +113,7 @@ class JobAssembly(Job):
         asm.assemble(self.args, Job.run_params, self.assembly_filename,
                      self.log_file, self.args.asm_config, )
         if os.path.getsize(self.assembly_filename) == 0:
-            raise asm.AssembleException("No contigs were assembled - "
+            raise asm.AssembleException("No disjointigs were assembled - "
                                         "please check if the read type and genome "
                                         "size parameters are correct")
         asm_len, asm_n50 = scf.short_statistics(self.assembly_filename)
@@ -589,9 +589,9 @@ def _epilog():
             "of metagenome assembly, the expected total assembly size\n"
             "should be provided.\n\n"
             "To reduce memory consumption for large genome assemblies,\n"
-            "you can use a subset of the longest reads for initial contig\n"
+            "you can use a subset of the longest reads for initial disjointig\n"
             "assembly by specifying --asm-coverage option. Typically,\n"
-            "30x coverage is enough to produce good draft contigs.\n\n"
+            "30x coverage is enough to produce good disjointigs.\n\n"
             "You can separately run Flye polisher on a target sequence \n"
             "using --polish-target option.")
 
@@ -657,7 +657,7 @@ def main():
                         default=None, help="minimum overlap between reads [auto]")
     parser.add_argument("--asm-coverage", dest="asm_coverage", metavar="int",
                         default=None, help="reduced coverage for initial "
-                        "contig assembly [not set]", type=int)
+                        "disjointig assembly [not set]", type=int)
     parser.add_argument("--plasmids", action="store_true",
                         dest="plasmids", default=False,
                         help="rescue short unassembled plasmids")
