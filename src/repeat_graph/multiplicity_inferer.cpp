@@ -53,7 +53,7 @@ void MultiplicityInferer::estimateCoverage()
 			++sumLength;
 		}
 	}
-	_meanCoverage = (sumLength != 0) ? sumCov / sumLength : 1;
+	_meanCoverage = (sumLength != 0) ? sumCov / sumLength : /*defaut*/ 1;
 
 	Logger::get().info() << "Mean edge coverage: " << _meanCoverage;
 
@@ -83,7 +83,7 @@ void MultiplicityInferer::estimateCoverage()
 		edge->meanCoverage = medianCov;
 	}
 
-	_uniqueCovThreshold = 2;
+	_uniqueCovThreshold = /*default*/ 2;
 	if (!edgesCoverage.empty())
 	{
 		const float MULT = 1.75f;	//at least 1.75x of mean coverage
@@ -100,10 +100,12 @@ void MultiplicityInferer::removeUnsupportedEdges()
 
 	int32_t coverageThreshold = std::round((float)this->getMeanCoverage() / 
 											Config::get("graph_cov_drop_rate"));
-	coverageThreshold = std::max(1, coverageThreshold);
+	const int MIN_ABSOLUTE = 1;
+	const int MAX_META_CUTOFF = 3;
+	coverageThreshold = std::max(MIN_ABSOLUTE, coverageThreshold);
 	if (Parameters::get().unevenCoverage)
 	{
-		coverageThreshold = std::min(coverageThreshold, 2);
+		coverageThreshold = std::min(coverageThreshold, MAX_META_CUTOFF);
 	}
 	Logger::get().debug() << "Read coverage cutoff: " << coverageThreshold;
 
@@ -112,7 +114,7 @@ void MultiplicityInferer::removeUnsupportedEdges()
 	{
 		if (!path.id.strand()) continue;
 
-		if (path.meanCoverage <= coverageThreshold)
+		if (path.meanCoverage < coverageThreshold)
 		{
 			Logger::get().debug() << "Low coverage: " 
 				<< path.edgesStr() << " " << path.meanCoverage;
