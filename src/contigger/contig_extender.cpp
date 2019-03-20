@@ -398,14 +398,16 @@ void ContigExtender::outputScaffoldConnections(const std::string& filename)
 			edge->edgeId != outEdge->edgeId.rc() &&
 			abs(edge->edgeId.signedId()) < abs(outEdge->edgeId.signedId()))
 		{
-			UnbranchingPath* leftCtg = this->asUpaths({edge}).front();
-			UnbranchingPath* rightCtg = this->asUpaths({outEdge}).front();
-			if (leftCtg != rightCtg)
+			UnbranchingPath leftCtg = *this->asUpaths({edge}).front();
+			UnbranchingPath rightCtg = *this->asUpaths({outEdge}).front();
+			if (leftCtg.id != rightCtg.id)
 			{
-				fout << leftCtg->nameUnsigned() << "\t" << 
-					(leftCtg->id.strand() ? '+' : '-') << "\t" <<
-					rightCtg->nameUnsigned() << "\t" << 
-					(rightCtg->id.strand() ? '+' : '-') << "\n";
+				leftCtg.prefix = "contig_";
+				rightCtg.prefix = "contig_";
+				fout << leftCtg.nameUnsigned() << "\t" << 
+					(leftCtg.id.strand() ? '+' : '-') << "\t" <<
+					rightCtg.nameUnsigned() << "\t" << 
+					(rightCtg.id.strand() ? '+' : '-') << "\n";
 			}
 		}
 	}
