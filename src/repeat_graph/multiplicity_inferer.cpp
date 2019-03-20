@@ -308,7 +308,7 @@ void MultiplicityInferer::collapseHeterozygousLoops()
 
 void MultiplicityInferer::trimTips()
 {
-	const int MAX_TIP = 100000;
+	const int MAX_TIP = Config::get("tip_length_threshold");
 	const int MIN_COV_DIFF = 3;
 
 	//const int TIP_THRESHOLD = Config::get("tip_length_threshold");
