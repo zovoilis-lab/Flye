@@ -200,7 +200,7 @@ class JobContigger(Job):
 
         self.work_dir = os.path.join(work_dir, "30-contigger")
         self.out_files["contigs"] = os.path.join(self.work_dir,
-                                                 "graph_paths.fasta")
+                                                 "contigs.fasta")
         self.out_files["assembly_graph"] = os.path.join(self.work_dir,
                                                         "graph_final.gv")
         self.out_files["edges_sequences"] = os.path.join(self.work_dir,

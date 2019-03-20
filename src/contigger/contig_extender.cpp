@@ -14,6 +14,7 @@ void ContigExtender::generateUnbranchingPaths()
 	_edgeToPath.clear();
 	for (auto& path : _unbranchingPaths)
 	{
+		path.prefix = "edge_";
 		if (path.id.strand())
 		{
 			Logger::get().debug() << "UPath " << path.id.signedId() 
@@ -234,6 +235,11 @@ void ContigExtender::generateContigs()
 			++numCovered;
 			//Logger::get().debug() << "Covered: " << upath.id.signedId();
 		}
+	}
+
+	for (auto& ctg : _contigs)
+	{
+		ctg.graphEdges.prefix = "contig_";
 	}
 
 	Logger::get().debug() << "Covered " << numCovered << " repetitive contigs";
