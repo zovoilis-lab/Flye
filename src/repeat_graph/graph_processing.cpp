@@ -18,7 +18,20 @@ void GraphProcessor::simplify()
 	this->condenceEdges();
 	this->collapseBulges();
 	this->condenceEdges();
+	this->estimateCoverage();
 	//this->trimTips();
+}
+
+void GraphProcessor::estimateCoverage()
+{
+	for (auto &edge: _graph.iterEdges())
+	{
+		edge->meanCoverage = edge->seqSegments.size();
+		if (edge->meanCoverage > 1)
+		{
+			edge->repetitive = true;
+		}
+	}
 }
 
 //finds and removes graph structures that

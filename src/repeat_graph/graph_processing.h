@@ -88,6 +88,7 @@ private:
 	void simplify();
 	void condenceEdges();
 	void collapseBulges();
+	void estimateCoverage();
 	//
 
 	RepeatGraph& _graph;
