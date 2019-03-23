@@ -7,6 +7,7 @@ def main():
     parser.add_argument("--input-assembly")
     parser.add_argument("--out-dir")
     parser.add_argument("--min-overlap", type=int, default=500)
+    parser.add_argument("--threads", type=int, default=1)
     args = parser.parse_args()
 
     out_dir = "{}/{}".format(os.getcwd(), args.out_dir)
@@ -20,6 +21,7 @@ def main():
     cmd.extend([args.input_assembly, input_reads])
     cmd.extend([out_dir, config])
     cmd.extend(["-v", str(args.min_overlap)])
+    cmd.extend(["-t", str(args.threads)])
     cmd = " ".join(cmd)
 
     os.mkdir(args.out_dir)
