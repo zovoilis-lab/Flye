@@ -233,7 +233,7 @@ bool OverlapDetector::overlapTest(const OverlapRange& ovlp,
 
 	if (_checkOverhang)
 	{
-		if (std::min(ovlp.curBegin, ovlp.extBegin) > 
+		/*if (std::min(ovlp.curBegin, ovlp.extBegin) > 
 			_maxOverhang) 
 		{
 			return false;
@@ -242,7 +242,12 @@ bool OverlapDetector::overlapTest(const OverlapRange& ovlp,
 			_maxOverhang)
 		{
 			return false;
-		}
+		}*/
+		if (ovlp.curLen - ovlp.curEnd < _maxOverhang &&
+			ovlp.extBegin < _maxOverhang) return true;
+		if (ovlp.extLen - ovlp.extEnd < _maxOverhang &&
+			ovlp.curBegin < _maxOverhang) return true;
+		return false;
 	}
 
 	return true;
