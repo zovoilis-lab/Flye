@@ -183,6 +183,7 @@ void MultiplicityInferer::removeUnsupportedConnections()
 
 		int32_t coverageThreshold = edge->meanCoverage / 
 								Config::get("graph_cov_drop_rate");
+		coverageThreshold = std::min(1, coverageThreshold);
 
 		//Logger::get().debug() << "Adjacencies: " << edge->edgeId.signedId() << " "
 		//	<< leftConnections[edge] / 2 << " " << rightConnections[edge] / 2;
@@ -336,7 +337,7 @@ void MultiplicityInferer::trimTips()
 			//{
 			UnbranchingPath& path = *ubIndex[edge];
 			if (path.path.back() == edge && !path.isLooped() &&
-				path.nodeLeft()->inEdges.size() > 0) entrances.push_back(&path);
+				path.length > MAX_TIP) entrances.push_back(&path);
 			//}
 		}
 		std::vector<UnbranchingPath*> exits;
@@ -346,7 +347,7 @@ void MultiplicityInferer::trimTips()
 			//{
 			UnbranchingPath& path = *ubIndex[edge];
 			if (path.path.front() == edge && !path.isLooped() &&
-				path.nodeRight()->outEdges.size() > 0) exits.push_back(&path);
+				path.length > MAX_TIP) exits.push_back(&path);
 			//}
 		}
 		if (entrances.size() != 1 || exits.size() != 1) continue;

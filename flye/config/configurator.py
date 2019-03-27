@@ -31,7 +31,7 @@ def setup_params(args):
     _, reads_n90 = _calc_nx(read_lengths, total_length, 0.90)
 
     #Selecting minimum overlap
-    logger.debug("Total sequence length: {0}".format(total_length))
+    logger.info("Total read length: {0}".format(total_length))
 
     coverage = total_length / args.genome_size
     logger.info("Input genome size: {0}".format(args.genome_size))
