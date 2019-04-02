@@ -333,22 +333,22 @@ void MultiplicityInferer::trimTips()
 		std::vector<UnbranchingPath*> entrances;
 		for (GraphEdge* edge : tipNode->inEdges)
 		{
-			//for (auto& path : unbranchingPaths)
-			//{
 			UnbranchingPath& path = *ubIndex[edge];
-			if (path.path.back() == edge && !path.isLooped() &&
-				path.length > MAX_TIP) entrances.push_back(&path);
-			//}
+			if (path.path.back() == edge && !path.isLooped())
+			{
+				if (path.nodeLeft()->inEdges.size() > 0 ||
+					path.length > MAX_TIP) entrances.push_back(&path);
+			}
 		}
 		std::vector<UnbranchingPath*> exits;
 		for (GraphEdge* edge : tipNode->outEdges)
 		{
-			//for (auto& path : unbranchingPaths)
-			//{
 			UnbranchingPath& path = *ubIndex[edge];
-			if (path.path.front() == edge && !path.isLooped() &&
-				path.length > MAX_TIP) exits.push_back(&path);
-			//}
+			if (path.path.front() == edge && !path.isLooped())
+			{
+				if (path.nodeRight()->outEdges.size() > 0 ||
+					path.length > MAX_TIP) exits.push_back(&path);
+			}
 		}
 		if (entrances.size() != 1 || exits.size() != 1) continue;
 
