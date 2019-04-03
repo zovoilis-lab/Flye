@@ -310,9 +310,8 @@ void MultiplicityInferer::collapseHeterozygousLoops()
 void MultiplicityInferer::trimTips()
 {
 	const int MAX_TIP = Config::get("tip_length_threshold");
-	const int MIN_COV_DIFF = 3;
+	const int MAX_COV_DIFF = 5;
 
-	//const int TIP_THRESHOLD = Config::get("tip_length_threshold");
 	std::unordered_set<FastaRecord::Id> toRemove;
 	GraphProcessor proc(_graph, _asmSeqs);
 	auto unbranchingPaths = proc.getUnbranchingPaths();
@@ -322,7 +321,48 @@ void MultiplicityInferer::trimTips()
 		for (auto& edge: path.path) ubIndex[edge] = &path;
 	}
 
+	std::unordered_map<GraphEdge*, 
+					   std::vector<const GraphAlignment*>> readIndex;
+	for (auto& readPath : _aligner.getAlignments())
+	{
+		if (readPath.size() < 2) continue;
+
+		for (size_t i = 0; i < readPath.size() - 1; ++i)
+		{
+			readIndex[readPath[i].edge].push_back(&readPath);
+		}
+	}
+
 	for (auto& tipPath : unbranchingPaths)
+	{
+		if (tipPath.nodeLeft()->inEdges.size() > 0) continue;
+		if (tipPath.length > MAX_TIP) continue;
+
+		//compute mean coverage of all reads from this edge
+		int64_t sumCov = 0;
+		int64_t sumLen = 0;
+		for (auto& read : readIndex[tipPath.path.back()])
+		{
+			if (read->empty()) continue;
+			for (size_t i = 0; i < read->size(); ++i)
+			{
+				sumCov += (*read)[i].edge->meanCoverage * (*read)[i].edge->length();
+				sumLen += (*read)[i].edge->length();
+			}
+		}
+		if (sumLen == 0) continue;
+		float readCoverage = sumCov / sumLen;
+
+		Logger::get().debug() << "Tip len: " << tipPath.length << " cov:" 
+			<< tipPath.meanCoverage << " local:" << readCoverage;
+		if (readCoverage / MAX_COV_DIFF > tipPath.meanCoverage) 
+		{
+			Logger::get().debug() << "Clipped";
+			toRemove.insert(tipPath.id.rc());	//to be conssitent with the rest
+		}
+	}
+	
+	/*for (auto& tipPath : unbranchingPaths)
 	{
 		if (tipPath.nodeRight()->outEdges.size() > 0) continue;
 		if (tipPath.length > MAX_TIP) continue;
@@ -357,7 +397,7 @@ void MultiplicityInferer::trimTips()
 		{
 			toRemove.insert(tipPath.id);
 		}
-	}
+	}*/
 
 	for (auto& path : unbranchingPaths)
 	{
