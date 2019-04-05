@@ -120,7 +120,7 @@ def _read_fasta(file_handle):
             if header:
                 yield header, "".join(seq)
                 seq = []
-            header = line[1:].split(" ")[0]
+            header = line[1:].split()[0]
         else:
             seq.append(line)
 
@@ -143,7 +143,7 @@ def _read_fastq(file_handle):
             if line[0] != "@":
                 raise FastaError("Fastq format error: {0} at line {1}"
                                     .format(file_handle.name, no))
-            header = line[1:].split(" ")[0]
+            header = line[1:].split()[0]
 
         if state_counter == 1:
             seq = line
