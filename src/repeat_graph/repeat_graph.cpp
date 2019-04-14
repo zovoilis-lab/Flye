@@ -70,7 +70,7 @@ void RepeatGraph::build()
 	OverlapDetector asmOverlapper(_asmSeqs, asmIndex, 
 								  (int)Config::get("maximum_jump"), 
 								  Parameters::get().minimumOverlap,
-								  /*no overhang*/ 100, /*all overlaps*/ 0,
+								  /*no overhang*/ 20, /*all overlaps*/ 0,
 								  /*keep alignment*/ true, /*only max*/ false,
 								  (float)Config::get("repeat_graph_ovlp_divergence"),
 								  badEndAdj, /*nucl alignment*/ true);
