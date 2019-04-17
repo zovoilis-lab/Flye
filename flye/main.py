@@ -24,7 +24,7 @@ import flye.assembly.scaffolder as scf
 from flye.__version__ import __version__
 import flye.config.py_cfg as cfg
 from flye.config.configurator import setup_params
-from flye.utils.bytes2human import human2bytes
+from flye.utils.bytes2human import human2bytes, bytes2human
 import flye.utils.fasta_parser as fp
 import flye.short_plasmids.plasmids as plas
 import flye.trestle.trestle as tres
@@ -221,6 +221,19 @@ class JobContigger(Job):
                                 self.repeat_graph, self.reads_alignment)
 
 
+def _list_files(startpath, maxlevel=1):
+    for root, dirs, files in os.walk(startpath):
+        level = root.replace(startpath, "").count(os.sep)
+        if level > maxlevel:
+            continue
+        indent = " " * 4 * (level)
+        logger.debug("{}{}/".format(indent, os.path.basename(root)))
+        subindent = " " * 4 * (level + 1)
+        for f in files:
+            fsize = bytes2human(os.path.getsize(os.path.join(root, f)))
+            logger.debug("{}{:12}{}".format(subindent, fsize, f))
+
+
 class JobFinalize(Job):
     def __init__(self, args, work_dir, log_file,
                  contigs_file, graph_file, repeat_stats,
@@ -254,12 +267,7 @@ class JobFinalize(Job):
                                            self.out_files["assembly"])
 
         logger.debug("---Output dir contents:----")
-        try:
-            ls_out = subprocess.check_output(["ls", "-ARGg",
-                                             os.path.abspath(self.args.out_dir)])
-            logger.debug("\n\n" + ls_out)
-        except (subprocess.CalledProcessError, OSError):
-            pass
+        _list_files(os.path.abspath(self.args.out_dir))
         logger.debug("--------------------------")
 
         scf.generate_stats(self.repeat_stats, self.polished_stats, scaffolds,
