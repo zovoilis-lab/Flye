@@ -378,6 +378,7 @@ void ContigExtender::outputScaffoldConnections(const std::string& filename)
 				else if (!adjEdge->isRepetitive())
 				{
 					reachableUnique.insert(adjEdge);
+					if (reachableUnique.size() > 1) return reachableUnique;
 				}
 			}
 		}
