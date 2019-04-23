@@ -31,7 +31,7 @@ def read_sequence_dict(filename):
         if not gzipped:
             handle = open(filename, "r")
         else:
-            handle = os.popen("zcat {0}".format(filename))
+            handle = os.popen("gunzip -c {0}".format(filename))
             #gz = gzip.open(filename, "rb")
             #handle = io.BufferedReader(gz)
 
@@ -65,7 +65,7 @@ def read_sequence_lengths(filename):
         if not gzipped:
             handle = open(filename, "r")
         else:
-            handle = os.popen("zcat {0}".format(filename))
+            handle = os.popen("gunzip -c {0}".format(filename))
             #gz = gzip.open(filename, "rb")
             #handle = io.BufferedReader(gz)
 
