@@ -249,6 +249,7 @@ class JobFinalize(Job):
         self.polished_stats = polished_stats
         self.scaffold_links = scaffold_links
         self.polished_gfa = polished_gfa
+        self.work_dir = work_dir
 
         #self.out_files["contigs"] = os.path.join(work_dir, "contigs.fasta")
         self.out_files["scaffolds"] = os.path.join(work_dir, "scaffolds.fasta")
@@ -266,16 +267,21 @@ class JobFinalize(Job):
         scaffolds = scf.generate_scaffolds(self.contigs_file, self.scaffold_links,
                                            self.out_files["assembly"])
 
+        #create the scaffolds.fasta symlink for backward compatability
+        try:
+            if os.path.lexists(self.out_files["scaffolds"]):
+                os.remove(self.out_files["scaffolds"])
+            relative_link = os.path.relpath(self.out_files["assembly"],
+                                            self.work_dir)
+            os.symlink(relative_link, self.out_files["scaffolds"])
+        except OSError as e:
+            logger.debug(e)
+
         logger.debug("---Output dir contents:----")
         _list_files(os.path.abspath(self.args.out_dir))
         logger.debug("--------------------------")
-
         scf.generate_stats(self.repeat_stats, self.polished_stats, scaffolds,
                            self.out_files["stats"])
-        try:
-            os.symlink(self.out_files["assembly"], self.out_files["scaffolds"])
-        except OSError as e:
-            logger.debug(e)
         logger.info("Final assembly: {0}".format(self.out_files["assembly"]))
 
 
