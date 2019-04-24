@@ -352,14 +352,22 @@ void MultiplicityInferer::trimTips()
 		if (tipPath.nodeLeft()->inEdges.size() > 0) continue;
 		if (tipPath.length > MAX_TIP) continue;
 
-		//compute mean coverage of all reads from this edge
+		//compute mean coverage of all read-paths beyond the tip edge
 		int64_t sumCov = 0;
 		int64_t sumLen = 0;
 		for (auto& read : readIndex[tipPath.path.back()])
 		{
 			if (read->empty()) continue;
+			bool passedTip = false;
 			for (size_t i = 0; i < read->size(); ++i)
 			{
+				if ((*read)[i].edge == tipPath.path.back())
+				{
+					passedTip = true;
+					continue;
+				}
+				if (!passedTip) continue;
+
 				sumCov += (*read)[i].edge->meanCoverage * (*read)[i].edge->length();
 				sumLen += (*read)[i].edge->length();
 			}
@@ -367,52 +375,16 @@ void MultiplicityInferer::trimTips()
 		if (sumLen == 0) continue;
 		float readCoverage = sumCov / sumLen;
 
-		Logger::get().debug() << "Tip len: " << tipPath.length << " cov:" 
-			<< tipPath.meanCoverage << " local:" << readCoverage;
 		if (readCoverage / MAX_COV_DIFF > tipPath.meanCoverage) 
 		{
-			Logger::get().debug() << "Clipped";
+			Logger::get().debug() << "Tip " << tipPath.edgesStr() << " len: " 
+				<< tipPath.length << " tipCov:" 
+				<< tipPath.meanCoverage << " contCov:" << readCoverage;
+			//Logger::get().debug() << "Clipped";
 			toRemove.insert(tipPath.id.rc());	//to be conssitent with the rest
 		}
 	}
 	
-	/*for (auto& tipPath : unbranchingPaths)
-	{
-		if (tipPath.nodeRight()->outEdges.size() > 0) continue;
-		if (tipPath.length > MAX_TIP) continue;
-
-		GraphNode* tipNode = tipPath.nodeLeft();
-
-		//get "non-tip" node's entrance and exit
-		std::vector<UnbranchingPath*> entrances;
-		for (GraphEdge* edge : tipNode->inEdges)
-		{
-			UnbranchingPath& path = *ubIndex[edge];
-			if (path.path.back() == edge && !path.isLooped())
-			{
-				if (path.nodeLeft()->inEdges.size() > 0 ||
-					path.length > MAX_TIP) entrances.push_back(&path);
-			}
-		}
-		std::vector<UnbranchingPath*> exits;
-		for (GraphEdge* edge : tipNode->outEdges)
-		{
-			UnbranchingPath& path = *ubIndex[edge];
-			if (path.path.front() == edge && !path.isLooped())
-			{
-				if (path.nodeRight()->outEdges.size() > 0 ||
-					path.length > MAX_TIP) exits.push_back(&path);
-			}
-		}
-		if (entrances.size() != 1 || exits.size() != 1) continue;
-
-		if (entrances.front()->meanCoverage > MIN_COV_DIFF * tipPath.meanCoverage &&
-			exits.front()->meanCoverage > MIN_COV_DIFF * tipPath.meanCoverage)
-		{
-			toRemove.insert(tipPath.id);
-		}
-	}*/
-
 	for (auto& path : unbranchingPaths)
 	{
 		if (toRemove.count(path.id))
