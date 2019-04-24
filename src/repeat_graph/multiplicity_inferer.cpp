@@ -405,11 +405,18 @@ void MultiplicityInferer::trimTips()
 	_aligner.updateAlignments();
 }
 
-
+//This function collapses simply bubbles caused by
+//alternative haplotypes / strains. They are defined as follows:
+//1. Structure: 1 input, 2 branches, 1 output: -<>-
+//2. Size of each branch is shorter than MAX_BUBBLE_LEN below
+//3. Total coverage of bubbles branches roughly equasl to input/output coverages
+//4. Each branch is shorter than both entrace and exits. We need this to
+//   distinguish from the case of two repeats of multiplicity 2
+//Note that we are not using any global coverage assumptions here.
 void MultiplicityInferer::collapseHeterozygousBulges()
 {
 	const float MAX_COV_VAR = 0.20;
-	const float MAX_LEN_VAR = 0.50;
+	const int MAX_BUBBLE_LEN = 50000;
 
 	GraphProcessor proc(_graph, _asmSeqs);
 	auto unbranchingPaths = proc.getUnbranchingPaths();
@@ -446,6 +453,10 @@ void MultiplicityInferer::collapseHeterozygousBulges()
 			if (cand.nodeLeft() == twoPaths[0]->nodeRight()) exitPath = &cand;
 		}
 
+		//sanity check for maximum bubble size
+		if (std::max(twoPaths[0]->length, twoPaths[1]->length) > 
+			MAX_BUBBLE_LEN) continue;
+
 		//coverage requirement: sum over two branches roughly equals to
 		//exit and entrance coverage
 		float covSum = twoPaths[0]->meanCoverage + twoPaths[1]->meanCoverage;
@@ -453,14 +464,11 @@ void MultiplicityInferer::collapseHeterozygousBulges()
 		float exitDiff = fabsf(covSum - exitPath->meanCoverage) / covSum;
 		if (entranceDiff > MAX_COV_VAR || exitDiff > MAX_COV_VAR) continue;
 
-		//length requirement: branches have roughly the same length
-		//and are significantly shorter than entrance/exits
-		if (abs(twoPaths[0]->length - twoPaths[1]->length) >
-			MAX_LEN_VAR * std::min(twoPaths[0]->length, 
-					 			   twoPaths[1]->length)) continue;
-		float bubbleSize = (twoPaths[0]->length + twoPaths[1]->length) / 2;
-		if (bubbleSize > entrancePath->length ||
-			bubbleSize > exitPath->length) continue;
+		//require bubble branches to be shorter than entrance and exit,
+		//to distinguish from the case of two consecutive repeats
+		//of multiplicity 2
+		if (std::max(twoPaths[0]->length, twoPaths[1]->length) >
+			std::min(entrancePath->length, exitPath->length)) continue;
 
 		if (twoPaths[0]->meanCoverage < twoPaths[1]->meanCoverage)
 		{
