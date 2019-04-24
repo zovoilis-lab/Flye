@@ -92,16 +92,18 @@ void MultiplicityInferer::estimateCoverage()
 	Logger::get().debug() << "Unique coverage threshold " << _uniqueCovThreshold;
 }
 
-//removes edges with low coverage support from the graph
+//removes edges with low coverage support from the graph. In case of
+//metagenomes, use MAX_META_CUTOFF as a parameter
 void MultiplicityInferer::removeUnsupportedEdges()
 {
+	const int MIN_ABSOLUTE = 1;
+	const int MAX_META_CUTOFF = 3;
+
 	GraphProcessor proc(_graph, _asmSeqs);
 	auto unbranchingPaths = proc.getUnbranchingPaths();
 
 	int32_t coverageThreshold = std::round((float)this->getMeanCoverage() / 
 											Config::get("graph_cov_drop_rate"));
-	const int MIN_ABSOLUTE = 1;
-	const int MAX_META_CUTOFF = 3;
 	coverageThreshold = std::max(MIN_ABSOLUTE, coverageThreshold);
 	if (Parameters::get().unevenCoverage)
 	{
@@ -132,6 +134,9 @@ void MultiplicityInferer::removeUnsupportedEdges()
 	_aligner.updateAlignments();
 }
 
+//Disconnects edges, which had low number of reads that connect them
+//with the rest of the graph. #of reads is relative to the
+//edge coverage
 void MultiplicityInferer::removeUnsupportedConnections()
 {
 	std::unordered_map<GraphEdge*, int32_t> rightConnections;
@@ -212,13 +217,13 @@ void MultiplicityInferer::removeUnsupportedConnections()
 		}
 	}
 
-	//GraphProcessor proc(_graph, _asmSeqs);
-	//proc.trimTips();
 	_aligner.updateAlignments();
 }
 
-//collapse loops (that also could be viewed as
-//bubbles with one branch of length 0)
+//This function collapses simple loops:
+//1. One loop edge with one entrance and one exit
+//2. Loop length is shorter than lengths of entrance/exit
+//3. Loop coverage is roughly equal or less than coverage of entrance/exit
 void MultiplicityInferer::collapseHeterozygousLoops()
 {
 	const float COV_MULT = 1.5;
@@ -251,13 +256,15 @@ void MultiplicityInferer::collapseHeterozygousLoops()
 		if (entrancePath->id == exitPath->id.rc()) continue;
 
 		//loop coverage should be roughly equal or less
-		if (loop.meanCoverage > COV_MULT * entrancePath->meanCoverage ||
-			loop.meanCoverage > COV_MULT * entrancePath->meanCoverage) continue;
+		if (loop.meanCoverage > 
+				COV_MULT * std::min(entrancePath->meanCoverage, 
+									entrancePath->meanCoverage)) continue;
 
 		//loop should not be longer than other branches
-		if (loop.length > entrancePath->length ||
-			loop.length > exitPath->length) continue;
+		if (loop.length > std::min(entrancePath->length, 
+								   exitPath->length)) continue;
 
+		//either remove or unroll loop, depending on the coverage
 		if (loop.meanCoverage < 
 			(entrancePath->meanCoverage + exitPath->meanCoverage) / 4)
 		{
@@ -300,13 +307,20 @@ void MultiplicityInferer::collapseHeterozygousLoops()
 		}
 	}
 
-	Logger::get().debug() << "Unrolled " << toUnroll.size() / 2
-		<< " heterozygous loops";
-	Logger::get().debug() << "Removed " << toRemove.size() / 2
+	//Logger::get().debug() << "Unrolled " << toUnroll.size() / 2
+	//	<< " heterozygous loops";
+	Logger::get().debug() << "Removed " << (toRemove.size() + toUnroll.size()) / 2
 		<< " heterozygous loops";
 	_aligner.updateAlignments();
 }
 
+//This function trim tips based on the local coverage.
+//Tip are first found as terminal unbranching paths
+//of length less than MAX_TIP.
+//It computes coverage of edge-paths defined by the reads that start
+//from this tip (and extend into the graph). If mean coverage
+//of these extensions into the graph is more than the coverage
+//of the tip by at least MAX_COV_DIFF, the tip is cut.
 void MultiplicityInferer::trimTips()
 {
 	const int MAX_TIP = Config::get("tip_length_threshold");
