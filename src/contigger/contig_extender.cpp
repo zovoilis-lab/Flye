@@ -14,6 +14,7 @@ void ContigExtender::generateUnbranchingPaths()
 	_edgeToPath.clear();
 	for (auto& path : _unbranchingPaths)
 	{
+		path.prefix = "edge_";
 		if (path.id.strand())
 		{
 			Logger::get().debug() << "UPath " << path.id.signedId() 
@@ -236,6 +237,11 @@ void ContigExtender::generateContigs()
 		}
 	}
 
+	for (auto& ctg : _contigs)
+	{
+		ctg.graphEdges.prefix = "contig_";
+	}
+
 	Logger::get().debug() << "Covered " << numCovered << " repetitive contigs";
 	Logger::get().info() << "Generated " << _contigs.size() << " contigs";
 }
@@ -372,6 +378,7 @@ void ContigExtender::outputScaffoldConnections(const std::string& filename)
 				else if (!adjEdge->isRepetitive())
 				{
 					reachableUnique.insert(adjEdge);
+					if (reachableUnique.size() > 1) return reachableUnique;
 				}
 			}
 		}
@@ -392,14 +399,16 @@ void ContigExtender::outputScaffoldConnections(const std::string& filename)
 			edge->edgeId != outEdge->edgeId.rc() &&
 			abs(edge->edgeId.signedId()) < abs(outEdge->edgeId.signedId()))
 		{
-			UnbranchingPath* leftCtg = this->asUpaths({edge}).front();
-			UnbranchingPath* rightCtg = this->asUpaths({outEdge}).front();
-			if (leftCtg != rightCtg)
+			UnbranchingPath leftCtg = *this->asUpaths({edge}).front();
+			UnbranchingPath rightCtg = *this->asUpaths({outEdge}).front();
+			if (leftCtg.id != rightCtg.id)
 			{
-				fout << leftCtg->nameUnsigned() << "\t" << 
-					(leftCtg->id.strand() ? '+' : '-') << "\t" <<
-					rightCtg->nameUnsigned() << "\t" << 
-					(rightCtg->id.strand() ? '+' : '-') << "\n";
+				leftCtg.prefix = "contig_";
+				rightCtg.prefix = "contig_";
+				fout << leftCtg.nameUnsigned() << "\t" << 
+					(leftCtg.id.strand() ? '+' : '-') << "\t" <<
+					rightCtg.nameUnsigned() << "\t" << 
+					(rightCtg.id.strand() ? '+' : '-') << "\n";
 			}
 		}
 	}

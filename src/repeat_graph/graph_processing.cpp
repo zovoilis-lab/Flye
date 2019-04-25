@@ -48,7 +48,7 @@ void GraphProcessor::fixChimericJunctions()
 
 	//more common case: 2 in - 2 out
 	std::unordered_set<GraphNode*> complexCases;
-	/*for (auto& node : _graph.iterNodes())
+	for (auto& node : _graph.iterNodes())
 	{
 		if (node->inEdges.size() != 2 ||
 			node->outEdges.size() != 2) continue;
@@ -76,7 +76,7 @@ void GraphProcessor::fixChimericJunctions()
 
 		node->inEdges.pop_back();
 		node->outEdges.erase(node->outEdges.begin());
-	}*/
+	}
 
 	Logger::get().debug() << "Removed " 
 		<< simpleCases.size() << " simple and " << complexCases.size()
@@ -302,7 +302,8 @@ std::vector<UnbranchingPath> GraphProcessor::getEdgesPaths() const
 	{
 		GraphPath path = {edge};
 		paths.emplace_back(path, edge->edgeId, false,
-						   edge->length(), edge->meanCoverage);
+						   edge->length(), edge->meanCoverage,
+						   "edge_");
 		paths.back().repetitive = edge->repetitive;
 	}
 	return paths;

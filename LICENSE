@@ -1,4 +1,11 @@
-Copyright (c) 2016, Authors
+Copyright (c) 2016, The Regents of the University of California
+License: BSD-3-Clause
+
+Project code contributors:
+- Mikhail Kolmogorov
+- Jeffrey Yuan
+- Yu Lin
+- Evgeny Polevikov
 
 All rights reserved.
 
@@ -12,7 +19,7 @@ modification, are permitted provided that the following conditions are met:
       notice, this list of conditions and the following disclaimer in the
       documentation and/or other materials provided with the distribution.
 
-    * Neither the name of the <organization> nor the
+    * Neither the name of the The Regents of the University of California nor the
       names of its contributors may be used to endorse or promote products
       derived from this software without specific prior written permission.
 

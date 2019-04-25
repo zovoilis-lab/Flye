@@ -9,6 +9,7 @@
 #include <vector>
 #include <iostream>
 #include <algorithm>
+#include <stdexcept>
 
 //Immutable dna sequence class
 class DnaSequence

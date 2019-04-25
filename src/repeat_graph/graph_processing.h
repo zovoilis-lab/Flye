@@ -16,20 +16,21 @@ struct UnbranchingPath
 {
 	UnbranchingPath(const GraphPath& path, 
 					FastaRecord::Id id = FastaRecord::ID_NONE,
-		   			bool circular = false, int length = 0, int meanCoverage = 0):
+		   			bool circular = false, int length = 0, int meanCoverage = 0,
+					const std::string& prefix = "path_"):
 		   	path(path), id(id), circular(circular), repetitive(false), 
-			length(length), meanCoverage(meanCoverage) {}
+			length(length), meanCoverage(meanCoverage), prefix(prefix) {}
 
 	std::string name() const
 	{
-		return "contig_" + std::to_string(id.signedId());
+		return prefix + std::to_string(id.signedId());
 	}
 
 	std::string nameUnsigned() const
 	{
 		std::string idTag = id.strand() ? std::to_string(id.signedId()) : 
 										  std::to_string(id.rc().signedId());
-		return "contig_" + idTag;
+		return prefix + idTag;
 	}
 
 	std::string edgesStr() const
@@ -67,6 +68,7 @@ struct UnbranchingPath
 	bool repetitive;
 	int32_t length;
 	int32_t meanCoverage;
+	std::string prefix;
 };
 
 //A class for basic repeat graph processing

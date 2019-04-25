@@ -129,7 +129,7 @@ std::vector<FastaRecord>
 	ConsensusGenerator::generateConsensuses(const std::vector<ContigPath>& contigs, 
 											bool verbose)
 {
-	if (verbose) Logger::get().info() << "Generating contig sequences";
+	if (verbose) Logger::get().info() << "Generating sequence";
 	std::vector<std::vector<AlignmentInfo>> allAlignments;
 	std::vector<FastaRecord> consensuses;
 

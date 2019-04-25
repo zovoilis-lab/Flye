@@ -31,7 +31,7 @@ def read_sequence_dict(filename):
         if not gzipped:
             handle = open(filename, "r")
         else:
-            handle = os.popen("zcat {0}".format(filename))
+            handle = os.popen("gunzip -c {0}".format(filename))
             #gz = gzip.open(filename, "rb")
             #handle = io.BufferedReader(gz)
 
@@ -65,7 +65,7 @@ def read_sequence_lengths(filename):
         if not gzipped:
             handle = open(filename, "r")
         else:
-            handle = os.popen("zcat {0}".format(filename))
+            handle = os.popen("gunzip -c {0}".format(filename))
             #gz = gzip.open(filename, "rb")
             #handle = io.BufferedReader(gz)
 
@@ -120,7 +120,7 @@ def _read_fasta(file_handle):
             if header:
                 yield header, "".join(seq)
                 seq = []
-            header = line[1:].split(" ")[0]
+            header = line[1:].split()[0]
         else:
             seq.append(line)
 
@@ -141,15 +141,17 @@ def _read_fastq(file_handle):
 
         if state_counter == 0:
             if line[0] != "@":
-                raise FastaError("Fastq format error on line {0}".format(no))
-            header = line[1:].split(" ")[0]
+                raise FastaError("Fastq format error: {0} at line {1}"
+                                    .format(file_handle.name, no))
+            header = line[1:].split()[0]
 
         if state_counter == 1:
             seq = line
 
         if state_counter == 2:
             if line[0] != "+":
-                raise FastaError("Fastq format error on line {0}".format(no))
+                raise FastaError("Fastq format error: {0} at line {1}"
+                                    .format(file_handle.name, no))
 
         if state_counter == 3:
             qual = line

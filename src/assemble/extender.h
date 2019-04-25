@@ -21,9 +21,9 @@ public:
 		_chimDetector(readsContainer, ovlpContainer)
 	{}
 
-	void assembleContigs();
-	const std::vector<ContigPath>& getContigPaths() const
-		{return _contigPaths;}
+	void assembleDisjointigs();
+	const std::vector<ContigPath>& getDisjointigPaths() const
+		{return _disjointigPaths;}
 
 private:
 	struct ExtensionInfo
@@ -48,11 +48,11 @@ private:
 		int  rightAsmOverlap;
 	};
 
-	ExtensionInfo extendContig(FastaRecord::Id startingRead);
+	ExtensionInfo extendDisjointig(FastaRecord::Id startingRead);
 	int   countRightExtensions(FastaRecord::Id readId) const;
 	int   countRightExtensions(const std::vector<OverlapRange>&) const;
 	bool  extendsRight(const OverlapRange& ovlp) const;
-	void  convertToContigs();
+	void  convertToDisjointigs();
 	std::vector<FastaRecord::Id> 
 		getInnerReads(const std::vector<OverlapRange>& ovlps);
 
@@ -61,6 +61,6 @@ private:
 	ChimeraDetector   _chimDetector;
 
 	std::vector<ExtensionInfo> 	_readLists;
-	std::vector<ContigPath> 	_contigPaths;
+	std::vector<ContigPath> 	_disjointigPaths;
 	cuckoohash_map<FastaRecord::Id, size_t>  	_innerReads;
 };

@@ -62,6 +62,13 @@ FastaRecord::Id SequenceContainer::addSequence(const FastaRecord& seqRec)
 	_seqIndex.emplace_back(seqRec.sequence, "+" + seqRec.description, 
 						   newId);
 
+	if (_nameIndex.count(_seqIndex.back().description))
+	{
+		throw ParseException("The input contain reads with duplicated IDs. "
+							 "Make sure all reads have unique IDs and restart. "
+							 "The first problematic ID was: " +
+			 				 _seqIndex.back().description.substr(1));
+	}
 	_nameIndex[_seqIndex.back().description] = _seqIndex.back().id;
 
 	_seqIndex.emplace_back(seqRec.sequence.complement(), 
@@ -298,17 +305,13 @@ size_t SequenceContainer::readFastq(std::vector<FastaRecord>& record,
 
 void SequenceContainer::validateHeader(std::string& header)
 {
-	size_t delim = header.find(' ');
-	if (delim == std::string::npos)
+	size_t delim = 0;
+	for (delim = 0; delim < header.length(); ++delim)
 	{
-		delim = header.length() - 1;
-	}
-	else
-	{
-		--delim;
+		if (std::isspace(header[delim])) break;
 	}
 
-	header = header.substr(1, delim);
+	header = header.substr(1, delim - 1);
 	if (header.empty()) throw ParseException("empty header");
 }
 

@@ -53,7 +53,7 @@ void MultiplicityInferer::estimateCoverage()
 			++sumLength;
 		}
 	}
-	_meanCoverage = (sumLength != 0) ? sumCov / sumLength : 1;
+	_meanCoverage = (sumLength != 0) ? sumCov / sumLength : /*defaut*/ 1;
 
 	Logger::get().info() << "Mean edge coverage: " << _meanCoverage;
 
@@ -83,7 +83,7 @@ void MultiplicityInferer::estimateCoverage()
 		edge->meanCoverage = medianCov;
 	}
 
-	_uniqueCovThreshold = 2;
+	_uniqueCovThreshold = /*default*/ 2;
 	if (!edgesCoverage.empty())
 	{
 		const float MULT = 1.75f;	//at least 1.75x of mean coverage
@@ -92,18 +92,22 @@ void MultiplicityInferer::estimateCoverage()
 	Logger::get().debug() << "Unique coverage threshold " << _uniqueCovThreshold;
 }
 
-//removes edges with low coverage support from the graph
+//removes edges with low coverage support from the graph. In case of
+//metagenomes, use MAX_META_CUTOFF as a parameter
 void MultiplicityInferer::removeUnsupportedEdges()
 {
+	const int MIN_ABSOLUTE = 1;
+	const int MAX_META_CUTOFF = 3;
+
 	GraphProcessor proc(_graph, _asmSeqs);
 	auto unbranchingPaths = proc.getUnbranchingPaths();
 
 	int32_t coverageThreshold = std::round((float)this->getMeanCoverage() / 
 											Config::get("graph_cov_drop_rate"));
-	coverageThreshold = std::max(1, coverageThreshold);
+	coverageThreshold = std::max(MIN_ABSOLUTE, coverageThreshold);
 	if (Parameters::get().unevenCoverage)
 	{
-		coverageThreshold = std::min(coverageThreshold, 2);
+		coverageThreshold = std::min(coverageThreshold, MAX_META_CUTOFF);
 	}
 	Logger::get().debug() << "Read coverage cutoff: " << coverageThreshold;
 
@@ -112,7 +116,7 @@ void MultiplicityInferer::removeUnsupportedEdges()
 	{
 		if (!path.id.strand()) continue;
 
-		if (path.meanCoverage <= coverageThreshold)
+		if (path.meanCoverage < coverageThreshold)
 		{
 			Logger::get().debug() << "Low coverage: " 
 				<< path.edgesStr() << " " << path.meanCoverage;
@@ -130,6 +134,9 @@ void MultiplicityInferer::removeUnsupportedEdges()
 	_aligner.updateAlignments();
 }
 
+//Disconnects edges, which had low number of reads that connect them
+//with the rest of the graph. #of reads is relative to the
+//edge coverage
 void MultiplicityInferer::removeUnsupportedConnections()
 {
 	std::unordered_map<GraphEdge*, int32_t> rightConnections;
@@ -181,6 +188,7 @@ void MultiplicityInferer::removeUnsupportedConnections()
 
 		int32_t coverageThreshold = edge->meanCoverage / 
 								Config::get("graph_cov_drop_rate");
+		coverageThreshold = std::min(1, coverageThreshold);
 
 		//Logger::get().debug() << "Adjacencies: " << edge->edgeId.signedId() << " "
 		//	<< leftConnections[edge] / 2 << " " << rightConnections[edge] / 2;
@@ -209,13 +217,13 @@ void MultiplicityInferer::removeUnsupportedConnections()
 		}
 	}
 
-	//GraphProcessor proc(_graph, _asmSeqs);
-	//proc.trimTips();
 	_aligner.updateAlignments();
 }
 
-//collapse loops (that also could be viewed as
-//bubbles with one branch of length 0)
+//This function collapses simple loops:
+//1. One loop edge with one entrance and one exit
+//2. Loop length is shorter than lengths of entrance/exit
+//3. Loop coverage is roughly equal or less than coverage of entrance/exit
 void MultiplicityInferer::collapseHeterozygousLoops()
 {
 	const float COV_MULT = 1.5;
@@ -248,13 +256,15 @@ void MultiplicityInferer::collapseHeterozygousLoops()
 		if (entrancePath->id == exitPath->id.rc()) continue;
 
 		//loop coverage should be roughly equal or less
-		if (loop.meanCoverage > COV_MULT * entrancePath->meanCoverage ||
-			loop.meanCoverage > COV_MULT * entrancePath->meanCoverage) continue;
+		if (loop.meanCoverage > 
+				COV_MULT * std::min(entrancePath->meanCoverage, 
+									entrancePath->meanCoverage)) continue;
 
 		//loop should not be longer than other branches
-		if (loop.length > entrancePath->length ||
-			loop.length > exitPath->length) continue;
+		if (loop.length > std::min(entrancePath->length, 
+								   exitPath->length)) continue;
 
+		//either remove or unroll loop, depending on the coverage
 		if (loop.meanCoverage < 
 			(entrancePath->meanCoverage + exitPath->meanCoverage) / 4)
 		{
@@ -297,58 +307,84 @@ void MultiplicityInferer::collapseHeterozygousLoops()
 		}
 	}
 
-	Logger::get().debug() << "Unrolled " << toUnroll.size() / 2
-		<< " heterozygous loops";
-	Logger::get().debug() << "Removed " << toRemove.size() / 2
+	//Logger::get().debug() << "Unrolled " << toUnroll.size() / 2
+	//	<< " heterozygous loops";
+	Logger::get().debug() << "Removed " << (toRemove.size() + toUnroll.size()) / 2
 		<< " heterozygous loops";
 	_aligner.updateAlignments();
 }
 
+//This function trim tips based on the local coverage.
+//Tip are first found as terminal unbranching paths
+//of length less than MAX_TIP.
+//It computes coverage of edge-paths defined by the reads that start
+//from this tip (and extend into the graph). If mean coverage
+//of these extensions into the graph is more than the coverage
+//of the tip by at least MAX_COV_DIFF, the tip is cut.
 void MultiplicityInferer::trimTips()
 {
-	const int MAX_TIP = 100000;
-	const int MIN_COV_DIFF = 3;
+	const int MAX_TIP = Config::get("tip_length_threshold");
+	const int MAX_COV_DIFF = 5;
 
-	//const int TIP_THRESHOLD = Config::get("tip_length_threshold");
 	std::unordered_set<FastaRecord::Id> toRemove;
 	GraphProcessor proc(_graph, _asmSeqs);
 	auto unbranchingPaths = proc.getUnbranchingPaths();
-
-	for (auto& tipPath : unbranchingPaths)
+	std::unordered_map<GraphEdge*, UnbranchingPath*> ubIndex;
+	for (auto& path : unbranchingPaths)
 	{
-		if (tipPath.nodeRight()->outEdges.size() > 0) continue;
-		if (tipPath.length > MAX_TIP) continue;
+		for (auto& edge: path.path) ubIndex[edge] = &path;
+	}
 
-		GraphNode* tipNode = tipPath.nodeLeft();
+	std::unordered_map<GraphEdge*, 
+					   std::vector<const GraphAlignment*>> readIndex;
+	for (auto& readPath : _aligner.getAlignments())
+	{
+		if (readPath.size() < 2) continue;
 
-		//get "non-tip" node's entrance and exit
-		std::vector<UnbranchingPath*> entrances;
-		for (GraphEdge* edge : tipNode->inEdges)
+		for (size_t i = 0; i < readPath.size() - 1; ++i)
 		{
-			for (auto& path : unbranchingPaths)
-			{
-				if (path.path.back() == edge && !path.isLooped() &&
-					path.nodeLeft()->inEdges.size() > 0) entrances.push_back(&path);
-			}
-		}
-		std::vector<UnbranchingPath*> exits;
-		for (GraphEdge* edge : tipNode->outEdges)
-		{
-			for (auto& path : unbranchingPaths)
-			{
-				if (path.path.front() == edge && !path.isLooped() &&
-					path.nodeRight()->outEdges.size() > 0) exits.push_back(&path);
-			}
-		}
-		if (entrances.size() != 1 || exits.size() != 1) continue;
-
-		if (entrances.front()->meanCoverage > MIN_COV_DIFF * tipPath.meanCoverage &&
-			exits.front()->meanCoverage > MIN_COV_DIFF * tipPath.meanCoverage)
-		{
-			toRemove.insert(tipPath.id);
+			readIndex[readPath[i].edge].push_back(&readPath);
 		}
 	}
 
+	for (auto& tipPath : unbranchingPaths)
+	{
+		if (tipPath.nodeLeft()->inEdges.size() > 0) continue;
+		if (tipPath.length > MAX_TIP) continue;
+
+		//compute mean coverage of all read-paths beyond the tip edge
+		int64_t sumCov = 0;
+		int64_t sumLen = 0;
+		for (auto& read : readIndex[tipPath.path.back()])
+		{
+			if (read->empty()) continue;
+			bool passedTip = false;
+			for (size_t i = 0; i < read->size(); ++i)
+			{
+				if ((*read)[i].edge == tipPath.path.back())
+				{
+					passedTip = true;
+					continue;
+				}
+				if (!passedTip) continue;
+
+				sumCov += (*read)[i].edge->meanCoverage * (*read)[i].edge->length();
+				sumLen += (*read)[i].edge->length();
+			}
+		}
+		if (sumLen == 0) continue;
+		float readCoverage = sumCov / sumLen;
+
+		if (readCoverage / MAX_COV_DIFF > tipPath.meanCoverage) 
+		{
+			Logger::get().debug() << "Tip " << tipPath.edgesStr() << " len: " 
+				<< tipPath.length << " tipCov:" 
+				<< tipPath.meanCoverage << " contCov:" << readCoverage;
+			//Logger::get().debug() << "Clipped";
+			toRemove.insert(tipPath.id.rc());	//to be conssitent with the rest
+		}
+	}
+	
 	for (auto& path : unbranchingPaths)
 	{
 		if (toRemove.count(path.id))
@@ -369,11 +405,18 @@ void MultiplicityInferer::trimTips()
 	_aligner.updateAlignments();
 }
 
-
+//This function collapses simply bubbles caused by
+//alternative haplotypes / strains. They are defined as follows:
+//1. Structure: 1 input, 2 branches, 1 output: -<>-
+//2. Size of each branch is shorter than MAX_BUBBLE_LEN below
+//3. Total coverage of bubbles branches roughly equasl to input/output coverages
+//4. Each branch is shorter than both entrace and exits. We need this to
+//   distinguish from the case of two repeats of multiplicity 2
+//Note that we are not using any global coverage assumptions here.
 void MultiplicityInferer::collapseHeterozygousBulges()
 {
 	const float MAX_COV_VAR = 0.20;
-	const float MAX_LEN_VAR = 0.50;
+	const int MAX_BUBBLE_LEN = 50000;
 
 	GraphProcessor proc(_graph, _asmSeqs);
 	auto unbranchingPaths = proc.getUnbranchingPaths();
@@ -410,6 +453,10 @@ void MultiplicityInferer::collapseHeterozygousBulges()
 			if (cand.nodeLeft() == twoPaths[0]->nodeRight()) exitPath = &cand;
 		}
 
+		//sanity check for maximum bubble size
+		if (std::max(twoPaths[0]->length, twoPaths[1]->length) > 
+			MAX_BUBBLE_LEN) continue;
+
 		//coverage requirement: sum over two branches roughly equals to
 		//exit and entrance coverage
 		float covSum = twoPaths[0]->meanCoverage + twoPaths[1]->meanCoverage;
@@ -417,14 +464,11 @@ void MultiplicityInferer::collapseHeterozygousBulges()
 		float exitDiff = fabsf(covSum - exitPath->meanCoverage) / covSum;
 		if (entranceDiff > MAX_COV_VAR || exitDiff > MAX_COV_VAR) continue;
 
-		//length requirement: branches have roughly the same length
-		//and are significantly shorter than entrance/exits
-		if (abs(twoPaths[0]->length - twoPaths[1]->length) >
-			MAX_LEN_VAR * std::min(twoPaths[0]->length, 
-					 			   twoPaths[1]->length)) continue;
-		float bubbleSize = (twoPaths[0]->length + twoPaths[1]->length) / 2;
-		if (bubbleSize > entrancePath->length ||
-			bubbleSize > exitPath->length) continue;
+		//require bubble branches to be shorter than entrance and exit,
+		//to distinguish from the case of two consecutive repeats
+		//of multiplicity 2
+		if (std::max(twoPaths[0]->length, twoPaths[1]->length) >
+			std::min(entrancePath->length, exitPath->length)) continue;
 
 		if (twoPaths[0]->meanCoverage < twoPaths[1]->meanCoverage)
 		{

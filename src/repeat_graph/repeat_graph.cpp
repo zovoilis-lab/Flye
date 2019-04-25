@@ -527,11 +527,11 @@ void RepeatGraph::checkGluepointProjections(const OverlapContainer& asmOverlaps)
 				}
 			}
 		}
-		for (auto& point : mergedGluepoints)
+		/*for (auto& point : mergedGluepoints)
 		{
 			Logger::get().debug() << "Merging " << point.first << " -> "
 				<< findSet(point.second)->data;
-		}
+		}*/
 		for (auto& point : mergedGluepoints) delete point.second;
 
 		if (!totalAdded) break;

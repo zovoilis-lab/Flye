@@ -26,9 +26,6 @@ public:
 				   const std::string& filename);
 	void outputFasta(const std::vector<UnbranchingPath>& paths, 
 					 const std::string& filename);
-	void dumpRepeats(const std::vector<UnbranchingPath>& paths,
-					 const std::string& outFile);
-	//void detailedFasta(const std::string& outFile);
 	std::vector<FastaRecord> 
 		generatePathSequences(const std::vector<UnbranchingPath>& paths) const;
 private:
