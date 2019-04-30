@@ -353,8 +353,41 @@ def _write_div_summary(div_sum_path, sum_header, positions,
                                            median_window_div))
         f.write("{0:33}\t{1:.5f}\n".format("Min Window Divergence:", 
                                            min_window_div))
+
+
+def call_conservative_positions(div_freq_file, cons_pos_file, 
+                                sub_thresh, del_thresh, ins_thresh):
+    header, freqs = read_frequency_path(div_freq_file)
+    prev_base = ""
+    curr_base = ""
+    next_base = ""
+    cons_pos = []
+    for i in range(len(freqs) - 1):
+        pos = freqs[i][0]
+        curr_base = freqs[i][2]
+        next_base = freqs[i + 1][2]
+        homo_pos = False
+        if curr_base == prev_base or curr_base == next_base:
+            homo_pos = True        
+        prev_base = curr_base
+        
+        cov = freqs[i][1]
+        sub = freqs[i][5]
+        dl = freqs[i][7]
+        ins = freqs[i][9]
+        
+        over_thresh = cov and (sub / float(cov) >= sub_thresh or
+                               dl / float(cov) >= del_thresh)# or
+                               #ins / float(cov) >= ins_thresh)
+        if over_thresh and not homo_pos:
+            cons_pos.append(pos)
     
-    
+    with open(cons_pos_file, "w") as f:
+        header = "".join(["Conservative_positions_{0}_".format(len(cons_pos)), 
+                              "with_thresholds_sub_{0}".format(sub_thresh), 
+                              "_del_{0}_no_ins".format(del_thresh)])
+        f.write(">{0}\n".format(header))
+        f.write(",".join(map(str, sorted(cons_pos))))
 
 class PositionIOError(Exception):
     pass
