@@ -195,14 +195,14 @@ def generate_stats(repeat_file, polished_file, scaffolds, out_stats):
 
     logger.info("Assembly statistics:\n\n"
                 "\tTotal length:\t{0}\n"
-                "\tContigs:\t{1}\n"
-                "\tScaffolds:\t{3}\n"
+                "\tFragments:\t{1}\n"
                 #"\tContigs N50:\t{2}\n"
-                "\tScaffolds N50:\t{4}\n"
-                "\tLargest scf:\t{5}\n"
-                "\tMean coverage:\t{6}\n"
-                .format(total_length, num_contigs, ctg_n50,
-                        num_scaffolds, scf_n50, largest_scf, mean_read_cov))
+                "\tFragments N50:\t{3}\n"
+                "\tLargest frg:\t{4}\n"
+                "\tScaffolds:\t{2}\n"
+                "\tMean coverage:\t{5}\n"
+                .format(total_length, num_scaffolds, num_contigs - num_scaffolds,
+                        scf_n50, largest_scf, mean_read_cov))
 
 
 def short_statistics(fasta_file):

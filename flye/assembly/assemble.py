@@ -37,7 +37,7 @@ def check_binaries():
 
 
 def assemble(args, run_params, out_file, log_file, config_path):
-    logger.info("Assembling reads")
+    logger.info("Assembling disjointigs")
     logger.debug("-----Begin assembly log------")
     cmdline = [ASSEMBLE_BIN, "-l", log_file, "-t", str(args.threads)]
     if args.debug:

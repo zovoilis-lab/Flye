@@ -31,7 +31,7 @@ def setup_params(args):
     _, reads_n90 = _calc_nx(read_lengths, total_length, 0.90)
 
     #Selecting minimum overlap
-    logger.debug("Total sequence length: {0}".format(total_length))
+    logger.info("Total read length: {0}".format(total_length))
 
     coverage = total_length / args.genome_size
     logger.info("Input genome size: {0}".format(args.genome_size))
@@ -54,6 +54,8 @@ def setup_params(args):
         logger.info("Minimum overlap set to {0}".format(parameters["min_overlap"]))
     else:
         parameters["min_overlap"] = args.min_overlap
+        logger.info("Selected minimum overlap: {0}"
+                        .format(parameters["min_overlap"]))
 
     #Selecting k-mer size
     if args.genome_size < cfg.vals["big_genome_kmer"]:

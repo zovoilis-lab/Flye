@@ -179,9 +179,11 @@ int main(int argc, char** argv)
 	//multInf.removeUnsupportedEdges();
 	//multInf.removeUnsupportedConnections();
 
-	//collapse graph structures cause by heterogenity
+
+	//clean the graph
 	//multInf.collapseHeterozygousLoops();
 	//multInf.collapseHeterozygousBulges();
+	//multInf.trimTips();
 
 	//Logger::get().info() << "Resolving repeats";
 	//RepeatResolver resolver(rg, seqAssembly, seqReads, aligner, multInf);
@@ -191,12 +193,9 @@ int main(int argc, char** argv)
 	//outGen.outputFasta(proc.getEdgesPaths(), outFolder + "/graph_before_rr.fasta");
 	//resolver.resolveRepeats();
 
-	//collapse again after repeat resolution
+	//clean graph again after repeat resolution
 	//multInf.collapseHeterozygousLoops();
 	//multInf.collapseHeterozygousBulges();
-	//do tip trimming only after repeat resolution, since those
-	//tips might actually help to resolve some repeats,
-	//and help to identify repeat boundaries
 	//multInf.trimTips();
 
 	//resolver.findRepeats();

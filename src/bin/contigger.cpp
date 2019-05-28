@@ -171,7 +171,7 @@ int main(int argc, char** argv)
 	ContigExtender extender(rg, aln, emptyContainer, seqReads);
 	extender.generateUnbranchingPaths();
 	extender.generateContigs();
-	extender.outputContigs(outFolder + "/graph_paths.fasta");
+	extender.outputContigs(outFolder + "/contigs.fasta");
 	extender.outputStatsTable(outFolder + "/contigs_stats.txt");
 	extender.outputScaffoldConnections(outFolder + "/scaffolds_links.txt");
 

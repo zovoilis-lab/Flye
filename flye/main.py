@@ -24,7 +24,7 @@ import flye.assembly.scaffolder as scf
 from flye.__version__ import __version__
 import flye.config.py_cfg as cfg
 from flye.config.configurator import setup_params
-from flye.utils.bytes2human import human2bytes
+from flye.utils.bytes2human import human2bytes, bytes2human
 import flye.utils.fasta_parser as fp
 import flye.short_plasmids.plasmids as plas
 import flye.trestle.trestle as tres
@@ -113,7 +113,7 @@ class JobAssembly(Job):
         asm.assemble(self.args, Job.run_params, self.assembly_filename,
                      self.log_file, self.args.asm_config, )
         if os.path.getsize(self.assembly_filename) == 0:
-            raise asm.AssembleException("No contigs were assembled - "
+            raise asm.AssembleException("No disjointigs were assembled - "
                                         "please check if the read type and genome "
                                         "size parameters are correct")
         asm_len, asm_n50 = scf.short_statistics(self.assembly_filename)
@@ -200,7 +200,7 @@ class JobContigger(Job):
 
         self.work_dir = os.path.join(work_dir, "30-contigger")
         self.out_files["contigs"] = os.path.join(self.work_dir,
-                                                 "graph_paths.fasta")
+                                                 "contigs.fasta")
         self.out_files["assembly_graph"] = os.path.join(self.work_dir,
                                                         "graph_final.gv")
         self.out_files["edges_sequences"] = os.path.join(self.work_dir,
@@ -221,6 +221,19 @@ class JobContigger(Job):
                                 self.repeat_graph, self.reads_alignment)
 
 
+def _list_files(startpath, maxlevel=1):
+    for root, dirs, files in os.walk(startpath):
+        level = root.replace(startpath, "").count(os.sep)
+        if level > maxlevel:
+            continue
+        indent = " " * 4 * (level)
+        logger.debug("{}{}/".format(indent, os.path.basename(root)))
+        subindent = " " * 4 * (level + 1)
+        for f in files:
+            fsize = bytes2human(os.path.getsize(os.path.join(root, f)))
+            logger.debug("{}{:12}{}".format(subindent, fsize, f))
+
+
 class JobFinalize(Job):
     def __init__(self, args, work_dir, log_file,
                  contigs_file, graph_file, repeat_stats,
@@ -236,6 +249,7 @@ class JobFinalize(Job):
         self.polished_stats = polished_stats
         self.scaffold_links = scaffold_links
         self.polished_gfa = polished_gfa
+        self.work_dir = work_dir
 
         #self.out_files["contigs"] = os.path.join(work_dir, "contigs.fasta")
         self.out_files["scaffolds"] = os.path.join(work_dir, "scaffolds.fasta")
@@ -253,21 +267,21 @@ class JobFinalize(Job):
         scaffolds = scf.generate_scaffolds(self.contigs_file, self.scaffold_links,
                                            self.out_files["assembly"])
 
-        logger.debug("---Output dir contents:----")
+        #create the scaffolds.fasta symlink for backward compatability
         try:
-            ls_out = subprocess.check_output(["ls", "-ARGg",
-                                             os.path.abspath(self.args.out_dir)])
-            logger.debug("\n\n" + ls_out)
-        except (subprocess.CalledProcessError, OSError):
-            pass
-        logger.debug("--------------------------")
-
-        scf.generate_stats(self.repeat_stats, self.polished_stats, scaffolds,
-                           self.out_files["stats"])
-        try:
-            os.symlink(self.out_files["assembly"], self.out_files["scaffolds"])
+            if os.path.lexists(self.out_files["scaffolds"]):
+                os.remove(self.out_files["scaffolds"])
+            relative_link = os.path.relpath(self.out_files["assembly"],
+                                            self.work_dir)
+            os.symlink(relative_link, self.out_files["scaffolds"])
         except OSError as e:
             logger.debug(e)
+
+        logger.debug("---Output dir contents:----")
+        _list_files(os.path.abspath(self.args.out_dir))
+        logger.debug("--------------------------")
+        scf.generate_stats(self.repeat_stats, self.polished_stats, scaffolds,
+                           self.out_files["stats"])
         logger.info("Final assembly: {0}".format(self.out_files["assembly"]))
 
 
@@ -589,9 +603,9 @@ def _epilog():
             "of metagenome assembly, the expected total assembly size\n"
             "should be provided.\n\n"
             "To reduce memory consumption for large genome assemblies,\n"
-            "you can use a subset of the longest reads for initial contig\n"
+            "you can use a subset of the longest reads for initial disjointig\n"
             "assembly by specifying --asm-coverage option. Typically,\n"
-            "30x coverage is enough to produce good draft contigs.\n\n"
+            "30x coverage is enough to produce good disjointigs.\n\n"
             "You can separately run Flye polisher on a target sequence \n"
             "using --polish-target option.")
 
@@ -657,7 +671,7 @@ def main():
                         default=None, help="minimum overlap between reads [auto]")
     parser.add_argument("--asm-coverage", dest="asm_coverage", metavar="int",
                         default=None, help="reduced coverage for initial "
-                        "contig assembly [not set]", type=int)
+                        "disjointig assembly [not set]", type=int)
     parser.add_argument("--plasmids", action="store_true",
                         dest="plasmids", default=False,
                         help="rescue short unassembled plasmids")

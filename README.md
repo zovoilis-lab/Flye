@@ -3,7 +3,7 @@ Flye assembler
 
 [![BioConda Install](https://img.shields.io/conda/dn/bioconda/flye.svg?style=flag&label=BioConda%20install)](https://anaconda.org/bioconda/flye)
 
-### Version: 2.4.1
+### Version: 2.4.2
 
 Flye is a de novo assembler for single molecule sequencing reads,
 such as those produced by PacBio and Oxford Nanopore Technologies.
@@ -14,6 +14,11 @@ Flye also includes a special mode for metagenome assembly.
 
 Latest updates
 --------------
+
+### Flye 2.4.2 release (06 Apr 2019)
+* Improvements in k-mer selection and tip clipping for metagenome assemblies
+* Better memory managment during consensus/polishing
+* Some bugfixes
 
 ### Flye 2.4.1 release (05 Mar 2019)
 * Speed and stability improvements for large datasets
@@ -78,8 +83,9 @@ Flye benchmarks
 | [A.thaliana][at]         | PB 75x     | 120 Mb    | 11.2 Mb  | 240 h     | 46 Gb  |
 | [D.melanogaster][dm-ont] | ONT 30x    | 143 Mb    | 13.2 Mb  | 130 h     | 31 Gb  |     
 | [D.melanogaster][dm-pb]  | PB 120x    | 142 Mb    | 17.5 Mb  | 190 h     | 75 Gb  |     
-| [NA12878][na12878]       | ONT UL 35x | 2.9 Gb    | 20.8 Mb  | 5000 h    | 600 Gb |
-| [HG002][hg002]           | PB CCS 30x | 2.9 Gb    | 24.6 Mb  | 900 h     | 300 Gb |
+| [Human NA12878][na12878] | ONT UL 35x | 2.9 Gb    | 20.8 Mb  | 5000 h    | 600 Gb |
+| [Human HG002][hg002]     | PB CCS 30x | 2.9 Gb    | 24.6 Mb  | 900 h     | 300 Gb |
+| [Human CHM1][chm1]       | PB 100x    | 2.8 Gb    | 17.3 Mb  | 2200 h    | 676 Gb |
 | [HMP mock][hmp]          | PB meta    | 66 Mb     | 2.7 Mb   | 60 h      | 44 Gb  |
 
 [na12878]: https://github.com/nanopore-wgs-consortium/NA12878/blob/master/Genome.md
@@ -90,8 +96,9 @@ Flye benchmarks
 [hg002]: https://ftp-trace.ncbi.nlm.nih.gov/giab/ftp/data/AshkenazimTrio/HG002_NA24385_son/PacBio_CCS_15kb/
 [ecoli]: https://github.com/PacificBiosciences/DevNet/wiki/E.-coli-Bacterial-Assembly
 [hmp]: https://github.com/PacificBiosciences/DevNet/wiki/Human_Microbiome_Project_MockB_Shotgun 
+[chm1]: https://trace.ncbi.nlm.nih.gov/Traces/sra/?study=SRP044331
 
-The assemblies generated using Flye 2.4 could be downloaded from [Zenodo](https://zenodo.org/record/2586130)
+The assemblies generated using Flye 2.4 could be downloaded from [Zenodo](https://zenodo.org/record/2612888)
 
 Third-party
 -----------

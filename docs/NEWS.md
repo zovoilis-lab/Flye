@@ -1,3 +1,8 @@
+### Flye 2.4.2 release (06 Apr 2019)
+* Improvements in k-mer selection and tip clipping for metagenome assemblies
+* Better memory managment during consensus/polishing
+* Some bugfixes
+
 Flye 2.4.1 release (05 Mar 2019)
 ================================
 * Speed and stability improvements for large datasets

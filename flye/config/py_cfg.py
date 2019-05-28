@@ -51,8 +51,8 @@ vals = {
                 "max_aln_error" : 0.25
             },
             "nano" : {
-                "subs_matrix" : "config/bin_cfg/nano_substitutions.mat",
-                "hopo_matrix" : "config/bin_cfg/nano_homopolymers.mat",
+                "subs_matrix" : "config/bin_cfg/nano_r94_substitutions.mat",
+                "hopo_matrix" : "config/bin_cfg/nano_r94_homopolymers.mat",
                 "solid_missmatch" : 0.3,
                 "solid_indel" : 0.3,
                 "max_aln_error" : 0.3

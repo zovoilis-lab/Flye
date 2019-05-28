@@ -249,7 +249,7 @@ It is a tab-delimited table with the columns as follows:
 Scaffold gaps are marked with `??` symbols, and `*` symbol denotes a
 terminal graph node.
 
-`scaffolds.fasta` file is a symlink to the `assembly.fasta`, which is
+`scaffolds.fasta` file is a symlink to `assembly.fasta`, which is
 retained for the backward compatibility.
 
 ## <a name="graph"></a> Repeat graph

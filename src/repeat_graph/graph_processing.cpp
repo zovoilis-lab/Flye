@@ -315,7 +315,8 @@ std::vector<UnbranchingPath> GraphProcessor::getEdgesPaths() const
 	{
 		GraphPath path = {edge};
 		paths.emplace_back(path, edge->edgeId, false,
-						   edge->length(), edge->meanCoverage);
+						   edge->length(), edge->meanCoverage,
+						   "edge_");
 		paths.back().repetitive = edge->repetitive;
 	}
 	return paths;
