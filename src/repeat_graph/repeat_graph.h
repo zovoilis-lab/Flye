@@ -224,7 +224,7 @@ public:
 	{}
 	~RepeatGraph();
 
-	void build(OverlapDetector::MatchMode);
+	void build(OverlapDetector::MatchMode, float maxOvlpDivergence);
 	void storeGraph(const std::string& filename);
 	void loadGraph(const std::string& filename);
 

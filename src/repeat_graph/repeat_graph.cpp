@@ -57,7 +57,8 @@ std::unordered_set<GraphEdge*> GraphEdge::adjacentEdges()
 	return edges;
 }
 
-void RepeatGraph::build(OverlapDetector::MatchMode matchMode)
+void RepeatGraph::build(OverlapDetector::MatchMode matchMode,
+						float maxOvlpDivergence)
 {
 	//getting overlaps
 	VertexIndex asmIndex(_asmSeqs, 
@@ -73,7 +74,7 @@ void RepeatGraph::build(OverlapDetector::MatchMode matchMode)
 								  Parameters::get().minimumOverlap,
 								  DEFAULT_OVERHANG, /*all overlaps*/ 0,
 								  /*keep alignment*/ true, /*only max*/ false,
-								  (float)Config::get("repeat_graph_ovlp_divergence"),
+								  maxOvlpDivergence,
 								  badEndAdj, /*nucl alignment*/ true,
 								  matchMode);
 

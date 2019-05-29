@@ -36,6 +36,7 @@ def main():
     cmd.extend(["-t", str(args.threads)])
     cmd.extend(["-l", log_file])
     cmd.extend(["-m", args.match_mode])
+    cmd.extend(["-o", str(args.max_divergence)])
     cmd.extend([args.input_assembly, "-", args.out_dir, config])
     print(" ".join(cmd))
     subprocess.check_call(cmd)

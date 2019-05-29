@@ -27,7 +27,7 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 			   std::string& inAssembly, int& kmerSize,
 			   int& minOverlap, bool& debug, size_t& numThreads, 
 			   std::string& configPath, bool& unevenCov,
-			   std::string& matchMode)
+			   std::string& matchMode, float& ovlpDivergence)
 {
 	auto printUsage = [argv]()
 	{
@@ -52,11 +52,13 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 				  << "[default = not set] \n"
 				  << "\t-m match mode\teither of [local, semi, dovetail]\n "
 				  << "[default = local] \n"
+				  << "\t-o max overlap divergence\n "
+				  << "[default = 0.05] \n"
 				  << "\t-t num_threads\tnumber of parallel threads "
 				  << "[default = 1] \n";
 	};
 
-	const char optString[] = "l:t:v:k:m:hdu";
+	const char optString[] = "l:t:v:k:m:o:hdu";
 	int opt = 0;
 	while ((opt = getopt(argc, argv, optString)) != -1)
 	{
@@ -70,6 +72,9 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 			break;
 		case 'k':
 			kmerSize = atoi(optarg);
+			break;
+		case 'o':
+			ovlpDivergence = atof(optarg);
 			break;
 		case 'm':
 			matchMode = optarg;
@@ -120,9 +125,11 @@ int main(int argc, char** argv)
 	std::string logFile;
 	std::string configPath;
 	std::string matchModeStr = "local";
+	float maxOvlpDivergence = 0.05f;
 	if (!parseArgs(argc, argv, readsFasta, outFolder, logFile, inAssembly,
 				   kmerSize, minOverlap, debugging, 
-				   numThreads, configPath, unevenCov, matchModeStr))  return 1;
+				   numThreads, configPath, unevenCov, 
+				   matchModeStr, maxOvlpDivergence))  return 1;
 	
 	Logger::get().setDebugging(debugging);
 	if (!logFile.empty()) Logger::get().setOutputFile(logFile);
@@ -179,7 +186,8 @@ int main(int argc, char** argv)
 	if (matchModeStr == "semi") matchMode = OverlapDetector::MatchSemiDovetail;
 	if (matchModeStr == "dovetail") matchMode = OverlapDetector::MatchDovetail;
 	Logger::get().info() << "Matching mode: " << matchModeStr;
-	rg.build(matchMode);
+	Logger::get().info() << "Max overlap divergence: " << maxOvlpDivergence;
+	rg.build(matchMode, maxOvlpDivergence);
 	//outGen.outputDot(proc.getEdgesPaths(), outFolder + "/graph_raw.gv");
 
 	//Logger::get().info() << "Aligning reads to the graph";
