@@ -225,12 +225,14 @@ struct OvlpDivStats
 class OverlapDetector
 {
 public:
+	enum MatchMode {MatchLocal, MatchSemiDovetail, MatchDovetail};
+
 	OverlapDetector(const SequenceContainer& seqContainer,
 					const VertexIndex& vertexIndex,
 					int maxJump, int minOverlap, int maxOverhang,
 					int maxCurOverlaps, bool keepAlignment, bool onlyMaxExt,
 					float maxDivergence, float badEndAdjustment,
-					bool nuclAlignment):
+					bool nuclAlignment, MatchMode matchMode=MatchLocal):
 		_maxJump(maxJump),
 		_minOverlap(minOverlap),
 		_maxOverhang(maxOverhang),
@@ -242,7 +244,8 @@ public:
 		_maxDivergence(maxDivergence),
 		_badEndAdjustment(badEndAdjustment),
 		_vertexIndex(vertexIndex),
-		_seqContainer(seqContainer)
+		_seqContainer(seqContainer),
+		_matchMode(matchMode)
 		//_seqHitCounter(_seqContainer.getMaxSeqId())
 	{
 	}
@@ -271,6 +274,7 @@ private:
 
 	const VertexIndex& _vertexIndex;
 	const SequenceContainer& _seqContainer;
+	const MatchMode _matchMode;
 
 	//typedef unsigned char CounterType;
 	//std::vector<CounterType> _seqHitCounter;

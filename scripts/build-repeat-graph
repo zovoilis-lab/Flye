@@ -14,27 +14,28 @@ def main():
     parser.add_argument("-t", "--threads", type=int, default=1,
                         help="number of parallel threads (default: 1)")
     parser.add_argument("--min-overlap", type=int, default=500,
-                        help="Minimum overlap size (default: 500)")
+                        help="Minimum overlap size (default: 500)",
+                        dest="min_overlap")
     parser.add_argument("--max-divergence", type=float, default=0.05,
                         help="Maximum overlap divergence (default: 0.05)")
-    parser.add_argument("--dovetail-only", type=bool, default=False,
-                        help="Only consider end-to-start overlaps (default: False)")
+    parser.add_argument("--match-mode", type=str, default="semi",
+                        help="Match mode: local, (semi), dovetail",
+                        dest="match_mode")
     args = parser.parse_args()
 
     flye_root = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
     flye_repeat_bin = os.path.join(flye_root, "bin", "flye-repeat")
-    config = os.path.join(flye_root, "flye", "config", "bin_cfg", "asm_raw_reads.cfg")
+    config = os.path.join(flye_root, "flye", "config", "bin_cfg", "asm_corrected_reads.cfg")
 
     if not os.path.isdir(args.out_dir):
         os.mkdir(args.out_dir)
-    #dummy_reads = os.path.join(args.out_dir, "input_reads.fasta")
-    #open(dummy_reads, "w").close()
     log_file = os.path.join(args.out_dir, "flye.log")
 
     cmd = [flye_repeat_bin]
     cmd.extend(["-v", str(args.min_overlap)])
     cmd.extend(["-t", str(args.threads)])
     cmd.extend(["-l", log_file])
+    cmd.extend(["-m", args.match_mode])
     cmd.extend([args.input_assembly, "-", args.out_dir, config])
     print(" ".join(cmd))
     subprocess.check_call(cmd)

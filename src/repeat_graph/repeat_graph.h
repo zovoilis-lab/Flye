@@ -224,7 +224,7 @@ public:
 	{}
 	~RepeatGraph();
 
-	void build();
+	void build(OverlapDetector::MatchMode);
 	void storeGraph(const std::string& filename);
 	void loadGraph(const std::string& filename);
 

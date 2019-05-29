@@ -231,9 +231,9 @@ bool OverlapDetector::overlapTest(const OverlapRange& ovlp,
 		if (intersect > ovlp.curRange() / 2) return false;
 	}
 
-	if (_checkOverhang)
+	/*if (_checkOverhang)
 	{
-		/*if (std::min(ovlp.curBegin, ovlp.extBegin) > 
+		if (std::min(ovlp.curBegin, ovlp.extBegin) > 
 			_maxOverhang) 
 		{
 			return false;
@@ -242,11 +242,28 @@ bool OverlapDetector::overlapTest(const OverlapRange& ovlp,
 			_maxOverhang)
 		{
 			return false;
-		}*/
+		}
+	}*/
+
+	if (_matchMode == MatchSemiDovetail)
+	{
+		//either of four ends has no overhangs
+		if (ovlp.curBegin < _maxOverhang ||
+			ovlp.curLen - ovlp.curEnd < _maxOverhang ||
+			ovlp.extBegin < _maxOverhang ||
+			ovlp.extLen - ovlp.extEnd < _maxOverhang) return true;
+
+		return false;
+	}
+	if (_matchMode == MatchDovetail)
+	{
+		//cur into ext
 		if (ovlp.curLen - ovlp.curEnd < _maxOverhang &&
 			ovlp.extBegin < _maxOverhang) return true;
+		//ext into cur
 		if (ovlp.extLen - ovlp.extEnd < _maxOverhang &&
 			ovlp.curBegin < _maxOverhang) return true;
+
 		return false;
 	}
 
@@ -438,12 +455,12 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 		}
 		if (maxCur - minCur < _minOverlap || 
 			maxExt - minExt < _minOverlap) continue;
-		if (_checkOverhang)
+		/*if (_checkOverhang)
 		{
 			if (std::min(minCur, minExt) > _maxOverhang) continue;
 			if (std::min(curLen - maxCur, 
 						 extLen - maxExt) > _maxOverhang) continue;
-		}
+		}*/
 		//++uniqueCandidates;
 
 		//chain matiching positions with DP
