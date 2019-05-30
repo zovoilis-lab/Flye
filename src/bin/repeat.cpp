@@ -211,7 +211,7 @@ int main(int argc, char** argv)
 	//resolver.findRepeats();
 	//outGen.outputDot(proc.getEdgesPaths(), outFolder + "/graph_before_rr.gv");
 	outGen.outputGfa(proc.getEdgesPaths(), outFolder + "/assembly_graph.gfa");
-	//outGen.outputFasta(proc.getEdgesPaths(), outFolder + "/graph_before_rr.fasta");
+	outGen.outputFasta(proc.getEdgesPaths(), outFolder + "/graph_edges.fasta");
 	//resolver.resolveRepeats();
 
 	//clean graph again after repeat resolution
