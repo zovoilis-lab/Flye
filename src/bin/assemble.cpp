@@ -199,12 +199,12 @@ int main(int argc, char** argv)
 	Logger::get().debug() << "Peak RAM usage: " 
 		<< getPeakRSS() / 1024 / 1024 / 1024 << " Gb";
 
-	int maxOverlapsNum = !Parameters::get().unevenCoverage ? 5 * coverage : 0;
+	//int maxOverlapsNum = !Parameters::get().unevenCoverage ? 5 * coverage : 0;
 	OverlapDetector ovlp(readsContainer, vertexIndex,
 						 (int)Config::get("maximum_jump"), 
 						 Parameters::get().minimumOverlap,
 						 (int)Config::get("maximum_overhang"),
-						 maxOverlapsNum, 
+						 /*no max overlaps*/ 0, 
 						 /*store alignment*/ false,
 						 /*only max*/ true,
 						 (float)Config::get("assemble_ovlp_divergence"),
