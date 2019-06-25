@@ -109,24 +109,28 @@ std::vector<int32_t>
 									 const std::vector<OverlapRange>& readOverlaps)
 {
 	static const int WINDOW = Config::get("chimera_window");
-	const int FLANK = (int)Config::get("maximum_overhang") / WINDOW;
+	//const int FLANK = (int)Config::get("maximum_overhang") / WINDOW;
+	const int FLANK = 1;
 
 	std::vector<int> coverage;
-	int numWindows = _seqContainer.seqLen(readId) / WINDOW;
+	int numWindows = std::ceil((float)_seqContainer.seqLen(readId) / WINDOW) + 1;
 	if (numWindows - 2 * FLANK <= 0) return {0};
 
 	coverage.assign(numWindows - 2 * FLANK, 0);
 	for (const auto& ovlp : readOverlaps)
 	{
-		if (ovlp.curId == ovlp.extId.rc()) continue;
+		if (ovlp.curId == ovlp.extId.rc() ||
+			ovlp.curId == ovlp.extId) continue;
 
-		for (int pos = ovlp.curBegin / WINDOW + 1; 
-			 pos < ovlp.curEnd / WINDOW; ++pos)
+		//skip 2 first/last windows of overlap to be more robust to
+		//possible coorinate shifts
+		for (int pos = ovlp.curBegin / WINDOW + FLANK; 		
+			 pos <= ovlp.curEnd / WINDOW - FLANK; ++pos)
 		{
-			if (pos - FLANK >= 0 && 
+			if (pos - FLANK >= 0 && 					//shouldn't happen, but just in case..
 				pos - FLANK < (int)coverage.size())
 			{
-				assert(pos - FLANK >= 0 && pos - FLANK < (int)coverage.size());
+				//assert(pos - FLANK >= 0 && pos - FLANK < (int)coverage.size());
 				++coverage[pos - FLANK];
 			}
 		}
@@ -139,40 +143,85 @@ std::vector<int32_t>
 bool ChimeraDetector::testReadByCoverage(FastaRecord::Id readId,
 										 const std::vector<OverlapRange>& readOvlps)
 {
-	auto coverage = this->getReadCoverage(readId, readOvlps);
 	const float MAX_DROP_RATE = Config::get("max_coverage_drop_rate");
-	/*std::string covStr;
-	for (int cov : coverage)
+
+	auto coverage = this->getReadCoverage(readId, readOvlps);
+	if (coverage.empty()) return false;
+
+	int32_t maxCov = 0;
+	int64_t sumCov = 0;
+	for (auto cov : coverage)
 	{
-		covStr += std::to_string(cov) + " ";
-	}*/
-	//Logger::get().debug() << "\t" << _seqContainer.seqName(readId) << covStr;
+		maxCov = std::max(maxCov, cov);
+		sumCov += cov;
+	}
+	//int32_t meanCoverage = sumCov / coverage.size();
+	//int32_t medianCoverage = median(coverage);
+	if (sumCov == 0) return false;	//no overlaps found, but it's not chimeric either
 
 	int threshold = 0;	
 	if (!Parameters::get().unevenCoverage)
 	{
-		threshold = std::round((float)_overlapCoverage / MAX_DROP_RATE);
+		threshold = std::max(1L, std::lround((float)_overlapCoverage / 
+											 MAX_DROP_RATE));
 	}
 	else
 	{
-		int maxCov = 0;
-		for (auto cov : coverage)
-		{
-			maxCov = std::max(maxCov, cov);
-		}
-		threshold = std::round((float)std::min(_overlapCoverage, maxCov) /
-							   MAX_DROP_RATE);
+		/*threshold = std::round((float)std::min(_overlapCoverage, maxCov) /
+							   MAX_DROP_RATE);*/
+		threshold = 1;
 	}
 
-	for (auto cov : coverage)
+	int32_t goodStart = 0;
+	int32_t goodEnd = coverage.size() - 1;
+	if (!Parameters::get().unevenCoverage)
 	{
-		if (cov == 0) return true;
-
-		if (cov < threshold)
+		const int MAX_FLANK = (int)Config::get("maximum_overhang") / 
+								Config::get("chimera_window");
+		goodStart = MAX_FLANK;
+		goodEnd = coverage.size() - MAX_FLANK - 1;
+	}
+	else
+	{
+		for (goodEnd = 0; goodStart < (int)coverage.size(); ++goodStart)
 		{
-			return true;
+			if (coverage[goodStart] >= threshold) break;
+			if (goodStart > 0 && coverage[goodStart] < coverage[goodStart - 1]) break;
+		}
+		for (goodEnd = coverage.size() - 1; goodEnd >= 0; --goodEnd)
+		{
+			if (coverage[goodEnd] >= threshold) break;
+			if (goodEnd > 0 && coverage[goodEnd] > coverage[goodEnd - 1]) break;
+		}
+	}
+	
+	bool lowCoverage = false;
+	if (goodEnd <= goodStart) lowCoverage = true;
+	for (int32_t i = goodStart; i <= goodEnd; ++i)
+	{
+		if (coverage[i] < threshold)
+		{
+			lowCoverage = true;
+			break;
 		}
 	}
 
-	return false;
+	/*static std::ofstream fout("chimera_dump.txt");
+	static std::mutex logLock;
+	logLock.lock();
+	std::string covStr;
+	for (int32_t i = 0; i < (int)coverage.size() - 1; ++i)
+	{
+		if (i == goodStart) covStr += " { ";
+		covStr += std::to_string(coverage[i]) + " ";
+		if (i == goodEnd) covStr += " } ";
+	}
+	fout << _seqContainer.seqName(readId) << " " 
+		<< _seqContainer.seqLen(readId) << std::endl;
+	fout << covStr << std::endl;
+	fout << "max: " << maxCov << " mean: " << meanCoverage << " median: " << medianCoverage
+		<< " threshold: " << threshold << " chim:" << lowCoverage << std::endl << std::endl;
+	logLock.unlock();*/
+
+	return lowCoverage;
 }

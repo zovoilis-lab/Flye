@@ -54,6 +54,8 @@ def setup_params(args):
         logger.info("Minimum overlap set to {0}".format(parameters["min_overlap"]))
     else:
         parameters["min_overlap"] = args.min_overlap
+        logger.info("Selected minimum overlap: {0}"
+                        .format(parameters["min_overlap"]))
 
     #Selecting k-mer size
     if args.genome_size < cfg.vals["big_genome_kmer"]:
