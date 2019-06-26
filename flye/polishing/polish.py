@@ -161,6 +161,7 @@ def generate_polished_edges(edges_file, gfa_file, polished_contigs, work_dir,
         _, ctg_aln = aln_reader.get_chunk()
         for aln in ctg_aln:
             aln_by_edge[aln.qry_id].append(aln)
+    aln_reader.stop_reading()
 
     MIN_CONTAINMENT = 0.9
     updated_seqs = 0
@@ -189,15 +190,16 @@ def generate_polished_edges(edges_file, gfa_file, polished_contigs, work_dir,
     fp.write_fasta_dict(edges_dict, edges_polished)
 
     #writes gfa file with polished edges
-    gfa_polished = open(os.path.join(work_dir, "polished_edges.gfa"), "w")
-    for line in open(gfa_file, "r"):
-        if line.startswith("S"):
-            seq_id = line.split()[1]
-            coverage_tag = line.split()[3]
-            gfa_polished.write("S\t{0}\t{1}\t{2}\n"
-                                .format(seq_id, edges_dict[seq_id], coverage_tag))
-        else:
-            gfa_polished.write(line)
+    with open(os.path.join(work_dir, "polished_edges.gfa"), "w") as gfa_polished, \
+         open(gfa_file, "r") as gfa_in:
+        for line in gfa_in:
+            if line.startswith("S"):
+                seq_id = line.split()[1]
+                coverage_tag = line.split()[3]
+                gfa_polished.write("S\t{0}\t{1}\t{2}\n"
+                                    .format(seq_id, edges_dict[seq_id], coverage_tag))
+            else:
+                gfa_polished.write(line)
 
     logger.debug("{0} sequences remained unpolished"
                     .format(len(edges_dict) - updated_seqs))

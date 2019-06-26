@@ -128,6 +128,12 @@ class SynchronizedSamReader(object):
         self.processed_contigs = set()
         self.cigar_parser = re.compile("[0-9]+[MIDNSHP=X]")
 
+    def stop_reading(self):
+        """
+        Call when the reading is done
+        """
+        self.aln_file.close()
+
     def is_eof(self):
         return self.eof.value
 
@@ -454,8 +460,6 @@ def merge_chunks(fasta_in, fold_function=lambda l: "".join(l)):
             cur_contig = orig_name
         cur_seq.append(fasta_in[hdr])
 
-        #print (hdr, orig_name, chunk_id)
-
     if cur_seq:
         out_dict[cur_contig] = fold_function(cur_seq)
 
@@ -471,14 +475,6 @@ def _run_minimap(reference_file, reads_files, num_proc, mode, out_file,
         #a = SAM output, Y = soft clipping for supplementary alignments
         #p = min primary-to-seconday score, N = max secondary alignments
         cmdline.extend(["-a", "-Y", "-p", "0.7", "-N", "10"])
-    """
-    cmdline.extend(["-Q", "-w5", "-m100", "-g10000", "--max-chain-skip",
-                    "25", "-t", str(num_proc)])
-    if platform == "nano":
-        cmdline.append("-k15")
-    else:
-        cmdline.append("-Hk19")
-    """
 
     try:
         devnull = open(os.devnull, "w")
