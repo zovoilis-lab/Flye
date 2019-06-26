@@ -45,6 +45,8 @@ def _thread_worker(aln_reader, contigs_info, platform, results_queue,
             #sequence = _flatten_profile(profile)
             results_queue.put((ctg_id, profile, aln_errors))
 
+        aln_reader.stop_reading()
+
     except Exception as e:
         error_queue.put(e)
 

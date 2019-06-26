@@ -1233,6 +1233,7 @@ def _read_alignment(alignment, target_path, min_aln_rate):
         if ctg_id is None:
             break
         alignments.append(ctg_aln)
+    aln_reader.stop_reading()
     
     return alignments
 

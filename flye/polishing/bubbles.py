@@ -76,6 +76,8 @@ def _thread_worker(aln_reader, contigs_info, err_mode,
             del profile
             del ctg_bubbles
 
+        aln_reader.stop_reading()
+
     except Exception as e:
         error_queue.put(e)
 
