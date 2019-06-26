@@ -321,6 +321,17 @@ def _preprocess_sam(sam_file, work_dir):
     file by reference sequence id
     """
     expanded_sam = sam_file + "_expanded"
+    merged_file = sam_file + "_merged"
+    sorted_file = sam_file + "_sorted"
+
+    #puting SAM headers to the final postprocessed file first
+    with open(sam_file, "r") as hdr_in, open(merged_file, "w") as fout:
+        for line in hdr_in:
+            if not _is_sam_header(line):
+                break
+            fout.write(line)
+
+    #adding SEQ fields to secondary alignments
     with open(sam_file, "r") as fin, open(expanded_sam, "w") as fout:
         prev_id = None
         prev_seq = None
@@ -344,30 +355,24 @@ def _preprocess_sam(sam_file, work_dir):
 
             fout.write("\t".join(tokens) + "\n")
 
+    #don't need the original SAM anymore, cleaning up space
+    os.remove(sam_file)
+
     #logger.debug("Sorting alignment file")
-    sorted_file = sam_file + "_sorted"
     env = os.environ.copy()
     env["LC_ALL"] = "C"
     subprocess.check_call(["sort", "-k", "3,3", "-T", work_dir, expanded_sam],
                           stdout=open(sorted_file, "w"), env=env)
 
-    #puting back SAM headers
-    merged_file = sam_file + "_merged"
-    with open(sam_file, "r") as hdr_in, \
-         open(sorted_file, "r") as sort_in, \
-         open(merged_file, "w") as fout:
+    #don't need the expanded file anymore
+    os.remove(expanded_sam)
 
-        for line in hdr_in:
-            if not _is_sam_header(line):
-                break
-            fout.write(line)
-
+    #appending to the final file, that already contains headers
+    with open(sorted_file, "r") as sort_in, open(merged_file, "w") as fout:
         for line in sort_in:
             if not _is_sam_header(line):
                 fout.write(line)
 
-    os.remove(expanded_sam)
-    os.remove(sam_file)
     os.remove(sorted_file)
     os.rename(merged_file, sam_file)
 
