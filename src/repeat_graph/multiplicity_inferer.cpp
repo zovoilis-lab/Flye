@@ -324,7 +324,7 @@ void MultiplicityInferer::collapseHeterozygousLoops()
 void MultiplicityInferer::trimTips()
 {
 	const int MAX_TIP = Config::get("tip_length_threshold");
-	const int MAX_COV_DIFF = 5;
+	const int COV_RATE = 2;
 
 	std::unordered_set<FastaRecord::Id> toRemove;
 	GraphProcessor proc(_graph, _asmSeqs);
@@ -347,7 +347,7 @@ void MultiplicityInferer::trimTips()
 		}
 	}
 
-	for (auto& tipPath : unbranchingPaths)
+	/*for (auto& tipPath : unbranchingPaths)
 	{
 		if (tipPath.nodeLeft()->inEdges.size() > 0) continue;
 		if (tipPath.length > MAX_TIP) continue;
@@ -382,6 +382,42 @@ void MultiplicityInferer::trimTips()
 				<< tipPath.meanCoverage << " contCov:" << readCoverage;
 			//Logger::get().debug() << "Clipped";
 			toRemove.insert(tipPath.id.rc());	//to be conssitent with the rest
+		}
+	}*/
+	
+	for (auto& tipPath : unbranchingPaths)
+	{
+		if (tipPath.nodeRight()->outEdges.size() > 0) continue;
+		if (tipPath.length > MAX_TIP) continue;
+
+		GraphNode* tipNode = tipPath.nodeLeft();
+		//get "non-tip" node's entrance and exit
+		std::vector<UnbranchingPath*> entrances;
+		for (GraphEdge* edge : tipNode->inEdges)
+		{
+			UnbranchingPath& path = *ubIndex[edge];
+			if (path.path.back() == edge && !path.isLooped())
+			{
+				if (path.nodeLeft()->inEdges.size() > 0) entrances.push_back(&path);
+					//path.length > MAX_TIP) 
+			}
+		}
+		std::vector<UnbranchingPath*> exits;
+		for (GraphEdge* edge : tipNode->outEdges)
+		{
+			UnbranchingPath& path = *ubIndex[edge];
+			if (path.path.front() == edge && !path.isLooped())
+			{
+				if (path.nodeRight()->outEdges.size() > 0) exits.push_back(&path);
+					//path.length > MAX_TIP) 			
+			}
+		}
+		if (entrances.size() != 1 || exits.size() != 1) continue;
+
+		if (std::min(entrances.front()->meanCoverage, 
+					 exits.front()->meanCoverage) > COV_RATE * tipPath.meanCoverage)
+		{
+			toRemove.insert(tipPath.id);
 		}
 	}
 	
