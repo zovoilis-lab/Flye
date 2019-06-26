@@ -26,7 +26,8 @@ MINIMAP_BIN = "flye-minimap2"
 Alignment = namedtuple("Alignment", ["qry_id", "trg_id", "qry_start", "qry_end",
                                      "qry_sign", "qry_len", "trg_start",
                                      "trg_end", "trg_sign", "trg_len",
-                                     "qry_seq", "trg_seq", "err_rate"])
+                                     "qry_seq", "trg_seq", "err_rate",
+                                     "is_secondary"])
 
 ContigInfo = namedtuple("ContigInfo", ["id", "length", "type"])
 
@@ -82,11 +83,10 @@ def read_paf(filename):
 
 class SynchronizedSamReader(object):
     """
-    Parses SAM file in multiple threads. Filters out secondary alignments,
-    but keeps supplementary (split) alignments
+    Parses SAM file in multiple threads.
     """
     def __init__(self, sam_alignment, reference_fasta,
-                 max_coverage=None):
+                 max_coverage=None, use_secondary=False):
         #will not be changed during exceution, each process has its own copy
         self.aln_path = sam_alignment
         self.aln_file = None
@@ -94,6 +94,7 @@ class SynchronizedSamReader(object):
         self.change_strand = True
         self.max_coverage = max_coverage
         self.seq_lengths = {}
+        self.use_secondary = use_secondary
 
         #reading SAM header
         if not os.path.exists(self.aln_path):
@@ -228,6 +229,7 @@ class SynchronizedSamReader(object):
 
                 #if is_unmapped or is_secondary: continue
                 if is_unmapped: continue
+                if is_secondary and not self.use_secondary: continue
                 if read_contig in self.processed_contigs:
                     raise AlignmentException("Alignment file is not sorted")
 
@@ -259,6 +261,7 @@ class SynchronizedSamReader(object):
             ctg_pos = int(tokens[3])
             flags = int(tokens[1])
             is_reversed = flags & 0x16
+            is_secondary = flags & 0x100
 
             if read_str == "*":
                 raise Exception("Error parsing SAM: record without read sequence")
@@ -273,7 +276,7 @@ class SynchronizedSamReader(object):
             aln = Alignment(read_id, read_contig, qry_start,
                             qry_end, "-" if is_reversed else "+",
                             qry_len, trg_start, trg_end, "+", trg_len,
-                            qry_seq, trg_seq, err_rate)
+                            qry_seq, trg_seq, err_rate, is_secondary)
             alignments.append(aln)
 
             sequence_length += qry_end - qry_start
@@ -461,7 +464,8 @@ def _run_minimap(reference_file, reads_files, num_proc, mode, out_file,
     cmdline.extend(["-x", mode, "-t", str(num_proc)])
     if sam_output:
         #a = SAM output, Y = soft clipping for supplementary alignments
-        cmdline.extend(["-a", "-Y"])
+        #p = min primary-to-seconday score, N = max secondary alignments
+        cmdline.extend(["-a", "-Y", "-p", "0.7", "-N", "10"])
     """
     cmdline.extend(["-Q", "-w5", "-m100", "-g10000", "--max-chain-skip",
                     "25", "-t", str(num_proc)])
