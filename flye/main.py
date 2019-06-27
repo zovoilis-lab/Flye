@@ -427,21 +427,15 @@ def _create_job_list(args, work_dir, log_file):
 
     #Run configuration
     jobs.append(JobConfigure(args, work_dir))
-    if args.run_until.lower() == "configure":
-        return jobs
 
     #Assembly job
     jobs.append(JobAssembly(args, work_dir, log_file))
     disjointigs = jobs[-1].out_files["assembly"]
-    if args.run_until.lower() == "assembly":
-        return jobs
 
     #Consensus
     if args.read_type != "subasm":
         jobs.append(JobConsensus(args, work_dir, disjointigs))
         disjointigs = jobs[-1].out_files["consensus"]
-    if args.run_until.lower() == "consensus":
-        return jobs
 
     #Repeat analysis
     jobs.append(JobRepeat(args, work_dir, log_file, disjointigs))
@@ -449,8 +443,6 @@ def _create_job_list(args, work_dir, log_file):
     repeat_graph_edges = jobs[-1].out_files["repeat_graph_edges"]
     repeat_graph = jobs[-1].out_files["repeat_graph"]
     reads_alignment = jobs[-1].out_files["reads_alignment"]
-    if args.run_until.lower() == "repeatgraph":
-        return jobs
 
     #Trestle: Resolve Unbridged Repeats
     if not args.no_trestle and not args.meta and args.read_type == "raw":
@@ -459,8 +451,6 @@ def _create_job_list(args, work_dir, log_file):
                     reads_alignment))
         repeat_graph_edges = jobs[-1].out_files["repeat_graph_edges"]
         repeat_graph = jobs[-1].out_files["repeat_graph"]
-    if args.run_until.lower() == "trestle":
-        return jobs
 
     #Short plasmids
     if args.plasmids:
@@ -468,8 +458,6 @@ def _create_job_list(args, work_dir, log_file):
                                              repeat_graph, repeat_graph_edges))
         repeat_graph_edges = jobs[-1].out_files["repeat_graph_edges"]
         repeat_graph = jobs[-1].out_files["repeat_graph"]
-    if args.run_until.lower() == "shortplasmids":
-        return jobs
 
     #Contigger
     jobs.append(JobContigger(args, work_dir, log_file, repeat_graph_edges,
@@ -480,8 +468,6 @@ def _create_job_list(args, work_dir, log_file):
     gfa_file = jobs[-1].out_files["gfa_graph"]
     final_graph_edges = jobs[-1].out_files["edges_sequences"]
     repeat_stats = jobs[-1].out_files["stats"]
-    if args.run_until.lower() == "contigger":
-        return jobs
 
     #Polishing
     contigs_file = raw_contigs
@@ -493,8 +479,6 @@ def _create_job_list(args, work_dir, log_file):
         contigs_file = jobs[-1].out_files["contigs"]
         polished_stats = jobs[-1].out_files["stats"]
         polished_gfa = jobs[-1].out_files["polished_gfa"]
-    if args.run_until.lower() == "polishing":
-        return jobs
 
     #Report results
     jobs.append(JobFinalize(args, work_dir, log_file, contigs_file,
@@ -540,6 +524,10 @@ def _run(args):
     save_file = os.path.join(args.out_dir, "params.json")
     jobs = _create_job_list(args, args.out_dir, args.log_file)
 
+    if args.stop_after and not args.stop_after in map(lambda j: j.name, jobs):
+        raise ResumeException("Stop after: unkown stage '{0}'"
+                                .format(args.stop_after))
+
     current_job = 0
     if args.resume or args.resume_from:
         if not os.path.exists(save_file):
@@ -569,6 +557,11 @@ def _run(args):
     for i in xrange(current_job, len(jobs)):
         jobs[i].save(save_file)
         jobs[i].run()
+        if args.stop_after == jobs[i].name:
+            if i + 1 < len(jobs):
+                jobs[i + 1].save(save_file)
+            logger.info("Pipeline stopped as requested by --stop-after")
+            break
 
 
 def _enable_logging(log_file, debug, overwrite):
@@ -600,7 +593,8 @@ def _usage():
             "\t     --genome-size SIZE --out-dir PATH\n"
             "\t     [--threads int] [--iterations int] [--min-overlap int]\n"
             "\t     [--meta] [--plasmids] [--no-trestle] [--polish-target]\n"
-            "\t     [--debug] [--version] [--help] [--resume]")
+            "\t     [--debug] [--version] [--help] [--resume] \n"
+            "\t     [--resume-from] [--stop-after]")
 
 
 def _epilog():
@@ -703,10 +697,10 @@ def main():
     parser.add_argument("--resume", action="store_true",
                         dest="resume", default=False,
                         help="resume from the last completed stage")
-    parser.add_argument("--run-until", dest="run_until", default="completion",
-                        help="Run flye pipeline until specified stage")
     parser.add_argument("--resume-from", dest="resume_from", metavar="stage_name",
                         default=None, help="resume from a custom stage")
+    parser.add_argument("--stop-after", dest="stop_after", metavar="stage_name",
+                        default=None, help="stop after the specified stage completed")
     #parser.add_argument("--kmer-size", dest="kmer_size",
     #                    type=lambda v: check_int_range(v, 11, 31, require_odd=True),
     #                    default=None, help="kmer size (default: auto)")
