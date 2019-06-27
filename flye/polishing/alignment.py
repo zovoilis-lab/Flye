@@ -421,6 +421,67 @@ def shift_gaps(seq_trg, seq_qry):
     return "".join(lst_qry[1 : -1])
 
 
+def get_uniform_alignments(alignments, seq_len):
+    """
+    Leaves top alignments for each position within contig
+    assuming uniform coverage distribution
+    """
+    def _get_median(lst):
+        if not lst:
+            raise ValueError("_get_median() arg is an empty sequence")
+        sorted_list = sorted(lst)
+        if len(lst) % 2 == 1:
+            return sorted_list[len(lst)/2]
+        else:
+            mid1 = sorted_list[(len(lst)/2) - 1]
+            mid2 = sorted_list[(len(lst)/2)]
+            return float(mid1 + mid2) / 2
+
+    WINDOW = 100
+    MIN_COV = 10
+    COV_RATE = 1.25
+
+    #split contig into windows, get median read coverage over all windows and
+    #determine the quality threshold cutoffs for each window
+    wnd_primary_cov = [0 for _ in xrange(seq_len / WINDOW + 1)]
+    wnd_aln_quality = [[] for _ in xrange(seq_len / WINDOW + 1)]
+    wnd_qual_thresholds = [1.0 for _ in xrange(seq_len / WINDOW + 1)]
+    for aln in alignments:
+        for i in xrange(aln.trg_start / WINDOW, aln.trg_end / WINDOW):
+            if not aln.is_secondary:
+                wnd_primary_cov[i] += 1
+            wnd_aln_quality[i].append(aln.err_rate)
+
+    #for each window, select top X alignmetns, where X is the median read coverage
+    cov_threshold = max(int(COV_RATE * _get_median(wnd_primary_cov)), MIN_COV)
+    for i in xrange(len(wnd_aln_quality)):
+        if len(wnd_aln_quality[i]) > cov_threshold:
+            wnd_qual_thresholds[i] = sorted(wnd_aln_quality[i])[cov_threshold]
+
+    #for each alignment, count in how many windows it passes the threshold
+    filtered_alignments = []
+    total_sequence = 0
+    filtered_sequence = 0
+    for aln in alignments:
+        good_windows = 0
+        total_windows = aln.trg_end / WINDOW - aln.trg_start / WINDOW
+        total_sequence += aln.trg_end - aln.trg_start
+        for i in xrange(aln.trg_start / WINDOW, aln.trg_end / WINDOW):
+            if aln.err_rate <= wnd_qual_thresholds[i]:
+                good_windows += 1
+
+        if good_windows > total_windows / 2:
+            filtered_alignments.append(aln)
+            filtered_sequence += aln.trg_end - aln.trg_start
+
+    filtered_reads_rate = 1 - float(len(filtered_alignments)) / len(alignments)
+    filtered_seq_rate = 1 - float(filtered_sequence) / total_sequence
+    #logger.debug("Filtered {0:7.2f}% reads, {1:7.2f}% sequence"
+    #                .format(filtered_reads_rate * 100, filtered_seq_rate * 100))
+
+    return filtered_alignments
+
+
 def split_into_chunks(fasta_in, chunk_size):
     out_dict = {}
     for header, seq in fasta_in.iteritems():

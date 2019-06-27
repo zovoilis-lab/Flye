@@ -12,7 +12,7 @@ from itertools import izip
 import multiprocessing
 import signal
 
-from flye.polishing.alignment import shift_gaps, SynchronizedSamReader
+from flye.polishing.alignment import shift_gaps, SynchronizedSamReader, get_uniform_alignments
 import flye.config.py_cfg as cfg
 import flye.utils.fasta_parser as fp
 
@@ -106,29 +106,9 @@ def _contig_profile(alignment, platform, genome_len):
     """
     Computes alignment profile
     """
-    WINDOW = 100
-    MIN_COV = 10
 
-    #split contig into windows, get median read coverage over all windows and
-    #determine the quality threshold cutoffs for each window
-    wnd_primary_cov = [0 for _ in xrange(genome_len / WINDOW + 1)]
-    wnd_aln_quality = [[] for _ in xrange(genome_len / WINDOW + 1)]
-    wnd_qual_thresholds = [1.0 for _ in xrange(genome_len / WINDOW + 1)]
-    for aln in alignment:
-        for i in xrange(aln.trg_start / WINDOW, aln.trg_end / WINDOW):
-            if not aln.is_secondary:
-                wnd_primary_cov[i] += 1
-            wnd_aln_quality[i].append(aln.err_rate)
-
-    #for each window, select top X alignmetns, where X is the median read coverage
-    cov_threshold = max(int(1.25 * _get_median(wnd_primary_cov)), MIN_COV)
-    for i in xrange(len(wnd_aln_quality)):
-        if len(wnd_aln_quality[i]) > cov_threshold:
-            wnd_qual_thresholds[i] = sorted(wnd_aln_quality[i])[cov_threshold]
-
-    #create alignment profile
-    total = 0
-    discarded = 0
+    #leave the best uniform alignments
+    alignment = get_uniform_alignments(alignment, genome_len)
 
     aln_errors = []
     profile = [Profile() for _ in xrange(genome_len)]
@@ -149,21 +129,18 @@ def _contig_profile(alignment, platform, genome_len):
             if trg_pos >= genome_len:
                 trg_pos -= genome_len
 
-            #taking only X best alignments
-            total += 1
-            if aln.err_rate <= wnd_qual_thresholds[trg_pos / WINDOW]:
-                prof_elem = profile[trg_pos]
-                if trg_nuc == "-" and qry_nuc != "-":
-                    prof_elem.insertions[aln.qry_id] += qry_nuc
-                else:
-                    prof_elem.nucl = trg_nuc
-                    prof_elem.matches[qry_nuc] += 1
+            #total += 1
+            prof_elem = profile[trg_pos]
+            if trg_nuc == "-" and qry_nuc != "-":
+                prof_elem.insertions[aln.qry_id] += qry_nuc
             else:
-                discarded += 1
+                prof_elem.nucl = trg_nuc
+                prof_elem.matches[qry_nuc] += 1
 
             trg_pos += 1
 
-    #print "median coverage", cov_threshold
+    #print "len", genome_len, "median coverage", cov_threshold
+    #print "total bases: ", total, "discarded bases: ", discarded
     #print "filtered", float(discarded) / total
     #print ""
 
@@ -198,15 +175,3 @@ def _flatten_profile(profile):
             growing_seq.append(max_insert)
 
     return "".join(growing_seq)
-
-
-def _get_median(lst):
-    if not lst:
-        raise ValueError("_get_median() arg is an empty sequence")
-    sorted_list = sorted(lst)
-    if len(lst) % 2 == 1:
-        return sorted_list[len(lst)/2]
-    else:
-        mid1 = sorted_list[(len(lst)/2) - 1]
-        mid2 = sorted_list[(len(lst)/2)]
-        return float(mid1 + mid2) / 2

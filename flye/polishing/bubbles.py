@@ -275,14 +275,14 @@ def _compute_profile(alignment, platform, genome_len):
     """
     Computes alignment profile
     """
-    max_aln_err = cfg.vals["err_modes"][platform]["max_aln_error"]
+    #max_aln_err = cfg.vals["err_modes"][platform]["max_aln_error"]
     aln_errors = []
-    filtered = 0
+    #filtered = 0
     profile = [ProfileInfo() for _ in xrange(genome_len)]
     for aln in alignment:
-        if aln.err_rate > max_aln_err:
-            filtered += 1
-            continue
+        #if aln.err_rate > max_aln_err:
+        #    filtered += 1
+        #    continue
         aln_errors.append(aln.err_rate)
 
         qry_seq = shift_gaps(aln.trg_seq, aln.qry_seq)
@@ -365,7 +365,7 @@ def _get_bubble_seqs(alignment, platform, profile, partition, contig_info):
     if not partition:
         return []
 
-    max_aln_err = cfg.vals["err_modes"][platform]["max_aln_error"]
+    #max_aln_err = cfg.vals["err_modes"][platform]["max_aln_error"]
     bubbles = []
     ext_partition = [0] + partition + [contig_info.length]
     for p_left, p_right in zip(ext_partition[:-1], ext_partition[1:]):
@@ -374,7 +374,7 @@ def _get_bubble_seqs(alignment, platform, profile, partition, contig_info):
         bubbles[-1].consensus = "".join(consensus)
 
     for aln in alignment:
-        if aln.err_rate > max_aln_err: continue
+        #if aln.err_rate > max_aln_err: continue
 
         bubble_id = bisect(partition, aln.trg_start % contig_info.length)
         next_bubble_start = ext_partition[bubble_id + 1]
