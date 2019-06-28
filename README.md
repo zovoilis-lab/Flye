@@ -133,8 +133,8 @@ Code contributions:
 Publications
 ------------
 Mikhail Kolmogorov, Jeffrey Yuan, Yu Lin and Pavel Pevzner, 
-"Assembly of Long Error-Prone Reads Using Repeat Graphs", bioRxiv, 2018
-[doi:10.1101/247148](https://doi.org/10.1101/247148)
+"Assembly of Long Error-Prone Reads Using Repeat Graphs", Nature Biotechnology, 2019
+[doi:10.1038/s41587-019-0072-8](https://doi.org/10.1038/s41587-019-0072-8)
 
 Yu Lin, Jeffrey Yuan, Mikhail Kolmogorov, Max W Shen, Mark Chaisson and Pavel Pevzner, 
 "Assembly of Long Error-Prone Reads Using de Bruijn Graphs", PNAS, 2016
