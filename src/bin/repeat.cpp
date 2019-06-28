@@ -181,7 +181,7 @@ int main(int argc, char** argv)
 	//clean the graph
 	multInf.collapseHeterozygousLoops();
 	multInf.collapseHeterozygousBulges();
-	multInf.trimTips();
+	//multInf.trimTips();
 
 	Logger::get().info() << "Resolving repeats";
 	RepeatResolver resolver(rg, seqAssembly, seqReads, aligner, multInf);
@@ -192,9 +192,9 @@ int main(int argc, char** argv)
 	resolver.resolveRepeats();
 
 	//clean graph again after repeat resolution
-	multInf.collapseHeterozygousLoops();
-	multInf.collapseHeterozygousBulges();
-	multInf.trimTips();
+	//multInf.collapseHeterozygousLoops();
+	//multInf.collapseHeterozygousBulges();
+	//multInf.trimTips();
 
 	resolver.findRepeats();
 	resolver.finalizeGraph();
