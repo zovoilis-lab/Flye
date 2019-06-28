@@ -92,22 +92,25 @@ void MultiplicityInferer::estimateCoverage()
 	Logger::get().debug() << "Unique coverage threshold " << _uniqueCovThreshold;
 }
 
-//removes edges with low coverage support from the graph. In case of
-//metagenomes, use MAX_META_CUTOFF as a parameter
+//removes edges with low coverage support from the graph.
 void MultiplicityInferer::removeUnsupportedEdges()
 {
-	const int MIN_ABSOLUTE = 1;
-	const int MAX_META_CUTOFF = 3;
+	const int MIN_CUTOFF = 3;
 
 	GraphProcessor proc(_graph, _asmSeqs);
 	auto unbranchingPaths = proc.getUnbranchingPaths();
 
-	int32_t coverageThreshold = std::round((float)this->getMeanCoverage() / 
-											Config::get("graph_cov_drop_rate"));
-	coverageThreshold = std::max(MIN_ABSOLUTE, coverageThreshold);
-	if (Parameters::get().unevenCoverage)
+	int32_t coverageThreshold = 0;
+	
+	if (!Parameters::get().unevenCoverage)
 	{
-		coverageThreshold = std::min(coverageThreshold, MAX_META_CUTOFF);
+		coverageThreshold = std::round((float)this->getMeanCoverage() / 
+										Config::get("graph_cov_drop_rate"));
+		coverageThreshold = std::max(MIN_CUTOFF, coverageThreshold);
+	}
+	else
+	{
+		coverageThreshold = MIN_CUTOFF;
 	}
 	Logger::get().debug() << "Read coverage cutoff: " << coverageThreshold;
 
