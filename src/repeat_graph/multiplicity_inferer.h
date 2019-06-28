@@ -23,9 +23,9 @@ public:
 	void removeUnsupportedEdges();
 	void removeUnsupportedConnections();
 
-	void collapseHeterozygousLoops();
-	void collapseHeterozygousBulges();
-	void trimTips();
+	int collapseHeterozygousLoops();
+	int collapseHeterozygousBulges();
+	int trimTips();
 
 	//coverage threshold for an edge to be considered "unique"
 	int  getUniqueCovThreshold() const 	{return _uniqueCovThreshold;}

@@ -524,6 +524,10 @@ def _run(args):
     save_file = os.path.join(args.out_dir, "params.json")
     jobs = _create_job_list(args, args.out_dir, args.log_file)
 
+    if args.stop_after and not args.stop_after in map(lambda j: j.name, jobs):
+        raise ResumeException("Stop after: unkown stage '{0}'"
+                                .format(args.stop_after))
+
     current_job = 0
     if args.resume or args.resume_from:
         if not os.path.exists(save_file):
@@ -553,6 +557,11 @@ def _run(args):
     for i in xrange(current_job, len(jobs)):
         jobs[i].save(save_file)
         jobs[i].run()
+        if args.stop_after == jobs[i].name:
+            if i + 1 < len(jobs):
+                jobs[i + 1].save(save_file)
+            logger.info("Pipeline stopped as requested by --stop-after")
+            break
 
 
 def _enable_logging(log_file, debug, overwrite):
@@ -584,7 +593,8 @@ def _usage():
             "\t     --genome-size SIZE --out-dir PATH\n"
             "\t     [--threads int] [--iterations int] [--min-overlap int]\n"
             "\t     [--meta] [--plasmids] [--no-trestle] [--polish-target]\n"
-            "\t     [--debug] [--version] [--help] [--resume]")
+            "\t     [--debug] [--version] [--help] [--resume] \n"
+            "\t     [--resume-from] [--stop-after]")
 
 
 def _epilog():
@@ -689,6 +699,8 @@ def main():
                         help="resume from the last completed stage")
     parser.add_argument("--resume-from", dest="resume_from", metavar="stage_name",
                         default=None, help="resume from a custom stage")
+    parser.add_argument("--stop-after", dest="stop_after", metavar="stage_name",
+                        default=None, help="stop after the specified stage completed")
     #parser.add_argument("--kmer-size", dest="kmer_size",
     #                    type=lambda v: check_int_range(v, 11, 31, require_odd=True),
     #                    default=None, help="kmer size (default: auto)")

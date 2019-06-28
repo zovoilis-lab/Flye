@@ -505,18 +505,18 @@ void RepeatResolver::finalizeGraph()
 //no new repeats are resolved
 void RepeatResolver::resolveRepeats()
 {
-	//make the first iteration resolve only high-confidence connections
+	const float MIN_SUPPORT = Config::get("min_repeat_res_support");
 	while (true)
 	{
-		float minSupport = Config::get("min_repeat_res_support");
 		auto connections = this->getConnections();
 		int resolvedConnections = 
-			this->resolveConnections(connections, minSupport);
+			this->resolveConnections(connections, MIN_SUPPORT);
 
 		this->clearResolvedRepeats();
+		_multInf.trimTips();
+		this->findRepeats();
 		
 		if (!resolvedConnections) break;
-		this->findRepeats();
 	}
 
 	GraphProcessor proc(_graph, _asmSeqs);
