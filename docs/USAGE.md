@@ -219,7 +219,7 @@ The main output files are:
 
 * `assembly.fasta` - Final assembly. Contains contigs and possibly scaffolds (see below).
 * `assembly_graph.{gfa|gv}` - Final repeat graph. Note that the edge sequences might be
-different (shorter) than contig sequences, because contigs migh include multiple
+different (shorter) than contig sequences, because contigs might include multiple
 graph edges (see below).
 * `assembly_info.txt` - Extra information about contigs (such as length or coverage).
 
@@ -260,7 +260,7 @@ repeat graphs are built using approximate sequence matches, thus
 can tollerate higher noise of SMS reads.
 
 The edges of repeat graph represent genomic sequence, and nodes define
-the junctions. All edges are classified into uniquue and repetitive.
+the junctions. All edges are classified into unique and repetitive.
 The genome traverses the graph in an unknown way, so as each unique
 edge appears exactly once in this traversal. Repeat graphs are useful
 for repeat analysis and resolution - which are one of the key 
@@ -341,7 +341,7 @@ Finally, Flye performs polishing of the resulting assembly
 to correct the remaining errors:
 
 * Alignment of all reads to the current assembly using minimap2
-* Partition the alignment into into mini-alignments (bubbles)
+* Partition the alignment into mini-alignments (bubbles)
 * Error correction of each bubble using a maximum likelihood approach
 
 The polishing steps could be repeated, which might slightly increase quality for some datasets.
