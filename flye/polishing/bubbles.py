@@ -16,7 +16,7 @@ import signal
 
 import flye.utils.fasta_parser as fp
 import flye.config.py_cfg as cfg
-from flye.polishing.alignment import shift_gaps, SynchronizedSamReader
+from flye.polishing.alignment import shift_gaps, SynchronizedSamReader, get_uniform_alignments
 
 
 logger = logging.getLogger()
@@ -58,6 +58,9 @@ def _thread_worker(aln_reader, contigs_info, err_mode,
                 break
 
             #logger.debug("Processing {0}".format(ctg_id))
+            #get top unifom alignments
+            ctg_aln = get_uniform_alignments(ctg_aln, contigs_info[ctg_id].length)
+
             profile, aln_errors = _compute_profile(ctg_aln, err_mode,
                                                    contigs_info[ctg_id].length)
             partition, num_long_bubbles = _get_partition(profile, err_mode)
@@ -89,7 +92,8 @@ def make_bubbles(alignment_path, contigs_info, contigs_path,
     """
     aln_reader = SynchronizedSamReader(alignment_path,
                                        fp.read_sequence_dict(contigs_path),
-                                       cfg.vals["max_read_coverage"])
+                                       cfg.vals["max_read_coverage"],
+                                       use_secondary=True)
     manager = multiprocessing.Manager()
     results_queue = manager.Queue()
     error_queue = manager.Queue()
