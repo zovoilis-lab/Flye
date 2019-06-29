@@ -38,17 +38,16 @@ def analyse_repeats(args, run_params, input_assembly, out_folder,
                     log_file, config_file):
     logger.debug("-----Begin repeat analyser log------")
 
-    cmdline = [REPEAT_BIN, "-l", log_file, "-t", str(args.threads)]
-    if args.min_overlap is not None:
-        cmdline.extend(["-v", str(args.min_overlap)])
+    cmdline = [REPEAT_BIN, "--disjointigs", input_assembly,
+               "--reads", ",".join(args.reads), "--out-dir", out_folder,
+               "--config", config_file, "--log", log_file,
+               "--threads", str(args.threads)]
     if args.debug:
-        cmdline.append("-d")
+        cmdline.append("--debug")
     if args.meta:
-        cmdline.append("-u")
-    cmdline.extend(["-v", str(run_params["min_overlap"])])
-    cmdline.extend(["-k", str(run_params["kmer_size"])])
-    cmdline.extend([input_assembly, ",".join(args.reads),
-                    out_folder, config_file])
+        cmdline.append("--meta")
+    cmdline.extend(["--min-ovlp", str(run_params["min_overlap"])])
+    cmdline.extend(["--kmer", str(run_params["kmer_size"])])
 
     try:
         logger.debug("Running: " + " ".join(cmdline))
