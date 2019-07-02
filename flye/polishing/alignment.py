@@ -40,6 +40,8 @@ class PafHit:
     """
     Stores paf alignment
     """
+    __slots__ = ("query", "query_length", "query_start", "query_end",
+                 "target", "target_length", "target_start", "target_end")
     def __init__(self, raw_hit):
         hit = raw_hit.split()
 
@@ -73,12 +75,34 @@ class PafHit:
 
 
 def read_paf(filename):
+    """
+    Streams out paf alignments
+    """
     hits = []
     with open(filename) as f:
         for raw_hit in f:
-            hits.append(PafHit(raw_hit))
+            yield PafHit(raw_hit)
 
-    return hits
+
+def read_paf_grouped(filename):
+    """
+    Outputs chunks of alignments for each (query, target)pair.
+    Assumes that PAF alignment is already sorted by query.
+    """
+    prev_hit = None
+    target_hits = defaultdict(list)
+    for hit in read_paf(filename):
+        if prev_hit is not None and hit.query != prev_hit.query:
+            for trg in sorted(target_hits):
+                yield target_hits[trg]
+            target_hits = defaultdict(list)
+
+        target_hits[hit.target].append(hit)
+        prev_hit = hit
+
+    if len(target_hits):
+        for trg in sorted(target_hits):
+            yield target_hits[trg]
 
 
 class SynchronizedSamReader(object):
