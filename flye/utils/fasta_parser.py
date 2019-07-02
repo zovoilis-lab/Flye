@@ -24,42 +24,21 @@ def read_sequence_dict(filename):
     """
     Reads Fasta/q file (could be gzip'ed) into a dictionary
     """
-    try:
-        seq_dict = {}
-        gzipped, fastq = _is_fastq(filename)
-
-        if not gzipped:
-            handle = open(filename, "r")
-        else:
-            handle = os.popen("gunzip -c {0}".format(filename))
-            #gz = gzip.open(filename, "rb")
-            #handle = io.BufferedReader(gz)
-
-        if fastq:
-            for hdr, seq, qual in _read_fastq(handle):
-                if not _validate_seq(seq):
-                    raise FastaError("Invalid char while reading {0}"
-                                     .format(filename))
-                seq_dict[hdr] = to_acgt(seq)
-        else:
-            for hdr, seq in _read_fasta(handle):
-                if not _validate_seq(seq):
-                    raise FastaError("Invalid char while reading {0}"
-                                     .format(filename))
-                seq_dict[hdr] = to_acgt(seq)
-
-        return seq_dict
-
-    except IOError as e:
-        raise FastaError(e)
+    seq_dict = {}
+    for hdr, seq in stream_sequence(filename):
+        seq_dict[hdr] = seq
+    return seq_dict
 
 
 def read_sequence_lengths(filename):
-    """
-    Reads length of Fasta/q sequences (could be gzip'ed) into a dictionary
-    """
+    seq_dict = {}
+    for hdr, seq in stream_sequence(filename):
+        seq_dict[hdr] = len(seq)
+    return seq_dict
+
+
+def stream_sequence(filename):
     try:
-        length_dict = {}
         gzipped, fastq = _is_fastq(filename)
 
         if not gzipped:
@@ -74,15 +53,13 @@ def read_sequence_lengths(filename):
                 if not _validate_seq(seq):
                     raise FastaError("Invalid char while reading {0}"
                                      .format(filename))
-                length_dict[hdr] = len(seq)
+                yield hdr, to_acgt(seq)
         else:
             for hdr, seq in _read_fasta(handle):
                 if not _validate_seq(seq):
                     raise FastaError("Invalid char while reading {0}"
                                      .format(filename))
-                length_dict[hdr] = len(seq)
-
-        return length_dict
+                yield hdr, to_acgt(seq)
 
     except IOError as e:
         raise FastaError(e)

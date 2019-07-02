@@ -4,7 +4,11 @@
 
 
 import flye.utils.fasta_parser as fp
-from flye.polishing.alignment import read_paf
+from flye.polishing.alignment import read_paf_grouped
+import logging
+from collections import defaultdict
+
+logger = logging.getLogger()
 
 
 class MappingSegment:
@@ -41,52 +45,44 @@ def calc_mapping_rate(read_length, mapping_segments):
 
 
 def calc_mapping_rates(reads2contigs_mapping):
-    hits = read_paf(reads2contigs_mapping)
-    hits.sort(key=lambda hit: (hit.query, hit.target))
+    mapping_rates = defaultdict(dict)
+    target_hits = defaultdict(list)
+    prev_hit = None
 
-    mapping_rates = dict()
-    current_hit = None
-    mapping_segments = []
-
-    for hit in hits:
-        if current_hit is None or hit.query != current_hit.query or \
-                                  hit.target != current_hit.target:
-            if current_hit is not None:
-                mapping_rate = calc_mapping_rate(current_hit.query_length,
-                                                 mapping_segments)
-                if current_hit.query not in mapping_rates:
-                    mapping_rates[current_hit.query] = dict()
-
-                mapping_rates[current_hit.query][current_hit.target] = mapping_rate
-
-            current_hit = hit
-            mapping_segments = []
-
-        mapping_segments.append(MappingSegment(hit.query_start, hit.query_end))
+    #read_paf_grouped assumes that hits are sorted in query order.
+    #It returns chunks of alignments for all (query, target) combinations
+    for hit_group in read_paf_grouped(reads2contigs_mapping):
+        map_segs = map(lambda h: MappingSegment(h.query_start, h.query_end),
+                       hit_group)
+        mapping_rate = calc_mapping_rate(hit_group[0].query_length, map_segs)
+        mapping_rates[hit_group[0].query][hit_group[0].target] = mapping_rate
 
     return mapping_rates
 
 
-def extract_unmapped_reads(args, reads2contigs_mapping, mapping_rate_threshold):
+def extract_unmapped_reads(args, reads2contigs_mapping, unmapped_reads_path,
+                           mapping_rate_threshold):
     mapping_rates = calc_mapping_rates(reads2contigs_mapping)
-    unmapped_reads = dict()
-    n_processed_reads = 0
+    total_bases = 0
+    unmapped_bases = 0
 
-    for file in args.reads:
-        fasta_dict = fp.read_sequence_dict(file)
-        for read, sequence in fasta_dict.items():
-            contigs = mapping_rates.get(read)
-            if contigs is None:
-                unmapped_reads[read] = sequence
-            else:
+    with open(unmapped_reads_path, "w") as fout:
+        for file in args.reads:
+            for hdr, sequence in fp.stream_sequence(file):
+                total_bases += len(sequence)
+
                 is_unmapped = True
-                for contig, mapping_rate in contigs.items():
-                    if mapping_rate >= mapping_rate_threshold:
-                        is_unmapped = False
+                contigs = mapping_rates.get(hdr)
+                if contigs is not None:
+                    is_unmapped = True
+                    for contig, mapping_rate in contigs.iteritems():
+                        if mapping_rate >= mapping_rate_threshold:
+                            is_unmapped = False
 
                 if is_unmapped:
-                    unmapped_reads[read] = sequence
+                    unmapped_bases += len(sequence)
+                    fout.write(">{0}\n{1}\n".format(hdr, sequence))
 
-        n_processed_reads += len(fasta_dict)
-
-    return unmapped_reads, n_processed_reads
+    logger.debug("Unmapped sequence: {0} / {1} ({2})"
+                 .format(unmapped_bases, total_bases,
+                         float(unmapped_bases) / total_bases))
