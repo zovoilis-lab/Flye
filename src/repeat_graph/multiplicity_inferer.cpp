@@ -95,7 +95,7 @@ void MultiplicityInferer::estimateCoverage()
 //removes edges with low coverage support from the graph.
 void MultiplicityInferer::removeUnsupportedEdges()
 {
-	const int MIN_CUTOFF = 3;
+	const int MIN_CUTOFF = std::round((float)Config::get("min_read_cov_cutoff"));
 
 	GraphProcessor proc(_graph, _asmSeqs);
 	auto unbranchingPaths = proc.getUnbranchingPaths();
