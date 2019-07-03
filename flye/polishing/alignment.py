@@ -365,23 +365,48 @@ def _preprocess_sam(sam_file, work_dir):
     with open(sam_file, "r") as fin, open(expanded_sam, "w") as fout:
         prev_id = None
         prev_seq = None
+        primary_reversed = None
         for line in fin:
             if _is_sam_header(line):
                 continue
 
             tokens = line.strip().split()
-            is_unmapped = int(tokens[1]) & 0x4
+            flags = int(tokens[1])
+            is_unmapped = flags & 0x4
+            is_secondary = flags & 0x100
+            is_supplementary = flags & 0x800
+            is_reversed = flags & 0x16
+
             if is_unmapped:
                 continue
-            read_id, read_seq = tokens[0], tokens[9]
+
+            read_id, cigar_str, read_seq = tokens[0], tokens[5], tokens[9]
+            has_hard_clipped = "H" in cigar_str
+
+            #Checking format assumptions
+            if has_hard_clipped:
+                if is_secondary:
+                    raise Exception("Secondary alignment with hard-clipped bases")
+                if not is_supplementary:
+                    raise Exception("Primary alignment with hard-clipped bases")
+            if not is_secondary and read_seq == "*":
+                raise Exception("Missing SEQ for non-secondary alignment")
 
             if read_seq == "*":
                 if read_id != prev_id:
                     raise Exception("SAM file is not sorted by read names")
-                tokens[9] = prev_seq
+                if is_reversed == primary_reversed:
+                    tokens[9] = prev_seq
+                else:
+                    tokens[9] = fp.reverse_complement(prev_seq)
+
+            #Assuming that the first read alignmnent in SAM is primary
             elif prev_id != read_id:
+                if has_hard_clipped:
+                    raise Exception("Hard clipped bases in the primamry read")
                 prev_id = read_id
                 prev_seq = read_seq
+                primary_reversed = is_reversed
 
             fout.write("\t".join(tokens) + "\n")
 
@@ -557,9 +582,9 @@ def _run_minimap(reference_file, reads_files, num_proc, mode, out_file,
     cmdline.extend(reads_files)
     cmdline.extend(["-x", mode, "-t", str(num_proc)])
     if sam_output:
-        #a = SAM output, Y = soft clipping for supplementary alignments
-        #p = min primary-to-seconday score, N = max secondary alignments
-        cmdline.extend(["-a", "-Y", "-p", "0.7", "-N", "10"])
+        #a = SAM output, p = min primary-to-seconday score
+        #N = max secondary alignments
+        cmdline.extend(["-a", "-p", "0.7", "-N", "10"])
 
     try:
         devnull = open(os.devnull, "w")
