@@ -141,8 +141,14 @@ Yu Lin, Jeffrey Yuan, Mikhail Kolmogorov, Max W Shen, Mark Chaisson and Pavel Pe
 [doi:10.1073/pnas.1604560113](https://www.doi.org/10.1073/pnas.1604560113)
 
 
-Contacts
---------
-Please report any problems to the [issue tracker](https://github.com/fenderglass/Flye/issues).
-If possible, please include "flye.log" file from the output directory
-for faster feedback. Alternatively, you can write directly to fenderglass@gmail.com.
+How to get help
+---------------
+A preferred way report any problems or ask questions about Flye is the 
+[issue tracker](https://github.com/fenderglass/Flye/issues). 
+Before posting an issue/question, consider to look through the existing topics (opened and closed)
+or search using keywords - it is possble that your question has already been answered.
+
+If you reporting a problem, please include the `flye.log` file and provide some 
+details about your dataset (if possible).
+
+In case you prefer personal communcation, please contact Mikhail at fenderglass@gmail.com.
