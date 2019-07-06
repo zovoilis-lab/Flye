@@ -367,7 +367,7 @@ int MultiplicityInferer::trimTips()
 		for (GraphEdge* edge : tipNode->inEdges)
 		{
 			UnbranchingPath& path = *ubIndex[edge];
-			if (path.path.back() == edge && !path.isLooped())
+			if (path.path.back() == edge)
 			{
 				if (path.length > LEN_RATE * tipPath.length ||
 					path.nodeLeft()->inEdges.size() > 0) entrances.push_back(&path);
@@ -377,7 +377,7 @@ int MultiplicityInferer::trimTips()
 		for (GraphEdge* edge : tipNode->outEdges)
 		{
 			UnbranchingPath& path = *ubIndex[edge];
-			if (path.path.front() == edge && !path.isLooped())
+			if (path.path.front() == edge)
 			{
 				if (path.length > LEN_RATE * tipPath.length ||
 					path.nodeRight()->outEdges.size() > 0) exits.push_back(&path);
@@ -402,12 +402,17 @@ int MultiplicityInferer::trimTips()
 	{
 		if (toRemove.count(path.id))
 		{
+			Logger::get().debug() << "Tip " << path.edgesStr() 
+				<< " len:" << path.length << " cov:" << path.meanCoverage;
+
 			GraphEdge* targetEdge = path.path.front();
 			GraphEdge* complEdge = _graph.complementEdge(targetEdge);
 
 			vecRemove(targetEdge->nodeLeft->outEdges, targetEdge);
 			targetEdge->nodeLeft = _graph.addNode();
 			targetEdge->nodeLeft->outEdges.push_back(targetEdge);
+
+			if (targetEdge->selfComplement) continue;
 
 			vecRemove(complEdge->nodeRight->inEdges, complEdge);
 			complEdge->nodeRight = _graph.addNode();
