@@ -1344,7 +1344,7 @@ def _collapse(aln_one, aln_two):
                             out_qry_end, aln_one.qry_sign, aln_one.qry_len, 
                             aln_one.trg_start, out_trg_end, aln_one.trg_sign, 
                             aln_one.trg_len, out_qry_seq, out_trg_seq, 
-                            out_err_rate)
+                            out_err_rate, is_secondary=False)
         return out_aln
     elif (aln_two.qry_start <= aln_one.qry_start and 
             aln_two.trg_start <= aln_one.trg_start):
@@ -1375,7 +1375,7 @@ def _collapse(aln_one, aln_two):
                             out_qry_end, aln_one.qry_sign, aln_one.qry_len, 
                             aln_two.trg_start, out_trg_end, aln_one.trg_sign, 
                             aln_one.trg_len, out_qry_seq, out_trg_seq, 
-                            out_err_rate)
+                            out_err_rate, is_secondary=False)
         return out_aln
     return out_aln
 

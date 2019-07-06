@@ -9,3 +9,5 @@ bin/flye-repeat
 bin/flye-contigger
 bin/flye-minimap2
 build
+lib/minimap2/minimap2
+lib/minimap2/libminimap2.a
