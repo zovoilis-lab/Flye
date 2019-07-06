@@ -224,10 +224,13 @@ int main(int argc, char** argv)
 						 /*no max overlaps*/ 0, 
 						 /*store alignment*/ false,
 						 /*only max*/ true,
-						 (float)Config::get("assemble_ovlp_divergence"),
+						 /*no div threshold*/ 1.0f,
 						 /* bad end adjustment*/ 0.0f,
 						 /* nucl alignent*/ false);
 	OverlapContainer readOverlaps(ovlp, readsContainer);
+	readOverlaps.estimateOverlaperParameters();
+	readOverlaps.setRelativeDivergenceThreshold(
+		(float)Config::get("assemble_ovlp_relative_divergence"));
 
 	Extender extender(readsContainer, readOverlaps);
 	extender.assembleDisjointigs();

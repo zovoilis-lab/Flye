@@ -609,6 +609,7 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 				matchRate = std::min(matchRate, 1.0f);
 				//float repeatRate = (float)filteredPositions / ovlp.curRange();
 				ovlp.seqDivergence = std::log(1 / matchRate) / kmerSize;
+				ovlp.seqDivergence += _estimatorBias;
 
 				if(_nuclAlignment)
 				{
@@ -620,11 +621,11 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 				}
 
 				float divThreshold = _maxDivergence;
-				if (ovlp.curBegin < _maxJump || curLen - ovlp.curEnd < _maxJump ||
+				/*if (ovlp.curBegin < _maxJump || curLen - ovlp.curEnd < _maxJump ||
 					ovlp.extBegin < _maxJump || extLen - ovlp.extEnd < _maxJump)
 				{
 					divThreshold += _badEndAdjustment;
-				}
+				}*/
 				if (ovlp.seqDivergence < divThreshold)
 				{
 					extOverlaps.push_back(ovlp);
@@ -943,6 +944,74 @@ void OverlapContainer::filterOverlaps()
 }
 
 
+void OverlapContainer::estimateOverlaperParameters()
+{
+	Logger::get().debug() << "Estimating k-mer identity bias";
+
+	const int NEDEED_OVERLAPS = 1000;
+	const int MAX_SEQS = 1000;
+
+	std::vector<FastaRecord::Id> readsToCheck;
+	for (size_t i = 0; i < MAX_SEQS; ++i) 
+	{
+		size_t randId = rand() % _queryContainer.iterSeqs().size();
+		readsToCheck.push_back(_queryContainer.iterSeqs()[randId].id);
+	}
+
+	std::mutex storageMutex;
+	std::vector<float> biases;
+	std::vector<float> trueDivergence;
+	std::function<void(const FastaRecord::Id& seqId)> computeParallel =
+	[this, &storageMutex, &biases, &trueDivergence] (const FastaRecord::Id& seqId)
+	{
+		auto overlaps = this->quickSeqOverlaps(seqId, /*max ovlps*/ 0);
+		for (const auto& ovlp : overlaps)
+		{
+			float trueDiv = 
+				kswAlign(_queryContainer.getSeq(seqId), ovlp.curBegin, ovlp.curRange(),
+						 _ovlpDetect._seqContainer.getSeq(ovlp.extId),
+						 ovlp.extBegin, ovlp.extRange(),
+						 /*match*/ 1, /*mm*/ -2, /*gap open*/ 2, 
+						 /*gap ext*/ 1, false);
+
+			std::lock_guard<std::mutex> lock(storageMutex);
+			biases.push_back(trueDiv - ovlp.seqDivergence);
+			trueDivergence.push_back(trueDiv);
+			if (biases.size() >= NEDEED_OVERLAPS) return;
+		}
+	};
+	processInParallel(readsToCheck, computeParallel, 
+					  Parameters::get().numThreads, false);
+
+	if (!biases.empty())
+	{
+		_kmerIdyEstimateBias = median(biases);
+		_meanTrueOvlpDiv = median(trueDivergence);
+
+		//set the parameters and reset statistics
+		_ovlpDetect._estimatorBias = _kmerIdyEstimateBias;
+		_divergenceStats.vecSize = 0;
+	}
+	else
+	{
+		Logger::get().warning() << "No overlaps found - unable to estimate parameters";
+		_meanTrueOvlpDiv = 0.5f;
+		_kmerIdyEstimateBias = 0.0f;
+	}
+
+	Logger::get().debug() << "Median overlap divergence: " << _meanTrueOvlpDiv;
+	Logger::get().debug() << "K-mer estimate bias: " << _kmerIdyEstimateBias;
+}
+
+
+void OverlapContainer::setRelativeDivergenceThreshold(float relThreshold)
+{
+	_ovlpDetect._maxDivergence = _meanTrueOvlpDiv + relThreshold;
+	Logger::get().debug() << "Max divergence threshold set to " 
+		<< _ovlpDetect._maxDivergence;
+}
+
+
 void OverlapContainer::overlapDivergenceStats()
 {
 	std::vector<float> ovlpDivergence(_divergenceStats.divVec.begin(),
@@ -962,6 +1031,7 @@ void OverlapContainer::overlapDivergenceStats()
 		}
 	}
 	int histMax = 1;
+	int threshold = _ovlpDetect._maxDivergence * mult * 100;
 	for (int freq : histogram) histMax = std::max(histMax, freq);
 
 	std::string histString = "\n";
@@ -974,9 +1044,13 @@ void OverlapContainer::overlapDivergenceStats()
 			{
 				histString += '*';
 			}
-			else
+			else if (i != threshold)
 			{
 				histString += ' ';
+			}
+			else
+			{
+				histString += '|';
 			}
 		}
 		histString += '\n';

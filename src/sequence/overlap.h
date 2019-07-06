@@ -241,6 +241,7 @@ public:
 		_nuclAlignment(nuclAlignment),
 		_maxDivergence(maxDivergence),
 		_badEndAdjustment(badEndAdjustment),
+		_estimatorBias(0.0f),
 		_vertexIndex(vertexIndex),
 		_seqContainer(seqContainer)
 		//_seqHitCounter(_seqContainer.getMaxSeqId())
@@ -266,8 +267,10 @@ private:
 	const bool  _keepAlignment;
 	const bool  _onlyMaxExt;
 	const bool  _nuclAlignment;
-	const float _maxDivergence;
-	const float _badEndAdjustment;
+
+	mutable float _maxDivergence;
+	mutable float _badEndAdjustment;
+	mutable float _estimatorBias;
 
 	const VertexIndex& _vertexIndex;
 	const SequenceContainer& _seqContainer;
@@ -284,7 +287,9 @@ public:
 					 const SequenceContainer& queryContainer):
 		_ovlpDetect(ovlpDetect),
 		_queryContainer(queryContainer),
-		_indexSize(0)
+		_indexSize(0),
+		_kmerIdyEstimateBias(0),
+		_meanTrueOvlpDiv(0)
 	{}
 
 	struct IndexVecWrapper
@@ -320,6 +325,10 @@ public:
 
 	size_t indexSize() {return _indexSize;}
 
+	void estimateOverlaperParameters();
+
+	void setRelativeDivergenceThreshold(float relThreshold);
+
 	//The functions below are NOT thread safe.
 	//Do not mix them with any other functions
 
@@ -351,4 +360,7 @@ private:
 	std::atomic<size_t> _indexSize;
 	std::unordered_map<FastaRecord::Id, 
 					   IntervalTree<const OverlapRange*>> _ovlpTree;
+
+	float _kmerIdyEstimateBias;
+	float _meanTrueOvlpDiv;
 };
