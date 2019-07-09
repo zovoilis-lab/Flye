@@ -509,28 +509,32 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 		for (int32_t chainStart = backtrackTable.size() - 1; 
 			 chainStart > 0; --chainStart)
 		{
-			//always start from a local maximum
-			while (chainStart > 0 && 
-				   scoreTable[chainStart - 1] > scoreTable[chainStart]) 
-			{
-				--chainStart;
-			}
-
 			if (backtrackTable[chainStart] == -1) continue;
 
-			int32_t pos = chainStart;
-			KmerMatch lastMatch = matchesList[pos];
-			KmerMatch firstMatch = lastMatch;
+			int32_t chainMaxScore = scoreTable[chainStart];
+			int32_t lastMatch = chainStart;
+			int32_t firstMatch = 0;
 
 			int32_t chainLength = 0;
-			int32_t chainEnd = 0;
 			shifts.clear();
 			kmerMatches.clear();
 			//int32_t totalMatch = kmerSize;
 			//int32_t totalGap = 0;
+			
+			int32_t pos = chainStart;
 			while (pos != -1)
 			{
-				firstMatch = matchesList[pos];
+				//found a new maximum, shorten the chain end
+				if (scoreTable[pos] > chainMaxScore)
+				{
+					chainMaxScore = scoreTable[pos];
+					lastMatch = pos;
+					chainLength = 0;
+					shifts.clear();
+					kmerMatches.clear();
+				}
+
+				firstMatch = pos;
 				shifts.push_back(matchesList[pos].curPos - 
 								 matchesList[pos].extPos);
 				++chainLength;
@@ -566,20 +570,18 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 				assert(pos >= 0 && pos < (int32_t)backtrackTable.size());
 				int32_t newPos = backtrackTable[pos];
 				backtrackTable[pos] = -1;
-				if (newPos == -1)
-				{
-					chainEnd = pos;
-				}
 				pos = newPos;
 			}
 
+			//Logger::get().debug() << chainStart - firstMatch << " " << lastMatch - firstMatch;
 
 			OverlapRange ovlp(fastaRec.id, matchesList.front().extId,
-							  firstMatch.curPos, firstMatch.extPos,
+							  matchesList[firstMatch].curPos, 
+							  matchesList[firstMatch].extPos,
 							  curLen, extLen);
-			ovlp.curEnd = lastMatch.curPos + kmerSize - 1;
-			ovlp.extEnd = lastMatch.extPos + kmerSize - 1;
-			ovlp.score = scoreTable[chainStart] - scoreTable[chainEnd] + 
+			ovlp.curEnd = matchesList[lastMatch].curPos + kmerSize - 1;
+			ovlp.extEnd = matchesList[lastMatch].extPos + kmerSize - 1;
+			ovlp.score = scoreTable[lastMatch] - scoreTable[firstMatch] + 
 						 kmerSize - 1;
 
 			if (this->overlapTest(ovlp, outSuggestChimeric))
