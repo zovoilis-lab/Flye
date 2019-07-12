@@ -267,6 +267,11 @@ int MultiplicityInferer::collapseHeterozygousLoops()
 		if (loop.length > std::min(entrancePath->length, 
 								   exitPath->length)) continue;
 
+		for (auto& edge : loop.path)
+		{
+			edge->altHaplotype = true;
+			_graph.complementEdge(edge)->altHaplotype = true;
+		}
 		//either remove or unroll loop, depending on the coverage
 		if (loop.meanCoverage < 
 			(entrancePath->meanCoverage + exitPath->meanCoverage) / 4)
@@ -281,7 +286,7 @@ int MultiplicityInferer::collapseHeterozygousLoops()
 		}
 	}
 
-	for (auto& path : unbranchingPaths)
+	/*for (auto& path : unbranchingPaths)
 	{
 		if (toUnroll.count(path.id))
 		{
@@ -308,7 +313,7 @@ int MultiplicityInferer::collapseHeterozygousLoops()
 			path.nodeRight() = newRight;
 			newLeft->outEdges.push_back(path.path.front());
 		}
-	}
+	}*/
 
 	//Logger::get().debug() << "Unrolled " << toUnroll.size() / 2
 	//	<< " heterozygous loops";
@@ -443,7 +448,7 @@ int MultiplicityInferer::trimTips()
 //Note that we are not using any global coverage assumptions here.
 int MultiplicityInferer::collapseHeterozygousBulges()
 {
-	const float MAX_COV_VAR = 0.20;
+	const float MAX_COV_VAR = 0.5;
 	const int MAX_BUBBLE_LEN = 50000;
 
 	GraphProcessor proc(_graph, _asmSeqs);
@@ -498,19 +503,33 @@ int MultiplicityInferer::collapseHeterozygousBulges()
 		if (std::max(twoPaths[0]->length, twoPaths[1]->length) >
 			std::min(entrancePath->length, exitPath->length)) continue;
 
-		if (twoPaths[0]->meanCoverage < twoPaths[1]->meanCoverage)
+		if (twoPaths[0]->meanCoverage > twoPaths[1]->meanCoverage)
 		{
-			toSeparate.insert(twoPaths[0]->id);
-			toSeparate.insert(twoPaths[0]->id.rc());
+			std::swap(twoPaths[0], twoPaths[1]);
 		}
-		else
+
+		for (size_t i = 0; i < 2; ++i)
 		{
-			toSeparate.insert(twoPaths[1]->id);
-			toSeparate.insert(twoPaths[1]->id.rc());
+			for (auto& edge : twoPaths[i]->path)
+			{
+				edge->altHaplotype = true;
+				_graph.complementEdge(edge)->altHaplotype = true;
+			}
 		}
+		
+		//Logger::get().debug() << "Alt: " << twoPaths[0]->edgesStr() 
+		//	<< " & " << twoPaths[1]->edgesStr();
+
+		toSeparate.insert(twoPaths[0]->id);
+		toSeparate.insert(twoPaths[0]->id.rc());
+		/*for (auto& edge : twoPaths[1]->path)
+		{
+			edge->meanCoverage += twoPaths[0]->meanCoverage;
+			_graph.complementEdge(edge)->meanCoverage += twoPaths[0]->meanCoverage;
+		}*/
 	}
 
-	for (auto& path : unbranchingPaths)
+	/*for (auto& path : unbranchingPaths)
 	{
 		if (toSeparate.count(path.id))
 		{
@@ -523,7 +542,7 @@ int MultiplicityInferer::collapseHeterozygousBulges()
 			newLeft->outEdges.push_back(path.path.front());
 			newRight->inEdges.push_back(path.path.back());
 		}
-	}
+	}*/
 
 	Logger::get().debug() << "Popped " << toSeparate.size() / 2 
 		<< " heterozygous bulges";

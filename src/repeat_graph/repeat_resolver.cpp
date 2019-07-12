@@ -365,33 +365,24 @@ void RepeatResolver::findRepeats()
 		{
 			if (edge->selfComplement)
 			{
-				Logger::get().debug() << "Self-compl: " << path.edgesStr();
 				markRepetitive(&path);
 				markRepetitive(complPath(&path));
+				Logger::get().debug() << "Self-compl: " << path.edgesStr();
 				break;
 			}
 		}
 
-		//This was kinda hacky originally - probably should be removed now
-		//with all other repeat detection improvements
-		//tandem repeats
-		/*if (path.path.size() == 1 && path.path.front()->isLooped())
+		//mark haplo-edges as repetitive so they don't mess up repeat resolution
+		for (auto& edge : path.path)
 		{
-			std::unordered_set<FastaRecord::Id> seen;
-			for (auto& seg : path.path.front()->seqSegments)
+			if (edge->altHaplotype)
 			{
-				if (seen.count(seg.origSeqId))
-				{
-					markRepetitive(&path);
-					markRepetitive(complPath(&path));
-					Logger::get().debug() << "Tan: " 
-						<< path.edgesStr() << "\t" << path.length << "\t" 
-						<< path.meanCoverage;
-					break;
-				}
-				seen.insert(seg.origSeqId);
+				markRepetitive(&path);
+				markRepetitive(complPath(&path));
+				Logger::get().debug() << "Haplo-edge: " << path.edgesStr();
+				break;
 			}
-		}*/
+		}
 	}
 
 	//Finally, using the read alignments
@@ -434,31 +425,6 @@ void RepeatResolver::findRepeats()
 			}
 		}
 	}
-
-	//now, check for this structure >-<, in case read alignments were not enough
-	/*for (auto& path : sortedPaths)
-	{
-		if (path->path.front()->repetitive || path->isLooped()) continue;
-		if (path->path.front()->nodeLeft->outEdges.size() > 1 ||
-			path->path.back()->nodeRight->inEdges.size() > 1) continue;
-
-		int numIn = 0;
-		int numOut = 0;
-		for (auto& edge: path->path.front()->nodeLeft->inEdges)
-		{
-			if (!edge->repetitive) ++numIn;
-		}
-		for (auto& edge: path->path.back()->nodeRight->outEdges)
-		{
-			if (!edge->repetitive) ++numOut;
-		}
-		if (numIn > 1 && numOut > 1)
-		{
-			Logger::get().debug() << "Structure: " << path->edgesStr();
-			markRepetitive(path);
-			markRepetitive(complPath(path));
-		}
-	}*/
 }
 
 void RepeatResolver::finalizeGraph()
