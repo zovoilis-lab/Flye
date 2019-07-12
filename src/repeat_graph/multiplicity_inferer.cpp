@@ -119,6 +119,9 @@ void MultiplicityInferer::removeUnsupportedEdges()
 	{
 		if (!path.id.strand()) continue;
 
+		//it's a dead end
+		if (path.nodeRight()->outEdges.size() > 0) continue;
+
 		if (path.meanCoverage < coverageThreshold)
 		{
 			Logger::get().debug() << "Low coverage: " 
