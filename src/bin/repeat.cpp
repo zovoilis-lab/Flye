@@ -198,6 +198,8 @@ int main(int argc, char** argv)
 	multInf.collapseHeterozygousLoops();
 	multInf.collapseHeterozygousBulges();
 	//multInf.trimTips();
+	
+	//aligner.storeAlignments(outFolder + "/read_alignment_before_rr");
 
 	Logger::get().info() << "Resolving repeats";
 	RepeatResolver resolver(rg, seqAssembly, seqReads, aligner, multInf);
@@ -211,8 +213,8 @@ int main(int argc, char** argv)
 	//multInf.collapseHeterozygousLoops();
 	//multInf.collapseHeterozygousBulges();
 	//multInf.trimTips();
-
-	resolver.findRepeats();
+	//resolver.findRepeats();
+	
 	resolver.finalizeGraph();
 
 	outGen.outputDot(proc.getEdgesPaths(), outFolder + "/graph_after_rr.gv");
