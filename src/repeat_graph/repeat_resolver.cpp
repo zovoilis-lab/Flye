@@ -343,21 +343,30 @@ void RepeatResolver::findRepeats()
 		for (auto& edge : path->path) edge->repetitive = true;
 	};
 
+	//first simlplier conditions without read alignment
 	for (auto& path : unbranchingPaths)
 	{
 		if (!path.id.strand()) continue;
 
 		//mark paths with high coverage as repetitive
-		if (!Parameters::get().unevenCoverage)
+		if (!Parameters::get().unevenCoverage &&
+			path.meanCoverage > _multInf.getUniqueCovThreshold())
 		{
-			if (path.meanCoverage > _multInf.getUniqueCovThreshold())
-			{
-				markRepetitive(&path);
-				markRepetitive(complPath(&path));
-				Logger::get().debug() << "Cov: " 
-					<< path.edgesStr() << "\t" << path.length << "\t" 
-					<< path.meanCoverage;
-			}
+			markRepetitive(&path);
+			markRepetitive(complPath(&path));
+			Logger::get().debug() << "High-cov: " 
+				<< path.edgesStr() << "\t" << path.length << "\t" 
+				<< path.meanCoverage;
+		}
+
+		//don't trust short loops, since they might contain unglued tandem
+		//repeat variations
+		const int MIN_RELIABLE_LOOP = 5000;
+		if (path.isLooped() && path.length < MIN_RELIABLE_LOOP)
+		{
+			markRepetitive(&path);
+			markRepetitive(complPath(&path));
+			Logger::get().debug() << "Short-loop: " << path.edgesStr();
 		}
 
 		//self-complements are repetitive
