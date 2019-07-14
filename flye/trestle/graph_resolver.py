@@ -170,6 +170,11 @@ def apply_changes(repeat_graph, trestle_results,
     connections = _get_connections(trestle_results)
     edges_to_remove = set()
     for conn in connections:
+
+        #FIXME: sometimes trestle outputs empty resolved seque. need a proper fix later
+        if not len(resolved_repeats_fasta[conn.sequence]):
+            continue
+
         repeat_graph.separate_path(conn.path, conn.id,
                                    resolved_repeats_fasta[conn.sequence])
         edges_to_remove.update(conn.path[1:-1])

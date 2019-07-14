@@ -102,6 +102,7 @@ struct GraphEdge
 		nodeLeft(nodeLeft), nodeRight(nodeRight), 
 		edgeId(edgeId), repetitive(false), 
 		selfComplement(false), resolved(false), 
+		altHaplotype(false),
 		meanCoverage(0) {}
 
 	bool isRepetitive() const 
@@ -135,6 +136,7 @@ struct GraphEdge
 	bool repetitive;
 	bool selfComplement;
 	bool resolved;
+	bool altHaplotype;
 	int  meanCoverage;
 };
 

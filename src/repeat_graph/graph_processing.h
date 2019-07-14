@@ -88,8 +88,8 @@ private:
 	//used during repeat graph construction only
 	friend class RepeatGraph;
 	void simplify();
-	void condenceEdges();
-	void collapseBulges();
+	int  condenceEdges();
+	int  collapseBulges();
 	//
 
 	RepeatGraph& _graph;
