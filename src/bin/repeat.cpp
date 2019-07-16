@@ -190,14 +190,10 @@ int main(int argc, char** argv)
 	MultiplicityInferer multInf(rg, aligner, seqAssembly, seqReads);
 	multInf.estimateCoverage();
 
-	//remove edges/connections with low coverage
-	multInf.removeUnsupportedEdges();
 	multInf.removeUnsupportedConnections();
-
-	//clean the graph
-	multInf.collapseHeterozygousLoops();
-	multInf.collapseHeterozygousBulges();
-	//multInf.trimTips();
+	multInf.maskUnsupportedEdges();
+	multInf.collapseHeterozygousLoops(/*remove alternatives*/ false);
+	multInf.collapseHeterozygousBulges(/*remove alternatives*/ false);
 	
 	//aligner.storeAlignments(outFolder + "/read_alignment_before_rr");
 
@@ -210,10 +206,10 @@ int main(int argc, char** argv)
 	resolver.resolveRepeats();
 
 	//clean graph again after repeat resolution
-	//multInf.collapseHeterozygousLoops();
-	//multInf.collapseHeterozygousBulges();
-	//multInf.trimTips();
-	//resolver.findRepeats();
+	multInf.removeUnsupportedEdges();
+	multInf.collapseHeterozygousLoops(/*remove alternatives*/ true);
+	multInf.collapseHeterozygousBulges(/*remove alternatives*/ true);
+	resolver.findRepeats();
 	
 	resolver.finalizeGraph();
 

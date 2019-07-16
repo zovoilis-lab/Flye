@@ -20,12 +20,13 @@ public:
 
 	void estimateCoverage();
 	int  getMeanCoverage() const {return _meanCoverage;}
+	void maskUnsupportedEdges();
 	void removeUnsupportedEdges();
 	void removeUnsupportedConnections();
 
-	int collapseHeterozygousLoops();
-	int collapseHeterozygousBulges();
-	int trimTips();
+	int  collapseHeterozygousLoops(bool removeAlternatives);
+	int  collapseHeterozygousBulges(bool removeAlternatives);
+	int  trimTips();
 
 	//coverage threshold for an edge to be considered "unique"
 	int  getUniqueCovThreshold() const 	{return _uniqueCovThreshold;}
