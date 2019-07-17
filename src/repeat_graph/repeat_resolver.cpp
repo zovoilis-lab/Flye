@@ -369,7 +369,7 @@ void RepeatResolver::findRepeats()
 			Logger::get().debug() << "Short-loop: " << path.edgesStr();
 		}
 
-		//self-complements are repetitive
+		//mask self-complements
 		for (auto& edge : path.path)
 		{
 			if (edge->selfComplement)
@@ -381,7 +381,7 @@ void RepeatResolver::findRepeats()
 			}
 		}
 
-		//mark haplo-edges as repetitive so they don't mess up repeat resolution
+		//mask haplo-edges so they don't mess up repeat resolution
 		for (auto& edge : path.path)
 		{
 			if (edge->altHaplotype)
@@ -389,6 +389,18 @@ void RepeatResolver::findRepeats()
 				markRepetitive(&path);
 				markRepetitive(complPath(&path));
 				Logger::get().debug() << "Haplo-edge: " << path.edgesStr();
+				break;
+			}
+		}
+
+		//mask unreliable edges with low coverage
+		for (auto& edge : path.path)
+		{
+			if (edge->unreliable)
+			{
+				markRepetitive(&path);
+				markRepetitive(complPath(&path));
+				Logger::get().debug() << "Unreliable: " << path.edgesStr();
 				break;
 			}
 		}
