@@ -341,10 +341,10 @@ class JobPolishing(Job):
 
         self.name = "polishing"
         final_contigs = os.path.join(self.polishing_dir,
-                                     "polished_{0}.fasta".format(args.num_iters))
+                                     "filtered_contigs.fasta")
         self.out_files["contigs"] = final_contigs
         self.out_files["stats"] = os.path.join(self.polishing_dir,
-                                               "contigs_stats.txt")
+                                               "filtered_stats.txt")
         self.out_files["polished_gfa"] = os.path.join(self.polishing_dir,
                                                       "polished_edges.gfa")
 
@@ -353,16 +353,19 @@ class JobPolishing(Job):
         if not os.path.isdir(self.polishing_dir):
             os.mkdir(self.polishing_dir)
 
-        pol.polish(self.in_contigs, self.args.reads, self.polishing_dir,
-                   self.args.num_iters, self.args.threads, self.args.platform,
-                   output_progress=True)
-
-        polished_file = os.path.join(self.polishing_dir, "polished_{0}.fasta"
-                                     .format(self.args.num_iters))
+        contigs, stats = \
+            pol.polish(self.in_contigs, self.args.reads, self.polishing_dir,
+                       self.args.num_iters, self.args.threads, self.args.platform,
+                       output_progress=True)
+        #contigs = os.path.join(self.polishing_dir, "polished_1.fasta")
+        #stats = os.path.join(self.polishing_dir, "contigs_stats.txt")
+        pol.filter_by_coverage(self.args, stats, contigs,
+                               self.out_files["stats"], self.out_files["contigs"])
         pol.generate_polished_edges(self.in_graph_edges, self.in_graph_gfa,
-                                    polished_file,
+                                    self.out_files["contigs"],
                                     self.polishing_dir, self.args.platform,
                                     self.args.threads)
+        os.remove(contigs)
 
 
 class JobTrestle(Job):

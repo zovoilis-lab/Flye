@@ -39,8 +39,10 @@ vals = {
         "max_bubble_length" : 500,
         "max_bubble_branches" : 50,
         "max_read_coverage" : 1000,
-        #"min_aln_rate" : 0.50,
-        #"read_aln_overhang" : 100,
+
+        #final coverage filtering
+        "relative_minimum_coverage" : 5,
+        "hard_minimum_coverage" : 4,
 
         "err_modes" : {
             "pacbio" : {

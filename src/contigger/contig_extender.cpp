@@ -286,7 +286,7 @@ void ContigExtender::outputStatsTable(const std::string& filename)
 	std::ofstream fout(filename);
 	if (!fout) throw std::runtime_error("Can't write " + filename);
 
-	fout << "seq_name\tlength\tcoverage\tcircular\trepeat"
+	fout << "#seq_name\tlength\tcoverage\tcircular\trepeat"
 		<< "\tmult\ttelomere\tgraph_path\n";
 
 	char YES_NO[] = {'-', '+'};

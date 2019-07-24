@@ -99,7 +99,7 @@ def polish(contig_seqs, read_seqs, work_dir, num_iters, num_threads, error_mode,
             logger.info("No reads were aligned during polishing")
             if not output_progress:
                 logger.disabled = logger_state
-            open(stats_file, "w").write("seq_name\tlength\tcoverage\n")
+            open(stats_file, "w").write("#seq_name\tlength\tcoverage\n")
             open(polished_file, "w")
             return polished_file, stats_file
 
@@ -126,7 +126,7 @@ def polish(contig_seqs, read_seqs, work_dir, num_iters, num_threads, error_mode,
                                   fold_function=lambda l: sum(l) / len(l))
 
     with open(stats_file, "w") as f:
-        f.write("seq_name\tlength\tcoverage\n")
+        f.write("#seq_name\tlength\tcoverage\n")
         for ctg_id in contig_lengths:
             f.write("{0}\t{1}\t{2}\n".format(ctg_id,
                     contig_lengths[ctg_id], coverage_stats[ctg_id]))
@@ -186,8 +186,8 @@ def generate_polished_edges(edges_file, gfa_file, polished_contigs, work_dir,
                 updated_seqs += 1
 
     #writes fasta file with polished egdes
-    edges_polished = os.path.join(work_dir, "polished_edges.fasta")
-    fp.write_fasta_dict(edges_dict, edges_polished)
+    #edges_polished = os.path.join(work_dir, "polished_edges.fasta")
+    #fp.write_fasta_dict(edges_dict, edges_polished)
 
     #writes gfa file with polished edges
     with open(os.path.join(work_dir, "polished_edges.gfa"), "w") as gfa_polished, \
@@ -204,6 +204,60 @@ def generate_polished_edges(edges_file, gfa_file, polished_contigs, work_dir,
     logger.debug("{0} sequences remained unpolished"
                     .format(len(edges_dict) - updated_seqs))
     os.remove(alignment_file)
+
+
+def filter_by_coverage(args, stats_in, contigs_in, stats_out, contigs_out):
+    """
+    Filters out contigs with low coverage
+    """
+    SUBASM_MIN_COVERAGE = 1
+    HARD_MIN_COVERAGE = cfg.vals["hard_minimum_coverage"]
+    RELATIVE_MIN_COVERAGE = cfg.vals["relative_minimum_coverage"]
+
+    ctg_stats = {}
+    sum_cov = 0
+    sum_length = 0
+
+    with open(stats_in, "r") as f:
+        for line in f:
+            if line.startswith("#"): continue
+            tokens = line.split("\t")
+            ctg_id, ctg_len, ctg_cov = tokens[0], int(tokens[1]), int(tokens[2])
+            ctg_stats[ctg_id] = (ctg_len, ctg_cov)
+            sum_cov += ctg_cov * ctg_len
+            sum_length += ctg_len
+
+    mean_coverage = int(float(sum_cov) / sum_length)
+    coverage_threshold = None
+    if args.read_type == "subasm":
+        coverage_threshold = SUBASM_MIN_COVERAGE
+    elif args.meta:
+        coverage_threshold = HARD_MIN_COVERAGE
+    else:
+        coverage_threshold = int(round(float(mean_coverage) /
+                                       RELATIVE_MIN_COVERAGE))
+        coverage_threshold = max(HARD_MIN_COVERAGE, coverage_threshold)
+    logger.debug("Mean contig coverage: {0}, selected threshold: {1}"
+                    .format(mean_coverage, coverage_threshold))
+
+    filtered_num = 0
+    filtered_seq = 0
+    good_fasta = {}
+    for hdr, seq in fp.stream_sequence(contigs_in):
+        if ctg_stats[hdr][1] >= coverage_threshold:
+            good_fasta[hdr] = seq
+        else:
+            filtered_num += 1
+            filtered_seq += ctg_stats[hdr][0]
+    logger.debug("Filtered {0} contigs of total length {1}"
+                    .format(filtered_num, filtered_seq))
+
+    fp.write_fasta_dict(good_fasta, contigs_out)
+    with open(stats_out, "w") as f:
+        f.write("#seq_name\tlength\tcoverage\n")
+        for ctg_id in good_fasta:
+            f.write("{0}\t{1}\t{2}\n".format(ctg_id,
+                    ctg_stats[ctg_id][0], ctg_stats[ctg_id][1]))
 
 
 def _run_polish_bin(bubbles_in, subs_matrix, hopo_matrix,
