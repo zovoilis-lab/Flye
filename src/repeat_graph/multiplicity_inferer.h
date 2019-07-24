@@ -26,12 +26,30 @@ public:
 
 	int  collapseHeterozygousLoops(bool removeAlternatives);
 	int  collapseHeterozygousBulges(bool removeAlternatives);
-	int  trimTips();
+	int  trimTips()
+	{
+		int totalShort = 0;
+		int totalLong = 0;
+		for (;;)
+		{
+			int iterShort = 0;
+			int iterLong = 0;
+			this->trimTipsIteration(iterShort, iterLong);
+			totalShort += iterShort;
+			totalLong += iterLong;
+			if (iterShort + iterLong == 0) break;
+		}
+
+		Logger::get().debug() << "Clipped " << totalShort 
+			<< " short and " << totalLong << " long tips";
+		return totalShort + totalLong;
+	}
 
 	//coverage threshold for an edge to be considered "unique"
 	int  getUniqueCovThreshold() const 	{return _uniqueCovThreshold;}
 
 private:
+	void trimTipsIteration(int& outShort, int& outLong);
 
 	RepeatGraph& _graph;
 	ReadAligner& _aligner;

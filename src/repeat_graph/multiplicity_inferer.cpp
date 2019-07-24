@@ -373,7 +373,7 @@ int MultiplicityInferer::collapseHeterozygousLoops(bool removeAlternatives)
 	return (toRemove.size() + toUnroll.size()) / 2;
 }
 
-int MultiplicityInferer::trimTips()
+void MultiplicityInferer::trimTipsIteration(int& outShort, int& outLong)
 {
 	const int SHORT_TIP = 10000;
 	const int LONG_TIP = 100000;
@@ -473,18 +473,9 @@ int MultiplicityInferer::trimTips()
 			complEdge->nodeRight->inEdges.push_back(complEdge);
 		}
 	}
-
-	Logger::get().debug() << "Clipped " << shortClipped 
-		<< " short and " << longClipped << " long tips";
 	_aligner.updateAlignments();
-
-	//iterate until no more tips are clipped
-	if (shortClipped + longClipped) 
-	{
-		return shortClipped + longClipped + trimTips();
-	}
-
-	return 0;
+	outShort = shortClipped;
+	outLong = longClipped;
 }
 
 //This function collapses simply bubbles caused by
