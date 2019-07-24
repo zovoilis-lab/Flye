@@ -375,9 +375,8 @@ int MultiplicityInferer::collapseHeterozygousLoops(bool removeAlternatives)
 
 void MultiplicityInferer::trimTipsIteration(int& outShort, int& outLong)
 {
-	const int SHORT_TIP = 10000;
-	const int LONG_TIP = 100000;
-	//const int LONG_TIP = Config::get("tip_length_threshold");
+	const int SHORT_TIP = Config::get("short_tip_length");
+	const int LONG_TIP = Config::get("long_tip_length");
 	const int COV_RATE = 2;
 	const int LEN_RATE = 10;
 
@@ -489,7 +488,7 @@ void MultiplicityInferer::trimTipsIteration(int& outShort, int& outLong)
 int MultiplicityInferer::collapseHeterozygousBulges(bool removeAlternatives)
 {
 	const float MAX_COV_VAR = 0.5;
-	const int MAX_BUBBLE_LEN = 50000;
+	const int MAX_BUBBLE_LEN = Config::get("max_bubble_length");
 
 	GraphProcessor proc(_graph, _asmSeqs);
 	auto unbranchingPaths = proc.getUnbranchingPaths();

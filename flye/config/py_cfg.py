@@ -42,7 +42,7 @@ vals = {
 
         #final coverage filtering
         "relative_minimum_coverage" : 5,
-        "hard_minimum_coverage" : 4,
+        "hard_minimum_coverage" : 3,
 
         "err_modes" : {
             "pacbio" : {

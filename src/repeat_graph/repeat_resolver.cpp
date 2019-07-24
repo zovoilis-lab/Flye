@@ -209,8 +209,8 @@ int RepeatResolver::resolveConnections(const std::vector<Connection>& connection
 bool RepeatResolver::checkForTandemCopies(const GraphEdge* checkEdge,
 										  const std::vector<GraphAlignment>& alignments)
 {
+	const int NEEDED_READS = 5;
 	int readEvidence = 0;
-	int NEEDED_READS = 5;
 	for (const auto& aln: alignments)
 	{
 		int numCopies = 0;
