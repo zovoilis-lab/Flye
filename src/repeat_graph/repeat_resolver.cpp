@@ -206,6 +206,24 @@ int RepeatResolver::resolveConnections(const std::vector<Connection>& connection
 	return uniqueConnections.size();
 }
 
+bool RepeatResolver::checkForTandemCopies(const GraphEdge* checkEdge,
+										  const std::vector<GraphAlignment>& alignments)
+{
+	int readEvidence = 0;
+	int NEEDED_READS = 5;
+	for (const auto& aln: alignments)
+	{
+		int numCopies = 0;
+		//only copies fully covered by reads
+		for (size_t i = 1; i < aln.size() - 1; ++i)
+		{
+			if (aln[i].edge == checkEdge) ++numCopies;
+		}
+		if (numCopies > 1) ++readEvidence;
+	}
+	return readEvidence >= NEEDED_READS;
+}
+
 bool RepeatResolver::checkByReadExtension(const GraphEdge* checkEdge,
 										  const std::vector<GraphAlignment>& alignments)
 {
@@ -401,6 +419,18 @@ void RepeatResolver::findRepeats()
 				markRepetitive(&path);
 				markRepetitive(complPath(&path));
 				Logger::get().debug() << "Unreliable: " << path.edgesStr();
+				break;
+			}
+		}
+
+		//mask edges that appear multiple times within single reads
+		for (auto& edge : path.path)
+		{
+			if (!edge->repetitive && this->checkForTandemCopies(edge, alnIndex[edge]))
+			{
+				markRepetitive(&path);
+				markRepetitive(complPath(&path));
+				Logger::get().debug() << "Tandem: " << path.edgesStr();
 				break;
 			}
 		}
