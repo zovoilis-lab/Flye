@@ -252,7 +252,7 @@ class JobFinalize(Job):
         self.work_dir = work_dir
 
         #self.out_files["contigs"] = os.path.join(work_dir, "contigs.fasta")
-        self.out_files["scaffolds"] = os.path.join(work_dir, "scaffolds.fasta")
+        #self.out_files["scaffolds"] = os.path.join(work_dir, "scaffolds.fasta")
         self.out_files["assembly"] = os.path.join(work_dir, "assembly.fasta")
         self.out_files["stats"] = os.path.join(work_dir, "assembly_info.txt")
         self.out_files["graph"] = os.path.join(work_dir, "assembly_graph.gv")
@@ -268,14 +268,14 @@ class JobFinalize(Job):
                                            self.out_files["assembly"])
 
         #create the scaffolds.fasta symlink for backward compatability
-        try:
-            if os.path.lexists(self.out_files["scaffolds"]):
-                os.remove(self.out_files["scaffolds"])
-            relative_link = os.path.relpath(self.out_files["assembly"],
-                                            self.work_dir)
-            os.symlink(relative_link, self.out_files["scaffolds"])
-        except OSError as e:
-            logger.debug(e)
+        #try:
+        #    if os.path.lexists(self.out_files["scaffolds"]):
+        #        os.remove(self.out_files["scaffolds"])
+        #    relative_link = os.path.relpath(self.out_files["assembly"],
+        #                                    self.work_dir)
+        #    os.symlink(relative_link, self.out_files["scaffolds"])
+        #except OSError as e:
+        #    logger.debug(e)
 
         logger.debug("---Output dir contents:----")
         _list_files(os.path.abspath(self.args.out_dir))
