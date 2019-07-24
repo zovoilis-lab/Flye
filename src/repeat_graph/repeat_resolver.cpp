@@ -582,6 +582,10 @@ std::vector<RepeatResolver::Connection>
 				if (!currentAln.back().edge->nodeLeft->isBifurcation() &&
 					!currentAln.front().edge->nodeRight->isBifurcation()) continue;
 
+				//don't connect edges if they both were previously repetitive
+				if (currentAln.back().edge->resolved &&
+					currentAln.front().edge->resolved) continue;
+
 				//if (currentAln.front().overlap.seqDivergence > 0.15 ||
 				//	currentAln.back().overlap.seqDivergence > 0.15) continue;
 				
