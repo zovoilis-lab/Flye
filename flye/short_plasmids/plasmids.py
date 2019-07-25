@@ -75,15 +75,16 @@ def assemble_short_plasmids(args, work_dir, contigs_path):
 
     plasmids_raw = os.path.join(work_dir, "plasmids_raw.fasta")
     fp.write_fasta_dict(plasmids, plasmids_raw)
-    pol.polish(plasmids_raw, [unmapped_reads_path], work_dir, 1,
-               args.threads, args.platform, output_progress=False)
+    polished_seqs, polished_stats = \
+        pol.polish(plasmids_raw, [unmapped_reads_path], work_dir, 1,
+                   args.threads, args.platform, output_progress=False)
 
     #extract coverage
     plasmids_with_coverage = {}
-    if os.path.isfile(os.path.join(work_dir, "contigs_stats.txt")):
-        with open(os.path.join(work_dir, "contigs_stats.txt"), "r") as f:
+    if os.path.isfile(polished_stats):
+        with open(polished_stats, "r") as f:
             for line in f:
-                if line.startswith("seq"): continue
+                if line.startswith("#"): continue
                 tokens = line.strip().split()
                 seq_id, coverage = tokens[0], int(tokens[2])
                 if coverage > 0:

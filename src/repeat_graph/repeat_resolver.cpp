@@ -206,6 +206,24 @@ int RepeatResolver::resolveConnections(const std::vector<Connection>& connection
 	return uniqueConnections.size();
 }
 
+bool RepeatResolver::checkForTandemCopies(const GraphEdge* checkEdge,
+										  const std::vector<GraphAlignment>& alignments)
+{
+	const int NEEDED_READS = 5;
+	int readEvidence = 0;
+	for (const auto& aln: alignments)
+	{
+		int numCopies = 0;
+		//only copies fully covered by reads
+		for (size_t i = 1; i < aln.size() - 1; ++i)
+		{
+			if (aln[i].edge == checkEdge) ++numCopies;
+		}
+		if (numCopies > 1) ++readEvidence;
+	}
+	return readEvidence >= NEEDED_READS;
+}
+
 bool RepeatResolver::checkByReadExtension(const GraphEdge* checkEdge,
 										  const std::vector<GraphAlignment>& alignments)
 {
@@ -404,6 +422,18 @@ void RepeatResolver::findRepeats()
 				break;
 			}
 		}
+
+		//mask edges that appear multiple times within single reads
+		for (auto& edge : path.path)
+		{
+			if (!edge->repetitive && this->checkForTandemCopies(edge, alnIndex[edge]))
+			{
+				markRepetitive(&path);
+				markRepetitive(complPath(&path));
+				Logger::get().debug() << "Tandem: " << path.edgesStr();
+				break;
+			}
+		}
 	}
 
 	//Finally, using the read alignments
@@ -551,6 +581,10 @@ std::vector<RepeatResolver::Connection>
 			{
 				if (!currentAln.back().edge->nodeLeft->isBifurcation() &&
 					!currentAln.front().edge->nodeRight->isBifurcation()) continue;
+
+				//don't connect edges if they both were previously repetitive
+				if (currentAln.back().edge->resolved &&
+					currentAln.front().edge->resolved) continue;
 
 				//if (currentAln.front().overlap.seqDivergence > 0.15 ||
 				//	currentAln.back().overlap.seqDivergence > 0.15) continue;

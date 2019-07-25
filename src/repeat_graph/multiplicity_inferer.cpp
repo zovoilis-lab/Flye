@@ -373,11 +373,10 @@ int MultiplicityInferer::collapseHeterozygousLoops(bool removeAlternatives)
 	return (toRemove.size() + toUnroll.size()) / 2;
 }
 
-int MultiplicityInferer::trimTips()
+void MultiplicityInferer::trimTipsIteration(int& outShort, int& outLong)
 {
-	const int SHORT_TIP = 10000;
-	const int LONG_TIP = 100000;
-	//const int LONG_TIP = Config::get("tip_length_threshold");
+	const int SHORT_TIP = Config::get("short_tip_length");
+	const int LONG_TIP = Config::get("long_tip_length");
 	const int COV_RATE = 2;
 	const int LEN_RATE = 10;
 
@@ -473,18 +472,9 @@ int MultiplicityInferer::trimTips()
 			complEdge->nodeRight->inEdges.push_back(complEdge);
 		}
 	}
-
-	Logger::get().debug() << "Clipped " << shortClipped 
-		<< " short and " << longClipped << " long tips";
 	_aligner.updateAlignments();
-
-	//iterate until no more tips are clipped
-	if (shortClipped + longClipped) 
-	{
-		return shortClipped + longClipped + trimTips();
-	}
-
-	return 0;
+	outShort = shortClipped;
+	outLong = longClipped;
 }
 
 //This function collapses simply bubbles caused by
@@ -498,7 +488,7 @@ int MultiplicityInferer::trimTips()
 int MultiplicityInferer::collapseHeterozygousBulges(bool removeAlternatives)
 {
 	const float MAX_COV_VAR = 0.5;
-	const int MAX_BUBBLE_LEN = 50000;
+	const int MAX_BUBBLE_LEN = Config::get("max_bubble_length");
 
 	GraphProcessor proc(_graph, _asmSeqs);
 	auto unbranchingPaths = proc.getUnbranchingPaths();
