@@ -423,7 +423,7 @@ def _preprocess_sam(sam_file, work_dir):
     os.remove(expanded_sam)
 
     #appending to the final file, that already contains headers
-    with open(sorted_file, "r") as sort_in, open(merged_file, "w") as fout:
+    with open(sorted_file, "r") as sort_in, open(merged_file, "a") as fout:
         for line in sort_in:
             if not _is_sam_header(line):
                 fout.write(line)
