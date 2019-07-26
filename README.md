@@ -18,30 +18,17 @@ Latest updates
 ### Flye 2.5 release (25 Jul 2019)
 * Better ONT polishing for the latest basecallers (Guppy/flipflop)
 * Improved consensus quality of repetitive regions
-* More contigouous assemblies of real metagenomes
+* More contiguous assemblies of real metagenomes
 * Improvements for human genome assemblies
 * Various bugfixes and performance optimizations
-
-### Flye 2.4.2 release (06 Apr 2019)
-* Improvements in k-mer selection and tip clipping for metagenome assemblies
-* Better memory managment during consensus/polishing
-* Some bugfixes
-
-### Flye 2.4.1 release (05 Mar 2019)
-* Speed and stability improvements for large datasets
-* New option `--polish-target` to run Flye polisher on the target sequence
-
-### Flye 2.4 release (14 Jan 2019)
-* Metagenome assembly support fully integrated (`--meta` option)
-* New Trestle module for resolving simple unbridged repeats
-* New `--plasmids` option that recovers short unassembled plasmids
-
+* Also check the new [FAQ section](docs/FAQ.md)
 
 Manuals
 -------
 
 - [Installation instructions](docs/INSTALL.md)
 - [Usage](docs/USAGE.md)
+- [FAQ](docs/FAQ.md)
 
 
 Repeat graph
@@ -152,10 +139,11 @@ How to get help
 ---------------
 A preferred way report any problems or ask questions about Flye is the 
 [issue tracker](https://github.com/fenderglass/Flye/issues). 
-Before posting an issue/question, consider to look through the existing topics (opened and closed)
-or search using keywords - it is possble that your question has already been answered.
+Before posting an issue/question, consider to look through the FAQ
+and existing issues (opened and closed) - it is possble that your question
+has already been answered.
 
 If you reporting a problem, please include the `flye.log` file and provide some 
 details about your dataset (if possible).
 
-In case you prefer personal communcation, please contact Mikhail at fenderglass@gmail.com.
+In case you prefer personal communication, please contact Mikhail at fenderglass@gmail.com.

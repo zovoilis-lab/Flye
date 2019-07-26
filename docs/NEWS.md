@@ -2,7 +2,7 @@ Flye 2.5 release (25 Jul 2019)
 ==============================
 * Better ONT polishing for the latest basecallers (Guppy/flipflop)
 * Improved consensus quality of repetitive regions
-* More contigouous assemblies of real metagenomes
+* More contiguous assemblies of real metagenomes
 * Improvements for human genome assemblies
 * Various bugfixes and performance optimizations
 
