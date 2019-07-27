@@ -9,7 +9,7 @@ In particular, we used Flye to assemble PacBio's P5C3, P6C4, Sequel and Sequel I
 ONT's R7-R9 basecalled with Albacore, Guppy and Flipflop (fast mode).
 We typically use raw reads, however error-corrected input is also supported
 (for example, for PacBio CCS). Flye is designed for all kinds of genomes,
-for various bacteria to mammalian genomes. We are also testing Flye on various
+for various bacteria to mammalians. We are also testing Flye on 
 metagenomic datasets (mock and real). You can also check the table with the Flye 
 benchmarks in the [Usage file](USAGE.md).
 
@@ -33,9 +33,9 @@ Are metagenomes supported?
 --------------------------
 
 Yes, use the `--meta` option. This option also should be applied if you
-expect highly non-uniform read coverage in your dataset.  
+expect highly non-uniform read coverage in your dataset.
 A disadvantage of `--meta` mode is that it could be
-slower and consume more RAM. Also, graph simplifications will be less aggressive, 
+slower and consume more RAM. Also, graph simplifications will be less aggressive,
 which can hurt the contiguity of a single genome assembly.
 
 Are very large genomes supported?
@@ -78,7 +78,7 @@ Mammalian assemblies with 40x coverage need ~700Gb of RAM
 and typically finish within 3-4 days using 30 threads.
 
 Various benchmarks are also given in the [Usage file](USAGE.md).
-The time and memory usage typically scales linearly with
+The time and memory usage usually scales linearly with
 genome size and read coverage. However, highly repetitive
 genomes might require more memory and be slower to assemble.
 Most of the Flye stages run in parallel, so the more threads
@@ -119,8 +119,8 @@ mode is almost independent from the genome size parameter
 some other parameters). When assembly is completed,
 you can re-run in the normal mode with the inferred genome size.
 
-I have a lot of reads, but no sequence was assembled (or very few). Why is that?
---------------------------------------------------------------------------------
+I have a lot of reads, but (almost) no sequence was assembled. Why is that?
+---------------------------------------------------------------------------
 
 First, make sure that your dataset type is supported (see above), 
 and the parameters are set correctly. In particular, make sure you 
@@ -160,7 +160,7 @@ this might lead to gaps in assembly. Flye automatically
 selects this parameter based on the read length distribution,
 and for the most of datasets the selected value works well.
 In some rare cases, this parameter needs to be adjusted manually,
-for example if the read length is not distributed normally.
+for example if the read length distribution is skewd.
 
 Currently, the minimum overlap is automatically selected with 
 the 1kb-5kb range. For some datasets (such as ultra-long ONT reads)
@@ -193,7 +193,7 @@ polishing step, and it producing high quality consensus on bacterial
 PacBio datasets with high coverage. For example, see this recent 
 [evaluation by Ryan Wick](https://github.com/rrwick/Long-read-assembler-comparison).
 On the other hand, PacBio has specialized Quiver/Arrow tools that
-are more advanced, since they use PacBio specific signal information. 
+are more advanced, since they use PacBio-specific signal information. 
 It is possible, that you can get a bit of improvement after applying these tools.
 
 For ONT data, Flye still has ~1% errors in consensus due to the systematic error 
@@ -204,7 +204,7 @@ Illumina correction can fix many of the remaining errors and improve
 the assembly quality for both PacBio and ONT, for example, using Pilon or Racon.
 But it should be applied with caution to prevent over-correction of repetitive regions. 
 Also see [Watson and Warr paper](https://www.nature.com/articles/s41587-018-0004-z) 
-for a good discussion on the assembly quality.
+for a discussion on the assembly quality.
 
 Should I use raw or error-corrected reads?
 ------------------------------------------
@@ -213,18 +213,18 @@ Flye was designed and tested mainly using raw reads,
 so it is currently the recommended option.
 
 
-Do I need to preprocess my input reads in any way?
---------------------------------------------------
+Do I need to preprocess my reads in any way?
+--------------------------------------------
 
-No, it is typically not necessary. Flye automatically filters out
+No, usually it is not necessary. Flye automatically filters out
 chimeric reads or reads with bad ends. If the read coverage is very high,
 you can use the built-in `--asm-coverage` option for subsampling the longest ones.
 
-Note in PacBio mode, Flye assumes that the input files represent PacBio subreads,
-e.g. adaptors and noise are trimmed and multiple passes of the same insertion
+Note that in PacBio mode, Flye assumes that the input files represent PacBio subreads,
+e.g. adaptors and scraps are removed and multiple passes of the same insertion
 sequence are separated. This is typically handled by PacBio instruments/toolchains,
-however we saw examples of incorrect third-party raw -> fastq conversions, 
-which resulted into incorrectly trimmed data. If you have a dataset like this, 
+however we saw examples of problemmatic raw -> fastq conversions, 
+which resulted into incorrectl subreads. In this case, 
 consider using [pbclip](https://github.com/fenderglass/pbclip) to fix your Fasta/q reads.
 
 Are cluster environments (SGE / Slurm etc.) supported?
