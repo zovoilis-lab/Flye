@@ -7,10 +7,8 @@ Separates alignment into small bubbles for further correction
 """
 
 import logging
-from collections import defaultdict, namedtuple
 from bisect import bisect
 from itertools import izip
-import math
 import multiprocessing
 import signal
 
@@ -66,8 +64,7 @@ def _thread_worker(aln_reader, contigs_info, err_mode,
             partition, num_long_bubbles = _get_partition(profile, err_mode)
             ctg_bubbles = _get_bubble_seqs(ctg_aln, err_mode, profile, partition,
                                            contigs_info[ctg_id])
-            mean_cov = sum(map(lambda b: len(b.branches),
-                               ctg_bubbles)) / (len(ctg_bubbles) + 1)
+            mean_cov = sum([len(b.branches) for b in ctg_bubbles]) / (len(ctg_bubbles) + 1)
             ctg_bubbles, num_empty, num_long_branch = \
                                     _postprocess_bubbles(ctg_bubbles)
             results_queue.put((ctg_id, len(ctg_bubbles), num_long_bubbles,
@@ -148,10 +145,10 @@ def make_bubbles(alignment_path, contigs_info, contigs_path,
         coverage_stats[ctg_id] = mean_coverage
 
     mean_aln_error = float(sum(total_aln_errors)) / (len(total_aln_errors) + 1)
-    logger.debug("Generated {0} bubbles".format(total_bubbles))
-    logger.debug("Split {0} long bubbles".format(total_long_bubbles))
-    logger.debug("Skipped {0} empty bubbles".format(total_empty))
-    logger.debug("Skipped {0} bubbles with long branches".format(total_long_branches))
+    logger.debug("Generated %d bubbles", total_bubbles)
+    logger.debug("Split %d long bubbles", total_long_bubbles)
+    logger.debug("Skipped %d empty bubbles", total_empty)
+    logger.debug("Skipped %d bubbles with long branches", total_long_branches)
 
     return coverage_stats, mean_aln_error
 
@@ -246,8 +243,8 @@ def _is_simple_kmer(profile, position):
     SIMPLE_LEN = cfg.vals["simple_kmer_length"]
 
     extended_len = SIMPLE_LEN * 2
-    nucl_str = map(lambda p: p.nucl, profile[position - extended_len / 2 :
-                                             position + extended_len / 2])
+    nucl_str = [p.nucl for p in profile[position - extended_len / 2 :
+                                        position + extended_len / 2]]
 
     #single nucleotide homopolymers
     for i in xrange(extended_len / 2 - SIMPLE_LEN / 2,
@@ -262,15 +259,13 @@ def _is_simple_kmer(profile, position):
             if (nucl_str[pos : pos + 2] == nucl_str[pos + 2 : pos + 4]):
                 return False
 
-    """
     #trinucleotide homopolymers
-    for shift in [0, 1, 2]:
-        for i in xrange(SIMPLE_LEN - shift - 1):
-            pos = shift + i * 3
-            if (nucl_str[pos : pos + 3] == nucl_str[pos + 3 : pos + 6]):
-                #logger.debug("tri" + "".join(nucl_str))
-                return False
-    """
+    #for shift in [0, 1, 2]:
+    #    for i in xrange(SIMPLE_LEN - shift - 1):
+    #        pos = shift + i * 3
+    #        if (nucl_str[pos : pos + 3] == nucl_str[pos + 3 : pos + 6]):
+    #            #logger.debug("tri" + "".join(nucl_str))
+    #            return False
 
     return True
 
@@ -374,7 +369,7 @@ def _get_bubble_seqs(alignment, platform, profile, partition, contig_info):
     ext_partition = [0] + partition + [contig_info.length]
     for p_left, p_right in zip(ext_partition[:-1], ext_partition[1:]):
         bubbles.append(Bubble(contig_info.id, p_left))
-        consensus = map(lambda p: p.nucl, profile[p_left : p_right])
+        consensus = [p.nucl for p in profile[p_left : p_right]]
         bubbles[-1].consensus = "".join(consensus)
 
     for aln in alignment:

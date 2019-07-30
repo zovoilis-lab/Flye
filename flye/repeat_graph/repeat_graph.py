@@ -29,8 +29,8 @@ class RgEdge(object):
         if not self.edge_sequences:
             return 0
 
-        return sum(map(lambda s: s.edge_seq_len,
-                       self.edge_sequences)) / len(self.edge_sequences)
+        return sum([s.edge_seq_len
+                    for s in self.edge_sequences]) / len(self.edge_sequences)
 
     def __repr__(self):
         return "(id={0}, len={1}, cov={2} rep={3})" \
@@ -61,7 +61,7 @@ class RgNode(object):
         self.out_edges = []
 
     def is_bifurcation(self):
-	return len(self.in_edges) != 1 or len(self.out_edges) != 1
+        return len(self.in_edges) != 1 or len(self.out_edges) != 1
 
 
 class RepeatGraph(object):
@@ -263,5 +263,5 @@ def _to_signed_id(unsigned_id):
 
 
 def _to_unsigned_id(signed_id):
-    unsigned_id = abs(signed_id) * 2 - 2;
+    unsigned_id = abs(signed_id) * 2 - 2
     return unsigned_id + int(signed_id < 0)

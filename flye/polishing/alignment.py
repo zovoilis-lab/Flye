@@ -8,7 +8,6 @@ Runs Minimap2 and parses its output
 
 import os
 import re
-import sys
 from collections import namedtuple, defaultdict
 import subprocess
 import logging
@@ -17,7 +16,6 @@ import ctypes
 
 import flye.utils.fasta_parser as fp
 from flye.utils.utils import which
-import flye.config.py_cfg as cfg
 
 
 logger = logging.getLogger()
@@ -78,7 +76,6 @@ def read_paf(filename):
     """
     Streams out paf alignments
     """
-    hits = []
     with open(filename) as f:
         for raw_hit in f:
             yield PafHit(raw_hit)
@@ -119,6 +116,8 @@ class SynchronizedSamReader(object):
         self.max_coverage = max_coverage
         self.seq_lengths = {}
         self.use_secondary = use_secondary
+        self.cigar_parser = None
+        self.processed_contigs = None
 
         #reading SAM header
         if not os.path.exists(self.aln_path):
@@ -231,7 +230,7 @@ class SynchronizedSamReader(object):
         Alignment file is expected to be sorted!
         """
 
-        buffer = []
+        chunk_buffer = []
         parsed_contig = None
 
         with self.lock:
@@ -272,9 +271,9 @@ class SynchronizedSamReader(object):
                         parsed_contig = prev_contig
                         break
                     else:
-                        buffer = [tokens]
+                        chunk_buffer = [tokens]
                 else:
-                    buffer.append(tokens)
+                    chunk_buffer.append(tokens)
 
             if not parsed_contig:
                 self.eof.value = True
@@ -283,7 +282,7 @@ class SynchronizedSamReader(object):
 
         sequence_length = 0
         alignments = []
-        for tokens in buffer:
+        for tokens in chunk_buffer:
             read_id = tokens[0]
             read_contig = tokens[2]
             cigar_str = tokens[5]
@@ -523,8 +522,8 @@ def get_uniform_alignments(alignments, seq_len):
             filtered_alignments.append(aln)
             filtered_sequence += aln.trg_end - aln.trg_start
 
-    filtered_reads_rate = 1 - float(len(filtered_alignments)) / len(alignments)
-    filtered_seq_rate = 1 - float(filtered_sequence) / total_sequence
+    #filtered_reads_rate = 1 - float(len(filtered_alignments)) / len(alignments)
+    #filtered_seq_rate = 1 - float(filtered_sequence) / total_sequence
     #logger.debug("Filtered {0:7.2f}% reads, {1:7.2f}% sequence"
     #                .format(filtered_reads_rate * 100, filtered_seq_rate * 100))
 
@@ -562,7 +561,7 @@ def merge_chunks(fasta_in, fold_function=lambda l: "".join(l)):
     cur_seq = []
     cur_contig = None
     for hdr in sorted(fasta_in, key=name_split):
-        orig_name, chunk_id = name_split(hdr)
+        orig_name, _chunk_id = name_split(hdr)
         if orig_name != cur_contig:
             if cur_contig != None:
                 out_dict[cur_contig] = fold_function(cur_seq)

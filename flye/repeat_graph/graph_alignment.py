@@ -74,8 +74,8 @@ def iter_alignments(filename):
 
 
 #TODO:
-def write_alignments(alignments, filename):
-    pass
+#def write_alignments(alignments, filename):
+#    pass
 
 
 def _to_signed_id(unsigned_id):
@@ -83,5 +83,5 @@ def _to_signed_id(unsigned_id):
 
 
 def _to_unsigned_id(signed_id):
-    unsigned_id = abs(signed_id) * 2 - 2;
+    unsigned_id = abs(signed_id) * 2 - 2
     return unsigned_id + int(signed_id < 0)

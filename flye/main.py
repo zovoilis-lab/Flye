@@ -51,17 +51,17 @@ class Job(object):
         self.log_file = None
 
     def run(self):
-        logger.info(">>>STAGE: {0}".format(self.name))
+        logger.info(">>>STAGE: %s", self.name)
 
     def save(self, save_file):
         Job.run_params["stage_name"] = self.name
 
-        with open(save_file, "w") as fp:
-            json.dump(Job.run_params, fp)
+        with open(save_file, "w") as f:
+            json.dump(Job.run_params, f)
 
     def load(self, save_file):
-        with open(save_file, "r") as fp:
-            data = json.load(fp)
+        with open(save_file, "r") as f:
+            data = json.load(f)
             if (not "pipeline_version" in data or
                     data["pipeline_version"] != cfg.vals["pipeline_version"]):
                 raise ResumeException("Inconsistent pipeline version")
@@ -69,11 +69,11 @@ class Job(object):
             Job.run_params = data
 
     def completed(self, save_file):
-        with open(save_file, "r") as fp:
-            data = json.load(fp)
+        with open(save_file, "r") as f:
+            _data = json.load(f)
 
-            for file in self.out_files.values():
-                if not os.path.exists(file):
+            for file_path in self.out_files.values():
+                if not os.path.exists(file_path):
                     return False
 
             return True
@@ -117,7 +117,7 @@ class JobAssembly(Job):
                                         "please check if the read type and genome "
                                         "size parameters are correct")
         asm_len, asm_n50 = scf.short_statistics(self.assembly_filename)
-        logger.debug("Disjointigs length: {0}, N50: {1}".format(asm_len, asm_n50))
+        logger.debug("Disjointigs length: %d, N50: %d", asm_len, asm_n50)
 
 
 class JobShortPlasmidsAssembly(Job):
@@ -222,7 +222,7 @@ class JobContigger(Job):
 
 
 def _list_files(startpath, maxlevel=1):
-    for root, dirs, files in os.walk(startpath):
+    for root, _dirs, files in os.walk(startpath):
         level = root.replace(startpath, "").count(os.sep)
         if level > maxlevel:
             continue
@@ -282,7 +282,7 @@ class JobFinalize(Job):
         logger.debug("--------------------------")
         scf.generate_stats(self.repeat_stats, self.polished_stats, scaffolds,
                            self.out_files["stats"])
-        logger.info("Final assembly: {0}".format(self.out_files["assembly"]))
+        logger.info("Final assembly: %s", self.out_files["assembly"])
 
 
 class JobConsensus(Job):
@@ -506,7 +506,7 @@ def _run_polisher_only(args):
     Runs standalone polisher
     """
     logger.info("Running Flye polisher")
-    logger.debug("Cmd: {0}".format(" ".join(sys.argv)))
+    logger.debug("Cmd: %s", " ".join(sys.argv))
 
     pol.polish(args.polish_target, args.reads, args.out_dir,
                args.num_iters, args.threads, args.platform,
@@ -518,7 +518,7 @@ def _run(args):
     Runs the pipeline
     """
     logger.info("Starting Flye " + _version())
-    logger.debug("Cmd: {0}".format(" ".join(sys.argv)))
+    logger.debug("Cmd: %s", " ".join(sys.argv))
 
     for read_file in args.reads:
         if not os.path.exists(read_file):
@@ -527,7 +527,7 @@ def _run(args):
     save_file = os.path.join(args.out_dir, "params.json")
     jobs = _create_job_list(args, args.out_dir, args.log_file)
 
-    if args.stop_after and not args.stop_after in map(lambda j: j.name, jobs):
+    if args.stop_after and not args.stop_after in [j.name for j in jobs]:
         raise ResumeException("Stop after: unkown stage '{0}'"
                                 .format(args.stop_after))
 
@@ -639,7 +639,7 @@ def main():
     def check_int_range(value, min_val, max_val, require_odd=False):
         ival = int(value)
         if ival < min_val or ival > max_val:
-             raise argparse.ArgumentTypeError("value should be in the "
+            raise argparse.ArgumentTypeError("value should be in the "
                             "range [{0}, {1}]".format(min_val, max_val))
         if require_odd and ival % 2 == 0:
             raise argparse.ArgumentTypeError("should be an odd number")

@@ -7,11 +7,9 @@ Runs polishing binary in parallel and concatentes output
 """
 
 import logging
-import random
 import subprocess
 import os
 from collections import defaultdict
-from threading import Thread
 
 from flye.polishing.alignment import (make_alignment, get_contigs_info,
                                       SynchronizedSamReader, merge_chunks,
@@ -65,7 +63,7 @@ def polish(contig_seqs, read_seqs, work_dir, num_iters, num_threads, error_mode,
     contig_lengths = None
     coverage_stats = None
     for i in xrange(num_iters):
-        logger.info("Polishing genome ({0}/{1})".format(i + 1, num_iters))
+        logger.info("Polishing genome (%d/%d)", i + 1, num_iters)
 
         #split into 1Mb chunks to reduce RAM usage
         #slightly vary chunk size between iterations
@@ -92,7 +90,7 @@ def polish(contig_seqs, read_seqs, work_dir, num_iters, num_threads, error_mode,
                          error_mode, num_threads,
                          bubbles_file)
 
-        logger.info("Alignment error rate: {0}".format(mean_aln_error))
+        logger.info("Alignment error rate: %f", mean_aln_error)
         consensus_out = os.path.join(work_dir, "consensus_{0}.fasta".format(i + 1))
         polished_file = os.path.join(work_dir, "polished_{0}.fasta".format(i + 1))
         if os.path.getsize(bubbles_file) == 0:
@@ -201,8 +199,8 @@ def generate_polished_edges(edges_file, gfa_file, polished_contigs, work_dir,
             else:
                 gfa_polished.write(line)
 
-    logger.debug("{0} sequences remained unpolished"
-                    .format(len(edges_dict) - updated_seqs))
+    logger.debug("%d sequences remained unpolished",
+                 len(edges_dict) - updated_seqs)
     os.remove(alignment_file)
 
 
@@ -237,8 +235,8 @@ def filter_by_coverage(args, stats_in, contigs_in, stats_out, contigs_out):
         coverage_threshold = int(round(float(mean_coverage) /
                                        RELATIVE_MIN_COVERAGE))
         coverage_threshold = max(HARD_MIN_COVERAGE, coverage_threshold)
-    logger.debug("Mean contig coverage: {0}, selected threshold: {1}"
-                    .format(mean_coverage, coverage_threshold))
+    logger.debug("Mean contig coverage: %d, selected threshold: %d",
+                 mean_coverage, coverage_threshold)
 
     filtered_num = 0
     filtered_seq = 0
@@ -249,8 +247,8 @@ def filter_by_coverage(args, stats_in, contigs_in, stats_out, contigs_out):
         else:
             filtered_num += 1
             filtered_seq += ctg_stats[hdr][0]
-    logger.debug("Filtered {0} contigs of total length {1}"
-                    .format(filtered_num, filtered_seq))
+    logger.debug("Filtered %d contigs of total length %d",
+                 filtered_num, filtered_seq)
 
     fp.write_fasta_dict(good_fasta, contigs_out)
     with open(stats_out, "w") as f:
@@ -302,9 +300,9 @@ def _compose_sequence(consensus_file):
     polished_fasta = {}
     polished_stats = {}
     for ctg_id, seqs in consensuses.iteritems():
-        sorted_seqs = map(lambda p: p[1], sorted(seqs, key=lambda p: p[0]))
+        sorted_seqs = [p[1] for p in sorted(seqs, key=lambda p: p[0])]
         concat_seq = "".join(sorted_seqs)
-        mean_coverage = sum(coverage[ctg_id]) / len(coverage[ctg_id])
+        #mean_coverage = sum(coverage[ctg_id]) / len(coverage[ctg_id])
         polished_fasta[ctg_id] = concat_seq
         polished_stats[ctg_id] = len(concat_seq)
 

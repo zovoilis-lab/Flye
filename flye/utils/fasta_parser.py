@@ -7,8 +7,6 @@ This module provides some basic FASTA I/O
 """
 
 import logging
-import gzip
-import io
 import os
 
 from string import maketrans
@@ -49,7 +47,7 @@ def stream_sequence(filename):
             #handle = io.BufferedReader(gz)
 
         if fastq:
-            for hdr, seq, qual in _read_fastq(handle):
+            for hdr, seq, _qual in _read_fastq(handle):
                 if not _validate_seq(seq):
                     raise FastaError("Invalid char while reading {0}"
                                      .format(filename))
