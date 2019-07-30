@@ -353,13 +353,13 @@ void ContigExtender::outputScaffoldConnections(const std::string& filename)
 	std::ofstream fout(filename);
 	if (!fout) throw std::runtime_error("Can't open " + filename);
 
-	auto reachableEdges = [this](GraphEdge* edge)
+	auto reachableEdges = [this](GraphEdge* startEdge)
 	{
 		std::vector<GraphEdge*> dfsStack;
 		std::unordered_set<GraphEdge*> visited;
 		std::unordered_set<GraphEdge*> reachableUnique;
 
-		dfsStack.push_back(edge);
+		dfsStack.push_back(startEdge);
 		while(!dfsStack.empty())
 		{
 			GraphEdge* curEdge = dfsStack.back(); 
@@ -375,7 +375,9 @@ void ContigExtender::outputScaffoldConnections(const std::string& filename)
 				{
 					dfsStack.push_back(adjEdge);
 				}
-				else if (!adjEdge->isRepetitive())
+				else if (!adjEdge->isRepetitive() &&
+						 adjEdge->edgeId != startEdge->edgeId &&
+						 adjEdge->edgeId != startEdge->edgeId.rc())
 				{
 					reachableUnique.insert(adjEdge);
 					if (reachableUnique.size() > 1) return reachableUnique;
@@ -385,6 +387,7 @@ void ContigExtender::outputScaffoldConnections(const std::string& filename)
 		return reachableUnique;
 	};
 
+	int numScaffolds = 0;
 	for (auto& edge : _graph.iterEdges())
 	{
 		if (edge->repetitive) continue;
@@ -409,7 +412,9 @@ void ContigExtender::outputScaffoldConnections(const std::string& filename)
 					(leftCtg.id.strand() ? '+' : '-') << "\t" <<
 					rightCtg.nameUnsigned() << "\t" << 
 					(rightCtg.id.strand() ? '+' : '-') << "\n";
+				++numScaffolds;
 			}
 		}
 	}
+	Logger::get().info() << "Added " << numScaffolds << " scaffold connections";
 }
