@@ -8,7 +8,7 @@ This module provides repeat graph parsing/serializing functions,
 as well as some basic operations
 """
 
-class RgEdge:
+class RgEdge(object):
     __slots__ = ("node_left", "node_right", "edge_id", "repetitive",
                  "self_complement", "resolved", "mean_coverage",
                  "edge_sequences")
@@ -38,7 +38,7 @@ class RgEdge:
                         self.mean_coverage, self.repetitive)
 
 
-class EdgeSequence:
+class EdgeSequence(object):
     __slots__ = ("edge_seq_name", "edge_seq_len", "orig_seq_id", "orig_seq_len",
                  "orig_seq_start", "orig_seq_end")
 
@@ -53,8 +53,8 @@ class EdgeSequence:
         self.orig_seq_end = orig_seq_end
 
 
-class RgNode:
-    __slots__ = ("in_edges", "out_edge")
+class RgNode(object):
+    __slots__ = ("in_edges", "out_edges")
 
     def __init__(self):
         self.in_edges = []
@@ -64,8 +64,8 @@ class RgNode:
 	return len(self.in_edges) != 1 or len(self.out_edges) != 1
 
 
-class RepeatGraph:
-    __slots__ = ("nodes", "edges")
+class RepeatGraph(object):
+    __slots__ = ("nodes", "edges", "edges_fasta")
 
     def __init__(self, edges_fasta):
         self.nodes = []

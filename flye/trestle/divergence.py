@@ -21,7 +21,7 @@ import flye.config.py_cfg as config
 
 logger = logging.getLogger()
 
-class Profile:
+class Profile(object):
     __slots__ = ("insertions", "matches", "nucl")
 
     def __init__(self):

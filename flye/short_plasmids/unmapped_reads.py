@@ -11,7 +11,7 @@ from collections import defaultdict
 logger = logging.getLogger()
 
 
-class MappingSegment:
+class MappingSegment(object):
     def __init__(self, start, end):
         self.start = start
         self.end = end

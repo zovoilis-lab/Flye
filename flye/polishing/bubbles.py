@@ -22,7 +22,7 @@ from flye.polishing.alignment import shift_gaps, SynchronizedSamReader, get_unif
 logger = logging.getLogger()
 
 
-class ProfileInfo:
+class ProfileInfo(object):
     __slots__ = ("nucl", "num_inserts", "num_deletions",
                  "num_missmatch", "coverage")
 
@@ -34,7 +34,7 @@ class ProfileInfo:
         self.coverage = 0
 
 
-class Bubble:
+class Bubble(object):
     __slots__ = ("contig_id", "position", "branches", "consensus")
 
     def __init__(self, contig_id, position):

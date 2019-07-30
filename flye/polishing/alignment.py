@@ -36,7 +36,7 @@ class AlignmentException(Exception):
     pass
 
 
-class PafHit:
+class PafHit(object):
     """
     Stores paf alignment
     """

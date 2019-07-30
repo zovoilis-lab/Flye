@@ -1412,10 +1412,10 @@ def _overlap_to_aln_ind(overlap, aln):
     return len(aln)
 
 
-class EdgeAlignment:
+class EdgeAlignment(object):
     __slots__ = ("edge_id", "qry_seq", "trg_seq", "qry_start", "trg_start", 
-                 "trg_end", "in_alignment", "curr_aln_ind", "curr_qry_nuc", 
-                 "curr_trg_nuc", "curr_ins_nuc")
+                 "trg_end", "in_alignment", "curr_aln_ind", "curr_qry_ind",
+                 "curr_qry_nuc", "curr_trg_nuc", "curr_ins_nuc")
 
     def __init__(self, edge_id, qry_seq, trg_seq, qry_start, trg_start, 
                  trg_end):

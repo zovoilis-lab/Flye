@@ -75,7 +75,7 @@ def generate_scaffolds(contigs_file, links_file, out_scaffolds):
     return scaffolds_seq
 
 
-class SeqStats:
+class SeqStats(object):
     __slots__ = ("name", "length", "coverage", "circular",
                  "repeat", "mult", "telomere", "graph_path")
 

@@ -16,7 +16,7 @@ from flye.repeat_graph.graph_alignment import iter_alignments
 logger = logging.getLogger()
 
 
-class Connection:
+class Connection(object):
     __slots__ = ("id", "path", "sequence")
     def __init__(self, id=None, path=[], sequence=""):
         self.id = id
@@ -24,7 +24,7 @@ class Connection:
         self.sequence = sequence
 
 
-class RepeatInfo:
+class RepeatInfo(object):
     __slots__ = ("id", "repeat_path", "all_reads", "in_reads", "out_reads",
                  "sequences", "multiplicity")
 

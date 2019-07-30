@@ -8,7 +8,7 @@ to the repreat graph (as used internally in Flye)
 """
 
 
-class OverlapRange:
+class OverlapRange(object):
     __slots__ = ("cur_id", "cur_len", "cur_start", "cur_end",
                  "ext_id", "ext_len", "ext_start", "ext_end",
                  "left_shift", "right_shift", "score", "divergence")
@@ -30,8 +30,8 @@ class OverlapRange:
         self.divergence = divergence
 
 
-class GraphAlignment:
-    __slots__ = ("edge", "overlap")
+class GraphAlignment(object):
+    __slots__ = ("edge_id", "overlap")
 
     def __init__(self, edge_id, overlap):
         self.edge_id = edge_id
