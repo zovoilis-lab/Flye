@@ -46,7 +46,7 @@ def setup_params(args):
     logger.info("Reads N50/N90: %d / %d", reads_n50, reads_n90)
     if args.min_overlap is None:
         GRADE = 1000
-	int_min_ovlp = int(round(float(reads_n90) / GRADE)) * GRADE
+        int_min_ovlp = int(round(float(reads_n90) / GRADE)) * GRADE
 
         parameters["min_overlap"] = \
             max(cfg.vals["min_overlap_range"][args.read_type][0],

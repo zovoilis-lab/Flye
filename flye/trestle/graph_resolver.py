@@ -18,7 +18,7 @@ logger = logging.getLogger()
 
 class Connection(object):
     __slots__ = ("id", "path", "sequence")
-    def __init__(self, id=None, path=[], sequence=""):
+    def __init__(self, id=None, path=None, sequence=""):
         self.id = id
         self.path = path
         self.sequence = sequence
@@ -68,7 +68,7 @@ def get_simple_repeats(repeat_graph, alignments_file, edge_seqs):
             continue
 
         paths_to_resolve.append((path, inputs, outputs))
-        interesting_edges.update(set(map(lambda e: e.edge_id, path)))
+        interesting_edges.update(set([e.edge_id for e in path]))
 
     interesting_alignments = []
     for read_aln in iter_alignments(alignments_file):
@@ -86,7 +86,7 @@ def get_simple_repeats(repeat_graph, alignments_file, edge_seqs):
             next_path_id += 1
         path_id = path_ids[path[0].edge_id]
 
-        repeat_edge_ids = set(map(lambda e: e.edge_id, path))
+        repeat_edge_ids = set([e.edge_id for e in path])
         inner_reads = []
         input_reads = defaultdict(list)
         output_reads = defaultdict(list)
@@ -134,7 +134,7 @@ def get_simple_repeats(repeat_graph, alignments_file, edge_seqs):
         #for h, s in sequences.items():
         #    print h, s[:100]
 
-        repeats_dict[path_id] = RepeatInfo(path_id, map(lambda e: e.edge_id, path),
+        repeats_dict[path_id] = RepeatInfo(path_id, [e.edge_id for e in path],
                                            inner_reads, input_reads, output_reads,
                                            sequences, MULT)
 
@@ -199,7 +199,7 @@ def _get_connections(trestle_results):
             if bridged == "True" and abs(repeat_id) not in resolved_repeats:
                 resolved_repeats.add(abs(repeat_id))
 
-                repeat_path = map(int, tokens[1].split(","))
+                repeat_path = [int(x) for x in tokens[1].split(",")]
                 res_1, res_2 = tokens[10].split(":")
                 in_1, out_1 = res_1.split(",")
                 in_2, out_2 = res_2.split(",")
@@ -208,8 +208,8 @@ def _get_connections(trestle_results):
                 connection_1 = [int(in_1)] + repeat_path + [int(out_1)]
                 connection_2 = [int(in_2)] + repeat_path + [int(out_2)]
 
-                logger.debug("Repeat {0}: {1}, {2}"
-                    .format(repeat_id, connection_1, connection_2))
+                logger.debug("Repeat %s: %s, %s", repeat_id,
+                             connection_1, connection_2)
 
                 new_seq_id = "trestle_resolved_" + str(repeat_id) + "_copy_"
                 connections.extend([Connection(new_seq_id + "1", connection_1, seq_1),
