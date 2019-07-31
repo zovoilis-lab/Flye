@@ -74,7 +74,7 @@ def assemble_short_plasmids(args, work_dir, contigs_path):
 
     plasmids_raw = os.path.join(work_dir, "plasmids_raw.fasta")
     fp.write_fasta_dict(plasmids, plasmids_raw)
-    _polished_seqs, polished_stats = \
+    _, polished_stats = \
         pol.polish(plasmids_raw, [unmapped_reads_path], work_dir, 1,
                    args.threads, args.platform, output_progress=False)
 

@@ -72,7 +72,7 @@ def extract_unmapped_reads(args, reads2contigs_mapping, unmapped_reads_path,
                 contigs = mapping_rates.get(hdr)
                 if contigs is not None:
                     is_unmapped = True
-                    for _contig, mapping_rate in contigs.iteritems():
+                    for _, mapping_rate in contigs.iteritems():
                         if mapping_rate >= mapping_rate_threshold:
                             is_unmapped = False
 

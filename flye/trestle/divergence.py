@@ -202,7 +202,7 @@ def find_divergence(alignment_path, contigs_path, contigs_info,
 
     total_aln_errors = []
     while not results_queue.empty():
-        _ctg_id, ctg_profile, aln_errors = results_queue.get()
+        _, ctg_profile, aln_errors = results_queue.get()
 
         positions = _write_frequency_path(frequency_path, ctg_profile,
                                           sub_thresh, del_thresh, ins_thresh)
@@ -286,7 +286,7 @@ def _write_div_summary(div_sum_path, sum_header, positions,
     if seq_len != 0:
         av_div = len(pos_list) / float(seq_len)
 
-    position_gaps = [0 for _ in range(len(pos_list)+1)]
+    position_gaps = [0 for _ in xrange(len(pos_list)+1)]
     curr_pos = 0
     for i,p in enumerate(pos_list):
         position_gaps[i] = p-curr_pos
@@ -297,10 +297,10 @@ def _write_div_summary(div_sum_path, sum_header, positions,
     max_position_gap = max(position_gaps)
 
     window_len = 1000
-    position_counts = [0 for x in range(((seq_len-1)/window_len)+1)]
-    window_divs = [0.0 for x in range(((seq_len-1)/window_len)+1)]
+    position_counts = [0 for _ in xrange(((seq_len - 1) / window_len) + 1)]
+    window_divs = [0.0 for _ in xrange(((seq_len - 1) / window_len) + 1)]
     curr_p_i = 0
-    for i in range(len(window_divs)):
+    for i in xrange(len(window_divs)):
         start = i*window_len
         end = (i+1)*window_len-1
         if i == len(window_divs)-1:

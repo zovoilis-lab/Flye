@@ -176,7 +176,7 @@ def resolve_each_repeat(rep_id, repeat_edges, all_edge_headers, args,
         pol_temp_dir = os.path.join(orient_dir, pol_temp_name)
         if not os.path.isdir(pol_temp_dir):
             os.mkdir(pol_temp_dir)
-        polished_template, _stats = \
+        polished_template, _ = \
             pol.polish(template, [repeat_reads], pol_temp_dir, NUM_POL_ITERS,
                        num_threads, args.platform, output_progress=False)
 
@@ -190,7 +190,7 @@ def resolve_each_repeat(rep_id, repeat_edges, all_edge_headers, args,
             for edge_id in repeat_edges[rep][side]:
                 if not os.path.isdir(pol_ext_dir.format(side, edge_id)):
                     os.mkdir(pol_ext_dir.format(side, edge_id))
-                pol_output, _stats = \
+                pol_output, _ = \
                     pol.polish(extended.format(side, edge_id), [repeat_reads],
                                pol_ext_dir.format(side, edge_id), NUM_POL_ITERS,
                                num_threads, args.platform,
@@ -283,7 +283,7 @@ def resolve_each_repeat(rep_id, repeat_edges, all_edge_headers, args,
                        avg_cov, integrated_stats)
         #7. Start iterations
         logger.debug("Iterative procedure")
-        for it in range(1, MAX_ITER + 1):
+        for it in xrange(1, MAX_ITER + 1):
             both_break = True
             for side in side_labels:
                 if (edge_below_cov[side] or dup_part[side] or
@@ -307,7 +307,7 @@ def resolve_each_repeat(rep_id, repeat_edges, all_edge_headers, args,
 
                     if not os.path.isdir(pol_con_dir):
                         os.mkdir(pol_con_dir)
-                    pol_con_out, _stats = \
+                    pol_con_out, _ = \
                         pol.polish(curr_extended, [curr_reads], pol_con_dir,
                                    NUM_POL_ITERS, num_threads, args.platform,
                                    output_progress=False)
@@ -879,8 +879,7 @@ def write_edge_reads(it, side, edge_id, all_reads, partitioning, out_file):
     part_list = _read_partitioning_file(partitioning)
     edge_header_name = "Read_{0}|Iter_{1}|Side_{2}|Edge_{3}|{4}"
     edge_reads = {}
-    for part in part_list:
-        read_id, status, edge, _top_sc, _total_sc, header = part
+    for read_id, status, edge, _, _, header in part_list:
         if status == "Partitioned" and edge != "NA" and int(edge) == edge_id:
             edge_seq = all_reads_dict[header]
             edge_header = edge_header_name.format(read_id, it,
@@ -915,8 +914,7 @@ def init_partitioning(edges, side, pre_partitioning, pre_read_align, extended,
                      side, edge, non_overlap_reads)
     partitioned_reads = []
     part_list = _read_partitioning_file(pre_partitioning)
-    for part in part_list:
-        read_id, status, edge, _top_sc, _total_sc, header = part
+    for read_id, _, edge, _, _, header in part_list:
         if header in extend_overlap_reads:
             partitioned_reads.append((read_id, "Partitioned",
                                       extend_overlap_reads[header],
@@ -956,13 +954,13 @@ def locate_consensus_cutpoint(side, read_endpoints, edge_read_file):
             if max(endpoint) > max_endpoint:
                 max_endpoint = max(endpoint)
             all_endpoints.append(endpoint)
-    coverage = [0 for _ in range(max_endpoint + 1)]
+    coverage = [0 for _ in xrange(max_endpoint + 1)]
     for start, end in all_endpoints:
-        for x in range(start, end):
+        for x in xrange(start, end):
             coverage[x] += 1
     window_len = 100
     cutpoint = -1
-    for i in range(len(coverage) - window_len):
+    for i in xrange(len(coverage) - window_len):
         if side == "in":
             window_start = (len(coverage) - window_len) - i
             window_end = len(coverage) - i
@@ -1023,8 +1021,8 @@ def _find_consensus_endpoint(cutpoint, aligns, side):
     #first try collapsing
     coll_aln = _collapse_cons_aln(aligns)
     if cutpoint >= coll_aln.trg_start and cutpoint < coll_aln.trg_end:
-        trg_aln, _aln_trg = _index_mapping(coll_aln.trg_seq)
-        _qry_aln, aln_qry = _index_mapping(coll_aln.qry_seq)
+        trg_aln, _ = _index_mapping(coll_aln.trg_seq)
+        _, aln_qry = _index_mapping(coll_aln.qry_seq)
         cutpoint_minus_start = cutpoint - coll_aln.trg_start
         aln_ind = trg_aln[cutpoint_minus_start]
         qry_ind = aln_qry[aln_ind]
@@ -1037,8 +1035,8 @@ def _find_consensus_endpoint(cutpoint, aligns, side):
         for i, aln in enumerate(aligns[0]):
             if i == 0 or len(aln.trg_seq) >= MIN_SUPP_ALN_LEN:
                 if cutpoint >= aln.trg_start and cutpoint < aln.trg_end:
-                    trg_aln, aln_trg = _index_mapping(aln.trg_seq)
-                    qry_aln, aln_qry = _index_mapping(aln.qry_seq)
+                    trg_aln, _ = _index_mapping(aln.trg_seq)
+                    _, aln_qry = _index_mapping(aln.qry_seq)
                     cutpoint_minus_start = cutpoint - aln.trg_start
                     if cutpoint_minus_start < 0:
                         logger.warning("%s %s %s %s %s", aln.qry_id, aln.trg_id, side,
@@ -1076,7 +1074,7 @@ def partition_reads(edges, it, side, position_path, cons_align_path,
     BUFFER_COUNT = trestle_config.vals["buffer_count"]
 
     skip_bool = False
-    _pos_headers, pos = div.read_positions(position_path)
+    _, pos = div.read_positions(position_path)
 
     cons_aligns = {}
     for edge_id in edges:
@@ -1373,7 +1371,7 @@ def _evaluate_positions(pos, cons_aligns, side):
     min_end_edge = min([alns[e].trg_end for e in alns])
     max_start_edge = max([alns[e].trg_start for e in alns])
 
-    for trg_ind in range(min_start_edge, max_end_edge):
+    for trg_ind in xrange(min_start_edge, max_end_edge):
         for edge_id in alns:
             aln = alns[edge_id]
             if aln.trg_start == trg_ind:
@@ -1561,7 +1559,7 @@ def _classify_reads(read_aligns, consensus_pos,
             if read_counts[read_header] > 2:
                 continue
             positions = consensus_pos[edge_id]
-            trg_aln, aln_trg = _index_mapping(aln.trg_seq)
+            trg_aln, _ = _index_mapping(aln.trg_seq)
             for pos in positions:
                 if pos >= aln.trg_start and pos < aln.trg_end:
                     pos_minus_start = pos - aln.trg_start
@@ -1636,13 +1634,12 @@ def init_side_stats(rep, side, repeat_edges, min_overlap, position_path,
     MIN_EDGE_COV = trestle_config.vals["min_edge_cov"]
     CONS_ALN_RATE = trestle_config.vals["cons_aln_rate"]
 
-    _pos_headers, pos = div.read_positions(position_path)
+    _, pos = div.read_positions(position_path)
     #Count partitioned reads
     edge_below_cov = False
     part_list = _read_partitioning_file(partitioning)
-    edge_reads, tied_reads, unassigned_reads = _get_partitioning_info(
-                                                    part_list,
-                                                    repeat_edges[rep][side])
+    edge_reads, _, _ = _get_partitioning_info(part_list,
+                                              repeat_edges[rep][side])
     #Check break condition for iteration loop
     for edge in repeat_edges[rep][side]:
         if edge_reads[edge] < MIN_EDGE_COV:
@@ -1722,8 +1719,7 @@ def update_side_stats(edges, it, side, cons_align_path, template,
     confirmed_total = 0
     rejected_total = 0
     if it > 0:
-        confirmed, rejected, pos = _read_confirmed_positions(
-                                            confirmed_pos_path)
+        confirmed, rejected, _ = _read_confirmed_positions(confirmed_pos_path)
         confirmed_total = len(confirmed["total"])
         rejected_total = len(rejected["total"])
     stats_out.extend([str(confirmed_total),
@@ -1731,8 +1727,7 @@ def update_side_stats(edges, it, side, cons_align_path, template,
     edge_below_cov = False
     dup_part = False
     part_list = _read_partitioning_file(partitioning)
-    edge_reads, tied_reads, unassigned_reads = _get_partitioning_info(
-                                                        part_list, edges)
+    edge_reads, tied_reads, unassigned_reads = _get_partitioning_info(part_list, edges)
     for edge_id in sorted(edges):
         stats_out.extend([str(edge_reads[edge_id])])
     stats_out.extend([str(tied_reads), str(unassigned_reads)])
@@ -1911,8 +1906,7 @@ def finalize_side_stats(edges, it, side, cons_align_path, template,
         tied_reads = 0
         unassigned_reads = 0
         total_reads = len(part_list)
-        for part in part_list:
-            read_id, status, edge, top_sc, total_sc, header = part
+        for _, status, edge, _, _, _  in part_list:
             if status == "Partitioned" and edge != "NA":
                 edge_reads[int(edge)] += 1
             elif status == "Tied":
@@ -1948,7 +1942,7 @@ def init_int_stats(rep, repeat_edges, zero_it, position_path, partitioning,
         total_reads = len(part_list)
         partitioning_outputs = _get_partitioning_info(part_list,
                                                       repeat_edges[rep][side])
-        side_reads[side], tied_reads, unassigned_reads = partitioning_outputs
+        side_reads[side], _, _ = partitioning_outputs
         all_side_reads += sum(side_reads[side].values())
     internal_reads = total_reads - all_side_reads
     all_reads_n50 = _n50(all_reads_file)
@@ -2051,8 +2045,7 @@ def update_int_stats(rep, repeat_edges, side_it, cons_align_path, template,
         side_headers_dict[side] = {}
         part_list = _read_partitioning_file(partitioning.format(side_it[side],
                                                                 side))
-        for part in part_list:
-            read_id, status, edge, top_sc, total_sc, header = part
+        for _, status, edge, _, _, header in part_list:
             all_headers.add(header)
             if status == "Partitioned" and edge != "NA":
                 side_headers_dict[side][header] = (side, int(edge))
@@ -2139,7 +2132,7 @@ def finalize_int_stats(rep, repeat_edges, side_it, cons_align_path, template,
         av_div = 0.0
         if template_len != 0:
             av_div = len(int_confirmed["total"]) / float(template_len)
-        position_gaps = [0 for x in range(len(int_confirmed["total"]) + 1)]
+        position_gaps = [0 for _ in xrange(len(int_confirmed["total"]) + 1)]
         curr_pos = 0
         for i, p in enumerate(int_confirmed["total"]):
             position_gaps[i] = p - curr_pos
@@ -2165,8 +2158,7 @@ def finalize_int_stats(rep, repeat_edges, side_it, cons_align_path, template,
             side_headers_dict[side] = {}
             part_list = _read_partitioning_file(partitioning.format(
                                                     side_it[side], side))
-            for part in part_list:
-                read_id, status, edge, top_sc, total_sc, header = part
+            for _, status, edge, _, _, header in part_list:
                 all_headers.add(header)
                 if status == "Partitioned" and edge != "NA":
                     side_headers_dict[side][header] = (side, int(edge))
@@ -2218,7 +2210,7 @@ def finalize_int_stats(rep, repeat_edges, side_it, cons_align_path, template,
         second_combo = -1
         second_support = 0
         if len(sorted_combos) > 1:
-            for support, ind in sorted_combos[1:]:
+            for support, _ in sorted_combos[1:]:
                 best_against += support
             second_combo = sorted_combos[1][1]
             second_support = sorted_combos[1][0]
@@ -2453,8 +2445,8 @@ def finalize_int_stats(rep, repeat_edges, side_it, cons_align_path, template,
                     #print check of overlapping segment
                     new_temp_end = temp_start
                     new_out_start = None
-                    out_qry_aln, out_aln_qry = _index_mapping(out_qry_seq)
-                    out_trg_aln, out_aln_trg = _index_mapping(out_trg_seq)
+                    _, out_aln_qry = _index_mapping(out_qry_seq)
+                    out_trg_aln, _ = _index_mapping(out_trg_seq)
 
                     in_edge = edge_pair[0][1]
                     out_edge = edge_pair[1][1]
@@ -2587,8 +2579,7 @@ def _get_partitioning_info(part_list, edges):
     edge_reads = {edge:0 for edge in edges}
     tied_reads = 0
     unassigned_reads = 0
-    for part in part_list:
-        read_id, status, edge, top_sc, total_sc, header = part
+    for _, status, edge, _, _, _ in part_list:
         if status == "Partitioned" and edge != "NA":
             edge_reads[int(edge)] += 1
         elif status == "Tied":
@@ -2683,7 +2674,7 @@ def _get_median(lst):
 
 def _integrate_confirmed_pos(all_in_pos, all_out_pos):
     in_conf, in_rej, in_pos = all_in_pos
-    out_conf, out_rej, out_pos = all_out_pos
+    out_conf, out_rej, _ = all_out_pos
 
     integrated_confirmed = {"total":[], "sub":[], "ins":[], "del":[]}
     integrated_rejected = {"total":[], "sub":[], "ins":[], "del":[]}
@@ -2710,7 +2701,7 @@ def _combo_helper(in_list, out_list):
         return
     else:
         in1 = in_list[0]
-        for j in range(len(out_list)):
+        for j in xrange(len(out_list)):
             combo = (in1, out_list[j])
             for rest in _combo_helper(in_list[1:],
                                       out_list[:j] + out_list[j + 1:]):
@@ -2881,7 +2872,7 @@ def remove_unneeded_files(repeat_edges, rep, side_labels, side_it, orient_dir,
                     files_to_remove.append(os.path.join(curr_pol_ext_dir, fil))
             files_to_remove.append(pre_edge_reads.format(side, edge_id))
             files_to_remove.append(pre_read_align.format(side, edge_id))
-            for it in range(1, side_it[side] + 1):
+            for it in xrange(1, side_it[side] + 1):
                 files_to_remove.append(cons_align.format(it, side, edge_id))
                 files_to_remove.append(read_align.format(it, side, edge_id))
                 files_to_remove.append(edge_reads.format(it, side, edge_id))
@@ -2890,7 +2881,7 @@ def remove_unneeded_files(repeat_edges, rep, side_labels, side_it, orient_dir,
                 if os.path.exists(pol_cons):
                     for fil in os.listdir(pol_cons):
                         files_to_remove.append(os.path.join(pol_cons, fil))
-            for it in range(1, side_it[side]):
+            for it in xrange(1, side_it[side]):
                 files_to_remove.append(cut_cons_align.format(it, side, edge_id))
                 files_to_remove.append(cut_cons.format(it, side, edge_id))
             it = side_it[side]
@@ -2899,7 +2890,7 @@ def remove_unneeded_files(repeat_edges, rep, side_labels, side_it, orient_dir,
 
         edge_pairs = sorted(combinations(repeat_edges[rep][side], 2))
         for edge_one, edge_two in edge_pairs:
-            for it in range(1, side_it[side]):
+            for it in xrange(1, side_it[side]):
                 cons_cons_file = cons_vs_cons.format(it, side, edge_one,
                                                      it, side, edge_two)
                 files_to_remove.append(cons_cons_file)
@@ -2908,7 +2899,7 @@ def remove_unneeded_files(repeat_edges, rep, side_labels, side_it, orient_dir,
                                                  it, side, edge_two)
             files_to_move.append(cons_cons_file)
         files_to_remove.append(pre_partitioning.format(side))
-        for it in range(1, side_it[side]):
+        for it in xrange(1, side_it[side]):
             files_to_remove.append(partitioning.format(it, side))
             files_to_remove.append(confirmed_pos_path.format(it, side))
         for it in [0, side_it[side]]:

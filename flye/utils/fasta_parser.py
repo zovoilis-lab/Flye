@@ -47,7 +47,7 @@ def stream_sequence(filename):
             #handle = io.BufferedReader(gz)
 
         if fastq:
-            for hdr, seq, _qual in _read_fastq(handle):
+            for hdr, seq, _ in _read_fastq(handle):
                 if not _validate_seq(seq):
                     raise FastaError("Invalid char while reading {0}"
                                      .format(filename))

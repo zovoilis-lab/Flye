@@ -23,7 +23,7 @@ def setup_params(args):
     total_length = 0
     read_lengths = []
     for read_file in args.reads:
-        for _seq, seq_len in fp.read_sequence_lengths(read_file).iteritems():
+        for _, seq_len in fp.read_sequence_lengths(read_file).iteritems():
             total_length += seq_len
             read_lengths.append(seq_len)
 

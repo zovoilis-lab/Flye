@@ -70,7 +70,7 @@ class Job(object):
 
     def completed(self, save_file):
         with open(save_file, "r") as f:
-            _data = json.load(f)
+            dummy_data = json.load(f)
 
             for file_path in self.out_files.values():
                 if not os.path.exists(file_path):
@@ -222,16 +222,16 @@ class JobContigger(Job):
 
 
 def _list_files(startpath, maxlevel=1):
-    for root, _dirs, files in os.walk(startpath):
+    for root, _, files in os.walk(startpath):
         level = root.replace(startpath, "").count(os.sep)
         if level > maxlevel:
             continue
         indent = " " * 4 * (level)
-        logger.debug("{}{}/".format(indent, os.path.basename(root)))
+        logger.debug(indent + os.path.basename(root) + "/")
         subindent = " " * 4 * (level + 1)
         for f in files:
             fsize = bytes2human(os.path.getsize(os.path.join(root, f)))
-            logger.debug("{}{:12}{}".format(subindent, fsize, f))
+            logger.debug("%s%-12s%s", subindent, fsize, f)
 
 
 class JobFinalize(Job):
