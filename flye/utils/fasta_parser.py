@@ -6,10 +6,12 @@
 This module provides some basic FASTA I/O
 """
 
+from __future__ import absolute_import
 import logging
 import os
 
 from string import maketrans
+from six.moves import range
 
 logger = logging.getLogger()
 

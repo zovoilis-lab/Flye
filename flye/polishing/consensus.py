@@ -6,15 +6,18 @@
 Quick and dirty alignment consensus
 """
 
+from __future__ import absolute_import
 import logging
 from collections import defaultdict
-from itertools import izip
+from six.moves import range
+
 import multiprocessing
 import signal
 
 from flye.polishing.alignment import shift_gaps, SynchronizedSamReader, get_uniform_alignments
 import flye.config.py_cfg as cfg
 import flye.utils.fasta_parser as fp
+from six.moves import zip
 
 logger = logging.getLogger()
 
@@ -63,7 +66,7 @@ def get_consensus(alignment_path, contigs_path, contigs_info, num_proc,
     #making sure the main process catches SIGINT
     orig_sigint = signal.signal(signal.SIGINT, signal.SIG_IGN)
     threads = []
-    for _ in xrange(num_proc):
+    for _ in range(num_proc):
         threads.append(multiprocessing.Process(target=_thread_worker,
                                                args=(aln_reader, contigs_info,
                                                      platform, results_queue,
@@ -111,7 +114,7 @@ def _contig_profile(alignment, platform, genome_len):
     alignment = get_uniform_alignments(alignment, genome_len)
 
     aln_errors = []
-    profile = [Profile() for _ in xrange(genome_len)]
+    profile = [Profile() for _ in range(genome_len)]
     #max_aln_err = cfg.vals["err_modes"][platform]["max_aln_error"]
     for aln in alignment:
         #if aln.err_rate > max_aln_err: continue
@@ -123,7 +126,7 @@ def _contig_profile(alignment, platform, genome_len):
         trg_seq = shift_gaps(qry_seq, aln.trg_seq)
 
         trg_pos = aln.trg_start
-        for trg_nuc, qry_nuc in izip(trg_seq, qry_seq):
+        for trg_nuc, qry_nuc in zip(trg_seq, qry_seq):
             if trg_nuc == "-":
                 trg_pos -= 1
             if trg_pos >= genome_len:

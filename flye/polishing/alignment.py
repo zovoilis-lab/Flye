@@ -6,6 +6,7 @@
 Runs Minimap2 and parses its output
 """
 
+from __future__ import absolute_import
 import os
 import re
 from collections import namedtuple, defaultdict
@@ -16,6 +17,8 @@ import ctypes
 
 import flye.utils.fasta_parser as fp
 from flye.utils.utils import which
+import six
+from six.moves import range
 
 
 logger = logging.getLogger()
@@ -211,7 +214,7 @@ class SynchronizedSamReader(object):
         trg_seq = "".join(trg_seq)
         qry_seq = "".join(qry_seq)
         matches = 0
-        for i in xrange(len(trg_seq)):
+        for i in range(len(trg_seq)):
             if trg_seq[i] == qry_seq[i]:
                 matches += 1
         err_rate = 1 - float(matches) / len(trg_seq)
@@ -434,7 +437,7 @@ def _preprocess_sam(sam_file, work_dir):
 def get_contigs_info(contigs_file):
     contigs_info = {}
     contigs_fasta = fp.read_sequence_dict(contigs_file)
-    for ctg_id, ctg_seq in contigs_fasta.iteritems():
+    for ctg_id, ctg_seq in six.iteritems(contigs_fasta):
         contig_type = ctg_id.split("_")[0]
         contigs_info[ctg_id] = ContigInfo(ctg_id, len(ctg_seq),
                                           contig_type)
@@ -449,7 +452,7 @@ def shift_gaps(seq_trg, seq_qry):
     lst_trg, lst_qry = list("$" + seq_trg + "$"), list("$" + seq_qry + "$")
     is_gap = False
     gap_start = 0
-    for i in xrange(len(lst_trg)):
+    for i in range(len(lst_trg)):
         if is_gap and lst_qry[i] != "-":
             is_gap = False
             swap_left = gap_start - 1
@@ -491,18 +494,18 @@ def get_uniform_alignments(alignments, seq_len):
 
     #split contig into windows, get median read coverage over all windows and
     #determine the quality threshold cutoffs for each window
-    wnd_primary_cov = [0 for _ in xrange(seq_len / WINDOW + 1)]
-    wnd_aln_quality = [[] for _ in xrange(seq_len / WINDOW + 1)]
-    wnd_qual_thresholds = [1.0 for _ in xrange(seq_len / WINDOW + 1)]
+    wnd_primary_cov = [0 for _ in range(seq_len / WINDOW + 1)]
+    wnd_aln_quality = [[] for _ in range(seq_len / WINDOW + 1)]
+    wnd_qual_thresholds = [1.0 for _ in range(seq_len / WINDOW + 1)]
     for aln in alignments:
-        for i in xrange(aln.trg_start / WINDOW, aln.trg_end / WINDOW):
+        for i in range(aln.trg_start / WINDOW, aln.trg_end / WINDOW):
             if not aln.is_secondary:
                 wnd_primary_cov[i] += 1
             wnd_aln_quality[i].append(aln.err_rate)
 
     #for each window, select top X alignmetns, where X is the median read coverage
     cov_threshold = max(int(COV_RATE * _get_median(wnd_primary_cov)), MIN_COV)
-    for i in xrange(len(wnd_aln_quality)):
+    for i in range(len(wnd_aln_quality)):
         if len(wnd_aln_quality[i]) > cov_threshold:
             wnd_qual_thresholds[i] = sorted(wnd_aln_quality[i])[cov_threshold]
 
@@ -514,7 +517,7 @@ def get_uniform_alignments(alignments, seq_len):
         good_windows = 0
         total_windows = aln.trg_end / WINDOW - aln.trg_start / WINDOW
         total_sequence += aln.trg_end - aln.trg_start
-        for i in xrange(aln.trg_start / WINDOW, aln.trg_end / WINDOW):
+        for i in range(aln.trg_start / WINDOW, aln.trg_end / WINDOW):
             if aln.err_rate <= wnd_qual_thresholds[i]:
                 good_windows += 1
 
@@ -532,9 +535,9 @@ def get_uniform_alignments(alignments, seq_len):
 
 def split_into_chunks(fasta_in, chunk_size):
     out_dict = {}
-    for header, seq in fasta_in.iteritems():
+    for header, seq in six.iteritems(fasta_in):
         #print len(seq)
-        for i in xrange(0, max(len(seq) / chunk_size, 1)):
+        for i in range(0, max(len(seq) / chunk_size, 1)):
             chunk_hdr = "{0}$chunk_{1}".format(header, i)
             start = i * chunk_size
             end = (i + 1) * chunk_size

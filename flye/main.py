@@ -7,6 +7,7 @@ Main logic of the package
 """
 
 from __future__ import print_function
+from __future__ import absolute_import
 import sys
 import os
 import logging
@@ -30,6 +31,7 @@ import flye.short_plasmids.plasmids as plas
 import flye.trestle.trestle as tres
 import flye.trestle.graph_resolver as tres_graph
 from flye.repeat_graph.repeat_graph import RepeatGraph
+from six.moves import range
 
 logger = logging.getLogger()
 
@@ -519,6 +521,7 @@ def _run(args):
     """
     logger.info("Starting Flye " + _version())
     logger.debug("Cmd: %s", " ".join(sys.argv))
+    logger.debug("Python version: " + sys.version)
 
     for read_file in args.reads:
         if not os.path.exists(read_file):
@@ -543,7 +546,7 @@ def _run(args):
             job_to_resume = json.load(open(save_file, "r"))["stage_name"]
 
         can_resume = False
-        for i in xrange(len(jobs)):
+        for i in range(len(jobs)):
             if jobs[i].name == job_to_resume:
                 jobs[i].load(save_file)
                 current_job = i
@@ -557,7 +560,7 @@ def _run(args):
             raise ResumeException("Can't resume: stage {0} does not exist"
                                   .format(job_to_resume))
 
-    for i in xrange(current_job, len(jobs)):
+    for i in range(current_job, len(jobs)):
         jobs[i].save(save_file)
         jobs[i].run()
         if args.stop_after == jobs[i].name:

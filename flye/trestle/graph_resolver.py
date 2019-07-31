@@ -6,12 +6,15 @@
 Modifies repeat graph using the Tresle output
 """
 
+from __future__ import absolute_import
 import logging
-from itertools import izip, chain
+from itertools import chain
 from collections import defaultdict
 
 import flye.utils.fasta_parser as fp
 from flye.repeat_graph.graph_alignment import iter_alignments
+import six
+from six.moves import zip
 
 logger = logging.getLogger()
 
@@ -99,7 +102,7 @@ def get_simple_repeats(repeat_graph, alignments_file, edge_seqs):
                 continue
 
             inner_reads.append(read_aln[0].overlap.cur_id)
-            for prev_edge, next_edge in izip(read_aln[:-1], read_aln[1:]):
+            for prev_edge, next_edge in zip(read_aln[:-1], read_aln[1:]):
                 if (prev_edge.edge_id in inputs and
                         next_edge.edge_id == path[0].edge_id):
                     input_reads[prev_edge.edge_id].append(prev_edge.overlap.cur_id)
@@ -143,7 +146,7 @@ def get_simple_repeats(repeat_graph, alignments_file, edge_seqs):
 
 def dump_repeats(repeats_info, filename):
     with open(filename, "w") as f:
-        for repeat_id, info in repeats_info.iteritems():
+        for repeat_id, info in six.iteritems(repeats_info):
             f.write("#Repeat {0}\t{1}\n\n".format(repeat_id, info.multiplicity))
 
             f.write("#All reads\t{0}\n".format(len(info.all_reads)))

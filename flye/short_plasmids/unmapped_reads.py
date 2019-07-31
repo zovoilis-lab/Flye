@@ -3,10 +3,13 @@
 #Released under the BSD license (see LICENSE file)
 
 
+from __future__ import absolute_import
 import flye.utils.fasta_parser as fp
 from flye.polishing.alignment import read_paf_grouped
 import logging
 from collections import defaultdict
+import six
+from six.moves import range
 
 logger = logging.getLogger()
 
@@ -24,7 +27,7 @@ def unite_mapping_segments(segments):
     segments.sort(key=lambda segment: segment.start)
     united_segments = [segments[0]]
 
-    for i in xrange(1, len(segments)):
+    for i in range(1, len(segments)):
         if segments[i].start <= united_segments[-1].end:
             if segments[i].end > united_segments[-1].end:
                 united_segments[-1].end = segments[i].end
@@ -72,7 +75,7 @@ def extract_unmapped_reads(args, reads2contigs_mapping, unmapped_reads_path,
                 contigs = mapping_rates.get(hdr)
                 if contigs is not None:
                     is_unmapped = True
-                    for _, mapping_rate in contigs.iteritems():
+                    for _, mapping_rate in six.iteritems(contigs):
                         if mapping_rate >= mapping_rate_threshold:
                             is_unmapped = False
 

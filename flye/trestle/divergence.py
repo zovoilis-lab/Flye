@@ -8,9 +8,11 @@ Created on Wed Jan  4 03:50:31 2017
 @author: jeffrey_yuan
 """
 
+from __future__ import absolute_import
 import logging
 from collections import defaultdict
-from itertools import izip
+from six.moves import range
+
 import multiprocessing
 import signal
 import os.path
@@ -18,6 +20,7 @@ import os.path
 from flye.polishing.alignment import shift_gaps, SynchronizedSamReader
 import flye.utils.fasta_parser as fp
 import flye.config.py_cfg as config
+from six.moves import zip
 
 logger = logging.getLogger()
 
@@ -57,7 +60,7 @@ def _contig_profile(alignment, platform, genome_len):
     """
     #max_aln_err = config.vals["err_modes"][platform]["max_aln_error"]
     aln_errors = []
-    profile = [Profile() for _ in xrange(genome_len)]
+    profile = [Profile() for _ in range(genome_len)]
     for aln in alignment:
         #if aln.err_rate > max_aln_err: continue
         aln_errors.append(aln.err_rate)
@@ -68,7 +71,7 @@ def _contig_profile(alignment, platform, genome_len):
         #trg_seq = aln.trg_seq
 
         trg_pos = aln.trg_start
-        for trg_nuc, qry_nuc in izip(trg_seq, qry_seq):
+        for trg_nuc, qry_nuc in zip(trg_seq, qry_seq):
             if trg_nuc == "-":
                 trg_pos -= 1
             if trg_pos >= genome_len:
@@ -181,7 +184,7 @@ def find_divergence(alignment_path, contigs_path, contigs_info,
     #making sure the main process catches SIGINT
     orig_sigint = signal.signal(signal.SIGINT, signal.SIG_IGN)
     threads = []
-    for _ in xrange(num_proc):
+    for _ in range(num_proc):
         threads.append(multiprocessing.Process(target=_thread_worker,
                                                args=(aln_reader, contigs_info,
                                                      platform, results_queue,
@@ -286,7 +289,7 @@ def _write_div_summary(div_sum_path, sum_header, positions,
     if seq_len != 0:
         av_div = len(pos_list) / float(seq_len)
 
-    position_gaps = [0 for _ in xrange(len(pos_list)+1)]
+    position_gaps = [0 for _ in range(len(pos_list)+1)]
     curr_pos = 0
     for i,p in enumerate(pos_list):
         position_gaps[i] = p-curr_pos
@@ -297,10 +300,10 @@ def _write_div_summary(div_sum_path, sum_header, positions,
     max_position_gap = max(position_gaps)
 
     window_len = 1000
-    position_counts = [0 for _ in xrange(((seq_len - 1) / window_len) + 1)]
-    window_divs = [0.0 for _ in xrange(((seq_len - 1) / window_len) + 1)]
+    position_counts = [0 for _ in range(((seq_len - 1) / window_len) + 1)]
+    window_divs = [0.0 for _ in range(((seq_len - 1) / window_len) + 1)]
     curr_p_i = 0
-    for i in xrange(len(window_divs)):
+    for i in range(len(window_divs)):
         start = i*window_len
         end = (i+1)*window_len-1
         if i == len(window_divs)-1:

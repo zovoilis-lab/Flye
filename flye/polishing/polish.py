@@ -6,6 +6,7 @@
 Runs polishing binary in parallel and concatentes output
 """
 
+from __future__ import absolute_import
 import logging
 import subprocess
 import os
@@ -18,6 +19,8 @@ from flye.polishing.bubbles import make_bubbles
 import flye.utils.fasta_parser as fp
 from flye.utils.utils import which
 import flye.config.py_cfg as cfg
+import six
+from six.moves import range
 
 
 POLISH_BIN = "flye-polish"
@@ -62,7 +65,7 @@ def polish(contig_seqs, read_seqs, work_dir, num_iters, num_threads, error_mode,
     prev_assembly = contig_seqs
     contig_lengths = None
     coverage_stats = None
-    for i in xrange(num_iters):
+    for i in range(num_iters):
         logger.info("Polishing genome (%d/%d)", i + 1, num_iters)
 
         #split into 1Mb chunks to reduce RAM usage
@@ -299,7 +302,7 @@ def _compose_sequence(consensus_file):
 
     polished_fasta = {}
     polished_stats = {}
-    for ctg_id, seqs in consensuses.iteritems():
+    for ctg_id, seqs in six.iteritems(consensuses):
         sorted_seqs = [p[1] for p in sorted(seqs, key=lambda p: p[0])]
         concat_seq = "".join(sorted_seqs)
         #mean_coverage = sum(coverage[ctg_id]) / len(coverage[ctg_id])

@@ -6,10 +6,12 @@
 Final output generator
 """
 
+from __future__ import absolute_import
 import logging
 
 import flye.utils.fasta_parser as fp
 import flye.config.py_cfg as cfg
+import six
 
 logger = logging.getLogger()
 
@@ -121,7 +123,7 @@ def generate_stats(repeat_file, polished_file, scaffolds, out_stats):
             contigs_stats[tokens[0]].coverage = tokens[2]
 
     scaffolds_stats = {}
-    for scf, scf_seq in scaffolds.iteritems():
+    for scf, scf_seq in six.iteritems(scaffolds):
         scaffolds_stats[scf] = SeqStats(scf)
         scf_length = sum([int(contigs_stats[unsigned(c)].length) for c in scf_seq])
         scf_length += (len(scf_seq) - 1) * cfg.vals["scaffold_gap"]
@@ -204,7 +206,7 @@ def generate_stats(repeat_file, polished_file, scaffolds, out_stats):
 
 
 def short_statistics(fasta_file):
-    lengths = fp.read_sequence_lengths(fasta_file).values()
+    lengths = list(fp.read_sequence_lengths(fasta_file).values())
     if not lengths:
         return 0, 0
     total_size = sum(lengths)

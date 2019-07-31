@@ -2,6 +2,7 @@
 #This file is a part of Flye program.
 #Released under the BSD license (see LICENSE file)
 
+from __future__ import absolute_import
 import os
 import logging
 
@@ -58,8 +59,8 @@ def assemble_short_plasmids(args, work_dir, contigs_path):
     trimmed_circular_pairs = \
         circular.trim_circular_pairs(circular_pairs, interesting_reads)
     trimmed_sequences_path = os.path.join(work_dir, "trimmed_sequences.fasta")
-    fp.write_fasta_dict(dict(trimmed_circular_reads.items() +
-                             trimmed_circular_pairs.items()),
+    fp.write_fasta_dict(dict(list(trimmed_circular_reads.items()) +
+                             list(trimmed_circular_pairs.items())),
                         trimmed_sequences_path)
 
     logger.debug("Clustering circular sequences")

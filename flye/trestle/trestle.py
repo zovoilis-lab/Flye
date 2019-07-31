@@ -8,6 +8,7 @@ Created on Wed Jan  4 03:50:31 2017
 @author: jeffrey_yuan
 """
 
+from __future__ import absolute_import
 import os
 import logging
 from itertools import combinations, product
@@ -22,6 +23,8 @@ import flye.polishing.polish as pol
 
 import flye.trestle.divergence as div
 import flye.trestle.trestle_config as trestle_config
+from six.moves import range
+from six.moves import zip
 
 logger = logging.getLogger()
 
@@ -66,7 +69,7 @@ def resolve_repeats(args, trestle_dir, repeats_info, summ_file,
             error_queue.put(e)
 
     job_chunks = [repeat_list[i:i + args.threads]
-              for i in xrange(0, len(repeat_list), args.threads)]
+              for i in range(0, len(repeat_list), args.threads)]
 
     for job_chunk in job_chunks:
         manager = multiprocessing.Manager()
@@ -283,7 +286,7 @@ def resolve_each_repeat(rep_id, repeat_edges, all_edge_headers, args,
                        avg_cov, integrated_stats)
         #7. Start iterations
         logger.debug("Iterative procedure")
-        for it in xrange(1, MAX_ITER + 1):
+        for it in range(1, MAX_ITER + 1):
             both_break = True
             for side in side_labels:
                 if (edge_below_cov[side] or dup_part[side] or
@@ -414,7 +417,7 @@ def resolve_each_repeat(rep_id, repeat_edges, all_edge_headers, args,
         avg_div = 0.0
         both_resolved_present = False
         if bridged:
-            res_inds = range(len(repeat_edges[rep]["in"]))
+            res_inds = list(range(len(repeat_edges[rep]["in"])))
             for res_one, res_two in sorted(combinations(res_inds, 2)):
                 res_one_path = resolved_rep_path.format(rep, res_one)
                 res_two_path = resolved_rep_path.format(rep, res_two)
@@ -803,15 +806,15 @@ def _process_repeats_impl(reads, repeats_dict, work_dir, all_labels,
                                                    edge_label, score,
                                                    total_score, header[1:]))
 
-            if template_dict and template_dict.values()[0]:
+            if template_dict and list(template_dict.values())[0]:
                 fp.write_fasta_dict(template_dict, template_path)
             for edge in extended_dicts:
-                if extended_dicts[edge] and extended_dicts[edge].values()[0]:
+                if extended_dicts[edge] and list(extended_dicts[edge].values())[0]:
                     extended_edge_path = extended_path.format(edge[0],
                                                               edge[1])
                     fp.write_fasta_dict(extended_dicts[edge],
                                         extended_edge_path)
-            if repeat_reads_dict and repeat_reads_dict.values()[0]:
+            if repeat_reads_dict and list(repeat_reads_dict.values())[0]:
                 fp.write_fasta_dict(repeat_reads_dict, repeat_reads_path)
             for side in side_labels:
                 _write_partitioning_file(partitioning[side],
@@ -885,7 +888,7 @@ def write_edge_reads(it, side, edge_id, all_reads, partitioning, out_file):
             edge_header = edge_header_name.format(read_id, it,
                                                   side, edge_id, header)
             edge_reads[edge_header] = edge_seq
-    if edge_reads and edge_reads.values()[0]:
+    if edge_reads and list(edge_reads.values())[0]:
         fp.write_fasta_dict(edge_reads, out_file)
 
 
@@ -954,13 +957,13 @@ def locate_consensus_cutpoint(side, read_endpoints, edge_read_file):
             if max(endpoint) > max_endpoint:
                 max_endpoint = max(endpoint)
             all_endpoints.append(endpoint)
-    coverage = [0 for _ in xrange(max_endpoint + 1)]
+    coverage = [0 for _ in range(max_endpoint + 1)]
     for start, end in all_endpoints:
-        for x in xrange(start, end):
+        for x in range(start, end):
             coverage[x] += 1
     window_len = 100
     cutpoint = -1
-    for i in xrange(len(coverage) - window_len):
+    for i in range(len(coverage) - window_len):
         if side == "in":
             window_start = (len(coverage) - window_len) - i
             window_end = len(coverage) - i
@@ -1003,8 +1006,8 @@ def truncate_consensus(side, cutpoint, cons_al_file, template,
 
     if consensus_endpoint != -1:
         cons_seqs = fp.read_sequence_dict(polished_consensus)
-        cons_head = cons_seqs.keys()[0]
-        consensus = cons_seqs.values()[0]
+        cons_head = list(cons_seqs.keys())[0]
+        consensus = list(cons_seqs.values())[0]
         if side == "in":
             start = 0
             end = consensus_endpoint
@@ -1371,7 +1374,7 @@ def _evaluate_positions(pos, cons_aligns, side):
     min_end_edge = min([alns[e].trg_end for e in alns])
     max_start_edge = max([alns[e].trg_start for e in alns])
 
-    for trg_ind in xrange(min_start_edge, max_end_edge):
+    for trg_ind in range(min_start_edge, max_end_edge):
         for edge_id in alns:
             aln = alns[edge_id]
             if aln.trg_start == trg_ind:
@@ -2132,7 +2135,7 @@ def finalize_int_stats(rep, repeat_edges, side_it, cons_align_path, template,
         av_div = 0.0
         if template_len != 0:
             av_div = len(int_confirmed["total"]) / float(template_len)
-        position_gaps = [0 for _ in xrange(len(int_confirmed["total"]) + 1)]
+        position_gaps = [0 for _ in range(len(int_confirmed["total"]) + 1)]
         curr_pos = 0
         for i, p in enumerate(int_confirmed["total"]):
             position_gaps[i] = p - curr_pos
@@ -2197,7 +2200,7 @@ def finalize_int_stats(rep, repeat_edges, side_it, cons_align_path, template,
         #Bridging conditions 
         bridged = False
         bridged_edges = None
-        combo_inds = zip(combo_support, range(len(combo_support)))
+        combo_inds = list(zip(combo_support, list(range(len(combo_support)))))
         sorted_combos = sorted(combo_inds, reverse=True)
         if (len(sorted_combos) > 1 and
             sorted_combos[0][0] >= MIN_BRIDGE_COUNT and
@@ -2534,7 +2537,7 @@ def int_stats_postscript(rep, repeat_edges, integrated_stats,
 
     divs = []
     with open(integrated_stats, "a") as f:
-        res_inds = range(len(repeat_edges[rep]["in"]))
+        res_inds = list(range(len(repeat_edges[rep]["in"])))
         f.write("Resolved Repeat Sequence Alignments\n")
         for res_one, res_two in sorted(combinations(res_inds, 2)):
             qry_start = 0
@@ -2701,7 +2704,7 @@ def _combo_helper(in_list, out_list):
         return
     else:
         in1 = in_list[0]
-        for j in xrange(len(out_list)):
+        for j in range(len(out_list)):
             combo = (in1, out_list[j])
             for rest in _combo_helper(in_list[1:],
                                       out_list[:j] + out_list[j + 1:]):
@@ -2789,11 +2792,11 @@ def _construct_repeat_copy(in_file, temp_file, out_file, in_start, in_end,
         not os.path.isfile(out_file)):
         return ""
     in_dict = fp.read_sequence_dict(in_file)
-    in_seq = in_dict.values()[0]
+    in_seq = list(in_dict.values())[0]
     temp_dict = fp.read_sequence_dict(temp_file)
-    temp_seq = temp_dict.values()[0]
+    temp_seq = list(temp_dict.values())[0]
     out_dict = fp.read_sequence_dict(out_file)
-    out_seq = out_dict.values()[0]
+    out_seq = list(out_dict.values())[0]
     seq = ''.join([in_seq[in_start:in_end],
                    temp_seq[temp_start:temp_end],
                    out_seq[out_start:out_end]])
@@ -2872,7 +2875,7 @@ def remove_unneeded_files(repeat_edges, rep, side_labels, side_it, orient_dir,
                     files_to_remove.append(os.path.join(curr_pol_ext_dir, fil))
             files_to_remove.append(pre_edge_reads.format(side, edge_id))
             files_to_remove.append(pre_read_align.format(side, edge_id))
-            for it in xrange(1, side_it[side] + 1):
+            for it in range(1, side_it[side] + 1):
                 files_to_remove.append(cons_align.format(it, side, edge_id))
                 files_to_remove.append(read_align.format(it, side, edge_id))
                 files_to_remove.append(edge_reads.format(it, side, edge_id))
@@ -2881,7 +2884,7 @@ def remove_unneeded_files(repeat_edges, rep, side_labels, side_it, orient_dir,
                 if os.path.exists(pol_cons):
                     for fil in os.listdir(pol_cons):
                         files_to_remove.append(os.path.join(pol_cons, fil))
-            for it in xrange(1, side_it[side]):
+            for it in range(1, side_it[side]):
                 files_to_remove.append(cut_cons_align.format(it, side, edge_id))
                 files_to_remove.append(cut_cons.format(it, side, edge_id))
             it = side_it[side]
@@ -2890,7 +2893,7 @@ def remove_unneeded_files(repeat_edges, rep, side_labels, side_it, orient_dir,
 
         edge_pairs = sorted(combinations(repeat_edges[rep][side], 2))
         for edge_one, edge_two in edge_pairs:
-            for it in xrange(1, side_it[side]):
+            for it in range(1, side_it[side]):
                 cons_cons_file = cons_vs_cons.format(it, side, edge_one,
                                                      it, side, edge_two)
                 files_to_remove.append(cons_cons_file)
@@ -2899,7 +2902,7 @@ def remove_unneeded_files(repeat_edges, rep, side_labels, side_it, orient_dir,
                                                  it, side, edge_two)
             files_to_move.append(cons_cons_file)
         files_to_remove.append(pre_partitioning.format(side))
-        for it in xrange(1, side_it[side]):
+        for it in range(1, side_it[side]):
             files_to_remove.append(partitioning.format(it, side))
             files_to_remove.append(confirmed_pos_path.format(it, side))
         for it in [0, side_it[side]]:

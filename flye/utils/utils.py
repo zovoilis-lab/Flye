@@ -2,6 +2,7 @@
 #This file is a part of ABruijn program.
 #Released under the BSD license (see LICENSE file)
 
+from __future__ import absolute_import
 import os
 
 def which(program):

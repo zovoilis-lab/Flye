@@ -6,15 +6,18 @@
 Separates alignment into small bubbles for further correction
 """
 
+from __future__ import absolute_import
 import logging
 from bisect import bisect
-from itertools import izip
+from six.moves import range
+
 import multiprocessing
 import signal
 
 import flye.utils.fasta_parser as fp
 import flye.config.py_cfg as cfg
 from flye.polishing.alignment import shift_gaps, SynchronizedSamReader, get_uniform_alignments
+from six.moves import zip
 
 
 logger = logging.getLogger()
@@ -100,7 +103,7 @@ def make_bubbles(alignment_path, contigs_info, contigs_path,
     threads = []
     bubbles_out_lock = multiprocessing.Lock()
     bubbles_out_handle = open(bubbles_out, "w")
-    for _ in xrange(num_proc):
+    for _ in range(num_proc):
         threads.append(multiprocessing.Process(target=_thread_worker,
                                                args=(aln_reader, contigs_info,
                                                      err_mode, results_queue,
@@ -225,7 +228,7 @@ def _is_solid_kmer(profile, position, err_mode):
     INS_RATE = cfg.vals["err_modes"][err_mode]["solid_indel"]
     SOLID_LEN = cfg.vals["solid_kmer_length"]
 
-    for i in xrange(position, position + SOLID_LEN):
+    for i in range(position, position + SOLID_LEN):
         if profile[i].coverage == 0:
             return False
         local_missmatch = float(profile[i].num_missmatch +
@@ -247,14 +250,14 @@ def _is_simple_kmer(profile, position):
                                         position + extended_len / 2]]
 
     #single nucleotide homopolymers
-    for i in xrange(extended_len / 2 - SIMPLE_LEN / 2,
+    for i in range(extended_len / 2 - SIMPLE_LEN / 2,
                     extended_len / 2 + SIMPLE_LEN / 2 - 1):
         if nucl_str[i] == nucl_str[i + 1]:
             return False
 
     #dinucleotide homopolymers
     for shift in [0, 1]:
-        for i in xrange(SIMPLE_LEN - shift - 1):
+        for i in range(SIMPLE_LEN - shift - 1):
             pos = extended_len / 2 - SIMPLE_LEN + shift + i * 2
             if (nucl_str[pos : pos + 2] == nucl_str[pos + 2 : pos + 4]):
                 return False
@@ -277,7 +280,7 @@ def _compute_profile(alignment, platform, genome_len):
     #max_aln_err = cfg.vals["err_modes"][platform]["max_aln_error"]
     aln_errors = []
     #filtered = 0
-    profile = [ProfileInfo() for _ in xrange(genome_len)]
+    profile = [ProfileInfo() for _ in range(genome_len)]
     for aln in alignment:
         #if aln.err_rate > max_aln_err:
         #    filtered += 1
@@ -288,7 +291,7 @@ def _compute_profile(alignment, platform, genome_len):
         trg_seq = shift_gaps(qry_seq, aln.trg_seq)
 
         trg_pos = aln.trg_start
-        for trg_nuc, qry_nuc in izip(trg_seq, qry_seq):
+        for trg_nuc, qry_nuc in zip(trg_seq, qry_seq):
             if trg_nuc == "-":
                 trg_pos -= 1
             if trg_pos >= genome_len:
@@ -321,11 +324,11 @@ def _get_partition(profile, err_mode):
     SIMPLE_LEN = cfg.vals["simple_kmer_length"]
     MAX_BUBBLE = cfg.vals["max_bubble_length"]
 
-    solid_flags = [False for _ in xrange(len(profile))]
+    solid_flags = [False for _ in range(len(profile))]
     prof_pos = 0
     while prof_pos < len(profile) - SOLID_LEN:
         if _is_solid_kmer(profile, prof_pos, err_mode):
-            for i in xrange(prof_pos, prof_pos + SOLID_LEN):
+            for i in range(prof_pos, prof_pos + SOLID_LEN):
                 solid_flags[i] = True
             prof_pos += SOLID_LEN
         else:
