@@ -7,6 +7,7 @@ Runs polishing binary in parallel and concatentes output
 """
 
 from __future__ import absolute_import
+from __future__ import division
 import logging
 import subprocess
 import os
@@ -124,7 +125,7 @@ def polish(contig_seqs, read_seqs, work_dir, num_iters, num_threads, error_mode,
     #merge information from chunks
     contig_lengths = merge_chunks(contig_lengths, fold_function=sum)
     coverage_stats = merge_chunks(coverage_stats,
-                                  fold_function=lambda l: sum(l) / len(l))
+                                  fold_function=lambda l: sum(l) // len(l))
 
     with open(stats_file, "w") as f:
         f.write("#seq_name\tlength\tcoverage\n")
@@ -182,7 +183,7 @@ def generate_polished_edges(edges_file, gfa_file, polished_contigs, work_dir,
                 new_seq = fp.reverse_complement(new_seq)
 
             #print edge, main_aln.qry_len, len(new_seq), main_aln.qry_start, main_aln.qry_end
-            if float(len(new_seq)) / aln.qry_len > MIN_CONTAINMENT:
+            if len(new_seq) / aln.qry_len > MIN_CONTAINMENT:
                 edges_dict[edge] = new_seq
                 updated_seqs += 1
 
@@ -228,14 +229,14 @@ def filter_by_coverage(args, stats_in, contigs_in, stats_out, contigs_out):
             sum_cov += ctg_cov * ctg_len
             sum_length += ctg_len
 
-    mean_coverage = int(float(sum_cov) / sum_length)
+    mean_coverage = int(sum_cov / sum_length)
     coverage_threshold = None
     if args.read_type == "subasm":
         coverage_threshold = SUBASM_MIN_COVERAGE
     elif args.meta:
         coverage_threshold = HARD_MIN_COVERAGE
     else:
-        coverage_threshold = int(round(float(mean_coverage) /
+        coverage_threshold = int(round(mean_coverage /
                                        RELATIVE_MIN_COVERAGE))
         coverage_threshold = max(HARD_MIN_COVERAGE, coverage_threshold)
     logger.debug("Mean contig coverage: %d, selected threshold: %d",

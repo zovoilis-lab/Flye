@@ -8,6 +8,7 @@ This module provides repeat graph parsing/serializing functions,
 as well as some basic operations
 """
 
+from __future__ import division
 class RgEdge(object):
     __slots__ = ("node_left", "node_right", "edge_id", "repetitive",
                  "self_complement", "resolved", "mean_coverage",
@@ -30,7 +31,7 @@ class RgEdge(object):
             return 0
 
         return sum([s.edge_seq_len
-                    for s in self.edge_sequences]) / len(self.edge_sequences)
+                    for s in self.edge_sequences]) // len(self.edge_sequences)
 
     def __repr__(self):
         return "(id={0}, len={1}, cov={2} rep={3})" \
@@ -216,7 +217,7 @@ class RepeatGraph(object):
             left_node.in_edges.append(edges_path[0])
 
             path_coverage = (edges_path[0].mean_coverage +
-                             edges_path[-1].mean_coverage) / 2
+                             edges_path[-1].mean_coverage) // 2
             for mid_edge in edges_path[1:-1]:
                 mid_edge.resolved = True
                 mid_edge.mean_coverage -= path_coverage
@@ -259,7 +260,7 @@ def _remove_from_list(lst, elem):
 
 
 def _to_signed_id(unsigned_id):
-    return -(unsigned_id + 1) / 2 if unsigned_id % 2 else unsigned_id / 2 + 1
+    return -(unsigned_id + 1) // 2 if unsigned_id % 2 else unsigned_id // 2 + 1
 
 
 def _to_unsigned_id(signed_id):

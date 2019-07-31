@@ -7,6 +7,7 @@ Runs Minimap2 and parses its output
 """
 
 from __future__ import absolute_import
+from __future__ import division
 import os
 import re
 from collections import namedtuple, defaultdict
@@ -217,7 +218,7 @@ class SynchronizedSamReader(object):
         for i in range(len(trg_seq)):
             if trg_seq[i] == qry_seq[i]:
                 matches += 1
-        err_rate = 1 - float(matches) / len(trg_seq)
+        err_rate = 1 - matches / len(trg_seq)
 
         trg_end = trg_pos
         qry_end = qry_pos + hard_clipped_left
@@ -315,7 +316,7 @@ class SynchronizedSamReader(object):
             #In rare cases minimap2 does not output SQ tag, so need to check
             if parsed_contig in self.seq_lengths:
                 contig_length = self.seq_lengths[parsed_contig]
-                if sequence_length / contig_length > self.max_coverage:
+                if sequence_length // contig_length > self.max_coverage:
                     break
 
         return parsed_contig, alignments
@@ -482,11 +483,11 @@ def get_uniform_alignments(alignments, seq_len):
             raise ValueError("_get_median() arg is an empty sequence")
         sorted_list = sorted(lst)
         if len(lst) % 2 == 1:
-            return sorted_list[len(lst)/2]
+            return sorted_list[len(lst) // 2]
         else:
-            mid1 = sorted_list[(len(lst)/2) - 1]
-            mid2 = sorted_list[(len(lst)/2)]
-            return float(mid1 + mid2) / 2
+            mid1 = sorted_list[(len(lst) // 2) - 1]
+            mid2 = sorted_list[(len(lst) // 2)]
+            return (mid1 + mid2) / 2
 
     WINDOW = 100
     MIN_COV = 10
@@ -494,11 +495,11 @@ def get_uniform_alignments(alignments, seq_len):
 
     #split contig into windows, get median read coverage over all windows and
     #determine the quality threshold cutoffs for each window
-    wnd_primary_cov = [0 for _ in range(seq_len / WINDOW + 1)]
-    wnd_aln_quality = [[] for _ in range(seq_len / WINDOW + 1)]
-    wnd_qual_thresholds = [1.0 for _ in range(seq_len / WINDOW + 1)]
+    wnd_primary_cov = [0 for _ in range(seq_len // WINDOW + 1)]
+    wnd_aln_quality = [[] for _ in range(seq_len // WINDOW + 1)]
+    wnd_qual_thresholds = [1.0 for _ in range(seq_len // WINDOW + 1)]
     for aln in alignments:
-        for i in range(aln.trg_start / WINDOW, aln.trg_end / WINDOW):
+        for i in range(aln.trg_start // WINDOW, aln.trg_end // WINDOW):
             if not aln.is_secondary:
                 wnd_primary_cov[i] += 1
             wnd_aln_quality[i].append(aln.err_rate)
@@ -515,13 +516,13 @@ def get_uniform_alignments(alignments, seq_len):
     filtered_sequence = 0
     for aln in alignments:
         good_windows = 0
-        total_windows = aln.trg_end / WINDOW - aln.trg_start / WINDOW
+        total_windows = aln.trg_end // WINDOW - aln.trg_start // WINDOW
         total_sequence += aln.trg_end - aln.trg_start
-        for i in range(aln.trg_start / WINDOW, aln.trg_end / WINDOW):
+        for i in range(aln.trg_start // WINDOW, aln.trg_end // WINDOW):
             if aln.err_rate <= wnd_qual_thresholds[i]:
                 good_windows += 1
 
-        if good_windows > total_windows / 2:
+        if good_windows > total_windows // 2:
             filtered_alignments.append(aln)
             filtered_sequence += aln.trg_end - aln.trg_start
 
@@ -537,7 +538,7 @@ def split_into_chunks(fasta_in, chunk_size):
     out_dict = {}
     for header, seq in six.iteritems(fasta_in):
         #print len(seq)
-        for i in range(0, max(len(seq) / chunk_size, 1)):
+        for i in range(0, max(len(seq) // chunk_size, 1)):
             chunk_hdr = "{0}$chunk_{1}".format(header, i)
             start = i * chunk_size
             end = (i + 1) * chunk_size

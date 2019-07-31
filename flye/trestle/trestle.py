@@ -9,6 +9,7 @@ Created on Wed Jan  4 03:50:31 2017
 """
 
 from __future__ import absolute_import
+from __future__ import division
 import os
 import logging
 from itertools import combinations, product
@@ -76,7 +77,7 @@ def resolve_repeats(args, trestle_dir, repeats_info, summ_file,
         results_queue = manager.Queue()
         error_queue = manager.Queue()
 
-        repeat_threads = max(1, args.threads / len(job_chunk))
+        repeat_threads = max(1, args.threads // len(job_chunk))
         orig_sigint = signal.signal(signal.SIGINT, signal.SIG_IGN)
         threads = []
         for rep_id in sorted(job_chunk):
@@ -1923,13 +1924,13 @@ def finalize_side_stats(edges, it, side, cons_align_path, template,
             f.write("{0}{1}{2:13}\t{3}/{4} = {5:.4f}\n".format(
                                     "Total Edge ", edge_id, " Reads:",
                                     edge_reads[edge_id], total_reads,
-                                    edge_reads[edge_id]/float(total_reads)))
+                                    edge_reads[edge_id] / float(total_reads)))
         f.write("{0:26}\t{1}/{2} = {3:.4f}\n".format("Total Tied Reads:",
                                               tied_reads, total_reads,
-                                              tied_reads/float(total_reads)))
+                                              tied_reads / float(total_reads)))
         f.write("{0:26}\t{1}/{2} = {3:.4f}\n".format("Total Unassigned Reads:",
                                       unassigned_reads, total_reads,
-                                      unassigned_reads/float(total_reads)))
+                                      unassigned_reads / float(total_reads)))
         f.write("\n")
 
 
@@ -2657,7 +2658,7 @@ def _n50(reads_file):
     n50 = 0
     for l in read_lengths:
         summed_len += l
-        if summed_len >= sum(read_lengths)/2:
+        if summed_len >= sum(read_lengths) // 2:
             n50 = l
             break
     return n50
@@ -2668,11 +2669,11 @@ def _get_median(lst):
         raise ValueError("_get_median() arg is an empty sequence")
     sorted_list = sorted(lst)
     if len(lst) % 2 == 1:
-        return sorted_list[len(lst)/2]
+        return sorted_list[len(lst) // 2]
     else:
-        mid1 = sorted_list[(len(lst)/2) - 1]
-        mid2 = sorted_list[(len(lst)/2)]
-        return float(mid1 + mid2) / 2
+        mid1 = sorted_list[(len(lst) // 2) - 1]
+        mid2 = sorted_list[(len(lst) // 2)]
+        return mid1 + mid2 // 2
 
 
 def _integrate_confirmed_pos(all_in_pos, all_out_pos):
@@ -2935,4 +2936,4 @@ def remove_unneeded_files(repeat_edges, rep, side_labels, side_it, orient_dir,
 def _mean(lst):
     if not lst:
         return 0
-    return float(sum(lst)) / len(lst)
+    return sum(lst) / len(lst)

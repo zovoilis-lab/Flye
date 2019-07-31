@@ -7,6 +7,7 @@ Quick and dirty alignment consensus
 """
 
 from __future__ import absolute_import
+from __future__ import division
 import logging
 from collections import defaultdict
 from six.moves import range
@@ -99,7 +100,7 @@ def get_consensus(alignment_path, contigs_path, contigs_info, num_proc,
         if len(ctg_seq) > 0:
             out_fasta[ctg_id] = ctg_seq
 
-    mean_aln_error = float(sum(total_aln_errors)) / (len(total_aln_errors) + 1)
+    mean_aln_error = sum(total_aln_errors) / (len(total_aln_errors) + 1)
     logger.info("Alignment error rate: %f", mean_aln_error)
 
     return out_fasta
@@ -174,7 +175,7 @@ def _flatten_profile(profile):
 
         if max_match != "-":
             growing_seq.append(max_match)
-        if max_insert and max_insert != "-" and ins_group[max_insert] > coverage / 2:
+        if max_insert and max_insert != "-" and ins_group[max_insert] > coverage // 2:
             growing_seq.append(max_insert)
 
     return "".join(growing_seq)

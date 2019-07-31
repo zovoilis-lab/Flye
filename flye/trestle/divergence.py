@@ -9,6 +9,7 @@ Created on Wed Jan  4 03:50:31 2017
 """
 
 from __future__ import absolute_import
+from __future__ import division
 import logging
 from collections import defaultdict
 from six.moves import range
@@ -229,7 +230,7 @@ def find_divergence(alignment_path, contigs_path, contigs_info,
         logger.debug("Total positions: %d", len(positions["total"]))
         total_aln_errors.extend(aln_errors)
 
-    mean_aln_error = float(sum(total_aln_errors)) / (len(total_aln_errors) + 1)
+    mean_aln_error = sum(total_aln_errors) / (len(total_aln_errors) + 1)
     logger.debug("Alignment error rate: %f", mean_aln_error)
 
 
@@ -300,8 +301,8 @@ def _write_div_summary(div_sum_path, sum_header, positions,
     max_position_gap = max(position_gaps)
 
     window_len = 1000
-    position_counts = [0 for _ in range(((seq_len - 1) / window_len) + 1)]
-    window_divs = [0.0 for _ in range(((seq_len - 1) / window_len) + 1)]
+    position_counts = [0 for _ in range(((seq_len - 1) // window_len) + 1)]
+    window_divs = [0.0 for _ in range(((seq_len - 1) // window_len) + 1)]
     curr_p_i = 0
     for i in range(len(window_divs)):
         start = i*window_len
@@ -319,7 +320,7 @@ def _write_div_summary(div_sum_path, sum_header, positions,
 
         window_divs[i] = 0.0
         if curr_window_len != 0:
-            window_divs[i] = position_counts[i]/float(curr_window_len)
+            window_divs[i] = position_counts[i] / float(curr_window_len)
 
     mean_window_div = _mean(window_divs)
     median_window_div = _get_median(window_divs)
@@ -402,14 +403,14 @@ def _get_median(lst):
         raise ValueError("_get_median() arg is an empty sequence")
     sorted_list = sorted(lst)
     if len(lst) % 2 == 1:
-        return sorted_list[len(lst)/2]
+        return sorted_list[len(lst) // 2]
     else:
-        mid1 = sorted_list[(len(lst)/2) - 1]
-        mid2 = sorted_list[(len(lst)/2)]
-        return float(mid1 + mid2) / 2
+        mid1 = sorted_list[(len(lst) // 2) - 1]
+        mid2 = sorted_list[(len(lst) // 2)]
+        return (mid1 + mid2) / 2
 
 
 def _mean(lst):
     if not lst:
         return 0
-    return float(sum(lst)) / len(lst)
+    return sum(lst) / len(lst)

@@ -7,6 +7,7 @@ Final output generator
 """
 
 from __future__ import absolute_import
+from __future__ import division
 import logging
 
 import flye.utils.fasta_parser as fp
@@ -191,7 +192,7 @@ def generate_stats(repeat_file, polished_file, scaffolds, out_stats):
     mean_read_cov = 0
     for scf in scaffolds_stats.values():
         mean_read_cov += int(scf.length) * int(scf.coverage)
-    mean_read_cov /= total_length
+    mean_read_cov //= total_length
 
     logger.info("Assembly statistics:\n\n"
                 "\tTotal length:\t%d\n"
@@ -223,7 +224,7 @@ def unsigned(ctg):
 
 def _mean(lst):
     if not lst: return 0
-    return sum(lst) / len(lst)
+    return sum(lst) // len(lst)
 
 
 def _calc_n50(scaffolds_lengths, assembly_len):
@@ -231,7 +232,7 @@ def _calc_n50(scaffolds_lengths, assembly_len):
     sum_len = 0
     for l in sorted(scaffolds_lengths, reverse=True):
         sum_len += l
-        if sum_len > assembly_len / 2:
+        if sum_len > assembly_len // 2:
             n50 = l
             break
     return n50

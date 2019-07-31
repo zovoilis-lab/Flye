@@ -4,6 +4,7 @@
 
 
 from __future__ import absolute_import
+from __future__ import division
 import flye.utils.fasta_parser as fp
 from flye.polishing.alignment import read_paf_grouped
 import logging
@@ -44,7 +45,7 @@ def calc_mapping_rate(read_length, mapping_segments):
     for mapping_segment in united_segments:
         read_coverage += mapping_segment.length()
 
-    return round(float(read_coverage) / read_length, 3)
+    return round(read_coverage / read_length, 3)
 
 
 def calc_mapping_rates(reads2contigs_mapping):
@@ -84,4 +85,4 @@ def extract_unmapped_reads(args, reads2contigs_mapping, unmapped_reads_path,
                     fout.write(">{0}\n{1}\n".format(hdr, sequence))
 
     logger.debug("Unmapped sequence: %d / %d (%f)", unmapped_bases,
-                 total_bases, float(unmapped_bases) / total_bases)
+                 total_bases, unmapped_bases / total_bases)
