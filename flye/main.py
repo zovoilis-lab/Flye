@@ -630,7 +630,7 @@ def _version():
     repo_root = os.path.dirname((os.path.dirname(__file__)))
     try:
         git_label = subprocess.check_output(["git", "-C", repo_root, "describe"],
-                                            stderr=open(os.devnull, "w"))
+                                            stderr=open(os.devnull, "w")).decode()
         commit_id = git_label.strip("\n").rsplit("-", 1)[-1]
         return __version__ + "-" + commit_id
     except (subprocess.CalledProcessError, OSError):

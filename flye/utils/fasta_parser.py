@@ -10,7 +10,10 @@ from __future__ import absolute_import
 import logging
 import os
 
-from string import maketrans
+try:
+    from string import maketrans
+except ImportError:
+    maketrans = str.maketrans
 from six.moves import range
 
 logger = logging.getLogger()
@@ -157,8 +160,10 @@ def reverse_complement(string):
 
 VALID_CHARS = "ACGTURYKMSWBDHVNXatgcurykmswbvdhnx"
 def _validate_seq(sequence):
-    if len(sequence.translate(None, VALID_CHARS)):
+    if len(sequence.strip(VALID_CHARS)) > 0:
         return False
+    #if len(sequence.translate(None, VALID_CHARS)):
+    #    return False
     return True
 
 
@@ -169,7 +174,9 @@ def to_acgt(dna_str):
     """
     assumes tha all characters are valid
     """
-    if len(dna_str.translate(None, ACGT_CHARS)) == 0:
+    #if len(dna_str.translate(None, ACGT_CHARS)) == 0:
+    #    return dna_str
+    if len(dna_str.strip(ACGT_CHARS)) == 0:
         return dna_str
     else:
         if not to_acgt.ACGT_WARN:
