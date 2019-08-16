@@ -16,13 +16,13 @@ import signal
 
 import flye.utils.fasta_parser as fp
 import flye.config.py_cfg as cfg
-from flye.polishing.alignment import shift_gaps, SynchronizedSamReader
+from flye.polishing.alignment import shift_gaps, SynchronizedSamReader, get_uniform_alignments
 
 
 logger = logging.getLogger()
 
 
-class ProfileInfo:
+class ProfileInfo(object):
     __slots__ = ("nucl", "num_inserts", "num_deletions",
                  "num_missmatch", "coverage")
 
@@ -34,7 +34,7 @@ class ProfileInfo:
         self.coverage = 0
 
 
-class Bubble:
+class Bubble(object):
     __slots__ = ("contig_id", "position", "branches", "consensus")
 
     def __init__(self, contig_id, position):
@@ -58,6 +58,9 @@ def _thread_worker(aln_reader, contigs_info, err_mode,
                 break
 
             #logger.debug("Processing {0}".format(ctg_id))
+            #get top unifom alignments
+            ctg_aln = get_uniform_alignments(ctg_aln, contigs_info[ctg_id].length)
+
             profile, aln_errors = _compute_profile(ctg_aln, err_mode,
                                                    contigs_info[ctg_id].length)
             partition, num_long_bubbles = _get_partition(profile, err_mode)
@@ -76,6 +79,8 @@ def _thread_worker(aln_reader, contigs_info, err_mode,
             del profile
             del ctg_bubbles
 
+        aln_reader.stop_reading()
+
     except Exception as e:
         error_queue.put(e)
 
@@ -87,7 +92,8 @@ def make_bubbles(alignment_path, contigs_info, contigs_path,
     """
     aln_reader = SynchronizedSamReader(alignment_path,
                                        fp.read_sequence_dict(contigs_path),
-                                       cfg.vals["max_read_coverage"])
+                                       cfg.vals["max_read_coverage"],
+                                       use_secondary=True)
     manager = multiprocessing.Manager()
     results_queue = manager.Queue()
     error_queue = manager.Queue()
@@ -273,14 +279,14 @@ def _compute_profile(alignment, platform, genome_len):
     """
     Computes alignment profile
     """
-    max_aln_err = cfg.vals["err_modes"][platform]["max_aln_error"]
+    #max_aln_err = cfg.vals["err_modes"][platform]["max_aln_error"]
     aln_errors = []
-    filtered = 0
+    #filtered = 0
     profile = [ProfileInfo() for _ in xrange(genome_len)]
     for aln in alignment:
-        if aln.err_rate > max_aln_err:
-            filtered += 1
-            continue
+        #if aln.err_rate > max_aln_err:
+        #    filtered += 1
+        #    continue
         aln_errors.append(aln.err_rate)
 
         qry_seq = shift_gaps(aln.trg_seq, aln.qry_seq)
@@ -363,7 +369,7 @@ def _get_bubble_seqs(alignment, platform, profile, partition, contig_info):
     if not partition:
         return []
 
-    max_aln_err = cfg.vals["err_modes"][platform]["max_aln_error"]
+    #max_aln_err = cfg.vals["err_modes"][platform]["max_aln_error"]
     bubbles = []
     ext_partition = [0] + partition + [contig_info.length]
     for p_left, p_right in zip(ext_partition[:-1], ext_partition[1:]):
@@ -372,7 +378,7 @@ def _get_bubble_seqs(alignment, platform, profile, partition, contig_info):
         bubbles[-1].consensus = "".join(consensus)
 
     for aln in alignment:
-        if aln.err_rate > max_aln_err: continue
+        #if aln.err_rate > max_aln_err: continue
 
         bubble_id = bisect(partition, aln.trg_start % contig_info.length)
         next_bubble_start = ext_partition[bubble_id + 1]

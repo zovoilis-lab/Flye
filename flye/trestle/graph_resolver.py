@@ -16,7 +16,7 @@ from flye.repeat_graph.graph_alignment import iter_alignments
 logger = logging.getLogger()
 
 
-class Connection:
+class Connection(object):
     __slots__ = ("id", "path", "sequence")
     def __init__(self, id=None, path=[], sequence=""):
         self.id = id
@@ -24,7 +24,7 @@ class Connection:
         self.sequence = sequence
 
 
-class RepeatInfo:
+class RepeatInfo(object):
     __slots__ = ("id", "repeat_path", "all_reads", "in_reads", "out_reads",
                  "sequences", "multiplicity")
 
@@ -170,6 +170,11 @@ def apply_changes(repeat_graph, trestle_results,
     connections = _get_connections(trestle_results)
     edges_to_remove = set()
     for conn in connections:
+
+        #FIXME: sometimes trestle outputs empty resolved seque. need a proper fix later
+        if not len(resolved_repeats_fasta[conn.sequence]):
+            continue
+
         repeat_graph.separate_path(conn.path, conn.id,
                                    resolved_repeats_fasta[conn.sequence])
         edges_to_remove.update(conn.path[1:-1])

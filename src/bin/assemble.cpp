@@ -29,70 +29,87 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 {
 	auto printUsage = [argv]()
 	{
-		std::cerr << "Usage: " << argv[0]
-				  << " reads_files out_assembly genome_size config_file\n\t"
-				  << "[-r min_read_length] [-l log_file] [-t num_threads]\n\t"
-				  << "[-u] [-d] [-h]\n\n"
-				  << "positional arguments:\n"
-				  << "\treads file\tcomma-separated list of read files\n"
-				  << "\tout_assembly\tpath to output file\n"
-				  << "\tgenome_size\tgenome size in bytes\n"
-				  << "\tconfig_file\tpath to the config file\n"
-				  << "\noptional arguments:\n"
-				  << "\t-k kmer_size\tk-mer size [default = 15] \n"
-				  << "\t-v min_overlap\tminimum overlap between reads "
+		std::cerr << "Usage: flye-assemble "
+				  << " --reads path --out-asm path --genome-size size --config path\n"
+				  << "\t\t[--min-read length] [--log path] [--treads num]\n"
+				  << "\t\t[--kmer size] [--meta] [--min-ovlp size] [--debug] [-h]\n\n"
+				  << "Required arguments:\n"
+				  << "  --reads path\tcomma-separated list of read files\n"
+				  << "  --out-asm path\tpath to output file\n"
+				  << "  --genome-size size\tgenome size in bytes\n"
+				  << "  --config path\tpath to the config file\n\n"
+				  << "Optional arguments:\n"
+				  << "  --kmer size\tk-mer size [default = 15] \n"
+				  << "  --min-ovlp size\tminimum overlap between reads "
 				  << "[default = 5000] \n"
-				  << "\t-d \t\tenable debug output "
+				  << "  --debug \t\tenable debug output "
 				  << "[default = false] \n"
-				  << "\t-u \t\tenable uneven coverage (metagenome) mode "
+				  << "  --meta \t\tenable uneven coverage (metagenome) mode "
 				  << "[default = false] \n"
-				  << "\t-l log_file\toutput log to file "
+				  << "  --log log_file\toutput log to file "
 				  << "[default = not set] \n"
-				  << "\t-t num_threads\tnumber of parallel threads "
+				  << "  --threads num_threads\tnumber of parallel threads "
 				  << "[default = 1] \n";
 	};
+	
+	int optionIndex = 0;
+	static option longOptions[] =
+	{
+		{"reads", required_argument, 0, 0},
+		{"out-asm", required_argument, 0, 0},
+		{"genome-size", required_argument, 0, 0},
+		{"config", required_argument, 0, 0},
+		{"min-read", required_argument, 0, 0},
+		{"log", required_argument, 0, 0},
+		{"threads", required_argument, 0, 0},
+		{"kmer", required_argument, 0, 0},
+		{"min-ovlp", required_argument, 0, 0},
+		{"meta", no_argument, 0, 0},
+		{"debug", no_argument, 0, 0},
+		{0, 0, 0, 0}
+	};
 
-	const char optString[] = "l:t:v:k:r:hdu";
 	int opt = 0;
-	while ((opt = getopt(argc, argv, optString)) != -1)
+	while ((opt = getopt_long(argc, argv, "h", longOptions, &optionIndex)) != -1)
 	{
 		switch(opt)
 		{
-		case 'k':
-			kmerSize = atoi(optarg);
+		case 0:
+			if (!strcmp(longOptions[optionIndex].name, "kmer"))
+				kmerSize = atoi(optarg);
+			else if (!strcmp(longOptions[optionIndex].name, "min-read"))
+				minReadLength = atoi(optarg);
+			else if (!strcmp(longOptions[optionIndex].name, "threads"))
+				numThreads = atoi(optarg);
+			else if (!strcmp(longOptions[optionIndex].name, "min-ovlp"))
+				minOverlap = atoi(optarg);
+			else if (!strcmp(longOptions[optionIndex].name, "log"))
+				logFile = optarg;
+			else if (!strcmp(longOptions[optionIndex].name, "debug"))
+				debug = true;
+			else if (!strcmp(longOptions[optionIndex].name, "meta"))
+				unevenCov = true;
+			else if (!strcmp(longOptions[optionIndex].name, "reads"))
+				readsFasta = optarg;
+			else if (!strcmp(longOptions[optionIndex].name, "out-asm"))
+				outAssembly = optarg;
+			else if (!strcmp(longOptions[optionIndex].name, "genome-size"))
+				genomeSize = atoll(optarg);
+			else if (!strcmp(longOptions[optionIndex].name, "config"))
+				configPath = optarg;
 			break;
-		case 'r':
-			minReadLength = atoi(optarg);
-			break;
-		case 't':
-			numThreads = atoi(optarg);
-			break;
-		case 'v':
-			minOverlap = atoi(optarg);
-			break;
-		case 'l':
-			logFile = optarg;
-			break;
-		case 'd':
-			debug = true;
-			break;
-		case 'u':
-			unevenCov = true;
-			break;
+
 		case 'h':
 			printUsage();
 			exit(0);
 		}
 	}
-	if (argc - optind != 4)
+	if (readsFasta.empty() || outAssembly.empty() || 
+		genomeSize == 0 || configPath.empty())
 	{
 		printUsage();
 		return false;
 	}
-	readsFasta = *(argv + optind);
-	outAssembly = *(argv + optind + 1);
-	genomeSize = atoll(*(argv + optind + 2));
-	configPath = *(argv + optind + 3);
 
 	return true;
 }
@@ -199,18 +216,21 @@ int main(int argc, char** argv)
 	Logger::get().debug() << "Peak RAM usage: " 
 		<< getPeakRSS() / 1024 / 1024 / 1024 << " Gb";
 
-	int maxOverlapsNum = !Parameters::get().unevenCoverage ? 5 * coverage : 0;
+	//int maxOverlapsNum = !Parameters::get().unevenCoverage ? 5 * coverage : 0;
 	OverlapDetector ovlp(readsContainer, vertexIndex,
 						 (int)Config::get("maximum_jump"), 
 						 Parameters::get().minimumOverlap,
 						 (int)Config::get("maximum_overhang"),
-						 maxOverlapsNum, 
+						 /*no max overlaps*/ 0, 
 						 /*store alignment*/ false,
 						 /*only max*/ true,
-						 (float)Config::get("assemble_ovlp_divergence"),
+						 /*no div threshold*/ 1.0f,
 						 /* bad end adjustment*/ 0.0f,
 						 /* nucl alignent*/ false);
 	OverlapContainer readOverlaps(ovlp, readsContainer);
+	readOverlaps.estimateOverlaperParameters();
+	readOverlaps.setRelativeDivergenceThreshold(
+		(float)Config::get("assemble_ovlp_relative_divergence"));
 
 	Extender extender(readsContainer, readOverlaps);
 	extender.assembleDisjointigs();

@@ -31,78 +31,85 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 {
 	auto printUsage = [argv]()
 	{
-		std::cerr << "Usage: " << argv[0]
-				  << "\tin_assembly reads_files out_folder config_path\n\t"
-				  << "[-l log_file] [-t num_threads] [-v min_overlap]\n\t"
-				  << "[-d] [-u]\n\n"
-				  << "positional arguments:\n"
-				  << "\tin_assembly\tpath to input assembly\n"
-				  << "\treads_files\tcomma-separated list with reads\n"
-				  << "\tout_assembly\tpath to output assembly\n"
-				  << "\tconfig_path\tpath to config file\n"
-				  << "\noptional arguments:\n"
-				  << "\t-k kmer_size\tk-mer size [default = 15] \n"
-				  << "\t-v min_overlap\tminimum overlap between reads "
+		std::cerr << "Usage: flye-repeat "
+				  << " --input-seq path --out-dir path --config path\n"
+				  << "\t\t[--log path] [--treads num] [--kmer size] \n"
+				  << "\t\t[--min-ovlp size] [--max-divergence X] [--debug] [-h]\n\n"
+				  << "Required arguments:\n"
+				  << "  --input-asm path\tpath to input sequences\n"
+				  << "  --out-dir path\tpath to output dir\n"
+				  << "  --config path\tpath to the config file\n\n"
+				  << "Optional arguments:\n"
+				  << "  --kmer size\tk-mer size [default = 15] \n"
+				  << "  --min-ovlp size\tminimum overlap between reads "
 				  << "[default = 5000] \n"
-				  << "\t-d \t\tenable debug output "
+				  << "  --debug \t\tenable debug output "
 				  << "[default = false] \n"
-				  << "\t-u \t\tenable uneven coverage (metagenome) mode "
+				  << "  --meta \t\tenable uneven coverage (metagenome) mode "
 				  << "[default = false] \n"
-				  << "\t-l log_file\toutput log to file "
+				  << "  --log log_file\toutput log to file "
 				  << "[default = not set] \n"
-				  << "\t-m match mode\teither of [local, semi, dovetail]\n "
+				  << "  --match-mode\teither of [local, semi, dovetail] "
 				  << "[default = local] \n"
-				  << "\t-o max overlap divergence\n "
+				  << "  --ovlp-divergence max overlap divergence "
 				  << "[default = 0.05] \n"
-				  << "\t-t num_threads\tnumber of parallel threads "
-				  << "[default = 1] \n";
+				  << "  --threads num_threads\tnumber of parallel threads \n";
+	};
+	
+	int optionIndex = 0;
+	static option longOptions[] =
+	{
+		{"input-seq", required_argument, 0, 0},
+		{"out-dir", required_argument, 0, 0},
+		{"config", required_argument, 0, 0},
+		{"log", required_argument, 0, 0},
+		{"threads", required_argument, 0, 0},
+		{"kmer", required_argument, 0, 0},
+		{"min-ovlp", required_argument, 0, 0},
+		{"max-divergence", required_argument, 0, 0},
+		{"match-mode", required_argument, 0, 0},
+		{"debug", no_argument, 0, 0},
+		{0, 0, 0, 0}
 	};
 
-	const char optString[] = "l:t:v:k:m:o:hdu";
 	int opt = 0;
-	while ((opt = getopt(argc, argv, optString)) != -1)
+	while ((opt = getopt_long(argc, argv, "h", longOptions, &optionIndex)) != -1)
 	{
 		switch(opt)
 		{
-		case 't':
-			numThreads = atoi(optarg);
+		case 0:
+			if (!strcmp(longOptions[optionIndex].name, "kmer"))
+				kmerSize = atoi(optarg);
+			else if (!strcmp(longOptions[optionIndex].name, "threads"))
+				numThreads = atoi(optarg);
+			else if (!strcmp(longOptions[optionIndex].name, "min-ovlp"))
+				minOverlap = atoi(optarg);
+			else if (!strcmp(longOptions[optionIndex].name, "match-mode"))
+				matchMode = optarg;
+			else if (!strcmp(longOptions[optionIndex].name, "max-divergence"))
+				ovlpDivergence = atof(optarg);
+			else if (!strcmp(longOptions[optionIndex].name, "log"))
+				logFile = optarg;
+			else if (!strcmp(longOptions[optionIndex].name, "debug"))
+				debug = true;
+			else if (!strcmp(longOptions[optionIndex].name, "input-seq"))
+				inAssembly = optarg;
+			else if (!strcmp(longOptions[optionIndex].name, "out-dir"))
+				outFolder = optarg;
+			else if (!strcmp(longOptions[optionIndex].name, "config"))
+				configPath = optarg;
 			break;
-		case 'v':
-			minOverlap = atoi(optarg);
-			break;
-		case 'k':
-			kmerSize = atoi(optarg);
-			break;
-		case 'o':
-			ovlpDivergence = atof(optarg);
-			break;
-		case 'm':
-			matchMode = optarg;
-			break;
-		case 'l':
-			logFile = optarg;
-			break;
-		case 'd':
-			debug = true;
-			break;
-		case 'u':
-			unevenCov = true;
-			break;
+
 		case 'h':
 			printUsage();
 			exit(0);
 		}
 	}
-	if (argc - optind != 4)
+	if (outFolder.empty() || inAssembly.empty() || configPath.empty())
 	{
 		printUsage();
 		return false;
 	}
-
-	inAssembly = *(argv + optind);
-	readsFasta = *(argv + optind + 1);
-	outFolder = *(argv + optind + 2);
-	configPath = *(argv + optind + 3);
 
 	return true;
 }
@@ -149,7 +156,7 @@ int main(int argc, char** argv)
 	Parameters::get().unevenCoverage = unevenCov;
 	Logger::get().debug() << "Running with k-mer size: " << 
 		Parameters::get().kmerSize; 
-	Logger::get().debug() << "Selected minimum overlap " << minOverlap;
+	Logger::get().info() << "Selected minimum overlap " << minOverlap;
 	Logger::get().debug() << "Metagenome mode: " << "NY"[unevenCov];
 
 	Logger::get().info() << "Reading sequences";

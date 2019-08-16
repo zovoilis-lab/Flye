@@ -75,7 +75,7 @@ def generate_scaffolds(contigs_file, links_file, out_scaffolds):
     return scaffolds_seq
 
 
-class SeqStats:
+class SeqStats(object):
     __slots__ = ("name", "length", "coverage", "circular",
                  "repeat", "mult", "telomere", "graph_path")
 
@@ -105,8 +105,9 @@ def generate_stats(repeat_file, polished_file, scaffolds, out_stats):
     #contigs_length = {}
     #contigs_coverage = {}
     contigs_stats = {}
-    header_line = "seq_name\tlength\tcov.\tcirc.\trepeat\tmult.\tgraph_path"
-    for line in open(repeat_file, "r").readlines()[1:]:
+    header_line = "#seq_name\tlength\tcov.\tcirc.\trepeat\tmult.\tgraph_path"
+    for line in open(repeat_file, "r"):
+        if line.startswith("#"): continue
         tokens = line.strip().split("\t")
         contigs_stats[tokens[0]] = SeqStats(*tokens)
         #if polished_file is None:
@@ -114,7 +115,8 @@ def generate_stats(repeat_file, polished_file, scaffolds, out_stats):
             #contigs_coverage[tokens[0]] = int(tokens[2])
 
     if polished_file is not None:
-        for line in open(polished_file, "r").readlines()[1:]:
+        for line in open(polished_file, "r"):
+            if line.startswith("#"): continue
             tokens = line.strip().split("\t")
             contigs_stats[tokens[0]].length = tokens[1]
             contigs_stats[tokens[0]].coverage = tokens[2]

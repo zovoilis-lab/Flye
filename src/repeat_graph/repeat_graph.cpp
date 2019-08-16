@@ -68,14 +68,14 @@ void RepeatGraph::build(OverlapDetector::MatchMode matchMode,
 	asmIndex.buildIndex(/*min freq*/ 2);
 
 	const int DEFAULT_OVERHANG = 50;
-	float badEndAdj = (float)Config::get("repeat_graph_ovlp_end_adjust");
+	//float badEndAdj = (float)Config::get("repeat_graph_ovlp_end_adjust");
 	OverlapDetector asmOverlapper(_asmSeqs, asmIndex, 
 								  (int)Config::get("maximum_jump"), 
 								  Parameters::get().minimumOverlap,
 								  DEFAULT_OVERHANG, /*all overlaps*/ 0,
 								  /*keep alignment*/ true, /*only max*/ false,
 								  maxOvlpDivergence,
-								  badEndAdj, /*nucl alignment*/ true,
+								  /* no bad end*/ 0, /*nucl alignment*/ true,
 								  matchMode);
 
 	OverlapContainer asmOverlaps(asmOverlapper, _asmSeqs);

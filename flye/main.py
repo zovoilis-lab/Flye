@@ -252,7 +252,7 @@ class JobFinalize(Job):
         self.work_dir = work_dir
 
         #self.out_files["contigs"] = os.path.join(work_dir, "contigs.fasta")
-        self.out_files["scaffolds"] = os.path.join(work_dir, "scaffolds.fasta")
+        #self.out_files["scaffolds"] = os.path.join(work_dir, "scaffolds.fasta")
         self.out_files["assembly"] = os.path.join(work_dir, "assembly.fasta")
         self.out_files["stats"] = os.path.join(work_dir, "assembly_info.txt")
         self.out_files["graph"] = os.path.join(work_dir, "assembly_graph.gv")
@@ -268,14 +268,14 @@ class JobFinalize(Job):
                                            self.out_files["assembly"])
 
         #create the scaffolds.fasta symlink for backward compatability
-        try:
-            if os.path.lexists(self.out_files["scaffolds"]):
-                os.remove(self.out_files["scaffolds"])
-            relative_link = os.path.relpath(self.out_files["assembly"],
-                                            self.work_dir)
-            os.symlink(relative_link, self.out_files["scaffolds"])
-        except OSError as e:
-            logger.debug(e)
+        #try:
+        #    if os.path.lexists(self.out_files["scaffolds"]):
+        #        os.remove(self.out_files["scaffolds"])
+        #    relative_link = os.path.relpath(self.out_files["assembly"],
+        #                                    self.work_dir)
+        #    os.symlink(relative_link, self.out_files["scaffolds"])
+        #except OSError as e:
+        #    logger.debug(e)
 
         logger.debug("---Output dir contents:----")
         _list_files(os.path.abspath(self.args.out_dir))
@@ -341,10 +341,10 @@ class JobPolishing(Job):
 
         self.name = "polishing"
         final_contigs = os.path.join(self.polishing_dir,
-                                     "polished_{0}.fasta".format(args.num_iters))
+                                     "filtered_contigs.fasta")
         self.out_files["contigs"] = final_contigs
         self.out_files["stats"] = os.path.join(self.polishing_dir,
-                                               "contigs_stats.txt")
+                                               "filtered_stats.txt")
         self.out_files["polished_gfa"] = os.path.join(self.polishing_dir,
                                                       "polished_edges.gfa")
 
@@ -353,16 +353,19 @@ class JobPolishing(Job):
         if not os.path.isdir(self.polishing_dir):
             os.mkdir(self.polishing_dir)
 
-        pol.polish(self.in_contigs, self.args.reads, self.polishing_dir,
-                   self.args.num_iters, self.args.threads, self.args.platform,
-                   output_progress=True)
-
-        polished_file = os.path.join(self.polishing_dir, "polished_{0}.fasta"
-                                     .format(self.args.num_iters))
+        contigs, stats = \
+            pol.polish(self.in_contigs, self.args.reads, self.polishing_dir,
+                       self.args.num_iters, self.args.threads, self.args.platform,
+                       output_progress=True)
+        #contigs = os.path.join(self.polishing_dir, "polished_1.fasta")
+        #stats = os.path.join(self.polishing_dir, "contigs_stats.txt")
+        pol.filter_by_coverage(self.args, stats, contigs,
+                               self.out_files["stats"], self.out_files["contigs"])
         pol.generate_polished_edges(self.in_graph_edges, self.in_graph_gfa,
-                                    polished_file,
+                                    self.out_files["contigs"],
                                     self.polishing_dir, self.args.platform,
                                     self.args.threads)
+        os.remove(contigs)
 
 
 class JobTrestle(Job):
@@ -524,6 +527,10 @@ def _run(args):
     save_file = os.path.join(args.out_dir, "params.json")
     jobs = _create_job_list(args, args.out_dir, args.log_file)
 
+    if args.stop_after and not args.stop_after in map(lambda j: j.name, jobs):
+        raise ResumeException("Stop after: unkown stage '{0}'"
+                                .format(args.stop_after))
+
     current_job = 0
     if args.resume or args.resume_from:
         if not os.path.exists(save_file):
@@ -553,6 +560,11 @@ def _run(args):
     for i in xrange(current_job, len(jobs)):
         jobs[i].save(save_file)
         jobs[i].run()
+        if args.stop_after == jobs[i].name:
+            if i + 1 < len(jobs):
+                jobs[i + 1].save(save_file)
+            logger.info("Pipeline stopped as requested by --stop-after")
+            break
 
 
 def _enable_logging(log_file, debug, overwrite):
@@ -584,7 +596,8 @@ def _usage():
             "\t     --genome-size SIZE --out-dir PATH\n"
             "\t     [--threads int] [--iterations int] [--min-overlap int]\n"
             "\t     [--meta] [--plasmids] [--no-trestle] [--polish-target]\n"
-            "\t     [--debug] [--version] [--help] [--resume]")
+            "\t     [--debug] [--version] [--help] [--resume] \n"
+            "\t     [--resume-from] [--stop-after]")
 
 
 def _epilog():
@@ -689,6 +702,8 @@ def main():
                         help="resume from the last completed stage")
     parser.add_argument("--resume-from", dest="resume_from", metavar="stage_name",
                         default=None, help="resume from a custom stage")
+    parser.add_argument("--stop-after", dest="stop_after", metavar="stage_name",
+                        default=None, help="stop after the specified stage completed")
     #parser.add_argument("--kmer-size", dest="kmer_size",
     #                    type=lambda v: check_int_range(v, 11, 31, require_odd=True),
     #                    default=None, help="kmer size (default: auto)")

@@ -59,6 +59,8 @@ DinucleotideFixer::getDinucleotideRuns(const std::string& sequence) const
 {
 	int maxRun = 0;
 	int maxPos = 0;
+	if (sequence.length() < 2) return {0, 0};
+
 	for (size_t shift = 0; shift < 2; ++shift)
 	{
 		std::string prevDinuc = "--";

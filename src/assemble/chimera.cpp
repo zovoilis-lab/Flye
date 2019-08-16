@@ -110,7 +110,7 @@ std::vector<int32_t>
 {
 	static const int WINDOW = Config::get("chimera_window");
 	//const int FLANK = (int)Config::get("maximum_overhang") / WINDOW;
-	const int FLANK = 2;
+	const int FLANK = 1;
 
 	std::vector<int> coverage;
 	int numWindows = std::ceil((float)_seqContainer.seqLen(readId) / WINDOW) + 1;
@@ -173,18 +173,28 @@ bool ChimeraDetector::testReadByCoverage(FastaRecord::Id readId,
 	}
 
 	int32_t goodStart = 0;
-	for (; goodStart < (int)coverage.size(); ++goodStart)
-	{
-		if (coverage[goodStart] >= threshold) break;
-		if (goodStart > 0 && coverage[goodStart] < coverage[goodStart - 1]) break;
-	}
 	int32_t goodEnd = coverage.size() - 1;
-	for (; goodEnd >= 0; --goodEnd)
+	if (!Parameters::get().unevenCoverage)
 	{
-		if (coverage[goodEnd] >= threshold) break;
-		if (goodEnd > 0 && coverage[goodEnd] > coverage[goodEnd - 1]) break;
+		const int MAX_FLANK = (int)Config::get("maximum_overhang") / 
+								Config::get("chimera_window");
+		goodStart = MAX_FLANK;
+		goodEnd = coverage.size() - MAX_FLANK - 1;
 	}
-
+	else
+	{
+		for (goodEnd = 0; goodStart < (int)coverage.size(); ++goodStart)
+		{
+			if (coverage[goodStart] >= threshold) break;
+			if (goodStart > 0 && coverage[goodStart] < coverage[goodStart - 1]) break;
+		}
+		for (goodEnd = coverage.size() - 1; goodEnd >= 0; --goodEnd)
+		{
+			if (coverage[goodEnd] >= threshold) break;
+			if (goodEnd > 0 && coverage[goodEnd] > coverage[goodEnd - 1]) break;
+		}
+	}
+	
 	bool lowCoverage = false;
 	if (goodEnd <= goodStart) lowCoverage = true;
 	for (int32_t i = goodStart; i <= goodEnd; ++i)

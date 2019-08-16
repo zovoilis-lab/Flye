@@ -1233,6 +1233,7 @@ def _read_alignment(alignment, target_path, min_aln_rate):
         if ctg_id is None:
             break
         alignments.append(ctg_aln)
+    aln_reader.stop_reading()
     
     return alignments
 
@@ -1343,7 +1344,7 @@ def _collapse(aln_one, aln_two):
                             out_qry_end, aln_one.qry_sign, aln_one.qry_len, 
                             aln_one.trg_start, out_trg_end, aln_one.trg_sign, 
                             aln_one.trg_len, out_qry_seq, out_trg_seq, 
-                            out_err_rate)
+                            out_err_rate, is_secondary=False)
         return out_aln
     elif (aln_two.qry_start <= aln_one.qry_start and 
             aln_two.trg_start <= aln_one.trg_start):
@@ -1374,7 +1375,7 @@ def _collapse(aln_one, aln_two):
                             out_qry_end, aln_one.qry_sign, aln_one.qry_len, 
                             aln_two.trg_start, out_trg_end, aln_one.trg_sign, 
                             aln_one.trg_len, out_qry_seq, out_trg_seq, 
-                            out_err_rate)
+                            out_err_rate, is_secondary=False)
         return out_aln
     return out_aln
 
@@ -1411,10 +1412,10 @@ def _overlap_to_aln_ind(overlap, aln):
     return len(aln)
 
 
-class EdgeAlignment:
+class EdgeAlignment(object):
     __slots__ = ("edge_id", "qry_seq", "trg_seq", "qry_start", "trg_start", 
-                 "trg_end", "in_alignment", "curr_aln_ind", "curr_qry_nuc", 
-                 "curr_trg_nuc", "curr_ins_nuc")
+                 "trg_end", "in_alignment", "curr_aln_ind", "curr_qry_ind",
+                 "curr_qry_nuc", "curr_trg_nuc", "curr_ins_nuc")
 
     def __init__(self, edge_id, qry_seq, trg_seq, qry_start, trg_start, 
                  trg_end):

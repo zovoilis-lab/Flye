@@ -206,6 +206,24 @@ int RepeatResolver::resolveConnections(const std::vector<Connection>& connection
 	return uniqueConnections.size();
 }
 
+bool RepeatResolver::checkForTandemCopies(const GraphEdge* checkEdge,
+										  const std::vector<GraphAlignment>& alignments)
+{
+	const int NEEDED_READS = 5;
+	int readEvidence = 0;
+	for (const auto& aln: alignments)
+	{
+		int numCopies = 0;
+		//only copies fully covered by reads
+		for (size_t i = 1; i < aln.size() - 1; ++i)
+		{
+			if (aln[i].edge == checkEdge) ++numCopies;
+		}
+		if (numCopies > 1) ++readEvidence;
+	}
+	return readEvidence >= NEEDED_READS;
+}
+
 bool RepeatResolver::checkByReadExtension(const GraphEdge* checkEdge,
 										  const std::vector<GraphAlignment>& alignments)
 {
@@ -343,55 +361,79 @@ void RepeatResolver::findRepeats()
 		for (auto& edge : path->path) edge->repetitive = true;
 	};
 
+	//first simlplier conditions without read alignment
 	for (auto& path : unbranchingPaths)
 	{
 		if (!path.id.strand()) continue;
 
 		//mark paths with high coverage as repetitive
-		if (!Parameters::get().unevenCoverage)
+		if (!Parameters::get().unevenCoverage &&
+			path.meanCoverage > _multInf.getUniqueCovThreshold())
 		{
-			if (path.meanCoverage > _multInf.getUniqueCovThreshold())
-			{
-				markRepetitive(&path);
-				markRepetitive(complPath(&path));
-				Logger::get().debug() << "Cov: " 
-					<< path.edgesStr() << "\t" << path.length << "\t" 
-					<< path.meanCoverage;
-			}
+			markRepetitive(&path);
+			markRepetitive(complPath(&path));
+			Logger::get().debug() << "High-cov: " 
+				<< path.edgesStr() << "\t" << path.length << "\t" 
+				<< path.meanCoverage;
 		}
 
-		//self-complements are repetitive
+		//don't trust short loops, since they might contain unglued tandem
+		//repeat variations
+		const int MIN_RELIABLE_LOOP = 5000;
+		if (path.isLooped() && path.length < MIN_RELIABLE_LOOP)
+		{
+			markRepetitive(&path);
+			markRepetitive(complPath(&path));
+			Logger::get().debug() << "Short-loop: " << path.edgesStr();
+		}
+
+		//mask self-complements
 		for (auto& edge : path.path)
 		{
 			if (edge->selfComplement)
 			{
-				Logger::get().debug() << "Self-compl: " << path.edgesStr();
 				markRepetitive(&path);
 				markRepetitive(complPath(&path));
+				Logger::get().debug() << "Self-compl: " << path.edgesStr();
 				break;
 			}
 		}
 
-		//This was kinda hacky originally - probably should be removed now
-		//with all other repeat detection improvements
-		//tandem repeats
-		/*if (path.path.size() == 1 && path.path.front()->isLooped())
+		//mask haplo-edges so they don't mess up repeat resolution
+		for (auto& edge : path.path)
 		{
-			std::unordered_set<FastaRecord::Id> seen;
-			for (auto& seg : path.path.front()->seqSegments)
+			if (edge->altHaplotype)
 			{
-				if (seen.count(seg.origSeqId))
-				{
-					markRepetitive(&path);
-					markRepetitive(complPath(&path));
-					Logger::get().debug() << "Tan: " 
-						<< path.edgesStr() << "\t" << path.length << "\t" 
-						<< path.meanCoverage;
-					break;
-				}
-				seen.insert(seg.origSeqId);
+				markRepetitive(&path);
+				markRepetitive(complPath(&path));
+				Logger::get().debug() << "Haplo-edge: " << path.edgesStr();
+				break;
 			}
-		}*/
+		}
+
+		//mask unreliable edges with low coverage
+		for (auto& edge : path.path)
+		{
+			if (edge->unreliable)
+			{
+				markRepetitive(&path);
+				markRepetitive(complPath(&path));
+				Logger::get().debug() << "Unreliable: " << path.edgesStr();
+				break;
+			}
+		}
+
+		//mask edges that appear multiple times within single reads
+		for (auto& edge : path.path)
+		{
+			if (!edge->repetitive && this->checkForTandemCopies(edge, alnIndex[edge]))
+			{
+				markRepetitive(&path);
+				markRepetitive(complPath(&path));
+				Logger::get().debug() << "Tandem: " << path.edgesStr();
+				break;
+			}
+		}
 	}
 
 	//Finally, using the read alignments
@@ -434,31 +476,6 @@ void RepeatResolver::findRepeats()
 			}
 		}
 	}
-
-	//now, check for this structure >-<, in case read alignments were not enough
-	/*for (auto& path : sortedPaths)
-	{
-		if (path->path.front()->repetitive || path->isLooped()) continue;
-		if (path->path.front()->nodeLeft->outEdges.size() > 1 ||
-			path->path.back()->nodeRight->inEdges.size() > 1) continue;
-
-		int numIn = 0;
-		int numOut = 0;
-		for (auto& edge: path->path.front()->nodeLeft->inEdges)
-		{
-			if (!edge->repetitive) ++numIn;
-		}
-		for (auto& edge: path->path.back()->nodeRight->outEdges)
-		{
-			if (!edge->repetitive) ++numOut;
-		}
-		if (numIn > 1 && numOut > 1)
-		{
-			Logger::get().debug() << "Structure: " << path->edgesStr();
-			markRepetitive(path);
-			markRepetitive(complPath(path));
-		}
-	}*/
 }
 
 void RepeatResolver::finalizeGraph()
@@ -505,18 +522,18 @@ void RepeatResolver::finalizeGraph()
 //no new repeats are resolved
 void RepeatResolver::resolveRepeats()
 {
-	//make the first iteration resolve only high-confidence connections
+	const float MIN_SUPPORT = Config::get("min_repeat_res_support");
 	while (true)
 	{
-		float minSupport = Config::get("min_repeat_res_support");
 		auto connections = this->getConnections();
 		int resolvedConnections = 
-			this->resolveConnections(connections, minSupport);
+			this->resolveConnections(connections, MIN_SUPPORT);
 
 		this->clearResolvedRepeats();
+		_multInf.trimTips();
+		this->findRepeats();
 		
 		if (!resolvedConnections) break;
-		this->findRepeats();
 	}
 
 	GraphProcessor proc(_graph, _asmSeqs);
@@ -564,6 +581,10 @@ std::vector<RepeatResolver::Connection>
 			{
 				if (!currentAln.back().edge->nodeLeft->isBifurcation() &&
 					!currentAln.front().edge->nodeRight->isBifurcation()) continue;
+
+				//don't connect edges if they both were previously repetitive
+				if (currentAln.back().edge->resolved &&
+					currentAln.front().edge->resolved) continue;
 
 				//if (currentAln.front().overlap.seqDivergence > 0.15 ||
 				//	currentAln.back().overlap.seqDivergence > 0.15) continue;

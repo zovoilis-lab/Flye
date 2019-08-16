@@ -32,12 +32,14 @@ def main():
     log_file = os.path.join(args.out_dir, "flye.log")
 
     cmd = [flye_repeat_bin]
-    cmd.extend(["-v", str(args.min_overlap)])
-    cmd.extend(["-t", str(args.threads)])
-    cmd.extend(["-l", log_file])
-    cmd.extend(["-m", args.match_mode])
-    cmd.extend(["-o", str(args.max_divergence)])
-    cmd.extend([args.input_assembly, "-", args.out_dir, config])
+    cmd.extend(["--min-ovlp", str(args.min_overlap)])
+    cmd.extend(["--threads", str(args.threads)])
+    cmd.extend(["--log", log_file])
+    cmd.extend(["--match-mode", args.match_mode])
+    cmd.extend(["--max-divergence", str(args.max_divergence)])
+    cmd.extend(["--input-seq", args.input_assembly])
+    cmd.extend(["--config", config])
+    cmd.extend(["--out-dir", args.out_dir])
     print(" ".join(cmd))
     subprocess.check_call(cmd)
 

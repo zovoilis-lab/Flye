@@ -219,7 +219,7 @@ The main output files are:
 
 * `assembly.fasta` - Final assembly. Contains contigs and possibly scaffolds (see below).
 * `assembly_graph.{gfa|gv}` - Final repeat graph. Note that the edge sequences might be
-different (shorter) than contig sequences, because contigs migh include multiple
+different (shorter) than contig sequences, because contigs might include multiple
 graph edges (see below).
 * `assembly_info.txt` - Extra information about contigs (such as length or coverage).
 
@@ -260,7 +260,7 @@ repeat graphs are built using approximate sequence matches, thus
 can tollerate higher noise of SMS reads.
 
 The edges of repeat graph represent genomic sequence, and nodes define
-the junctions. All edges are classified into uniquue and repetitive.
+the junctions. All edges are classified into unique and repetitive.
 The genome traverses the graph in an unknown way, so as each unique
 edge appears exactly once in this traversal. Repeat graphs are useful
 for repeat analysis and resolution - which are one of the key 
@@ -291,17 +291,20 @@ the `20-repeat/graph_before_rr.gv` file.
 
 ## <a name="performance"></a> Flye benchmarks
 
-
-| Genome                   | Data       | Asm.Size  | NG50     | CPU time  | RAM    |
-|--------------------------|------------|-----------|----------|-----------|--------|
-| [E.coli][ecoli]          | PB 50x     | 4.6 Mb    | 4.6 Mb   | 2 h       | 2 Gb   |
-| [C.elegans][ce]          | PB 40x     | 102 Mb    | 2.9 Mb   | 100 h     | 31 Gb  |
-| [A.thaliana][at]         | PB 75x     | 120 Mb    | 11.2 Mb  | 240 h     | 46 Gb  |
-| [D.melanogaster][dm-ont] | ONT 30x    | 143 Mb    | 13.2 Mb  | 130 h     | 31 Gb  |     
-| [D.melanogaster][dm-pb]  | PB 120x    | 142 Mb    | 17.5 Mb  | 190 h     | 75 Gb  |     
-| [NA12878][na12878]       | ONT UL 35x | 2.9 Gb    | 20.8 Mb  | 5000 h    | 600 Gb |
-| [HG002][hg002]           | PB CCS 30x | 2.9 Gb    | 24.6 Mb  | 900 h     | 300 Gb |
-| [HMP mock][hmp]          | PB meta    | 66 Mb     | 2.7 Mb   | 60 h      | 44 Gb  |
+| Genome                   | Data           | Asm.Size  | NG50     | CPU time  | RAM    |
+|--------------------------|----------------|-----------|----------|-----------|--------|
+| [E.coli][ecoli]          | PB 50x         | 4.6 Mb    | 4.6 Mb   | 2 h       | 2 Gb   |
+| [C.elegans][ce]          | PB 40x         | 102 Mb    | 2.9 Mb   | 100 h     | 31 Gb  |
+| [A.thaliana][at]         | PB 75x         | 120 Mb    | 10.7 Mb  | 100 h     | 46 Gb  |
+| [D.melanogaster][dm-ont] | ONT 30x        | 139 Mb    | 17.5 Mb  | 130 h     | 31 Gb  |     
+| [D.melanogaster][dm-pb]  | PB 120x        | 142 Mb    | 17.5 Mb  | 150 h     | 75 Gb  |     
+| [Human NA12878][na12878] | ONT 35x (rel6) | 2.9 Gb    | 22.6 Mb  | 2500 h    | 714 Gb |
+| [Human CHM13 T2T][t2t]   | ONT 50x (rel2) | 2.9 Gb    | 57.9 Mb  | 3600 h    | 871 Gb |
+| [Human HG002][hg002]     | PB CCS 30x     | 2.9 Gb    | 30.4 Mb  | 1400 h    | 272 Gb |
+| [Human CHM1][chm1]       | PB 100x        | 2.8 Gb    | 18.8 Mb  | 2700 h    | 676 Gb |
+| [HMP mock][hmp]          | PB meta 7 Gb   | 66 Mb     | 2.6 Mb   | 60 h      | 72 Gb  |
+| [Zymo Even][zymo]        | ONT meta 14 Gb | 64 Mb     | 0.6 Mb   | 60 h      | 129 Gb |
+| [Zymo Log][zymo]         | ONT meta 16 Gb | 23 Mb     | 1.3 Mb   | 100 h     | 76 Gb  |
 
 [na12878]: https://github.com/nanopore-wgs-consortium/NA12878/blob/master/Genome.md
 [ce]: https://github.com/PacificBiosciences/DevNet/wiki/C.-elegans-data-set
@@ -311,8 +314,15 @@ the `20-repeat/graph_before_rr.gv` file.
 [hg002]: https://ftp-trace.ncbi.nlm.nih.gov/giab/ftp/data/AshkenazimTrio/HG002_NA24385_son/PacBio_CCS_15kb/
 [ecoli]: https://github.com/PacificBiosciences/DevNet/wiki/E.-coli-Bacterial-Assembly
 [hmp]: https://github.com/PacificBiosciences/DevNet/wiki/Human_Microbiome_Project_MockB_Shotgun 
+[chm1]: https://trace.ncbi.nlm.nih.gov/Traces/sra/?study=SRP044331
+[t2t]: https://github.com/nanopore-wgs-consortium/CHM13
+[zymo]: https://github.com/LomanLab/mockcommunity
 
-The assemblies generated using Flye 2.4 could be downloaded from [Zenodo](https://zenodo.org/record/2586130)
+The assemblies generated using Flye 2.5 could be downloaded from [Zenodo](https://zenodo.org/record/3353665).
+All datasets were run with default parameters with the following exceptions:
+CHM13 T2T was run with `--min-overlap 10000`; CHM1 was run with `--asm-overage 40`;
+HG002 was run with maximum read error rate set to 1%.
+
 
 ## <a name="algorithm"></a> Algorithm Description
 
@@ -341,7 +351,7 @@ Finally, Flye performs polishing of the resulting assembly
 to correct the remaining errors:
 
 * Alignment of all reads to the current assembly using minimap2
-* Partition the alignment into into mini-alignments (bubbles)
+* Partition the alignment into mini-alignments (bubbles)
 * Error correction of each bubble using a maximum likelihood approach
 
 The polishing steps could be repeated, which might slightly increase quality for some datasets.

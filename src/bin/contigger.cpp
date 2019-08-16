@@ -24,74 +24,98 @@
 
 bool parseArgs(int argc, char** argv, std::string& readsFasta, 
 			   std::string& outFolder, std::string& logFile, 
-			   std::string& inAssembly, int& kmerSize,
+			   std::string& inGraphEdges, int& kmerSize,
 			   int& minOverlap, bool& debug, size_t& numThreads, 
 			   std::string& configPath, std::string& inRepeatGraph,
 			   std::string& inReadsAlignment)
 {
 	auto printUsage = [argv]()
 	{
-		std::cerr << "Usage: " << argv[0]
-				  << " in_assembly reads_files out_folder config_path\n\t\t"
-				  << "repeat_graph reads_alignment\n\t\t"
-				  << "[-l log_file] [-t num_threads] [-v min_overlap] [-d]\n\n"
-				  << "positional arguments:\n"
-				  << "\tin_assembly\tpath to input assembly\n"
-				  << "\treads_files\tcomma-separated list with reads\n"
-				  << "\tout_assembly\tpath to output assembly\n"
-				  << "\tconfig_path\tpath to config file\n"
-				  << "\trepeat_graph\tpath to repeat graph file\n"
-				  << "\treads_alignment\tpath to reads alignment file\n"
-				  << "\noptional arguments:\n"
-				  << "\t-k kmer_size\tk-mer size [default = 15] \n"
-				  << "\t-v min_overlap\tminimum overlap between reads "
+		std::cerr << "Usage: flye-contigger "
+				  << " --graph-edges path --reads path --out-dir path --config path\n"
+				  << "\t\t--repeat-graph path --graph-aln path\n"
+				  << "\t\t[--log path] [--treads num] [--kmer size] [--meta]\n"
+				  << "\t\t[--min-ovlp size] [--debug] [-h]\n\n"
+				  << "Required arguments:\n"
+				  << "  --graph-edges path\tpath to fasta with graph edges\n"
+				  << "  --repeat-graph path\tpath to serialized repeat graph\n"
+				  << "  --graph-aln path\tpath to read-graph alignment\n"
+				  << "  --reads path\tcomma-separated list of read files\n"
+				  << "  --out-dir path\tpath to output directory\n"
+				  << "  --config path\tpath to the config file\n\n"
+				  << "Optional arguments:\n"
+				  << "  --kmer size\tk-mer size [default = 15] \n"
+				  << "  --min-ovlp size\tminimum overlap between reads "
 				  << "[default = 5000] \n"
-				  << "\t-d \t\tenable debug output "
+				  << "  --debug \t\tenable debug output "
 				  << "[default = false] \n"
-				  << "\t-l log_file\toutput log to file "
+				  << "  --meta \t\tenable uneven coverage (metagenome) mode "
+				  << "[default = false] \n"
+				  << "  --log log_file\toutput log to file "
 				  << "[default = not set] \n"
-				  << "\t-t num_threads\tnumber of parallel threads "
+				  << "  --threads num_threads\tnumber of parallel threads "
 				  << "[default = 1] \n";
 	};
+	
+	int optionIndex = 0;
+	static option longOptions[] =
+	{
+		{"graph-edges", required_argument, 0, 0},
+		{"reads", required_argument, 0, 0},
+		{"out-dir", required_argument, 0, 0},
+		{"config", required_argument, 0, 0},
+		{"repeat-graph", required_argument, 0, 0},
+		{"graph-aln", required_argument, 0, 0},
+		{"log", required_argument, 0, 0},
+		{"threads", required_argument, 0, 0},
+		{"kmer", required_argument, 0, 0},
+		{"min-ovlp", required_argument, 0, 0},
+		{"debug", no_argument, 0, 0},
+		{0, 0, 0, 0}
+	};
 
-	const char optString[] = "l:t:v:k:hd";
 	int opt = 0;
-	while ((opt = getopt(argc, argv, optString)) != -1)
+	while ((opt = getopt_long(argc, argv, "h", longOptions, &optionIndex)) != -1)
 	{
 		switch(opt)
 		{
-		case 't':
-			numThreads = atoi(optarg);
+		case 0:
+			if (!strcmp(longOptions[optionIndex].name, "kmer"))
+				kmerSize = atoi(optarg);
+			else if (!strcmp(longOptions[optionIndex].name, "threads"))
+				numThreads = atoi(optarg);
+			else if (!strcmp(longOptions[optionIndex].name, "min-ovlp"))
+				minOverlap = atoi(optarg);
+			else if (!strcmp(longOptions[optionIndex].name, "log"))
+				logFile = optarg;
+			else if (!strcmp(longOptions[optionIndex].name, "debug"))
+				debug = true;
+			else if (!strcmp(longOptions[optionIndex].name, "reads"))
+				readsFasta = optarg;
+			else if (!strcmp(longOptions[optionIndex].name, "out-dir"))
+				outFolder = optarg;
+			else if (!strcmp(longOptions[optionIndex].name, "graph-edges"))
+				inGraphEdges = optarg;
+			else if (!strcmp(longOptions[optionIndex].name, "repeat-graph"))
+				inRepeatGraph = optarg;
+			else if (!strcmp(longOptions[optionIndex].name, "graph-aln"))
+				inReadsAlignment = optarg;
+			else if (!strcmp(longOptions[optionIndex].name, "config"))
+				configPath = optarg;
 			break;
-		case 'v':
-			minOverlap = atoi(optarg);
-			break;
-		case 'k':
-			kmerSize = atoi(optarg);
-			break;
-		case 'l':
-			logFile = optarg;
-			break;
-		case 'd':
-			debug = true;
-			break;
+
 		case 'h':
 			printUsage();
 			exit(0);
 		}
 	}
-	if (argc - optind != 6)
+	if (readsFasta.empty() || outFolder.empty() || 
+		inGraphEdges.empty() || configPath.empty() ||
+		inRepeatGraph.empty() || inReadsAlignment.empty())
 	{
 		printUsage();
 		return false;
 	}
-
-	inAssembly = *(argv + optind);
-	readsFasta = *(argv + optind + 1);
-	outFolder = *(argv + optind + 2);
-	configPath = *(argv + optind + 3);
-	inRepeatGraph = *(argv + optind + 4);
-	inReadsAlignment = *(argv + optind + 5);
 
 	return true;
 }
@@ -108,13 +132,13 @@ int main(int argc, char** argv)
 	int kmerSize = 15;
 	int minOverlap = 5000;
 	std::string readsFasta;
-	std::string inAssembly;
+	std::string inGraphEdges;
 	std::string inRepeatGraph;
 	std::string inReadsAlignment;
 	std::string outFolder;
 	std::string logFile;
 	std::string configPath;
-	if (!parseArgs(argc, argv, readsFasta, outFolder, logFile, inAssembly,
+	if (!parseArgs(argc, argv, readsFasta, outFolder, logFile, inGraphEdges,
 				   kmerSize, minOverlap, debugging, 
 				   numThreads, configPath, inRepeatGraph, 
 				   inReadsAlignment))  return 1;
@@ -145,7 +169,7 @@ int main(int argc, char** argv)
 	std::vector<std::string> readsList = splitString(readsFasta, ',');
 	try
 	{
-		seqGraphEdges.loadFromFile(inAssembly);
+		seqGraphEdges.loadFromFile(inGraphEdges);
 		for (auto& readsFile : readsList)
 		{
 			seqReads.loadFromFile(readsFile);

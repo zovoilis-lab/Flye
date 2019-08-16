@@ -26,7 +26,8 @@ MINIMAP_BIN = "flye-minimap2"
 Alignment = namedtuple("Alignment", ["qry_id", "trg_id", "qry_start", "qry_end",
                                      "qry_sign", "qry_len", "trg_start",
                                      "trg_end", "trg_sign", "trg_len",
-                                     "qry_seq", "trg_seq", "err_rate"])
+                                     "qry_seq", "trg_seq", "err_rate",
+                                     "is_secondary"])
 
 ContigInfo = namedtuple("ContigInfo", ["id", "length", "type"])
 
@@ -35,10 +36,12 @@ class AlignmentException(Exception):
     pass
 
 
-class PafHit:
+class PafHit(object):
     """
     Stores paf alignment
     """
+    __slots__ = ("query", "query_length", "query_start", "query_end",
+                 "target", "target_length", "target_start", "target_end")
     def __init__(self, raw_hit):
         hit = raw_hit.split()
 
@@ -72,21 +75,42 @@ class PafHit:
 
 
 def read_paf(filename):
+    """
+    Streams out paf alignments
+    """
     hits = []
     with open(filename) as f:
         for raw_hit in f:
-            hits.append(PafHit(raw_hit))
+            yield PafHit(raw_hit)
 
-    return hits
+
+def read_paf_grouped(filename):
+    """
+    Outputs chunks of alignments for each (query, target)pair.
+    Assumes that PAF alignment is already sorted by query.
+    """
+    prev_hit = None
+    target_hits = defaultdict(list)
+    for hit in read_paf(filename):
+        if prev_hit is not None and hit.query != prev_hit.query:
+            for trg in sorted(target_hits):
+                yield target_hits[trg]
+            target_hits = defaultdict(list)
+
+        target_hits[hit.target].append(hit)
+        prev_hit = hit
+
+    if len(target_hits):
+        for trg in sorted(target_hits):
+            yield target_hits[trg]
 
 
 class SynchronizedSamReader(object):
     """
-    Parses SAM file in multiple threads. Filters out secondary alignments,
-    but keeps supplementary (split) alignments
+    Parses SAM file in multiple threads.
     """
     def __init__(self, sam_alignment, reference_fasta,
-                 max_coverage=None):
+                 max_coverage=None, use_secondary=False):
         #will not be changed during exceution, each process has its own copy
         self.aln_path = sam_alignment
         self.aln_file = None
@@ -94,6 +118,7 @@ class SynchronizedSamReader(object):
         self.change_strand = True
         self.max_coverage = max_coverage
         self.seq_lengths = {}
+        self.use_secondary = use_secondary
 
         #reading SAM header
         if not os.path.exists(self.aln_path):
@@ -126,6 +151,12 @@ class SynchronizedSamReader(object):
         self.aln_file = open(self.aln_path, "r")
         self.processed_contigs = set()
         self.cigar_parser = re.compile("[0-9]+[MIDNSHP=X]")
+
+    def stop_reading(self):
+        """
+        Call when the reading is done
+        """
+        self.aln_file.close()
 
     def is_eof(self):
         return self.eof.value
@@ -226,7 +257,9 @@ class SynchronizedSamReader(object):
                 is_secondary = flags & 0x100
                 is_supplementary = flags & 0x800    #allow supplementary
 
-                if is_unmapped or is_secondary: continue
+                #if is_unmapped or is_secondary: continue
+                if is_unmapped: continue
+                if is_secondary and not self.use_secondary: continue
                 if read_contig in self.processed_contigs:
                     raise AlignmentException("Alignment file is not sorted")
 
@@ -258,6 +291,10 @@ class SynchronizedSamReader(object):
             ctg_pos = int(tokens[3])
             flags = int(tokens[1])
             is_reversed = flags & 0x16
+            is_secondary = flags & 0x100
+
+            if read_str == "*":
+                raise Exception("Error parsing SAM: record without read sequence")
 
             (trg_start, trg_end, trg_len, trg_seq,
             qry_start, qry_end, qry_len, qry_seq, err_rate) = \
@@ -269,7 +306,7 @@ class SynchronizedSamReader(object):
             aln = Alignment(read_id, read_contig, qry_start,
                             qry_end, "-" if is_reversed else "+",
                             qry_len, trg_start, trg_end, "+", trg_len,
-                            qry_seq, trg_seq, err_rate)
+                            qry_seq, trg_seq, err_rate, is_secondary)
             alignments.append(aln)
 
             sequence_length += qry_end - qry_start
@@ -303,29 +340,96 @@ def make_alignment(reference_file, reads_file, num_proc,
                  out_alignment, sam_output)
 
     if sam_output:
-        #logger.debug("Sorting alignment file")
-        sorted_file = out_alignment + "_sorted"
-        merged_file = out_alignment + "_merged"
-        env = os.environ.copy()
-        env["LC_ALL"] = "C"
-        subprocess.check_call(["sort", "-k", "3,3", "-T", work_dir, out_alignment],
-                              stdout=open(sorted_file, "w"), env=env)
+        _preprocess_sam(out_alignment, work_dir)
 
-        #puting back SAM headers
-        with open(merged_file, "w") as f:
-            for line in open(out_alignment, "r"):
-                if not _is_sam_header(line):
-                    break
-                f.write(line)
 
-            os.remove(out_alignment)
+def _preprocess_sam(sam_file, work_dir):
+    """
+    Proprocesses minimap2 output by adding SEQ
+    to secondary alignments, removing
+    unaligned reads and then sorting
+    file by reference sequence id
+    """
+    expanded_sam = sam_file + "_expanded"
+    merged_file = sam_file + "_merged"
+    sorted_file = sam_file + "_sorted"
 
-            for line in open(sorted_file, "r"):
-                if not _is_sam_header(line):
-                    f.write(line)
+    #puting SAM headers to the final postprocessed file first
+    with open(sam_file, "r") as hdr_in, open(merged_file, "w") as fout:
+        for line in hdr_in:
+            if not _is_sam_header(line):
+                break
+            fout.write(line)
 
-        os.remove(sorted_file)
-        os.rename(merged_file, out_alignment)
+    #adding SEQ fields to secondary alignments
+    with open(sam_file, "r") as fin, open(expanded_sam, "w") as fout:
+        prev_id = None
+        prev_seq = None
+        primary_reversed = None
+        for line in fin:
+            if _is_sam_header(line):
+                continue
+
+            tokens = line.strip().split()
+            flags = int(tokens[1])
+            is_unmapped = flags & 0x4
+            is_secondary = flags & 0x100
+            is_supplementary = flags & 0x800
+            is_reversed = flags & 0x16
+
+            if is_unmapped:
+                continue
+
+            read_id, cigar_str, read_seq = tokens[0], tokens[5], tokens[9]
+            has_hard_clipped = "H" in cigar_str
+
+            #Checking format assumptions
+            if has_hard_clipped:
+                if is_secondary:
+                    raise Exception("Secondary alignment with hard-clipped bases")
+                if not is_supplementary:
+                    raise Exception("Primary alignment with hard-clipped bases")
+            if not is_secondary and read_seq == "*":
+                raise Exception("Missing SEQ for non-secondary alignment")
+
+            if read_seq == "*":
+                if read_id != prev_id:
+                    raise Exception("SAM file is not sorted by read names")
+                if is_reversed == primary_reversed:
+                    tokens[9] = prev_seq
+                else:
+                    tokens[9] = fp.reverse_complement(prev_seq)
+
+            #Assuming that the first read alignmnent in SAM is primary
+            elif prev_id != read_id:
+                if has_hard_clipped:
+                    raise Exception("Hard clipped bases in the primamry read")
+                prev_id = read_id
+                prev_seq = read_seq
+                primary_reversed = is_reversed
+
+            fout.write("\t".join(tokens) + "\n")
+
+    #don't need the original SAM anymore, cleaning up space
+    os.remove(sam_file)
+
+    #logger.debug("Sorting alignment file")
+    env = os.environ.copy()
+    env["LC_ALL"] = "C"
+    subprocess.check_call(["sort", "-k", "3,3", "-T", work_dir, expanded_sam],
+                          stdout=open(sorted_file, "w"), env=env)
+
+    #don't need the expanded file anymore
+    os.remove(expanded_sam)
+
+    #appending to the final file, that already contains headers
+    with open(sorted_file, "r") as sort_in, open(merged_file, "a") as fout:
+        for line in sort_in:
+            if not _is_sam_header(line):
+                fout.write(line)
+
+    os.remove(sorted_file)
+    os.rename(merged_file, sam_file)
 
 
 def get_contigs_info(contigs_file):
@@ -364,6 +468,67 @@ def shift_gaps(seq_trg, seq_qry):
             gap_start = i
 
     return "".join(lst_qry[1 : -1])
+
+
+def get_uniform_alignments(alignments, seq_len):
+    """
+    Leaves top alignments for each position within contig
+    assuming uniform coverage distribution
+    """
+    def _get_median(lst):
+        if not lst:
+            raise ValueError("_get_median() arg is an empty sequence")
+        sorted_list = sorted(lst)
+        if len(lst) % 2 == 1:
+            return sorted_list[len(lst)/2]
+        else:
+            mid1 = sorted_list[(len(lst)/2) - 1]
+            mid2 = sorted_list[(len(lst)/2)]
+            return float(mid1 + mid2) / 2
+
+    WINDOW = 100
+    MIN_COV = 10
+    COV_RATE = 1.25
+
+    #split contig into windows, get median read coverage over all windows and
+    #determine the quality threshold cutoffs for each window
+    wnd_primary_cov = [0 for _ in xrange(seq_len / WINDOW + 1)]
+    wnd_aln_quality = [[] for _ in xrange(seq_len / WINDOW + 1)]
+    wnd_qual_thresholds = [1.0 for _ in xrange(seq_len / WINDOW + 1)]
+    for aln in alignments:
+        for i in xrange(aln.trg_start / WINDOW, aln.trg_end / WINDOW):
+            if not aln.is_secondary:
+                wnd_primary_cov[i] += 1
+            wnd_aln_quality[i].append(aln.err_rate)
+
+    #for each window, select top X alignmetns, where X is the median read coverage
+    cov_threshold = max(int(COV_RATE * _get_median(wnd_primary_cov)), MIN_COV)
+    for i in xrange(len(wnd_aln_quality)):
+        if len(wnd_aln_quality[i]) > cov_threshold:
+            wnd_qual_thresholds[i] = sorted(wnd_aln_quality[i])[cov_threshold]
+
+    #for each alignment, count in how many windows it passes the threshold
+    filtered_alignments = []
+    total_sequence = 0
+    filtered_sequence = 0
+    for aln in alignments:
+        good_windows = 0
+        total_windows = aln.trg_end / WINDOW - aln.trg_start / WINDOW
+        total_sequence += aln.trg_end - aln.trg_start
+        for i in xrange(aln.trg_start / WINDOW, aln.trg_end / WINDOW):
+            if aln.err_rate <= wnd_qual_thresholds[i]:
+                good_windows += 1
+
+        if good_windows > total_windows / 2:
+            filtered_alignments.append(aln)
+            filtered_sequence += aln.trg_end - aln.trg_start
+
+    filtered_reads_rate = 1 - float(len(filtered_alignments)) / len(alignments)
+    filtered_seq_rate = 1 - float(filtered_sequence) / total_sequence
+    #logger.debug("Filtered {0:7.2f}% reads, {1:7.2f}% sequence"
+    #                .format(filtered_reads_rate * 100, filtered_seq_rate * 100))
+
+    return filtered_alignments
 
 
 def split_into_chunks(fasta_in, chunk_size):
@@ -405,8 +570,6 @@ def merge_chunks(fasta_in, fold_function=lambda l: "".join(l)):
             cur_contig = orig_name
         cur_seq.append(fasta_in[hdr])
 
-        #print (hdr, orig_name, chunk_id)
-
     if cur_seq:
         out_dict[cur_contig] = fold_function(cur_seq)
 
@@ -419,15 +582,9 @@ def _run_minimap(reference_file, reads_files, num_proc, mode, out_file,
     cmdline.extend(reads_files)
     cmdline.extend(["-x", mode, "-t", str(num_proc)])
     if sam_output:
-        cmdline.append("-a")
-    """
-    cmdline.extend(["-Q", "-w5", "-m100", "-g10000", "--max-chain-skip",
-                    "25", "-t", str(num_proc)])
-    if platform == "nano":
-        cmdline.append("-k15")
-    else:
-        cmdline.append("-Hk19")
-    """
+        #a = SAM output, p = min primary-to-seconday score
+        #N = max secondary alignments
+        cmdline.extend(["-a", "-p", "0.7", "-N", "10"])
 
     try:
         devnull = open(os.devnull, "w")

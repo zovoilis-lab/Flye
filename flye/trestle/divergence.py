@@ -21,7 +21,7 @@ import flye.config.py_cfg as config
 
 logger = logging.getLogger()
 
-class Profile:
+class Profile(object):
     __slots__ = ("insertions", "matches", "nucl")
 
     def __init__(self):
@@ -44,6 +44,8 @@ def _thread_worker(aln_reader, contigs_info, platform, results_queue,
                                                   contigs_info[ctg_id].length)
             #sequence = _flatten_profile(profile)
             results_queue.put((ctg_id, profile, aln_errors))
+
+        aln_reader.stop_reading()
 
     except Exception as e:
         error_queue.put(e)

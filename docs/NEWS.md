@@ -1,4 +1,13 @@
-### Flye 2.4.2 release (06 Apr 2019)
+Flye 2.5 release (25 Jul 2019)
+==============================
+* Better ONT polishing for the latest basecallers (Guppy/flipflop)
+* Improved consensus quality of repetitive regions
+* More contiguous assemblies of real metagenomes
+* Improvements for human genome assemblies
+* Various bugfixes and performance optimizations
+
+Flye 2.4.2 release (06 Apr 2019)
+================================
 * Improvements in k-mer selection and tip clipping for metagenome assemblies
 * Better memory managment during consensus/polishing
 * Some bugfixes
