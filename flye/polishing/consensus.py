@@ -11,6 +11,7 @@ from __future__ import division
 import logging
 from collections import defaultdict
 from six.moves import range
+import six
 
 import multiprocessing
 import signal
@@ -161,10 +162,10 @@ def _flatten_profile(profile):
         pos_nucl = elem.nucl
 
         ins_group.clear()
-        for ins_str in pos_insertions.values():
+        for ins_str in six.itervalues(pos_insertions):
             ins_group[ins_str] += 1
 
-        coverage = sum(pos_matches.values())
+        coverage = sum(six.itervalues(pos_matches))
 
         max_match = pos_nucl
         if len(pos_matches):
