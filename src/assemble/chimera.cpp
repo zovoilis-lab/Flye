@@ -156,7 +156,7 @@ bool ChimeraDetector::testReadByCoverage(FastaRecord::Id readId,
 		sumCov += cov;
 	}
 	//int32_t meanCoverage = sumCov / coverage.size();
-	//int32_t medianCoverage = median(coverage);
+	int32_t medianCoverage = median(coverage);
 	if (sumCov == 0) return false;	//no overlaps found, but it's not chimeric either
 
 	int threshold = 0;	
@@ -169,19 +169,20 @@ bool ChimeraDetector::testReadByCoverage(FastaRecord::Id readId,
 	{
 		/*threshold = std::round((float)std::min(_overlapCoverage, maxCov) /
 							   MAX_DROP_RATE);*/
-		threshold = 1;
+		/*threshold = 1;*/
+		threshold = std::max(1L, std::lround(medianCoverage / MAX_DROP_RATE));
 	}
 
 	int32_t goodStart = 0;
 	int32_t goodEnd = coverage.size() - 1;
-	if (!Parameters::get().unevenCoverage)
-	{
-		const int MAX_FLANK = (int)Config::get("maximum_overhang") / 
-								Config::get("chimera_window");
-		goodStart = MAX_FLANK;
-		goodEnd = coverage.size() - MAX_FLANK - 1;
-	}
-	else
+	//if (!Parameters::get().unevenCoverage)
+	//{
+	const int MAX_FLANK = (int)Config::get("maximum_overhang") / 
+							Config::get("chimera_window");
+	goodStart = MAX_FLANK;
+	goodEnd = coverage.size() - MAX_FLANK - 1;
+	//}
+	/*else
 	{
 		for (goodEnd = 0; goodStart < (int)coverage.size(); ++goodStart)
 		{
@@ -193,7 +194,7 @@ bool ChimeraDetector::testReadByCoverage(FastaRecord::Id readId,
 			if (coverage[goodEnd] >= threshold) break;
 			if (goodEnd > 0 && coverage[goodEnd] > coverage[goodEnd - 1]) break;
 		}
-	}
+	}*/
 	
 	bool lowCoverage = false;
 	if (goodEnd <= goodStart) lowCoverage = true;
