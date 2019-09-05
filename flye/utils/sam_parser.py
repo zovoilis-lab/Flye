@@ -318,6 +318,8 @@ class SynchronizedSamReader(object):
                 if sequence_length // contig_length > self.max_coverage:
                     break
 
+        if parsed_contig is None:
+            return None, []
         return parsed_contig.decode(), alignments
 
 
