@@ -8,7 +8,6 @@ This module provides some basic FASTA I/O
 
 from __future__ import absolute_import
 import logging
-import os
 import gzip
 import io
 
@@ -203,7 +202,7 @@ def _to_acgt_bytes(dna_str):
             _to_acgt_bytes.ACGT_WARN = True
             logger.warning("Input contain non-ACGT characters - "
                            "they will be converted to arbitrary ACGTs")
-        return dna_str.translate(TO_ACGT)
+        return dna_str.translate(_to_acgt_bytes.TO_ACGT)
 _to_acgt_bytes.ACGT_WARN = False
 _to_acgt_bytes.ACGT_CHARS = b"ACGTacgt"
 _to_acgt_bytes.TO_ACGT = maketrans(b"URYKMSWBVDHNXurykmswbvdhnx",
