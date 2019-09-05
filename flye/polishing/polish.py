@@ -14,8 +14,8 @@ import os
 from collections import defaultdict
 
 from flye.polishing.alignment import (make_alignment, get_contigs_info,
-                                      SynchronizedSamReader, merge_chunks,
-                                      split_into_chunks)
+                                      merge_chunks, split_into_chunks)
+from flye.utils.sam_parser import SynchronizedSamReader
 from flye.polishing.bubbles import make_bubbles
 import flye.utils.fasta_parser as fp
 from flye.utils.utils import which

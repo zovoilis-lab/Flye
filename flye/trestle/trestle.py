@@ -17,7 +17,7 @@ import copy
 import multiprocessing, signal
 
 import flye.polishing.alignment as flye_aln
-from flye.polishing.alignment import Alignment
+from flye.utils.sam_parser import SynchronizedSamReader, Alignment
 import flye.utils.fasta_parser as fp
 import flye.config.py_cfg as config
 import flye.polishing.polish as pol
@@ -1142,9 +1142,9 @@ def partition_reads(edges, it, side, position_path, cons_align_path,
 
 def _read_alignment(alignment, target_path, min_aln_rate):
     alignments = []
-    aln_reader = flye_aln.SynchronizedSamReader(alignment,
-                                                fp.read_sequence_dict(target_path),
-                                                config.vals["max_read_coverage"])
+    aln_reader = SynchronizedSamReader(alignment,
+                                       fp.read_sequence_dict(target_path),
+                                       config.vals["max_read_coverage"])
     aln_reader.init_reading()
     while not aln_reader.is_eof():
         ctg_id, ctg_aln = aln_reader.get_chunk()

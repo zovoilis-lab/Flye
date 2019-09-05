@@ -26,6 +26,7 @@ from flye.__version__ import __version__
 import flye.config.py_cfg as cfg
 from flye.config.configurator import setup_params
 from flye.utils.bytes2human import human2bytes, bytes2human
+from flye.utils.sam_parser import AlignmentException
 import flye.utils.fasta_parser as fp
 import flye.short_plasmids.plasmids as plas
 import flye.trestle.trestle as tres
@@ -764,7 +765,7 @@ def main():
         else:
             _run_polisher_only(args)
 
-    except (aln.AlignmentException, pol.PolishException,
+    except (AlignmentException, pol.PolishException,
             asm.AssembleException, repeat.RepeatException,
             ResumeException, fp.FastaError) as e:
         logger.error(e)

@@ -16,7 +16,8 @@ import six
 import multiprocessing
 import signal
 
-from flye.polishing.alignment import shift_gaps, SynchronizedSamReader, get_uniform_alignments
+from flye.polishing.alignment import shift_gaps, get_uniform_alignments
+from flye.utils.sam_parser import SynchronizedSamReader
 import flye.config.py_cfg as cfg
 import flye.utils.fasta_parser as fp
 from six.moves import zip

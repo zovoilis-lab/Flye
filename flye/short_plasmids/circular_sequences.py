@@ -7,7 +7,7 @@ from __future__ import absolute_import
 import flye.short_plasmids.utils as utils
 import flye.short_plasmids.unmapped_reads as unmapped
 import flye.utils.fasta_parser as fp
-from flye.polishing.alignment import read_paf, read_paf_grouped
+from flye.utils.sam_parser import read_paf, read_paf_grouped
 import logging
 import six
 from six.moves import range

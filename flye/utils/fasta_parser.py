@@ -85,9 +85,12 @@ def write_fasta_dict(fasta_dict, filename):
 
 
 def reverse_complement(unicode_str):
-    return unicode_str.encode()[::-1].translate(reverse_complement.COMPL).decode()
-reverse_complement.COMPL = maketrans(b"ATGCURYKMSWBVDHNXatgcurykmswbvdhnx",
-                                     b"TACGAYRMKSWVBHDNXtacgayrmkswvbhdnx")
+    return reverse_complement_bytes(unicode_str.encode()).decode()
+
+def reverse_complement_bytes(bytes_str):
+    return bytes_str.translate(reverse_complement_bytes.COMPL)[::-1]
+reverse_complement_bytes.COMPL = maketrans(b"ATGCURYKMSWBVDHNXatgcurykmswbvdhnx",
+                                           b"TACGAYRMKSWVBHDNXtacgayrmkswvbhdnx")
 
 
 def to_acgt(unicode_str):

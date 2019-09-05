@@ -6,7 +6,7 @@
 from __future__ import absolute_import
 from __future__ import division
 import flye.utils.fasta_parser as fp
-from flye.polishing.alignment import read_paf_grouped
+from flye.utils.sam_parser import read_paf_grouped
 import logging
 from collections import defaultdict
 import six
