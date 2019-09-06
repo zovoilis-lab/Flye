@@ -11,16 +11,28 @@ from __future__ import division
 
 import os
 import re
+import sys
 from collections import namedtuple, defaultdict
 import subprocess
 import logging
 import multiprocessing
 import ctypes
 
-import flye.utils.fasta_parser as fp
+#In Python2, everything is bytes (=str)
+#In Python3, we are doing IO in bytes, but everywhere else strngs = unicode
+if sys.version_info < (3, 0):
+    from string import maketrans
+    _STR = lambda x: x
+    _BYTES = lambda x: x
+else:
+    maketrans = bytes.maketrans
+    _STR = bytes.decode
+    _BYTES = str.encode
+
 from six.moves import range
 import six
 
+import flye.utils.fasta_parser as fp
 
 logger = logging.getLogger()
 
@@ -79,7 +91,7 @@ def read_paf(filename):
     """
     with open(filename, "rb") as f:
         for raw_hit in f:
-            yield PafHit(raw_hit.decode())
+            yield PafHit(_STR(raw_hit))
 
 
 def read_paf_grouped(filename):
@@ -112,7 +124,7 @@ class SynchronizedSamReader(object):
         #will not be changed during exceution, each process has its own copy
         self.aln_path = sam_alignment
         self.aln_file = None
-        self.ref_fasta = {h.encode() : s.encode()
+        self.ref_fasta = {_BYTES(h) : _BYTES(s)
                           for (h, s) in six.iteritems(reference_fasta)}
         self.change_strand = True
         self.max_coverage = max_coverage
@@ -138,7 +150,7 @@ class SynchronizedSamReader(object):
                         if tag.startswith(b"LN"):
                             seq_len = int(tag[3:])
                     if seq_name and seq_len:
-                        self.seq_lengths[seq_name.decode()] = seq_len
+                        self.seq_lengths[_STR(seq_name)] = seq_len
 
         #will be shared between processes
         self.lock = multiprocessing.Lock()
@@ -304,10 +316,10 @@ class SynchronizedSamReader(object):
             #OVERHANG = cfg.vals["read_aln_overhang"]
             #if (float(qry_end - qry_start) / qry_len > self.min_aln_rate or
             #        trg_start < OVERHANG or trg_len - trg_end < OVERHANG):
-            aln = Alignment(read_id.decode(), read_contig.decode(),
+            aln = Alignment(_STR(read_id), _STR(read_contig),
                             qry_start, qry_end, "-" if is_reversed else "+", qry_len,
                             trg_start, trg_end, "+", trg_len,
-                            qry_seq.decode(), trg_seq.decode(),
+                            _STR(qry_seq), _STR(trg_seq),
                             err_rate, is_secondary)
             alignments.append(aln)
 
@@ -320,7 +332,7 @@ class SynchronizedSamReader(object):
 
         if parsed_contig is None:
             return None, []
-        return parsed_contig.decode(), alignments
+        return _STR(parsed_contig), alignments
 
 
 def preprocess_sam(sam_file, work_dir):

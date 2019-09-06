@@ -10,12 +10,21 @@ from __future__ import absolute_import
 import logging
 import gzip
 import io
+import sys
 
-try:
+#In Python2, everything is bytes (=str)
+#In Python3, we are doing IO in bytes, but everywhere else strngs = unicode
+if sys.version_info < (3, 0):
     from string import maketrans
-except ImportError:
+    _STR = lambda x: x
+    _BYTES = lambda x: x
+else:
     maketrans = bytes.maketrans
+    _STR = bytes.decode
+    _BYTES = str.encode
+
 from six.moves import range
+
 
 logger = logging.getLogger()
 
@@ -59,13 +68,13 @@ def stream_sequence(filename):
                 if not _validate_seq(seq):
                     raise FastaError("Invalid char while reading {0}"
                                      .format(filename))
-                yield hdr.decode(), _to_acgt_bytes(seq).decode()
+                yield _STR(hdr), _STR(_to_acgt_bytes(seq))
         else:
             for hdr, seq in _read_fasta(handle):
                 if not _validate_seq(seq):
                     raise FastaError("Invalid char while reading {0}"
                                      .format(filename))
-                yield hdr.decode(), _to_acgt_bytes(seq).decode()
+                yield _STR(hdr), _STR(_to_acgt_bytes(seq))
 
     except IOError as e:
         raise FastaError(e)
@@ -84,7 +93,8 @@ def write_fasta_dict(fasta_dict, filename):
 
 
 def reverse_complement(unicode_str):
-    return reverse_complement_bytes(unicode_str.encode()).decode()
+    return _STR(reverse_complement_bytes(_BYTES(unicode_str)))
+
 
 def reverse_complement_bytes(bytes_str):
     return bytes_str.translate(reverse_complement_bytes.COMPL)[::-1]
@@ -93,7 +103,7 @@ reverse_complement_bytes.COMPL = maketrans(b"ATGCURYKMSWBVDHNXatgcurykmswbvdhnx"
 
 
 def to_acgt(unicode_str):
-    return _to_acgt_bytes(unicode_str.encode()).decode()
+    return _STR(_to_acgt_bytes(_BYTES(unicode_str)))
 
 
 #Internal functions: use bytes for faster operations
