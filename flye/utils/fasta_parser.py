@@ -166,7 +166,7 @@ def _read_fastq(file_handle):
             continue
 
         if state_counter == 0:
-            if line[0] != ord(b"@"):
+            if line[0 : 1] != b"@":
                 raise FastaError("Fastq format error: {0} at line {1}"
                                     .format(file_handle.name, no))
             header = line[1:].split()[0]
@@ -175,7 +175,7 @@ def _read_fastq(file_handle):
             seq = line
 
         if state_counter == 2:
-            if line[0] != ord(b"+"):
+            if line[0 : 1] != b"+":
                 raise FastaError("Fastq format error: {0} at line {1}"
                                     .format(file_handle.name, no))
 
