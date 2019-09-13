@@ -6,11 +6,13 @@
 Final output generator
 """
 
-import sys
+from __future__ import absolute_import
+from __future__ import division
 import logging
 
 import flye.utils.fasta_parser as fp
 import flye.config.py_cfg as cfg
+from flye.six import iteritems
 
 logger = logging.getLogger()
 
@@ -122,22 +124,19 @@ def generate_stats(repeat_file, polished_file, scaffolds, out_stats):
             contigs_stats[tokens[0]].coverage = tokens[2]
 
     scaffolds_stats = {}
-    for scf, scf_seq in scaffolds.iteritems():
+    for scf, scf_seq in iteritems(scaffolds):
         scaffolds_stats[scf] = SeqStats(scf)
-        scf_length = sum(map(lambda c: int(contigs_stats[unsigned(c)].length),
-                             scf_seq))
+        scf_length = sum([int(contigs_stats[unsigned(c)].length) for c in scf_seq])
         scf_length += (len(scf_seq) - 1) * cfg.vals["scaffold_gap"]
         scaffolds_stats[scf].length = str(scf_length)
 
-        scf_cov = _mean(map(lambda c: int(contigs_stats[unsigned(c)].coverage),
-                        scf_seq))
+        scf_cov = _mean([int(contigs_stats[unsigned(c)].coverage) for c in scf_seq])
         scaffolds_stats[scf].coverage = str(scf_cov)
 
         scaffolds_stats[scf].repeat = contigs_stats[unsigned(scf_seq[0])].repeat
         scaffolds_stats[scf].circular = contigs_stats[unsigned(scf_seq[0])].circular
 
-        scf_mult = min(map(lambda c: int(contigs_stats[unsigned(c)].mult),
-                           scf_seq))
+        scf_mult = min([int(contigs_stats[unsigned(c)].mult) for c in scf_seq])
         scaffolds_stats[scf].mult = str(scf_mult)
 
         #telomere information
@@ -161,8 +160,8 @@ def generate_stats(repeat_file, polished_file, scaffolds, out_stats):
         for ctg in scf_seq:
             ctg_path = contigs_stats[unsigned(ctg)].graph_path
             if ctg[0] == "-":
-                ctg_path = ",".join(map(lambda x: str(-int(x)),
-                                        ctg_path.split(","))[::-1])
+                ctg_path = ",".join([str(-int(x))
+                                     for x in ctg_path.split(",")][::-1])
             path.append(ctg_path)
         prefix = "*," if scf_left else ""
         suffix = ",*" if scf_right else ""
@@ -174,41 +173,41 @@ def generate_stats(repeat_file, polished_file, scaffolds, out_stats):
                           key=lambda x: int(x.rsplit("_", 1)[-1])):
             scaffolds_stats[scf].print_out(f)
 
-    total_length = sum(map(lambda x: int(x.length), scaffolds_stats.values()))
+    total_length = sum([int(x.length) for x in scaffolds_stats.values()])
     if total_length == 0: return
 
     num_scaffolds = len(scaffolds_stats)
-    num_contigs = sum(map(lambda x: len(x), scaffolds.values()))
+    num_contigs = sum([len(x) for x in scaffolds.values()])
 
-    scaffold_lengths = map(lambda s: int(s.length), scaffolds_stats.values())
+    scaffold_lengths = [int(s.length) for s in scaffolds_stats.values()]
     contig_lengths = []
     for scf in scaffolds.values():
         for ctg in scf:
             contig_lengths.append(int(contigs_stats[unsigned(ctg)].length))
     largest_scf = max(scaffold_lengths)
 
-    ctg_n50 = _calc_n50(contig_lengths, total_length)
+    #ctg_n50 = _calc_n50(contig_lengths, total_length)
     scf_n50 = _calc_n50(scaffold_lengths, total_length)
 
     mean_read_cov = 0
     for scf in scaffolds_stats.values():
         mean_read_cov += int(scf.length) * int(scf.coverage)
-    mean_read_cov /= total_length
+    mean_read_cov //= total_length
 
     logger.info("Assembly statistics:\n\n"
-                "\tTotal length:\t{0}\n"
-                "\tFragments:\t{1}\n"
+                "\tTotal length:\t%d\n"
+                "\tFragments:\t%d\n"
                 #"\tContigs N50:\t{2}\n"
-                "\tFragments N50:\t{3}\n"
-                "\tLargest frg:\t{4}\n"
-                "\tScaffolds:\t{2}\n"
-                "\tMean coverage:\t{5}\n"
-                .format(total_length, num_scaffolds, num_contigs - num_scaffolds,
-                        scf_n50, largest_scf, mean_read_cov))
+                "\tFragments N50:\t%d\n"
+                "\tLargest frg:\t%d\n"
+                "\tScaffolds:\t%d\n"
+                "\tMean coverage:\t%d\n",
+                total_length, num_scaffolds, scf_n50, largest_scf,
+                num_contigs - num_scaffolds, mean_read_cov)
 
 
 def short_statistics(fasta_file):
-    lengths = fp.read_sequence_lengths(fasta_file).values()
+    lengths = list(fp.read_sequence_lengths(fasta_file).values())
     if not lengths:
         return 0, 0
     total_size = sum(lengths)
@@ -223,9 +222,9 @@ def unsigned(ctg):
     return ctg[1:]
 
 
-def _mean(list):
-    if not list: return 0
-    return sum(list) / len(list)
+def _mean(lst):
+    if not lst: return 0
+    return sum(lst) // len(lst)
 
 
 def _calc_n50(scaffolds_lengths, assembly_len):
@@ -233,7 +232,7 @@ def _calc_n50(scaffolds_lengths, assembly_len):
     sum_len = 0
     for l in sorted(scaffolds_lengths, reverse=True):
         sum_len += l
-        if sum_len > assembly_len / 2:
+        if sum_len > assembly_len // 2:
             n50 = l
             break
     return n50

@@ -2,6 +2,7 @@
 #This file is a part of Flye program.
 #Released under the BSD license (see LICENSE file)
 
+from flye.six.moves import range
 
 def find_connected_components(graph):
     def dfs(start_vertex, connected_components_counter):
@@ -16,11 +17,11 @@ def find_connected_components(graph):
                     used[neighbour] = True
 
     n_vertices = len(graph)
-    connected_components = [0 for _ in xrange(n_vertices)]
+    connected_components = [0 for _ in range(n_vertices)]
     connected_components_counter = 0
-    used = [False for _ in xrange(n_vertices)]
+    used = [False for _ in range(n_vertices)]
 
-    for i in xrange(n_vertices):
+    for i in range(n_vertices):
         if not used[i]:
             dfs(i, connected_components_counter)
             connected_components_counter += 1

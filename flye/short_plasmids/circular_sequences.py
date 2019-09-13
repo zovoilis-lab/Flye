@@ -3,11 +3,14 @@
 #Released under the BSD license (see LICENSE file)
 
 
+from __future__ import absolute_import
 import flye.short_plasmids.utils as utils
 import flye.short_plasmids.unmapped_reads as unmapped
 import flye.utils.fasta_parser as fp
-from flye.polishing.alignment import read_paf, read_paf_grouped
+from flye.utils.sam_parser import read_paf, read_paf_grouped
 import logging
+from flye.six import iteritems
+from flye.six.moves import range
 
 logger = logging.getLogger()
 
@@ -44,7 +47,7 @@ def extract_circular_reads(unmapped_reads_mapping, max_overhang=150):
 def trim_circular_reads(circular_reads, unmapped_reads):
     trimmed_circular_reads = dict()
 
-    for i, (read, hit) in enumerate(circular_reads.iteritems()):
+    for i, (read, hit) in enumerate(iteritems(circular_reads)):
         sequence = unmapped_reads[read][:hit.target_start].upper()
         trimmed_circular_reads["circular_read_" + str(i)] = sequence
 
@@ -129,11 +132,11 @@ def extract_unique_plasmids(trimmed_reads_mapping, trimmed_reads_path,
     read2int = dict()
     int2read = dict()
 
-    for i in xrange(n_trimmed_reads):
+    for i in range(n_trimmed_reads):
         read2int[trimmed_reads[i]] = i
         int2read[i] = trimmed_reads[i]
 
-    similarity_graph = [[] for _ in xrange(n_trimmed_reads)]
+    similarity_graph = [[] for _ in range(n_trimmed_reads)]
 
     #each hit group stores alginmemnts for each (query, target) pair
     for hit_group in read_paf_grouped(trimmed_reads_mapping):
@@ -166,8 +169,8 @@ def extract_unique_plasmids(trimmed_reads_mapping, trimmed_reads_path,
     connected_components, n_components = \
         utils.find_connected_components(similarity_graph)
 
-    groups = [[] for _ in xrange(n_components)]
-    for i in xrange(len(connected_components)):
+    groups = [[] for _ in range(n_components)]
+    for i in range(len(connected_components)):
         groups[connected_components[i]].append(int2read[i])
 
     #for g in groups:

@@ -2,9 +2,9 @@
 #This file is a part of Flye program.
 #Released under the BSD license (see LICENSE file)
 
+from __future__ import absolute_import
 import os
 import logging
-import subprocess
 
 import flye.utils.fasta_parser as fp
 import flye.short_plasmids.unmapped_reads as unmapped
@@ -37,11 +37,11 @@ def assemble_short_plasmids(args, work_dir, contigs_path):
 
     logger.debug("Extracting circular reads")
     circular_reads = circular.extract_circular_reads(unmapped_reads_mapping)
-    logger.debug("Extracted {} circular reads".format(len(circular_reads)))
+    logger.debug("Extracted %d circular reads", len(circular_reads))
 
     logger.debug("Extracing circular pairs")
     circular_pairs = circular.extract_circular_pairs(unmapped_reads_mapping)
-    logger.debug("Extracted {} circular pairs".format(len(circular_pairs)))
+    logger.debug("Extracted %d circular pairs", len(circular_pairs))
 
     #extracting only the necesssary subset of reads (the entire file could be pretty big)
     interesting_reads = {}
@@ -59,8 +59,8 @@ def assemble_short_plasmids(args, work_dir, contigs_path):
     trimmed_circular_pairs = \
         circular.trim_circular_pairs(circular_pairs, interesting_reads)
     trimmed_sequences_path = os.path.join(work_dir, "trimmed_sequences.fasta")
-    fp.write_fasta_dict(dict(trimmed_circular_reads.items() +
-                             trimmed_circular_pairs.items()),
+    fp.write_fasta_dict(dict(list(trimmed_circular_reads.items()) +
+                             list(trimmed_circular_pairs.items())),
                         trimmed_sequences_path)
 
     logger.debug("Clustering circular sequences")
@@ -75,7 +75,7 @@ def assemble_short_plasmids(args, work_dir, contigs_path):
 
     plasmids_raw = os.path.join(work_dir, "plasmids_raw.fasta")
     fp.write_fasta_dict(plasmids, plasmids_raw)
-    polished_seqs, polished_stats = \
+    _, polished_stats = \
         pol.polish(plasmids_raw, [unmapped_reads_path], work_dir, 1,
                    args.threads, args.platform, output_progress=False)
 
@@ -90,7 +90,7 @@ def assemble_short_plasmids(args, work_dir, contigs_path):
                 if coverage > 0:
                     plasmids_with_coverage[seq_id] = plasmids[seq_id], coverage
 
-    logger.info("Added {} extra contigs".format(len(plasmids_with_coverage)))
+    logger.info("Added %d extra contigs", len(plasmids_with_coverage))
 
     # remove all unnecesarry files
     os.remove(reads2contigs_mapping)
@@ -122,5 +122,5 @@ def update_graph(repeat_graph, plasmids_dict):
         edge_rev.mean_coverage = coverage
         repeat_graph.add_edge(edge_rev)
 
-        logger.debug("Added edge {0}, length {1}, coverage {2}"
-                        .format(new_edge_id, len(plasmid), coverage))
+        logger.debug("Added edge %d, length %d, coverage %d",
+                     new_edge_id, len(plasmid), coverage)

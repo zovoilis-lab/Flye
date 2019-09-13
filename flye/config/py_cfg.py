@@ -6,6 +6,7 @@
 Configuration file for the Python part of the pipeline
 """
 
+from __future__ import absolute_import
 import os
 
 vals = {

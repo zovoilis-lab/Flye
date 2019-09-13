@@ -6,17 +6,20 @@
 Separates alignment into small bubbles for further correction
 """
 
+from __future__ import absolute_import
+from __future__ import division
 import logging
-from collections import defaultdict, namedtuple
 from bisect import bisect
-from itertools import izip
-import math
+from flye.six.moves import range
+
 import multiprocessing
 import signal
 
 import flye.utils.fasta_parser as fp
 import flye.config.py_cfg as cfg
-from flye.polishing.alignment import shift_gaps, SynchronizedSamReader, get_uniform_alignments
+from flye.polishing.alignment import shift_gaps, get_uniform_alignments
+from flye.utils.sam_parser import SynchronizedSamReader
+from flye.six.moves import zip
 
 
 logger = logging.getLogger()
@@ -66,8 +69,7 @@ def _thread_worker(aln_reader, contigs_info, err_mode,
             partition, num_long_bubbles = _get_partition(profile, err_mode)
             ctg_bubbles = _get_bubble_seqs(ctg_aln, err_mode, profile, partition,
                                            contigs_info[ctg_id])
-            mean_cov = sum(map(lambda b: len(b.branches),
-                               ctg_bubbles)) / (len(ctg_bubbles) + 1)
+            mean_cov = sum([len(b.branches) for b in ctg_bubbles]) // (len(ctg_bubbles) + 1)
             ctg_bubbles, num_empty, num_long_branch = \
                                     _postprocess_bubbles(ctg_bubbles)
             results_queue.put((ctg_id, len(ctg_bubbles), num_long_bubbles,
@@ -103,7 +105,7 @@ def make_bubbles(alignment_path, contigs_info, contigs_path,
     threads = []
     bubbles_out_lock = multiprocessing.Lock()
     bubbles_out_handle = open(bubbles_out, "w")
-    for _ in xrange(num_proc):
+    for _ in range(num_proc):
         threads.append(multiprocessing.Process(target=_thread_worker,
                                                args=(aln_reader, contigs_info,
                                                      err_mode, results_queue,
@@ -147,11 +149,11 @@ def make_bubbles(alignment_path, contigs_info, contigs_path,
         total_bubbles += num_bubbles
         coverage_stats[ctg_id] = mean_coverage
 
-    mean_aln_error = float(sum(total_aln_errors)) / (len(total_aln_errors) + 1)
-    logger.debug("Generated {0} bubbles".format(total_bubbles))
-    logger.debug("Split {0} long bubbles".format(total_long_bubbles))
-    logger.debug("Skipped {0} empty bubbles".format(total_empty))
-    logger.debug("Skipped {0} bubbles with long branches".format(total_long_branches))
+    mean_aln_error = sum(total_aln_errors) / (len(total_aln_errors) + 1)
+    logger.debug("Generated %d bubbles", total_bubbles)
+    logger.debug("Split %d long bubbles", total_long_bubbles)
+    logger.debug("Skipped %d empty bubbles", total_empty)
+    logger.debug("Skipped %d bubbles with long branches", total_long_branches)
 
     return coverage_stats, mean_aln_error
 
@@ -186,8 +188,7 @@ def _postprocess_bubbles(bubbles):
             continue
 
         new_branches = []
-        median_branch = (sorted(bubble.branches, key=len)
-                                [len(bubble.branches) / 2])
+        median_branch = (sorted(bubble.branches, key=len)[len(bubble.branches) // 2])
         if len(median_branch) == 0:
             continue
 
@@ -198,16 +199,14 @@ def _postprocess_bubbles(bubbles):
 
         else:
             for branch in bubble.branches:
-                incons_rate = float(abs(len(branch) -
-                                    len(median_branch))) / len(median_branch)
+                incons_rate = abs(len(branch) - len(median_branch)) / len(median_branch)
                 if incons_rate < 0.5:
                     if len(branch) == 0:
                         branch = "A"
                         #logger.debug("Zero branch")
                     new_branches.append(branch)
 
-        if (abs(len(median_branch) - len(bubble.consensus)) >
-                len(median_branch) / 2):
+        if (abs(len(median_branch) - len(bubble.consensus)) > len(median_branch) // 2):
             bubble.consensus = median_branch
 
         if len(new_branches) > MAX_BRANCHES:
@@ -228,12 +227,12 @@ def _is_solid_kmer(profile, position, err_mode):
     INS_RATE = cfg.vals["err_modes"][err_mode]["solid_indel"]
     SOLID_LEN = cfg.vals["solid_kmer_length"]
 
-    for i in xrange(position, position + SOLID_LEN):
+    for i in range(position, position + SOLID_LEN):
         if profile[i].coverage == 0:
             return False
-        local_missmatch = float(profile[i].num_missmatch +
-                                profile[i].num_deletions) / profile[i].coverage
-        local_ins = float(profile[i].num_inserts) / profile[i].coverage
+        local_missmatch = (profile[i].num_missmatch +
+                           profile[i].num_deletions) / profile[i].coverage
+        local_ins = profile[i].num_inserts / profile[i].coverage
         if local_missmatch > MISSMATCH_RATE or local_ins > INS_RATE:
             return False
     return True
@@ -246,31 +245,29 @@ def _is_simple_kmer(profile, position):
     SIMPLE_LEN = cfg.vals["simple_kmer_length"]
 
     extended_len = SIMPLE_LEN * 2
-    nucl_str = map(lambda p: p.nucl, profile[position - extended_len / 2 :
-                                             position + extended_len / 2])
+    nucl_str = [p.nucl for p in profile[position - extended_len // 2 :
+                                        position + extended_len // 2]]
 
     #single nucleotide homopolymers
-    for i in xrange(extended_len / 2 - SIMPLE_LEN / 2,
-                    extended_len / 2 + SIMPLE_LEN / 2 - 1):
+    for i in range(extended_len // 2 - SIMPLE_LEN // 2,
+                   extended_len // 2 + SIMPLE_LEN // 2 - 1):
         if nucl_str[i] == nucl_str[i + 1]:
             return False
 
     #dinucleotide homopolymers
     for shift in [0, 1]:
-        for i in xrange(SIMPLE_LEN - shift - 1):
-            pos = extended_len / 2 - SIMPLE_LEN + shift + i * 2
+        for i in range(SIMPLE_LEN - shift - 1):
+            pos = extended_len // 2 - SIMPLE_LEN + shift + i * 2
             if (nucl_str[pos : pos + 2] == nucl_str[pos + 2 : pos + 4]):
                 return False
 
-    """
     #trinucleotide homopolymers
-    for shift in [0, 1, 2]:
-        for i in xrange(SIMPLE_LEN - shift - 1):
-            pos = shift + i * 3
-            if (nucl_str[pos : pos + 3] == nucl_str[pos + 3 : pos + 6]):
-                #logger.debug("tri" + "".join(nucl_str))
-                return False
-    """
+    #for shift in [0, 1, 2]:
+    #    for i in xrange(SIMPLE_LEN - shift - 1):
+    #        pos = shift + i * 3
+    #        if (nucl_str[pos : pos + 3] == nucl_str[pos + 3 : pos + 6]):
+    #            #logger.debug("tri" + "".join(nucl_str))
+    #            return False
 
     return True
 
@@ -282,7 +279,7 @@ def _compute_profile(alignment, platform, genome_len):
     #max_aln_err = cfg.vals["err_modes"][platform]["max_aln_error"]
     aln_errors = []
     #filtered = 0
-    profile = [ProfileInfo() for _ in xrange(genome_len)]
+    profile = [ProfileInfo() for _ in range(genome_len)]
     for aln in alignment:
         #if aln.err_rate > max_aln_err:
         #    filtered += 1
@@ -293,7 +290,7 @@ def _compute_profile(alignment, platform, genome_len):
         trg_seq = shift_gaps(qry_seq, aln.trg_seq)
 
         trg_pos = aln.trg_start
-        for trg_nuc, qry_nuc in izip(trg_seq, qry_seq):
+        for trg_nuc, qry_nuc in zip(trg_seq, qry_seq):
             if trg_nuc == "-":
                 trg_pos -= 1
             if trg_pos >= genome_len:
@@ -326,11 +323,11 @@ def _get_partition(profile, err_mode):
     SIMPLE_LEN = cfg.vals["simple_kmer_length"]
     MAX_BUBBLE = cfg.vals["max_bubble_length"]
 
-    solid_flags = [False for _ in xrange(len(profile))]
+    solid_flags = [False for _ in range(len(profile))]
     prof_pos = 0
     while prof_pos < len(profile) - SOLID_LEN:
         if _is_solid_kmer(profile, prof_pos, err_mode):
-            for i in xrange(prof_pos, prof_pos + SOLID_LEN):
+            for i in range(prof_pos, prof_pos + SOLID_LEN):
                 solid_flags[i] = True
             prof_pos += SOLID_LEN
         else:
@@ -342,7 +339,7 @@ def _get_partition(profile, err_mode):
     long_bubbles = 0
     prof_pos = SOLID_LEN
     while prof_pos < len(profile) - SOLID_LEN:
-        cur_partition = prof_pos + SIMPLE_LEN / 2
+        cur_partition = prof_pos + SIMPLE_LEN // 2
         landmark = (all(solid_flags[prof_pos : prof_pos + SIMPLE_LEN]) and
                     _is_simple_kmer(profile, cur_partition))
 
@@ -374,7 +371,7 @@ def _get_bubble_seqs(alignment, platform, profile, partition, contig_info):
     ext_partition = [0] + partition + [contig_info.length]
     for p_left, p_right in zip(ext_partition[:-1], ext_partition[1:]):
         bubbles.append(Bubble(contig_info.id, p_left))
-        consensus = map(lambda p: p.nucl, profile[p_left : p_right])
+        consensus = [p.nucl for p in profile[p_left : p_right]]
         bubbles[-1].consensus = "".join(consensus)
 
     for aln in alignment:
