@@ -1,35 +1,68 @@
-#(c) 2016 by Authors
-#This file is a part of ABruijn program.
+#(c) 2016-2019 by Authors
+#This file is a part of the Flye package
 #Released under the BSD license (see LICENSE file)
 
 from __future__ import print_function
+
+import os
 import sys
+import subprocess
+import shutil
 
-#Check Python version
-if sys.version_info[:2] != (2, 7):
-    print("Error: Flye requires Python version 2.7 ({0}.{1} detected)."
-          .format(sys.version_info[0], sys.version_info[1]))
-    sys.exit(-1)
+try:
+    import setuptools
+except ImportError:
+    sys.exit("setuptools package not found. "
+             "Please use 'pip install setuptools' first")
 
-from distutils.core import setup
+from setuptools import setup
+from setuptools.command.install import install as SetuptoolsInstall
 from distutils.command.build import build as DistutilsBuild
 from distutils.spawn import find_executable
-import subprocess
+
+# Make sure we're running from the setup.py directory.
+script_dir = os.path.dirname(os.path.realpath(__file__))
+if script_dir != os.getcwd():
+    os.chdir(script_dir)
 
 from flye.__version__ import __version__
 
 
 class MakeBuild(DistutilsBuild):
     def run(self):
+        DistutilsBuild.run(self)
+
         if not find_executable("make"):
-            print ("ERROR: 'make' command is unavailable")
-            sys.exit(1)
+            sys.exit("ERROR: 'make' command is unavailable")
         try:
             subprocess.check_call(["make"])
         except subprocess.CalledProcessError as e:
-            print ("Compilation error: ", e)
-            sys.exit(1)
-        DistutilsBuild.run(self)
+            sys.exit("Compilation error: ", e)
+
+
+class MakeInstall(SetuptoolsInstall):
+    def run(self):
+        SetuptoolsInstall.run(self)
+
+        print('Installing C++ binaries')
+        if os.path.isdir(self.install_lib) and not os.access(self.install_lib, os.W_OK):
+            sys.exit('Error: no write permission for ' + self.install_lib + '  ' +
+                     'Perhaps you need to use sudo?')
+
+        if os.path.isdir(self.install_scripts) and not os.access(self.install_scripts, os.W_OK):
+            sys.exit('Error: no write permission for ' + self.install_scripts + '  ' +
+                     'Perhaps you need to use sudo?')
+
+        build_dir = os.path.join(script_dir, "bin")
+        install_dir = self.install_scripts
+        bin_files = ['flye-assemble', 'flye-polish', 'flye-contigger',
+                     'flye-repeat', 'flye-minimap2']
+        for file in bin_files:
+            if not os.path.isfile(os.path.join(build_dir, file)):
+                sys.exit('Error: binary not found: ' + file)
+            shutil.copy2(os.path.join(build_dir, file),
+                         os.path.join(install_dir, file))
+
 
 setup(name='flye',
       version=__version__,
@@ -42,7 +75,7 @@ setup(name='flye',
                 'flye/utils', 'flye/repeat_graph', 'flye/short_plasmids',
                 'flye/trestle'],
       package_data={'flye': ['config/bin_cfg/*']},
-      scripts = ['bin/flye-assemble', 'bin/flye-polish', 'bin/flye-contigger',
-                 'bin/flye-repeat', 'bin/flye', 'bin/flye-minimap2'],
-      cmdclass={'build': MakeBuild}
+      entry_points={'console_scripts': ['flye = flye.main:main']},
+      cmdclass={'build': MakeBuild,
+                'install' : MakeInstall}
       )
