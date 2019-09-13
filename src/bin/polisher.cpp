@@ -91,7 +91,7 @@ int main(int argc, char* argv[])
 	std::string hopoMatrix;
 	std::string outConsensus;
 	std::string outVerbose;
-	int  numThreads = 0;
+	int  numThreads = 1;
 	bool quiet = false;
 	if (!parseArgs(argc, argv, bubblesFile, scoringMatrix, 
 				   hopoMatrix, outConsensus, outVerbose, numThreads,
