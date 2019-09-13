@@ -20,8 +20,8 @@ from flye.polishing.bubbles import make_bubbles
 import flye.utils.fasta_parser as fp
 from flye.utils.utils import which
 import flye.config.py_cfg as cfg
-import six
-from six.moves import range
+from flye.six import iteritems
+from flye.six.moves import range
 
 
 POLISH_BIN = "flye-polish"
@@ -303,7 +303,7 @@ def _compose_sequence(consensus_file):
 
     polished_fasta = {}
     polished_stats = {}
-    for ctg_id, seqs in six.iteritems(consensuses):
+    for ctg_id, seqs in iteritems(consensuses):
         sorted_seqs = [p[1] for p in sorted(seqs, key=lambda p: p[0])]
         concat_seq = "".join(sorted_seqs)
         #mean_coverage = sum(coverage[ctg_id]) / len(coverage[ctg_id])

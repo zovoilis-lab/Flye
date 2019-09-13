@@ -12,7 +12,7 @@ import logging
 
 import flye.utils.fasta_parser as fp
 import flye.config.py_cfg as cfg
-import six
+from flye.six import iteritems
 
 
 logger = logging.getLogger()
@@ -26,7 +26,7 @@ def setup_params(args):
     total_length = 0
     read_lengths = []
     for read_file in args.reads:
-        for _, seq_len in six.iteritems(fp.read_sequence_lengths(read_file)):
+        for _, seq_len in iteritems(fp.read_sequence_lengths(read_file)):
             total_length += seq_len
             read_lengths.append(seq_len)
 

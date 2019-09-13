@@ -9,8 +9,8 @@ import flye.utils.fasta_parser as fp
 from flye.utils.sam_parser import read_paf_grouped
 import logging
 from collections import defaultdict
-import six
-from six.moves import range
+from flye.six import iteritems
+from flye.six.moves import range
 
 logger = logging.getLogger()
 
@@ -76,7 +76,7 @@ def extract_unmapped_reads(args, reads2contigs_mapping, unmapped_reads_path,
                 contigs = mapping_rates.get(hdr)
                 if contigs is not None:
                     is_unmapped = True
-                    for _, mapping_rate in six.iteritems(contigs):
+                    for _, mapping_rate in iteritems(contigs):
                         if mapping_rate >= mapping_rate_threshold:
                             is_unmapped = False
 

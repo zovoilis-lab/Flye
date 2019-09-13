@@ -10,8 +10,8 @@ from __future__ import absolute_import
 from __future__ import division
 import logging
 from collections import defaultdict
-from six.moves import range
-import six
+from flye.six.moves import range
+from flye.six import itervalues
 
 import multiprocessing
 import signal
@@ -20,7 +20,7 @@ from flye.polishing.alignment import shift_gaps, get_uniform_alignments
 from flye.utils.sam_parser import SynchronizedSamReader
 import flye.config.py_cfg as cfg
 import flye.utils.fasta_parser as fp
-from six.moves import zip
+from flye.six.moves import zip
 
 logger = logging.getLogger()
 
@@ -163,10 +163,10 @@ def _flatten_profile(profile):
         pos_nucl = elem.nucl
 
         ins_group.clear()
-        for ins_str in six.itervalues(pos_insertions):
+        for ins_str in itervalues(pos_insertions):
             ins_group[ins_str] += 1
 
-        coverage = sum(six.itervalues(pos_matches))
+        coverage = sum(itervalues(pos_matches))
 
         max_match = pos_nucl
         if len(pos_matches):

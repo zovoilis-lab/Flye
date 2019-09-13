@@ -24,8 +24,8 @@ import flye.polishing.polish as pol
 
 import flye.trestle.divergence as div
 import flye.trestle.trestle_config as trestle_config
-from six.moves import range
-from six.moves import zip
+from flye.six.moves import range
+from flye.six.moves import zip
 
 logger = logging.getLogger()
 

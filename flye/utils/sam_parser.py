@@ -29,8 +29,8 @@ else:
     _STR = bytes.decode
     _BYTES = str.encode
 
-from six.moves import range
-import six
+from flye.six.moves import range
+from flye.six import iteritems
 
 import flye.utils.fasta_parser as fp
 
@@ -125,7 +125,7 @@ class SynchronizedSamReader(object):
         self.aln_path = sam_alignment
         self.aln_file = None
         self.ref_fasta = {_BYTES(h) : _BYTES(s)
-                          for (h, s) in six.iteritems(reference_fasta)}
+                          for (h, s) in iteritems(reference_fasta)}
         self.change_strand = True
         self.max_coverage = max_coverage
         self.seq_lengths = {}

@@ -9,8 +9,8 @@ import flye.short_plasmids.unmapped_reads as unmapped
 import flye.utils.fasta_parser as fp
 from flye.utils.sam_parser import read_paf, read_paf_grouped
 import logging
-import six
-from six.moves import range
+from flye.six import iteritems
+from flye.six.moves import range
 
 logger = logging.getLogger()
 
@@ -47,7 +47,7 @@ def extract_circular_reads(unmapped_reads_mapping, max_overhang=150):
 def trim_circular_reads(circular_reads, unmapped_reads):
     trimmed_circular_reads = dict()
 
-    for i, (read, hit) in enumerate(six.iteritems(circular_reads)):
+    for i, (read, hit) in enumerate(iteritems(circular_reads)):
         sequence = unmapped_reads[read][:hit.target_start].upper()
         trimmed_circular_reads["circular_read_" + str(i)] = sequence
 

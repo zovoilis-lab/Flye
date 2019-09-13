@@ -10,7 +10,7 @@ from __future__ import absolute_import
 from __future__ import division
 import logging
 from bisect import bisect
-from six.moves import range
+from flye.six.moves import range
 
 import multiprocessing
 import signal
@@ -19,7 +19,7 @@ import flye.utils.fasta_parser as fp
 import flye.config.py_cfg as cfg
 from flye.polishing.alignment import shift_gaps, get_uniform_alignments
 from flye.utils.sam_parser import SynchronizedSamReader
-from six.moves import zip
+from flye.six.moves import zip
 
 
 logger = logging.getLogger()

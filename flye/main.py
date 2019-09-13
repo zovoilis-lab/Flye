@@ -32,7 +32,7 @@ import flye.short_plasmids.plasmids as plas
 import flye.trestle.trestle as tres
 import flye.trestle.graph_resolver as tres_graph
 from flye.repeat_graph.repeat_graph import RepeatGraph
-from six.moves import range
+from flye.six.moves import range
 
 logger = logging.getLogger()
 

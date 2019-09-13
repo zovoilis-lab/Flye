@@ -12,7 +12,7 @@ from __future__ import absolute_import
 from __future__ import division
 import logging
 from collections import defaultdict
-from six.moves import range
+from flye.six.moves import range
 
 import multiprocessing
 import signal
@@ -22,7 +22,7 @@ from flye.polishing.alignment import shift_gaps
 from flye.utils.sam_parser import SynchronizedSamReader
 import flye.utils.fasta_parser as fp
 import flye.config.py_cfg as config
-from six.moves import zip
+from flye.six.moves import zip
 
 logger = logging.getLogger()
 

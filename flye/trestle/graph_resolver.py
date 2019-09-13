@@ -13,8 +13,8 @@ from collections import defaultdict
 
 import flye.utils.fasta_parser as fp
 from flye.repeat_graph.graph_alignment import iter_alignments
-import six
-from six.moves import zip
+from flye.six import iteritems
+from flye.six.moves import zip
 
 logger = logging.getLogger()
 
@@ -146,7 +146,7 @@ def get_simple_repeats(repeat_graph, alignments_file, edge_seqs):
 
 def dump_repeats(repeats_info, filename):
     with open(filename, "w") as f:
-        for repeat_id, info in six.iteritems(repeats_info):
+        for repeat_id, info in iteritems(repeats_info):
             f.write("#Repeat {0}\t{1}\n\n".format(repeat_id, info.multiplicity))
 
             f.write("#All reads\t{0}\n".format(len(info.all_reads)))

@@ -16,8 +16,8 @@ import logging
 import flye.utils.fasta_parser as fp
 from flye.utils.utils import which
 from flye.utils.sam_parser import AlignmentException, preprocess_sam
-import six
-from six.moves import range
+from flye.six import iteritems
+from flye.six.moves import range
 
 
 logger = logging.getLogger()
@@ -54,7 +54,7 @@ def make_alignment(reference_file, reads_file, num_proc,
 def get_contigs_info(contigs_file):
     contigs_info = {}
     contigs_fasta = fp.read_sequence_dict(contigs_file)
-    for ctg_id, ctg_seq in six.iteritems(contigs_fasta):
+    for ctg_id, ctg_seq in iteritems(contigs_fasta):
         contig_type = ctg_id.split("_")[0]
         contigs_info[ctg_id] = ContigInfo(ctg_id, len(ctg_seq),
                                           contig_type)
@@ -152,7 +152,7 @@ def get_uniform_alignments(alignments, seq_len):
 
 def split_into_chunks(fasta_in, chunk_size):
     out_dict = {}
-    for header, seq in six.iteritems(fasta_in):
+    for header, seq in iteritems(fasta_in):
         #print len(seq)
         for i in range(0, max(len(seq) // chunk_size, 1)):
             chunk_hdr = "{0}$chunk_{1}".format(header, i)
