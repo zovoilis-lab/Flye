@@ -10,6 +10,7 @@ Runs simple toy test
 
 
 from __future__ import print_function
+
 import os
 import sys
 import subprocess
@@ -17,7 +18,7 @@ import shutil
 from distutils.spawn import find_executable
 
 
-def main():
+def test_toy():
     if not find_executable("flye"):
         sys.exit("flye is not installed!")
 
@@ -29,6 +30,10 @@ def main():
                            "-o", out_dir, "-t", "8", "-m", "1000"])
     shutil.rmtree(out_dir)
     print("\nTEST SUCCESSFUL")
+
+
+def main():
+    test_toy()
     return 0
 
 
