@@ -26,7 +26,7 @@ def main():
     reads_file = os.path.join(script_dir, "ecoli_500kb_reads.fastq.gz")
     out_dir = "flye_toy_test"
     subprocess.check_call(["flye", "--pacbio-raw", reads_file, "-g", "500k",
-                           "-o", out_dir, "-t", "8"])
+                           "-o", out_dir, "-t", "8", "-m", "1000"])
     shutil.rmtree(out_dir)
     print("\nTEST SUCCESSFUL")
     return 0
