@@ -66,7 +66,7 @@ class MakeInstall(SetuptoolsInstall):
 
 setup(name='flye',
       version=__version__,
-      description='Fast and accurate de novo assembler for single molecule sequencing reads',
+      description='De novo assembler for single molecule sequencing reads using repeat graphs',
       url='https://github.com/fenderglass/Flye',
       author='Mikhail Kolmogorov',
       author_email = 'fenderglass@gmail.com',
@@ -74,7 +74,7 @@ setup(name='flye',
       packages=['flye', 'flye/assembly', 'flye/config', 'flye/polishing',
                 'flye/utils', 'flye/repeat_graph', 'flye/short_plasmids',
                 'flye/trestle', 'flye/tests'],
-      package_data={'flye': ['config/bin_cfg/*']},
+      package_data={'flye': ['config/bin_cfg/*', 'tests/data/*']},
       entry_points={'console_scripts': ['flye = flye.main:main']},
       cmdclass={'build': MakeBuild,
                 'install' : MakeInstall}
