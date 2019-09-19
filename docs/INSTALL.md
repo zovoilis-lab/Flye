@@ -19,11 +19,11 @@ Alternatively, you can get a release version from the github releases page
 Building Requirements
 ---------------------
 
+* Python 2.7 or 3.5+ (with setuptools package installed)
 * C++ compiler with C++11 support (GCC 4.8+ / Clang 3.3+ / Apple Clang 5.0+)
 * GNU make
-* Python 2.7 or 3.4+ with setuptools package installed
 * Git
-* Core OS development headers (zlib, etc)
+* Core OS development headers (zlib, ...)
 
 
 Local building (without installation)
@@ -38,10 +38,7 @@ To get and compile the latest git version, run:
 
 Then, Flye will be available as:
 
-    python3 bin/flye
-
-This example is using Python 3, replace ```python3```
-with ```python2``` to use the 2nd version. 
+    python bin/flye
 
 
 Installing from source
@@ -51,14 +48,16 @@ To install the Flye package into your system, run:
 
     git clone https://github.com/fenderglass/Flye
 	cd Flye
-    python3 setup.py install
+    python setup.py install
 
 Depending on your OS, you might need to add
 ```--user``` or ```--prefix``` options to the 
 install command for the local installation.
 
-This example is using Python 3, replace ```python3```
-with ```python2``` to use the 2nd version. 
 After installation, Flye could be invoked via:
 
     flye
+
+Optionally, run some tests to ensure that installation was successful:
+
+    python flye/tests/test_toy.py

@@ -1,3 +1,7 @@
+Flye 2.6 release (19 Sep 2019)
+==============================
+* This release introduces Python 3 support (no other changes)
+
 Flye 2.5 release (25 Jul 2019)
 ==============================
 * Better ONT polishing for the latest basecallers (Guppy/flipflop)
