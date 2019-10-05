@@ -206,7 +206,9 @@ void MultiplicityInferer::splitNodes()
 	}
 
 	std::unordered_set<GraphNode*> usedNodes;
-	for (auto& nodeToSplit : _graph.iterNodes())
+	std::vector<GraphNode*> originalNodes(_graph.iterNodes().begin(), 
+									      _graph.iterNodes().end());
+	for (auto& nodeToSplit : originalNodes)
 	{
 		if (nodeToSplit->inEdges.size() < 2 ||
 			nodeToSplit->outEdges.size() < 2) continue;
@@ -298,6 +300,7 @@ void MultiplicityInferer::splitNodes()
 		}
 	}
 
+	_aligner.updateAlignments();
 	Logger::get().debug() << "Split " << numSplit << " nodes";
 }
 
