@@ -177,6 +177,130 @@ void MultiplicityInferer::removeUnsupportedEdges(bool onlyTips)
 	_aligner.updateAlignments();
 }
 
+//Checks each node in the graph if all edges form a single
+//connectivity cluster based on read alignment. If
+//there are multiple cluster, the node is split into 
+//multiple corresponding nodes. This, for example,
+//addresses chimeric connections
+void MultiplicityInferer::splitNodes()
+{
+	Logger::get().debug() << "Splitting nodes";
+	int numSplit = 0;
+
+	//storing connectivity information
+	std::unordered_map<GraphEdge*, 
+					   std::unordered_map<GraphEdge*, int>> connections;
+	for (auto& readPath : _aligner.getAlignments())
+	{
+		if (readPath.size() < 2) continue;
+		
+		for (size_t i = 0; i < readPath.size() - 1; ++i)
+		{
+			if (readPath[i].edge == readPath[i + 1].edge &&
+				readPath[i].edge->isLooped()) continue;
+			if (readPath[i].edge->edgeId == 
+				readPath[i + 1].edge->edgeId.rc()) continue;
+
+			++connections[readPath[i].edge][readPath[i + 1].edge];
+		}
+	}
+
+	std::unordered_set<GraphNode*> usedNodes;
+	for (auto& nodeToSplit : _graph.iterNodes())
+	{
+		if (nodeToSplit->inEdges.size() < 2 ||
+			nodeToSplit->outEdges.size() < 2) continue;
+		if (usedNodes.count(nodeToSplit)) continue;
+		usedNodes.insert(_graph.complementNode(nodeToSplit));
+
+		//initializing sets (to cluster them later)
+		typedef SetNode<GraphEdge*> SetElement;
+		std::unordered_map<GraphEdge*, SetElement*> edgeToElement;
+		SetVec<GraphEdge*> allElements;
+		for (GraphEdge* edge : nodeToSplit->inEdges) 
+		{
+			allElements.push_back(new SetElement(edge));
+			edgeToElement[edge] = allElements.back();
+		}
+		for (GraphEdge* edge : nodeToSplit->outEdges) 
+		{
+			if (!edge->isLooped())
+			{		
+				allElements.push_back(new SetElement(edge));
+				edgeToElement[edge] = allElements.back();
+			}
+		}
+
+		//grouping edges if they are onnected by reads
+		for (GraphEdge* inEdge : nodeToSplit->inEdges)
+		{
+			for (auto outEdge : connections[inEdge])
+			{
+				if (outEdge.second >= MIN_JCT_SUPPORT)
+				{
+					unionSet(edgeToElement[inEdge], 
+							 edgeToElement[outEdge.first]);
+				}
+			}
+		}
+
+		auto clusters = groupBySet(allElements);
+		if (clusters.size() > 1)	//need to split the node!
+		{
+			numSplit += 1;
+			Logger::get().debug() << "Node " 
+				<< nodeToSplit->inEdges.size() + nodeToSplit->outEdges.size()
+				<< " clusters: " << clusters.size();
+			for (auto& cl : clusters)
+			{
+				Logger::get().debug() << "\tCl: " << cl.second.size();
+				for (auto edge : cl.second)
+				{
+					Logger::get().debug() << "\t\t" << edge->edgeId.signedId() << " " 
+						<< edge->length() << " " << edge->meanCoverage;
+				}
+			}
+
+			for (auto& cl : clusters)
+			{
+				auto switchNode = [&nodeToSplit](GraphEdge* edge, 
+												 GraphNode* oldNode,
+												 GraphNode* newNode)
+				{
+					if (edge->nodeLeft == oldNode)
+					{
+						vecRemove(edge->nodeLeft->outEdges, edge);
+						edge->nodeLeft = newNode;
+						newNode->outEdges.push_back(edge);
+					}
+					if (edge->nodeRight == oldNode)
+					{
+						vecRemove(edge->nodeRight->inEdges, edge);
+						edge->nodeRight = newNode;
+						newNode->inEdges.push_back(edge);
+					}
+
+				};
+
+				GraphNode* newNode = _graph.addNode();
+				GraphNode* newComplNode = _graph.addNode();
+				for (GraphEdge* edge : cl.second)
+				{
+					GraphEdge* complEdge = _graph.complementEdge(edge);
+					GraphNode* complSplit = _graph.complementNode(nodeToSplit);
+					switchNode(edge, nodeToSplit, newNode);
+					if (!edge->selfComplement) 
+					{
+						switchNode(complEdge, complSplit, newComplNode);
+					}
+				}
+			}
+		}
+	}
+
+	Logger::get().debug() << "Split " << numSplit << " nodes";
+}
+
 
 //Disconnects edges, which had low number of reads that connect them
 //with the rest of the graph. #of reads is relative to the

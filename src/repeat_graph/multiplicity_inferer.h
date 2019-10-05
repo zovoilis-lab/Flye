@@ -23,6 +23,7 @@ public:
 	void maskUnsupportedEdges();
 	void removeUnsupportedEdges(bool onlyTips);
 	void removeUnsupportedConnections();
+	void splitNodes();
 
 	int  collapseHeterozygousLoops(bool removeAlternatives);
 	int  collapseHeterozygousBulges(bool removeAlternatives);

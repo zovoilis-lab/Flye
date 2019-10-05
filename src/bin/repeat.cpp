@@ -193,6 +193,7 @@ int main(int argc, char** argv)
 	multInf.removeUnsupportedConnections();
 	multInf.maskUnsupportedEdges();
 	multInf.removeUnsupportedEdges(/*only tips*/ true);
+	multInf.splitNodes();
 	multInf.collapseHeterozygousLoops(/*remove alternatives*/ false);
 	multInf.collapseHeterozygousBulges(/*remove alternatives*/ false);
 	
@@ -208,6 +209,8 @@ int main(int argc, char** argv)
 
 	//clean graph again after repeat resolution
 	multInf.removeUnsupportedEdges(/*only tips*/ false);
+	multInf.removeUnsupportedConnections();
+	multInf.splitNodes();
 	multInf.collapseHeterozygousLoops(/*remove alternatives*/ true);
 	multInf.collapseHeterozygousBulges(/*remove alternatives*/ true);
 	resolver.findRepeats();
