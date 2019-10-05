@@ -8,12 +8,12 @@
 #include "../common/utils.h"
 #include <cmath>
 
+static const int MIN_JCT_SUPPORT = 2;
 
 //Estimates the mean coverage and assingns edges multiplicity accordingly
 void MultiplicityInferer::estimateCoverage()
 {
 	const int WINDOW = Config::get("coverage_estimate_window");
-	//const int SHORT_EDGE = Config::get("unique_edge_length");
 
 	//alternative coverage
 	std::unordered_map<GraphEdge*, std::vector<int32_t>> wndCoverage;
@@ -46,7 +46,6 @@ void MultiplicityInferer::estimateCoverage()
 	int64_t sumLength = 0;
 	for (auto& edgeCoverage : wndCoverage)
 	{
-		//if (edgeCoverage.first->length() < SHORT_EDGE) continue;
 		for (auto& cov : edgeCoverage.second)
 		{
 			sumCov += (int64_t)cov;
@@ -234,7 +233,7 @@ void MultiplicityInferer::removeUnsupportedConnections()
 
 		int32_t coverageThreshold = edge->meanCoverage / 
 								Config::get("graph_cov_drop_rate");
-		coverageThreshold = std::min(1, coverageThreshold);
+		coverageThreshold = std::max(MIN_JCT_SUPPORT, coverageThreshold);
 
 		//Logger::get().debug() << "Adjacencies: " << edge->edgeId.signedId() << " "
 		//	<< leftConnections[edge] / 2 << " " << rightConnections[edge] / 2;
