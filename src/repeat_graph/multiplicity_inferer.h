@@ -21,7 +21,7 @@ public:
 	void estimateCoverage();
 	int  getMeanCoverage() const {return _meanCoverage;}
 	void maskUnsupportedEdges();
-	void removeUnsupportedEdges();
+	void removeUnsupportedEdges(bool onlyTips);
 	void removeUnsupportedConnections();
 
 	int  collapseHeterozygousLoops(bool removeAlternatives);

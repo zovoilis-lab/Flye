@@ -92,7 +92,7 @@ void MultiplicityInferer::estimateCoverage()
 	Logger::get().debug() << "Unique coverage threshold " << _uniqueCovThreshold;
 }
 
-//Masks out edges with low coverage
+//Masks out edges with low coverage (but not removes them)
 void MultiplicityInferer::maskUnsupportedEdges()
 {
 	const int MIN_CUTOFF = std::round((float)Config::get("min_read_cov_cutoff"));
@@ -144,7 +144,7 @@ void MultiplicityInferer::maskUnsupportedEdges()
 	//_aligner.updateAlignments();
 }
 
-void MultiplicityInferer::removeUnsupportedEdges()
+void MultiplicityInferer::removeUnsupportedEdges(bool onlyTips)
 {
 	GraphProcessor proc(_graph, _asmSeqs);
 	auto unbranchingPaths = proc.getUnbranchingPaths();
@@ -152,6 +152,10 @@ void MultiplicityInferer::removeUnsupportedEdges()
 	std::unordered_set<GraphEdge*> toRemove;
 	for (auto& path : unbranchingPaths)
 	{
+		if (onlyTips && 
+			path.nodeLeft()->inEdges.size() > 0 &&
+			path.nodeRight()->outEdges.size() > 0) continue;
+
 		bool removePath = true;
 		for (auto& edge : path.path)
 		{
