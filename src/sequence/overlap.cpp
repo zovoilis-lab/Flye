@@ -56,10 +56,15 @@ namespace
 		void* memPool;
     };
 
+	struct CigOp
+	{
+		char op;
+		int len;
+	};
 	float kswAlign(const DnaSequence& trgSeq, size_t trgBegin, size_t trgLen,
 				   const DnaSequence& qrySeq, size_t qryBegin, size_t qryLen,
 				   int matchScore, int misScore, int gapOpen, int gapExtend,
-				   bool showAlignment)
+				   std::vector<CigOp>& cigarOut)
 	{
 		static const int32_t MAX_JUMP = Config::get("maximum_jump");
 		const int KMER_SIZE = Parameters::get().kmerSize;
@@ -105,71 +110,121 @@ namespace
 				 	  subsMat, gapOpen, gapExtend, bandWidth, Z_DROP, 
 					  END_BONUS, FLAG, &ez);
 		
-		//decode CIGAR
-		std::string strQ;
-		std::string strT;
-		std::string alnQry;
-		std::string alnTrg;
-		if (showAlignment)
-		{
-			for (auto x : qryByte) strQ += "ACGT"[x];
-			for (auto x : trgByte) strT += "ACGT"[x];
-		}
+        int numMatches = 0;
+		int numMiss = 0;
+		int numIndels = 0;
 
+		cigarOut.clear();
+		cigarOut.reserve((size_t)ez.n_cigar);
+
+		//decode cigar
 		size_t posQry = 0;
 		size_t posTrg = 0;
-        int matches = 0;
-		int alnLength = 0;
-		int condensedLength = 0;
 		for (size_t i = 0; i < (size_t)ez.n_cigar; ++i)
 		{
 			int size = ez.cigar[i] >> 4;
 			char op = "MID"[ez.cigar[i] & 0xf];
-			alnLength += size;
+			//alnLength += size;
 
         	if (op == 'M')
 			{
 				for (size_t i = 0; i < (size_t)size; ++i)
 				{
-					if (trgByte[posTrg + i] == qryByte[posQry + i]) ++matches;
-				}
-				if (showAlignment)
-				{
-					alnQry += strQ.substr(posQry, size);
-					alnTrg += strT.substr(posTrg, size);
+					char match = "X="[size_t(trgByte[posTrg + i] == 
+											 qryByte[posQry + i])];
+					if (i == 0 || (match != cigarOut.back().op))
+					{
+						cigarOut.push_back({match, 1});
+					}
+					else
+					{
+						++cigarOut.back().len;
+					}
+					numMatches += int(match == '=');
+					numMiss += int(match == 'X');
 				}
 				posQry += size;
 				posTrg += size;
-				condensedLength += size;
 			}
             else if (op == 'I')
 			{
-				if (showAlignment)
-				{
-					alnQry += strQ.substr(posQry, size);
-					alnTrg += std::string(size, '-');
-				}
+				cigarOut.push_back({'I', size});
                 posQry += size;
-				condensedLength += std::min(size, KMER_SIZE);
+				numIndels += std::min(size, KMER_SIZE);
 			}
             else //D
 			{
-				if (showAlignment)
-				{
-					alnQry += std::string(size, '-');
-					alnTrg += strT.substr(posTrg, size);
-				}
+				cigarOut.push_back({'D', size});
 				posTrg += size;
-				condensedLength += std::min(size, KMER_SIZE);
+				numIndels += std::min(size, KMER_SIZE);
 			}
 		}
-        //float errRate = 1 - float(matches) / alnLength;
-        //float errRate = 1 - float(matches) / std::max(tseq.size(), qseq.size());
-        float errRate = 1 - float(matches) / condensedLength;
-		kfree(buf.memPool, ez.cigar);
+        float errRate = 1 - float(numMatches) / (numMatches + numMiss + numIndels);
 
+		kfree(buf.memPool, ez.cigar);
+		return errRate;
+	}
+
+	float getAlignmentIdy(const OverlapRange& ovlp,
+						  const DnaSequence& trgSeq,
+						  const DnaSequence& qrySeq,
+						  bool showAlignment)
+	{
+		std::vector<CigOp> decodedCigar;
+		float errRate = kswAlign(trgSeq, ovlp.curBegin, ovlp.curRange(),
+								 qrySeq, ovlp.extBegin, ovlp.extRange(),
+								 /*match*/ 1, /*mm*/ -2, /*gap open*/ 2, 
+								 /*gap ext*/ 1, decodedCigar);
+
+		//visualize alignents if needed
 		if (showAlignment)
 		{
+			std::vector<uint8_t> trgByte;
+			std::vector<uint8_t> qryByte;
+			trgByte.assign(ovlp.curRange(), 0);
+			qryByte.assign(ovlp.extRange(), 0);
+			for (size_t i = 0; i < (size_t)ovlp.curRange(); ++i)
+			{
+				trgByte[i] = trgSeq.atRaw(i + ovlp.curBegin);
+			}
+			for (size_t i = 0; i < (size_t)ovlp.extRange(); ++i)
+			{
+				qryByte[i] = qrySeq.atRaw(i + ovlp.extBegin);
+			}
+
+			std::string strQ;
+			std::string strT;
+			std::string alnQry;
+			std::string alnTrg;
+
+			for (auto x : qryByte) strQ += "ACGT"[x];
+			for (auto x : trgByte) strT += "ACGT"[x];
+
+			size_t posQry = 0;
+			size_t posTrg = 0;
+			for (auto& op : decodedCigar)
+			{
+				if (op.op == '=' || op.op == 'X')
+				{
+					alnQry += strQ.substr(posQry, op.len);
+					alnTrg += strT.substr(posTrg, op.len);
+					posQry += op.len;
+					posTrg += op.len;
+				}
+				else if (op.op == 'I')
+				{
+					alnQry += strQ.substr(posQry, op.len);
+					alnTrg += std::string(op.len, '-');
+                	posQry += op.len;
+				}
+				else
+				{
+					alnQry += std::string(op.len, '-');
+					alnTrg += strT.substr(posTrg, op.len);
+					posTrg += op.len;
+				}
+			}
+
 			const int WIDTH = 100;
 			for (size_t chunk = 0; chunk <= alnQry.size() / WIDTH; ++chunk)
 			{
@@ -186,10 +241,121 @@ namespace
 				}
 				std::cout << "\n\n";
 			}
-			std::cout << "\n----------------\n" << std::endl;
 		}
 
 		return errRate;
+	}
+
+	bool checkIdyAndTrim(OverlapRange& ovlp,
+						 const DnaSequence& trgSeq,
+						 const DnaSequence& qrySeq,
+						 float maxDivergence,
+						 int32_t minOverlap,
+						 bool showAlignment)
+	{
+		std::vector<CigOp> decodedCigar;
+		float errRate = kswAlign(trgSeq, ovlp.curBegin, ovlp.curRange(),
+								 qrySeq, ovlp.extBegin, ovlp.extRange(),
+								 /*match*/ 1, /*mm*/ -2, /*gap open*/ 2, 
+								 /*gap ext*/ 1, decodedCigar);
+		//OverlapRange result = ovlp;
+		ovlp.seqDivergence = errRate;
+		if (errRate < maxDivergence) return false;
+
+		std::vector<int> sumMatches;
+		sumMatches.reserve(decodedCigar.size() + 1);
+		sumMatches.push_back(0);
+		std::vector<int> sumLength;
+		sumLength.reserve(decodedCigar.size() + 1);
+		sumLength.push_back(0);
+		for (auto op : decodedCigar)
+		{
+			sumLength.push_back(sumLength.back() + op.len);
+			int match = (op.op == '=') ? op.len : 0;
+			sumMatches.push_back(sumMatches.back() + match);
+		}
+
+		const float EPS = 0.005;
+		size_t bestStart = 0;
+		size_t bestEnd = 0;
+		for (size_t i = 0; i < decodedCigar.size(); ++i)
+		{
+			for (size_t j = i + 1; j < decodedCigar.size(); ++j)
+			{
+				int rangeLen = sumLength[j + 1] - sumLength[i];
+				int rangeMatch = sumMatches[j + 1] - sumMatches[i];
+				if (1.0f - float(rangeMatch) / rangeLen < maxDivergence - EPS)
+				{
+					if (j - i > bestEnd - bestStart)
+					{
+						bestStart = i;
+						bestEnd = j;
+					}
+				}
+			}
+		}
+		while (bestStart < decodedCigar.size() && 
+			   decodedCigar[bestStart].op != '=') ++bestStart;
+		while (bestEnd > 0 && 
+			   decodedCigar[bestEnd].op != '=') ++bestEnd;
+		if (bestEnd - bestStart < 1) return false;
+
+		int rangeLen = sumLength[bestEnd + 1] - sumLength[bestStart];
+		int rangeMatch = sumMatches[bestEnd + 1] - sumMatches[bestStart];
+		float newDivergence = 1.0f - float(rangeMatch) / rangeLen;
+
+		OverlapRange newOvlp = ovlp;
+		newOvlp.seqDivergence = newDivergence;
+		size_t posQry = 0;
+		size_t posTrg = 0;
+		for (size_t i = 0; i < decodedCigar.size(); ++i)
+		{
+			if (decodedCigar[i].op == '=' || decodedCigar[i].op == 'X')
+			{
+				posQry += decodedCigar[i].len;
+				posTrg += decodedCigar[i].len;
+			}
+			else if (decodedCigar[i].op == 'I')
+			{
+				posQry += decodedCigar[i].len;
+			}
+			else
+			{
+				posTrg += decodedCigar[i].len;
+			}
+			if (i == bestStart)
+			{
+				newOvlp.curBegin += posTrg;
+				newOvlp.extBegin += posQry;
+			}
+			if (i == bestEnd)
+			{
+				newOvlp.curEnd = ovlp.curBegin + posTrg;
+				newOvlp.extEnd = ovlp.extBegin + posQry;
+			}
+		}
+		//TODO: updating score and k-mer matches?
+
+		if (showAlignment)
+		{
+			std::cout << "Adj from " << ovlp.curBegin 
+				<< " " << ovlp.curRange() << 
+				" " << ovlp.extBegin << " " << ovlp.extRange() 
+				<< " " << errRate << std::endl;
+			std::cout << "      to " << ovlp.curBegin 
+				<< " " << ovlp.curRange() << 
+				" " << ovlp.extBegin << " " << ovlp.extRange() 
+				<< " " << newDivergence << std::endl;
+		}
+
+		if (newOvlp.curRange() > minOverlap &&
+			newOvlp.extRange() > minOverlap)
+		{
+			ovlp = newOvlp;
+			return true;
+		}
+
+		return false;
 	}
 }
 
@@ -613,32 +779,32 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 				ovlp.seqDivergence = std::log(1 / matchRate) / kmerSize;
 				ovlp.seqDivergence += _estimatorBias;
 
+				bool trimmed = false;
 				if(_nuclAlignment)
 				{
-					ovlp.seqDivergence = 
-						kswAlign(fastaRec.sequence, ovlp.curBegin, ovlp.curRange(),
-								 _seqContainer.getSeq(extId), ovlp.extBegin, ovlp.extRange(),
-								 /*match*/ 1, /*mm*/ -2, /*gap open*/ 2, 
-								 /*gap ext*/ 1, false);
-				}
-
-				float divThreshold = _maxDivergence;
-				/*if (ovlp.curBegin < _maxJump || curLen - ovlp.curEnd < _maxJump ||
-					ovlp.extBegin < _maxJump || extLen - ovlp.extEnd < _maxJump)
-				{
-					divThreshold += _badEndAdjustment;
-				}*/
-				if (ovlp.seqDivergence < divThreshold)
-				{
-					extOverlaps.push_back(ovlp);
+					trimmed = checkIdyAndTrim(ovlp, fastaRec.sequence, 
+										   	  _seqContainer.getSeq(extId),
+										   	  _maxDivergence, _minOverlap,
+										   	  false);
 				}
 
 				//collecting overlap statistics
 				size_t wnd = ovlp.curBegin / STAT_WND;
 				assert(wnd < divStatWindows.size());
-				if (ovlp.curRange() > divStatWindows[wnd].curRange())
+				if (!trimmed && ovlp.curRange() > divStatWindows[wnd].curRange())
 				{
 					divStatWindows[wnd] = ovlp;
+				}
+
+				/*float divThreshold = _maxDivergence;
+				if (ovlp.curBegin < _maxJump || curLen - ovlp.curEnd < _maxJump ||
+					ovlp.extBegin < _maxJump || extLen - ovlp.extEnd < _maxJump)
+				{
+					divThreshold += _badEndAdjustment;
+				}*/
+				if (ovlp.seqDivergence < _maxDivergence)
+				{
+					extOverlaps.push_back(ovlp);
 				}
 
 				//benchmarking divergence
@@ -970,11 +1136,9 @@ void OverlapContainer::estimateOverlaperParameters()
 		for (const auto& ovlp : overlaps)
 		{
 			float trueDiv = 
-				kswAlign(_queryContainer.getSeq(seqId), ovlp.curBegin, ovlp.curRange(),
-						 _ovlpDetect._seqContainer.getSeq(ovlp.extId),
-						 ovlp.extBegin, ovlp.extRange(),
-						 /*match*/ 1, /*mm*/ -2, /*gap open*/ 2, 
-						 /*gap ext*/ 1, false);
+				getAlignmentIdy(ovlp, _queryContainer.getSeq(seqId),
+								_ovlpDetect._seqContainer.getSeq(ovlp.extId),
+								false);
 
 			std::lock_guard<std::mutex> lock(storageMutex);
 			biases.push_back(trueDiv - ovlp.seqDivergence);
