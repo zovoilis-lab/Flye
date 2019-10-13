@@ -15,8 +15,7 @@ Flye also includes a special mode for metagenome assembly.
 Latest updates
 --------------
 
-Flye 2.6 release (19 Sep 2019)
-==============================
+### Flye 2.6 release (19 Sep 2019)
 * This release introduces Python 3 support (no other changes)
 
 ### Flye 2.5 release (25 Jul 2019)

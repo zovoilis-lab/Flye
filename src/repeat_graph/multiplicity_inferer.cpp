@@ -527,6 +527,7 @@ void MultiplicityInferer::trimTipsIteration(int& outShort, int& outLong)
 		//not a tip
 		if (tipPath.nodeLeft()->outEdges.size() == 1 ||
 			tipPath.nodeRight()->outEdges.size() > 0) continue;
+		if (tipPath.path.front()->selfComplement) continue;	//never-ever!
 
 		//short tip, remove regardless of coverage
 		if (tipPath.length < SHORT_TIP)
@@ -595,7 +596,7 @@ void MultiplicityInferer::trimTipsIteration(int& outShort, int& outLong)
 			targetEdge->nodeLeft = _graph.addNode();
 			targetEdge->nodeLeft->outEdges.push_back(targetEdge);
 
-			if (targetEdge->selfComplement) continue;
+			//if (targetEdge->selfComplement) continue;
 
 			vecRemove(complEdge->nodeRight->inEdges, complEdge);
 			complEdge->nodeRight = _graph.addNode();
