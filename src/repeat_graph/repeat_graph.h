@@ -231,6 +231,8 @@ public:
 	void storeGraph(const std::string& filename);
 	void loadGraph(const std::string& filename);
 
+	void validateGraph();
+
 	GraphPath  complementPath(const GraphPath& path) const;
 	GraphEdge* complementEdge(GraphEdge* edge) const;
 	GraphNode* complementNode(GraphNode* node) const;

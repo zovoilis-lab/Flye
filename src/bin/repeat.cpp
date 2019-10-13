@@ -182,6 +182,7 @@ int main(int argc, char** argv)
 
 	Logger::get().info() << "Building repeat graph";
 	rg.build();
+	rg.validateGraph();
 	//outGen.outputDot(proc.getEdgesPaths(), outFolder + "/graph_raw.gv");
 
 	Logger::get().info() << "Aligning reads to the graph";
@@ -196,6 +197,7 @@ int main(int argc, char** argv)
 	multInf.splitNodes();
 	multInf.collapseHeterozygousLoops(/*remove alternatives*/ false);
 	multInf.collapseHeterozygousBulges(/*remove alternatives*/ false);
+	rg.validateGraph();
 	
 	//aligner.storeAlignments(outFolder + "/read_alignment_before_rr");
 
@@ -205,7 +207,9 @@ int main(int argc, char** argv)
 	outGen.outputDot(proc.getEdgesPaths(), outFolder + "/graph_before_rr.gv");
 	//outGen.outputGfa(proc.getEdgesPaths(), outFolder + "/graph_before_rr.gfa");
 	outGen.outputFasta(proc.getEdgesPaths(), outFolder + "/graph_before_rr.fasta");
+
 	resolver.resolveRepeats();
+	rg.validateGraph();
 
 	//clean graph again after repeat resolution
 	multInf.removeUnsupportedEdges(/*only tips*/ false);
@@ -216,6 +220,7 @@ int main(int argc, char** argv)
 	resolver.findRepeats();
 	
 	resolver.finalizeGraph();
+	rg.validateGraph();
 
 	outGen.outputDot(proc.getEdgesPaths(), outFolder + "/graph_after_rr.gv");
 	rg.storeGraph(outFolder + "/repeat_graph_dump");

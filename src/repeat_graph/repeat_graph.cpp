@@ -1051,6 +1051,30 @@ void RepeatGraph::storeGraph(const std::string& filename)
 	}
 }
 
+void RepeatGraph::validateGraph()
+{
+	//check the symmetry
+	for (GraphNode* node : this->iterNodes())
+	{
+		for (GraphEdge* edge : node->outEdges)
+		{
+			if (!_idToEdge.count(edge->edgeId.rc())) 
+			{
+				throw std::runtime_error("Edge " + std::to_string(edge->edgeId.signedId()) 
+										 + " not paired");
+			}
+		}
+		for (GraphEdge* edge : node->inEdges)
+		{
+			if (!_idToEdge.count(edge->edgeId.rc())) 
+			{
+				throw std::runtime_error("Edge " + std::to_string(edge->edgeId.signedId()) 
+										 + " not paired");
+			}
+		}
+	}
+}
+
 void RepeatGraph::loadGraph(const std::string& filename)
 {
 	std::ifstream fin(filename);
