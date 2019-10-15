@@ -579,16 +579,28 @@ std::vector<RepeatResolver::Connection>
 			currentAln.push_back(aln);
 			if (safeEdge(aln.edge) && currentAln.front().edge != aln.edge)
 			{
-				if (!currentAln.back().edge->nodeLeft->isBifurcation() &&
-					!currentAln.front().edge->nodeRight->isBifurcation()) continue;
+				bool reliableConnection = true;
+
+				//if any of the edges does not prevent contig extenstion, 
+				//no need to resolve it
+				if (!currentAln.front().edge->nodeRight->isBifurcation() ||
+					!currentAln.back().edge->nodeLeft->isBifurcation()) reliableConnection = false;
 
 				//don't connect edges if they both were previously repetitive
-				if (currentAln.back().edge->resolved &&
-					currentAln.front().edge->resolved) continue;
+				//(end then became unique)
+				if (currentAln.front().edge->resolved &&
+					currentAln.back().edge->resolved) reliableConnection = false;
 
-				//if (currentAln.front().overlap.seqDivergence > 0.15 ||
-				//	currentAln.back().overlap.seqDivergence > 0.15) continue;
-				
+				if (!reliableConnection)
+				{
+					currentAln.clear();
+					currentAln.push_back(aln);
+					readStart = aln.overlap.curEnd + aln.overlap.extLen - 
+								aln.overlap.extEnd;
+					readStart = std::min(readStart, aln.overlap.curLen - MAGIC_100);
+					continue;
+				}
+
 				int32_t flankScore = std::min(currentAln.front().overlap.curRange(),
 											  currentAln.back().overlap.curRange());
 				GraphPath currentPath;
@@ -600,7 +612,7 @@ std::vector<RepeatResolver::Connection>
 				//TODO: fix this ad-hoc fix. Currently, if read connects
 				//two consecutive edges (for example, when resolving chimera junctions,
 				//we still would insert a tiny bit of read sequence as a placeholder.
-				//Probably, wouldn't harm, but who knows..
+				//Probably, wouldn't hurt, but who knows..
 				readEnd = std::max(readStart + MAGIC_100 - 1, readEnd);	
 				if (readStart < 0 || readEnd >= aln.overlap.curLen)
 				{
@@ -611,12 +623,6 @@ std::vector<RepeatResolver::Connection>
 					break;
 				}
 
-				/*std::string description = "read_seq_" + 
-					std::to_string(aln.overlap.curId.signedId());
-				EdgeSequence edgeSeq = 
-					_graph.addEdgeSequence(_readSeqs.getSeq(aln.overlap.curId),
-										   readStart, readEnd - readStart,
-										   description);*/
 				ReadSequence readSeq = {aln.overlap.curId, readStart, readEnd};
 				ReadSequence complRead = {aln.overlap.curId.rc(), 
 										  aln.overlap.curLen - readEnd - 1,
