@@ -214,6 +214,7 @@ void MultiplicityInferer::splitNodes()
 			nodeToSplit->outEdges.size() < 2) continue;
 		if (usedNodes.count(nodeToSplit)) continue;
 		usedNodes.insert(_graph.complementNode(nodeToSplit));
+		bool selfComplNode = nodeToSplit == _graph.complementNode(nodeToSplit);
 
 		//initializing sets (to cluster them later)
 		typedef SetNode<GraphEdge*> SetElement;
@@ -291,7 +292,7 @@ void MultiplicityInferer::splitNodes()
 					GraphEdge* complEdge = _graph.complementEdge(edge);
 					GraphNode* complSplit = _graph.complementNode(nodeToSplit);
 					switchNode(edge, nodeToSplit, newNode);
-					if (!edge->selfComplement) 
+					if (!edge->selfComplement && !selfComplNode)
 					{
 						switchNode(complEdge, complSplit, newComplNode);
 					}
