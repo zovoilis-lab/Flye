@@ -1053,23 +1053,86 @@ void RepeatGraph::storeGraph(const std::string& filename)
 
 void RepeatGraph::validateGraph()
 {
-	//check the symmetry
+	//check that complementary edges exist
 	for (GraphNode* node : this->iterNodes())
 	{
 		for (GraphEdge* edge : node->outEdges)
 		{
 			if (!_idToEdge.count(edge->edgeId.rc())) 
 			{
-				throw std::runtime_error("Edge " + std::to_string(edge->edgeId.signedId()) 
-										 + " not paired");
+				Logger::get().warning() << "Edge " + std::to_string(edge->edgeId.signedId()) 
+										 + " not paired";
 			}
 		}
 		for (GraphEdge* edge : node->inEdges)
 		{
 			if (!_idToEdge.count(edge->edgeId.rc())) 
 			{
-				throw std::runtime_error("Edge " + std::to_string(edge->edgeId.signedId()) 
-										 + " not paired");
+				Logger::get().warning() << "Edge " + std::to_string(edge->edgeId.signedId()) 
+										 + " not paired";
+			}
+		}
+	}
+
+	//check the symmetry:
+	for (GraphNode* node : this->iterNodes())
+	{
+		GraphNode* complNode = this->complementNode(node);
+
+		for (GraphEdge* edge : node->outEdges)
+		{
+			if (this->complementEdge(edge)->nodeRight != complNode)
+			{
+				Logger::get().warning() << "Edge " + std::to_string(edge->edgeId.signedId()) 
+										 + " brakes symmetry";
+			}
+		}
+		for (GraphEdge* edge : node->inEdges)
+		{
+			if (this->complementEdge(edge)->nodeLeft != complNode)
+			{
+				Logger::get().warning() << "Edge " + std::to_string(edge->edgeId.signedId()) 
+										 + " brakes symmetry";
+			}
+		}
+	}
+
+	for (auto& edge : this->iterEdges())
+	{
+		for (auto& nextEdge : edge->nodeRight->outEdges)
+		{
+			if (this->complementEdge(edge)->nodeLeft !=
+				this->complementEdge(nextEdge)->nodeRight)
+			{
+				Logger::get().warning() << "Edge " + std::to_string(edge->edgeId.signedId()) 
+										 + " brakes symmetry";
+			}
+		}
+		for (auto& nextEdge : edge->nodeRight->inEdges)
+		{
+			if (this->complementEdge(edge)->nodeLeft !=
+				this->complementEdge(nextEdge)->nodeLeft)
+			{
+				Logger::get().warning() << "Edge " + std::to_string(edge->edgeId.signedId()) 
+										 + " brakes symmetry";
+			}
+		}
+		for (auto& prevEdge : edge->nodeLeft->outEdges)
+		{
+			if (this->complementEdge(edge)->nodeRight !=
+				this->complementEdge(prevEdge)->nodeRight)
+			{
+				Logger::get().warning() << "Edge " + std::to_string(edge->edgeId.signedId()) 
+										 + " brakes symmetry";
+			}
+		}
+		for (auto& prevEdge : edge->nodeLeft->inEdges)
+		{
+			if (this->complementEdge(edge)->nodeRight !=
+				this->complementEdge(prevEdge)->nodeLeft)
+			{
+				Logger::get().warning() << "Edge " + std::to_string(edge->edgeId.signedId()) 
+										 + " brakes symmetry";
 			}
 		}
 	}
