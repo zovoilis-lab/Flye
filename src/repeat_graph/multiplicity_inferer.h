@@ -41,7 +41,7 @@ public:
 			if (iterShort + iterLong == 0) break;
 		}
 
-		Logger::get().debug() << "Clipped " << totalShort 
+		Logger::get().debug() << "[SIMPL] Clipped " << totalShort 
 			<< " short and " << totalLong << " long tips";
 		return totalShort + totalLong;
 	}

@@ -137,7 +137,7 @@ void MultiplicityInferer::maskUnsupportedEdges()
 		}
 	}
 	//for (auto& edge : edgesRemove) _graph.removeEdge(edge);
-	Logger::get().debug() << "Masked " << numMasked
+	Logger::get().debug() << "[SIMPL] Masked " << numMasked
 		<< " edges with low coverage";
 
 	//_aligner.updateAlignments();
@@ -302,7 +302,7 @@ void MultiplicityInferer::splitNodes()
 	}
 
 	_aligner.updateAlignments();
-	Logger::get().debug() << "Split " << numSplit << " nodes";
+	Logger::get().debug() << "[SIMPL] Split " << numSplit << " nodes";
 }
 
 
@@ -392,7 +392,7 @@ void MultiplicityInferer::removeUnsupportedConnections()
 		}
 	}
 
-	Logger::get().debug() << "Disconnected " << numDisconnected << " edges";
+	Logger::get().debug() << "[SIMPL] Disconnected " << numDisconnected << " edges";
 
 	_aligner.updateAlignments();
 }
@@ -492,13 +492,13 @@ int MultiplicityInferer::collapseHeterozygousLoops(bool removeAlternatives)
 			}
 		}
 
-		Logger::get().debug() << "Removed " << (toRemove.size() + toUnroll.size()) / 2
+		Logger::get().debug() << "[SIMPL] Removed " << (toRemove.size() + toUnroll.size()) / 2
 			<< " heterozygous loops";
 		_aligner.updateAlignments();
 	}
 	else
 	{
-		Logger::get().debug() << "Masked " << (toRemove.size() + toUnroll.size()) / 2
+		Logger::get().debug() << "[SIMPL] Masked " << (toRemove.size() + toUnroll.size()) / 2
 			<< " heterozygous loops";
 	}
 
@@ -588,8 +588,8 @@ void MultiplicityInferer::trimTipsIteration(int& outShort, int& outLong)
 	{
 		if (toRemove.count(path.id))
 		{
-			Logger::get().debug() << "Tip " << path.edgesStr() 
-				<< " len:" << path.length << " cov:" << path.meanCoverage;
+			//Logger::get().debug() << "Tip " << path.edgesStr() 
+			//	<< " len:" << path.length << " cov:" << path.meanCoverage;
 
 			GraphEdge* targetEdge = path.path.front();
 			GraphEdge* complEdge = _graph.complementEdge(targetEdge);
@@ -715,14 +715,14 @@ int MultiplicityInferer::collapseHeterozygousBulges(bool removeAlternatives)
 			}
 		}
 
-		Logger::get().debug() << "Removed " << toSeparate.size() / 2 
+		Logger::get().debug() << "[SIMPL] Removed " << toSeparate.size() / 2 
 			<< " heterozygous bulges";
 
 		_aligner.updateAlignments();
 	}
 	else
 	{
-		Logger::get().debug() << "Masked " << toSeparate.size() / 2 
+		Logger::get().debug() << "[SIMPL] Masked " << toSeparate.size() / 2 
 			<< " heterozygous bulges";
 	}
 
