@@ -234,7 +234,7 @@ void MultiplicityInferer::splitNodes()
 			}
 		}
 
-		//grouping edges if they are onnected by reads
+		//grouping edges if they are connected by reads
 		for (GraphEdge* inEdge : nodeToSplit->inEdges)
 		{
 			for (auto outEdge : connections[inEdge])
@@ -412,6 +412,7 @@ int MultiplicityInferer::collapseHeterozygousLoops(bool removeAlternatives)
 	std::unordered_set<FastaRecord::Id> toRemove;
 	for (auto& loop : unbranchingPaths)
 	{
+		if (!loop.id.strand()) continue;
 		if (!loop.isLooped()) continue;
 		if (loop.path.front()->selfComplement) continue;
 
@@ -467,7 +468,7 @@ int MultiplicityInferer::collapseHeterozygousLoops(bool removeAlternatives)
 			if (toUnroll.count(path.id))
 			{
 				GraphNode* newNode = _graph.addNode();
-				size_t id = path.nodeLeft()->inEdges[0] == path.path.front();
+				size_t id = path.nodeLeft()->inEdges[0] == path.path.back();
 				GraphEdge* prevEdge = path.nodeLeft()->inEdges[id];
 
 				vecRemove(path.nodeLeft()->outEdges, path.path.front());
