@@ -482,7 +482,7 @@ int MultiplicityInferer::collapseHeterozygousLoops(bool removeAlternatives)
 									entrancePath->meanCoverage)) continue;
 
 		//loop should not be longer than other branches
-		if (loop.length > std::min(entrancePath->length, 
+		if (loop.length > std::max(entrancePath->length, 
 								   exitPath->length)) continue;
 
 		for (auto& edge : loop.path)
@@ -569,10 +569,9 @@ void MultiplicityInferer::trimTipsIteration(int& outShort, int& outLong)
 
 	for (auto& tipPath : unbranchingPaths)
 	{
-		//not a tip
-		if (tipPath.nodeLeft()->outEdges.size() == 1 ||
-			tipPath.nodeRight()->outEdges.size() > 0) continue;
-		if (tipPath.path.front()->selfComplement) continue;	//never-ever!
+		if (!tipPath.path.back()->isRightTerminal()) continue;	//right-tip
+		if (tipPath.nodeLeft()->outEdges.size() == 1) continue;	//already detached from the left
+		if (tipPath.path.front()->selfComplement) continue;		//never-ever!
 
 		//short tip, remove regardless of coverage
 		if (tipPath.length < SHORT_TIP)
@@ -663,7 +662,7 @@ void MultiplicityInferer::trimTipsIteration(int& outShort, int& outLong)
 //Note that we are not using any global coverage assumptions here.
 int MultiplicityInferer::collapseHeterozygousBulges(bool removeAlternatives)
 {
-	const float MAX_COV_VAR = 0.5;
+	const float MAX_COV_VAR = 1.5;
 	const int MAX_BUBBLE_LEN = Config::get("max_bubble_length");
 
 	GraphProcessor proc(_graph, _asmSeqs);
@@ -706,17 +705,16 @@ int MultiplicityInferer::collapseHeterozygousBulges(bool removeAlternatives)
 			MAX_BUBBLE_LEN) continue;
 
 		//coverage requirement: sum over two branches roughly equals to
-		//exit and entrance coverage
+		//exit and entrance coverage or less
 		float covSum = twoPaths[0]->meanCoverage + twoPaths[1]->meanCoverage;
-		float entranceDiff = fabsf(covSum - entrancePath->meanCoverage) / covSum;
-		float exitDiff = fabsf(covSum - exitPath->meanCoverage) / covSum;
-		if (entranceDiff > MAX_COV_VAR || exitDiff > MAX_COV_VAR) continue;
+		if (covSum > std::min(entrancePath->meanCoverage * MAX_COV_VAR,
+							  exitPath->meanCoverage * MAX_COV_VAR)) continue;
 
-		//require bubble branches to be shorter than entrance and exit,
+		//require bubble branches to be shorter than entrance or exit,
 		//to distinguish from the case of two consecutive repeats
 		//of multiplicity 2
 		if (std::max(twoPaths[0]->length, twoPaths[1]->length) >
-			std::min(entrancePath->length, exitPath->length)) continue;
+			std::max(entrancePath->length, exitPath->length)) continue;
 
 		if (twoPaths[0]->meanCoverage > twoPaths[1]->meanCoverage)
 		{
