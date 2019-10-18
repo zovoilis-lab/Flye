@@ -111,7 +111,7 @@ struct GraphEdge
 	bool isLooped() const 
 		{return nodeLeft == nodeRight;}
 
-	bool isTip() const;
+	bool isRightTerminal() const;
 
 	int32_t length() const
 	{

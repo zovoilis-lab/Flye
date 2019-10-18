@@ -308,7 +308,7 @@ bool RepeatResolver::checkByReadExtension(const GraphEdge* checkEdge,
 
 			std::string star = outEdgeCount.first->repetitive ? "R" : " ";
 			std::string loop = outEdgeCount.first->isLooped() ? "L" : " ";
-			std::string tip = outEdgeCount.first->isTip() ? "T" : " ";
+			std::string tip = outEdgeCount.first->isRightTerminal() ? "T" : " ";
 			Logger::get().debug() << "\t" << star << " " << loop << " " << tip << " "
 				<< outEdgeCount.first->edgeId.signedId() << "\tnum:" << outEdgeCount.second.size()
 				<< "\tflank:" << maxFlank << "\tspan:" << minSpan;

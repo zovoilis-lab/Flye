@@ -41,9 +41,13 @@ namespace
 
 }
 
-bool GraphEdge::isTip() const
+bool GraphEdge::isRightTerminal() const
 {
-	return nodeLeft->inEdges.empty() || nodeRight->outEdges.empty();
+	for (GraphEdge* edge : this->nodeRight->outEdges)
+	{
+		if (!edge->isLooped()) return false;
+	}
+	return true;
 }
 
 std::unordered_set<GraphEdge*> GraphEdge::adjacentEdges()

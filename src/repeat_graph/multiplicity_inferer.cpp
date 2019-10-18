@@ -10,6 +10,7 @@
 
 static const int MIN_JCT_SUPPORT = 2;
 
+
 //Estimates the mean coverage and assingns edges multiplicity accordingly
 void MultiplicityInferer::estimateCoverage()
 {
@@ -153,7 +154,7 @@ void MultiplicityInferer::removeUnsupportedEdges(bool onlyTips)
 	{
 		if (onlyTips && 
 			path.nodeLeft()->inEdges.size() > 0 &&
-			path.nodeRight()->outEdges.size() > 0) continue;
+			!path.path.back()->isRightTerminal()) continue;
 
 		bool removePath = true;
 		for (auto& edge : path.path)
