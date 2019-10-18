@@ -195,8 +195,10 @@ int main(int argc, char** argv)
 	multInf.maskUnsupportedEdges();
 	multInf.removeUnsupportedEdges(/*only tips*/ true);
 	multInf.splitNodes();
+	multInf.disconnectMinorPaths();
 	multInf.collapseHeterozygousLoops(/*remove alternatives*/ false);
 	multInf.collapseHeterozygousBulges(/*remove alternatives*/ false);
+
 	rg.validateGraph();
 	
 	//aligner.storeAlignments(outFolder + "/read_alignment_before_rr");
@@ -215,6 +217,7 @@ int main(int argc, char** argv)
 	multInf.removeUnsupportedEdges(/*only tips*/ false);
 	multInf.removeUnsupportedConnections();
 	multInf.splitNodes();
+	multInf.disconnectMinorPaths();
 	multInf.collapseHeterozygousLoops(/*remove alternatives*/ true);
 	multInf.collapseHeterozygousBulges(/*remove alternatives*/ true);
 	resolver.findRepeats();

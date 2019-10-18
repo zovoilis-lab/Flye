@@ -171,10 +171,67 @@ void MultiplicityInferer::removeUnsupportedEdges(bool onlyTips)
 	}
 
 	for (auto& edge : toRemove) _graph.removeEdge(edge);
-	Logger::get().debug() << "Removed " << toRemove.size() / 2
+	Logger::get().debug() << "[SIMPL] Removed " << toRemove.size() / 2
 		<< " edges with low coverage";
 
 	_aligner.updateAlignments();
+}
+
+void MultiplicityInferer::disconnectMinorPaths()
+{
+	const int DETACH_RATE = 10;
+
+	auto nodeDegree = [](GraphNode* node)
+	{
+		int maxIn = 0;
+		int maxOut = 0;
+		for (auto& edge : node->inEdges) 
+		{
+			if (!edge->isLooped()) maxIn = std::max(maxIn, edge->meanCoverage);
+		}
+		for (auto& edge : node->outEdges) 
+		{
+			if (!edge->isLooped()) maxOut = std::max(maxOut, edge->meanCoverage);
+		}
+		return std::min(maxIn, maxOut);
+	};
+
+	int numDisconnected = 0;
+	GraphProcessor proc(_graph, _asmSeqs);
+	auto unbranchingPaths = proc.getUnbranchingPaths();
+
+	std::unordered_set<FastaRecord::Id> toRemove;
+	for (auto& path : unbranchingPaths)
+	{
+		if (!path.id.strand() || 
+			path.isLooped() ||
+			path.path.front()->selfComplement) continue;
+		if (path.nodeLeft()->inEdges.empty() && 
+			path.nodeRight()->outEdges.empty())	continue; //already detached
+
+		bool weakLeft = path.nodeLeft()->inEdges.empty() || 
+						nodeDegree(path.nodeLeft()) > path.meanCoverage * DETACH_RATE;
+		bool weakRight = path.nodeRight()->outEdges.empty() || 
+						 nodeDegree(path.nodeRight()) > path.meanCoverage * DETACH_RATE;
+		if (weakLeft && weakRight) toRemove.insert(path.id);
+	}
+	
+	for (auto& path : unbranchingPaths)
+	{
+		if (toRemove.count(path.id))
+		{
+			_graph.disconnectLeft(path.path.front());
+			_graph.disconnectLeft(_graph.complementEdge(path.path.back()));
+			_graph.disconnectRight(path.path.back());
+			_graph.disconnectRight(_graph.complementEdge(path.path.front()));
+			++numDisconnected;
+			//Logger::get().debug() << "Fragile path: " << path.edgesStr();
+		}
+	}
+
+	_aligner.updateAlignments();
+	Logger::get().debug() << "[SIMPL] Disconnected "
+		<< numDisconnected << " minor paths";
 }
 
 //Checks each node in the graph if all edges form a single
