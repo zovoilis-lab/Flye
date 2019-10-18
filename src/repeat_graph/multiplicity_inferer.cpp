@@ -309,9 +309,9 @@ void MultiplicityInferer::splitNodes()
 		if (clusters.size() > 1)	//need to split the node!
 		{
 			numSplit += 1;
-			Logger::get().debug() << "Node " 
+			/*Logger::get().debug() << "Node " 
 				<< nodeToSplit->inEdges.size() + nodeToSplit->outEdges.size()
-				<< " clusters: " << clusters.size();
+				<< " clusters: " << clusters.size() << " " << selfComplNode;
 			for (auto& cl : clusters)
 			{
 				Logger::get().debug() << "\tCl: " << cl.second.size();
@@ -320,7 +320,7 @@ void MultiplicityInferer::splitNodes()
 					Logger::get().debug() << "\t\t" << edge->edgeId.signedId() << " " 
 						<< edge->length() << " " << edge->meanCoverage;
 				}
-			}
+			}*/
 
 			for (auto& cl : clusters)
 			{
@@ -396,21 +396,6 @@ void MultiplicityInferer::removeUnsupportedConnections()
 		}
 	}
 
-	auto disconnectRight = [this](GraphEdge* edge)
-	{
-		GraphNode* newNode = _graph.addNode();
-		vecRemove(edge->nodeRight->inEdges, edge);
-		edge->nodeRight = newNode;
-		edge->nodeRight->inEdges.push_back(edge);
-	};
-	auto disconnectLeft = [this](GraphEdge* edge)
-	{
-		GraphNode* newNode = _graph.addNode();
-		vecRemove(edge->nodeLeft->outEdges, edge);
-		edge->nodeLeft = newNode;
-		edge->nodeLeft->outEdges.push_back(edge);
-	};
-
 	int numDisconnected = 0;
 	for (auto& edge : _graph.iterEdges())
 	{
@@ -432,8 +417,8 @@ void MultiplicityInferer::removeUnsupportedConnections()
 			//Logger::get().debug() << "Chimeric right: " <<
 			//	edge->edgeId.signedId() << " " << rightConnections[edge] / 2;
 
-			disconnectRight(edge);
-			disconnectLeft(complEdge);
+			_graph.disconnectRight(edge);
+			_graph.disconnectLeft(complEdge);
 
 			if (edge->selfComplement) continue;	//already discinnected
 		}
@@ -445,8 +430,8 @@ void MultiplicityInferer::removeUnsupportedConnections()
 			//Logger::get().debug() << "Chimeric left: " <<
 			//	edge->edgeId.signedId() << " " << leftConnections[edge] / 2;
 
-			disconnectLeft(edge);
-			disconnectRight(complEdge);
+			_graph.disconnectLeft(edge);
+			_graph.disconnectRight(complEdge);
 		}
 	}
 

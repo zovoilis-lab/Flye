@@ -342,6 +342,22 @@ public:
 							 	 int32_t start, int32_t length,
 							 	 const std::string& description);
 
+	void disconnectRight(GraphEdge* edge)
+	{
+		GraphNode* newNode = this->addNode();
+		vecRemove(edge->nodeRight->inEdges, edge);
+		edge->nodeRight = newNode;
+		edge->nodeRight->inEdges.push_back(edge);
+	};
+
+	void disconnectLeft(GraphEdge* edge)
+	{
+		GraphNode* newNode = this->addNode();
+		vecRemove(edge->nodeLeft->outEdges, edge);
+		edge->nodeLeft = newNode;
+		edge->nodeLeft->outEdges.push_back(edge);
+	};
+
 private:
 	size_t _nextEdgeId;
 
