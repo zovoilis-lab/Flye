@@ -24,6 +24,7 @@ public:
 	void removeUnsupportedEdges(bool onlyTips);
 	void removeUnsupportedConnections();
 	void splitNodes();
+	void disconnectMinorPaths();
 
 	int  collapseHeterozygousLoops(bool removeAlternatives);
 	int  collapseHeterozygousBulges(bool removeAlternatives);
