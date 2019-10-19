@@ -24,16 +24,17 @@ public:
 	int  getUniqueCovThreshold() const 	{return _uniqueCovThreshold;}
 
 	//various simplifications
-	void maskUnsupportedEdges();
-	void removeUnsupportedEdges(bool onlyTips);
-	void removeUnsupportedConnections();
-	void splitNodes();
-	void disconnectMinorPaths();
-	void resolveForks();
+	int maskUnsupportedEdges();
+	int removeUnsupportedEdges(bool onlyTips);
 
-	int  collapseHeterozygousLoops(bool removeAlternatives);
-	int  collapseHeterozygousBulges(bool removeAlternatives);
-	int  trimTips()
+	int removeUnsupportedConnections();
+	int splitNodes();
+	int disconnectMinorPaths();
+	int resolveForks();
+
+	int collapseHeterozygousLoops(bool removeAlternatives);
+	int collapseHeterozygousBulges(bool removeAlternatives);
+	int trimTips()
 	{
 		int totalShort = 0;
 		int totalLong = 0;

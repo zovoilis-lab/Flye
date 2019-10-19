@@ -92,7 +92,7 @@ void MultiplicityInferer::estimateCoverage()
 	Logger::get().debug() << "Unique coverage threshold " << _uniqueCovThreshold;
 }
 
-void MultiplicityInferer::resolveForks()
+int MultiplicityInferer::resolveForks()
 {
 	const int UNIQUE_LEN = (int)Config::get("unique_edge_length");
 	const int MAJOR_TO_MINOR = 5;
@@ -135,10 +135,11 @@ void MultiplicityInferer::resolveForks()
 
 	_aligner.updateAlignments();
 	Logger::get().debug() << "[SIMPL] Resolved " << numDisconnected << " forks";
+	return numDisconnected;
 }
 
 //Masks out edges with low coverage (but not removes them)
-void MultiplicityInferer::maskUnsupportedEdges()
+int MultiplicityInferer::maskUnsupportedEdges()
 {
 	const int MIN_CUTOFF = std::round((float)Config::get("min_read_cov_cutoff"));
 
@@ -187,9 +188,10 @@ void MultiplicityInferer::maskUnsupportedEdges()
 		<< " edges with low coverage";
 
 	//_aligner.updateAlignments();
+	return numMasked;
 }
 
-void MultiplicityInferer::removeUnsupportedEdges(bool onlyTips)
+int MultiplicityInferer::removeUnsupportedEdges(bool onlyTips)
 {
 	GraphProcessor proc(_graph, _asmSeqs);
 	auto unbranchingPaths = proc.getUnbranchingPaths();
@@ -221,9 +223,10 @@ void MultiplicityInferer::removeUnsupportedEdges(bool onlyTips)
 		<< " edges with low coverage";
 
 	_aligner.updateAlignments();
+	return toRemove.size() / 2;
 }
 
-void MultiplicityInferer::disconnectMinorPaths()
+int MultiplicityInferer::disconnectMinorPaths()
 {
 	const int DETACH_RATE = 10;
 
@@ -278,6 +281,8 @@ void MultiplicityInferer::disconnectMinorPaths()
 	_aligner.updateAlignments();
 	Logger::get().debug() << "[SIMPL] Disconnected "
 		<< numDisconnected << " minor paths";
+
+	return numDisconnected;
 }
 
 //Checks each node in the graph if all edges form a single
@@ -285,7 +290,7 @@ void MultiplicityInferer::disconnectMinorPaths()
 //there are multiple cluster, the node is split into 
 //multiple corresponding nodes. This, for example,
 //addresses chimeric connections
-void MultiplicityInferer::splitNodes()
+int MultiplicityInferer::splitNodes()
 {
 	Logger::get().debug() << "Splitting nodes";
 	int numSplit = 0;
@@ -406,13 +411,15 @@ void MultiplicityInferer::splitNodes()
 
 	_aligner.updateAlignments();
 	Logger::get().debug() << "[SIMPL] Split " << numSplit << " nodes";
+
+	return numSplit;
 }
 
 
 //Disconnects edges, which had low number of reads that connect them
 //with the rest of the graph. #of reads is relative to the
 //edge coverage
-void MultiplicityInferer::removeUnsupportedConnections()
+int MultiplicityInferer::removeUnsupportedConnections()
 {
 	std::unordered_map<GraphEdge*, int32_t> rightConnections;
 	std::unordered_map<GraphEdge*, int32_t> leftConnections;
@@ -483,6 +490,7 @@ void MultiplicityInferer::removeUnsupportedConnections()
 	Logger::get().debug() << "[SIMPL] Disconnected " << numDisconnected << " edges";
 
 	_aligner.updateAlignments();
+	return numDisconnected;
 }
 
 //This function collapses simple loops:
