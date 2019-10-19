@@ -18,13 +18,18 @@ public:
 		_graph(graph), _aligner(aligner), _asmSeqs(asmSeqs), 
 		_readSeqs(readSeqs), _uniqueCovThreshold(0), _meanCoverage(0) {}
 
+	//coverage-related
 	void estimateCoverage();
 	int  getMeanCoverage() const {return _meanCoverage;}
+	int  getUniqueCovThreshold() const 	{return _uniqueCovThreshold;}
+
+	//various simplifications
 	void maskUnsupportedEdges();
 	void removeUnsupportedEdges(bool onlyTips);
 	void removeUnsupportedConnections();
 	void splitNodes();
 	void disconnectMinorPaths();
+	void resolveForks();
 
 	int  collapseHeterozygousLoops(bool removeAlternatives);
 	int  collapseHeterozygousBulges(bool removeAlternatives);
@@ -47,8 +52,6 @@ public:
 		return totalShort + totalLong;
 	}
 
-	//coverage threshold for an edge to be considered "unique"
-	int  getUniqueCovThreshold() const 	{return _uniqueCovThreshold;}
 
 private:
 	void trimTipsIteration(int& outShort, int& outLong);

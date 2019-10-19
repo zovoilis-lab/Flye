@@ -92,6 +92,51 @@ void MultiplicityInferer::estimateCoverage()
 	Logger::get().debug() << "Unique coverage threshold " << _uniqueCovThreshold;
 }
 
+void MultiplicityInferer::resolveForks()
+{
+	const int UNIQUE_LEN = (int)Config::get("unique_edge_length");
+	const int MAJOR_TO_MINOR = 5;
+
+	int numDisconnected = 0;
+	std::vector<GraphNode*> originalNodes(_graph.iterNodes().begin(), 
+									      _graph.iterNodes().end());
+	for (GraphNode* node : originalNodes)
+	{
+		//only forks: one in, two out
+		if (node->inEdges.size() != 1 ||
+			node->outEdges.size() != 2) continue;
+
+		GraphEdge* inEdge = node->inEdges.front();
+		GraphEdge* outMajor = node->outEdges[0];
+		GraphEdge* outMinor = node->outEdges[1];
+		if (outMinor->meanCoverage > outMajor->meanCoverage)
+		{
+			std::swap(outMajor, outMinor);
+		}
+
+		//confirming the correct structure
+		if (inEdge->selfComplement || inEdge->isLooped() ||
+			outMajor->selfComplement || outMajor->isLooped() ||
+			outMinor->selfComplement || outMinor->isLooped()) continue;
+
+		//we want out input edge to be unique. This is not the
+		//most reliable way to tell, but at least something
+		if (inEdge->length() < UNIQUE_LEN) continue;
+
+		//we want coverage of major edges significantly higher than minor
+		if (std::min(outMajor->meanCoverage, inEdge->meanCoverage) < 
+			outMinor->meanCoverage * MAJOR_TO_MINOR) continue;
+
+		//looks like all is good
+		_graph.disconnectLeft(outMinor);
+		_graph.disconnectRight(_graph.complementEdge(outMinor));
+		++numDisconnected;
+	}
+
+	_aligner.updateAlignments();
+	Logger::get().debug() << "[SIMPL] Resolved " << numDisconnected << " forks";
+}
+
 //Masks out edges with low coverage (but not removes them)
 void MultiplicityInferer::maskUnsupportedEdges()
 {
