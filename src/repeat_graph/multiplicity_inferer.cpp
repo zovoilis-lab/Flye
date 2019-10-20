@@ -134,7 +134,7 @@ int MultiplicityInferer::resolveForks()
 	}
 
 	_aligner.updateAlignments();
-	Logger::get().debug() << "[SIMPL] Resolved " << numDisconnected << " forks";
+	Logger::get().debug() << "[SIMPL] Simplified " << numDisconnected << " forks";
 	return numDisconnected;
 }
 
@@ -454,9 +454,10 @@ int MultiplicityInferer::removeUnsupportedConnections()
 		if (!edge->edgeId.strand() || edge->isLooped()) continue;
 		GraphEdge* complEdge = _graph.complementEdge(edge);
 
-		int32_t coverageThreshold = edge->meanCoverage / 
-								Config::get("graph_cov_drop_rate");
-		coverageThreshold = std::max(MIN_JCT_SUPPORT, coverageThreshold);
+		//int32_t coverageThreshold = edge->meanCoverage / 
+		//						Config::get("graph_cov_drop_rate");
+		//coverageThreshold = std::max(MIN_JCT_SUPPORT, coverageThreshold);
+		int32_t coverageThreshold = MIN_JCT_SUPPORT;
 
 		//Logger::get().debug() << "Adjacencies: " << edge->edgeId.signedId() << " "
 		//	<< leftConnections[edge] / 2 << " " << rightConnections[edge] / 2;
@@ -506,6 +507,7 @@ int MultiplicityInferer::collapseHeterozygousLoops(bool removeAlternatives)
 
 	std::unordered_set<FastaRecord::Id> toUnroll;
 	std::unordered_set<FastaRecord::Id> toRemove;
+	int numMasked = 0;
 	for (auto& loop : unbranchingPaths)
 	{
 		if (!loop.id.strand()) continue;
@@ -538,6 +540,7 @@ int MultiplicityInferer::collapseHeterozygousLoops(bool removeAlternatives)
 		if (loop.length > std::max(entrancePath->length, 
 								   exitPath->length)) continue;
 
+		if (!loop.path.front()->altHaplotype) ++numMasked;
 		for (auto& edge : loop.path)
 		{
 			edge->altHaplotype = true;
@@ -591,14 +594,14 @@ int MultiplicityInferer::collapseHeterozygousLoops(bool removeAlternatives)
 		Logger::get().debug() << "[SIMPL] Removed " << (toRemove.size() + toUnroll.size()) / 2
 			<< " heterozygous loops";
 		_aligner.updateAlignments();
+		return (toRemove.size() + toUnroll.size()) / 2;
 	}
 	else
 	{
-		Logger::get().debug() << "[SIMPL] Masked " << (toRemove.size() + toUnroll.size()) / 2
-			<< " heterozygous loops";
+		Logger::get().debug() << "[SIMPL] Masked " << numMasked << " heterozygous loops";
+		return numMasked;
 	}
 
-	return (toRemove.size() + toUnroll.size()) / 2;
 }
 
 void MultiplicityInferer::trimTipsIteration(int& outShort, int& outLong)
@@ -722,6 +725,7 @@ int MultiplicityInferer::collapseHeterozygousBulges(bool removeAlternatives)
 	auto unbranchingPaths = proc.getUnbranchingPaths();
 
 	std::unordered_set<FastaRecord::Id> toSeparate;
+	int numMasked = 0;
 	for (auto& path : unbranchingPaths)
 	{
 		if (path.isLooped()) continue;
@@ -774,6 +778,9 @@ int MultiplicityInferer::collapseHeterozygousBulges(bool removeAlternatives)
 			std::swap(twoPaths[0], twoPaths[1]);
 		}
 
+		if (!twoPaths[0]->path.front()->altHaplotype ||
+			!twoPaths[1]->path.front()->altHaplotype) ++numMasked;
+
 		for (size_t i = 0; i < 2; ++i)
 		{
 			for (auto& edge : twoPaths[i]->path)
@@ -782,14 +789,17 @@ int MultiplicityInferer::collapseHeterozygousBulges(bool removeAlternatives)
 				_graph.complementEdge(edge)->altHaplotype = true;
 			}
 		}
-		
-		toSeparate.insert(twoPaths[0]->id);
-		toSeparate.insert(twoPaths[0]->id.rc());
-		/*for (auto& edge : twoPaths[1]->path)
+
+		if (removeAlternatives)
 		{
-			edge->meanCoverage += twoPaths[0]->meanCoverage;
-			_graph.complementEdge(edge)->meanCoverage += twoPaths[0]->meanCoverage;
-		}*/
+			toSeparate.insert(twoPaths[0]->id);
+			toSeparate.insert(twoPaths[0]->id.rc());
+			for (auto& edge : twoPaths[1]->path)
+			{
+				edge->meanCoverage += twoPaths[0]->meanCoverage;
+				_graph.complementEdge(edge)->meanCoverage += twoPaths[0]->meanCoverage;
+			}
+		}
 	}
 
 	if (removeAlternatives)
@@ -813,12 +823,12 @@ int MultiplicityInferer::collapseHeterozygousBulges(bool removeAlternatives)
 			<< " heterozygous bulges";
 
 		_aligner.updateAlignments();
+		return toSeparate.size() / 2;
 	}
 	else
 	{
-		Logger::get().debug() << "[SIMPL] Masked " << toSeparate.size() / 2 
+		Logger::get().debug() << "[SIMPL] Masked " << numMasked
 			<< " heterozygous bulges";
+		return numMasked;
 	}
-
-	return toSeparate.size() / 2;
 }
