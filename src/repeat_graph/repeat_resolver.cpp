@@ -199,8 +199,8 @@ int RepeatResolver::resolveConnections(const std::vector<Connection>& connection
 						   edgeSeq.complement(), edgeId.rc());
 	}
 
-	Logger::get().debug() << "Resolved: " << uniqueConnections.size() << " links: "
-						  << connections.size() / 2;
+	Logger::get().debug() << "[SIMPL] Resolved repeats: " << uniqueConnections.size();
+	Logger::get().debug() << "RR links: " << connections.size() / 2;
 	Logger::get().debug() << "Unresolved: " << unresolvedLinks;
 
 	return uniqueConnections.size();
@@ -520,7 +520,7 @@ void RepeatResolver::finalizeGraph()
 
 //Iterates repeat detection and resolution until
 //no new repeats are resolved
-void RepeatResolver::resolveRepeats()
+/*void RepeatResolver::resolveRepeats()
 {
 	const float MIN_SUPPORT = Config::get("min_repeat_res_support");
 	while (true)
@@ -539,6 +539,22 @@ void RepeatResolver::resolveRepeats()
 	GraphProcessor proc(_graph, _asmSeqs);
 	proc.fixChimericJunctions();
 	_aligner.updateAlignments();
+}*/
+
+int RepeatResolver::resolveRepeats()
+{
+	const float MIN_SUPPORT = Config::get("min_repeat_res_support");
+
+	auto connections = this->getConnections();
+	int resolvedConnections = 
+		this->resolveConnections(connections, MIN_SUPPORT);
+	this->clearResolvedRepeats();
+
+	GraphProcessor proc(_graph, _asmSeqs);
+	proc.fixChimericJunctions();
+	_aligner.updateAlignments();
+
+	return resolvedConnections;
 }
 
 

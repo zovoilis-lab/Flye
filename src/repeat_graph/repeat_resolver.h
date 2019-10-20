@@ -23,7 +23,7 @@ public:
 		_aligner(aligner), _multInf(multInf) {}
 
 	void findRepeats();
-	void resolveRepeats();
+	int  resolveRepeats();
 	void finalizeGraph();
 
 private:

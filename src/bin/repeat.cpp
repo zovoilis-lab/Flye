@@ -187,43 +187,74 @@ int main(int argc, char** argv)
 
 	Logger::get().info() << "Aligning reads to the graph";
 	aligner.alignReads();
-
 	MultiplicityInferer multInf(rg, aligner, seqAssembly, seqReads);
 	multInf.estimateCoverage();
-
-	multInf.removeUnsupportedConnections();
-	multInf.maskUnsupportedEdges();
-	multInf.removeUnsupportedEdges(/*only tips*/ true);
-	multInf.splitNodes();
-	multInf.disconnectMinorPaths();
-	multInf.collapseHeterozygousLoops(/*remove alternatives*/ false);
-	multInf.collapseHeterozygousBulges(/*remove alternatives*/ false);
-
-	rg.validateGraph();
-	
+	outGen.outputDot(proc.getEdgesPaths(), 
+					 outFolder + "/graph_before_simplification.gv");
 	//aligner.storeAlignments(outFolder + "/read_alignment_before_rr");
 
-	Logger::get().info() << "Resolving repeats";
+	Logger::get().info() << "Simplifying the graph";
+
+	multInf.maskUnsupportedEdges();
+	multInf.removeUnsupportedEdges(/*only tips*/ true);
+	//
+	rg.validateGraph();
+	//
+
+	int iterNum = 1;
+	bool cleanupIter = false;
 	RepeatResolver resolver(rg, seqAssembly, seqReads, aligner, multInf);
-	resolver.findRepeats();
-	outGen.outputDot(proc.getEdgesPaths(), outFolder + "/graph_before_rr.gv");
-	//outGen.outputGfa(proc.getEdgesPaths(), outFolder + "/graph_before_rr.gfa");
-	outGen.outputFasta(proc.getEdgesPaths(), outFolder + "/graph_before_rr.fasta");
+	while (true)
+	{
+		Logger::get().debug() << "[SIMPL] Iteration " << iterNum << " -------";
 
-	resolver.resolveRepeats();
-	rg.validateGraph();
+		int actions = 0;
+		actions += multInf.splitNodes();
+		actions += multInf.trimTips();
+		actions += multInf.removeUnsupportedConnections();
+		if (Parameters::get().unevenCoverage)
+		{
+			//actions += multInf.disconnectMinorPaths();
+			actions += multInf.resolveForks();
+		}
+		actions += multInf.collapseHeterozygousLoops(/*remove alternatives*/ false);
+		actions += multInf.collapseHeterozygousBulges(/*remove alternatives*/ false);
 
-	//clean graph again after repeat resolution
-	multInf.removeUnsupportedEdges(/*only tips*/ false);
-	multInf.removeUnsupportedConnections();
-	multInf.splitNodes();
-	multInf.disconnectMinorPaths();
-	multInf.collapseHeterozygousLoops(/*remove alternatives*/ true);
-	multInf.collapseHeterozygousBulges(/*remove alternatives*/ true);
-	resolver.findRepeats();
-	
+		//some cleaning that potentially can mess up repeat resolution, 
+		//so do it in the very end
+		if (cleanupIter)
+		{
+			multInf.removeUnsupportedEdges(/*only tips*/ false);
+			multInf.collapseHeterozygousLoops(/*remove alternatives*/ true);
+			multInf.collapseHeterozygousBulges(/*remove alternatives*/ true);
+		}
+
+		resolver.findRepeats();
+		if(iterNum == 1)		//dump graph before first repeat resolution iteration
+		{
+			outGen.outputDot(proc.getEdgesPaths(), outFolder + "/graph_before_rr.gv");
+			//outGen.outputGfa(proc.getEdgesPaths(), outFolder + "/graph_before_rr.gfa");
+			outGen.outputFasta(proc.getEdgesPaths(), outFolder + "/graph_before_rr.fasta");
+		}
+		actions += resolver.resolveRepeats();
+
+		if (!actions)
+		{
+			if (cleanupIter) break;
+			cleanupIter = true;
+			
+		}
+		++iterNum;
+		//
+		rg.validateGraph();
+		//
+	}
+
+	//resolver.findRepeats();
 	resolver.finalizeGraph();
+	//
 	rg.validateGraph();
+	//
 
 	outGen.outputDot(proc.getEdgesPaths(), outFolder + "/graph_after_rr.gv");
 	rg.storeGraph(outFolder + "/repeat_graph_dump");
