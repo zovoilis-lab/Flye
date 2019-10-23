@@ -32,8 +32,6 @@ public:
 	int disconnectMinorPaths();
 	int resolveForks();
 
-	int collapseHeterozygousLoops(bool removeAlternatives);
-	int collapseHeterozygousBulges(bool removeAlternatives);
 	int trimTips()
 	{
 		int totalShort = 0;

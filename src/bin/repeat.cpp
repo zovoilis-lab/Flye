@@ -16,6 +16,7 @@
 
 #include "../repeat_graph/repeat_graph.h"
 #include "../repeat_graph/multiplicity_inferer.h"
+#include "../repeat_graph/haplotype_resolver.h"
 #include "../repeat_graph/graph_processing.h"
 #include "../repeat_graph/repeat_resolver.h"
 #include "../repeat_graph/output_generator.h"
@@ -203,10 +204,12 @@ int main(int argc, char** argv)
 
 	int iterNum = 1;
 	bool cleanupIter = false;
-	RepeatResolver resolver(rg, seqAssembly, seqReads, aligner, multInf);
+	RepeatResolver repResolver(rg, seqAssembly, seqReads, aligner, multInf);
+	HaplotypeResolver hapResolver(rg, aligner, seqAssembly, seqReads);
+	repResolver.resolveSimpleRepeats();
 	while (true)
 	{
-		Logger::get().debug() << "[SIMPL] Iteration " << iterNum << " -------";
+		Logger::get().debug() << "[SIMPL] == Iteration " << iterNum << " ==";
 
 		int actions = 0;
 		actions += multInf.splitNodes();
@@ -217,26 +220,26 @@ int main(int argc, char** argv)
 			//actions += multInf.disconnectMinorPaths();
 			actions += multInf.resolveForks();
 		}
-		actions += multInf.collapseHeterozygousLoops(/*remove alternatives*/ false);
-		actions += multInf.collapseHeterozygousBulges(/*remove alternatives*/ false);
+		actions += hapResolver.collapseHeterozygousLoops(/*remove alternatives*/ true);
+		actions += hapResolver.collapseHeterozygousBulges(/*remove alternatives*/ true);
 
 		//some cleaning that potentially can mess up repeat resolution, 
 		//so do it in the very end
 		if (cleanupIter)
 		{
 			multInf.removeUnsupportedEdges(/*only tips*/ false);
-			multInf.collapseHeterozygousLoops(/*remove alternatives*/ true);
-			multInf.collapseHeterozygousBulges(/*remove alternatives*/ true);
+			//hapResolver.collapseHeterozygousLoops(/*remove alternatives*/ true);
+			//hapResolver.collapseHeterozygousBulges(/*remove alternatives*/ true);
 		}
 
-		resolver.findRepeats();
+		repResolver.findRepeats();
 		if(iterNum == 1)		//dump graph before first repeat resolution iteration
 		{
 			outGen.outputDot(proc.getEdgesPaths(), outFolder + "/graph_before_rr.gv");
 			//outGen.outputGfa(proc.getEdgesPaths(), outFolder + "/graph_before_rr.gfa");
 			outGen.outputFasta(proc.getEdgesPaths(), outFolder + "/graph_before_rr.fasta");
 		}
-		actions += resolver.resolveRepeats();
+		actions += repResolver.resolveRepeats();
 
 		if (!actions)
 		{
@@ -251,7 +254,7 @@ int main(int argc, char** argv)
 	}
 
 	//resolver.findRepeats();
-	resolver.finalizeGraph();
+	repResolver.finalizeGraph();
 	//
 	rg.validateGraph();
 	//
