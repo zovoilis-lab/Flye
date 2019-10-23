@@ -1057,6 +1057,42 @@ void RepeatGraph::storeGraph(const std::string& filename)
 
 void RepeatGraph::validateGraph()
 {
+	//check nodes / edges references
+	for (auto& edge : this->iterEdges())
+	{
+		if (!std::count(edge->nodeLeft->outEdges.begin(),
+						edge->nodeLeft->outEdges.end(), edge))
+		{
+			Logger::get().warning() << "Inconsistent node-edge reference " 
+				<< edge->edgeId.signedId();
+		}
+		if (!std::count(edge->nodeRight->inEdges.begin(),
+						edge->nodeRight->inEdges.end(), edge))
+		{
+			Logger::get().warning() << "Inconsistent node-edge reference " 
+				<< edge->edgeId.signedId();
+		}
+	}
+	for (auto& node : this->iterNodes())
+	{
+		for (GraphEdge* edge : node->outEdges)
+		{
+			if (edge->nodeLeft != node)
+			{
+				Logger::get().warning() << "Inconsistent node-edge reference " 
+					<< edge->edgeId.signedId();
+			}
+		}
+		for (GraphEdge* edge : node->inEdges)
+		{
+			if (edge->nodeRight != node)
+			{
+				Logger::get().warning() << "Inconsistent node-edge reference " 
+					<< edge->edgeId.signedId();
+			}
+		}
+	}
+
 	//check that complementary edges exist
 	for (GraphNode* node : this->iterNodes())
 	{
