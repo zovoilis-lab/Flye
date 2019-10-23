@@ -15,13 +15,14 @@ void GraphProcessor::simplify()
 {
 	//this->trimTips();
 	this->fixChimericJunctions();
-	for (;;)
+	this->condenceEdges();
+	/*for (;;)
 	{
 		int changes = 0;
 		changes += this->condenceEdges();
 		changes += this->collapseBulges();
 		if (!changes) break;
-	}
+	}*/
 	//this->trimTips();
 }
 
@@ -88,7 +89,7 @@ void GraphProcessor::fixChimericJunctions()
 }
 
 //Collapses simple small bulges
-int GraphProcessor::collapseBulges()
+/*int GraphProcessor::collapseBulges()
 {
 	const int MAX_BUBBLE = Parameters::get().minimumOverlap;
 	std::unordered_set<std::pair<GraphNode*, GraphNode*>,
@@ -140,7 +141,7 @@ int GraphProcessor::collapseBulges()
 	}
 	Logger::get().debug() << "Collapsed " << toFix.size() / 2 << " bulges";
 	return toFix.size() / 2;
-}
+}*/
 
 //Removing tips
 /*void GraphProcessor::trimTips()
