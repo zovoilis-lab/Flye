@@ -566,6 +566,8 @@ int MultiplicityInferer::collapseHeterozygousLoops(bool removeAlternatives)
 		{
 			if (toUnroll.count(path.id))
 			{
+				//Logger::get().debug() << "Unrolled loop: " << path.edgesStr();
+
 				GraphNode* newNode = _graph.addNode();
 				size_t id = path.nodeLeft()->inEdges[0] == path.path.back();
 				GraphEdge* prevEdge = path.nodeLeft()->inEdges[id];
@@ -579,6 +581,8 @@ int MultiplicityInferer::collapseHeterozygousLoops(bool removeAlternatives)
 			}
 			if (toRemove.count(path.id))
 			{
+				//Logger::get().debug() << "Removed loop: " << path.edgesStr();
+
 				GraphNode* newLeft = _graph.addNode();
 				GraphNode* newRight = _graph.addNode();
 
@@ -746,7 +750,9 @@ int MultiplicityInferer::collapseHeterozygousBulges(bool removeAlternatives)
 		if (toSeparate.count(twoPaths[0]->id) || 
 			toSeparate.count(twoPaths[1]->id)) continue;
 		if (twoPaths[0]->nodeLeft()->inEdges.size() != 1 ||
-			twoPaths[0]->nodeRight()->outEdges.size() != 1) continue;
+			twoPaths[0]->nodeLeft()->outEdges.size() != 2 ||
+			twoPaths[0]->nodeRight()->outEdges.size() != 1 ||
+			twoPaths[0]->nodeRight()->inEdges.size() != 2) continue;
 
 		UnbranchingPath* entrancePath = nullptr;
 		UnbranchingPath* exitPath = nullptr;
@@ -798,6 +804,8 @@ int MultiplicityInferer::collapseHeterozygousBulges(bool removeAlternatives)
 			{
 				edge->meanCoverage += twoPaths[0]->meanCoverage;
 				_graph.complementEdge(edge)->meanCoverage += twoPaths[0]->meanCoverage;
+				edge->altHaplotype = false;
+				_graph.complementEdge(edge)->altHaplotype = false;
 			}
 		}
 	}
@@ -808,6 +816,8 @@ int MultiplicityInferer::collapseHeterozygousBulges(bool removeAlternatives)
 		{
 			if (toSeparate.count(path.id))
 			{
+				//Logger::get().debug() << "Seperated branch: " << path.edgesStr();
+
 				GraphNode* newLeft = _graph.addNode();
 				GraphNode* newRight = _graph.addNode();
 				vecRemove(path.nodeLeft()->outEdges, path.path.front());
