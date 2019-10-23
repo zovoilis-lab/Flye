@@ -24,6 +24,7 @@ public:
 
 	void findRepeats();
 	int  resolveRepeats();
+	int  resolveSimpleRepeats();
 	void finalizeGraph();
 
 private:
