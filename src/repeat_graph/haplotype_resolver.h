@@ -8,6 +8,8 @@
 #include "read_aligner.h"
 
 
+
+
 class HaplotypeResolver
 {
 public:
@@ -22,6 +24,24 @@ public:
 	int findComplexHaplotypes();
 
 private:
+	struct PathWithScore
+	{
+		GraphAlignment path;
+		int score;
+	};
+
+	struct VariantPaths
+	{
+		VariantPaths(): startEdge(nullptr), endEdge(nullptr) {}
+		GraphEdge* startEdge;
+		GraphEdge* endEdge;
+		std::vector<PathWithScore> altPaths;
+	};
+
+	VariantPaths findVariantSegment(GraphEdge* startEdge, 
+									const std::vector<GraphAlignment>& alnignments,
+									const std::unordered_set<GraphEdge*>& loopedEdges);
+
 	RepeatGraph& _graph;
 	ReadAligner& _aligner;
 	const SequenceContainer& _asmSeqs;

@@ -11,7 +11,7 @@
 //Note that we are not using any global coverage assumptions here.
 int HaplotypeResolver::collapseHeterozygousBulges(bool removeAlternatives)
 {
-	const float MAX_COV_VAR = 1.5;
+	//const float MAX_COV_VAR = 1.5;
 	const int MAX_BUBBLE_LEN = Config::get("max_bubble_length");
 
 	GraphProcessor proc(_graph, _asmSeqs);
@@ -58,9 +58,9 @@ int HaplotypeResolver::collapseHeterozygousBulges(bool removeAlternatives)
 
 		//coverage requirement: sum over two branches roughly equals to
 		//exit and entrance coverage or less
-		float covSum = twoPaths[0]->meanCoverage + twoPaths[1]->meanCoverage;
-		if (covSum > std::min(entrancePath->meanCoverage * MAX_COV_VAR,
-							  exitPath->meanCoverage * MAX_COV_VAR)) continue;
+		//float covSum = twoPaths[0]->meanCoverage + twoPaths[1]->meanCoverage;
+		//if (covSum > std::min(entrancePath->meanCoverage * MAX_COV_VAR,
+		//					  exitPath->meanCoverage * MAX_COV_VAR)) continue;
 
 		//require bubble branches to be shorter than entrance or exit,
 		//to distinguish from the case of two consecutive repeats
@@ -245,6 +245,221 @@ int HaplotypeResolver::collapseHeterozygousLoops(bool removeAlternatives)
 	}
 }
 
+HaplotypeResolver::VariantPaths 
+	HaplotypeResolver::findVariantSegment(GraphEdge* startEdge,
+										  const std::vector<GraphAlignment>& alnignments,
+										  const std::unordered_set<GraphEdge*>& loopedEdges)
+{
+	//first, extract alnignment paths starting from
+	//the current edge and sort them from longest to shortest
+	std::vector<GraphAlignment> outPaths;
+	for (auto& aln : alnignments)
+	{
+		for (size_t i = 0; i < aln.size(); ++i)
+		{
+			if (aln[i].edge == startEdge)
+			{
+				outPaths.emplace_back(GraphAlignment(aln.begin() + i, 
+													 aln.end()));
+				break;
+			}
+		}
+	}
+	if (outPaths.empty()) return VariantPaths();
+
+	std::sort(outPaths.begin(), outPaths.end(),
+			  [](GraphAlignment& a1, GraphAlignment& a2)
+			  {return a1.back().overlap.curEnd - a1.front().overlap.curEnd >
+					  a2.back().overlap.curEnd - a2.front().overlap.curEnd;});
+
+	Logger::get().debug() << "Haplo paths " 
+		<< startEdge->edgeId.signedId() << " " << outPaths.size();
+	/*for (auto& aln : outPaths)
+	{
+		std::string pathStr;
+		for (size_t i = 0; i < aln.size(); ++i)
+		{
+			pathStr += std::to_string(aln[i].edge->edgeId.signedId()) + " -> ";
+		}
+		Logger::get().debug() << "\tPath: " << pathStr;
+	}*/
+
+	//now group the path by containmnent. For each group we'll have 
+	//a longest "reference" path.
+
+	//const int MIN_SCORE = std::max(2UL, outPaths.size() / 10);
+	const int MIN_SCORE = 2;
+	std::vector<PathWithScore> pathGroups;
+	for (auto& trgPath: outPaths)
+	{
+		bool newPath = true;
+		for (auto& referencePath : pathGroups)
+		{
+			bool contained = true;
+			for (size_t i = 0; i < std::min(trgPath.size(), 
+											referencePath.path.size()); ++i)
+			{
+				if (trgPath[i].edge != referencePath.path[i].edge)
+				{
+					contained = false;
+					break;
+				}
+			}
+			if (contained)
+			{
+				newPath = false;
+				++referencePath.score;
+				break;
+			}
+		}
+		if (newPath)
+		{
+			pathGroups.push_back({trgPath, 1});
+		}
+	}
+
+	for (auto& aln : pathGroups)
+	{
+		std::string pathStr;
+		for (size_t i = 0; i < aln.path.size(); ++i)
+		{
+			pathStr += std::to_string(aln.path[i].edge->edgeId.signedId()) + " -> ";
+		}
+		Logger::get().debug() << "\tGroup: " << pathStr << aln.score;
+	}
+
+	pathGroups.erase(std::remove_if(pathGroups.begin(), pathGroups.end(),
+					 [MIN_SCORE](PathWithScore& p)
+					 {return p.score < MIN_SCORE;}), pathGroups.end());
+	if (pathGroups.size() < 2) return VariantPaths();
+
+	//mark edges that appear more than once as repeats
+	std::unordered_set<GraphEdge*> repeats;
+	for (size_t groupId = 0; groupId < pathGroups.size(); ++groupId)
+	{
+		std::unordered_set<GraphEdge*> seen;
+		for (size_t i = 0; i < pathGroups[groupId].path.size(); ++i)
+		{
+			if (seen.count(pathGroups[groupId].path[i].edge))
+			{
+				repeats.insert(pathGroups[groupId].path[i].edge);
+			}
+			seen.insert(pathGroups[groupId].path[i].edge);
+		}
+	}
+
+	//now, set the longest path as reference, and find
+	//edges where other groups coverge with the reference
+	PathWithScore& refPath = pathGroups.front();
+	std::unordered_set<GraphEdge*> convergenceEdges;
+	for (size_t i = 0; i < refPath.path.size(); ++i)
+	{
+		if (!loopedEdges.count(refPath.path[i].edge) &&
+			!repeats.count(refPath.path[i].edge))
+		{
+			convergenceEdges.insert(refPath.path[i].edge);
+		}
+	}
+	for (size_t groupId = 1; groupId < pathGroups.size(); ++groupId)
+	{
+		std::unordered_set<GraphEdge*> newSet;
+		for (size_t i = 0; i < pathGroups[groupId].path.size(); ++i)
+		{
+			if (convergenceEdges.count(pathGroups[groupId].path[i].edge))
+			{
+				newSet.insert(pathGroups[groupId].path[i].edge);
+			}
+		}
+		convergenceEdges = newSet;
+	}
+
+	//get the bubble start (paths might be convergent for a bit)
+	size_t bubbleStartId = 0;
+	for (;;)
+	{
+		bool agreement = true;
+		for (size_t groupId = 1; groupId < pathGroups.size(); ++groupId)
+		{
+			if (bubbleStartId + 1 >= pathGroups[groupId].path.size() ||
+				!convergenceEdges.count(pathGroups[0].path[bubbleStartId + 1].edge) ||
+					(pathGroups[groupId].path[bubbleStartId + 1].edge !=
+					 pathGroups[0].path[bubbleStartId + 1].edge))
+			{
+				agreement = false;
+				break;
+			}
+		}
+		if (!agreement) break;
+		++bubbleStartId;
+	}
+
+	//get the bubble end
+	bool foundEnd = false;
+	size_t bubbleEndId = bubbleStartId + 1;
+	for (; bubbleEndId < refPath.path.size(); ++bubbleEndId)
+	{
+		if (convergenceEdges.count(refPath.path[bubbleEndId].edge))
+		{
+			foundEnd = true;
+			break;
+		}
+	}
+	if (!foundEnd) return VariantPaths();
+
+	//shorten all branches accordingly
+	std::vector<PathWithScore> bubbleBranches;
+	for (size_t groupId = 0; groupId < pathGroups.size(); ++groupId)
+	{
+		size_t groupStart = 0;
+		size_t groupEnd = 0;
+		for (size_t i = 0; i < pathGroups[groupId].path.size(); ++i)
+		{
+			if (pathGroups[groupId].path[i].edge == 
+				refPath.path[bubbleStartId].edge) groupStart = i;
+
+			if (pathGroups[groupId].path[i].edge == 
+				refPath.path[bubbleEndId].edge) groupEnd = i;
+		}
+		GraphAlignment newPath(pathGroups[groupId].path.begin() + groupStart,
+							   pathGroups[groupId].path.begin() + groupEnd + 1);
+		PathWithScore newBranch = {newPath, pathGroups[groupId].score};
+
+		bool duplicate = false;
+		for (size_t branchId = 0; branchId < bubbleBranches.size(); ++branchId)
+		{
+			if (newBranch.path.size() != 
+				bubbleBranches[branchId].path.size()) continue;
+			if (std::equal(newBranch.path.begin(), newBranch.path.end(),
+						   bubbleBranches[branchId].path.begin(),
+						   [](EdgeAlignment& a1, EdgeAlignment& a2)
+						   {return a1.edge == a2.edge;}))
+			{
+				duplicate = true;
+				bubbleBranches[branchId].score += newBranch.score;
+			}
+		}
+		if (!duplicate) bubbleBranches.push_back(newBranch);
+	}
+	if (bubbleBranches.size() < 2) return VariantPaths();
+
+	for (auto& aln : bubbleBranches)
+	{
+		std::string pathStr;
+		for (size_t i = 0; i < aln.path.size(); ++i)
+		{
+			pathStr += std::to_string(aln.path[i].edge->edgeId.signedId()) + " -> ";
+		}
+		Logger::get().debug() << "\tBranch: " << pathStr << aln.score;
+	}
+
+
+	VariantPaths vp;
+	vp.startEdge = refPath.path[bubbleStartId].edge;
+	vp.endEdge = refPath.path[bubbleEndId].edge;
+	vp.altPaths = bubbleBranches;
+	return vp;
+}
+
 //this function reveals complex heterogenities on the graph
 //(more than just two alternative branches) using read-paths
 int HaplotypeResolver::findComplexHaplotypes()
@@ -275,217 +490,31 @@ int HaplotypeResolver::findComplexHaplotypes()
 		}
 	}
 
+	std::unordered_set<GraphEdge*> usedEdges;
+	std::vector<VariantPaths> foundVariants;
 	for (auto& startPath: unbranchingPaths)
 	{
-		if (!startPath.id.strand()) continue;
-		if (startPath.nodeRight()->outEdges.size() < 2) continue;
-
 		GraphEdge* startEdge = startPath.path.back();
+		//if (startEdge->nodeRight->outEdges.size() < 2) continue;
 		if (loopedEdges.count(startEdge)) continue;
-
-		//first, extract alnignment paths starting from
-		//the current edge and sort them from longest to shortest
-		std::vector<GraphAlignment> outPaths;
-		for (auto& aln : alnIndex[startEdge])
+		if (usedEdges.count(startEdge)) continue;
+		
+		auto varSeg = this->findVariantSegment(startEdge, alnIndex[startEdge], 
+											   loopedEdges);
+		if (varSeg.startEdge && varSeg.endEdge)
 		{
-			for (size_t i = 0; i < aln.size(); ++i)
+			auto revSeg = 
+				this->findVariantSegment(_graph.complementEdge(varSeg.endEdge), 
+										 alnIndex[_graph.complementEdge(varSeg.endEdge)], 
+										 loopedEdges);
+			if (revSeg.endEdge == _graph.complementEdge(varSeg.startEdge))
 			{
-				if (aln[i].edge == startEdge)
-				{
-					outPaths.emplace_back(GraphAlignment(aln.begin() + i, 
-														 aln.end()));
-					break;
-				}
+				foundVariants.push_back(varSeg);
+				usedEdges.insert(revSeg.startEdge);
+				Logger::get().debug() << "Bubble: " << varSeg.startEdge->edgeId.signedId()
+					<< " -> " << varSeg.endEdge->edgeId.signedId();
 			}
 		}
-		if (outPaths.empty()) continue;
-		std::sort(outPaths.begin(), outPaths.end(),
-				  [](GraphAlignment& a1, GraphAlignment& a2)
-				  {return a1.back().overlap.curEnd - a1.front().overlap.curEnd >
-				    	  a2.back().overlap.curEnd - a2.front().overlap.curEnd;});
-
-		//now group the path by containmnent. For each group we'll have 
-		//a longest "reference" path.
-		struct PathWithScore
-		{
-			GraphAlignment path;
-			int score;
-		};
-		const int MIN_SCORE = std::max(2UL, outPaths.size() / 10);
-		std::vector<PathWithScore> pathGroups;
-		for (auto& trgPath: outPaths)
-		{
-			bool newPath = true;
-			for (auto& referencePath : pathGroups)
-			{
-				bool contained = true;
-				for (size_t i = 0; i < std::min(trgPath.size(), 
-												referencePath.path.size()); ++i)
-				{
-					if (trgPath[i].edge != referencePath.path[i].edge)
-					{
-						contained = false;
-						break;
-					}
-				}
-				if (contained)
-				{
-					newPath = false;
-					++referencePath.score;
-					break;
-				}
-			}
-			if (newPath)
-			{
-				pathGroups.push_back({trgPath, 1});
-			}
-		}
-		pathGroups.erase(std::remove_if(pathGroups.begin(), pathGroups.end(),
-				 	   	 [MIN_SCORE](PathWithScore& p)
-					     {return p.score < MIN_SCORE;}), pathGroups.end());
-		if (pathGroups.size() < 2) continue;
-
-		//mark edges that appear more than once as repeats
-		std::unordered_set<GraphEdge*> repeats;
-		for (size_t groupId = 0; groupId < pathGroups.size(); ++groupId)
-		{
-			std::unordered_set<GraphEdge*> seen;
-			for (size_t i = 0; i < pathGroups[groupId].path.size(); ++i)
-			{
-				if (seen.count(pathGroups[groupId].path[i].edge))
-				{
-					repeats.insert(pathGroups[groupId].path[i].edge);
-				}
-				seen.insert(pathGroups[groupId].path[i].edge);
-			}
-		}
-
-		//now, set the longest path as reference, and find
-		//edges where other groups coverge with the reference
-		PathWithScore& refPath = pathGroups.front();
-		std::unordered_set<GraphEdge*> convergenceEdges;
-		for (size_t i = 0; i < refPath.path.size(); ++i)
-		{
-			if (!loopedEdges.count(refPath.path[i].edge) &&
-				!repeats.count(refPath.path[i].edge))
-			{
-				convergenceEdges.insert(refPath.path[i].edge);
-			}
-		}
-		for (size_t groupId = 1; groupId < pathGroups.size(); ++groupId)
-		{
-			std::unordered_set<GraphEdge*> newSet;
-			for (size_t i = 0; i < pathGroups[groupId].path.size(); ++i)
-			{
-				if (convergenceEdges.count(pathGroups[groupId].path[i].edge))
-				{
-					newSet.insert(pathGroups[groupId].path[i].edge);
-				}
-			}
-			convergenceEdges = newSet;
-		}
-
-		//get the bubble start (paths might be convergent for a bit)
-		size_t bubbleStartId = 0;
-		for (;;)
-		{
-			bool agreement = true;
-			for (size_t groupId = 1; groupId < pathGroups.size(); ++groupId)
-			{
-				if (bubbleStartId + 1 >= pathGroups[groupId].path.size() ||
-					!convergenceEdges.count(pathGroups[0].path[bubbleStartId + 1].edge) ||
-						(pathGroups[groupId].path[bubbleStartId + 1].edge !=
-						 pathGroups[0].path[bubbleStartId + 1].edge))
-				{
-					agreement = false;
-					break;
-				}
-			}
-			if (!agreement) break;
-			++bubbleStartId;
-		}
-
-		//get the bubble end
-		bool foundEnd = false;
-		size_t bubbleEndId = bubbleStartId + 1;
-		for (; bubbleEndId < refPath.path.size(); ++bubbleEndId)
-		{
-			if (convergenceEdges.count(refPath.path[bubbleEndId].edge))
-			{
-				foundEnd = true;
-				break;
-			}
-		}
-		if (!foundEnd) continue;
-
-		//shorten all branches accordingly
-		std::vector<PathWithScore> bubbleBranches;
-		for (size_t groupId = 0; groupId < pathGroups.size(); ++groupId)
-		{
-			size_t groupStart = 0;
-			size_t groupEnd = 0;
-			for (size_t i = 0; i < pathGroups[groupId].path.size(); ++i)
-			{
-				if (pathGroups[groupId].path[i].edge == 
-					refPath.path[bubbleStartId].edge) groupStart = i;
-
-				if (pathGroups[groupId].path[i].edge == 
-					refPath.path[bubbleEndId].edge) groupEnd = i;
-			}
-			GraphAlignment newPath(pathGroups[groupId].path.begin() + groupStart,
-							  	   pathGroups[groupId].path.begin() + groupEnd + 1);
-			PathWithScore newBranch = {newPath, pathGroups[groupId].score};
-
-			bool duplicate = false;
-			for (size_t branchId = 0; branchId < bubbleBranches.size(); ++branchId)
-			{
-				if (newBranch.path.size() != 
-					bubbleBranches[branchId].path.size()) continue;
-				if (std::equal(newBranch.path.begin(), newBranch.path.end(),
-							   bubbleBranches[branchId].path.begin(),
-							   [](EdgeAlignment& a1, EdgeAlignment& a2)
-							   {return a1.edge == a2.edge;}))
-				{
-					duplicate = true;
-					bubbleBranches[branchId].score += newBranch.score;
-				}
-			}
-			if (!duplicate) bubbleBranches.push_back(newBranch);
-		}
-		if (bubbleBranches.size() < 2) continue;
-
-		Logger::get().debug() << "Haplo paths " 
-			<< startEdge->edgeId.signedId() << " " << outPaths.size();
-		/*for (auto& aln : outPaths)
-		{
-			std::string pathStr;
-			for (size_t i = 0; i < aln.size(); ++i)
-			{
-				pathStr += std::to_string(aln[i].edge->edgeId.signedId()) + " -> ";
-			}
-			Logger::get().debug() << "\tPath: " << pathStr;
-		}*/
-		for (auto& aln : pathGroups)
-		{
-			std::string pathStr;
-			for (size_t i = 0; i < aln.path.size(); ++i)
-			{
-				pathStr += std::to_string(aln.path[i].edge->edgeId.signedId()) + " -> ";
-			}
-			Logger::get().debug() << "\tGroup: " << pathStr << aln.score;
-		}
-		for (auto& aln : bubbleBranches)
-		{
-			std::string pathStr;
-			for (size_t i = 0; i < aln.path.size(); ++i)
-			{
-				pathStr += std::to_string(aln.path[i].edge->edgeId.signedId()) + " -> ";
-			}
-			Logger::get().debug() << "\tBranch: " << pathStr << aln.score;
-		}
-
-		Logger::get().debug() << "Boundaries: " << refPath.path[bubbleStartId].edge->edgeId.signedId()
-			<< " -> " << refPath.path[bubbleEndId].edge->edgeId.signedId();
 	}
 	return 0;
 }
