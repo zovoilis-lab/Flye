@@ -19,6 +19,7 @@ public:
 
 	int collapseHeterozygousLoops(bool removeAlternatives);
 	int collapseHeterozygousBulges(bool removeAlternatives);
+	int findComplexHaplotypes();
 
 private:
 	RepeatGraph& _graph;
