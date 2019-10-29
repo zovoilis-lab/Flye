@@ -499,7 +499,7 @@ void MultiplicityInferer::trimTipsIteration(int& outShort, int& outLong)
 	const int SHORT_TIP = Config::get("short_tip_length");
 	const int LONG_TIP = Config::get("long_tip_length");
 	const int COV_RATE = 2;
-	const int LEN_RATE = 10;
+	const int LEN_RATE = 2;
 
 	std::unordered_set<FastaRecord::Id> toRemove;
 	GraphProcessor proc(_graph, _asmSeqs);
@@ -561,9 +561,9 @@ void MultiplicityInferer::trimTipsIteration(int& outShort, int& outLong)
 
 		//remove the tip if its coverage or length is
 		//significantly lower than the true path's
-		int trueCov = std::min(entrances.front()->meanCoverage, 
+		int trueCov = std::max(entrances.front()->meanCoverage, 
 					 		   exits.front()->meanCoverage);
-		int trueLen = std::min(entrances.front()->length, exits.front()->length);
+		int trueLen = std::max(entrances.front()->length, exits.front()->length);
 		if (trueCov > COV_RATE * tipPath.meanCoverage ||
 			trueLen > LEN_RATE * tipPath.length)
 		{
