@@ -15,45 +15,7 @@
 #include <lemon/list_graph.h>
 #include <lemon/matching.h>
 
-//Given the path in the graph with a resolved repeat inside,
-//separates in into a single unbranching path. The first
-//and the last edges of the graphPath parameter
-//should correspond to the flanking unique edges
-void RepeatResolver::separatePath(const GraphPath& graphPath, 
-								  EdgeSequence readSegment, 
-								  FastaRecord::Id newId)
-{
-	//first edge
-	GraphNode* leftNode = _graph.addNode();
-	vecRemove(graphPath.front()->nodeRight->inEdges, graphPath.front());
-	graphPath.front()->nodeRight = leftNode;
-	leftNode->inEdges.push_back(graphPath.front());
-	int32_t pathCoverage = (graphPath.front()->meanCoverage +
-						    graphPath.back()->meanCoverage) / 2;
 
-	//repetitive edges in the middle
-	for (size_t i = 1; i < graphPath.size() - 1; ++i)
-	{
-		graphPath[i]->resolved = true;
-		_substractedCoverage[graphPath[i]] += pathCoverage;
-		//graphPath[i]->substractedCoverage += pathCoverage;
-	}
-
-	GraphNode* rightNode = leftNode;
-	if (graphPath.size() > 2)
-	{
-		rightNode = _graph.addNode();
-		GraphEdge* newEdge = _graph.addEdge(GraphEdge(leftNode, rightNode,
-													  newId));
-		newEdge->seqSegments.push_back(readSegment);
-		newEdge->meanCoverage = pathCoverage;
-	}
-
-	//last edge
-	vecRemove(graphPath.back()->nodeLeft->outEdges, graphPath.back());
-	graphPath.back()->nodeLeft = rightNode;
-	rightNode->outEdges.push_back(graphPath.back());
-}
 
 //Resolves all repeats simulateously through the graph mathcing optimization,
 //Given the reads connecting unique edges (or pairs of edges in the transitions graph)
@@ -195,9 +157,9 @@ int RepeatResolver::resolveConnections(const std::vector<Connection>& connection
 								   conn.readSeq.start, conn.readSeq.length(),
 								   description);
 
-		this->separatePath(conn.path, edgeSeq, edgeId);
-		this->separatePath(_graph.complementPath(conn.path), 
-						   edgeSeq.complement(), edgeId.rc());
+		_graph.separatePath(conn.path, edgeSeq, edgeId);
+		_graph.separatePath(_graph.complementPath(conn.path), 
+						    edgeSeq.complement(), edgeId.rc());
 	}
 
 	Logger::get().debug() << "[SIMPL] Resolved repeats: " << uniqueConnections.size();
@@ -904,9 +866,9 @@ int RepeatResolver::resolveSimpleRepeats()
 								   conn.readSeq.start, conn.readSeq.length(),
 								   description);
 
-		this->separatePath(conn.path, edgeSeq, edgeId);
-		this->separatePath(_graph.complementPath(conn.path), 
-						   edgeSeq.complement(), edgeId.rc());
+		_graph.separatePath(conn.path, edgeSeq, edgeId);
+		_graph.separatePath(_graph.complementPath(conn.path), 
+						    edgeSeq.complement(), edgeId.rc());
 	}
 
 	Logger::get().debug() << "[SIMPL] Resolved " << resolvedConnections.size() 

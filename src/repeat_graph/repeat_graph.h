@@ -103,7 +103,7 @@ struct GraphEdge
 		edgeId(edgeId), repetitive(false), 
 		selfComplement(false), resolved(false), 
 		altHaplotype(false), unreliable(false),
-		meanCoverage(0) {}
+		meanCoverage(0), leftLink(nullptr), rightLink(nullptr) {}
 
 	bool isRepetitive() const 
 		{return repetitive;}
@@ -127,6 +127,8 @@ struct GraphEdge
 
 	std::unordered_set<GraphEdge*> adjacentEdges();
 
+	/////////////////////////
+
 	GraphNode* nodeLeft;
 	GraphNode* nodeRight;
 
@@ -139,6 +141,9 @@ struct GraphEdge
 	bool altHaplotype;
 	bool unreliable;
 	int  meanCoverage;
+
+	GraphEdge* leftLink;
+	GraphEdge* rightLink;
 };
 
 struct GraphNode
@@ -357,6 +362,9 @@ public:
 		edge->nodeLeft = newNode;
 		edge->nodeLeft->outEdges.push_back(edge);
 	};
+
+	void separatePath(const GraphPath& path, EdgeSequence segment,
+					  FastaRecord::Id startId);
 
 private:
 	size_t _nextEdgeId;

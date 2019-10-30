@@ -51,8 +51,6 @@ private:
 	std::vector<Connection> getConnections();
 	int  resolveConnections(const std::vector<Connection>& conns, 
 							float minSupport);
-	void separatePath(const GraphPath& path, EdgeSequence segment,
-					  FastaRecord::Id startId);
 
 	RepeatGraph& _graph;
 	const SequenceContainer&   _asmSeqs;
