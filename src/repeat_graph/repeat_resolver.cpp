@@ -148,14 +148,14 @@ int RepeatResolver::resolveConnections(const std::vector<Connection>& connection
 	{
 		FastaRecord::Id edgeId = _graph.newEdgeId();
 
-		std::string description = "edge_" + std::to_string(edgeId.signedId()) + 
-				"_0_" + _readSeqs.getRecord(conn.readSeq.readId).description + "_" +
-				std::to_string(conn.readSeq.start) + "_" + 
-				std::to_string(conn.readSeq.end);
+		std::stringstream ss;
+		ss << "edge_" << edgeId.signedId() << "_0_" 
+			<< _readSeqs.getRecord(conn.readSeq.readId).description << "_"
+			<< conn.readSeq.start << "_" << conn.readSeq.end;
 		EdgeSequence edgeSeq = 
 			_graph.addEdgeSequence(_readSeqs.getSeq(conn.readSeq.readId),
 								   conn.readSeq.start, conn.readSeq.length(),
-								   description);
+								   ss.str());
 
 		_graph.separatePath(conn.path, edgeSeq, edgeId);
 		_graph.separatePath(_graph.complementPath(conn.path), 
@@ -831,14 +831,14 @@ int RepeatResolver::resolveSimpleRepeats()
 			<< conn.path.back()->edgeId.signedId();
 		FastaRecord::Id edgeId = _graph.newEdgeId();
 
-		std::string description = "edge_" + std::to_string(edgeId.signedId()) + 
-				"_0_" + _readSeqs.getRecord(conn.readSeq.readId).description + "_" +
-				std::to_string(conn.readSeq.start) + "_" + 
-				std::to_string(conn.readSeq.end);
+		std::stringstream ss;
+		ss << "edge_" << edgeId.signedId() << "_0_" 
+			<< _readSeqs.getRecord(conn.readSeq.readId).description << "_"
+			<< conn.readSeq.start << "_" << conn.readSeq.end;
 		EdgeSequence edgeSeq = 
 			_graph.addEdgeSequence(_readSeqs.getSeq(conn.readSeq.readId),
 								   conn.readSeq.start, conn.readSeq.length(),
-								   description);
+								   ss.str());
 
 		_graph.separatePath(conn.path, edgeSeq, edgeId);
 		_graph.separatePath(_graph.complementPath(conn.path), 
