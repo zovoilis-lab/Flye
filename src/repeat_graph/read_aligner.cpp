@@ -360,3 +360,22 @@ void ReadAligner::loadAlignments(const std::string& filename)
 
 	this->updateAlignments();
 }
+
+ReadAligner::AlnIndex ReadAligner::makeAlignmentIndex()
+{
+	std::unordered_map<GraphEdge*, 
+					   std::vector<GraphAlignment>> alnIndex;
+	for (auto& aln : this->getAlignments())
+	{
+		if (aln.size() > 1)
+		{
+			std::unordered_set<GraphEdge*> uniqueEdges;
+			for (auto& edgeAln : aln)
+			{
+				uniqueEdges.insert(edgeAln.edge);
+			}
+			for (GraphEdge* edge : uniqueEdges) alnIndex[edge].push_back(aln);
+		}
+	}
+	return alnIndex;
+}

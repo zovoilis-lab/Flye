@@ -287,20 +287,7 @@ void RepeatResolver::findRepeats()
 {
 	Logger::get().debug() << "Finding repeats";
 
-	std::unordered_map<GraphEdge*, 
-					   std::vector<GraphAlignment>> alnIndex;
-	for (auto& aln : _aligner.getAlignments())
-	{
-		if (aln.size() > 1)
-		{
-			std::unordered_set<GraphEdge*> uniqueEdges;
-			for (auto& edgeAln : aln)
-			{
-				uniqueEdges.insert(edgeAln.edge);
-			}
-			for (GraphEdge* edge : uniqueEdges) alnIndex[edge].push_back(aln);
-		}
-	}
+	auto alnIndex = _aligner.makeAlignmentIndex();
 
 	//all edges are unique at the beginning
 	for (auto& edge : _graph.iterEdges())
@@ -714,20 +701,7 @@ int RepeatResolver::resolveSimpleRepeats()
 {
 	static const int MIN_JCT_SUPPORT = 2;
 
-	std::unordered_map<GraphEdge*, 
-					   std::vector<GraphAlignment>> alnIndex;
-	for (auto& aln : _aligner.getAlignments())
-	{
-		if (aln.size() > 1)
-		{
-			std::unordered_set<GraphEdge*> uniqueEdges;
-			for (auto& edgeAln : aln)
-			{
-				uniqueEdges.insert(edgeAln.edge);
-			}
-			for (GraphEdge* edge : uniqueEdges) alnIndex[edge].push_back(aln);
-		}
-	}
+	auto alnIndex = _aligner.makeAlignmentIndex();
 
 	GraphProcessor proc(_graph, _asmSeqs);
 	auto unbranchingPaths = proc.getUnbranchingPaths();
