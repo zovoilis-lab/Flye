@@ -318,6 +318,10 @@ HaplotypeResolver::VariantPaths
 		}
 	}
 
+	pathGroups.erase(std::remove_if(pathGroups.begin(), pathGroups.end(),
+					 [MIN_SCORE](PathWithScore& p)
+					 {return p.score < MIN_SCORE;}), pathGroups.end());
+
 	for (auto& aln : pathGroups)
 	{
 		std::string pathStr;
@@ -328,9 +332,6 @@ HaplotypeResolver::VariantPaths
 		Logger::get().debug() << "\tGroup: " << pathStr << aln.score;
 	}
 
-	pathGroups.erase(std::remove_if(pathGroups.begin(), pathGroups.end(),
-					 [MIN_SCORE](PathWithScore& p)
-					 {return p.score < MIN_SCORE;}), pathGroups.end());
 	if (pathGroups.size() < 2) return VariantPaths();
 
 	//mark edges that appear more than once as repeats
@@ -392,6 +393,7 @@ HaplotypeResolver::VariantPaths
 		if (!agreement) break;
 		++bubbleStartId;
 	}
+	if (!convergenceEdges.count(refPath.path[bubbleStartId].edge)) return VariantPaths();
 
 	//get the bubble end
 	bool foundEnd = false;
