@@ -303,7 +303,9 @@ public:
 	private:
 		RepeatGraph& _graph;
 	};
+
 	IterEdges iterEdges() {return IterEdges(*this);}
+
 	void removeEdge(GraphEdge* edge)
 	{
 		vecRemove(edge->nodeRight->inEdges, edge);
@@ -312,6 +314,7 @@ public:
 		_idToEdge.erase(edge->edgeId);
 		delete edge;
 	}
+
 	void removeNode(GraphNode* node)
 	{
 		std::unordered_set<GraphEdge*> toRemove;
@@ -333,6 +336,7 @@ public:
 		_graphNodes.erase(node);
 		delete node;
 	}
+
 	//
 	FastaRecord::Id newEdgeId()
 	{
@@ -365,6 +369,20 @@ public:
 
 	void separatePath(const GraphPath& path, EdgeSequence segment,
 					  FastaRecord::Id startId);
+
+	void linkEdges(GraphEdge* leftEdge, GraphEdge* rightEdge)
+	{
+		if (leftEdge->rightLink || rightEdge->leftLink)
+		{
+			if (leftEdge->rightLink != rightEdge ||
+				rightEdge->leftLink != leftEdge) Logger::get().warning() << "Relinking!";
+
+			return;
+		}
+
+		leftEdge->rightLink = rightEdge;
+		rightEdge->leftLink = leftEdge;
+	}
 
 private:
 	size_t _nextEdgeId;

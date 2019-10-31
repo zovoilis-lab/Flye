@@ -203,34 +203,30 @@ int main(int argc, char** argv)
 	//
 
 	int iterNum = 1;
-	bool cleanupIter = false;
 	RepeatResolver repResolver(rg, seqAssembly, seqReads, aligner, multInf);
 	HaplotypeResolver hapResolver(rg, aligner, seqAssembly, seqReads);
 	repResolver.resolveSimpleRepeats();
+
+	multInf.trimTips();
+	outGen.outputDot(proc.getEdgesPaths(), 
+					 outFolder + "/graph_before_bulges.gv");
+	hapResolver.findComplexHaplotypes();
 	while (true)
 	{
+		int actions = 0;
 		Logger::get().debug() << "[SIMPL] == Iteration " << iterNum << " ==";
 
-		int actions = 0;
 		actions += multInf.splitNodes();
 		actions += multInf.trimTips();
 		actions += multInf.removeUnsupportedConnections();
+
 		if (Parameters::get().unevenCoverage)
 		{
 			//actions += multInf.disconnectMinorPaths();
 			actions += multInf.resolveForks();
 		}
-		actions += hapResolver.collapseHeterozygousLoops(/*remove alternatives*/ true);
-		actions += hapResolver.collapseHeterozygousBulges(/*remove alternatives*/ true);
-
-		//some cleaning that potentially can mess up repeat resolution, 
-		//so do it in the very end
-		if (cleanupIter)
-		{
-			multInf.removeUnsupportedEdges(/*only tips*/ false);
-			//hapResolver.collapseHeterozygousLoops(/*remove alternatives*/ true);
-			//hapResolver.collapseHeterozygousBulges(/*remove alternatives*/ true);
-		}
+		actions += hapResolver.findHeterozygousLoops(/*remove alternatives*/ true);
+		actions += hapResolver.findHeterozygousBulges(/*remove alternatives*/ true);
 
 		repResolver.findRepeats();
 		if(iterNum == 1)		//dump graph before first repeat resolution iteration
@@ -241,19 +237,16 @@ int main(int argc, char** argv)
 		}
 		actions += repResolver.resolveRepeats();
 
-		if (!actions)
-		{
-			if (cleanupIter) break;
-			cleanupIter = true;
-			
-		}
+		if (!actions) break;
 		++iterNum;
 		//
 		rg.validateGraph();
 		//
 	}
 
-	//resolver.findRepeats();
+	multInf.removeUnsupportedEdges(/*only tips*/ false);
+	hapResolver.collapseHaplotypes();
+	repResolver.findRepeats();
 	repResolver.finalizeGraph();
 	//
 	rg.validateGraph();

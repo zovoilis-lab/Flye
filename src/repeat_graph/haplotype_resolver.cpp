@@ -1,15 +1,15 @@
 #include "haplotype_resolver.h"
 #include "graph_processing.h"
 
-//This function collapses simply bubbles caused by
+
+//This function collapses simple bubbles caused by
 //alternative haplotypes / strains. They are defined as follows:
 //1. Structure: 1 input, 2 branches, 1 output: -<>-
 //2. Size of each branch is shorter than MAX_BUBBLE_LEN below
-//3. Total coverage of bubbles branches roughly equasl to input/output coverages
-//4. Each branch is shorter than both entrace and exits. We need this to
+//3. Each branch is shorter than both entrace and exits. We need this to
 //   distinguish from the case of two repeats of multiplicity 2
 //Note that we are not using any global coverage assumptions here.
-int HaplotypeResolver::collapseHeterozygousBulges(bool removeAlternatives)
+int HaplotypeResolver::findHeterozygousBulges(bool removeAlternatives)
 {
 	//const float MAX_COV_VAR = 1.5;
 	const int MAX_BUBBLE_LEN = Config::get("max_bubble_length");
@@ -85,58 +85,32 @@ int HaplotypeResolver::collapseHeterozygousBulges(bool removeAlternatives)
 			}
 		}
 
-		if (removeAlternatives)
-		{
-			toSeparate.insert(twoPaths[0]->id);
-			toSeparate.insert(twoPaths[0]->id.rc());
-			for (auto& edge : twoPaths[1]->path)
-			{
-				edge->meanCoverage += twoPaths[0]->meanCoverage;
-				_graph.complementEdge(edge)->meanCoverage += twoPaths[0]->meanCoverage;
-				edge->altHaplotype = false;
-				_graph.complementEdge(edge)->altHaplotype = false;
-			}
-		}
+		//link edges
+		GraphEdge* inEdge = entrancePath->path.back();
+		GraphEdge* outEdge = exitPath->path.front();
+		_graph.linkEdges(inEdge, outEdge);
+		_graph.linkEdges(_graph.complementEdge(outEdge),
+						 _graph.complementEdge(inEdge));
+
+		//bridging sequence
+		DnaSequence pathSeq = this->pathSequence(twoPaths[0]->path);
+		_bridgingSeqs[std::make_pair(inEdge, outEdge)] = pathSeq;
+		_bridgingSeqs[std::make_pair(_graph.complementEdge(outEdge), 
+									 _graph.complementEdge(inEdge))] = 
+												pathSeq.complement();
+
 	}
 
-	if (removeAlternatives)
-	{
-		for (auto& path : unbranchingPaths)
-		{
-			if (toSeparate.count(path.id))
-			{
-				//Logger::get().debug() << "Seperated branch: " << path.edgesStr();
-
-				GraphNode* newLeft = _graph.addNode();
-				GraphNode* newRight = _graph.addNode();
-				vecRemove(path.nodeLeft()->outEdges, path.path.front());
-				vecRemove(path.nodeRight()->inEdges, path.path.back());
-				path.nodeLeft() = newLeft;
-				path.nodeRight() = newRight;
-				newLeft->outEdges.push_back(path.path.front());
-				newRight->inEdges.push_back(path.path.back());
-			}
-		}
-
-		Logger::get().debug() << "[SIMPL] Removed " << toSeparate.size() / 2 
-			<< " heterozygous bulges";
-
-		_aligner.updateAlignments();
-		return toSeparate.size() / 2;
-	}
-	else
-	{
-		Logger::get().debug() << "[SIMPL] Masked " << numMasked
-			<< " heterozygous bulges";
-		return numMasked;
-	}
+	Logger::get().debug() << "[SIMPL] Masked " << numMasked
+		<< " heterozygous bulges";
+	return numMasked;
 }
 
 //This function collapses simple loops:
 //1. One loop edge with one entrance and one exit
 //2. Loop length is shorter than lengths of entrance/exit
 //3. Loop coverage is roughly equal or less than coverage of entrance/exit
-int HaplotypeResolver::collapseHeterozygousLoops(bool removeAlternatives)
+int HaplotypeResolver::findHeterozygousLoops(bool removeAlternatives)
 {
 	const float COV_MULT = 1.5;
 
@@ -184,65 +158,36 @@ int HaplotypeResolver::collapseHeterozygousLoops(bool removeAlternatives)
 			edge->altHaplotype = true;
 			_graph.complementEdge(edge)->altHaplotype = true;
 		}
+
+		//links
+		GraphEdge* inEdge = entrancePath->path.back();
+		GraphEdge* outEdge = exitPath->path.front();
+		_graph.linkEdges(inEdge, outEdge);
+		_graph.linkEdges(_graph.complementEdge(outEdge),
+						 _graph.complementEdge(inEdge));
+
+		//bridging sequence.
 		//either remove or unroll loop, depending on the coverage
 		if (loop.meanCoverage < 
 			(entrancePath->meanCoverage + exitPath->meanCoverage) / 4)
 		{
-			toRemove.insert(loop.id);
-			toRemove.insert(loop.id.rc());
+			_bridgingSeqs[std::make_pair(inEdge, outEdge)] = DnaSequence();
+			_bridgingSeqs[std::make_pair(_graph.complementEdge(outEdge), 
+							  			  _graph.complementEdge(inEdge))] =
+															DnaSequence();
+
 		}
 		else
 		{
-			toUnroll.insert(loop.id);
-			toUnroll.insert(loop.id.rc());
+			DnaSequence seq = this->pathSequence(loop.path);
+			_bridgingSeqs[std::make_pair(inEdge, outEdge)] = seq;
+			_bridgingSeqs[std::make_pair(_graph.complementEdge(outEdge), 
+							  			  _graph.complementEdge(inEdge))] =
+														seq.complement();
 		}
 	}
 
-	if (removeAlternatives)
-	{
-		for (auto& path : unbranchingPaths)
-		{
-			if (toUnroll.count(path.id))
-			{
-				//Logger::get().debug() << "Unrolled loop: " << path.edgesStr();
-
-				GraphNode* newNode = _graph.addNode();
-				size_t id = path.nodeLeft()->inEdges[0] == path.path.back();
-				GraphEdge* prevEdge = path.nodeLeft()->inEdges[id];
-
-				vecRemove(path.nodeLeft()->outEdges, path.path.front());
-				vecRemove(path.nodeLeft()->inEdges, prevEdge);
-				path.nodeLeft() = newNode;
-				newNode->outEdges.push_back(path.path.front());
-				prevEdge->nodeRight = newNode;
-				newNode->inEdges.push_back(prevEdge);
-			}
-			if (toRemove.count(path.id))
-			{
-				//Logger::get().debug() << "Removed loop: " << path.edgesStr();
-
-				GraphNode* newLeft = _graph.addNode();
-				GraphNode* newRight = _graph.addNode();
-
-				vecRemove(path.nodeLeft()->outEdges, path.path.front());
-				vecRemove(path.nodeLeft()->inEdges, path.path.back());
-				path.nodeLeft() = newLeft;
-				newRight->inEdges.push_back(path.path.back());
-				path.nodeRight() = newRight;
-				newLeft->outEdges.push_back(path.path.front());
-			}
-		}
-
-		Logger::get().debug() << "[SIMPL] Removed " << (toRemove.size() + toUnroll.size()) / 2
-			<< " heterozygous loops";
-		_aligner.updateAlignments();
-		return (toRemove.size() + toUnroll.size()) / 2;
-	}
-	else
-	{
-		Logger::get().debug() << "[SIMPL] Masked " << numMasked << " heterozygous loops";
-		return numMasked;
-	}
+	Logger::get().debug() << "[SIMPL] Masked " << numMasked << " heterozygous loops"; return numMasked;
 }
 
 HaplotypeResolver::VariantPaths 
@@ -454,7 +399,6 @@ HaplotypeResolver::VariantPaths
 		Logger::get().debug() << "\tBranch: " << pathStr << aln.score;
 	}
 
-
 	VariantPaths vp;
 	vp.startEdge = refPath.path[bubbleStartId].edge;
 	vp.endEdge = refPath.path[bubbleEndId].edge;
@@ -490,7 +434,8 @@ int HaplotypeResolver::findComplexHaplotypes()
 		
 		auto varSeg = this->findVariantSegment(startEdge, alnIndex[startEdge], 
 											   loopedEdges);
-		if (varSeg.startEdge && varSeg.endEdge)
+		if (varSeg.startEdge && varSeg.endEdge &&
+			varSeg.startEdge != _graph.complementEdge(varSeg.endEdge))
 		{
 			auto revSeg = 
 				this->findVariantSegment(_graph.complementEdge(varSeg.endEdge), 
@@ -500,10 +445,149 @@ int HaplotypeResolver::findComplexHaplotypes()
 			{
 				foundVariants.push_back(varSeg);
 				usedEdges.insert(revSeg.startEdge);
-				Logger::get().debug() << "Bubble: " << varSeg.startEdge->edgeId.signedId()
-					<< " -> " << varSeg.endEdge->edgeId.signedId();
+				Logger::get().debug() << "Complex bulge: " << varSeg.startEdge->edgeId.signedId()
+					<< " : " << varSeg.endEdge->edgeId.signedId();
 			}
 		}
 	}
-	return 0;
+
+	for (auto& varSegment : foundVariants)
+	{
+		for (auto& branch : varSegment.altPaths)
+		{
+			for (size_t i = 1; i < branch.path.size() - 1; ++i)
+			{
+				branch.path[i].edge->altHaplotype = true;
+				_graph.complementEdge(branch.path[i].edge)->altHaplotype = true;
+			}
+		}
+
+		//add links
+		_graph.linkEdges(varSegment.startEdge, varSegment.endEdge);
+		_graph.linkEdges(_graph.complementEdge(varSegment.endEdge), 
+						 _graph.complementEdge(varSegment.startEdge));
+
+		//add bridging sequences
+		auto readId = varSegment.altPaths[0].path[0].overlap.curId;
+		int32_t readStart = varSegment.altPaths[0].path[0].overlap.curEnd;
+		int32_t readEnd = varSegment.altPaths[0].path.back().overlap.curBegin;
+
+		const int MAGIC_100 = 100;
+		readEnd = std::max(readStart + MAGIC_100 - 1, readEnd);	
+		DnaSequence seq = _readSeqs.getSeq(readId).substr(readStart, 
+														  readEnd - readStart);
+		
+		auto fwdPair = std::make_pair(varSegment.startEdge, varSegment.endEdge);
+		auto revPair = std::make_pair(_graph.complementEdge(varSegment.endEdge), 
+									  _graph.complementEdge(varSegment.startEdge));
+		_bridgingSeqs[fwdPair] = seq;
+		_bridgingSeqs[revPair] = seq.complement();
+	}
+
+	Logger::get().debug() << "[SIMPL] Masked " << foundVariants.size()
+		<< " complex haplotypes";
+	return foundVariants.size();
+}
+
+void HaplotypeResolver::collapseHaplotypes()
+{
+	int numBridged = 0;
+	std::unordered_set<GraphEdge*> separatedEdges;
+	for (auto& inEdge : _graph.iterEdges())
+	{
+		if (!inEdge->rightLink) continue;
+		if (separatedEdges.count(inEdge)) continue;
+
+		GraphEdge* outEdge = inEdge->rightLink;
+		if (!_graph.hasEdge(outEdge))
+		{
+			Logger::get().warning() << "Missing linked edge";
+			continue;
+		}
+		if (outEdge->leftLink != inEdge)
+		{
+			Logger::get().warning() << "Broken link";
+			continue; 
+		}
+
+		if (!_bridgingSeqs.count(std::make_pair(inEdge, outEdge)))
+		{
+			Logger::get().warning() << "No bridging path!";
+			continue;
+		}
+
+		++numBridged;
+		separatedEdges.insert(_graph.complementEdge(outEdge));
+
+		if (inEdge->nodeRight == outEdge->nodeLeft)
+		{
+			this->separeteAdjacentEdges(inEdge, outEdge);
+			this->separeteAdjacentEdges(_graph.complementEdge(outEdge),
+										_graph.complementEdge(inEdge));
+		}
+		else
+		{
+			DnaSequence& insertSeq = _bridgingSeqs[std::make_pair(inEdge, outEdge)];
+
+			FastaRecord::Id edgeId = _graph.newEdgeId();
+			std::stringstream ss;
+				ss << "edge_" << edgeId.signedId() << "_haplotype";
+			EdgeSequence edgeSeq = 
+				_graph.addEdgeSequence(insertSeq, 0, insertSeq.length(), ss.str());
+
+			this->separateDistantEdges(inEdge, outEdge, edgeSeq, edgeId);
+			this->separateDistantEdges(_graph.complementEdge(outEdge),
+									   _graph.complementEdge(inEdge),
+									   edgeSeq.complement(), edgeId.rc());
+		}
+	}
+
+	_aligner.updateAlignments();
+	Logger::get().debug() << "[SIMPL] Collapsed " << numBridged << " haplotypes";
+}
+
+DnaSequence HaplotypeResolver::pathSequence(GraphPath& path)
+{
+	std::string strSeq;
+	for (size_t i = 0; i < path.size(); ++i)
+	{
+		strSeq += _graph.edgeSequences()
+			.getSeq(path[i]->seqSegments.front().edgeSeqId).str();
+	}
+	if (strSeq.empty()) strSeq = "A";
+	return DnaSequence(strSeq);
+}
+
+void HaplotypeResolver::separeteAdjacentEdges(GraphEdge* inEdge, GraphEdge* outEdge)
+{
+	GraphNode* newNode = _graph.addNode();
+
+	vecRemove(inEdge->nodeRight->inEdges, inEdge);
+	inEdge->nodeRight = newNode;
+	newNode->inEdges.push_back(inEdge);
+
+	vecRemove(outEdge->nodeLeft->outEdges, outEdge);
+	outEdge->nodeLeft = newNode;
+	newNode->outEdges.push_back(outEdge);
+}
+
+void HaplotypeResolver::separateDistantEdges(GraphEdge* inEdge, GraphEdge* outEdge,
+						  					 EdgeSequence insertSeq, FastaRecord::Id newId)
+{
+	GraphNode* leftNode = _graph.addNode();
+	vecRemove(inEdge->nodeRight->inEdges, inEdge);
+	inEdge->nodeRight = leftNode;
+	leftNode->inEdges.push_back(inEdge);
+
+	GraphNode* rightNode = _graph.addNode();
+	GraphEdge* newEdge = _graph.addEdge(GraphEdge(leftNode, rightNode,
+												  newId));
+	newEdge->seqSegments.push_back(insertSeq);
+	int32_t pathCoverage = (inEdge->meanCoverage +
+							outEdge->meanCoverage) / 2;
+	newEdge->meanCoverage = pathCoverage;
+
+	vecRemove(outEdge->nodeLeft->outEdges, outEdge);
+	outEdge->nodeLeft = rightNode;
+	rightNode->outEdges.push_back(outEdge);
 }

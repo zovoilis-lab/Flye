@@ -563,6 +563,11 @@ std::vector<RepeatResolver::Connection>
 				if (currentAln.front().edge->resolved &&
 					currentAln.back().edge->resolved) reliableConnection = false;
 
+				//don't connect edges, if they are already linked
+				//(through a alternative haplotypes structure)
+				if (currentAln.front().edge->rightLink || 
+					currentAln.back().edge->leftLink) reliableConnection = false;
+
 				if (!reliableConnection)
 				{
 					currentAln.clear();

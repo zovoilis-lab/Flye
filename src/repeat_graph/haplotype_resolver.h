@@ -19,11 +19,17 @@ public:
 		_graph(graph), _aligner(aligner), _asmSeqs(asmSeqs), 
 		_readSeqs(readSeqs) {}
 
-	int collapseHeterozygousLoops(bool removeAlternatives);
-	int collapseHeterozygousBulges(bool removeAlternatives);
-	int findComplexHaplotypes();
+	int  findHeterozygousLoops(bool removeAlternatives);
+	int  findHeterozygousBulges(bool removeAlternatives);
+	int  findComplexHaplotypes();
+	void collapseHaplotypes();
 
 private:
+	DnaSequence pathSequence(GraphPath& path);
+	void separeteAdjacentEdges(GraphEdge* inEdge, GraphEdge* outEdge);
+	void separateDistantEdges(GraphEdge* inEdge, GraphEdge* outEdge,
+							  EdgeSequence insSequence, FastaRecord::Id newId);
+
 	struct PathWithScore
 	{
 		GraphAlignment path;
@@ -46,4 +52,9 @@ private:
 	ReadAligner& _aligner;
 	const SequenceContainer& _asmSeqs;
 	const SequenceContainer& _readSeqs;
+
+	//std::unordered_map<std::pair<GraphEdge*, GraphEdge*>, 
+	//				   GraphPath, pairhash> _bridgingPaths;
+	std::unordered_map<std::pair<GraphEdge*, GraphEdge*>, 
+					   DnaSequence, pairhash> _bridgingSeqs;
 };
