@@ -19,6 +19,7 @@ public:
 		_graph(graph), _aligner(aligner), _asmSeqs(asmSeqs), 
 		_readSeqs(readSeqs) {}
 
+	void resetEdges();
 	int  findHeterozygousLoops(bool removeAlternatives);
 	int  findHeterozygousBulges(bool removeAlternatives);
 	int  findComplexHaplotypes();

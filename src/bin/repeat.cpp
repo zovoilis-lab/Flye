@@ -198,21 +198,19 @@ int main(int argc, char** argv)
 
 	multInf.maskUnsupportedEdges();
 	multInf.removeUnsupportedEdges(/*only tips*/ true);
-	//
 	rg.validateGraph();
-	//
 
-	int iterNum = 1;
+	int iterNum = 0;
 	RepeatResolver repResolver(rg, seqAssembly, seqReads, aligner, multInf);
 	HaplotypeResolver hapResolver(rg, aligner, seqAssembly, seqReads);
 	repResolver.resolveSimpleRepeats();
 
-	multInf.trimTips();
-	outGen.outputDot(proc.getEdgesPaths(), 
-					 outFolder + "/graph_before_bulges.gv");
-	hapResolver.findComplexHaplotypes();
+	//multInf.trimTips();
+	//outGen.outputDot(proc.getEdgesPaths(), 
+	//				 outFolder + "/graph_before_bulges.gv");
 	while (true)
 	{
+		++iterNum;
 		int actions = 0;
 		Logger::get().debug() << "[SIMPL] == Iteration " << iterNum << " ==";
 
@@ -225,8 +223,11 @@ int main(int argc, char** argv)
 			//actions += multInf.disconnectMinorPaths();
 			actions += multInf.resolveForks();
 		}
-		actions += hapResolver.findHeterozygousLoops(/*remove alternatives*/ true);
-		actions += hapResolver.findHeterozygousBulges(/*remove alternatives*/ true);
+
+		hapResolver.resetEdges();
+		hapResolver.findHeterozygousLoops(/*remove alternatives*/ true);
+		hapResolver.findHeterozygousBulges(/*remove alternatives*/ true);
+		hapResolver.findComplexHaplotypes();
 
 		repResolver.findRepeats();
 		if(iterNum == 1)		//dump graph before first repeat resolution iteration
@@ -238,19 +239,16 @@ int main(int argc, char** argv)
 		actions += repResolver.resolveRepeats();
 
 		if (!actions) break;
-		++iterNum;
-		//
 		rg.validateGraph();
-		//
 	}
 
-	multInf.removeUnsupportedEdges(/*only tips*/ false);
 	hapResolver.collapseHaplotypes();
+
+	multInf.removeUnsupportedEdges(/*only tips*/ false);
+
 	repResolver.findRepeats();
 	repResolver.finalizeGraph();
-	//
 	rg.validateGraph();
-	//
 
 	outGen.outputDot(proc.getEdgesPaths(), outFolder + "/graph_after_rr.gv");
 	rg.storeGraph(outFolder + "/repeat_graph_dump");

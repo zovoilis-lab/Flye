@@ -85,9 +85,11 @@ int HaplotypeResolver::findHeterozygousBulges(bool removeAlternatives)
 			}
 		}
 
-		//link edges
 		GraphEdge* inEdge = entrancePath->path.back();
 		GraphEdge* outEdge = exitPath->path.front();
+		if (inEdge->rightLink || outEdge->leftLink) continue;
+
+		//link edges
 		_graph.linkEdges(inEdge, outEdge);
 		_graph.linkEdges(_graph.complementEdge(outEdge),
 						 _graph.complementEdge(inEdge));
@@ -159,9 +161,11 @@ int HaplotypeResolver::findHeterozygousLoops(bool removeAlternatives)
 			_graph.complementEdge(edge)->altHaplotype = true;
 		}
 
-		//links
 		GraphEdge* inEdge = entrancePath->path.back();
 		GraphEdge* outEdge = exitPath->path.front();
+		if (inEdge->rightLink || outEdge->leftLink) continue;
+
+		//links
 		_graph.linkEdges(inEdge, outEdge);
 		_graph.linkEdges(_graph.complementEdge(outEdge),
 						 _graph.complementEdge(inEdge));
@@ -171,10 +175,10 @@ int HaplotypeResolver::findHeterozygousLoops(bool removeAlternatives)
 		if (loop.meanCoverage < 
 			(entrancePath->meanCoverage + exitPath->meanCoverage) / 4)
 		{
-			_bridgingSeqs[std::make_pair(inEdge, outEdge)] = DnaSequence();
+			_bridgingSeqs[std::make_pair(inEdge, outEdge)] = DnaSequence("A");
 			_bridgingSeqs[std::make_pair(_graph.complementEdge(outEdge), 
 							  			  _graph.complementEdge(inEdge))] =
-															DnaSequence();
+															DnaSequence("A");
 
 		}
 		else
@@ -187,7 +191,8 @@ int HaplotypeResolver::findHeterozygousLoops(bool removeAlternatives)
 		}
 	}
 
-	Logger::get().debug() << "[SIMPL] Masked " << numMasked << " heterozygous loops"; return numMasked;
+	Logger::get().debug() << "[SIMPL] Masked " << numMasked << " heterozygous loops"; 
+	return numMasked;
 }
 
 HaplotypeResolver::VariantPaths 
@@ -451,8 +456,19 @@ int HaplotypeResolver::findComplexHaplotypes()
 		}
 	}
 
+	int foundNew = 0;
 	for (auto& varSegment : foundVariants)
 	{
+		bool newVariant = true;
+		for (auto& branch : varSegment.altPaths)
+		{
+			for (size_t i = 1; i < branch.path.size() - 1; ++i)
+			{
+				if (branch.path[i].edge->altHaplotype) newVariant = false;
+			}
+		}
+		if (newVariant) ++foundNew;
+
 		for (auto& branch : varSegment.altPaths)
 		{
 			for (size_t i = 1; i < branch.path.size() - 1; ++i)
@@ -461,6 +477,9 @@ int HaplotypeResolver::findComplexHaplotypes()
 				_graph.complementEdge(branch.path[i].edge)->altHaplotype = true;
 			}
 		}
+
+		if (varSegment.startEdge->rightLink || 
+			varSegment.endEdge->leftLink) continue;
 
 		//add links
 		_graph.linkEdges(varSegment.startEdge, varSegment.endEdge);
@@ -484,8 +503,7 @@ int HaplotypeResolver::findComplexHaplotypes()
 		_bridgingSeqs[revPair] = seq.complement();
 	}
 
-	Logger::get().debug() << "[SIMPL] Masked " << foundVariants.size()
-		<< " complex haplotypes";
+	Logger::get().debug() << "[SIMPL] Masked " << foundNew << " complex haplotypes";
 	return foundVariants.size();
 }
 
@@ -590,4 +608,15 @@ void HaplotypeResolver::separateDistantEdges(GraphEdge* inEdge, GraphEdge* outEd
 	vecRemove(outEdge->nodeLeft->outEdges, outEdge);
 	outEdge->nodeLeft = rightNode;
 	rightNode->outEdges.push_back(outEdge);
+}
+
+void HaplotypeResolver::resetEdges()
+{
+	for (auto& edge : _graph.iterEdges())
+	{
+		edge->leftLink = nullptr;
+		edge->rightLink = nullptr;
+		edge->altHaplotype = false;
+	}
+	_bridgingSeqs.clear();
 }
