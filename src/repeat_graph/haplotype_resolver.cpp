@@ -620,3 +620,196 @@ void HaplotypeResolver::resetEdges()
 	}
 	_bridgingSeqs.clear();
 }
+
+//some helper functions for superbubble detection
+namespace
+{
+	auto anyPath = [](GraphEdge* startEdge, int maxDepth)
+	{
+		struct PathWithLen {GraphPath path; int length;};
+		std::vector<PathWithLen> queue;
+		queue.push_back({{startEdge}, 0});
+		std::unordered_set<GraphEdge*> visited;
+		visited.insert(startEdge);
+		
+		while (!queue.empty())
+		{
+			auto curPath = queue.back();
+			queue.pop_back();
+
+			if (curPath.length > maxDepth) return curPath.path;
+
+			for (auto& nextEdge : curPath.path.back()->nodeRight->outEdges)
+			{
+				if (visited.count(nextEdge)) continue;
+				visited.insert(nextEdge);
+
+				auto newPath = curPath;
+				newPath.path.push_back(nextEdge);
+				newPath.length += nextEdge->length();
+				queue.push_back(newPath);
+			}
+		}
+
+		return GraphPath();
+	};
+
+	//returns last convergence edge of the search tree (or none, if some
+	//branches did no converge)
+	auto getConvergencEdge = [](GraphEdge* startEdge, int maxDepth,
+								GraphPath& refPath)
+	{
+		struct PathWithLen {GraphPath path; int length;};
+		std::vector<PathWithLen> queue;
+		queue.push_back({{startEdge}, 0});
+		std::unordered_set<GraphEdge*> visited;
+		visited.insert(startEdge);
+		std::unordered_set<GraphEdge*> referenceEdges(refPath.begin(),
+													  refPath.end());
+		
+		std::unordered_set<GraphEdge*> mergeEdges;
+		while (!queue.empty())
+		{
+			auto curPath = queue.back();
+			queue.pop_back();
+
+			//reached maximum depth and did not converge. Fail.
+			if (curPath.length > maxDepth) return (GraphEdge*)nullptr;
+
+			//converged. stop extension and record the path
+			if (referenceEdges.count(curPath.path.back()))
+			{
+				mergeEdges.insert(curPath.path.back());
+				continue;
+			}
+
+			//dead end. also fail.
+			if (curPath.path.back()->nodeRight->outEdges.empty()) 
+			{
+				return (GraphEdge*)nullptr;
+			}
+
+			for (auto& nextEdge : curPath.path.back()->nodeRight->outEdges)
+			{
+				if (visited.count(nextEdge)) continue;
+				visited.insert(nextEdge);
+
+				auto newPath = curPath;
+				newPath.path.push_back(nextEdge);
+				newPath.length += nextEdge->length();
+				queue.push_back(newPath);
+			}
+		}
+
+		for (int i = refPath.size() - 1; i >= 0; --i)
+		{
+			if (mergeEdges.count(refPath[i])) return refPath[i];
+		}
+		return (GraphEdge*)nullptr;
+	};
+
+	GraphEdge* isRightSuperbubble(GraphEdge* startEdge, int maxBubbleLen)
+	{
+		auto refPath = anyPath(startEdge, maxBubbleLen);
+		if (refPath.empty()) return nullptr;
+
+		Logger::get().debug() << "From: " << startEdge->edgeId.signedId();
+		std::string pathStr;
+		for (size_t i = 0; i < refPath.size(); ++i)
+		{
+			pathStr += std::to_string(refPath[i]->edgeId.signedId()) + " -> ";
+		}
+		Logger::get().debug() << "\tReference path: " << pathStr;
+
+		//go along the reference path, keep list of "open"
+		//edges that are branching out. Also close the 
+		//opened branches once we pass the convergence edge.
+		//If at some point we have 0 opened branches - we found a bubble.
+		std::unordered_set<GraphEdge*> openEdges;
+		GraphEdge* bubbleEnd = nullptr;
+		std::unordered_map<GraphEdge*, GraphEdge*> convergenceEdges;
+		for (size_t i = 1; i < refPath.size(); ++i)
+		{
+			Logger::get().debug() << "\tChecking " << refPath[i]->edgeId.signedId();
+			for (auto& edge : refPath[i]->nodeLeft->outEdges)
+			{
+				if (edge == refPath[i]) continue;
+
+				convergenceEdges[edge] = getConvergencEdge(edge, maxBubbleLen, 
+														   refPath);
+				if (!convergenceEdges[edge]) return nullptr;
+				openEdges.insert(edge);
+
+				Logger::get().debug() << "\t\tBranch: " << edge->edgeId.signedId();
+			}
+
+			for (auto& edgePair : convergenceEdges)
+			{
+				if (refPath[i] == edgePair.second)
+				{
+					Logger::get().debug() << "\t\tCoverged: " 
+						<< edgePair.first->edgeId.signedId();
+
+					openEdges.erase(edgePair.first);
+				}
+			}
+			if (openEdges.empty())
+			{
+				bubbleEnd = refPath[i];
+				break;
+			}
+		}
+
+		if (bubbleEnd) return bubbleEnd;
+		return nullptr;
+	}
+}
+
+int HaplotypeResolver::findSuperbubbles()
+{
+	//TODO:
+	//1. If no paths longer then MAX_BUBBLE, get the longest one anyways
+	//2. disjkstra
+	
+	int MAX_BUBBLE_LEN = 50000;
+	
+	GraphProcessor proc(_graph, _asmSeqs);
+	auto unbranchingPaths = proc.getUnbranchingPaths();
+	std::unordered_set<GraphEdge*> loopedEdges;
+	for (auto& path : unbranchingPaths)
+	{
+		if (path.isLooped())
+		{
+			loopedEdges.insert(path.path.begin(), path.path.end());
+		}
+	}
+
+	std::unordered_set<GraphEdge*> usedEdges;
+	for (auto& startEdge : _graph.iterEdges())
+	{
+		if (loopedEdges.count(startEdge)) continue;
+		if (usedEdges.count(startEdge)) continue;
+		if (startEdge->nodeRight->inEdges.size() > 1 ||
+			startEdge->nodeRight->outEdges.size() < 2) continue;
+
+		GraphEdge* putativeEnd = isRightSuperbubble(startEdge, MAX_BUBBLE_LEN);
+
+		if (putativeEnd && startEdge != putativeEnd &&
+			startEdge != _graph.complementEdge(putativeEnd))
+		{
+			GraphEdge* revEnd = isRightSuperbubble(_graph.complementEdge(putativeEnd),
+												   MAX_BUBBLE_LEN);
+
+			if (revEnd && startEdge == _graph.complementEdge(revEnd))
+			{
+				//foundVariants.push_back(varSeg);
+				usedEdges.insert(_graph.complementEdge(putativeEnd));
+
+				Logger::get().debug() << "\tBubble: " << startEdge->edgeId.signedId()
+					<< " " << putativeEnd->edgeId.signedId();
+			}
+		}
+	}
+
+	return 0;
+}

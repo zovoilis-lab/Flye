@@ -23,6 +23,7 @@ public:
 	int  findHeterozygousLoops(bool removeAlternatives);
 	int  findHeterozygousBulges(bool removeAlternatives);
 	int  findComplexHaplotypes();
+	int  findSuperbubbles();
 	void collapseHaplotypes();
 
 private:
@@ -54,8 +55,6 @@ private:
 	const SequenceContainer& _asmSeqs;
 	const SequenceContainer& _readSeqs;
 
-	//std::unordered_map<std::pair<GraphEdge*, GraphEdge*>, 
-	//				   GraphPath, pairhash> _bridgingPaths;
 	std::unordered_map<std::pair<GraphEdge*, GraphEdge*>, 
 					   DnaSequence, pairhash> _bridgingSeqs;
 };
