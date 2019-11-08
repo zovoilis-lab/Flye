@@ -104,7 +104,7 @@ int HaplotypeResolver::findHeterozygousBulges(bool removeAlternatives)
 	}
 
 	Logger::get().debug() << "[SIMPL] Masked " << numMasked
-		<< " heterozygous bulges";
+		<< " heterozygous bubbles";
 	return numMasked;
 }
 
@@ -708,6 +708,53 @@ namespace
 		return (GraphEdge*)nullptr;
 	};
 
+	auto getHaplotypePaths = [](GraphEdge* startEdge, GraphEdge* endEdge,
+							    int maxDepth)
+	{
+		struct PathWithLen {GraphPath path; int length;};
+		std::vector<PathWithLen> queue;
+		std::vector<GraphPath> haploPaths;
+		queue.push_back({{startEdge}, 0});
+		std::unordered_set<GraphEdge*> visited;
+		visited.insert(startEdge);
+		
+		while (!queue.empty())
+		{
+			auto curPath = queue.back();
+			queue.pop_back();
+
+			if (curPath.path.back() == endEdge)
+			{
+				haploPaths.push_back(curPath.path);
+				continue;
+			}
+			if (curPath.length > maxDepth)
+			{
+				Logger::get().warning() << "Bubble haplotypes did not converge!";
+				continue;
+			}
+
+			for (auto& nextEdge : curPath.path.back()->nodeRight->outEdges)
+			{
+				if (visited.count(nextEdge)) 
+				{
+					haploPaths.push_back(curPath.path);
+					haploPaths.back().push_back(nextEdge);
+					continue;
+				}
+				visited.insert(nextEdge);
+
+				auto newPath = curPath;
+				newPath.path.push_back(nextEdge);
+				newPath.length += nextEdge->length();
+				queue.push_back(newPath);
+			}
+		}
+
+		return haploPaths;
+	};
+
+
 	GraphEdge* isRightSuperbubble(GraphEdge* startEdge, int maxBubbleLen)
 	{
 		auto refPath = anyPath(startEdge, maxBubbleLen);
@@ -784,6 +831,7 @@ int HaplotypeResolver::findSuperbubbles()
 		}
 	}
 
+	int foundNew = 0;
 	std::unordered_set<GraphEdge*> usedEdges;
 	for (auto& startEdge : _graph.iterEdges())
 	{
@@ -802,14 +850,47 @@ int HaplotypeResolver::findSuperbubbles()
 
 			if (revEnd && startEdge == _graph.complementEdge(revEnd))
 			{
-				//foundVariants.push_back(varSeg);
 				usedEdges.insert(_graph.complementEdge(putativeEnd));
+
+				//get intermediate edges and mark them
+				auto haploPaths = getHaplotypePaths(startEdge, putativeEnd, 
+													MAX_BUBBLE_LEN);
+				bool newVariant = true;
+				for (auto& branch : haploPaths)
+				{
+					for (size_t i = 1; i < branch.size() - 1; ++i)
+					{
+						if (branch[i]->altHaplotype) newVariant = false;
+					}
+				}
+				if (newVariant) ++foundNew;
+				for (auto& branch : haploPaths)
+				{
+					for (size_t i = 1; i < branch.size() - 1; ++i)
+					{
+						branch[i]->altHaplotype = true;
+						_graph.complementEdge(branch[i])->altHaplotype = true;
+					}
+				}
 
 				Logger::get().debug() << "\tBubble: " << startEdge->edgeId.signedId()
 					<< " " << putativeEnd->edgeId.signedId();
+				for (auto& aln : haploPaths)
+				{
+					std::string pathStr;
+					for (size_t i = 0; i < aln.size(); ++i)
+					{
+						pathStr += std::to_string(aln[i]->edgeId.signedId()) + " -> ";
+					}
+					Logger::get().debug() << "\t\tP: " << pathStr;
+				}
+
 			}
 		}
 	}
 
-	return 0;
+	Logger::get().debug() << "[SIMPL] Masked " << foundNew
+		<< " superbubbles";
+
+	return foundNew;
 }
