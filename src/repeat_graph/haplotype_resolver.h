@@ -20,8 +20,8 @@ public:
 		_readSeqs(readSeqs) {}
 
 	void resetEdges();
-	int  findHeterozygousLoops(bool removeAlternatives);
-	int  findHeterozygousBulges(bool removeAlternatives);
+	int  findHeterozygousLoops();
+	int  findHeterozygousBulges();
 	int  findComplexHaplotypes();
 	int  findSuperbubbles();
 	void collapseHaplotypes();
