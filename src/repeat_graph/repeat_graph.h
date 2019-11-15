@@ -367,9 +367,6 @@ public:
 		edge->nodeLeft->outEdges.push_back(edge);
 	};
 
-	void separatePath(const GraphPath& path, EdgeSequence segment,
-					  FastaRecord::Id startId);
-
 	void linkEdges(GraphEdge* leftEdge, GraphEdge* rightEdge)
 	{
 		if (leftEdge->rightLink || rightEdge->leftLink)

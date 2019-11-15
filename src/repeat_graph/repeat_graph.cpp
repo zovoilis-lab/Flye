@@ -1275,46 +1275,6 @@ void RepeatGraph::updateEdgeSequences()
 	_edgeSeqsContainer->buildPositionIndex();
 }
 
-//Given the path in the graph with a resolved repeat inside,
-//separates in into a single unbranching path. The first
-//and the last edges of the graphPath parameter
-//should correspond to the flanking unique edges
-void RepeatGraph::separatePath(const GraphPath& graphPath, 
-							   EdgeSequence readSegment, 
-							   FastaRecord::Id newId)
-{
-	//first edge
-	GraphNode* leftNode = this->addNode();
-	vecRemove(graphPath.front()->nodeRight->inEdges, graphPath.front());
-	graphPath.front()->nodeRight = leftNode;
-	leftNode->inEdges.push_back(graphPath.front());
-	int32_t pathCoverage = (graphPath.front()->meanCoverage +
-						    graphPath.back()->meanCoverage) / 2;
-
-	//repetitive edges in the middle
-	for (size_t i = 1; i < graphPath.size() - 1; ++i)
-	{
-		graphPath[i]->resolved = true;
-		//_substractedCoverage[graphPath[i]] += pathCoverage;
-		//graphPath[i]->substractedCoverage += pathCoverage;
-	}
-
-	GraphNode* rightNode = leftNode;
-	if (graphPath.size() > 2)
-	{
-		rightNode = this->addNode();
-		GraphEdge* newEdge = this->addEdge(GraphEdge(leftNode, rightNode,
-													 newId));
-		newEdge->seqSegments.push_back(readSegment);
-		newEdge->meanCoverage = pathCoverage;
-	}
-
-	//last edge
-	vecRemove(graphPath.back()->nodeLeft->outEdges, graphPath.back());
-	graphPath.back()->nodeLeft = rightNode;
-	rightNode->outEdges.push_back(graphPath.back());
-}
-
 RepeatGraph::~RepeatGraph()
 {
 	std::unordered_set<GraphEdge*> toRemove;

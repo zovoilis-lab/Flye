@@ -43,6 +43,9 @@ private:
 		int32_t flankLength;
 	};
 
+	void separatePath(const GraphPath& path, EdgeSequence segment,
+					  FastaRecord::Id startId);
+
 	bool checkByReadExtension(const GraphEdge* edge,
 							  const std::vector<GraphAlignment>& alignments);
 	bool checkForTandemCopies(const GraphEdge* checkEdge,
