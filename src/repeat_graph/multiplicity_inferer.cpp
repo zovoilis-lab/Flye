@@ -94,7 +94,7 @@ void MultiplicityInferer::estimateCoverage()
 
 int MultiplicityInferer::resolveForks()
 {
-	const int UNIQUE_LEN = (int)Config::get("unique_edge_length");
+	//const int UNIQUE_LEN = (int)Config::get("unique_edge_length");
 	const int MAJOR_TO_MINOR = 5;
 
 	int numDisconnected = 0;
@@ -121,13 +121,14 @@ int MultiplicityInferer::resolveForks()
 
 		//we want out input edge to be unique. This is not the
 		//most reliable way to tell, but at least something
-		if (inEdge->length() < UNIQUE_LEN) continue;
+		//if (inEdge->length() < UNIQUE_LEN) continue;
 
 		//we want coverage of major edges significantly higher than minor
 		if (std::min(outMajor->meanCoverage, inEdge->meanCoverage) < 
 			outMinor->meanCoverage * MAJOR_TO_MINOR) continue;
 
 		//looks like all is good
+		Logger::get().debug() << "Disconnected fork: " << outMinor->edgeId.signedId();
 		_graph.disconnectLeft(outMinor);
 		_graph.disconnectRight(_graph.complementEdge(outMinor));
 		++numDisconnected;
@@ -228,11 +229,23 @@ int MultiplicityInferer::removeUnsupportedEdges(bool onlyTips)
 
 int MultiplicityInferer::disconnectMinorPaths()
 {
-	const int DETACH_RATE = 10;
+	const int DETACH_RATE = 5;
 
 	auto nodeDegree = [](GraphNode* node)
 	{
-		int maxIn = 0;
+		std::vector<int> coverages;
+		for (auto& edge : node->inEdges) 
+		{
+			if (!edge->isLooped()) coverages.push_back(edge->meanCoverage);
+		}
+		for (auto& edge : node->outEdges) 
+		{
+			if (!edge->isLooped()) coverages.push_back(edge->meanCoverage);
+		}
+		if (coverages.size() < 3) return 0;
+		return median(coverages);
+
+		/*int maxIn = 0;
 		int maxOut = 0;
 		for (auto& edge : node->inEdges) 
 		{
@@ -242,7 +255,7 @@ int MultiplicityInferer::disconnectMinorPaths()
 		{
 			if (!edge->isLooped()) maxOut = std::max(maxOut, edge->meanCoverage);
 		}
-		return std::min(maxIn, maxOut);
+		return std::min(maxIn, maxOut);*/
 	};
 
 	int numDisconnected = 0;
@@ -274,7 +287,7 @@ int MultiplicityInferer::disconnectMinorPaths()
 			_graph.disconnectRight(path.path.back());
 			_graph.disconnectRight(_graph.complementEdge(path.path.front()));
 			++numDisconnected;
-			//Logger::get().debug() << "Fragile path: " << path.edgesStr();
+			Logger::get().debug() << "Fragile path: " << path.edgesStr();
 		}
 	}
 
@@ -359,7 +372,7 @@ int MultiplicityInferer::splitNodes()
 		if (clusters.size() > 1)	//need to split the node!
 		{
 			numSplit += 1;
-			/*Logger::get().debug() << "Node " 
+			Logger::get().debug() << "Node " 
 				<< nodeToSplit->inEdges.size() + nodeToSplit->outEdges.size()
 				<< " clusters: " << clusters.size() << " " << selfComplNode;
 			for (auto& cl : clusters)
@@ -370,7 +383,7 @@ int MultiplicityInferer::splitNodes()
 					Logger::get().debug() << "\t\t" << edge->edgeId.signedId() << " " 
 						<< edge->length() << " " << edge->meanCoverage;
 				}
-			}*/
+			}
 
 			for (auto& cl : clusters)
 			{
@@ -467,8 +480,8 @@ int MultiplicityInferer::removeUnsupportedConnections()
 			rightConnections[edge] / 2 < coverageThreshold)
 		{
 			++numDisconnected;
-			//Logger::get().debug() << "Chimeric right: " <<
-			//	edge->edgeId.signedId() << " " << rightConnections[edge] / 2;
+			Logger::get().debug() << "Chimeric right: " <<
+				edge->edgeId.signedId() << " " << rightConnections[edge] / 2;
 
 			_graph.disconnectRight(edge);
 			_graph.disconnectLeft(complEdge);
@@ -480,8 +493,8 @@ int MultiplicityInferer::removeUnsupportedConnections()
 			leftConnections[edge] / 2 < coverageThreshold)
 		{
 			++numDisconnected;
-			//Logger::get().debug() << "Chimeric left: " <<
-			//	edge->edgeId.signedId() << " " << leftConnections[edge] / 2;
+			Logger::get().debug() << "Chimeric left: " <<
+				edge->edgeId.signedId() << " " << leftConnections[edge] / 2;
 
 			_graph.disconnectLeft(edge);
 			_graph.disconnectRight(complEdge);
