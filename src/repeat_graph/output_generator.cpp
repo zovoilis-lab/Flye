@@ -98,12 +98,19 @@ void OutputGenerator::outputGfa(const std::vector<UnbranchingPath>& paths,
 				sequences[i].sequence.str().c_str(), (int)paths[i].meanCoverage);
 	}
 
+	std::unordered_set<std::pair<GraphEdge*, GraphEdge*>, pairhash> usedPairs;
 	for (auto& contigLeft : paths)
 	{
 		for (auto& contigRight : paths)
 		{
-			if (contigLeft.path.back()->nodeRight != 
-				contigRight.path.front()->nodeLeft) continue;
+			GraphEdge* edgeLeft = contigLeft.path.back();
+			GraphEdge* edgeRight = contigRight.path.front();
+			if (edgeLeft->nodeRight != edgeRight->nodeLeft) continue;
+
+			if (usedPairs.count(std::make_pair(edgeLeft, edgeRight))) continue;
+			usedPairs.insert(std::make_pair(edgeLeft, edgeRight));
+			usedPairs.insert(std::make_pair(_graph.complementEdge(edgeRight), 
+											_graph.complementEdge(edgeLeft)));
 
 			std::string leftSign = contigLeft.id.strand() ? "+" :"-";
 			std::string leftName = contigLeft.nameUnsigned();
