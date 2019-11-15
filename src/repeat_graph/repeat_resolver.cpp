@@ -432,6 +432,51 @@ void RepeatResolver::findRepeats()
 			}
 		}
 	}
+
+	//propagate repetitiveness through linked edges (flanking haplotype bubbles)
+	for (GraphEdge* edge : _graph.iterEdges())
+	{
+		if (!edge->repetitive) continue;
+
+		GraphEdge* curEdge = edge;
+		for (;;)
+		{
+			curEdge->repetitive = true;
+			if (curEdge->nodeRight->inEdges.size() == 1 &&
+				curEdge->nodeRight->outEdges.size() == 1 &&
+				!curEdge->nodeRight->outEdges[0]->repetitive)
+			{
+				curEdge = curEdge->nodeRight->outEdges[0];
+			}
+			else if (curEdge->rightLink && !curEdge->rightLink->repetitive)
+			{
+				curEdge = curEdge->rightLink;
+			}
+			else
+			{
+				break;
+			}
+		}
+		curEdge = edge;
+		for (;;)
+		{
+			curEdge->repetitive = true;
+			if (curEdge->nodeLeft->inEdges.size() == 1 &&
+				curEdge->nodeLeft->outEdges.size() == 1 &&
+				!curEdge->nodeLeft->inEdges[0]->repetitive)
+			{
+				curEdge = curEdge->nodeLeft->inEdges[0];
+			}
+			else if (curEdge->leftLink && !curEdge->leftLink->repetitive)
+			{
+				curEdge = curEdge->leftLink;
+			}
+			else
+			{
+				break;
+			}
+		}
+	}
 }
 
 void RepeatResolver::finalizeGraph()
