@@ -1166,7 +1166,7 @@ void OverlapContainer::estimateOverlaperParameters()
 	}
 
 	Logger::get().debug() << "Median overlap divergence: " << _meanTrueOvlpDiv;
-	Logger::get().debug() << "K-mer estimate bias: " << _kmerIdyEstimateBias;
+	Logger::get().debug() << "K-mer estimate bias (true - est): " << _kmerIdyEstimateBias;
 }
 
 

@@ -205,32 +205,37 @@ int main(int argc, char** argv)
 	HaplotypeResolver hapResolver(rg, aligner, seqAssembly, seqReads);
 	repResolver.resolveSimpleRepeats();
 
-	//multInf.trimTips();
-	//outGen.outputDot(proc.getEdgesPaths(), 
-	//				 outFolder + "/graph_before_bulges.gv");
+	//for debugging only
+	/*multInf.trimTips();
+	hapResolver.findHeterozygousLoops();
+	hapResolver.findSuperbubbles();
+	hapResolver.findHeterozygousBulges();
+	hapResolver.findComplexHaplotypes();
+	hapResolver.resetEdges();*/
+	outGen.outputDot(proc.getEdgesPaths(), 
+					 outFolder + "/graph_before_bulges.gv");
+	//
+	
 	while (true)
 	{
 		++iterNum;
 		int actions = 0;
 		Logger::get().debug() << "[SIMPL] == Iteration " << iterNum << " ==";
 
+		//less aggressive simplifications
 		actions += multInf.splitNodes();
-		actions += multInf.trimTips();
 		actions += multInf.removeUnsupportedConnections();
-
-		if (Parameters::get().unevenCoverage)
-		{
-			//actions += multInf.disconnectMinorPaths();
-			actions += multInf.resolveForks();
-		}
+		if (Parameters::get().unevenCoverage) actions += multInf.disconnectMinorPaths();
+		actions += multInf.trimTips();
 
 		hapResolver.resetEdges();
-		hapResolver.findHeterozygousLoops(/*remove alternatives*/ true);
-		hapResolver.findHeterozygousBulges(/*remove alternatives*/ true);
+		hapResolver.findHeterozygousLoops();
+		hapResolver.findHeterozygousBulges();
+		hapResolver.findSuperbubbles();
 		hapResolver.findComplexHaplotypes();
 
 		repResolver.findRepeats();
-		if(iterNum == 1)		//dump graph before first repeat resolution iteration
+		if (iterNum == 1)		//dump graph before first repeat resolution iteration
 		{
 			outGen.outputDot(proc.getEdgesPaths(), outFolder + "/graph_before_rr.gv");
 			//outGen.outputGfa(proc.getEdgesPaths(), outFolder + "/graph_before_rr.gfa");
@@ -238,12 +243,20 @@ int main(int argc, char** argv)
 		}
 		actions += repResolver.resolveRepeats();
 
+		//more aggressive simplifications
+		/*if (Parameters::get().unevenCoverage)
+		{
+			actions += multInf.disconnectMinorPaths();
+			actions += multInf.resolveForks();
+		}*/
+
 		if (!actions) break;
 		rg.validateGraph();
 	}
 
-	hapResolver.collapseHaplotypes();
+	if (Parameters::get().unevenCoverage) multInf.resolveForks();
 
+	hapResolver.collapseHaplotypes();
 	multInf.removeUnsupportedEdges(/*only tips*/ false);
 
 	repResolver.findRepeats();
