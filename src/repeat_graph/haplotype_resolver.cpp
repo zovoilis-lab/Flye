@@ -230,8 +230,8 @@ HaplotypeResolver::VariantPaths
 			  {return a1.back().overlap.curEnd - a1.front().overlap.curEnd >
 					  a2.back().overlap.curEnd - a2.front().overlap.curEnd;});
 
-	Logger::get().debug() << "Haplo paths " 
-		<< startEdge->edgeId.signedId() << " " << outPaths.size();
+	//Logger::get().debug() << "Haplo paths " 
+	//	<< startEdge->edgeId.signedId() << " " << outPaths.size();
 	/*for (auto& aln : outPaths)
 	{
 		std::string pathStr;
@@ -280,7 +280,7 @@ HaplotypeResolver::VariantPaths
 					 [MIN_SCORE](PathWithScore& p)
 					 {return p.score < MIN_SCORE;}), pathGroups.end());
 
-	for (auto& aln : pathGroups)
+	/*for (auto& aln : pathGroups)
 	{
 		std::string pathStr;
 		for (size_t i = 0; i < aln.path.size(); ++i)
@@ -288,7 +288,7 @@ HaplotypeResolver::VariantPaths
 			pathStr += std::to_string(aln.path[i].edge->edgeId.signedId()) + " -> ";
 		}
 		Logger::get().debug() << "\tGroup: " << pathStr << aln.score;
-	}
+	}*/
 
 	if (pathGroups.size() < 2) return VariantPaths();
 
@@ -458,8 +458,6 @@ int HaplotypeResolver::findComplexHaplotypes()
 			{
 				foundVariants.push_back(varSeg);
 				usedEdges.insert(revSeg.startEdge);
-				Logger::get().debug() << "Complex bulge: " << varSeg.startEdge->edgeId.signedId()
-					<< " : " << varSeg.endEdge->edgeId.signedId();
 			}
 		}
 	}
@@ -475,7 +473,13 @@ int HaplotypeResolver::findComplexHaplotypes()
 				if (branch.path[i].edge->altHaplotype) newVariant = false;
 			}
 		}
-		if (newVariant) ++foundNew;
+		if (newVariant)
+		{
+			++foundNew;
+			Logger::get().debug() << "Complex bulge: " 
+				<< varSegment.startEdge->edgeId.signedId()
+				<< " : " << varSegment.endEdge->edgeId.signedId();
+		}
 
 		for (auto& branch : varSegment.altPaths)
 		{
@@ -756,25 +760,25 @@ namespace
 	Superbubble isRightSuperbubble(GraphEdge* startEdge, int maxBubbleLen,
 								  const RepeatGraph& graph)
 	{
-		Logger::get().debug() << "From: " << startEdge->edgeId.signedId();
+		//Logger::get().debug() << "From: " << startEdge->edgeId.signedId();
 
 		//arbitrary "reference path". If all paths converge, then
 		//this one does as well.
 		auto refPath = anyPath(startEdge, maxBubbleLen);
 		if (refPath.empty()) return Superbubble();
 
-		std::string pathStr;
+		/*std::string pathStr;
 		for (size_t i = 0; i < refPath.size(); ++i)
 		{
 			pathStr += std::to_string(refPath[i]->edgeId.signedId()) + " -> ";
 		}
-		Logger::get().debug() << "\tReference path: " << pathStr;
+		Logger::get().debug() << "\tReference path: " << pathStr;*/
 
 		for (GraphEdge* endCand : refPath)
 		{
 			if (endCand == startEdge) continue;
 
-			Logger::get().debug() << "\t\tEnd check: " << endCand->edgeId.signedId();
+			//Logger::get().debug() << "\t\tEnd check: " << endCand->edgeId.signedId();
 
 			auto distancesFromSource = 
 				getShortestPathsLen(startEdge, endCand, maxBubbleLen);
@@ -785,11 +789,11 @@ namespace
 			if (distancesFromSource.failure || 
 				distancesFromSink.failure) 
 			{
-				Logger::get().debug() << "\t\tDiverged!";
+				//Logger::get().debug() << "\t\tDiverged!";
 				continue;
 			}
 
-			for (auto& edgeDist : distancesFromSource.dist)
+			/*for (auto& edgeDist : distancesFromSource.dist)
 			{
 				Logger::get().debug() << "\t\tFrom source " << edgeDist.first->edgeId.signedId()
 					<< " " << edgeDist.second;
@@ -798,7 +802,7 @@ namespace
 			{
 				Logger::get().debug() << "\t\tFrom sink " << edgeDist.first->edgeId.signedId()
 					<< " " << edgeDist.second;
-			}
+			}*/
 
 			bool goodBubble = true;
 			for (auto& edgeDist : distancesFromSource.dist)
@@ -896,14 +900,17 @@ int HaplotypeResolver::findSuperbubbles()
 						 _graph.complementEdge(startEdge));
 
 		//bridging sequence
-		DnaSequence pathSeq = this->pathSequence(fwdBubble.refPath);
+		GraphPath bridgePath(fwdBubble.refPath.begin() + 1,
+							 std::find(fwdBubble.refPath.begin(), fwdBubble.refPath.end(),
+								 	   fwdBubble.end));
+		DnaSequence pathSeq = this->pathSequence(bridgePath);
 		_bridgingSeqs[std::make_pair(startEdge, fwdBubble.end)] = pathSeq;
 		_bridgingSeqs[std::make_pair(_graph.complementEdge(fwdBubble.end), 
 									 _graph.complementEdge(startEdge))] = 
 												pathSeq.complement();
 		//
 
-		Logger::get().debug() << "\tBubble: " << startEdge->edgeId.signedId()
+		Logger::get().debug() << "\tSuperbubble: " << startEdge->edgeId.signedId()
 			<< " " << fwdBubble.end->edgeId.signedId();
 		std::string pathStr;
 		for (auto& edge : fwdBubble.internalEdges)
