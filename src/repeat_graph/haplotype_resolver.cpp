@@ -17,41 +17,38 @@ int HaplotypeResolver::findHeterozygousBulges()
 
 	GraphProcessor proc(_graph, _asmSeqs);
 	auto unbranchingPaths = proc.getUnbranchingPaths();
+	std::unordered_map<GraphEdge*, UnbranchingPath*> pathIndex;
+	for (UnbranchingPath& path : unbranchingPaths)
+	{
+		for (GraphEdge* edge : path.path) pathIndex[edge] = &path;
+	}
 
-	std::unordered_set<FastaRecord::Id> toSeparate;
+	std::unordered_set<FastaRecord::Id> usedPaths;
 	int numMasked = 0;
 	for (auto& path : unbranchingPaths)
 	{
 		if (path.isLooped()) continue;
+		
+		if (path.nodeLeft()->inEdges.size() != 1 ||
+			path.nodeLeft()->outEdges.size() != 2 ||
+			path.nodeRight()->outEdges.size() != 1 ||
+			path.nodeRight()->inEdges.size() != 2) continue;
 
 		std::vector<UnbranchingPath*> twoPaths;
-		for (auto& candEdge : unbranchingPaths)
+		for (GraphEdge* edge : path.nodeLeft()->outEdges)
 		{
-			if (candEdge.nodeLeft() == path.nodeLeft() &&
-				candEdge.nodeRight() == path.nodeRight()) 
+			if (pathIndex[edge]->nodeRight() == path.nodeRight())
 			{
-				twoPaths.push_back(&candEdge);
+				twoPaths.push_back(pathIndex[edge]);
 			}
 		}
-
-		//making sure the structure is ok
 		if (twoPaths.size() != 2) continue;
 		if (twoPaths[0]->id == twoPaths[1]->id.rc()) continue;
-		if (toSeparate.count(twoPaths[0]->id) || 
-			toSeparate.count(twoPaths[1]->id)) continue;
-		if (twoPaths[0]->nodeLeft()->inEdges.size() != 1 ||
-			twoPaths[0]->nodeLeft()->outEdges.size() != 2 ||
-			twoPaths[0]->nodeRight()->outEdges.size() != 1 ||
-			twoPaths[0]->nodeRight()->inEdges.size() != 2) continue;
+		if (usedPaths.count(twoPaths[0]->id) || 
+			usedPaths.count(twoPaths[1]->id)) continue;
 
-		UnbranchingPath* entrancePath = nullptr;
-		UnbranchingPath* exitPath = nullptr;
-		for (auto& cand : unbranchingPaths)
-		{
-			if (cand.nodeRight() == 
-				twoPaths[0]->nodeLeft()) entrancePath = &cand;
-			if (cand.nodeLeft() == twoPaths[0]->nodeRight()) exitPath = &cand;
-		}
+		UnbranchingPath* entrancePath = pathIndex[path.nodeLeft()->inEdges[0]];
+		UnbranchingPath* exitPath = pathIndex[path.nodeRight()->outEdges[0]];
 		if (entrancePath->id == exitPath->id ||
 			entrancePath->id == exitPath->id.rc()) continue;
 
@@ -70,6 +67,12 @@ int HaplotypeResolver::findHeterozygousBulges()
 		//of multiplicity 2
 		//if (std::max(twoPaths[0]->length, twoPaths[1]->length) >
 		//	std::max(entrancePath->length, exitPath->length)) continue;
+		
+		for (size_t i = 0; i < 2; ++i)
+		{
+			usedPaths.insert(twoPaths[i]->id);
+			usedPaths.insert(twoPaths[i]->id.rc());
+		}
 
 		if (twoPaths[0]->meanCoverage > twoPaths[1]->meanCoverage)
 		{
@@ -112,7 +115,7 @@ int HaplotypeResolver::findHeterozygousBulges()
 	}
 
 	Logger::get().debug() << "[SIMPL] Masked " << numMasked
-		<< " heterozygous bubbles";
+		<< " simple bubbles";
 	return numMasked;
 }
 
