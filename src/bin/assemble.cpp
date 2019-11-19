@@ -207,8 +207,8 @@ int main(int argc, char** argv)
 	}
 	else
 	{
-		static const float SELECT_RATE = 0.25;
-		static const int TANDEM_FREQ = 10;
+		static const float SELECT_RATE = Config::get("meta_read_top_kmer_rate");
+		static const int TANDEM_FREQ = Config::get("meta_read_filter_kmer_freq");
 		vertexIndex.buildIndexUnevenCoverage(/*min coverage*/ 2, SELECT_RATE, 
 											 TANDEM_FREQ);
 	}
