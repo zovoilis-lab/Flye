@@ -758,6 +758,8 @@ namespace
 								  int maxBubble)
 	{
 		DijkstraResult res;
+		DijkstraResult RES_FAIL;
+		RES_FAIL.failure = true;
 		std::priority_queue<EdgeWithPriority, 
 							std::vector<EdgeWithPriority>, 
 							decltype(lowestPri)> queue(lowestPri);
@@ -773,24 +775,20 @@ namespace
 			closed.insert(curEdge.edge);
 
 			//dead end
-			if (curEdge.edge->nodeRight->outEdges.empty())
-			{
-				res.failure = true;
-				return res;
-			}
+			if (curEdge.edge->nodeRight->outEdges.empty()) return RES_FAIL;
 
 			for (auto& nextEdge : curEdge.edge->nodeRight->outEdges)
 			{
 				if (nextEdge == sink) continue;
 
+				//we have reached the start, that means there is a bad loop. fail
+				if (nextEdge == source) return RES_FAIL;
+
 				int newDist = curEdge.priority + nextEdge->length() + 1;
 				if (!res.dist.count(nextEdge) || newDist < res.dist[nextEdge])
 				{
-					if (newDist > maxBubble)
-					{
-						res.failure = true;
-						return res;
-					}
+					//path has diverged
+					if (newDist > maxBubble) return RES_FAIL;
 
 					res.dist[nextEdge] = newDist;
 					queue.push({nextEdge, newDist});
@@ -852,17 +850,17 @@ namespace
 								   const RepeatGraph& graph, 
 								   const std::unordered_set<GraphEdge*> loopedEdges)
 	{
-		Logger::get().debug() << "From: " << startEdge->edgeId.signedId();
+		//Logger::get().debug() << "From: " << startEdge->edgeId.signedId();
 
 		auto refPath = anyPath(startEdge, maxBubbleLen);
 		if (refPath.empty()) return Superbubble();
 
-		std::string pathStr;
+		/*std::string pathStr;
 		for (size_t i = 0; i < refPath.size(); ++i)
 		{
 			pathStr += std::to_string(refPath[i]->edgeId.signedId()) + " -> ";
 		}
-		Logger::get().debug() << "\tReference path: " << pathStr;
+		Logger::get().debug() << "\tReference path: " << pathStr;*/
 
 		/*auto discoverableEdges = getDiscoverable(startEdge, maxBubbleLen);
 		if (discoverableEdges.dist.empty()) return Superbubble();
@@ -880,8 +878,10 @@ namespace
 		{
 			if (endCand == startEdge) continue;
 			if (loopedEdges.count(endCand)) continue;
+			if (!endCand->nodeLeft->isBifurcation()) continue;
+			//if (endCand->nodeLeft->inEdges.size() < 2) continue;
 
-			int numIn = 0;
+			/*int numIn = 0;
 			int numOut = 0;
 			for (auto& edge : endCand->nodeLeft->inEdges)
 			{
@@ -891,7 +891,7 @@ namespace
 			{
 				if (!loopedEdges.count(edge)) ++numOut;
 			}
-			if (numOut > 1 || numIn < 2) continue;
+			if (numOut > 1 || numIn < 2) continue;*/
 			//if (endCand->nodeLeft->outEdges.size() > 1 ||
 			//	endCand->nodeLeft->inEdges.size() < 2) continue;
 
@@ -949,6 +949,10 @@ namespace
 
 			//check if one cannot reach source from sink (fwd direction)
 			//if (hasPath(endCand, startEdge, maxBubbleLen)) goodBubble = false;
+			//if (hasPath(graph.complementEdge(startEdge), 
+			//			graph.complementEdge(endCand), maxBubbleLen)) goodBubble = false;
+			//if (hasPath(startEdge, startEdge, maxBubbleLen)) goodBubble = false;
+			//if (hasPath(endCand, endCand, maxBubbleLen)) goodBubble = false;
 
 			if (goodBubble)
 			{
@@ -973,7 +977,7 @@ namespace
 					if (edgeDist.first != sb.start && 
 						edgeDist.first != sb.end) sb.internalEdges.insert(edgeDist.first);
 				}
-				Logger::get().debug() << "Good end: " << sb.end->edgeId.signedId();
+				//Logger::get().debug() << "Good end: " << sb.end->edgeId.signedId();
 				return sb;
 			}
 		}
@@ -1003,9 +1007,10 @@ int HaplotypeResolver::findSuperbubbles()
 	{
 		if (loopedEdges.count(startEdge)) continue;
 		if (usedEdges.count(startEdge)) continue;
-		//if (!startEdge->nodeRight->isBifurcation()) continue;
+		//if (startEdge->nodeRight->outEdges.size() < 2) continue;
+		if (!startEdge->nodeRight->isBifurcation()) continue;
 		
-		int numIn = 0;
+		/*int numIn = 0;
 		int numOut = 0;
 		for (auto& edge : startEdge->nodeRight->inEdges)
 		{
@@ -1015,7 +1020,7 @@ int HaplotypeResolver::findSuperbubbles()
 		{
 			if (!loopedEdges.count(edge)) ++numOut;
 		}
-		if (numOut < 2 || numIn > 1) continue;
+		if (numOut < 2 || numIn > 1) continue;*/
 
 		//if (startEdge->nodeRight->inEdges.size() > 1 ||
 		//	startEdge->nodeRight->outEdges.size() < 2) continue;

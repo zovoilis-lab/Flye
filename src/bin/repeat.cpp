@@ -207,13 +207,13 @@ int main(int argc, char** argv)
 
 	//for debugging only
 	/*multInf.trimTips();
-	hapResolver.findHeterozygousLoops();
 	hapResolver.findSuperbubbles();
+	hapResolver.findHeterozygousLoops();
 	hapResolver.findHeterozygousBulges();
 	hapResolver.findComplexHaplotypes();
-	hapResolver.resetEdges();*/
+	hapResolver.resetEdges();
 	outGen.outputDot(proc.getEdgesPaths(), 
-					 outFolder + "/graph_before_bulges.gv");
+					 outFolder + "/graph_before_bulges.gv");*/
 	//
 	
 	while (true)
