@@ -310,19 +310,19 @@ int MultiplicityInferer::splitNodes()
 
 	//storing connectivity information
 	std::unordered_map<GraphEdge*, 
-					   std::unordered_map<GraphEdge*, int>> connections;
+					   std::unordered_map<GraphEdge*, int>> readSupport;
 	for (auto& readPath : _aligner.getAlignments())
 	{
 		if (readPath.size() < 2) continue;
 		
 		for (size_t i = 0; i < readPath.size() - 1; ++i)
 		{
-			if (readPath[i].edge == readPath[i + 1].edge &&
-				readPath[i].edge->isLooped()) continue;
+			//if (readPath[i].edge == readPath[i + 1].edge &&
+			//	readPath[i].edge->isLooped()) continue;
 			if (readPath[i].edge->edgeId == 
 				readPath[i + 1].edge->edgeId.rc()) continue;
 
-			++connections[readPath[i].edge][readPath[i + 1].edge];
+			++readSupport[readPath[i].edge][readPath[i + 1].edge];
 		}
 	}
 
@@ -338,32 +338,35 @@ int MultiplicityInferer::splitNodes()
 		bool selfComplNode = nodeToSplit == _graph.complementNode(nodeToSplit);
 
 		//initializing sets (to cluster them later)
-		typedef SetNode<GraphEdge*> SetElement;
-		std::unordered_map<GraphEdge*, SetElement*> edgeToElement;
-		SetVec<GraphEdge*> allElements;
+		struct EdgeDir
+		{
+			GraphEdge* edge;
+			bool isInput;
+		};
+		typedef SetNode<EdgeDir> SetElement;
+		SetVec<EdgeDir> allElements;
+		std::unordered_map<GraphEdge*, SetElement*> inputElements;
+		std::unordered_map<GraphEdge*, SetElement*> outputElements;
 		for (GraphEdge* edge : nodeToSplit->inEdges) 
 		{
-			allElements.push_back(new SetElement(edge));
-			edgeToElement[edge] = allElements.back();
+			allElements.push_back(new SetElement({edge, true}));
+			inputElements[edge] = allElements.back();
 		}
 		for (GraphEdge* edge : nodeToSplit->outEdges) 
 		{
-			if (!edge->isLooped())
-			{		
-				allElements.push_back(new SetElement(edge));
-				edgeToElement[edge] = allElements.back();
-			}
+			allElements.push_back(new SetElement({edge, false}));
+			outputElements[edge] = allElements.back();
 		}
 
 		//grouping edges if they are connected by reads
 		for (GraphEdge* inEdge : nodeToSplit->inEdges)
 		{
-			for (auto outEdge : connections[inEdge])
+			for (auto outEdge : readSupport[inEdge])
 			{
 				if (outEdge.second >= MIN_JCT_SUPPORT)
 				{
-					unionSet(edgeToElement[inEdge], 
-							 edgeToElement[outEdge.first]);
+					unionSet(inputElements[inEdge], 
+							 outputElements[outEdge.first]);
 				}
 			}
 		}
@@ -375,29 +378,31 @@ int MultiplicityInferer::splitNodes()
 			Logger::get().debug() << "Node " 
 				<< nodeToSplit->inEdges.size() + nodeToSplit->outEdges.size()
 				<< " clusters: " << clusters.size() << " " << selfComplNode;
+
 			for (auto& cl : clusters)
 			{
 				Logger::get().debug() << "\tCl: " << cl.second.size();
-				for (auto edge : cl.second)
+				for (auto edgeDir : cl.second)
 				{
-					Logger::get().debug() << "\t\t" << edge->edgeId.signedId() << " " 
-						<< edge->length() << " " << edge->meanCoverage;
+					Logger::get().debug() << "\t\t" << edgeDir.edge->edgeId.signedId() << " " 
+						<< edgeDir.edge->length() << " " << edgeDir.edge->meanCoverage << " "
+						<< edgeDir.isInput;
 				}
 			}
 
 			for (auto& cl : clusters)
 			{
 				auto switchNode = [&nodeToSplit](GraphEdge* edge, 
-												 GraphNode* oldNode,
-												 GraphNode* newNode)
+												 GraphNode* newNode,
+												 bool isInput)
 				{
-					if (edge->nodeLeft == oldNode)
+					if (!isInput)
 					{
 						vecRemove(edge->nodeLeft->outEdges, edge);
 						edge->nodeLeft = newNode;
 						newNode->outEdges.push_back(edge);
 					}
-					if (edge->nodeRight == oldNode)
+					else
 					{
 						vecRemove(edge->nodeRight->inEdges, edge);
 						edge->nodeRight = newNode;
@@ -408,14 +413,15 @@ int MultiplicityInferer::splitNodes()
 
 				GraphNode* newNode = _graph.addNode();
 				GraphNode* newComplNode = _graph.addNode();
-				for (GraphEdge* edge : cl.second)
+				for (auto edgeDir : cl.second)
 				{
-					GraphEdge* complEdge = _graph.complementEdge(edge);
-					GraphNode* complSplit = _graph.complementNode(nodeToSplit);
-					switchNode(edge, nodeToSplit, newNode);
-					if (!edge->selfComplement && !selfComplNode)
+					GraphEdge* complEdge = _graph.complementEdge(edgeDir.edge);
+					//GraphNode* complSplit = _graph.complementNode(nodeToSplit);
+					switchNode(edgeDir.edge, newNode, edgeDir.isInput);
+					if (!edgeDir.edge->selfComplement && !selfComplNode)
 					{
-						switchNode(complEdge, complSplit, newComplNode);
+						switchNode(complEdge, newComplNode, 
+								   !edgeDir.isInput);
 					}
 				}
 			}
