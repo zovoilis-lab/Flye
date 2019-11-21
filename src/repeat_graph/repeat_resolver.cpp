@@ -755,7 +755,6 @@ int RepeatResolver::resolveSimpleRepeats()
 
 	GraphProcessor proc(_graph, _asmSeqs);
 	auto unbranchingPaths = proc.getUnbranchingPaths();
-	int candidateEdges = 0;
 
 	std::vector<Connection> resolvedConnections;
 	for (auto& pathToResolve : unbranchingPaths)
@@ -772,9 +771,8 @@ int RepeatResolver::resolveSimpleRepeats()
 			inputs.size() != outputs.size() ||
 			inputs.size() <= 1) continue;
 
-		++candidateEdges;
 		std::unordered_map<GraphEdge*, 
-					   	   std::unordered_map<GraphEdge*, int>> connections;
+					   	   std::unordered_map<GraphEdge*, int>> readSupport;
 		std::unordered_map<GraphEdge*, 
 					   	   std::unordered_map<GraphEdge*, ReadSequence>> bridgingReads;
 		for (GraphEdge* inEdge : inputs)
@@ -788,7 +786,7 @@ int RepeatResolver::resolveSimpleRepeats()
 					{
 						if (outputs.count(aln[j].edge))
 						{
-							++connections[inEdge][aln[j].edge];
+							++readSupport[inEdge][aln[j].edge];
 							bridgingReads[inEdge][aln[j].edge] = 
 								{aln[i].overlap.curId, aln[i].overlap.curEnd, 
 								 aln[j].overlap.curBegin};
@@ -800,35 +798,41 @@ int RepeatResolver::resolveSimpleRepeats()
 		}
 
 		//initializing sets (to cluster them later)
-		typedef SetNode<GraphEdge*> SetElement;
-		std::unordered_map<GraphEdge*, SetElement*> edgeToElement;
-		SetVec<GraphEdge*> allElements;
+		struct EdgeDir
+		{
+			GraphEdge* edge;
+			bool isEntrance;
+		};
+		typedef SetNode<EdgeDir> SetElement;
+		SetVec<EdgeDir> allElements;
+		std::unordered_map<GraphEdge*, SetElement*> inputElements;
+		std::unordered_map<GraphEdge*, SetElement*> outputElements;
 		for (GraphEdge* edge : inputs) 
 		{
-			allElements.push_back(new SetElement(edge));
-			edgeToElement[edge] = allElements.back();
+			allElements.push_back(new SetElement({edge, true}));
+			inputElements[edge] = allElements.back();
 		}
 		for (GraphEdge* edge : outputs) 
 		{
-			allElements.push_back(new SetElement(edge));
-			edgeToElement[edge] = allElements.back();
+			allElements.push_back(new SetElement({edge, false}));
+			outputElements[edge] = allElements.back();
 		}
 
 		//grouping edges if they are connected by reads
 		for (GraphEdge* inEdge : inputs)
 		{
-			for (auto outEdge : connections[inEdge])
+			for (auto outEdge : readSupport[inEdge])
 			{
 				if (outEdge.second >= MIN_JCT_SUPPORT)
 				{
-					unionSet(edgeToElement[inEdge], 
-							 edgeToElement[outEdge.first]);
+					unionSet(inputElements[inEdge], 
+							 outputElements[outEdge.first]);
 				}
 			}
 		}
 
 		auto clusters = groupBySet(allElements);
-		/*if (clusters.size() > 1)
+		if (clusters.size() > 1)
 		{
 			Logger::get().debug() << "Split edge mult:" 
 				<< inputs.size() << "len: " << pathToResolve.length
@@ -837,30 +841,28 @@ int RepeatResolver::resolveSimpleRepeats()
 			for (auto& cl : clusters)
 			{
 				Logger::get().debug() << "\tCl: " << cl.second.size();
-				for (auto edge : cl.second)
+				for (auto edgeDir : cl.second)
 				{
-					Logger::get().debug() << "\t\t" << edge->edgeId.signedId() << " " 
-						<< edge->length() << " " << edge->meanCoverage 
-						<< " " << inputs.count(edge);
+					Logger::get().debug() << "\t\t" << edgeDir.edge->edgeId.signedId() << " " 
+						<< edgeDir.edge->length() << " " << edgeDir.edge->meanCoverage 
+						<< " " << edgeDir.isEntrance;
 				}
 			}
-		}*/
+		}
 		for (auto& cl : clusters)
 		{
-			GraphEdge* inputConn = nullptr;
-			GraphEdge* outputConn = nullptr;
 			if (cl.second.size() == 2)
 			{
-				for (size_t i = 0; i < 2; ++i)
+				GraphEdge* inputConn = cl.second[0].edge;
+				GraphEdge* outputConn = cl.second[1].edge;
+				if (!cl.second[0].isEntrance)
 				{
-					if (inputs.count(cl.second[i])) inputConn = cl.second[i];
-					if (outputs.count(cl.second[i])) outputConn = cl.second[i];
+					std::swap(inputConn, outputConn);
 				}
-			}
-			//TODO: allow resolving loops (e.g. same input and output)
-			if (inputConn && outputConn &&
-				inputConn != outputConn)
-			{
+
+				Logger::get().debug() << "From " << inputConn->edgeId.signedId()
+					<< " to " << outputConn->edgeId.signedId()
+					<< " " << bridgingReads[inputConn].count(outputConn);
 				GraphPath connPath;
 				connPath.push_back(inputConn);
 				connPath.insert(connPath.end(), pathToResolve.path.begin(), 
@@ -869,6 +871,11 @@ int RepeatResolver::resolveSimpleRepeats()
 				resolvedConnections.push_back({connPath, 
 											   bridgingReads[inputConn][outputConn],
 											   /*flnak len*/ 0});
+
+				Logger::get().debug() << "\tConnection " 
+					<< inputConn->edgeId.signedId() << "\t" 
+					<< outputConn->edgeId.signedId() << "\t"
+					<< readSupport[inputConn][outputConn];
 			}
 		}
 	}
@@ -876,10 +883,7 @@ int RepeatResolver::resolveSimpleRepeats()
 	//separate repeats on the graph
 	for (auto& conn : resolvedConnections)
 	{
-		Logger::get().debug() << "\tConnection " 
-			<< conn.path.front()->edgeId.signedId() << "\t" 
-			<< conn.path.back()->edgeId.signedId();
-		FastaRecord::Id edgeId = _graph.newEdgeId();
+				FastaRecord::Id edgeId = _graph.newEdgeId();
 
 		std::stringstream ss;
 		ss << "edge_" << edgeId.signedId() << "_0_" 
