@@ -1008,19 +1008,22 @@ int HaplotypeResolver::findSuperbubbles()
 		if (loopedEdges.count(startEdge)) continue;
 		if (usedEdges.count(startEdge)) continue;
 		//if (startEdge->nodeRight->outEdges.size() < 2) continue;
-		if (!startEdge->nodeRight->isBifurcation()) continue;
+		//if (!startEdge->nodeRight->isBifurcation()) continue;
 		
-		/*int numIn = 0;
+		//require at least two alternative paths (not counting loops)
+		//to initiate the bubble. No such requirement for the bubble end though
+		//int numIn = 0;
 		int numOut = 0;
-		for (auto& edge : startEdge->nodeRight->inEdges)
+		/*for (auto& edge : startEdge->nodeRight->inEdges)
 		{
 			if (!loopedEdges.count(edge)) ++numIn;
-		}
+		}*/
 		for (auto& edge : startEdge->nodeRight->outEdges)
 		{
 			if (!loopedEdges.count(edge)) ++numOut;
 		}
-		if (numOut < 2 || numIn > 1) continue;*/
+		if (numOut < 2) continue;
+		//if (numOut < 2 || numIn > 1) continue;
 
 		//if (startEdge->nodeRight->inEdges.size() > 1 ||
 		//	startEdge->nodeRight->outEdges.size() < 2) continue;

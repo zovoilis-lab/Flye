@@ -231,8 +231,8 @@ int main(int argc, char** argv)
 		hapResolver.resetEdges();
 		hapResolver.findHeterozygousLoops();
 		hapResolver.findHeterozygousBulges();
-		hapResolver.findSuperbubbles();
 		hapResolver.findComplexHaplotypes();
+		hapResolver.findSuperbubbles();
 
 		repResolver.findRepeats();
 		if (iterNum == 1)		//dump graph before first repeat resolution iteration
@@ -242,13 +242,6 @@ int main(int argc, char** argv)
 			outGen.outputFasta(proc.getEdgesPaths(), outFolder + "/graph_before_rr.fasta");
 		}
 		actions += repResolver.resolveRepeats();
-
-		//more aggressive simplifications
-		/*if (Parameters::get().unevenCoverage)
-		{
-			actions += multInf.disconnectMinorPaths();
-			actions += multInf.resolveForks();
-		}*/
 
 		if (!actions) break;
 		rg.validateGraph();
