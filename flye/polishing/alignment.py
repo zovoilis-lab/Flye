@@ -203,7 +203,7 @@ def _run_minimap(reference_file, reads_files, num_proc, mode, out_file,
     if sam_output:
         #a = SAM output, p = min primary-to-seconday score
         #N = max secondary alignments
-        cmdline.extend(["-a", "-p", "0.2", "-N", "10"])
+        cmdline.extend(["-a", "-p", "0.5", "-N", "10"])
 
     try:
         devnull = open(os.devnull, "wb")
