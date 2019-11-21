@@ -557,7 +557,8 @@ void HaplotypeResolver::collapseHaplotypes()
 		++numBridged;
 		separatedEdges.insert(_graph.complementEdge(outEdge));
 
-		if (inEdge->nodeRight == outEdge->nodeLeft)
+		DnaSequence& insertSeq = _bridgingSeqs[std::make_pair(inEdge, outEdge)];
+		if (insertSeq.length() < 10)	//arbirtary small number
 		{
 			this->separeteAdjacentEdges(inEdge, outEdge);
 			this->separeteAdjacentEdges(_graph.complementEdge(outEdge),
@@ -565,7 +566,6 @@ void HaplotypeResolver::collapseHaplotypes()
 		}
 		else
 		{
-			DnaSequence& insertSeq = _bridgingSeqs[std::make_pair(inEdge, outEdge)];
 
 			FastaRecord::Id edgeId = _graph.newEdgeId();
 			std::stringstream ss;
