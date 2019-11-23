@@ -24,7 +24,7 @@ public:
 	int  getUniqueCovThreshold() const 	{return _uniqueCovThreshold;}
 
 	//various simplifications
-	int maskUnsupportedEdges();
+	//int maskUnsupportedEdges();
 	int removeUnsupportedEdges(bool onlyTips);
 
 	int removeUnsupportedConnections();

@@ -43,6 +43,7 @@ private:
 		int32_t flankLength;
 	};
 
+	int  maskUnsupportedEdges();
 	void separatePath(const GraphPath& path, EdgeSequence segment,
 					  FastaRecord::Id startId);
 

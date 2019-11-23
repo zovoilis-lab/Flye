@@ -196,11 +196,10 @@ int main(int argc, char** argv)
 
 	Logger::get().info() << "Simplifying the graph";
 
-	multInf.maskUnsupportedEdges();
 	multInf.removeUnsupportedEdges(/*only tips*/ true);
+	//multInf.maskUnsupportedEdges();
 	rg.validateGraph();
 
-	int iterNum = 0;
 	RepeatResolver repResolver(rg, seqAssembly, seqReads, aligner, multInf);
 	HaplotypeResolver hapResolver(rg, aligner, seqAssembly, seqReads);
 	repResolver.resolveSimpleRepeats();
@@ -214,8 +213,8 @@ int main(int argc, char** argv)
 	hapResolver.resetEdges();
 	outGen.outputDot(proc.getEdgesPaths(), 
 					 outFolder + "/graph_before_bulges.gv");*/
-	//
 	
+	int iterNum = 0;
 	while (true)
 	{
 		++iterNum;

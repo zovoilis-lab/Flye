@@ -281,6 +281,54 @@ bool RepeatResolver::checkByReadExtension(const GraphEdge* checkEdge,
 	return false;
 }
 
+int RepeatResolver::maskUnsupportedEdges()
+{
+
+	GraphProcessor proc(_graph, _asmSeqs);
+	auto unbranchingPaths = proc.getUnbranchingPaths();
+
+	int32_t coverageThreshold = 0;
+	const int MIN_CUTOFF = std::round((float)Config::get("min_read_cov_cutoff"));
+	if (!Parameters::get().unevenCoverage)
+	{
+		coverageThreshold = std::round((float)_multInf.getMeanCoverage() / 
+										Config::get("graph_cov_drop_rate"));
+		coverageThreshold = std::max(MIN_CUTOFF, coverageThreshold);
+	}
+	else
+	{
+		coverageThreshold = MIN_CUTOFF;
+	}
+	Logger::get().debug() << "Read coverage cutoff: " << coverageThreshold;
+
+	int numMasked = 0;
+	for (auto& path : unbranchingPaths)
+	{
+		if (!path.id.strand()) continue;
+
+		//it's a dead end
+		//if (path.nodeRight()->outEdges.size() > 0) continue;
+
+		if (path.meanCoverage < coverageThreshold)
+		{
+			Logger::get().debug() << "Low-coverage: " 
+				<< path.edgesStr() << " " << path.meanCoverage;
+
+			for (auto& edge : path.path)
+			{
+				edge->repetitive = true;
+				_graph.complementEdge(edge)->repetitive = true;
+			}
+			++numMasked;
+		}
+	}
+	//Logger::get().debug() << "[SIMPL] Masked " << numMasked
+	//	<< " paths with low coverage";
+
+	return numMasked;
+}
+
+
 //Classifies all edges into unique and repetitive based on the coverage + 
 //alignment information - one of the key steps here.
 void RepeatResolver::findRepeats()
@@ -294,6 +342,9 @@ void RepeatResolver::findRepeats()
 	{
 		edge->repetitive = false;
 	}
+
+	//mask the ones with very low coverage
+	this->maskUnsupportedEdges();
 
 	//Will operate on unbranching paths rather than single edges
 	GraphProcessor proc(_graph, _asmSeqs);
@@ -364,7 +415,7 @@ void RepeatResolver::findRepeats()
 		}
 
 		//mask unreliable edges with low coverage
-		for (auto& edge : path.path)
+		/*for (auto& edge : path.path)
 		{
 			if (edge->unreliable)
 			{
@@ -373,7 +424,7 @@ void RepeatResolver::findRepeats()
 				Logger::get().debug() << "Unreliable: " << path.edgesStr();
 				break;
 			}
-		}
+		}*/
 
 		//mask edges that appear multiple times within single reads
 		for (auto& edge : path.path)
@@ -860,9 +911,9 @@ int RepeatResolver::resolveSimpleRepeats()
 					std::swap(inputConn, outputConn);
 				}
 
-				Logger::get().debug() << "From " << inputConn->edgeId.signedId()
-					<< " to " << outputConn->edgeId.signedId()
-					<< " " << bridgingReads[inputConn].count(outputConn);
+				//Logger::get().debug() << "From " << inputConn->edgeId.signedId()
+				//	<< " to " << outputConn->edgeId.signedId()
+				//	<< " " << bridgingReads[inputConn].count(outputConn);
 				GraphPath connPath;
 				connPath.push_back(inputConn);
 				connPath.insert(connPath.end(), pathToResolve.path.begin(), 

@@ -140,15 +140,14 @@ int MultiplicityInferer::resolveForks()
 }
 
 //Masks out edges with low coverage (but not removes them)
-int MultiplicityInferer::maskUnsupportedEdges()
+/*int MultiplicityInferer::maskUnsupportedEdges()
 {
-	const int MIN_CUTOFF = std::round((float)Config::get("min_read_cov_cutoff"));
 
 	GraphProcessor proc(_graph, _asmSeqs);
 	auto unbranchingPaths = proc.getUnbranchingPaths();
 
 	int32_t coverageThreshold = 0;
-	
+	const int MIN_CUTOFF = std::round((float)Config::get("min_read_cov_cutoff"));
 	if (!Parameters::get().unevenCoverage)
 	{
 		coverageThreshold = std::round((float)this->getMeanCoverage() / 
@@ -161,7 +160,6 @@ int MultiplicityInferer::maskUnsupportedEdges()
 	}
 	Logger::get().debug() << "Read coverage cutoff: " << coverageThreshold;
 
-	//std::unordered_set<GraphEdge*> edgesRemove;
 	int numMasked = 0;
 	for (auto& path : unbranchingPaths)
 	{
@@ -178,39 +176,49 @@ int MultiplicityInferer::maskUnsupportedEdges()
 			{
 				edge->unreliable = true;
 				_graph.complementEdge(edge)->unreliable = true;
-				++numMasked;
-				//edgesRemove.insert(edge);
-				//edgesRemove.insert(_graph.complementEdge(edge));
 			}
+			++numMasked;
 		}
 	}
-	//for (auto& edge : edgesRemove) _graph.removeEdge(edge);
 	Logger::get().debug() << "[SIMPL] Masked " << numMasked
-		<< " edges with low coverage";
+		<< " paths with low coverage";
 
-	//_aligner.updateAlignments();
 	return numMasked;
-}
+}*/
 
+//removes the edges with low coverage, with an option to
+//only remove tips
 int MultiplicityInferer::removeUnsupportedEdges(bool onlyTips)
 {
 	GraphProcessor proc(_graph, _asmSeqs);
 	auto unbranchingPaths = proc.getUnbranchingPaths();
 
+	int32_t coverageThreshold = 0;
+	const int MIN_CUTOFF = std::round((float)Config::get("min_read_cov_cutoff"));
+	if (!Parameters::get().unevenCoverage)
+	{
+		coverageThreshold = std::round((float)this->getMeanCoverage() / 
+										Config::get("graph_cov_drop_rate"));
+		coverageThreshold = std::max(MIN_CUTOFF, coverageThreshold);
+	}
+	else
+	{
+		coverageThreshold = MIN_CUTOFF;
+	}
+	Logger::get().debug() << "Read coverage cutoff: " << coverageThreshold;
+
 	std::unordered_set<GraphEdge*> toRemove;
+	int removedPaths = 0;
 	for (auto& path : unbranchingPaths)
 	{
-		if (onlyTips && 
-			path.nodeLeft()->inEdges.size() > 0 &&
-			!path.path.back()->isRightTerminal()) continue;
+		if (!path.id.strand()) continue;
 
-		bool removePath = true;
-		for (auto& edge : path.path)
+		//check if it's a tip
+		if (onlyTips && !path.path.back()->isRightTerminal()) continue;
+
+		if (path.meanCoverage < coverageThreshold)
 		{
-			if (!edge->unreliable) removePath = false;
-		}
-		if (removePath)
-		{
+			++removedPaths;
 			for (auto& edge : path.path)
 			{
 				toRemove.insert(edge);
@@ -220,8 +228,8 @@ int MultiplicityInferer::removeUnsupportedEdges(bool onlyTips)
 	}
 
 	for (auto& edge : toRemove) _graph.removeEdge(edge);
-	Logger::get().debug() << "[SIMPL] Removed " << toRemove.size() / 2
-		<< " edges with low coverage";
+	Logger::get().debug() << "[SIMPL] Removed " << removedPaths
+		<< " paths with low coverage";
 
 	_aligner.updateAlignments();
 	return toRemove.size() / 2;
@@ -236,7 +244,7 @@ int MultiplicityInferer::disconnectMinorPaths()
 		std::vector<int> coverages;
 		for (auto& edge : node->inEdges) 
 		{
-			if (!edge->isLooped()) coverages.push_back(edge->meanCoverage);
+			coverages.push_back(edge->meanCoverage);
 		}
 		for (auto& edge : node->outEdges) 
 		{
@@ -453,8 +461,8 @@ int MultiplicityInferer::removeUnsupportedConnections()
 
 		for (size_t i = 0; i < readPath.size() - 1; ++i)
 		{
-			if (readPath[i].edge == readPath[i + 1].edge &&
-				readPath[i].edge->isLooped()) continue;
+			//if (readPath[i].edge == readPath[i + 1].edge &&
+			//	readPath[i].edge->isLooped()) continue;
 			if (readPath[i].edge->edgeId == 
 				readPath[i + 1].edge->edgeId.rc()) continue;
 
