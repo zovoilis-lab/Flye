@@ -832,7 +832,7 @@ int RepeatResolver::resolveSimpleRepeats()
 		}
 
 		auto clusters = groupBySet(allElements);
-		if (clusters.size() > 1)
+		/*if (clusters.size() > 1)
 		{
 			Logger::get().debug() << "Split edge mult:" 
 				<< inputs.size() << "len: " << pathToResolve.length
@@ -848,7 +848,7 @@ int RepeatResolver::resolveSimpleRepeats()
 						<< " " << edgeDir.isEntrance;
 				}
 			}
-		}
+		}*/
 		for (auto& cl : clusters)
 		{
 			if (cl.second.size() == 2)

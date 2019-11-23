@@ -1177,12 +1177,17 @@ void OverlapContainer::setRelativeDivergenceThreshold(float relThreshold)
 		<< _ovlpDetect._maxDivergence;
 }
 
-
 void OverlapContainer::overlapDivergenceStats()
 {
-	std::vector<float> ovlpDivergence(_divergenceStats.divVec.begin(),
-									  _divergenceStats.divVec.begin() + 
-									  		_divergenceStats.vecSize);
+	this->overlapDivergenceStats(_divergenceStats, 
+								 _ovlpDetect._maxDivergence);
+}
+
+void OverlapContainer::overlapDivergenceStats(const OvlpDivStats& stats,
+											  float divCutoff)
+{
+	std::vector<float> ovlpDivergence(stats.divVec.begin(),
+									  stats.divVec.begin() + stats.vecSize);
 	const int HIST_LENGTH = 100;
 	const int HIST_HEIGHT = 20;
 	const float HIST_MIN = 0;
@@ -1197,7 +1202,7 @@ void OverlapContainer::overlapDivergenceStats()
 		}
 	}
 	int histMax = 1;
-	int threshold = _ovlpDetect._maxDivergence * mult * 100;
+	int threshold = divCutoff * mult * 100;
 	for (int freq : histogram) histMax = std::max(histMax, freq);
 
 	std::string histString = "\n";

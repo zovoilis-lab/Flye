@@ -338,6 +338,7 @@ public:
 
 	//outputs statistics about overlaping sequence divergence
 	void overlapDivergenceStats();
+	void overlapDivergenceStats(const OvlpDivStats& stats, float divThreshold);
 
 	//Computes and stores all-vs-all overlaps
 	void findAllOverlaps();

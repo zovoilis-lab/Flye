@@ -140,6 +140,7 @@ void ReadAligner::alignReads()
 									/*bad end adjust*/ 0.0f, 
 									/*nucl alignment*/ false);
 	OverlapContainer readsOverlaps(readsOverlapper, _readSeqs);
+	static const float MAX_DIVERGENCE = Config::get("read_align_ovlp_divergence");
 
 	std::vector<FastaRecord::Id> allQueries;
 	int64_t totalLength = 0;
@@ -156,10 +157,11 @@ void ReadAligner::alignReads()
 	int numAligned = 0;
 	int alignedInFull = 0;
 	int64_t alignedLength = 0;
+	OvlpDivStats divergenceStats;
 
 	std::function<void(const FastaRecord::Id&)> alignRead = 
 	[this, &indexMutex, &numAligned, &readsOverlaps,
-		&idToSegment, &alignedLength, &alignedInFull] 
+		&idToSegment, &alignedLength, &alignedInFull, &divergenceStats] 
 	(const FastaRecord::Id& seqId)
 	{
 		auto overlaps = readsOverlaps.quickSeqOverlaps(seqId);
@@ -183,7 +185,26 @@ void ReadAligner::alignReads()
 			{return e1.overlap.curBegin < e2.overlap.curBegin;});
 		auto readChains = this->chainReadAlignments(alignments);
 
-		std::vector<GraphAlignment> complChains(readChains);
+		//check divergence
+		std::vector<GraphAlignment> goodChains;
+		for (auto& chain : readChains)
+		{
+			float sumMatched = 0;
+			int alnLen = chain.back().overlap.curEnd - 
+						 chain.front().overlap.curBegin;
+			for (auto& aln : chain)
+			{
+				sumMatched += aln.overlap.curRange() * (1 - aln.overlap.seqDivergence);
+			}
+			float chainDivergence = 1 - (float)sumMatched / alnLen;
+			divergenceStats.add(chainDivergence);
+			if (chainDivergence < MAX_DIVERGENCE)
+			{
+				goodChains.push_back(chain);
+			}
+		}
+
+		std::vector<GraphAlignment> complChains(goodChains);
 		for (auto& chain : complChains)
 		{
 			for (auto& aln : chain)
@@ -195,13 +216,13 @@ void ReadAligner::alignReads()
 			std::reverse(chain.begin(), chain.end());
 		}
 
-		if (readChains.empty()) return;
+		if (goodChains.empty()) return;
 
 		/////synchronized part
 		indexMutex.lock();
 		++numAligned;
-		if (readChains.size() == 1) ++alignedInFull;
-		for (auto& chain : readChains) 
+		if (goodChains.size() == 1) ++alignedInFull;
+		for (auto& chain : goodChains) 
 		{
 			_readAlignments.push_back(chain);
 			alignedLength += chain.back().overlap.curEnd - 
@@ -268,7 +289,7 @@ void ReadAligner::alignReads()
 	Logger::get().debug() << "Aligned in one piece : " << alignedInFull;
 	Logger::get().info() << "Aligned read sequence: " << alignedLength << " / " 
 		<< totalLength << " (" << (float)alignedLength / totalLength << ")";
-	readsOverlaps.overlapDivergenceStats();
+	readsOverlaps.overlapDivergenceStats(divergenceStats, MAX_DIVERGENCE);
 }
 
 //updates alignments with respect to the new graph
