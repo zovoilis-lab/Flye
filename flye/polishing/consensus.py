@@ -166,7 +166,8 @@ def _flatten_profile(profile):
         for ins_str in itervalues(pos_insertions):
             ins_group[ins_str] += 1
 
-        coverage = sum(itervalues(pos_matches))
+        match_and_del_num = sum(itervalues(pos_matches))
+        num_ins = len(pos_insertions)
 
         max_match = pos_nucl
         if len(pos_matches):
@@ -177,7 +178,7 @@ def _flatten_profile(profile):
 
         if max_match != "-":
             growing_seq.append(max_match)
-        if max_insert and max_insert != "-" and ins_group[max_insert] > coverage // 2:
+        if max_insert and max_insert != "-" and num_ins > match_and_del_num // 2:
             growing_seq.append(max_insert)
 
     return "".join(growing_seq)
