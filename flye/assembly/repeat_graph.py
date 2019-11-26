@@ -47,6 +47,8 @@ def analyse_repeats(args, run_params, input_assembly, out_folder,
         cmdline.append("--debug")
     if args.meta:
         cmdline.append("--meta")
+    if args.keep_haplotypes:
+        cmdline.append("--keep-haplotypes")
     cmdline.extend(["--min-ovlp", str(run_params["min_overlap"])])
     cmdline.extend(["--kmer", str(run_params["kmer_size"])])
 
@@ -72,6 +74,8 @@ def generate_contigs(args, run_params, graph_edges, out_folder,
                "--threads", str(args.threads)]
     if args.debug:
         cmdline.append("--debug")
+    if args.keep_haplotypes:
+        cmdline.append("--no-scaffold")
     cmdline.extend(["--min-ovlp", str(run_params["min_overlap"])])
     cmdline.extend(["--kmer", str(run_params["kmer_size"])])
 

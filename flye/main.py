@@ -597,11 +597,11 @@ def _enable_logging(log_file, debug, overwrite):
 def _usage():
     return ("flye (--pacbio-raw | --pacbio-corr | --nano-raw |\n"
             "\t     --nano-corr | --subassemblies) file1 [file_2 ...]\n"
-            "\t     --genome-size SIZE --out-dir PATH\n"
+            "\t     --genome-size SIZE --out-dir PATH\n\n"
             "\t     [--threads int] [--iterations int] [--min-overlap int]\n"
             "\t     [--meta] [--plasmids] [--no-trestle] [--polish-target]\n"
-            "\t     [--debug] [--version] [--help] [--resume] \n"
-            "\t     [--resume-from] [--stop-after]")
+            "\t     [--keep-haplotypes] [--debug] [--version] [--help] \n"
+            "\t     [--resume] [--resume-from] [--stop-after]")
 
 
 def _epilog():
@@ -695,6 +695,9 @@ def main():
     parser.add_argument("--meta", action="store_true",
                         dest="meta", default=False,
                         help="metagenome / uneven coverage mode")
+    parser.add_argument("--keep-haplotypes", action="store_true",
+                        dest="keep_haplotypes", default=False,
+                        help="do not collapse alternative haplotypes")
     parser.add_argument("--no-trestle", action="store_true",
                         dest="no_trestle", default=False,
                         help="skip Trestle stage")

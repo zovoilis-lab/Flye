@@ -8,7 +8,6 @@
 #include "../common/utils.h"
 #include <cmath>
 
-static const int MIN_JCT_SUPPORT = 2;
 
 
 //Estimates the mean coverage and assingns edges multiplicity accordingly
@@ -313,6 +312,8 @@ int MultiplicityInferer::disconnectMinorPaths()
 //addresses chimeric connections
 int MultiplicityInferer::splitNodes()
 {
+	static const int MIN_JCT_SUPPORT = 2;
+
 	Logger::get().debug() << "Splitting nodes";
 	int numSplit = 0;
 
@@ -448,6 +449,8 @@ int MultiplicityInferer::splitNodes()
 //edge coverage
 int MultiplicityInferer::removeUnsupportedConnections()
 {
+	static const int MIN_JCT_SUPPORT = 2;
+
 	std::unordered_map<GraphEdge*, int32_t> rightConnections;
 	std::unordered_map<GraphEdge*, int32_t> leftConnections;
 

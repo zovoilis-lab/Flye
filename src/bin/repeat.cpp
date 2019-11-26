@@ -27,13 +27,14 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 			   std::string& outFolder, std::string& logFile, 
 			   std::string& inAssembly, int& kmerSize,
 			   int& minOverlap, bool& debug, size_t& numThreads, 
-			   std::string& configPath, bool& unevenCov)
+			   std::string& configPath, bool& unevenCov,
+			   bool& keepHaplotypes)
 {
 	auto printUsage = [argv]()
 	{
 		std::cerr << "Usage: flye-repeat "
 				  << " --disjointigs path --reads path --out-dir path --config path\n"
-				  << "\t\t[--log path] [--treads num] [--kmer size] [--meta]\n"
+				  << "\t\t[--log path] [--treads num] [--kmer size] [--meta] [--keep-haplotypes]\n"
 				  << "\t\t[--min-ovlp size] [--debug] [-h]\n\n"
 				  << "Required arguments:\n"
 				  << "  --disjointigs path\tpath to disjointigs file\n"
@@ -47,6 +48,8 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 				  << "  --debug \t\tenable debug output "
 				  << "[default = false] \n"
 				  << "  --meta \t\tenable uneven coverage (metagenome) mode "
+				  << "[default = false] \n"
+				  << "  --keep-haplotypes \t\tdo not collapse alternative haplotypes "
 				  << "[default = false] \n"
 				  << "  --log log_file\toutput log to file "
 				  << "[default = not set] \n"
@@ -66,6 +69,7 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 		{"kmer", required_argument, 0, 0},
 		{"min-ovlp", required_argument, 0, 0},
 		{"meta", no_argument, 0, 0},
+		{"keep-haplotypes", no_argument, 0, 0},
 		{"debug", no_argument, 0, 0},
 		{0, 0, 0, 0}
 	};
@@ -88,6 +92,8 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 				debug = true;
 			else if (!strcmp(longOptions[optionIndex].name, "meta"))
 				unevenCov = true;
+			else if (!strcmp(longOptions[optionIndex].name, "keep-haplotypes"))
+				keepHaplotypes = true;
 			else if (!strcmp(longOptions[optionIndex].name, "reads"))
 				readsFasta = optarg;
 			else if (!strcmp(longOptions[optionIndex].name, "out-dir"))
@@ -125,6 +131,7 @@ int main(int argc, char** argv)
 	int kmerSize = 15;
 	int minOverlap = 5000;
 	bool unevenCov = false;
+	bool keepHaplotypes = false; 
 	std::string readsFasta;
 	std::string inAssembly;
 	std::string outFolder;
@@ -132,7 +139,7 @@ int main(int argc, char** argv)
 	std::string configPath;
 	if (!parseArgs(argc, argv, readsFasta, outFolder, logFile, inAssembly,
 				   kmerSize, minOverlap, debugging, 
-				   numThreads, configPath, unevenCov))  return 1;
+				   numThreads, configPath, unevenCov, keepHaplotypes))  return 1;
 	
 	Logger::get().setDebugging(debugging);
 	if (!logFile.empty()) Logger::get().setOutputFile(logFile);
@@ -224,7 +231,10 @@ int main(int argc, char** argv)
 		//less aggressive simplifications
 		actions += multInf.splitNodes();
 		actions += multInf.removeUnsupportedConnections();
-		if (Parameters::get().unevenCoverage) actions += multInf.disconnectMinorPaths();
+		if (Parameters::get().unevenCoverage)
+		{
+			actions += multInf.disconnectMinorPaths();
+		}
 		actions += multInf.trimTips();
 
 		hapResolver.resetEdges();
@@ -246,9 +256,14 @@ int main(int argc, char** argv)
 		rg.validateGraph();
 	}
 
-	if (Parameters::get().unevenCoverage) multInf.resolveForks();
-
-	hapResolver.collapseHaplotypes();
+	if (Parameters::get().unevenCoverage) 
+	{
+		multInf.resolveForks();
+	}
+	if (!keepHaplotypes)
+	{
+		hapResolver.collapseHaplotypes();
+	}
 	multInf.removeUnsupportedEdges(/*only tips*/ false);
 
 	repResolver.findRepeats();

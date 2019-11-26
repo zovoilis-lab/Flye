@@ -27,14 +27,14 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 			   std::string& inGraphEdges, int& kmerSize,
 			   int& minOverlap, bool& debug, size_t& numThreads, 
 			   std::string& configPath, std::string& inRepeatGraph,
-			   std::string& inReadsAlignment)
+			   std::string& inReadsAlignment, bool& noScaffold)
 {
 	auto printUsage = [argv]()
 	{
 		std::cerr << "Usage: flye-contigger "
 				  << " --graph-edges path --reads path --out-dir path --config path\n"
 				  << "\t\t--repeat-graph path --graph-aln path\n"
-				  << "\t\t[--log path] [--treads num] [--kmer size] [--meta]\n"
+				  << "\t\t[--log path] [--treads num] [--kmer size] [--no-scaffold]\n"
 				  << "\t\t[--min-ovlp size] [--debug] [-h]\n\n"
 				  << "Required arguments:\n"
 				  << "  --graph-edges path\tpath to fasta with graph edges\n"
@@ -49,7 +49,7 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 				  << "[default = 5000] \n"
 				  << "  --debug \t\tenable debug output "
 				  << "[default = false] \n"
-				  << "  --meta \t\tenable uneven coverage (metagenome) mode "
+				  << "  --no-scaffold \t\tdisable scaffolding "
 				  << "[default = false] \n"
 				  << "  --log log_file\toutput log to file "
 				  << "[default = not set] \n"
@@ -71,6 +71,7 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 		{"kmer", required_argument, 0, 0},
 		{"min-ovlp", required_argument, 0, 0},
 		{"debug", no_argument, 0, 0},
+		{"no-scaffold", no_argument, 0, 0},
 		{0, 0, 0, 0}
 	};
 
@@ -90,6 +91,8 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 				logFile = optarg;
 			else if (!strcmp(longOptions[optionIndex].name, "debug"))
 				debug = true;
+			else if (!strcmp(longOptions[optionIndex].name, "no-scaffold"))
+				noScaffold = true;
 			else if (!strcmp(longOptions[optionIndex].name, "reads"))
 				readsFasta = optarg;
 			else if (!strcmp(longOptions[optionIndex].name, "out-dir"))
@@ -131,6 +134,7 @@ int main(int argc, char** argv)
 	size_t numThreads = 1;
 	int kmerSize = 15;
 	int minOverlap = 5000;
+	bool noScaffold = false;
 	std::string readsFasta;
 	std::string inGraphEdges;
 	std::string inRepeatGraph;
@@ -141,7 +145,7 @@ int main(int argc, char** argv)
 	if (!parseArgs(argc, argv, readsFasta, outFolder, logFile, inGraphEdges,
 				   kmerSize, minOverlap, debugging, 
 				   numThreads, configPath, inRepeatGraph, 
-				   inReadsAlignment))  return 1;
+				   inReadsAlignment, noScaffold))  return 1;
 	
 	Logger::get().setDebugging(debugging);
 	if (!logFile.empty()) Logger::get().setOutputFile(logFile);
@@ -198,7 +202,16 @@ int main(int argc, char** argv)
 	extender.generateContigs();
 	extender.outputContigs(outFolder + "/contigs.fasta");
 	extender.outputStatsTable(outFolder + "/contigs_stats.txt");
-	extender.outputScaffoldConnections(outFolder + "/scaffolds_links.txt");
+
+	std::string scaffoldFile = outFolder + "/scaffolds_links.txt"; 
+	if (!noScaffold)
+	{
+		extender.outputScaffoldConnections(scaffoldFile);
+	}
+	else
+	{
+		std::ofstream scfFile(scaffoldFile);	//creates empty file
+	}
 
 	//outGen.dumpRepeats(extender.getUnbranchingPaths(),
 	//				   outFolder + "/repeats_dump.txt");
