@@ -130,7 +130,7 @@ int main(int argc, char** argv)
 	size_t numThreads = 1;
 	int kmerSize = 15;
 	int minOverlap = 5000;
-	bool unevenCov = false;
+	bool isMeta = false;
 	bool keepHaplotypes = false; 
 	std::string readsFasta;
 	std::string inAssembly;
@@ -139,7 +139,7 @@ int main(int argc, char** argv)
 	std::string configPath;
 	if (!parseArgs(argc, argv, readsFasta, outFolder, logFile, inAssembly,
 				   kmerSize, minOverlap, debugging, 
-				   numThreads, configPath, unevenCov, keepHaplotypes))  return 1;
+				   numThreads, configPath, isMeta, keepHaplotypes))  return 1;
 	
 	Logger::get().setDebugging(debugging);
 	if (!logFile.empty()) Logger::get().setOutputFile(logFile);
@@ -156,11 +156,11 @@ int main(int argc, char** argv)
 	Parameters::get().numThreads = numThreads;
 	Parameters::get().kmerSize = kmerSize;
 	Parameters::get().minimumOverlap = minOverlap;
-	Parameters::get().unevenCoverage = unevenCov;
+	Parameters::get().unevenCoverage = isMeta;
 	Logger::get().debug() << "Running with k-mer size: " << 
 		Parameters::get().kmerSize; 
 	Logger::get().debug() << "Selected minimum overlap " << minOverlap;
-	Logger::get().debug() << "Metagenome mode: " << "NY"[unevenCov];
+	Logger::get().debug() << "Metagenome mode: " << "NY"[isMeta];
 
 	Logger::get().info() << "Reading sequences";
 	SequenceContainer seqAssembly; 
@@ -191,7 +191,6 @@ int main(int argc, char** argv)
 	Logger::get().info() << "Building repeat graph";
 	rg.build();
 	rg.validateGraph();
-	//outGen.outputDot(proc.getEdgesPaths(), outFolder + "/graph_raw.gv");
 
 	Logger::get().info() << "Aligning reads to the graph";
 	aligner.alignReads();
@@ -204,7 +203,6 @@ int main(int argc, char** argv)
 	Logger::get().info() << "Simplifying the graph";
 
 	multInf.removeUnsupportedEdges(/*only tips*/ true);
-	//multInf.maskUnsupportedEdges();
 	rg.validateGraph();
 
 	RepeatResolver repResolver(rg, seqAssembly, seqReads, aligner, multInf);
@@ -220,7 +218,7 @@ int main(int argc, char** argv)
 	hapResolver.resetEdges();
 	outGen.outputDot(proc.getEdgesPaths(), 
 					 outFolder + "/graph_before_bulges.gv");*/
-	
+
 	int iterNum = 0;
 	while (true)
 	{
@@ -228,23 +226,28 @@ int main(int argc, char** argv)
 		int actions = 0;
 		Logger::get().debug() << "[SIMPL] == Iteration " << iterNum << " ==";
 
-		//less aggressive simplifications
+		//initial simplification
 		actions += multInf.splitNodes();
 		actions += multInf.removeUnsupportedConnections();
-		if (Parameters::get().unevenCoverage)
+		if (isMeta) 
 		{
 			actions += multInf.disconnectMinorPaths();
 		}
 		actions += multInf.trimTips();
 
+		//revealing/masking haplotypes
 		hapResolver.resetEdges();
 		hapResolver.findHeterozygousLoops();
 		hapResolver.findHeterozygousBulges();
-		hapResolver.findComplexHaplotypes();
-		hapResolver.findSuperbubbles();
+		if (isMeta)
+		{
+			hapResolver.findComplexHaplotypes();
+			hapResolver.findSuperbubbles();
+		}
 
 		repResolver.findRepeats();
-		if (iterNum == 1)		//dump graph before first repeat resolution iteration
+		//dump graph before first repeat resolution iteration
+		if (iterNum == 1)
 		{
 			outGen.outputDot(proc.getEdgesPaths(), outFolder + "/graph_before_rr.gv");
 			//outGen.outputGfa(proc.getEdgesPaths(), outFolder + "/graph_before_rr.gfa");
@@ -252,11 +255,12 @@ int main(int argc, char** argv)
 		}
 		actions += repResolver.resolveRepeats();
 
-		if (!actions) break;
 		rg.validateGraph();
+
+		if (!actions) break;
 	}
 
-	if (Parameters::get().unevenCoverage) 
+	if (isMeta) 
 	{
 		multInf.resolveForks();
 	}
@@ -264,7 +268,7 @@ int main(int argc, char** argv)
 	{
 		hapResolver.collapseHaplotypes();
 	}
-	multInf.removeUnsupportedEdges(/*only tips*/ false);
+	multInf.removeUnsupportedEdges(/*only tips*/ true);
 
 	repResolver.findRepeats();
 	repResolver.finalizeGraph();
