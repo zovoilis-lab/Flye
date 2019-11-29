@@ -68,7 +68,7 @@ void RepeatGraph::build()
 						 (int)Config::get("repeat_graph_kmer_sample"));
 	asmIndex.countKmers(/*min freq*/ 1, /*genome size*/ 0);
 	asmIndex.setRepeatCutoff(/*min freq*/ 1);
-	asmIndex.buildIndex(/*min freq*/ 2);
+	asmIndex.buildIndex(/*min freq*/ 1);
 
 	//float badEndAdj = (float)Config::get("repeat_graph_ovlp_end_adjust");
 	OverlapDetector asmOverlapper(_asmSeqs, asmIndex, 
@@ -1244,9 +1244,17 @@ void RepeatGraph::updateEdgeSequences()
 	{
 		if (!edge->edgeId.strand()) continue;
 
+		auto segmentsToAdd = edge->seqSegments;
+		GraphEdge* complEdge = this->complementEdge(edge);
+		edge->seqSegments.clear();
+		complEdge->seqSegments.clear();
+
 		int num = 0;
-		for (auto& edgeSeq : edge->seqSegments)
+		for (const auto& edgeSeq : segmentsToAdd)
 		{
+			if (edge->selfComplement && 
+				!edgeSeq.origSeqId.strand()) continue;
+
 			size_t len = edgeSeq.origSeqEnd - edgeSeq.origSeqStart;
 			auto subSeq = _asmSeqs.getSeq(edgeSeq.origSeqId)
 										.substr(edgeSeq.origSeqStart, len);
@@ -1258,11 +1266,14 @@ void RepeatGraph::updateEdgeSequences()
 				std::to_string(edgeSeq.origSeqEnd);
 			auto& newRec = _edgeSeqsContainer->addSequence(subSeq, description);
 
-			edgeSeq.edgeSeqId = newRec.id;
-			edgeSeq.seqLen = newRec.sequence.length();
+			EdgeSequence newSeq = edgeSeq;
+			newSeq.edgeSeqId = newRec.id;
+			newSeq.seqLen = newRec.sequence.length();
+			edge->seqSegments.push_back(newSeq);
+			complEdge->seqSegments.push_back(newSeq.complement());
 		}
 
-		if (!edge->selfComplement)
+		/*if (!edge->selfComplement)
 		{
 			GraphEdge* complEdge = this->complementEdge(edge);
 			complEdge->seqSegments.clear();
@@ -1270,7 +1281,7 @@ void RepeatGraph::updateEdgeSequences()
 			{
 				complEdge->seqSegments.push_back(seq.complement());
 			}
-		}
+		}*/
 	}
 	_edgeSeqsContainer->buildPositionIndex();
 }
