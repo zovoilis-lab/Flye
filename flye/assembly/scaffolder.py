@@ -118,7 +118,7 @@ def generate_stats(repeat_file, polished_file, scaffolds, out_stats):
             tokens = line.strip().split("\t")
 
             #update multiplicity proportionally
-            cov_rate = float(tokens[2]) / float(contigs_stats[tokens[0]].coverage)
+            cov_rate = float(tokens[2]) / (float(contigs_stats[tokens[0]].coverage) + 1)
             contigs_stats[tokens[0]].mult = \
                     max(1, int(float(contigs_stats[tokens[0]].mult) * cov_rate))
 
