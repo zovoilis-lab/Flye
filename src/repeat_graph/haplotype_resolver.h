@@ -17,7 +17,7 @@ public:
 					  const SequenceContainer& asmSeqs, 
 					  const SequenceContainer& readSeqs):
 		_graph(graph), _aligner(aligner), _asmSeqs(asmSeqs), 
-		_readSeqs(readSeqs) {}
+		_readSeqs(readSeqs), _nextAltGroupId(2) {}
 
 	void resetEdges();
 	int  findHeterozygousLoops();
@@ -57,4 +57,5 @@ private:
 
 	std::unordered_map<std::pair<GraphEdge*, GraphEdge*>, 
 					   DnaSequence, pairhash> _bridgingSeqs;
+	int _nextAltGroupId;
 };

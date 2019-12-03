@@ -287,9 +287,9 @@ void ContigExtender::outputStatsTable(const std::string& filename)
 	if (!fout) throw std::runtime_error("Can't write " + filename);
 
 	fout << "#seq_name\tlength\tcoverage\tcircular\trepeat"
-		<< "\tmult\ttelomere\tgraph_path\n";
+		<< "\tmult\ttelomere\talt_group\tgraph_path\n";
 
-	char YES_NO[] = {'-', '+'};
+	char YES_NO[] = {'N', 'Y'};
 
 	//TODO: compute mean coverage
 	int64_t sumCov = 0;
@@ -316,6 +316,9 @@ void ContigExtender::outputStatsTable(const std::string& filename)
 		int estMult = std::max(1.0f, std::round((float)ctg.graphEdges.meanCoverage / 
 											    meanCoverage));
 
+		int altGroup = ctg.graphEdges.path.front()->altGroupId;
+		std::string altGroupStr = (altGroup == -1) ? "*" : std::to_string(altGroup);
+
 		std::string telomereStr;
 		bool telLeft = (ctg.graphEdges.path.front()->nodeLeft->isTelomere());
 		bool telRight = (ctg.graphEdges.path.back()->nodeRight->isTelomere());
@@ -328,7 +331,8 @@ void ContigExtender::outputStatsTable(const std::string& filename)
 			<< ctg.graphEdges.meanCoverage << "\t"
 			<< YES_NO[ctg.graphEdges.circular]
 			<< "\t" << YES_NO[ctg.graphEdges.repetitive] << "\t"
-			<< estMult << "\t" << telomereStr << "\t" << pathStr << "\n";
+			<< estMult << "\t" << telomereStr << "\t" << altGroupStr << "\t"
+			<< pathStr << "\n";
 
 		//Logger::get().debug() << "Contig: " << ctg.graphEdges.id.signedId()
 		//	<< ": " << pathStr;

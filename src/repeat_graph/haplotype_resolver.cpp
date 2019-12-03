@@ -87,9 +87,12 @@ int HaplotypeResolver::findHeterozygousBulges()
 			for (auto& edge : twoPaths[i]->path)
 			{
 				edge->altHaplotype = true;
+				edge->altGroupId = _nextAltGroupId;
 				_graph.complementEdge(edge)->altHaplotype = true;
+				_graph.complementEdge(edge)->altGroupId = _nextAltGroupId + 1;
 			}
 		}
+		_nextAltGroupId += 2;
 
 		GraphEdge* inEdge = entrancePath->path.back();
 		GraphEdge* outEdge = exitPath->path.front();
@@ -171,8 +174,11 @@ int HaplotypeResolver::findHeterozygousLoops()
 		for (auto& edge : loop.path)
 		{
 			edge->altHaplotype = true;
+			edge->altGroupId = _nextAltGroupId;
 			_graph.complementEdge(edge)->altHaplotype = true;
+			_graph.complementEdge(edge)->altGroupId = _nextAltGroupId + 1;
 		}
+		_nextAltGroupId += 2;
 
 		GraphEdge* inEdge = entrancePath->path.back();
 		GraphEdge* outEdge = exitPath->path.front();
@@ -494,9 +500,12 @@ int HaplotypeResolver::findComplexHaplotypes()
 			for (size_t i = 1; i < branch.path.size() - 1; ++i)
 			{
 				branch.path[i].edge->altHaplotype = true;
+				branch.path[i].edge->altGroupId = _nextAltGroupId;
 				_graph.complementEdge(branch.path[i].edge)->altHaplotype = true;
+				_graph.complementEdge(branch.path[i].edge)->altGroupId = _nextAltGroupId + 1;
 			}
 		}
+		_nextAltGroupId += 2;
 
 		if (varSegment.startEdge->rightLink || 
 			varSegment.endEdge->leftLink) continue;
@@ -639,6 +648,7 @@ void HaplotypeResolver::resetEdges()
 		edge->altHaplotype = false;
 	}
 	_bridgingSeqs.clear();
+	_nextAltGroupId = 2;
 }
 
 //some helper functions for superbubble detection,
@@ -1022,8 +1032,11 @@ int HaplotypeResolver::findSuperbubbles()
 		for (auto& edge : fwdBubble.internalEdges)
 		{
 			edge->altHaplotype = true;
+			edge->altGroupId = _nextAltGroupId;
 			_graph.complementEdge(edge)->altHaplotype = true;
+			_graph.complementEdge(edge)->altGroupId = _nextAltGroupId + 1;
 		}
+		_nextAltGroupId += 2;
 
 		if (startEdge->rightLink || fwdBubble.end->leftLink) continue;
 

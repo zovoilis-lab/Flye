@@ -12,7 +12,7 @@ from __future__ import division
 class RgEdge(object):
     __slots__ = ("node_left", "node_right", "edge_id", "repetitive",
                  "self_complement", "resolved", "mean_coverage",
-                 "edge_sequences")
+                 "alt_group", "edge_sequences")
 
     def __init__(self, node_left=None, node_right=None,
                  edge_id=None):
@@ -25,6 +25,7 @@ class RgEdge(object):
         self.resolved = False
         self.mean_coverage = 0
         self.edge_sequences = []
+        self.alt_group = -1
 
     def length(self):
         if not self.edge_sequences:
@@ -134,7 +135,7 @@ class RepeatGraph(object):
                 tokens = line.strip().split()
                 if tokens[0] == "Edge":
                     (edge_id, left_node, right_node, repetitive,
-                     self_complement, resolved, mean_coverage) = tokens[1:]
+                     self_complement, resolved, mean_coverage, alt_group) = tokens[1:]
                     if left_node not in id_to_node:
                         id_to_node[left_node] = self.add_node()
                     if right_node not in id_to_node:
@@ -147,6 +148,7 @@ class RepeatGraph(object):
                     cur_edge.self_complement = bool(int(self_complement))
                     cur_edge.resolved = bool(int(resolved))
                     cur_edge.mean_coverage = int(mean_coverage)
+                    cur_edge.alt_group = int(alt_group)
                     self.add_edge(cur_edge)
 
                 elif tokens[0] == "Sequence":
@@ -169,11 +171,11 @@ class RepeatGraph(object):
 
         with open(filename, "w") as f:
             for edge in self.edges.values():
-                f.write("Edge\t{0}\t{1}\t{2}\t{3}\t{4}\t{5}\t{6}\n"
+                f.write("Edge\t{0}\t{1}\t{2}\t{3}\t{4}\t{5}\t{6}\t{7}\n"
                     .format(_to_unsigned_id(edge.edge_id), node_ids[edge.node_left],
                             node_ids[edge.node_right], int(edge.repetitive),
                             int(edge.self_complement), int(edge.resolved),
-                            int(edge.mean_coverage)))
+                            int(edge.mean_coverage), int(edge.alt_group)))
 
                 for seq in edge.edge_sequences:
                     f.write("\tSequence\t{0} {1} {2} {3} {4} {5}\n"

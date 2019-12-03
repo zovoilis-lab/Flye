@@ -1044,7 +1044,8 @@ void RepeatGraph::storeGraph(const std::string& filename)
 		fout << "Edge\t" << edge->edgeId << "\t" 
 			<< nodeIds[edge->nodeLeft] << "\t" << nodeIds[edge->nodeRight]
 			<< "\t" << edge->repetitive << "\t" << edge->selfComplement 
-			<< "\t" << edge->resolved << "\t" << edge->meanCoverage << "\n";
+			<< "\t" << edge->resolved << "\t" << edge->meanCoverage 
+			<< "\t" << edge->altGroupId << "\n";
 
 		for (auto& seg : edge->seqSegments)
 		{
@@ -1213,7 +1214,9 @@ void RepeatGraph::loadGraph(const std::string& filename)
 			GraphEdge edge(idToNode[leftNode], idToNode[rightNode],
 						   FastaRecord::Id(edgeId));
 			fin >> edge.repetitive >> edge.selfComplement 
-				>> edge.resolved >> edge.meanCoverage;
+				>> edge.resolved >> edge.meanCoverage
+				>> edge.altGroupId;
+			if (edge.altGroupId != -1) edge.altHaplotype = true;
 			currentEdge = this->addEdge(std::move(edge));
 		}
 		else if (buffer == "Sequence")
