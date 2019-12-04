@@ -11,6 +11,32 @@ void ContigExtender::generateUnbranchingPaths()
 	GraphProcessor proc(_graph, _asmSeqs);
 	_unbranchingPaths = proc.getUnbranchingPaths();
 
+	//tryna synchornize orientations of alternative
+	//contigs from the same group
+	std::unordered_set<FastaRecord::Id> flipped;
+	for (auto& path : _unbranchingPaths)
+	{
+		int numEven = 0;
+		for (auto& edge : path.path)
+		{
+			if (edge->altGroupId != -1 && edge->altGroupId % 2 == 0) ++numEven;
+		}
+		//trying to make groups with even alt ids to have positive path ids
+		if (!path.id.strand() && numEven > (int)path.path.size() / 2)
+		{
+			flipped.insert(path.id);
+			flipped.insert(path.id.rc());
+		}
+	}
+	for (auto& path : _unbranchingPaths)
+	{
+		if (flipped.count(path.id))
+		{
+			path.id = path.id.rc();
+		}
+	}
+	Logger::get().debug() << "Flipped " << flipped.size() / 2;
+
 	_edgeToPath.clear();
 	for (auto& path : _unbranchingPaths)
 	{
@@ -317,6 +343,14 @@ void ContigExtender::outputStatsTable(const std::string& filename)
 											    meanCoverage));
 
 		int altGroup = ctg.graphEdges.path.front()->altGroupId;
+		for (auto& edge : ctg.graphEdges.path)
+		{
+			if (edge->altGroupId != altGroup)
+			{
+				altGroup = -1;
+				break;
+			}
+		}
 		std::string altGroupStr = (altGroup == -1) ? "*" : std::to_string(altGroup);
 
 		std::string telomereStr;

@@ -99,6 +99,15 @@ int HaplotypeResolver::findHeterozygousBulges()
 
 		Logger::get().debug() << "Regular bubble: " << inEdge->edgeId.signedId()
 			<< " " << outEdge->edgeId.signedId();
+		std::string pathStr;
+		for (size_t i = 0; i < 2; ++i)
+		{
+			for (auto& edge : twoPaths[i]->path)
+			{
+				pathStr += std::to_string(edge->edgeId.signedId()) + " -> ";
+			}
+		}
+		Logger::get().debug() << "\tInternal: " << pathStr;
 
 		if (inEdge->rightLink || outEdge->leftLink) continue;
 
@@ -646,6 +655,7 @@ void HaplotypeResolver::resetEdges()
 		edge->leftLink = nullptr;
 		edge->rightLink = nullptr;
 		edge->altHaplotype = false;
+		edge->altGroupId = -1;
 	}
 	_bridgingSeqs.clear();
 	_nextAltGroupId = 2;
