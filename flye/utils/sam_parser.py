@@ -325,8 +325,8 @@ class SynchronizedSamReader(object):
 
             sequence_length += qry_end - qry_start
             #In rare cases minimap2 does not output SQ tag, so need to check
-            if parsed_contig in self.seq_lengths:
-                contig_length = self.seq_lengths[parsed_contig]
+            if _STR(parsed_contig) in self.seq_lengths:
+                contig_length = self.seq_lengths[_STR(parsed_contig)]
                 if sequence_length // contig_length > self.max_coverage:
                     break
 
