@@ -268,7 +268,6 @@ HaplotypeResolver::VariantPaths
 	//now group the path by containmnent. For each group we'll have 
 	//a longest "reference" path.
 
-	//const int MIN_SCORE = std::max(2UL, outPaths.size() / 10);
 	const int MIN_SCORE = 2;
 	std::vector<PathWithScore> pathGroups;
 	for (auto& trgPath: outPaths)
@@ -439,6 +438,43 @@ HaplotypeResolver::VariantPaths
 	vp.startEdge = refPath.path[bubbleStartId].edge;
 	vp.endEdge = refPath.path[bubbleEndId].edge;
 	vp.altPaths = bubbleBranches;
+
+	//get the bridgin read sequence
+	std::vector<GraphAlignment> bridgingReads;
+	for (auto& aln : alnignments)
+	{
+		int startPos = -1;
+		int endPos = -1;
+		for (size_t i = 0; i < aln.size(); ++i)
+		{
+			if (aln[i].edge == startEdge) startPos = i;
+			if (aln[i].edge == vp.endEdge)
+			{
+				endPos = i;
+				break;
+			}
+		}
+		if (startPos != -1 && endPos != -1)
+		{
+			bridgingReads.emplace_back(aln.begin() + startPos, 
+									   aln.begin() + endPos + 1);
+		}
+	}
+	if (bridgingReads.empty()) throw std::runtime_error("No bridging reads!");
+	std::sort(bridgingReads.begin(), bridgingReads.end(),
+			  [](const GraphAlignment& a1, const GraphAlignment& a2)
+			  {return a1.back().overlap.curBegin - a1.front().overlap.curEnd <
+			  		  a2.back().overlap.curBegin - a2.front().overlap.curEnd;});
+
+	size_t medianRead = bridgingReads.size() / 2;
+	auto readId = bridgingReads[medianRead][0].overlap.curId;
+	int32_t readStart = bridgingReads[medianRead][0].overlap.curEnd;
+	int32_t readEnd = bridgingReads[medianRead].back().overlap.curBegin;
+	const int MAGIC_100 = 100;
+	readEnd = std::max(readStart + MAGIC_100 - 1, readEnd);	
+	vp.bridgingSequence = _readSeqs.getSeq(readId)
+									.substr(readStart, readEnd - readStart);
+
 	return vp;
 }
 
@@ -524,21 +560,11 @@ int HaplotypeResolver::findComplexHaplotypes()
 		_graph.linkEdges(_graph.complementEdge(varSegment.endEdge), 
 						 _graph.complementEdge(varSegment.startEdge));
 
-		//add bridging sequences
-		auto readId = varSegment.altPaths[0].path[0].overlap.curId;
-		int32_t readStart = varSegment.altPaths[0].path[0].overlap.curEnd;
-		int32_t readEnd = varSegment.altPaths[0].path.back().overlap.curBegin;
-
-		const int MAGIC_100 = 100;
-		readEnd = std::max(readStart + MAGIC_100 - 1, readEnd);	
-		DnaSequence seq = _readSeqs.getSeq(readId).substr(readStart, 
-														  readEnd - readStart);
-		
 		auto fwdPair = std::make_pair(varSegment.startEdge, varSegment.endEdge);
 		auto revPair = std::make_pair(_graph.complementEdge(varSegment.endEdge), 
 									  _graph.complementEdge(varSegment.startEdge));
-		_bridgingSeqs[fwdPair] = seq;
-		_bridgingSeqs[revPair] = seq.complement();
+		_bridgingSeqs[fwdPair] = varSegment.bridgingSequence;
+		_bridgingSeqs[revPair] = varSegment.bridgingSequence.complement();
 	}
 
 	Logger::get().debug() << "[SIMPL] Masked " << foundNew << " complex haplotypes";

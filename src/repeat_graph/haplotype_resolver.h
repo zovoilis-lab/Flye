@@ -44,6 +44,7 @@ private:
 		GraphEdge* startEdge;
 		GraphEdge* endEdge;
 		std::vector<PathWithScore> altPaths;
+		DnaSequence bridgingSequence;
 	};
 
 	VariantPaths findVariantSegment(GraphEdge* startEdge, 
