@@ -276,14 +276,16 @@ def _compute_profile(alignment, platform, genome_len):
     """
     Computes alignment profile
     """
-    #max_aln_err = cfg.vals["err_modes"][platform]["max_aln_error"]
+    max_aln_err = cfg.vals["err_modes"][platform]["max_aln_error"]
+    min_aln_len = cfg.vals["min_polish_aln_len"]
     aln_errors = []
     #filtered = 0
     profile = [ProfileInfo() for _ in range(genome_len)]
     for aln in alignment:
-        #if aln.err_rate > max_aln_err:
-        #    filtered += 1
-        #    continue
+        if aln.err_rate > max_aln_err or len(aln.qry_seq) < min_aln_len:
+            #filtered += 1
+            continue
+
         aln_errors.append(aln.err_rate)
 
         qry_seq = shift_gaps(aln.trg_seq, aln.qry_seq)
