@@ -96,7 +96,7 @@ void BubbleProcessor::parallelWorker()
 		{
 			_stateMutex.unlock();
 			_generalPolisher.polishBubble(bubble);
-			_homoPolisher.polishBubble(bubble);
+			//_homoPolisher.polishBubble(bubble);
 			_dinucFixer.fixBubble(bubble);
 			_stateMutex.lock();
 		}
