@@ -228,17 +228,18 @@ int HaplotypeResolver::findHeterozygousLoops()
 
 HaplotypeResolver::VariantPaths 
 	HaplotypeResolver::findVariantSegment(GraphEdge* startEdge,
-										  const std::vector<GraphAlignment>& alnignments,
+										  const std::vector<GraphAlignment>& alingnments,
 										  const std::unordered_set<GraphEdge*>& loopedEdges)
 {
 	//first, extract alnignment paths starting from
 	//the current edge and sort them from longest to shortest
 	std::vector<GraphAlignment> outPaths;
-	for (auto& aln : alnignments)
+	for (auto& aln : alingnments)
 	{
 		for (size_t i = 0; i < aln.size(); ++i)
 		{
-			if (aln[i].edge == startEdge)
+			//if (aln[i].edge == startEdge)
+			if (aln[i].edge == startEdge && i + 1 < aln.size())
 			{
 				outPaths.emplace_back(GraphAlignment(aln.begin() + i, 
 													 aln.end()));
@@ -441,14 +442,14 @@ HaplotypeResolver::VariantPaths
 
 	//get the bridgin read sequence
 	std::vector<GraphAlignment> bridgingReads;
-	for (auto& aln : alnignments)
+	for (auto& aln : alingnments)
 	{
 		int startPos = -1;
 		int endPos = -1;
 		for (size_t i = 0; i < aln.size(); ++i)
 		{
 			if (aln[i].edge == startEdge) startPos = i;
-			if (aln[i].edge == vp.endEdge)
+			if (startPos != -1 && aln[i].edge == vp.endEdge)
 			{
 				endPos = i;
 				break;
