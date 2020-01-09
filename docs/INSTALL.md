@@ -32,7 +32,7 @@ Local building (without installation)
 You may use the package locally without system installation.
 To get and compile the latest git version, run:
 
-    git clone https://github.com/zovoilis-lab/Flye
+    git clone https://github.com/zovoilis-lab/Flye_ppcle64
     cd Flye
     export PATH=/opt/at12.0/bin:$PATH
     make
@@ -47,7 +47,7 @@ Installing from source
 
 To install the Flye package into your system, run:
 
-    git clone https://github.com/zovoilis-lab/Flye
+    git clone https://github.com/zovoilis-lab/Flye_ppcle64
     cd Flye
     export PATH=/opt/at12.0/bin:$PATH
     python setup.py install
