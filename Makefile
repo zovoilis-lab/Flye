@@ -15,7 +15,7 @@ export LDFLAGS += -lz -L${MINIMAP2_DIR} -lminimap2
 
 
 ${BIN_DIR}/flye-minimap2:
-	make -C ${MINIMAP2_DIR}
+	make -C ${MINIMAP2_DIR} sse2only=1
 	cp ${MINIMAP2_DIR}/minimap2 ${BIN_DIR}/flye-minimap2
 
 minimap2: ${BIN_DIR}/flye-minimap2
