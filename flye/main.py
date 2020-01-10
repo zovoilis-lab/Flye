@@ -629,7 +629,7 @@ def _epilog():
 
 
 def _version():
-    return __version__ + "-r" + str(__build__)
+    return __version__ + "-" + __build__
     """
     repo_root = os.path.dirname((os.path.dirname(__file__)))
     try:
