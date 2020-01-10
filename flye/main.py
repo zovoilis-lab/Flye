@@ -23,6 +23,7 @@ import flye.assembly.assemble as asm
 import flye.assembly.repeat_graph as repeat
 import flye.assembly.scaffolder as scf
 from flye.__version__ import __version__
+from flye.__build__ import __build__
 import flye.config.py_cfg as cfg
 from flye.config.configurator import setup_params
 from flye.utils.bytes2human import human2bytes, bytes2human
@@ -628,6 +629,8 @@ def _epilog():
 
 
 def _version():
+    return __version__ + "-r" + str(__build__)
+    """
     repo_root = os.path.dirname((os.path.dirname(__file__)))
     try:
         git_label = subprocess.check_output(["git", "-C", repo_root, "describe"],
@@ -637,6 +640,7 @@ def _version():
     except (subprocess.CalledProcessError, OSError):
         pass
     return __version__ + "-release"
+    """
 
 
 def main():
