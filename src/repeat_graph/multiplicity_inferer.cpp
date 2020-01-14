@@ -427,7 +427,8 @@ int MultiplicityInferer::splitNodes()
 					GraphEdge* complEdge = _graph.complementEdge(edgeDir.edge);
 					//GraphNode* complSplit = _graph.complementNode(nodeToSplit);
 					switchNode(edgeDir.edge, newNode, edgeDir.isInput);
-					if (!edgeDir.edge->selfComplement && !selfComplNode)
+					//if (!edgeDir.edge->selfComplement && !selfComplNode)
+					if (!selfComplNode)
 					{
 						switchNode(complEdge, newComplNode, 
 								   !edgeDir.isInput);
