@@ -47,8 +47,8 @@ def make_alignment(reference_file, reads_file, num_proc,
     _run_minimap(reference_file, reads_file, num_proc, mode,
                  out_alignment, sam_output)
 
-    if sam_output:
-        preprocess_sam(out_alignment, work_dir)
+    #if sam_output:
+    #    preprocess_sam(out_alignment, work_dir)
 
 
 def get_contigs_info(contigs_file):
@@ -197,19 +197,32 @@ def merge_chunks(fasta_in, fold_function=lambda l: "".join(l)):
 
 def _run_minimap(reference_file, reads_files, num_proc, mode, out_file,
                  sam_output):
+    SAM_HEADER = "\'@PG|@HD|@SQ|@RG|@CO\'"
+    work_dir = os.path.dirname(out_file)
+
     cmdline = [MINIMAP_BIN, reference_file]
     cmdline.extend(reads_files)
     cmdline.extend(["-x", mode, "-t", str(num_proc)])
-    if sam_output:
-        #a = SAM output, p = min primary-to-seconday score
-        #N = max secondary alignments
-        cmdline.extend(["-a", "-p", "0.5", "-N", "10"])
 
+    #Produces SAM sorted by reference name. Since it's not sorted by
+    #read name anymore, it's important that all reads have SEQ.
+    #is sam_output not set, produces PAF alignment
+    #a = SAM output, p = min primary-to-seconday score
+    #N = max secondary alignments, Y = add SEQ to supplementary and secondary
+    #--sam-hit-only = don't output unmapped reads
+    if sam_output:
+        cmdline.extend(["-a", "-p", "0.5", "-N", "10", "-Y", "--sam-hit-only"])
+        cmdline.extend(["|", "grep", "-Ev", SAM_HEADER])    #removes headers
+        cmdline.extend(["|", "sort", "-k", "3,3", "-T", work_dir])
+
+    #logger.debug("Running: " + " ".join(cmdline))
     try:
         devnull = open(os.devnull, "wb")
-        #logger.debug("Running: " + " ".join(cmdline))
-        subprocess.check_call(cmdline, stderr=devnull,
-                              stdout=open(out_file, "wb"))
+        env = os.environ.copy()
+        env["LC_ALL"] = "C"
+        subprocess.check_call(" ".join(cmdline), shell=True, stderr=devnull,
+                              stdout=open(out_file, "wb"), env=env)
+
     except (subprocess.CalledProcessError, OSError) as e:
         if e.returncode == -9:
             logger.error("Looks like the system ran out of memory")

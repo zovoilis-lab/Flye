@@ -128,7 +128,7 @@ class SynchronizedSamReader(object):
                           for (h, s) in iteritems(reference_fasta)}
         self.change_strand = True
         self.max_coverage = max_coverage
-        self.seq_lengths = {}
+        #self.seq_lengths = {}
         self.use_secondary = use_secondary
         self.cigar_parser = None
         self.processed_contigs = None
@@ -137,6 +137,7 @@ class SynchronizedSamReader(object):
         if not os.path.exists(self.aln_path):
             raise AlignmentException("Can't open {0}".format(self.aln_path))
 
+        """
         with open(self.aln_path, "rb") as f:
             for line in f:
                 if not line or not _is_sam_header(line):
@@ -151,6 +152,7 @@ class SynchronizedSamReader(object):
                             seq_len = int(tag[3:])
                     if seq_name and seq_len:
                         self.seq_lengths[_STR(seq_name)] = seq_len
+        """
 
         #will be shared between processes
         self.lock = multiprocessing.Lock()
@@ -325,10 +327,11 @@ class SynchronizedSamReader(object):
 
             sequence_length += qry_end - qry_start
             #In rare cases minimap2 does not output SQ tag, so need to check
-            if _STR(parsed_contig) in self.seq_lengths:
-                contig_length = self.seq_lengths[_STR(parsed_contig)]
-                if sequence_length // contig_length > self.max_coverage:
-                    break
+            #if _STR(parsed_contig) in self.seq_lengths:
+            #contig_length = self.seq_lengths[_STR(parsed_contig)]
+            contig_length = len(self.ref_fasta[parsed_contig])
+            if sequence_length // contig_length > self.max_coverage:
+                break
 
         if parsed_contig is None:
             return None, []
