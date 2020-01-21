@@ -15,7 +15,7 @@ import logging
 
 import flye.utils.fasta_parser as fp
 from flye.utils.utils import which
-from flye.utils.sam_parser import AlignmentException, preprocess_sam
+from flye.utils.sam_parser import AlignmentException
 from flye.six import iteritems
 from flye.six.moves import range
 
@@ -204,7 +204,7 @@ def _run_minimap(reference_file, reads_files, num_proc, mode, out_file,
     cmdline.extend(reads_files)
     cmdline.extend(["-x", mode, "-t", str(num_proc)])
 
-    #Produces SAM sorted by reference name. Since it's not sorted by
+    #Produces gzipped SAM sorted by reference name. Since it's not sorted by
     #read name anymore, it's important that all reads have SEQ.
     #is sam_output not set, produces PAF alignment
     #a = SAM output, p = min primary-to-seconday score
@@ -213,7 +213,9 @@ def _run_minimap(reference_file, reads_files, num_proc, mode, out_file,
     if sam_output:
         cmdline.extend(["-a", "-p", "0.5", "-N", "10", "-Y", "--sam-hit-only"])
         cmdline.extend(["|", "grep", "-Ev", SAM_HEADER])    #removes headers
-        cmdline.extend(["|", "sort", "-k", "3,3", "-T", work_dir])
+        cmdline.extend(["|", "sort", "-k", "3,3", "-T", work_dir,
+                        "--parallel=8", "-S", "4G"])
+        #cmdline.extend(["|", "gzip", "-1"])
 
     #logger.debug("Running: " + " ".join(cmdline))
     try:

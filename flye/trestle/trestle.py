@@ -1145,13 +1145,12 @@ def _read_alignment(alignment, target_path, min_aln_rate):
     aln_reader = SynchronizedSamReader(alignment,
                                        fp.read_sequence_dict(target_path),
                                        config.vals["max_read_coverage"])
-    aln_reader.init_reading()
     while not aln_reader.is_eof():
         ctg_id, ctg_aln = aln_reader.get_chunk()
         if ctg_id is None:
             break
         alignments.append(ctg_aln)
-    aln_reader.stop_reading()
+    aln_reader.close()
 
     return alignments
 

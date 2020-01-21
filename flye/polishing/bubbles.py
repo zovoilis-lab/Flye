@@ -54,7 +54,6 @@ def _thread_worker(aln_reader, contigs_info, err_mode,
     Will run in parallel
     """
     try:
-        aln_reader.init_reading()
         while not aln_reader.is_eof():
             ctg_id, ctg_aln = aln_reader.get_chunk()
             if ctg_id is None:
@@ -80,8 +79,6 @@ def _thread_worker(aln_reader, contigs_info, err_mode,
 
             del profile
             del ctg_bubbles
-
-        aln_reader.stop_reading()
 
     except Exception as e:
         error_queue.put(e)
@@ -130,6 +127,7 @@ def make_bubbles(alignment_path, contigs_info, contigs_path,
 
     if not error_queue.empty():
         raise error_queue.get()
+    aln_reader.close()
 
     total_bubbles = 0
     total_long_bubbles = 0
