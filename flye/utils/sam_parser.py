@@ -140,6 +140,7 @@ class SynchronizedSamReader(object):
         #will be shared between processes
         self.shared_manager = multiprocessing.Manager()
         self.shared_reader_queue = self.shared_manager.Queue()
+        self.shared_num_jobs = multiprocessing.Value(ctypes.c_int, 0)
         self.shared_lock = self.shared_manager.Lock()
         self.shared_eof = multiprocessing.Value(ctypes.c_bool, False)
 
@@ -157,27 +158,12 @@ class SynchronizedSamReader(object):
         self.io_thread.start()
         #print("Init IO thread")
 
-    """
-    def __del__(self):
-        #In Py2 for some reason the destructor is never called
-        self.terminate_flag = True
-        self.io_thread.join()
-        print("Closed IO thread")
-
-    def init_control_thread(self):
-        start IO thread
-        self.io_thread = \
-                multiprocessing.Process(target=SynchronizedSamReader._io_thread_worker,
-                                        args=(self,))
-        self.io_thread.start()
-    """
-
     def close(self):
         self.terminate_flag = True
         self.io_thread.join()
         #print("Close IO thread")
 
-    def _read_chunk(self, aln_file):
+    def _read_file_chunk(self, aln_file):
         """
         Reads a chunk for a single contig. Assuming it it only
         run in single (and same) thread, and synchonized outside
@@ -190,20 +176,14 @@ class SynchronizedSamReader(object):
 
             if _is_sam_header(line): continue
 
-            tokens = line.strip().split()
-            if len(tokens) < 11:
-                continue
+            tab_1 = line.find(b"\t")
+            tab_2 = line.find(b"\t", tab_1 + 1)
+            tab_3 = line.find(b"\t", tab_2 + 1)
+            if tab_2 == -1 or tab_3 == -1:
                 #raise AlignmentException("Error reading SAM file")
+                continue
 
-            read_contig = tokens[2]
-            flags = int(tokens[1])
-            is_unmapped = flags & 0x4
-            is_secondary = flags & 0x100
-            is_supplementary = flags & 0x800    #allow supplementary
-
-            #if is_unmapped or is_secondary: continue
-            if is_unmapped: continue
-            if is_secondary and not self.use_secondary: continue
+            read_contig = line[tab_2 + 1 : tab_3]
             if read_contig in self.processed_contigs:
                 raise AlignmentException("Alignment file is not sorted")
 
@@ -215,12 +195,12 @@ class SynchronizedSamReader(object):
                     self.processed_contigs.add(prev_contig)
                     parsed_contig = prev_contig
                     chunk_to_return = self.chunk_buffer
-                    self.chunk_buffer = [tokens]
+                    self.chunk_buffer = [line]
                     break
                 else:
-                    self.chunk_buffer = [tokens]
+                    self.chunk_buffer = [line]
             else:
-                self.chunk_buffer.append(tokens)
+                self.chunk_buffer.append(line)
 
         #hit end of file
         if not parsed_contig and self.chunk_buffer:
@@ -235,7 +215,6 @@ class SynchronizedSamReader(object):
         This function reads the SAM file in a separate thread as needed.
         """
         PRE_READ = 30
-        #self.shared_ctx = shared_ctx
         sam_eof = False
 
         if self.aln_path.endswith(".gz"):
@@ -249,17 +228,22 @@ class SynchronizedSamReader(object):
                 return
 
             #reached EOF and everything was read from the queue
-            if sam_eof and self.shared_reader_queue.qsize() == 0:
+            if sam_eof and self.shared_num_jobs.value == 0:
                 self.shared_eof.value = True
                 #print("IO thread: finished")
                 return
 
-            if not sam_eof and self.shared_reader_queue.qsize() < PRE_READ:
+            if not sam_eof and self.shared_num_jobs.value < PRE_READ:
                 #with self.shared_ctx.lock:
                 #print("IO thread: Q size: ", self.shared_ctx.reader_queue.qsize())
-                ctg_id, chunk = self._read_chunk(aln_file)
+                ctg_id, chunk = self._read_file_chunk(aln_file)
                 if ctg_id is not None:
-                    self.shared_reader_queue.put((ctg_id, chunk))
+                    with self.shared_lock:
+                        self.shared_reader_queue.put(ctg_id)
+                        for line in chunk:
+                            self.shared_reader_queue.put(line)
+                        self.shared_reader_queue.put(None)
+                        self.shared_num_jobs.value += 1
                 else:
                     sam_eof = True
 
@@ -337,32 +321,48 @@ class SynchronizedSamReader(object):
         """
         Gets a chunk - safe to use from multiple processes in parallel
         """
-        #if not self.reader_initialized:
-        #    raise AlignmentException("Reader was not iniitialized in this thread")
-
         #fetching data from the IO thread
         parsed_contig = None
         chunk_buffer = None
         while True:
             with self.shared_lock:
-                #print("Reader thread CS")
-                #print("Queue size: ", self.shared_ctx.reader_queue.qsize())
                 if self.shared_eof.value:
                     return None, []
-                if not self.shared_reader_queue.empty():
-                    parsed_contig, chunk_buffer = self.shared_reader_queue.get()
+                if self.shared_num_jobs.value > 0:
+                    parsed_contig = self.shared_reader_queue.get()
+                    chunk_buffer = []
+                    while True:
+                        line = self.shared_reader_queue.get()
+                        if line is not None:
+                            chunk_buffer.append(line)
+                        else:
+                            break
+                    self.shared_num_jobs.value -= 1
                     break
             time.sleep(0.01)
+        ###
 
         sequence_length = 0
         alignments = []
-        for tokens in chunk_buffer:
+        for line in chunk_buffer:
+            tokens = line.strip().split()
+            if len(tokens) < 11:
+                #raise AlignmentException("Error reading SAM file")
+                continue
+
+            flags = int(tokens[1])
+            is_unmapped = flags & 0x4
+            is_secondary = flags & 0x100
+            #is_supplementary = flags & 0x800    #allow supplementary
+            #if is_unmapped or is_secondary: continue
+            if is_unmapped: continue
+            if is_secondary and not self.use_secondary: continue
+
             read_id = tokens[0]
             read_contig = tokens[2]
             cigar_str = tokens[5]
             read_str = tokens[9]
             ctg_pos = int(tokens[3])
-            flags = int(tokens[1])
             is_reversed = flags & 0x16
             is_secondary = flags & 0x100
 
