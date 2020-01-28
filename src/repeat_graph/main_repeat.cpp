@@ -119,7 +119,7 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 	return true;
 }
 
-int main(int argc, char** argv)
+int repeat_main(int argc, char** argv)
 {
 	#ifdef NDEBUG
 	signal(SIGSEGV, segfaultHandler);

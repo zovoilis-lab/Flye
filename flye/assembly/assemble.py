@@ -13,7 +13,7 @@ import os
 
 from flye.utils.utils import which
 
-ASSEMBLE_BIN = "flye-assemble"
+ASSEMBLE_BIN = "flye-modules"
 logger = logging.getLogger()
 
 
@@ -27,7 +27,7 @@ def check_binaries():
                                 "Did you run 'make'?")
     try:
         devnull = open(os.devnull, "w")
-        subprocess.check_call([ASSEMBLE_BIN, "-h"], stderr=devnull)
+        subprocess.check_call([ASSEMBLE_BIN, "assemble", "-h"], stderr=devnull)
     except subprocess.CalledProcessError as e:
         if e.returncode == -9:
             logger.error("Looks like the system ran out of memory")
@@ -40,7 +40,7 @@ def check_binaries():
 def assemble(args, run_params, out_file, log_file, config_path):
     logger.info("Assembling disjointigs")
     logger.debug("-----Begin assembly log------")
-    cmdline = [ASSEMBLE_BIN, "--reads", ",".join(args.reads), "--out-asm", out_file,
+    cmdline = [ASSEMBLE_BIN, "assemble", "--reads", ",".join(args.reads), "--out-asm", out_file,
                "--genome-size", str(args.genome_size), "--config", config_path,
                "--log", log_file, "--threads", str(args.threads)]
     if args.debug:

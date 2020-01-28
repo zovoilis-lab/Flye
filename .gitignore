@@ -3,10 +3,7 @@
 *.swp
 *.so
 *.DS_Store
-bin/flye-assemble
-bin/flye-polish
-bin/flye-repeat
-bin/flye-contigger
+bin/flye-modules
 bin/flye-minimap2
 build
 dist

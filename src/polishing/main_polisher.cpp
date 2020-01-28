@@ -84,7 +84,7 @@ bool parseArgs(int argc, char** argv, std::string& bubblesFile,
 	return true;
 }
 
-int main(int argc, char* argv[]) 
+int polisher_main(int argc, char* argv[]) 
 {
 	std::string bubblesFile;
 	std::string scoringMatrix;

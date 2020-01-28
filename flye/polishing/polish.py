@@ -24,7 +24,7 @@ from flye.six import iteritems
 from flye.six.moves import range
 
 
-POLISH_BIN = "flye-polish"
+POLISH_BIN = "flye-modules"
 
 logger = logging.getLogger()
 
@@ -39,7 +39,7 @@ def check_binaries():
                               "Did you run 'make'?")
     try:
         devnull = open(os.devnull, "w")
-        subprocess.check_call([POLISH_BIN, "-h"], stderr=devnull)
+        subprocess.check_call([POLISH_BIN, "polisher", "-h"], stderr=devnull)
     except subprocess.CalledProcessError as e:
         if e.returncode == -9:
             logger.error("Looks like the system ran out of memory")
@@ -266,7 +266,7 @@ def _run_polish_bin(bubbles_in, subs_matrix, hopo_matrix,
     """
     Invokes polishing binary
     """
-    cmdline = [POLISH_BIN, "--bubbles", bubbles_in, "--subs-mat", subs_matrix,
+    cmdline = [POLISH_BIN, "polisher", "--bubbles", bubbles_in, "--subs-mat", subs_matrix,
                "--hopo-mat", hopo_matrix, "--out", consensus_out,
                "--threads", str(num_threads)]
     if not output_progress:
