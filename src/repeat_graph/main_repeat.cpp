@@ -190,7 +190,7 @@ int repeat_main(int argc, char** argv)
 
 	Logger::get().info() << "Building repeat graph";
 	rg.build();
-	rg.validateGraph();
+	//rg.validateGraph();
 
 	Logger::get().info() << "Aligning reads to the graph";
 	aligner.alignReads();
@@ -203,7 +203,7 @@ int repeat_main(int argc, char** argv)
 	Logger::get().info() << "Simplifying the graph";
 
 	multInf.removeUnsupportedEdges(/*only tips*/ true);
-	rg.validateGraph();
+	//rg.validateGraph();
 
 	RepeatResolver repResolver(rg, seqAssembly, seqReads, aligner, multInf);
 	HaplotypeResolver hapResolver(rg, aligner, seqAssembly, seqReads);
@@ -255,7 +255,7 @@ int repeat_main(int argc, char** argv)
 		}
 		actions += repResolver.resolveRepeats();
 
-		rg.validateGraph();
+		//rg.validateGraph();
 
 		if (!actions) break;
 	}
@@ -272,7 +272,7 @@ int repeat_main(int argc, char** argv)
 
 	repResolver.findRepeats();
 	repResolver.finalizeGraph();
-	rg.validateGraph();
+	//rg.validateGraph();
 
 	outGen.outputDot(proc.getEdgesPaths(), outFolder + "/graph_after_rr.gv");
 	rg.storeGraph(outFolder + "/repeat_graph_dump");
