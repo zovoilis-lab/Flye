@@ -79,7 +79,7 @@ def polish(contig_seqs, read_seqs, work_dir, num_iters, num_threads, error_mode,
 
         ####
         logger.info("Running minimap2")
-        alignment_file = os.path.join(work_dir, "minimap_{0}.sam".format(i + 1))
+        alignment_file = os.path.join(work_dir, "minimap_{0}.bam".format(i + 1))
         make_alignment(chunks_file, read_seqs, num_threads,
                        work_dir, error_mode, alignment_file,
                        reference_mode=True, sam_output=True)
@@ -147,7 +147,7 @@ def generate_polished_edges(edges_file, gfa_file, polished_contigs, work_dir,
     """
     logger.debug("Generating polished GFA")
 
-    alignment_file = os.path.join(work_dir, "edges_aln.sam")
+    alignment_file = os.path.join(work_dir, "edges_aln.bam")
     polished_dict = fp.read_sequence_dict(polished_contigs)
     make_alignment(polished_contigs, [edges_file], num_threads,
                    work_dir, error_mode, alignment_file,

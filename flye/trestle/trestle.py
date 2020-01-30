@@ -477,7 +477,7 @@ def define_file_names():
 
 
     pre_edge_reads_name = "pre_edge_reads.{0}.{1}.txt"
-    pre_read_aln_name = "pre_edge_reads.{0}.{1}.vs.extended.minimap.sam"
+    pre_read_aln_name = "pre_edge_reads.{0}.{1}.vs.extended.minimap.bam"
     partitioning_name = "partitioning.{0}.{1}.txt"
     pre_file_names = pre_edge_reads_name, pre_read_aln_name, partitioning_name
 
@@ -486,10 +486,10 @@ def define_file_names():
     div_summ_name = "divergence_summary.txt"
     div_file_names = div_freq_name, div_pos_name, div_summ_name
 
-    reads_template_aln_name = "reads.vs.template.minimap.sam"
-    cons_temp_aln_name = "uncut_consensus.{0}.{1}.{2}.vs.template.minimap.sam"
-    cut_cons_temp_aln_name = "consensus.{0}.{1}.{2}.vs.template.minimap.sam"
-    reads_cons_aln_name = "reads.vs.consensus.{0}.{1}.{2}.minimap.sam"
+    reads_template_aln_name = "reads.vs.template.minimap.bam"
+    cons_temp_aln_name = "uncut_consensus.{0}.{1}.{2}.vs.template.minimap.bam"
+    cut_cons_temp_aln_name = "consensus.{0}.{1}.{2}.vs.template.minimap.bam"
+    reads_cons_aln_name = "reads.vs.consensus.{0}.{1}.{2}.minimap.bam"
     aln_names = (reads_template_aln_name, cons_temp_aln_name,
                  cut_cons_temp_aln_name, reads_cons_aln_name)
 
@@ -497,7 +497,7 @@ def define_file_names():
     edge_reads_name = "edge_reads.{0}.{1}.{2}.fasta"
     cut_cons_name = "consensus.{0}.{1}.{2}.fasta"
     cons_vs_cons_name = "".join(["consensus.{0}.{1}.{2}.vs.",
-                                 "consensus.{3}.{4}.{5}.minimap.sam"])
+                                 "consensus.{3}.{4}.{5}.minimap.bam"])
     middle_file_names = (confirmed_pos_name, edge_reads_name,
                          cut_cons_name, cons_vs_cons_name)
 
@@ -505,7 +505,7 @@ def define_file_names():
     int_stats_name = "stats_integrated.txt"
     int_confirmed_pos_name = "integrated_confirmed_positions.{0}.{1}.txt"
     resolved_rep_name = "resolved_repeat_{0}.copy.{1}.fasta"
-    res_vs_res_name = "resolved_repeat_{0}.copy.{1}.vs.{2}.minimap.sam"
+    res_vs_res_name = "resolved_repeat_{0}.copy.{1}.vs.{2}.minimap.bam"
     output_file_names = (side_stats_name, int_stats_name,
                          int_confirmed_pos_name, resolved_rep_name,
                          res_vs_res_name)

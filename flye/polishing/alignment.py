@@ -197,7 +197,7 @@ def merge_chunks(fasta_in, fold_function=lambda l: "".join(l)):
 
 def _run_minimap(reference_file, reads_files, num_proc, mode, out_file,
                  sam_output):
-    SAM_HEADER = "\'@PG|@HD|@SQ|@RG|@CO\'"
+    #SAM_HEADER = "\'@PG|@HD|@SQ|@RG|@CO\'"
     work_dir = os.path.dirname(out_file)
 
     cmdline = [MINIMAP_BIN, reference_file]
@@ -212,18 +212,20 @@ def _run_minimap(reference_file, reads_files, num_proc, mode, out_file,
     #--sam-hit-only = don't output unmapped reads
     if sam_output:
         cmdline.extend(["-a", "-p", "0.5", "-N", "10", "-Y", "--sam-hit-only"])
-        cmdline.extend(["|", "grep", "-Ev", SAM_HEADER])    #removes headers
-        cmdline.extend(["|", "sort", "-k", "3,3", "-T", work_dir,
-                        "--parallel=8", "-S", "4G"])
+        cmdline.extend(["|", "samtools", "sort", "-@", str(num_proc), "-o",
+                       out_file, "-"])
+        #cmdline.extend(["|", "grep", "-Ev", SAM_HEADER])    #removes headers
+        #cmdline.extend(["|", "sort", "-k", "3,3", "-T", work_dir,
+        #                "--parallel=8", "-S", "4G"])
         #cmdline.extend(["|", "gzip", "-1"])
 
     #logger.debug("Running: " + " ".join(cmdline))
     try:
         devnull = open(os.devnull, "wb")
-        env = os.environ.copy()
-        env["LC_ALL"] = "C"
+        #env = os.environ.copy()
+        #env["LC_ALL"] = "C"
         subprocess.check_call(" ".join(cmdline), shell=True, stderr=devnull,
-                              stdout=open(out_file, "wb"), env=env)
+                              stdout=open(out_file, "wb"))
 
     except (subprocess.CalledProcessError, OSError) as e:
         if e.returncode == -9:

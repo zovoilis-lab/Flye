@@ -313,7 +313,7 @@ class JobConsensus(Job):
         fp.write_fasta_dict(chunks, chunks_file)
 
         logger.info("Running Minimap2")
-        out_alignment = os.path.join(self.consensus_dir, "minimap.sam")
+        out_alignment = os.path.join(self.consensus_dir, "minimap.bam")
         aln.make_alignment(chunks_file, self.args.reads, self.args.threads,
                            self.consensus_dir, self.args.platform, out_alignment,
                            reference_mode=True, sam_output=True)
