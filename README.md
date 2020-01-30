@@ -114,6 +114,7 @@ Flye package includes some third-party software:
 * [intervaltree](https://github.com/ekg/intervaltree)
 * [lemon](http://lemon.cs.elte.hu/trac/lemon)
 * [minimap2](https://github.com/lh3/minimap2)
+* [samtools](https://https://github.com/samtools/samtools)
 
 
 License

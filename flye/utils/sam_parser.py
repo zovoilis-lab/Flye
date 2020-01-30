@@ -39,6 +39,7 @@ import flye.utils.fasta_parser as fp
 
 logger = logging.getLogger()
 
+SAMTOOLS_BIN = "flye-samtools"
 Alignment = namedtuple("Alignment", ["qry_id", "trg_id", "qry_start", "qry_end",
                                      "qry_sign", "qry_len", "trg_start",
                                      "trg_end", "trg_sign", "trg_len",
@@ -221,7 +222,7 @@ class SynchronizedSamReader(object):
             gz = gzip.open(self.aln_path, "rb")
             aln_file = io.BufferedReader(gz)
         elif self.aln_path.endswith(".bam"):
-            aln_file = subprocess.Popen("samtools view " + self.aln_path,
+            aln_file = subprocess.Popen(SAMTOOLS_BIN + " view " + self.aln_path,
                                         shell=True, stdout=subprocess.PIPE).stdout
         else:
             aln_file = open(self.aln_path, "rb")

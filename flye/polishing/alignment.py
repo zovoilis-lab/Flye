@@ -22,14 +22,16 @@ from flye.six.moves import range
 
 logger = logging.getLogger()
 MINIMAP_BIN = "flye-minimap2"
-
+SAMTOOLS_BIN = "flye-samtools"
 
 ContigInfo = namedtuple("ContigInfo", ["id", "length", "type"])
 
 
 def check_binaries():
     if not which(MINIMAP_BIN):
-        raise AlignmentException("Minimap2 is not installed")
+        raise AlignmentException("minimap2 is not installed")
+    if not which(SAMTOOLS_BIN):
+        raise AlignmentException("samtools is not installed")
     if not which("sort"):
         raise AlignmentException("UNIX sort utility is not available")
 
@@ -212,7 +214,7 @@ def _run_minimap(reference_file, reads_files, num_proc, mode, out_file,
     #--sam-hit-only = don't output unmapped reads
     if sam_output:
         cmdline.extend(["-a", "-p", "0.5", "-N", "10", "-Y", "--sam-hit-only"])
-        cmdline.extend(["|", "samtools", "sort", "-@", str(num_proc), "-o",
+        cmdline.extend(["|", SAMTOOLS_BIN, "sort", "-@", str(num_proc), "-o",
                        out_file, "-"])
         #cmdline.extend(["|", "grep", "-Ev", SAM_HEADER])    #removes headers
         #cmdline.extend(["|", "sort", "-k", "3,3", "-T", work_dir,
