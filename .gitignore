@@ -18,3 +18,13 @@ lib/samtools-1.10/htslib-1.10/hts-object-files
 lib/samtools-1.10/htslib-1.10/htslib_static.mk
 lib/samtools-1.10/htslib-1.10/version.h
 lib/samtools-1.10/version.h
+
+lib/samtools-1.10/config.h
+lib/samtools-1.10/config.log
+lib/samtools-1.10/config.mk
+lib/samtools-1.10/config.status
+lib/samtools-1.10/htslib-1.10/config.h
+lib/samtools-1.10/htslib-1.10/config.log
+lib/samtools-1.10/htslib-1.10/config.mk
+lib/samtools-1.10/htslib-1.10/config.status
+lib/samtools-1.10/htslib-1.10/htslib.pc.tmp

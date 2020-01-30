@@ -10,7 +10,7 @@ export SAMTOOLS_DIR = ${ROOT_DIR}/lib/samtools-1.10
 export CXXFLAGS += ${LIBCUCKOO} ${INTERVAL_TREE} ${LEMON} -I${MINIMAP2_DIR}
 export LDFLAGS += -lz -L${MINIMAP2_DIR} -lminimap2
 
-.PHONY: clean all profile debug minimap2
+.PHONY: clean all profile debug minimap2 samtools samtools_config
 
 .DEFAULT_GOAL := all
 
@@ -23,18 +23,19 @@ minimap2: ${BIN_DIR}/flye-minimap2
 
 samtools: ${BIN_DIR}/flye-samtools
 
-#samtools is pre-configured
-#cd ${SAMTOOLS_DIR}; ./configure --without-curses --disable-bz2 --disable-lzma
-${BIN_DIR}/flye-samtools:
+samtools_config:
+	cd ${SAMTOOLS_DIR} && ./configure --without-curses --disable-bz2 --disable-lzma
+
+${BIN_DIR}/flye-samtools: samtools_config
 	make samtools -C ${SAMTOOLS_DIR}
 	cp ${SAMTOOLS_DIR}/samtools ${BIN_DIR}/flye-samtools
 
 all: minimap2 samtools
-	make release -C src
+	make release -C src -j 4
 profile: minimap2 samtools
-	make profile -C src
+	make profile -C src -j 4
 debug: minimap2 samtools
-	make debug -C src
+	make debug -C src -j 4
 clean:
 	make clean -C src
 	make clean -C ${MINIMAP2_DIR}
