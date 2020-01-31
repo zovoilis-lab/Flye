@@ -168,10 +168,10 @@ def _flatten_profile(profile):
 
         max_match = pos_nucl
         if len(pos_matches):
-            max_match = max(pos_matches, key=pos_matches.get)
+            max_match = max(sorted(pos_matches), key=pos_matches.get)
         max_insert = None
         if ins_group:
-            max_insert = max(ins_group, key=ins_group.get)
+            max_insert = max(sorted(ins_group), key=ins_group.get)
 
         if max_match != "-":
             growing_seq.append(max_match)
