@@ -776,6 +776,7 @@ def main():
             asm.AssembleException, repeat.RepeatException,
             ResumeException, fp.FastaError) as e:
         logger.error(e)
+        logger.error("Pipeline aborted")
         return 1
 
     return 0

@@ -12,6 +12,7 @@ import os
 from collections import namedtuple
 import subprocess
 import logging
+import datetime
 
 import flye.utils.fasta_parser as fp
 from flye.utils.utils import which
@@ -201,6 +202,9 @@ def _run_minimap(reference_file, reads_files, num_proc, mode, out_file,
                  sam_output):
     #SAM_HEADER = "\'@PG|@HD|@SQ|@RG|@CO\'"
     work_dir = os.path.dirname(out_file)
+    stderr_file = os.path.join(work_dir, "minimap.stderr")
+    SORT_THREADS = "4"
+    SORT_MEM = "4G" if os.path.getsize(reference_file) > 100 * 1024 * 1024 else "1G"
 
     cmdline = [MINIMAP_BIN, reference_file]
     cmdline.extend(reads_files)
@@ -212,10 +216,17 @@ def _run_minimap(reference_file, reads_files, num_proc, mode, out_file,
     #a = SAM output, p = min primary-to-seconday score
     #N = max secondary alignments, Y = add SEQ to supplementary and secondary
     #--sam-hit-only = don't output unmapped reads
+    #-L: move CIGAR strings for ultra-long reads to the separate tag
     if sam_output:
-        cmdline.extend(["-a", "-p", "0.5", "-N", "10", "-Y", "--sam-hit-only"])
-        cmdline.extend(["|", SAMTOOLS_BIN, "sort", "-@", str(num_proc), "-o",
-                       out_file, "-"])
+        tmp_prefix = os.path.join(os.path.dirname(out_file),
+                                  "sort_" + datetime.datetime.now().strftime("%y%m%d_%H%M%S"))
+        cmdline.extend(["-a", "-p", "0.5", "-N", "10", "-Y", "--sam-hit-only", "-L"])
+        cmdline.extend(["|", SAMTOOLS_BIN, "view", "-T", reference_file, "-b", "-1", "-"])
+        cmdline.extend(["|", SAMTOOLS_BIN, "sort", "-T", tmp_prefix, "-O", "bam",
+                        "-o", out_file, "-@", SORT_THREADS, "-l", "1", "-m", SORT_MEM])
+    else:
+        pass    #paf output enabled by default
+
         #cmdline.extend(["|", "grep", "-Ev", SAM_HEADER])    #removes headers
         #cmdline.extend(["|", "sort", "-k", "3,3", "-T", work_dir,
         #                "--parallel=8", "-S", "4G"])
@@ -226,10 +237,12 @@ def _run_minimap(reference_file, reads_files, num_proc, mode, out_file,
         devnull = open(os.devnull, "wb")
         #env = os.environ.copy()
         #env["LC_ALL"] = "C"
-        subprocess.check_call(" ".join(cmdline), shell=True, stderr=devnull,
-                              stdout=open(out_file, "wb"))
+        subprocess.check_call(["/bin/bash", "-c",
+                              "set -o pipefail; " + " ".join(cmdline)],
+                              stderr=open(stderr_file, "w"))
+        os.remove(stderr_file)
 
     except (subprocess.CalledProcessError, OSError) as e:
-        if e.returncode == -9:
-            logger.error("Looks like the system ran out of memory")
+        logger.error("Error running minimap2, terminating. See the alignment error log "
+                     " for details: " + stderr_file)
         raise AlignmentException(str(e))
