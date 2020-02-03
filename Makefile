@@ -6,7 +6,7 @@ export INTERVAL_TREE = -I${ROOT_DIR}/lib/interval_tree
 export LEMON = -I${ROOT_DIR}/lib/lemon
 export BIN_DIR = ${ROOT_DIR}/bin
 export MINIMAP2_DIR = ${ROOT_DIR}/lib/minimap2
-export SAMTOOLS_DIR = ${ROOT_DIR}/lib/samtools-1.10
+export SAMTOOLS_DIR = ${ROOT_DIR}/lib/samtools-1.9
 
 export CXXFLAGS += ${LIBCUCKOO} ${INTERVAL_TREE} ${LEMON} -I${MINIMAP2_DIR}
 export LDFLAGS += -lz -L${MINIMAP2_DIR} -lminimap2
@@ -25,7 +25,7 @@ minimap2: ${BIN_DIR}/flye-minimap2
 samtools: ${BIN_DIR}/flye-samtools
 
 ${BIN_DIR}/flye-samtools:
-	cd ${SAMTOOLS_DIR} && ./configure --without-curses --disable-bz2 --disable-lzma
+	cd ${SAMTOOLS_DIR} && ./configure --without-curses --disable-bz2 --disable-lzma --enable-plugins
 	make samtools -C ${SAMTOOLS_DIR} -j ${THREADS}
 	cp ${SAMTOOLS_DIR}/samtools ${BIN_DIR}/flye-samtools
 

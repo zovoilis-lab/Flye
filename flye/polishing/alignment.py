@@ -223,7 +223,7 @@ def _run_minimap(reference_file, reads_files, num_proc, mode, out_file,
         cmdline.extend(["-a", "-p", "0.5", "-N", "10", "-Y", "--sam-hit-only", "-L"])
         cmdline.extend(["|", SAMTOOLS_BIN, "view", "-T", reference_file, "-b", "-1", "-"])
         cmdline.extend(["|", SAMTOOLS_BIN, "sort", "-T", tmp_prefix, "-O", "bam",
-                        "-o", out_file, "-@", SORT_THREADS, "-l", "1", "-m", SORT_MEM])
+                        "-@", SORT_THREADS, "-l", "1", "-m", SORT_MEM])
     else:
         pass    #paf output enabled by default
 
@@ -239,7 +239,8 @@ def _run_minimap(reference_file, reads_files, num_proc, mode, out_file,
         #env["LC_ALL"] = "C"
         subprocess.check_call(["/bin/bash", "-c",
                               "set -o pipefail; " + " ".join(cmdline)],
-                              stderr=open(stderr_file, "w"))
+                              stderr=open(stderr_file, "w"),
+                              stdout=open(out_file, "w"))
         os.remove(stderr_file)
 
     except (subprocess.CalledProcessError, OSError) as e:
