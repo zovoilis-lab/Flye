@@ -250,7 +250,7 @@ HaplotypeResolver::VariantPaths
 	if (outPaths.empty()) return VariantPaths();
 
 	std::sort(outPaths.begin(), outPaths.end(),
-			  [](GraphAlignment& a1, GraphAlignment& a2)
+			  [](const GraphAlignment& a1, const GraphAlignment& a2)
 			  {return a1.back().overlap.curEnd - a1.front().overlap.curEnd >
 					  a2.back().overlap.curEnd - a2.front().overlap.curEnd;});
 
