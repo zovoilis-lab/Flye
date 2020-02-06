@@ -300,7 +300,7 @@ HaplotypeResolver::VariantPaths
 	}
 
 	pathGroups.erase(std::remove_if(pathGroups.begin(), pathGroups.end(),
-					 [MIN_SCORE](PathWithScore& p)
+					 [](PathWithScore& p)
 					 {return p.score < MIN_SCORE;}), pathGroups.end());
 
 	/*for (auto& aln : pathGroups)

@@ -30,7 +30,7 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 			   std::string& configPath, bool& unevenCov,
 			   bool& keepHaplotypes)
 {
-	auto printUsage = [argv]()
+	auto printUsage = []()
 	{
 		std::cerr << "Usage: flye-repeat "
 				  << " --disjointigs path --reads path --out-dir path --config path\n"
@@ -186,7 +186,7 @@ int repeat_main(int argc, char** argv)
 	RepeatGraph rg(seqAssembly, &edgeSequences);
 	GraphProcessor proc(rg, seqAssembly);
 	ReadAligner aligner(rg, seqReads);
-	OutputGenerator outGen(rg, aligner, seqReads);
+	OutputGenerator outGen(rg);
 
 	Logger::get().info() << "Building repeat graph";
 	rg.build();
@@ -194,7 +194,7 @@ int repeat_main(int argc, char** argv)
 
 	Logger::get().info() << "Aligning reads to the graph";
 	aligner.alignReads();
-	MultiplicityInferer multInf(rg, aligner, seqAssembly, seqReads);
+	MultiplicityInferer multInf(rg, aligner, seqAssembly);
 	multInf.estimateCoverage();
 	outGen.outputDot(proc.getEdgesPaths(), 
 					 outFolder + "/graph_before_simplification.gv");

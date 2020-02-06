@@ -27,7 +27,7 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 			   int& kmerSize, bool& debug, size_t& numThreads, int& minOverlap, 
 			   std::string& configPath, int& minReadLength, bool& unevenCov)
 {
-	auto printUsage = [argv]()
+	auto printUsage = []()
 	{
 		std::cerr << "Usage: flye-assemble "
 				  << " --reads path --out-asm path --genome-size size --config path\n"

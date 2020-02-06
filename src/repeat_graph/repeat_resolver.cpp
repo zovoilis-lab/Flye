@@ -616,7 +616,7 @@ std::vector<RepeatResolver::Connection>
 	RepeatResolver::getConnections()
 {
 	
-	auto safeEdge = [this](GraphEdge* edge)
+	auto safeEdge = [](GraphEdge* edge)
 	{
 		return !edge->isRepetitive();
 	};

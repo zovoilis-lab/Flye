@@ -197,7 +197,7 @@ ConsensusGenerator::AlignmentsMap
 	AlignmentsMap alnMap;
 	std::mutex mapMutex;
 	std::function<void(const AlnTask&)> alnFunc =
-	[this, &alnMap, &mapMutex](const AlnTask& task)
+	[&alnMap, &mapMutex](const AlnTask& task)
 	{
 		const ContigPath* path = task.first;
 		size_t i = task.second;

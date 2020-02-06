@@ -401,9 +401,9 @@ int MultiplicityInferer::splitNodes()
 
 			for (auto& cl : clusters)
 			{
-				auto switchNode = [&nodeToSplit](GraphEdge* edge, 
-												 GraphNode* newNode,
-												 bool isInput)
+				auto switchNode = [](GraphEdge* edge, 
+									 GraphNode* newNode,
+									 bool isInput)
 				{
 					if (!isInput)
 					{

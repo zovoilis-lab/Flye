@@ -29,7 +29,7 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 			   std::string& configPath, std::string& inRepeatGraph,
 			   std::string& inReadsAlignment, bool& noScaffold)
 {
-	auto printUsage = [argv]()
+	auto printUsage = []()
 	{
 		std::cerr << "Usage: flye-contigger "
 				  << " --graph-edges path --reads path --out-dir path --config path\n"
@@ -193,7 +193,7 @@ int contigger_main(int argc, char** argv)
 	//rg.validateGraph();
 	ReadAligner aln(rg, seqReads);
 	aln.loadAlignments(inReadsAlignment);
-	OutputGenerator outGen(rg, aln, seqReads);
+	OutputGenerator outGen(rg);
 
 	//Logger::get().info() << "Generating contigs";
 

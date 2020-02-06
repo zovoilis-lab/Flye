@@ -46,7 +46,7 @@ void VertexIndex::countKmers(size_t hardThreshold, int genomeSize)
 	//first pass: filling up naive hash counting filter
 	if (_outputProgress) Logger::get().info() << "Counting k-mers (1/2):";
 	std::function<void(const FastaRecord::Id&)> preCountUpdate = 
-	[&preCounters, hardThreshold, this, preCountSize] 
+	[&preCounters, this, preCountSize] 
 		(const FastaRecord::Id& readId)
 	{
 		if (!readId.strand()) return;

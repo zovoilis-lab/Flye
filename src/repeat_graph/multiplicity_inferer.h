@@ -13,10 +13,9 @@ class MultiplicityInferer
 {
 public:
 	MultiplicityInferer(RepeatGraph& graph, ReadAligner& aligner,
-						const SequenceContainer& asmSeqs, 
-						const SequenceContainer& readSeqs):
+						const SequenceContainer& asmSeqs):
 		_graph(graph), _aligner(aligner), _asmSeqs(asmSeqs), 
-		_readSeqs(readSeqs), _uniqueCovThreshold(0), _meanCoverage(0) {}
+		_uniqueCovThreshold(0), _meanCoverage(0) {}
 
 	//coverage-related
 	void estimateCoverage();
@@ -58,7 +57,7 @@ private:
 	RepeatGraph& _graph;
 	ReadAligner& _aligner;
 	const SequenceContainer& _asmSeqs;
-	const SequenceContainer& _readSeqs;
+	//const SequenceContainer& _readSeqs;
 	int _uniqueCovThreshold; 
 	int _meanCoverage;
 };

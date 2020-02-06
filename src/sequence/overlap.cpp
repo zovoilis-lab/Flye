@@ -958,7 +958,7 @@ const std::vector<OverlapRange>&
 	for (const auto& ovlp : overlaps) revOverlaps.push_back(ovlp.complement());
 
 	_overlapIndex.update_fn(readId,
-		[&wrapper, &overlaps, &revOverlaps, &suggestChimeric, &flipped, this]
+		[&wrapper, &overlaps, &revOverlaps, &suggestChimeric, this]
 		(IndexVecWrapper& val)
 		{
 			if (!val.cached)
@@ -1040,7 +1040,7 @@ void OverlapContainer::findAllOverlaps()
 
 	std::mutex indexMutex;
 	std::function<void(const FastaRecord::Id&)> indexUpdate = 
-	[this, &indexMutex] (const FastaRecord::Id& seqId)
+	[this] (const FastaRecord::Id& seqId)
 	{
 		this->lazySeqOverlaps(seqId);	//automatically stores overlaps
 	};
