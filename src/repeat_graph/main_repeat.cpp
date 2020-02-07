@@ -228,7 +228,7 @@ int repeat_main(int argc, char** argv)
 
 		//initial simplification
 		actions += multInf.splitNodes();
-		actions += multInf.removeUnsupportedConnections();
+		//actions += multInf.removeUnsupportedConnections();
 		if (isMeta) 
 		{
 			actions += multInf.disconnectMinorPaths();
