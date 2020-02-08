@@ -416,10 +416,10 @@ class JobTrestle(Job):
                                      fp.read_sequence_dict(resolved_repeats_seqs))
         except KeyboardInterrupt as e:
             raise
-        except Exception as e:
-            logger.warning("Caught unhandled exception: " + str(e))
-            logger.warning("Continuing to the next pipeline stage. "
-                           "Please submit a bug report along with the full log file")
+        #except Exception as e:
+        #    logger.warning("Caught unhandled exception: " + str(e))
+        #    logger.warning("Continuing to the next pipeline stage. "
+        #                   "Please submit a bug report along with the full log file")
 
         repeat_graph.dump_to_file(self.out_files["repeat_graph"])
         fp.write_fasta_dict(repeat_graph.edges_fasta,

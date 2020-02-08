@@ -70,7 +70,7 @@ def resolve_repeats(args, trestle_dir, repeats_info, summ_file,
             error_queue.put(e)
 
     job_chunks = [repeat_list[i:i + args.threads]
-              for i in range(0, len(repeat_list), args.threads)]
+                  for i in range(0, len(repeat_list), args.threads)]
 
     for job_chunk in job_chunks:
         manager = multiprocessing.Manager()
@@ -106,8 +106,10 @@ def resolve_repeats(args, trestle_dir, repeats_info, summ_file,
                 t.terminate()
             raise
 
-        if not error_queue.empty():
-            raise error_queue.get()
+        while not error_queue.empty():
+            logger.warning("Non-critical error in trestle thread: " + str(error_queue.get()))
+        #if not error_queue.empty():
+        #    raise error_queue.get()
 
         while not results_queue.empty():
             resolved_dict, summary_list = results_queue.get()
@@ -2792,10 +2794,13 @@ def _construct_repeat_copy(in_file, temp_file, out_file, in_start, in_end,
         not os.path.isfile(out_file)):
         return ""
     in_dict = fp.read_sequence_dict(in_file)
-    in_seq = list(in_dict.values())[0]
     temp_dict = fp.read_sequence_dict(temp_file)
-    temp_seq = list(temp_dict.values())[0]
     out_dict = fp.read_sequence_dict(out_file)
+    if not in_dict or not temp_dict or not out_dict:
+        return ""
+
+    in_seq = list(in_dict.values())[0]
+    temp_seq = list(temp_dict.values())[0]
     out_seq = list(out_dict.values())[0]
     seq = ''.join([in_seq[in_start:in_end],
                    temp_seq[temp_start:temp_end],
