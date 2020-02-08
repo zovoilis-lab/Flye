@@ -392,6 +392,9 @@ class SynchronizedSamReader(object):
             if sequence_length // contig_length > self.max_coverage:
                 break
 
+        #sorting alignments by read, and then by score
+        alignments.sort(key=lambda a: (a.qry_id, -(a.qry_end - a.qry_start)))
+
         if parsed_contig is None:
             return None, []
         return _STR(parsed_contig), alignments
