@@ -196,17 +196,24 @@ int repeat_main(int argc, char** argv)
 	aligner.alignReads();
 	MultiplicityInferer multInf(rg, aligner, seqAssembly);
 	multInf.estimateCoverage();
-	outGen.outputDot(proc.getEdgesPaths(), 
-					 outFolder + "/graph_before_simplification.gv");
+	//outGen.outputDot(proc.getEdgesPaths(), 
+	//				 outFolder + "/graph_before_simplification.gv");
 	//aligner.storeAlignments(outFolder + "/read_alignment_before_rr");
 
 	Logger::get().info() << "Simplifying the graph";
 
 	multInf.removeUnsupportedEdges(/*only tips*/ true);
 	//rg.validateGraph();
-
+	
 	RepeatResolver repResolver(rg, seqAssembly, seqReads, aligner, multInf);
 	HaplotypeResolver hapResolver(rg, aligner, seqAssembly, seqReads);
+
+	//dump graph before first repeat resolution iteration
+	repResolver.findRepeats();
+	outGen.outputDot(proc.getEdgesPaths(), outFolder + "/graph_before_rr.gv");
+	//outGen.outputGfa(proc.getEdgesPaths(), outFolder + "/graph_before_rr.gfa");
+	outGen.outputFasta(proc.getEdgesPaths(), outFolder + "/graph_before_rr.fasta");
+
 	repResolver.resolveSimpleRepeats();
 
 	//for debugging only
@@ -246,13 +253,6 @@ int repeat_main(int argc, char** argv)
 		}
 
 		repResolver.findRepeats();
-		//dump graph before first repeat resolution iteration
-		if (iterNum == 1)
-		{
-			outGen.outputDot(proc.getEdgesPaths(), outFolder + "/graph_before_rr.gv");
-			//outGen.outputGfa(proc.getEdgesPaths(), outFolder + "/graph_before_rr.gfa");
-			outGen.outputFasta(proc.getEdgesPaths(), outFolder + "/graph_before_rr.fasta");
-		}
 		actions += repResolver.resolveRepeats();
 
 		//rg.validateGraph();
