@@ -217,10 +217,11 @@ def _run_minimap(reference_file, reads_files, num_proc, mode, out_file,
     #N = max secondary alignments, Y = add SEQ to supplementary and secondary
     #--sam-hit-only = don't output unmapped reads
     #-L: move CIGAR strings for ultra-long reads to the separate tag
+    #-Q don't output fastq quality
     if sam_output:
         tmp_prefix = os.path.join(os.path.dirname(out_file),
                                   "sort_" + datetime.datetime.now().strftime("%y%m%d_%H%M%S"))
-        cmdline.extend(["-a", "-p", "0.5", "-N", "10", "-Y", "--sam-hit-only", "-L"])
+        cmdline.extend(["-a", "-p", "0.5", "-N", "10", "-Y", "--sam-hit-only", "-L", "-Q"])
         cmdline.extend(["|", SAMTOOLS_BIN, "view", "-T", reference_file, "-u", "-"])
         cmdline.extend(["|", SAMTOOLS_BIN, "sort", "-T", tmp_prefix, "-O", "bam",
                         "-@", SORT_THREADS, "-l", "1", "-m", SORT_MEM])
