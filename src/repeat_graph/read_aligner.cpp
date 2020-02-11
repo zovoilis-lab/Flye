@@ -348,11 +348,12 @@ void ReadAligner::loadAlignments(const std::string& filename)
 	}
 
 	GraphAlignment curAlignment;
-	while(!fin.eof())
+	while(true)
 	{
 		std::string buffer;
 		fin >> buffer;
-		if (buffer.empty()) continue;
+		if (fin.eof()) break;
+		if (!fin.good()) throw std::runtime_error("Error parsing: " + filename);
 
 		if (buffer == "Chain")
 		{

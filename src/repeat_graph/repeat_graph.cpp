@@ -1221,11 +1221,12 @@ void RepeatGraph::loadGraph(const std::string& filename)
 
 	std::unordered_map<size_t, GraphNode*> idToNode;
 	GraphEdge* currentEdge = 0;
-	while(!fin.eof())
+	while(true)
 	{
 		std::string buffer;
 		fin >> buffer;
-		if (buffer.empty()) continue;
+		if (fin.eof()) break;
+		if (!fin.good()) throw std::runtime_error("Error parsing: " + filename);
 
 		if (buffer == "Edge")
 		{
