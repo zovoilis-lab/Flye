@@ -87,8 +87,8 @@ void RepeatGraph::build()
 	this->getGluepoints(asmOverlaps);
 	this->collapseTandems();
 	this->initializeEdges(asmOverlaps);
-	//GraphProcessor proc(*this, _asmSeqs);
-	//proc.simplify();
+	GraphProcessor proc(*this, _asmSeqs);
+	proc.simplify();
 	this->logEdges();
 	this->updateEdgeSequences();
 }
@@ -1275,7 +1275,7 @@ EdgeSequence RepeatGraph::addEdgeSequence(const DnaSequence& sequence,
 
 void RepeatGraph::updateEdgeSequences()
 {
-	for (auto& edge : _graphEdges)
+	for (auto& edge : this->iterEdges())
 	{
 		if (!edge->edgeId.strand()) continue;
 

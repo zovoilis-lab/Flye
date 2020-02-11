@@ -5,6 +5,7 @@
 #pragma once
 
 #include <list>
+#include <set>
 
 #include "../sequence/sequence_container.h"
 #include "../sequence/overlap.h"
@@ -276,8 +277,13 @@ public:
 	//edges
 	GraphEdge* addEdge(GraphEdge&& edge)
 	{
+		if (this->getEdge(edge.edgeId))
+		{
+			throw std::runtime_error("Adding edge with duplicated id");
+		}
+
 		GraphEdge* newEdge = new GraphEdge(edge);
-		_graphEdges.insert(newEdge);
+		_sortedEdges.insert(newEdge);
 		newEdge->nodeLeft->outEdges.push_back(newEdge);
 		newEdge->nodeRight->inEdges.push_back(newEdge);
 		
@@ -290,7 +296,7 @@ public:
 	}
 	bool hasEdge(GraphEdge* edge)
 	{
-		return _graphEdges.count(edge);
+		return _sortedEdges.count(edge);
 	}
 	GraphEdge* getEdge(FastaRecord::Id edgeId)
 	{
@@ -302,10 +308,10 @@ public:
 	public:
 		IterEdges(RepeatGraph& graph): _graph(graph) {}
 
-		std::unordered_set<GraphEdge*>::iterator begin() 
-			{return _graph._graphEdges.begin();}
-		std::unordered_set<GraphEdge*>::iterator end() 
-			{return _graph._graphEdges.end();}
+		std::set<GraphEdge*>::iterator begin() 
+			{return _graph._sortedEdges.begin();}
+		std::set<GraphEdge*>::iterator end() 
+			{return _graph._sortedEdges.end();}
 	
 	private:
 		RepeatGraph& _graph;
@@ -317,7 +323,7 @@ public:
 	{
 		vecRemove(edge->nodeRight->inEdges, edge);
 		vecRemove(edge->nodeLeft->outEdges, edge);
-		_graphEdges.erase(edge);
+		_sortedEdges.erase(edge);
 		_idToEdge.erase(edge->edgeId);
 		delete edge;
 	}
@@ -337,7 +343,7 @@ public:
 		}
 		for (auto& edge : toRemove)
 		{
-			_graphEdges.erase(edge);
+			_sortedEdges.erase(edge);
 			delete edge;
 		}
 		_graphNodes.erase(node);
@@ -431,6 +437,11 @@ private:
 					   std::vector<GluePoint>> _gluePoints;
 
 	std::unordered_set<GraphNode*> _graphNodes;
-	std::unordered_set<GraphEdge*> _graphEdges;
+	struct CmpId 
+	{
+		bool operator() (GraphEdge* const &e1, GraphEdge* const &e2) const
+		{return e1->edgeId < e2->edgeId;}
+	};
+	std::set<GraphEdge*, CmpId> _sortedEdges;
 	std::unordered_map<FastaRecord::Id, GraphEdge*> _idToEdge;
 };
