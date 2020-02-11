@@ -150,6 +150,8 @@ struct GraphEdge
 
 struct GraphNode
 {
+	GraphNode(size_t nodeId): nodeId(nodeId) {}
+
 	bool isBifurcation() const
 		{return outEdges.size() != 1 || inEdges.size() != 1;}
 
@@ -221,6 +223,7 @@ struct GraphNode
 
 	std::vector<GraphEdge*> inEdges;
 	std::vector<GraphEdge*> outEdges;
+	size_t nodeId;
 };
 
 typedef std::vector<GraphEdge*> GraphPath;
@@ -230,7 +233,8 @@ class RepeatGraph
 {
 public:
 	RepeatGraph(const SequenceContainer& asmSeqs, SequenceContainer* graphSeqs):
-		 _nextEdgeId(0), _asmSeqs(asmSeqs), _edgeSeqsContainer(graphSeqs)
+		 _nextEdgeId(0), _nextNodeId(0), _asmSeqs(asmSeqs), 
+		 _edgeSeqsContainer(graphSeqs)
 	{}
 	~RepeatGraph();
 
@@ -247,8 +251,9 @@ public:
 	//nodes
 	GraphNode* addNode()
 	{
-		GraphNode* node = new GraphNode();
+		GraphNode* node = new GraphNode(_nextNodeId);
 		_graphNodes.insert(node);
+		++_nextNodeId;
 		return node;
 	}
 
@@ -385,6 +390,7 @@ public:
 
 private:
 	size_t _nextEdgeId;
+	size_t _nextNodeId;
 
 	struct GluePoint
 	{
