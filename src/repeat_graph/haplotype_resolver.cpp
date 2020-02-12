@@ -582,7 +582,7 @@ void HaplotypeResolver::collapseHaplotypes()
 		if (separatedEdges.count(inEdge)) continue;
 
 		GraphEdge* outEdge = inEdge->rightLink;
-		if (!_graph.hasEdge(outEdge))
+		if (!_graph.getEdge(outEdge->edgeId))
 		{
 			Logger::get().warning() << "Missing linked edge";
 			continue;

@@ -283,10 +283,9 @@ public:
 		}
 
 		GraphEdge* newEdge = new GraphEdge(edge);
-		_sortedEdges.insert(newEdge);
 		newEdge->nodeLeft->outEdges.push_back(newEdge);
 		newEdge->nodeRight->inEdges.push_back(newEdge);
-		
+		_sortedEdges.insert(newEdge);
 		_idToEdge[newEdge->edgeId] = newEdge;
 		if (newEdge->selfComplement)
 		{
@@ -294,10 +293,11 @@ public:
 		}
 		return newEdge;
 	}
-	bool hasEdge(GraphEdge* edge)
+	/*bool hasEdge(GraphEdge* edge)
 	{
-		return _sortedEdges.count(edge);
-	}
+		return _idToEdge.count(edge->edgeId);
+		//return _sortedEdges.count(edge);
+	}*/
 	GraphEdge* getEdge(FastaRecord::Id edgeId)
 	{
 		if (_idToEdge.count(edgeId)) return _idToEdge[edgeId];
@@ -325,7 +325,8 @@ public:
 		vecRemove(edge->nodeLeft->outEdges, edge);
 		_sortedEdges.erase(edge);
 		_idToEdge.erase(edge->edgeId);
-		delete edge;
+		_deletedEdges.insert(edge);
+		//delete edge;
 	}
 
 	void removeNode(GraphNode* node)
@@ -344,10 +345,13 @@ public:
 		for (auto& edge : toRemove)
 		{
 			_sortedEdges.erase(edge);
-			delete edge;
+			_idToEdge.erase(edge->edgeId);
+			_deletedEdges.insert(edge);
+			//delete edge;
 		}
 		_graphNodes.erase(node);
-		delete node;
+		_deletedNodes.insert(node);
+		//delete node;
 	}
 
 	//
@@ -436,12 +440,15 @@ private:
 	std::unordered_map<FastaRecord::Id, 
 					   std::vector<GluePoint>> _gluePoints;
 
+	std::unordered_map<FastaRecord::Id, GraphEdge*> _idToEdge;
+	std::unordered_set<GraphEdge*> _deletedEdges;
 	std::unordered_set<GraphNode*> _graphNodes;
+	std::unordered_set<GraphNode*> _deletedNodes;
+
 	struct CmpId 
 	{
 		bool operator() (GraphEdge* const &e1, GraphEdge* const &e2) const
 		{return e1->edgeId < e2->edgeId;}
 	};
 	std::set<GraphEdge*, CmpId> _sortedEdges;
-	std::unordered_map<FastaRecord::Id, GraphEdge*> _idToEdge;
 };

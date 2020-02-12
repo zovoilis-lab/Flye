@@ -1326,7 +1326,9 @@ RepeatGraph::~RepeatGraph()
 {
 	std::unordered_set<GraphEdge*> toRemove;
 	for (auto& edge : this->iterEdges()) toRemove.insert(edge);
-	for (auto edge : toRemove) this->removeEdge(edge);
+	for (auto& edge : _deletedEdges) toRemove.insert(edge);
+	for (auto edge : toRemove) delete edge;
+
 	for (auto node : _graphNodes) delete node;
-	_graphNodes.clear();
+	for (auto node : _deletedNodes) delete node;
 }

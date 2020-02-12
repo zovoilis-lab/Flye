@@ -301,10 +301,10 @@ void ReadAligner::updateAlignments()
 		GraphAlignment curAlignment;
 		for (size_t i = 0; i < aln.size() - 1; ++i)
 		{
-			if (!_graph.hasEdge(aln[i].edge)) continue;
+			if (!_graph.getEdge(aln[i].edge->edgeId)) continue;
 
 			curAlignment.push_back(aln[i]);
-			if (!_graph.hasEdge(aln[i + 1].edge) ||
+			if (!_graph.getEdge(aln[i + 1].edge->edgeId) ||
 				aln[i].edge->nodeRight != aln[i + 1].edge->nodeLeft)
 			{
 				newAlignments.push_back(curAlignment);
@@ -312,7 +312,7 @@ void ReadAligner::updateAlignments()
 			}
 		}
 
-		if (_graph.hasEdge(aln.back().edge)) curAlignment.push_back(aln.back());
+		if (_graph.getEdge(aln.back().edge->edgeId)) curAlignment.push_back(aln.back());
 		if (!curAlignment.empty()) newAlignments.push_back(curAlignment);
 	}
 
@@ -370,7 +370,13 @@ void ReadAligner::loadAlignments(const std::string& filename)
 			fin >> edgeId;
 			ovlp.load(fin, _readSeqs, _graph.edgeSequences());
 			GraphEdge* edge = _graph.getEdge(FastaRecord::Id(edgeId));
-			curAlignment.push_back({ovlp, edge});
+			if (edge) 
+			{
+				//sometimes alignment might contain edges that were 
+				//removed from the graph (for example, after Trestle).
+				//so, we check if the edge exists
+				curAlignment.push_back({ovlp, edge});
+			}
 		}
 		else throw std::runtime_error("Error parsing: " + filename);
 	}
