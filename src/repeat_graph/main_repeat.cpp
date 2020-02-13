@@ -162,17 +162,31 @@ int repeat_main(int argc, char** argv)
 	Logger::get().debug() << "Selected minimum overlap " << minOverlap;
 	Logger::get().debug() << "Metagenome mode: " << "NY"[isMeta];
 
-	Logger::get().info() << "Reading sequences";
-	SequenceContainer seqAssembly; 
-	SequenceContainer seqReads;
+	Logger::get().info() << "Parsing disjointigs";
+	SequenceContainer seqAssembly;
 	std::vector<std::string> readsList = splitString(readsFasta, ',');
 	try
 	{
 		seqAssembly.loadFromFile(inAssembly);
-		for (auto& readsFile : readsList)
-		{
-			seqReads.loadFromFile(readsFile);
-		}
+	}
+	catch (SequenceContainer::ParseException& e)
+	{
+		Logger::get().error() << e.what();
+		return 1;
+	}
+	seqAssembly.buildPositionIndex();
+
+	Logger::get().info() << "Building repeat graph";
+	SequenceContainer edgeSequences;
+	RepeatGraph rg(seqAssembly, &edgeSequences);
+	rg.build();
+	//rg.validateGraph();
+
+	Logger::get().info() << "Parsing reads";
+	SequenceContainer seqReads;
+	try
+	{
+		for (auto& readsFile : readsList) seqReads.loadFromFile(readsFile);
 	}
 	catch (SequenceContainer::ParseException& e)
 	{
@@ -180,24 +194,16 @@ int repeat_main(int argc, char** argv)
 		return 1;
 	}
 	seqReads.buildPositionIndex();
-	seqAssembly.buildPositionIndex();
-
-	SequenceContainer edgeSequences;
-	RepeatGraph rg(seqAssembly, &edgeSequences);
-	GraphProcessor proc(rg, seqAssembly);
-	ReadAligner aligner(rg, seqReads);
-	OutputGenerator outGen(rg);
-
-	Logger::get().info() << "Building repeat graph";
-	rg.build();
-	//rg.validateGraph();
+	//NOTE: it is important that we call the update below AFTER all reads
+	//are loaded. It ensures that all sequences for the repeat
+	//graph are stored in a continious chunk of memory.
+	rg.updateEdgeSequences();
 
 	Logger::get().info() << "Aligning reads to the graph";
+	ReadAligner aligner(rg, seqReads);
 	aligner.alignReads();
 	MultiplicityInferer multInf(rg, aligner, seqAssembly);
 	multInf.estimateCoverage();
-	//outGen.outputDot(proc.getEdgesPaths(), 
-	//				 outFolder + "/graph_before_simplification.gv");
 	//aligner.storeAlignments(outFolder + "/read_alignment_before_rr");
 
 	Logger::get().info() << "Simplifying the graph";
@@ -207,6 +213,8 @@ int repeat_main(int argc, char** argv)
 	
 	RepeatResolver repResolver(rg, seqAssembly, seqReads, aligner, multInf);
 	HaplotypeResolver hapResolver(rg, aligner, seqAssembly, seqReads);
+	GraphProcessor proc(rg, seqAssembly);
+	OutputGenerator outGen(rg);
 
 	//dump graph before first repeat resolution iteration
 	repResolver.findRepeats();
