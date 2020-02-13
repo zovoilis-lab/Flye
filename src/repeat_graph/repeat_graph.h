@@ -240,6 +240,7 @@ public:
 	~RepeatGraph();
 
 	void build();
+	void updateEdgeSequences();
 	void storeGraph(const std::string& filename);
 	void loadGraph(const std::string& filename);
 
@@ -431,7 +432,6 @@ private:
 	void collapseTandems();
 	void logEdges();
 	void checkGluepointProjections(const OverlapContainer& asmOverlaps);
-	void updateEdgeSequences();
 	
 	const SequenceContainer& _asmSeqs;
 	SequenceContainer* 		 _edgeSeqsContainer;
