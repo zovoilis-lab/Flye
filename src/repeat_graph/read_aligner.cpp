@@ -190,11 +190,13 @@ void ReadAligner::alignReads()
 		for (auto& chain : readChains)
 		{
 			float sumMatched = 0;
-			int alnLen = chain.back().overlap.curEnd - 
-						 chain.front().overlap.curBegin;
+			int alnLen = 0;
+			//int alnLen = chain.back().overlap.curEnd - 
+			//			 chain.front().overlap.curBegin;
 			for (auto& aln : chain)
 			{
 				sumMatched += aln.overlap.curRange() * (1 - aln.overlap.seqDivergence);
+				alnLen += aln.overlap.curRange();
 			}
 			float chainDivergence = 1 - (float)sumMatched / alnLen;
 			divergenceStats.add(chainDivergence);
