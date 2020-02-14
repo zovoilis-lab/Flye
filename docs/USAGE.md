@@ -18,12 +18,12 @@ Table of Contents
 
 ```
 usage: flye (--pacbio-raw | --pacbio-corr | --nano-raw |
-	     --nano-corr | --subassemblies) file1 [file_2 ...]
-	     --genome-size SIZE --out-dir PATH
-	     [--threads int] [--iterations int] [--min-overlap int]
-	     [--meta] [--plasmids] [--no-trestle] [--polish-target]
-	     [--debug] [--version] [--help] [--resume] 
-	     [--resume-from] [--stop-after]
+         --nano-corr | --subassemblies) file1 [file_2 ...]
+         --genome-size SIZE --out-dir PATH
+         [--threads int] [--iterations int] [--min-overlap int]
+         [--meta] [--plasmids] [--trestle] [--polish-target]
+         [--debug] [--version] [--help] [--resume] 
+         [--resume-from] [--stop-after]
 
 Assembly of long and error-prone reads
 
@@ -53,7 +53,7 @@ optional arguments:
                         set]
   --plasmids            rescue short unassembled plasmids
   --meta                metagenome / uneven coverage mode
-  --no-trestle          skip Trestle stage
+  --trestle             enable Trestle [disabled]
   --polish-target path  run polisher on the target sequence
   --resume              resume from the last completed stage
   --resume-from stage_name
@@ -349,7 +349,7 @@ calls a consensus. Afterwards, Flye performs repeat analysis as follows:
 * The algorithm resolves repeats using the read information and graph structure
 * The unbranching paths in the graph are output as contigs
 
-After resolving bridged repeats, Trestle module attempts to resolve simple unbridged
+If enabled, after resolving bridged repeats, Trestle module attempts to resolve simple unbridged
 repeats (of multiplicity 2) using the heterogeneities between repeat copies.
 Finally, Flye performs polishing of the resulting assembly
 to correct the remaining errors:

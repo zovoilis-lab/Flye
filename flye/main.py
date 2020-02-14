@@ -452,7 +452,8 @@ def _create_job_list(args, work_dir, log_file):
     reads_alignment = jobs[-1].out_files["reads_alignment"]
 
     #Trestle: Resolve Unbridged Repeats
-    if not args.no_trestle and not args.meta and args.read_type == "raw":
+    #if not args.no_trestle and not args.meta and args.read_type == "raw":
+    if args.trestle:
         jobs.append(JobTrestle(args, work_dir, log_file,
                     repeat_graph, repeat_graph_edges,
                     reads_alignment))
@@ -600,7 +601,7 @@ def _usage():
             "\t     --nano-corr | --subassemblies) file1 [file_2 ...]\n"
             "\t     --genome-size SIZE --out-dir PATH\n\n"
             "\t     [--threads int] [--iterations int] [--min-overlap int]\n"
-            "\t     [--meta] [--plasmids] [--no-trestle] [--polish-target]\n"
+            "\t     [--meta] [--plasmids] [--trestle] [--polish-target]\n"
             "\t     [--keep-haplotypes] [--debug] [--version] [--help] \n"
             "\t     [--resume] [--resume-from] [--stop-after]")
 
@@ -702,9 +703,9 @@ def main():
     parser.add_argument("--keep-haplotypes", action="store_true",
                         dest="keep_haplotypes", default=False,
                         help="do not collapse alternative haplotypes")
-    parser.add_argument("--no-trestle", action="store_true",
-                        dest="no_trestle", default=False,
-                        help="skip Trestle stage")
+    parser.add_argument("--trestle", action="store_true",
+                        dest="trestle", default=False,
+                        help="enable Trestle [disabled]")
     parser.add_argument("--polish-target", dest="polish_target",
                         metavar="path", required=False,
                         help="run polisher on the target sequence")
