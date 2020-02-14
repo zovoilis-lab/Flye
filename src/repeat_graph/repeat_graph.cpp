@@ -39,6 +39,13 @@ namespace
 		int32_t pos;
 	};
 
+	template<class T, class KeyFn>
+	void sortByKey(std::vector<T>& container, KeyFn keyFn)
+	{
+		std::sort(container.begin(), container.end(),
+				  [keyFn](const T& k1, const T& k2)
+				  {return keyFn(k1) < keyFn(k2);});
+	}
 }
 
 bool GraphEdge::isRightTerminal() const
@@ -129,9 +136,7 @@ void RepeatGraph::getGluepoints(OverlapContainer& asmOverlaps)
 	//only cosider X coordinates for now
 	for (auto& seqPoints : endpoints)
 	{
-		std::sort(seqPoints.second.begin(), seqPoints.second.end(),
-				  [](const SetPoint2d* p1, const SetPoint2d* p2)
-				  {return p1->data.curPos < p2->data.curPos;});
+		sortByKey(seqPoints.second, [](SetPoint2d* const &p){return p->data.curPos;});
 
 		for (size_t i = 0; i < seqPoints.second.size() - 1; ++i)
 		{
@@ -200,10 +205,8 @@ void RepeatGraph::getGluepoints(OverlapContainer& asmOverlaps)
 		}
 
 		//Finally, cluster the projected points based on Y coordinates
-		std::sort(extCoords.begin(), extCoords.end(),
-				  [](const SetPoint2d* p1, const SetPoint2d* p2)
-				  	{return std::make_pair(p1->data.extId, p1->data.extPos) <
-				  		  	std::make_pair(p2->data.extId, p2->data.extPos);});
+		sortByKey(extCoords, [](SetPoint2d* const &p)
+				  {return std::make_pair(p->data.extId, p->data.extPos);});
 		for (size_t i = 0; i < extCoords.size() - 1; ++i)
 		{
 			auto* p1 = extCoords[i];
@@ -514,9 +517,7 @@ void RepeatGraph::checkGluepointProjections(const OverlapContainer& asmOverlaps)
 
 			std::vector<size_t> permutation;
 			for (size_t i = 0; i < ptVec.second.size(); ++i) permutation.push_back(i);
-			std::sort(permutation.begin(), permutation.end(),
-					  [&ptVec](size_t i1, size_t i2)
-						{return ptVec.second[i1].position < ptVec.second[i2].position;});
+			sortByKey(permutation, [&ptVec](size_t const &i){return ptVec.second[i].position;});
 
 			int32_t lastAdded = -1;
 			for (size_t pid : permutation)
@@ -531,12 +532,8 @@ void RepeatGraph::checkGluepointProjections(const OverlapContainer& asmOverlaps)
 					++totalAdded;
 				}
 			}
-			std::sort(_gluePoints[ptVec.first].begin(), _gluePoints[ptVec.first].end(),
-					  [](const GluePoint& p1, const GluePoint& p2)
-						{return p1.position < p2.position;});
-			std::sort(_gluePoints[ptVec.first.rc()].begin(), _gluePoints[ptVec.first.rc()].end(),
-					  [](const GluePoint& p1, const GluePoint& p2)
-						{return p1.position < p2.position;});
+			sortByKey(_gluePoints[ptVec.first], [](const GluePoint& gp){return gp.position;});
+			sortByKey(_gluePoints[ptVec.first.rc()], [](const GluePoint& gp){return gp.position;});
 		}
 		Logger::get().debug() << "Added " << totalAdded 
 			<< " gluepoint projections";
@@ -764,10 +761,8 @@ void RepeatGraph::initializeEdges(const OverlapContainer& asmOverlaps)
 	//sort nodes wrt to their ids to make it deterministic
 	std::vector<NodePair> sortedKeys;
 	for (auto& it : parallelSegments) sortedKeys.push_back(it.first);
-	std::sort(sortedKeys.begin(), sortedKeys.end(),
-			  [](const NodePair& np1, const NodePair& np2)
-			  	 {return std::make_pair(np1.first->nodeId, np1.second->nodeId) <
-				 		 std::make_pair(np2.first->nodeId, np2.second->nodeId);});
+	sortByKey(sortedKeys, [](const NodePair& np)
+			  {return std::make_pair(np.first->nodeId, np.second->nodeId);});
 
 	std::unordered_set<NodePair, pairhash> usedPairs;
 	size_t singletonsFiltered = 0;
@@ -789,9 +784,7 @@ void RepeatGraph::initializeEdges(const OverlapContainer& asmOverlaps)
 		}
 		for (auto& seqSegments : segmentIndex)
 		{
-			std::sort(seqSegments.second.begin(), seqSegments.second.end(),
-					  [](const SetSegment* s1, const SetSegment* s2)
-					  {return s1->data->origSeqStart < s2->data->origSeqStart;});
+			sortByKey(seqSegments.second, [](SetSegment* const &s){return s->data->origSeqStart;});
 		}
 
 		//cluster segments based on their overlaps
@@ -927,10 +920,7 @@ void RepeatGraph::initializeEdges(const OverlapContainer& asmOverlaps)
 		}
 		std::vector<SetSegment*> sortedKeysCl;
 		for (auto& it : edgeClusters) sortedKeysCl.push_back(it.first);
-		std::sort(sortedKeysCl.begin(), sortedKeysCl.end(),
-				  [&sortOrder](SetSegment* const n1, SetSegment* const n2)
-				  	{return sortOrder[n1] < sortOrder[n2];});
-		//
+		sortByKey(sortedKeysCl, [&sortOrder](SetSegment* const n){return sortOrder[n];});
 
 		//add edge for each cluster
 		std::vector<EdgeSequence> usedSegments;
@@ -1012,9 +1002,7 @@ void RepeatGraph::logEdges()
 	}
 	for (auto& seqEdgesPair : sequenceEdges)
 	{
-		std::sort(seqEdgesPair.second.begin(), seqEdgesPair.second.end(),
-				  [](const SegEdgePair& s1, const SegEdgePair& s2)
-				  	{return s1.first->origSeqStart < s2.first->origSeqStart;});
+		sortByKey(seqEdgesPair.second, [](const SegEdgePair& s){return s.first->origSeqStart;});
 	}
 
 	//for (auto& seqEdgesPair : sequenceEdges)
