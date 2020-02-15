@@ -243,7 +243,7 @@ int MultiplicityInferer::disconnectMinorPaths()
 		std::vector<int> coverages;
 		for (auto& edge : node->inEdges) 
 		{
-			coverages.push_back(edge->meanCoverage);
+			if (!edge->isLooped()) coverages.push_back(edge->meanCoverage);
 		}
 		for (auto& edge : node->outEdges) 
 		{
@@ -275,8 +275,8 @@ int MultiplicityInferer::disconnectMinorPaths()
 		if (!path.id.strand() || 
 			path.isLooped() ||
 			path.path.front()->selfComplement) continue;
-		if (path.nodeLeft()->inEdges.empty() && 
-			path.nodeRight()->outEdges.empty())	continue; //already detached
+		if (path.nodeLeft()->inEdges.empty() ||
+			path.nodeRight()->outEdges.empty())	continue; //already detached or tip
 
 		bool weakLeft = path.nodeLeft()->inEdges.empty() || 
 						nodeDegree(path.nodeLeft()) > path.meanCoverage * DETACH_RATE;
