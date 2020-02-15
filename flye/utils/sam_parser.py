@@ -20,6 +20,7 @@ import ctypes
 import time
 import gzip
 import io
+import random
 
 #In Python2, everything is bytes (=str)
 #In Python3, we are doing IO in bytes, but everywhere else strngs = unicode
@@ -347,6 +348,9 @@ class SynchronizedSamReader(object):
             time.sleep(0.01)
         ###
 
+        #shuffle alignments so that they uniformly distributed. Use same seed for determinism
+        random.Random(42).shuffle(chunk_buffer)
+
         sequence_length = 0
         alignments = []
         for line in chunk_buffer:
@@ -393,7 +397,7 @@ class SynchronizedSamReader(object):
             if sequence_length // contig_length > self.max_coverage:
                 break
 
-        #sorting alignments by read, and then by score
+        #then, alignments by read and by score
         alignments.sort(key=lambda a: (a.qry_id, -(a.qry_end - a.qry_start)))
 
         if parsed_contig is None:
