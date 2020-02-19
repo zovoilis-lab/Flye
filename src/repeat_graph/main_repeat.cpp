@@ -229,7 +229,7 @@ int repeat_main(int argc, char** argv)
 	hapResolver.findSuperbubbles();
 	hapResolver.findHeterozygousLoops();
 	hapResolver.findHeterozygousBulges();
-	hapResolver.findComplexHaplotypes();
+	hapResolver.findRoundabouts();
 	hapResolver.resetEdges();
 	outGen.outputDot(proc.getEdgesPaths(), 
 					 outFolder + "/graph_before_bulges.gv");*/
@@ -256,7 +256,7 @@ int repeat_main(int argc, char** argv)
 		hapResolver.findHeterozygousBulges();
 		if (isMeta)
 		{
-			hapResolver.findComplexHaplotypes();
+			hapResolver.findRoundabouts();
 			hapResolver.findSuperbubbles();
 		}
 

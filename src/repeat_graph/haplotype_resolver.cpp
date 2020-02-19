@@ -481,7 +481,7 @@ HaplotypeResolver::VariantPaths
 
 //this function reveals complex heterogenities on the graph
 //(more than just two alternative branches) using read-paths
-int HaplotypeResolver::findComplexHaplotypes()
+int HaplotypeResolver::findRoundabouts()
 {
 	auto alnIndex = _aligner.makeAlignmentIndex();
 
@@ -536,7 +536,7 @@ int HaplotypeResolver::findComplexHaplotypes()
 		if (newVariant)
 		{
 			++foundNew;
-			Logger::get().debug() << "Complex bulge: " 
+			Logger::get().debug() << "Rounabout: " 
 				<< varSegment.startEdge->edgeId.signedId()
 				<< " : " << varSegment.endEdge->edgeId.signedId();
 		}
