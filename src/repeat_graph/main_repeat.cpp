@@ -222,7 +222,7 @@ int repeat_main(int argc, char** argv)
 	//outGen.outputGfa(proc.getEdgesPaths(), outFolder + "/graph_before_rr.gfa");
 	outGen.outputFasta(proc.getEdgesPaths(), outFolder + "/graph_before_rr.fasta");
 
-	repResolver.resolveSimpleRepeats();
+	//repResolver.resolveSimpleRepeats();
 
 	//for debugging only
 	/*multInf.trimTips();
