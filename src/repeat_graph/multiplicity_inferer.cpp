@@ -312,7 +312,7 @@ int MultiplicityInferer::disconnectMinorPaths()
 //addresses chimeric connections
 int MultiplicityInferer::splitNodes()
 {
-	static const int MIN_JCT_SUPPORT = 2;
+	static const int MIN_JCT_SUPPORT = 1;
 
 	Logger::get().debug() << "Splitting nodes";
 	int numSplit = 0;
