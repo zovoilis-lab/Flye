@@ -275,6 +275,7 @@ int repeat_main(int argc, char** argv)
 	if (!keepHaplotypes)
 	{
 		hapResolver.collapseHaplotypes();
+		repResolver.resolveSimpleRepeats();
 	}
 	multInf.removeUnsupportedEdges(/*only tips*/ true);
 
