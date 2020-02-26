@@ -26,19 +26,17 @@ void MultiplicityInferer::estimateCoverage()
 
 	for (auto& path : _aligner.getAlignments())
 	{
-		for (size_t i = 0; i < path.size(); ++i)
+		for (size_t pathId = 0; pathId < path.size(); ++pathId)
 		{
-			auto& ovlp = path[i].overlap;
-			auto& coverage = wndCoverage[path[i].edge];
-			for (int pos = ovlp.extBegin / WINDOW + 1; 
-			 	 pos < ovlp.extEnd / WINDOW; ++pos)
-			{
-				if (pos >= 0 && 
-					pos < (int)coverage.size())
-				{
-					++coverage[pos];
-				}
-			}
+			auto& edgeCov = wndCoverage[path[pathId].edge];
+			int covFrom = std::max(0, path[pathId].overlap.extBegin / WINDOW + 1);
+			int covTo = std::min((int)edgeCov.size(), path[pathId].overlap.extEnd / WINDOW);
+
+			//for intermediae alignments, cover the entire edge
+			if (pathId > 0) covFrom = 0;
+			if (pathId < path.size() - 1) covTo = edgeCov.size();
+
+			for (int i = covFrom; i < covTo; ++i) ++edgeCov[i];
 		}
 	}
 
