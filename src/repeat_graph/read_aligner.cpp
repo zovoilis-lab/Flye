@@ -11,7 +11,7 @@ namespace
 {
 	struct Chain
 	{
-		Chain(): score(0) {}
+		//Chain(): score(0) {}
 		std::vector<const EdgeAlignment*> aln;
 		int32_t score;
 	};
@@ -28,10 +28,11 @@ std::vector<GraphAlignment>
 	static const int32_t MAX_READ_OVLP = 50;
 	//static const int32_t KMER_SIZE = Parameters::get().kmerSize;
 
-	std::list<Chain> activeChains;
+	//std::list<Chain> activeChains;
+	std::vector<Chain> activeChains;
 	for (auto& edgeAlignment : ovlps)
 	{
-		std::list<Chain> newChains;
+		//std::list<Chain> newChains;
 		int32_t maxScore = 0;
 		Chain* maxChain = nullptr;
 		for (auto& chain : activeChains)
@@ -58,8 +59,21 @@ std::vector<GraphAlignment>
 				}
 			}
 		}
+
+		if (maxChain)	//found continuation
+		{
+			Chain origChain = *maxChain;
+			maxChain->aln.push_back(&edgeAlignment);
+			maxChain->score = maxScore;
+			activeChains.push_back(origChain);	//keep the original chain as well
+		}
+		else			//no continuation, initiate new chain
+		{
+			activeChains.push_back({{&edgeAlignment}, 
+									 edgeAlignment.overlap.score});
+		}
 		
-		if (maxChain)
+		/*if (maxChain)
 		{
 			newChains.push_back(*maxChain);
 			maxChain->aln.push_back(&edgeAlignment);
@@ -69,16 +83,16 @@ std::vector<GraphAlignment>
 		activeChains.splice(activeChains.end(), newChains);
 		activeChains.push_back(Chain());
 		activeChains.back().aln.push_back(&edgeAlignment);
-		activeChains.back().score = edgeAlignment.overlap.score;
+		activeChains.back().score = edgeAlignment.overlap.score;*/
 	}
 
 	//greedily choose non-intersecting set of alignments
 	std::vector<GraphAlignment> acceptedAlignments;
-	std::vector<Chain> sortedChains(activeChains.begin(), activeChains.end());
-	std::sort(sortedChains.begin(), sortedChains.end(),
+	//std::vector<Chain> sortedChains(activeChains.begin(), activeChains.end());
+	std::sort(activeChains.begin(), activeChains.end(),
 			  [](const Chain& c1, const Chain& c2)
 			  {return c1.score > c2.score;});
-	for (auto& chain : sortedChains)
+	for (auto& chain : activeChains)
 	{
 		int32_t alnLen = chain.aln.back()->overlap.curEnd - 
 					 	 chain.aln.front()->overlap.curBegin;
