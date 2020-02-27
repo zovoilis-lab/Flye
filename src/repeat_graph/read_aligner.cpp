@@ -123,8 +123,9 @@ std::vector<GraphAlignment>
 
 void ReadAligner::alignReads()
 {
-	static const int MIN_EDGE_OVLP = (int)Config::get("max_separation");
-	static const int EDGE_FLANK = 100;
+	static const int SMALL_ALN = 100;
+	static const int BIG_ALN = 500;
+	static const int LONG_EDGE = 900;
 
 	//create database
 	std::unordered_map<FastaRecord::Id, 
@@ -146,8 +147,7 @@ void ReadAligner::alignReads()
 	pathsIndex.setRepeatCutoff(/*min freq*/ 1);
 	pathsIndex.buildIndex(/*min freq*/ 1);
 	OverlapDetector readsOverlapper(_graph.edgeSequences(), pathsIndex, 
-									(int)Config::get("maximum_jump"),
-									MIN_EDGE_OVLP - EDGE_FLANK,
+									(int)Config::get("maximum_jump"), SMALL_ALN,
 									/*no overhang*/ 0, /*no max ovlp count*/ 0,
 									/*keep alignment*/ false, /*only max*/ false,
 									/*no max divergence*/ 1.0f,
@@ -185,8 +185,8 @@ void ReadAligner::alignReads()
 			//because edges might be as short as max_separation,
 			//we set minimum alignment threshold to a bit shorter value.
 			//However, apply the actual threshold for longer edges now.
-			if (ovlp.extLen < MIN_EDGE_OVLP + EDGE_FLANK ||
-				std::min(ovlp.curRange(), ovlp.extRange()) > MIN_EDGE_OVLP)
+			if (ovlp.extLen < LONG_EDGE ||
+				std::min(ovlp.curRange(), ovlp.extRange()) > BIG_ALN)
 			{
 				//alignments.push_back({ovlp, idToSegment[ovlp.extId].first,
 				//					  idToSegment[ovlp.extId].second});
@@ -254,51 +254,6 @@ void ReadAligner::alignReads()
 
 	processInParallel(allQueries, alignRead, 
 					  Parameters::get().numThreads, true);
-
-	/*for (auto& aln : _readAlignments)
-	{
-		if (aln.size() > 1)
-		{
-			std::string alnStr;
-			int switches = 0;
-			for (size_t i = 0; i < aln.size() - 1; ++i)
-			{
-				if (aln[i].segment.end != aln[i + 1].segment.start) ++switches;
-			}
-
-			int totalScore = 0;
-			int32_t prevGap = 0;
-			int32_t prevReadPos = 0;
-			for (auto& edge : aln)
-			{
-				totalScore += edge.overlap.score;
-				int32_t nextGap = edge.overlap.extBegin;
-				int32_t readGap = edge.overlap.curBegin - prevReadPos;
-				if (prevGap > 0)
-				{
-					int32_t gapCost = (nextGap + prevGap) / 10;
-					totalScore -= gapCost;
-				}
-
-				alnStr += std::to_string(edge.edge->edgeId.signedId()) + " ("
-					+ std::to_string(edge.overlap.curRange()) + ", " 
-					+ std::to_string(edge.overlap.seqDivergence) + ", " 
-					+ std::to_string(nextGap + prevGap) + ", "
-					+ std::to_string(readGap) + ") -> ";
-
-				prevGap = edge.overlap.extLen - edge.overlap.extEnd;
-				prevReadPos = edge.overlap.curEnd;
-			}
-			alnStr.erase(alnStr.size() - 4);
-			alnStr += " readLen:" + std::to_string(aln.front().overlap.curLen);
-			alnStr += " alnLen:" + std::to_string(aln.back().overlap.curEnd - 
-												   aln.front().overlap.curBegin);
-			alnStr += " score:" + std::to_string(totalScore);
-			FastaRecord::Id readId = aln.front().overlap.curId;
-			Logger::get().debug() << "Aln " << _readSeqs.seqName(readId);
-			Logger::get().debug() << "\t" << alnStr;
-		}
-	}*/
 
 	Logger::get().debug() << "Total reads : " << allQueries.size();
 	Logger::get().debug() << "Read with aligned parts : " << numAligned;
