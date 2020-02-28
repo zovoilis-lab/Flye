@@ -11,12 +11,13 @@ import os
 
 vals = {
         "pkg_root" : os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-        "pipeline_version" : 2,
+        "pipeline_version" : 3,
 
         #additional configuration files for binary modules
         "bin_cfg" : {
             "raw" : "config/bin_cfg/asm_raw_reads.cfg",
             "corrected" : "config/bin_cfg/asm_corrected_reads.cfg",
+            "hifi" : "config/bin_cfg/asm_hifi.cfg",
             "subasm" : "config/bin_cfg/asm_subasm.cfg"
         },
 
@@ -25,11 +26,13 @@ vals = {
         "kmer_size" : {
             "raw" : [15, 17],
             "corrected" : [17, 17],
+            "hifi" : [17, 17],
             "subasm" : [31, 31]
         },
         "min_overlap_range" : {
             "raw" : [1000, 5000],
             "corrected" : [1000, 5000],
+            "hifi" : [1000, 5000],
             "subasm" : [1000, 1000]
         },
         #"reduced_asm_cov"  : 40,

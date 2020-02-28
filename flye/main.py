@@ -597,7 +597,7 @@ def _enable_logging(log_file, debug, overwrite):
 
 
 def _usage():
-    return ("flye (--pacbio-raw | --pacbio-corr | --nano-raw |\n"
+    return ("flye (--pacbio-raw | --pacbio-corr | --pacbio-hifi | --nano-raw |\n"
             "\t     --nano-corr | --subassemblies) file1 [file_2 ...]\n"
             "\t     --genome-size SIZE --out-dir PATH\n\n"
             "\t     [--threads int] [--iterations int] [--min-overlap int]\n"
@@ -666,6 +666,9 @@ def main():
     read_group.add_argument("--pacbio-corr", dest="pacbio_corrected",
                         default=None, metavar="path", nargs="+",
                         help="PacBio corrected reads")
+    read_group.add_argument("--pacbio-hifi", dest="pacbio_hifi",
+                        default=None, metavar="path", nargs="+",
+                        help="PacBio HiFi reads")
     read_group.add_argument("--nano-raw", dest="nano_raw", nargs="+",
                         default=None, metavar="path",
                         help="ONT raw reads")
@@ -737,6 +740,10 @@ def main():
         args.reads = args.pacbio_corrected
         args.platform = "pacbio"
         args.read_type = "corrected"
+    if args.pacbio_corrected:
+        args.reads = args.pacbio_corrected
+        args.platform = "pacbio"
+        args.read_type = "hifi"
     if args.nano_raw:
         args.reads = args.nano_raw
         args.platform = "nano"
