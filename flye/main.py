@@ -740,8 +740,8 @@ def main():
         args.reads = args.pacbio_corrected
         args.platform = "pacbio"
         args.read_type = "corrected"
-    if args.pacbio_corrected:
-        args.reads = args.pacbio_corrected
+    if args.pacbio_hifi:
+        args.reads = args.pacbio_hifi
         args.platform = "pacbio"
         args.read_type = "hifi"
     if args.nano_raw:
