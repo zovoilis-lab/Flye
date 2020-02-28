@@ -137,7 +137,7 @@ int HaplotypeResolver::findHeterozygousBulges()
 //3. Loop coverage is roughly equal or less than coverage of entrance/exit
 int HaplotypeResolver::findHeterozygousLoops()
 {
-	const float COV_MULT = 1.5;
+	const float COV_MULT = (float)Config::get("loop_coverage_rate");
 	const int MAX_LOOP_LEN = Config::get("max_bubble_length");
 
 	GraphProcessor proc(_graph, _asmSeqs);

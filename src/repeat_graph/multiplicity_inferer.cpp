@@ -83,7 +83,7 @@ void MultiplicityInferer::estimateCoverage()
 	_uniqueCovThreshold = /*default*/ 2;
 	if (!edgesCoverage.empty())
 	{
-		const float MULT = 1.75f;	//at least 1.75x of mean coverage
+		const float MULT = (float)Config::get("repeat_edge_cov_mult");	//1.75
 		_uniqueCovThreshold = MULT * quantile(edgesCoverage, 75);
 	}
 	Logger::get().debug() << "Unique coverage threshold " << _uniqueCovThreshold;
@@ -92,7 +92,7 @@ void MultiplicityInferer::estimateCoverage()
 int MultiplicityInferer::resolveForks()
 {
 	//const int UNIQUE_LEN = (int)Config::get("unique_edge_length");
-	const int MAJOR_TO_MINOR = 5;
+	const int MAJOR_TO_MINOR = (int)Config::get("weak_detach_rate");
 
 	int numDisconnected = 0;
 	std::vector<GraphNode*> originalNodes(_graph.iterNodes().begin(), 
@@ -234,7 +234,7 @@ int MultiplicityInferer::removeUnsupportedEdges(bool onlyTips)
 
 int MultiplicityInferer::disconnectMinorPaths()
 {
-	const int DETACH_RATE = 5;
+	const int DETACH_RATE = (int)Config::get("weak_detach_rate");
 
 	auto nodeDegree = [](GraphNode* node)
 	{
@@ -527,8 +527,8 @@ void MultiplicityInferer::trimTipsIteration(int& outShort, int& outLong)
 {
 	const int SHORT_TIP = Config::get("short_tip_length");
 	const int LONG_TIP = Config::get("long_tip_length");
-	const int COV_RATE = 2;
-	const int LEN_RATE = 2;
+	const int COV_RATE = (int)Config::get("tip_coverage_rate");
+	const int LEN_RATE = (int)Config::get("tip_length_rate");
 
 	std::unordered_set<FastaRecord::Id> toRemove;
 	GraphProcessor proc(_graph, _asmSeqs);
