@@ -142,27 +142,34 @@ struct OverlapRange
 			   std::max(extBegin, other.extBegin);
 	}
 
+	void dump(std::ostream& os, const SequenceContainer& curContainer,
+			  const SequenceContainer& extContainer)
+	{
+		os << curContainer.seqName(curId) << " " 
+		   << curBegin << " " << curEnd << " " 
+		   << curLen << " " << extContainer.seqName(extId) 
+		   << " " << extBegin << " " << extEnd << " " << extLen << " " 
+		   << leftShift << " " << rightShift << " " 
+		   << score << " " << seqDivergence;
+	}
+
+	void load(std::istream& is, const SequenceContainer& curContainer,
+			  const SequenceContainer& extContainer)
+	{
+		std::string curSeqName;
+		std::string extSeqName;
+		is >> curSeqName >> curBegin >> curEnd 
+		   >> curLen >> extSeqName >> extBegin >> extEnd >> extLen
+		   >> leftShift >> rightShift >> score >> seqDivergence;
+		curId = curContainer.recordByName(curSeqName).id;
+		extId = extContainer.recordByName(extSeqName).id;
+	}
+
 	/*bool equals(const OverlapRange& other) const
 	{
 		return other.curId == curId && other.extId == extId &&
 			   other.curBegin == curBegin && other.curEnd == curEnd &&
 			   other.extBegin == extBegin && other.extEnd == extEnd;
-	}*/
-
-	/*std::string serialize() const
-	{
-		std::stringstream ss;
-		ss << curId << " " << curBegin << " " << curEnd << " " 
-		   << leftShift << " " << extId << " " << extBegin << " " 
-		   << extEnd << " " << rightShift;
-		return ss.str();
-	}
-
-	void unserialize(const std::string& str)
-	{
-		std::stringstream ss(str);
-		ss >> curId >> curBegin >> curEnd >> leftShift 
-		   >> extId >> extBegin >> extEnd >> rightShift;
 	}*/
 
 	//current read
@@ -185,10 +192,12 @@ struct OverlapRange
 	std::vector<std::pair<int32_t, int32_t>> kmerMatches;
 };
 
+
+
 struct OvlpDivStats
 {
 	static const size_t MAX_STATS = 1000000;
-	OvlpDivStats(): vecSize(0) {}
+	OvlpDivStats(): divVec(MAX_STATS), vecSize(0) {}
 	
 	void add(float val)
 	{
@@ -205,10 +214,11 @@ struct OvlpDivStats
 				break;
 			}
 		}
+		assert(expected < divVec.size());
 		divVec[expected] = val;
 	}
 
-	std::array<float, MAX_STATS>  divVec;
+	std::vector<float>  divVec;
 	std::atomic<size_t> vecSize;
 };
 
@@ -231,9 +241,10 @@ public:
 		_nuclAlignment(nuclAlignment),
 		_maxDivergence(maxDivergence),
 		_badEndAdjustment(badEndAdjustment),
+		_estimatorBias(0.0f),
 		_vertexIndex(vertexIndex),
-		_seqContainer(seqContainer),
-		_seqHitCounter(_seqContainer.getMaxSeqId())
+		_seqContainer(seqContainer)
+		//_seqHitCounter(_seqContainer.getMaxSeqId())
 	{
 	}
 
@@ -243,7 +254,8 @@ private:
 	std::vector<OverlapRange> 
 	getSeqOverlaps(const FastaRecord& fastaRec, 
 				   bool& outSuggestChiemeric,
-				   OvlpDivStats& divergenceStats) const;
+				   OvlpDivStats& divergenceStats,
+				   int maxOverlaps) const;
 
 	bool    overlapTest(const OverlapRange& ovlp, bool& outSuggestChimeric) const;
 	
@@ -255,14 +267,16 @@ private:
 	const bool  _keepAlignment;
 	const bool  _onlyMaxExt;
 	const bool  _nuclAlignment;
-	const float _maxDivergence;
-	const float _badEndAdjustment;
+
+	mutable float _maxDivergence;
+	mutable float _badEndAdjustment;
+	mutable float _estimatorBias;
 
 	const VertexIndex& _vertexIndex;
 	const SequenceContainer& _seqContainer;
 
-	typedef unsigned char CounterType;
-	std::vector<CounterType> _seqHitCounter;
+	//typedef unsigned char CounterType;
+	//std::vector<CounterType> _seqHitCounter;
 };
 
 
@@ -273,7 +287,9 @@ public:
 					 const SequenceContainer& queryContainer):
 		_ovlpDetect(ovlpDetect),
 		_queryContainer(queryContainer),
-		_indexSize(0)
+		_indexSize(0),
+		_kmerIdyEstimateBias(0),
+		_meanTrueOvlpDiv(0)
 	{}
 
 	struct IndexVecWrapper
@@ -304,9 +320,14 @@ public:
 	bool hasSelfOverlaps(FastaRecord::Id seqId);
 
 	//finds and returns overlaps - no caching is done	
-	std::vector<OverlapRange> quickSeqOverlaps(FastaRecord::Id readId);
+	std::vector<OverlapRange> quickSeqOverlaps(FastaRecord::Id readId, 
+											   int maxOverlaps=0);
 
 	size_t indexSize() {return _indexSize;}
+
+	void estimateOverlaperParameters();
+
+	void setRelativeDivergenceThreshold(float relThreshold);
 
 	//The functions below are NOT thread safe.
 	//Do not mix them with any other functions
@@ -317,11 +338,12 @@ public:
 
 	//outputs statistics about overlaping sequence divergence
 	void overlapDivergenceStats();
+	void overlapDivergenceStats(const OvlpDivStats& stats, float divThreshold);
 
 	//Computes and stores all-vs-all overlaps
 	void findAllOverlaps();
 	void buildIntervalTree();
-	std::vector<Interval<OverlapRange*>> 
+	std::vector<Interval<const OverlapRange*>> 
 		getCoveringOverlaps(FastaRecord::Id seqId, int32_t start, 
 							int32_t end) const;
 
@@ -338,5 +360,8 @@ private:
 	OverlapIndex _overlapIndex;
 	std::atomic<size_t> _indexSize;
 	std::unordered_map<FastaRecord::Id, 
-					   IntervalTree<OverlapRange*>> _ovlpTree;
+					   IntervalTree<const OverlapRange*>> _ovlpTree;
+
+	float _kmerIdyEstimateBias;
+	float _meanTrueOvlpDiv;
 };

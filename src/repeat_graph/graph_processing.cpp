@@ -16,8 +16,13 @@ void GraphProcessor::simplify()
 	//this->trimTips();
 	this->fixChimericJunctions();
 	this->condenceEdges();
-	this->collapseBulges();
-	this->condenceEdges();
+	/*for (;;)
+	{
+		int changes = 0;
+		changes += this->condenceEdges();
+		changes += this->collapseBulges();
+		if (!changes) break;
+	}*/
 	//this->trimTips();
 }
 
@@ -48,7 +53,7 @@ void GraphProcessor::fixChimericJunctions()
 
 	//more common case: 2 in - 2 out
 	std::unordered_set<GraphNode*> complexCases;
-	/*for (auto& node : _graph.iterNodes())
+	for (auto& node : _graph.iterNodes())
 	{
 		if (node->inEdges.size() != 2 ||
 			node->outEdges.size() != 2) continue;
@@ -76,7 +81,7 @@ void GraphProcessor::fixChimericJunctions()
 
 		node->inEdges.pop_back();
 		node->outEdges.erase(node->outEdges.begin());
-	}*/
+	}
 
 	Logger::get().debug() << "Removed " 
 		<< simpleCases.size() << " simple and " << complexCases.size()
@@ -84,7 +89,7 @@ void GraphProcessor::fixChimericJunctions()
 }
 
 //Collapses simple small bulges
-void GraphProcessor::collapseBulges()
+/*int GraphProcessor::collapseBulges()
 {
 	const int MAX_BUBBLE = Parameters::get().minimumOverlap;
 	std::unordered_set<std::pair<GraphNode*, GraphNode*>,
@@ -135,10 +140,11 @@ void GraphProcessor::collapseBulges()
 		_graph.removeEdge(edgeTwo);
 	}
 	Logger::get().debug() << "Collapsed " << toFix.size() / 2 << " bulges";
-}
+	return toFix.size() / 2;
+}*/
 
 //Removing tips
-void GraphProcessor::trimTips()
+/*void GraphProcessor::trimTips()
 {
 	const int TIP_THRESHOLD = Config::get("tip_length_threshold");
 	std::unordered_set<GraphEdge*> toRemove;
@@ -168,14 +174,14 @@ void GraphProcessor::trimTips()
 		complEdge->nodeRight->inEdges.push_back(complEdge);
 	}
 	Logger::get().debug() << toRemove.size() << " tips clipped";
-}
+}*/
 
 //This function collapses non-branching edges paths in the graph.
 //The tricky part is the sequence representation of the new edges.
 //Two (or more) consecutive egdes will only be collapsed into one
 //if there exist at least one consigous sub-sequence from the input assembly
 //that can represent this edge
-void GraphProcessor::condenceEdges()
+int GraphProcessor::condenceEdges()
 {
 	int edgesRemoved = 0;
 	int edgesAdded = 0;
@@ -186,8 +192,8 @@ void GraphProcessor::condenceEdges()
 	auto collapseEdges = [] (const GraphPath& edges)
 	{
 		std::vector<GraphEdge> newEdges;
-		std::list<SequenceSegment> growingSeqs(edges.front()->seqSegments.begin(),
-											   edges.front()->seqSegments.end());
+		std::list<EdgeSequence> growingSeqs(edges.front()->seqSegments.begin(),
+											edges.front()->seqSegments.end());
 		assert(edges.size() > 1);
 		size_t prevStart = 0;
 		for (size_t i = 1; i < edges.size(); ++i)
@@ -199,11 +205,11 @@ void GraphProcessor::condenceEdges()
 				bool continued = false;
 				for (auto& nextSeg : edges[i]->seqSegments)
 				{
-					if (prevSeg->seqId == nextSeg.seqId &&
-						prevSeg->end == nextSeg.start)
+					if (prevSeg->origSeqId == nextSeg.origSeqId &&
+						prevSeg->origSeqEnd == nextSeg.origSeqStart)
 					{
 						continued = true;
-						prevSeg->end = nextSeg.end;
+						prevSeg->origSeqEnd = nextSeg.origSeqEnd;
 					}
 				}
 				if (!continued)
@@ -277,8 +283,8 @@ void GraphProcessor::condenceEdges()
 		}
 
 		if (addedStr.size() > 4) addedStr.erase(addedStr.size() - 4);
-		Logger::get().debug() << "Collapsed: " << unbranchingPath.edgesStr() 
-			<< " to " << addedStr;
+		//Logger::get().debug() << "Collapsed: " << unbranchingPath.edgesStr() 
+		//	<< " to " << addedStr;
 
 		std::unordered_set<GraphEdge*> toRemove;
 		for (auto& edge : unbranchingPath.path) toRemove.insert(edge);
@@ -289,8 +295,10 @@ void GraphProcessor::condenceEdges()
 		edgesAdded += newEdges.size();
 	}
 
-	Logger::get().debug() << "Removed " << edgesRemoved << " edges";
-	Logger::get().debug() << "Added " << edgesAdded << " edges";
+	//Logger::get().debug() << "Removed " << edgesRemoved << " edges";
+	//Logger::get().debug() << "Added " << edgesAdded << " edges";
+	Logger::get().debug() << "Collapsed " << edgesRemoved - edgesAdded << " edges";
+	return edgesRemoved - edgesAdded;
 }
 
 //converts edges to unbranching paths
@@ -301,7 +309,8 @@ std::vector<UnbranchingPath> GraphProcessor::getEdgesPaths() const
 	{
 		GraphPath path = {edge};
 		paths.emplace_back(path, edge->edgeId, false,
-						   edge->length(), edge->meanCoverage);
+						   edge->length(), edge->meanCoverage,
+						   "edge_");
 		paths.back().repetitive = edge->repetitive;
 	}
 	return paths;

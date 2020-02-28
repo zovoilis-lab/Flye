@@ -8,6 +8,7 @@ License: MIT
 """
 
 # see: http://goo.gl/kTQMs
+from __future__ import division
 SYMBOLS = {
     'customary'     : ('B', 'K', 'M', 'G', 'T', 'P', 'E', 'Z', 'Y'),
     'customary_ext' : ('byte', 'kilo', 'mega', 'giga', 'tera', 'peta', 'exa',
@@ -63,7 +64,7 @@ def bytes2human(n, format='%(value).1f %(symbol)s', symbols='customary'):
         prefix[s] = 1 << (i+1)*10
     for symbol in reversed(symbols[1:]):
         if n >= prefix[symbol]:
-            value = float(n) / prefix[symbol]
+            value = float(n) // prefix[symbol]
             return format % locals()
     return format % dict(symbol=symbols[0], value=n)
 

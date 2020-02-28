@@ -13,38 +13,51 @@ You can get the latest stable release through Bioconda:
 
     conda install flye
 
-Alternatively, you can get a release verson from the github "releases" page
+Alternatively, you can get a release version from the github releases page
 
 
-Requirements
-------------
+Building Requirements
+---------------------
 
+* Python 2.7 or 3.5+ (with setuptools package installed)
 * C++ compiler with C++11 support (GCC 4.8+ / Clang 3.3+ / Apple Clang 5.0+)
 * GNU make
-* Python 2.7
 * Git
-* Core OS development headers (zlib, etc)
+* Core OS development headers (zlib, ...)
 
 
-Get the latest source version
------------------------------
+Local building (without installation)
+-------------------------------------
 
+You may use the package locally without system installation.
 To get and compile the latest git version, run:
 
     git clone https://github.com/fenderglass/Flye
+    cd Flye
+    make
+
+Then, Flye will be available as:
+
+    python bin/flye
+
+
+Installing from source
+----------------------
+
+To install the Flye package into your system, run:
+
+    git clone https://github.com/fenderglass/Flye
 	cd Flye
-    python setup.py build
-
-
-After building, Flye could be invoked with the following command:
-
-    bin/flye
-
-Installation (optional)
------------------------
-You may install the package for the better OS integration:
-
     python setup.py install
 
-Alternatively, you can perform local user installation by adding ```--user``` or ```--prefix```
-options to the previous command.
+Depending on your OS, you might need to add
+```--user``` or ```--prefix``` options to the 
+install command for the local installation.
+
+After installation, Flye could be invoked via:
+
+    flye
+
+Optionally, run some tests to ensure that installation was successful:
+
+    python flye/tests/test_toy.py

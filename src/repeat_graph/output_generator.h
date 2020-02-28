@@ -16,11 +16,8 @@
 class OutputGenerator
 {
 public:
-	OutputGenerator(RepeatGraph& graph, const ReadAligner& aligner,
-					const SequenceContainer& asmSeqs,
-				    const SequenceContainer& readSeqs):
-		_graph(graph), _aligner(aligner), _asmSeqs(asmSeqs), 
-		_readSeqs(readSeqs) {}
+	OutputGenerator(RepeatGraph& graph):
+		_graph(graph) {}
 
 	void outputDot(const std::vector<UnbranchingPath>& paths, 
 				   const std::string& filename);
@@ -28,15 +25,12 @@ public:
 				   const std::string& filename);
 	void outputFasta(const std::vector<UnbranchingPath>& paths, 
 					 const std::string& filename);
-	void dumpRepeats(const std::vector<UnbranchingPath>& paths,
-					 const std::string& outFile);
-	void detailedFasta(const std::string& outFile);
 	std::vector<FastaRecord> 
 		generatePathSequences(const std::vector<UnbranchingPath>& paths) const;
 private:
 
 	RepeatGraph& _graph;
-	const ReadAligner& _aligner;
-	const SequenceContainer& _asmSeqs;
-	const SequenceContainer& _readSeqs;
+	//const ReadAligner& _aligner;
+	//const SequenceContainer& _asmSeqs;
+	//const SequenceContainer& _readSeqs;
 };

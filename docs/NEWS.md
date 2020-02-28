@@ -1,3 +1,41 @@
+Flye 2.6 release (19 Sep 2019)
+==============================
+* This release introduces Python 3 support (no other changes)
+
+Flye 2.5 release (25 Jul 2019)
+==============================
+* Better ONT polishing for the latest basecallers (Guppy/flipflop)
+* Improved consensus quality of repetitive regions
+* More contiguous assemblies of real metagenomes
+* Improvements for human genome assemblies
+* Various bugfixes and performance optimizations
+
+Flye 2.4.2 release (06 Apr 2019)
+================================
+* Improvements in k-mer selection and tip clipping for metagenome assemblies
+* Better memory managment during consensus/polishing
+* Some bugfixes
+
+Flye 2.4.1 release (05 Mar 2019)
+================================
+* Speed and stability improvements for large datasets
+* New option `--polish-target` to run Flye polisher on the target sequence
+
+
+Flye 2.4 release (14 Jan 2019)
+==============================
+* Metagenome assembly support fully integrated (`--meta` option)
+* New Trestle module for resolving simple unbridged repeats
+* New `--plasmids` option that recovers short unassembled plasmids
+
+Flye 2.3.7 (14 Nov 2018)
+=======================
+* Improvements in repeat edges detection
+* More precise read mapping - more contiguous assemblies for some datasets
+* Memory and performance optimizations for high-coverage datasets
+* More accurate repeat graphs for complex datasets
+
+
 Flye 2.3.6 (24 Sep 2018)
 ========================
 * Memory consumption for large genome assemblies reduced by ~30%
@@ -43,7 +81,7 @@ Flye 2.3 (04 Jan 2018)
 * Stable version of the repeat analysis module
 * New command-line syntax (fallback mode with the old syntax is available)
 * New --subassemblies mode for generating consensus of multiple assemblies
-* Improved preformance and reduced memory footprint (now scales to human genome)
+* Improved performance and reduced memory footprint (now scales to human genome)
 * Corrected reads are now supported
 * Extra output with information about the contigs (coverage, multiplicity, graph paths etc.)
 * Gzipped Fasta/q support

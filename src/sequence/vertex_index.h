@@ -28,7 +28,8 @@ public:
 	}
 	VertexIndex(const SequenceContainer& seqContainer, int sampleRate):
 		_seqContainer(seqContainer), _outputProgress(false), 
-		_sampleRate(sampleRate), _repetitiveFrequency(0)
+		_sampleRate(sampleRate), _repetitiveFrequency(0),
+		_solidMultiplier(1)
 		//_flankRepeatSize(flankRepeatSize)
 	{}
 
@@ -80,6 +81,8 @@ private:
 
 	struct ReadVector
 	{
+		ReadVector(uint32_t capacity = 0, uint32_t size = 0): 
+			capacity(capacity), size(size), data(nullptr) {}
 		uint32_t capacity;
 		uint32_t size;
 		IndexChunk* data;
@@ -94,35 +97,35 @@ public:
 		KmerPosIterator(ReadVector rv, size_t index, bool revComp, 
 						const SequenceContainer& seqContainer):
 			rv(rv), index(index), revComp(revComp), 
-			seqContainer(seqContainer) 
+			seqContainer(seqContainer), kmerSize(Parameters::get().kmerSize) 
 		{}
 
 		bool operator==(const KmerPosIterator& other) const
 		{
-			return rv.data == other.rv.data && index == other.index;
+			return index == other.index && rv.data == other.rv.data;
 		}
 		bool operator!=(const KmerPosIterator& other) const
 		{
 			return !(*this == other);
 		}
 
-		__attribute__((always_inline))
+		//__attribute__((always_inline))
 		ReadPosition operator*() const
 		{
 			size_t globPos = rv.data[index].get();
 			FastaRecord::Id seqId;
 			int32_t position;
-			seqContainer.seqPosition(globPos, seqId, position);
+			int32_t seqLen;
+			seqContainer.seqPosition(globPos, seqId, position, seqLen);
 
-			ReadPosition pos(seqId, position);
-			if (revComp)
+			if (!revComp)
 			{
-				pos.readId = pos.readId.rc();
-				int32_t seqLen = seqContainer.seqLen(pos.readId);
-				pos.position = seqLen - pos.position - 
-							   Parameters::get().kmerSize;
+				return ReadPosition(seqId, position);
 			}
-			return pos;
+			else
+			{
+				return ReadPosition(seqId.rc(), seqLen - position - kmerSize);
+			}
 		}
 
 		KmerPosIterator& operator++()
@@ -134,8 +137,9 @@ public:
 	private:
 		ReadVector rv;
 		size_t index;
-		bool revComp;
-		const SequenceContainer& seqContainer;
+		bool   revComp;
+		const  SequenceContainer& seqContainer;
+		size_t kmerSize;
 	};
 
 	class IterHelper
@@ -164,6 +168,8 @@ public:
 	void countKmers(size_t hardThreshold, int genomeSize);
 	void setRepeatCutoff(int minCoverage);
 	void buildIndex(int minCoverage);
+	void buildIndexUnevenCoverage(int minCoverage, float selectRate, 
+								  int tandemFreq);
 	void clear();
 
 	IterHelper iterKmerPos(Kmer kmer) const
@@ -173,17 +179,25 @@ public:
 						  _seqContainer);
 	}
 
-	__attribute__((always_inline))
-	bool isSolid(Kmer kmer) const
+	//__attribute__((always_inline))
+	/*bool isSolid(Kmer kmer) const
 	{
 		kmer.standardForm();
 		return _kmerIndex.contains(kmer);
-	}
+	}*/
 
 	bool isRepetitive(Kmer kmer) const
 	{
 		kmer.standardForm();
 		return _repetitiveKmers.contains(kmer);
+	}
+	
+	size_t kmerFreq(Kmer kmer) const
+	{
+		kmer.standardForm();
+		ReadVector rv;
+		_kmerIndex.find(kmer, rv);
+		return rv.size;
 	}
 
 	void outputProgress(bool set) 
@@ -196,9 +210,7 @@ public:
 		return _kmerDistribution;
 	}
 
-	int getSampleRate() const {return _sampleRate;}
-
-	//int getFlankRepeatSize() const {return _flankRepeatSize;}
+	int getSampleRate() const {return _sampleRate * _solidMultiplier;}
 
 private:
 	void addFastaSequence(const FastaRecord& fastaRecord);
@@ -208,7 +220,7 @@ private:
 	bool    _outputProgress;
 	int32_t _sampleRate;
 	size_t  _repetitiveFrequency;
-	//int32_t _flankRepeatSize;
+	int32_t _solidMultiplier;
 
 	const size_t MEM_CHUNK = 32 * 1024 * 1024 / sizeof(IndexChunk);
 	std::vector<IndexChunk*> _memoryChunks;

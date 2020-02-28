@@ -5,45 +5,94 @@
 #pragma once
 
 #include <list>
+#include <set>
 
 #include "../sequence/sequence_container.h"
 #include "../sequence/overlap.h"
 #include "../common/config.h"
 #include "../common/utils.h"
 
-struct SequenceSegment
+struct EdgeSequence
 {
-	enum SegmentType {Asm, Read};
+	EdgeSequence(FastaRecord::Id edgeSeqId = FastaRecord::ID_NONE,
+				 int32_t seqLen = 0):
+		edgeSeqId(edgeSeqId), seqLen(seqLen), origSeqId(FastaRecord::ID_NONE),
+		origSeqLen(0), origSeqStart(0), origSeqEnd(0) {}
 
-	SequenceSegment(FastaRecord::Id seqId = FastaRecord::ID_NONE, 
-					int32_t seqLen = 0, int32_t start = 0, 
-					int32_t end = 0):
-		seqId(seqId), seqLen(seqLen), start(start), 
-		end(end), segType(Asm) {}
+		EdgeSequence(FastaRecord::Id origSeq, int32_t origLen,  
+					 int32_t origSeqStart, int32_t origSeqEnd):
+		edgeSeqId(FastaRecord::ID_NONE), seqLen(origSeqEnd - origSeqStart),
+		origSeqId(origSeq), origSeqLen(origLen),
+		origSeqStart(origSeqStart), origSeqEnd(origSeqEnd) {}
 
-	SequenceSegment complement() const
+	EdgeSequence complement() const
 	{
-		SequenceSegment other(*this);
-		other.seqId = seqId.rc();
-		other.start = seqLen - end - 1;
-		other.end = seqLen - start - 1;
+		EdgeSequence other(*this);
+		other.edgeSeqId = edgeSeqId.rc();
+		if (origSeqId != FastaRecord::ID_NONE) 
+		{
+			other.origSeqId = origSeqId.rc();
+			other.origSeqStart = origSeqLen - origSeqEnd - 1;
+			other.origSeqEnd = origSeqLen - origSeqStart - 1;
+		}
 		return other;
 	}
 
-	int32_t length() const {return end - start;}
-
-	bool operator==(const SequenceSegment& other)
+	bool operator==(const EdgeSequence& other)
 	{
-		return seqId == other.seqId && start == other.start && end == other.end;
+		return edgeSeqId == other.edgeSeqId && 
+			   seqLen == other.seqLen &&
+			   origSeqId == other.origSeqId &&
+			   origSeqLen == other.origSeqLen &&
+			   origSeqStart == other.origSeqStart &&
+			   origSeqEnd == other.origSeqEnd;
 	}
 
-	FastaRecord::Id seqId;
-	int32_t seqLen;
-	int32_t start;
-	int32_t end;
+	void dump(std::ostream& os, const SequenceContainer& edgesSeqs)
+	{
+		std::string origIdString = 
+			origSeqId != FastaRecord::ID_NONE ?
+			std::to_string(origSeqId.signedId()) : "*";
+		os  << edgesSeqs.seqName(edgeSeqId) << " " << seqLen 
+			<< " " << origIdString << " " << origSeqLen << " " << origSeqStart 
+			<< " " << origSeqEnd;
+	}
 
-	SegmentType segType;
+	void parse(std::istream& is, const SequenceContainer& edgeSeqs)
+	{
+		std::string edgeSeqName;
+		std::string origSeqName;
+		is  >> edgeSeqName >> seqLen >> origSeqName >> origSeqLen 
+			>> origSeqStart >> origSeqEnd;
+		edgeSeqId = edgeSeqs.recordByName(edgeSeqName).id;
+		
+		if (origSeqName == "*")
+		{
+			origSeqId = FastaRecord::ID_NONE;
+		}
+		else
+		{
+			size_t unsignedId = llabs(atoll(origSeqName.c_str())) * 2 - 2;
+			unsignedId += atoll(origSeqName.c_str()) < 0;
+			origSeqId = FastaRecord::Id(unsignedId);
+		}
+	}
+
+	//index in the repeat graph sequence container
+	FastaRecord::Id edgeSeqId;
+	int32_t seqLen;
+	
+	//this information is required during repeat graph construction,
+	//but not necessary afterwards. It might be used for 
+	//some huristics later on, but it it not guaranteed that all
+	//edges will have it
+	FastaRecord::Id origSeqId;
+	int32_t origSeqLen;
+	int32_t origSeqStart;
+	int32_t origSeqEnd;
 };
+
+
 
 struct GraphNode;
 
@@ -54,7 +103,9 @@ struct GraphEdge
 		nodeLeft(nodeLeft), nodeRight(nodeRight), 
 		edgeId(edgeId), repetitive(false), 
 		selfComplement(false), resolved(false), 
-		meanCoverage(0), substractedCoverage(0) {}
+		altHaplotype(false), altGroupId(-1),
+		meanCoverage(0), leftLink(nullptr), 
+		rightLink(nullptr) {}
 
 	bool isRepetitive() const 
 		{return repetitive;}
@@ -62,14 +113,7 @@ struct GraphEdge
 	bool isLooped() const 
 		{return nodeLeft == nodeRight;}
 
-	bool isTip() const;
-
-	void addSequence(FastaRecord::Id id, int32_t length, 
-					 int32_t start, int32_t end)
-	{
-		seqSegments.emplace_back(id, length, start, end);
-		//++multiplicity;
-	}
+	bool isRightTerminal() const;
 
 	int32_t length() const
 	{
@@ -78,29 +122,37 @@ struct GraphEdge
 		int64_t sumLen = 0;
 		for (auto& seqSeg : seqSegments)
 		{
-			sumLen += seqSeg.end - seqSeg.start;
+			sumLen += seqSeg.seqLen;
 		}
 		return sumLen / seqSegments.size();
 	}
 
 	std::unordered_set<GraphEdge*> adjacentEdges();
 
+	/////////////////////////
+
 	GraphNode* nodeLeft;
 	GraphNode* nodeRight;
 
 	FastaRecord::Id edgeId;
-	std::vector<SequenceSegment> seqSegments;
+	std::vector<EdgeSequence> seqSegments;
 
-	//int  multiplicity;
 	bool repetitive;
 	bool selfComplement;
 	bool resolved;
+	bool altHaplotype;
+	int  altGroupId;
+	//bool unreliable;
 	int  meanCoverage;
-	int  substractedCoverage;
+
+	GraphEdge* leftLink;
+	GraphEdge* rightLink;
 };
 
 struct GraphNode
 {
+	GraphNode(size_t nodeId): nodeId(nodeId) {}
+
 	bool isBifurcation() const
 		{return outEdges.size() != 1 || inEdges.size() != 1;}
 
@@ -172,26 +224,28 @@ struct GraphNode
 
 	std::vector<GraphEdge*> inEdges;
 	std::vector<GraphEdge*> outEdges;
+	size_t nodeId;
 };
 
 typedef std::vector<GraphEdge*> GraphPath;
 
-struct EdgeAlignment
-{
-	OverlapRange overlap;
-	GraphEdge* edge;
-	SequenceSegment segment;
-};
-typedef std::vector<EdgeAlignment> GraphAlignment;
 
 class RepeatGraph
 {
 public:
-	RepeatGraph(const SequenceContainer& asmSeqs):
-		 _nextEdgeId(0), _asmSeqs(asmSeqs)
+	RepeatGraph(const SequenceContainer& asmSeqs, SequenceContainer* graphSeqs):
+		 _nextEdgeId(0), _nextNodeId(0), _asmSeqs(asmSeqs), 
+		 _edgeSeqsContainer(graphSeqs)
 	{}
+	~RepeatGraph();
 
 	void build();
+	void updateEdgeSequences();
+	void storeGraph(const std::string& filename);
+	void loadGraph(const std::string& filename);
+
+	void validateGraph();
+
 	GraphPath  complementPath(const GraphPath& path) const;
 	GraphEdge* complementEdge(GraphEdge* edge) const;
 	GraphNode* complementNode(GraphNode* node) const;
@@ -199,8 +253,9 @@ public:
 	//nodes
 	GraphNode* addNode()
 	{
-		GraphNode* node = new GraphNode();
+		GraphNode* node = new GraphNode(_nextNodeId);
 		_graphNodes.insert(node);
+		++_nextNodeId;
 		return node;
 	}
 
@@ -223,11 +278,15 @@ public:
 	//edges
 	GraphEdge* addEdge(GraphEdge&& edge)
 	{
+		if (this->getEdge(edge.edgeId))
+		{
+			throw std::runtime_error("Adding edge with duplicated id");
+		}
+
 		GraphEdge* newEdge = new GraphEdge(edge);
-		_graphEdges.insert(newEdge);
 		newEdge->nodeLeft->outEdges.push_back(newEdge);
 		newEdge->nodeRight->inEdges.push_back(newEdge);
-		
+		_sortedEdges.insert(newEdge);
 		_idToEdge[newEdge->edgeId] = newEdge;
 		if (newEdge->selfComplement)
 		{
@@ -235,32 +294,42 @@ public:
 		}
 		return newEdge;
 	}
-	bool hasEdge(GraphEdge* edge)
+	/*bool hasEdge(GraphEdge* edge)
 	{
-		return _graphEdges.count(edge);
+		return _idToEdge.count(edge->edgeId);
+		//return _sortedEdges.count(edge);
+	}*/
+	GraphEdge* getEdge(FastaRecord::Id edgeId)
+	{
+		if (_idToEdge.count(edgeId)) return _idToEdge[edgeId];
+		return nullptr;
 	}
 	class IterEdges
 	{
 	public:
 		IterEdges(RepeatGraph& graph): _graph(graph) {}
 
-		std::unordered_set<GraphEdge*>::iterator begin() 
-			{return _graph._graphEdges.begin();}
-		std::unordered_set<GraphEdge*>::iterator end() 
-			{return _graph._graphEdges.end();}
+		std::set<GraphEdge*>::iterator begin() 
+			{return _graph._sortedEdges.begin();}
+		std::set<GraphEdge*>::iterator end() 
+			{return _graph._sortedEdges.end();}
 	
 	private:
 		RepeatGraph& _graph;
 	};
+
 	IterEdges iterEdges() {return IterEdges(*this);}
+
 	void removeEdge(GraphEdge* edge)
 	{
 		vecRemove(edge->nodeRight->inEdges, edge);
 		vecRemove(edge->nodeLeft->outEdges, edge);
-		_graphEdges.erase(edge);
+		_sortedEdges.erase(edge);
 		_idToEdge.erase(edge->edgeId);
-		delete edge;
+		_deletedEdges.insert(edge);
+		//delete edge;
 	}
+
 	void removeNode(GraphNode* node)
 	{
 		std::unordered_set<GraphEdge*> toRemove;
@@ -276,12 +345,16 @@ public:
 		}
 		for (auto& edge : toRemove)
 		{
-			_graphEdges.erase(edge);
-			delete edge;
+			_sortedEdges.erase(edge);
+			_idToEdge.erase(edge->edgeId);
+			_deletedEdges.insert(edge);
+			//delete edge;
 		}
 		_graphNodes.erase(node);
-		delete node;
+		_deletedNodes.insert(node);
+		//delete node;
 	}
+
 	//
 	FastaRecord::Id newEdgeId()
 	{
@@ -290,8 +363,45 @@ public:
 		return FastaRecord::Id(curId);
 	}
 
+	const SequenceContainer& edgeSequences() {return *_edgeSeqsContainer;}
+
+	EdgeSequence addEdgeSequence(const DnaSequence& sequence, 
+							 	 int32_t start, int32_t length,
+							 	 const std::string& description);
+
+	void disconnectRight(GraphEdge* edge)
+	{
+		GraphNode* newNode = this->addNode();
+		vecRemove(edge->nodeRight->inEdges, edge);
+		edge->nodeRight = newNode;
+		edge->nodeRight->inEdges.push_back(edge);
+	};
+
+	void disconnectLeft(GraphEdge* edge)
+	{
+		GraphNode* newNode = this->addNode();
+		vecRemove(edge->nodeLeft->outEdges, edge);
+		edge->nodeLeft = newNode;
+		edge->nodeLeft->outEdges.push_back(edge);
+	};
+
+	void linkEdges(GraphEdge* leftEdge, GraphEdge* rightEdge)
+	{
+		if (leftEdge->rightLink || rightEdge->leftLink)
+		{
+			if (leftEdge->rightLink != rightEdge ||
+				rightEdge->leftLink != leftEdge) Logger::get().warning() << "Relinking!";
+
+			return;
+		}
+
+		leftEdge->rightLink = rightEdge;
+		rightEdge->leftLink = leftEdge;
+	}
+
 private:
 	size_t _nextEdgeId;
+	size_t _nextNodeId;
 
 	struct GluePoint
 	{
@@ -324,12 +434,21 @@ private:
 	void checkGluepointProjections(const OverlapContainer& asmOverlaps);
 	
 	const SequenceContainer& _asmSeqs;
+	SequenceContainer* 		 _edgeSeqsContainer;
 	const int _maxSeparation = Config::get("max_separation");
 
 	std::unordered_map<FastaRecord::Id, 
 					   std::vector<GluePoint>> _gluePoints;
 
-	std::unordered_set<GraphNode*> _graphNodes;
-	std::unordered_set<GraphEdge*> _graphEdges;
 	std::unordered_map<FastaRecord::Id, GraphEdge*> _idToEdge;
+	std::unordered_set<GraphEdge*> _deletedEdges;
+	std::unordered_set<GraphNode*> _graphNodes;
+	std::unordered_set<GraphNode*> _deletedNodes;
+
+	struct CmpId 
+	{
+		bool operator() (GraphEdge* const &e1, GraphEdge* const &e2) const
+		{return e1->edgeId < e2->edgeId;}
+	};
+	std::set<GraphEdge*, CmpId> _sortedEdges;
 };

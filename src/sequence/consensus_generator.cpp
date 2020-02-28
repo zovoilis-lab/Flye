@@ -129,7 +129,7 @@ std::vector<FastaRecord>
 	ConsensusGenerator::generateConsensuses(const std::vector<ContigPath>& contigs, 
 											bool verbose)
 {
-	if (verbose) Logger::get().info() << "Generating contig sequences";
+	if (verbose) Logger::get().info() << "Generating sequence";
 	std::vector<std::vector<AlignmentInfo>> allAlignments;
 	std::vector<FastaRecord> consensuses;
 
@@ -197,7 +197,7 @@ ConsensusGenerator::AlignmentsMap
 	AlignmentsMap alnMap;
 	std::mutex mapMutex;
 	std::function<void(const AlnTask&)> alnFunc =
-	[this, &alnMap, &mapMutex](const AlnTask& task)
+	[&alnMap, &mapMutex](const AlnTask& task)
 	{
 		const ContigPath* path = task.first;
 		size_t i = task.second;

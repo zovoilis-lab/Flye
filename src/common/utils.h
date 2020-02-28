@@ -7,6 +7,9 @@
 #include <vector>
 #include <algorithm>
 #include <sstream>
+#include <execinfo.h>
+
+#include "logger.h"
 
 template<class T>
 void vecRemove(std::vector<T>& v, T val)
@@ -56,3 +59,50 @@ splitString(const std::string &s, char delim)
 	while (std::getline(ss, item, delim)) elems.push_back(item);
 	return elems;
 }
+
+inline bool fileExists(const std::string& path)
+{
+	std::ifstream fin(path);
+	return fin.good();
+}
+
+inline void segfaultHandler(int signal __attribute__((unused)))
+{
+	void *stackArray[20];
+	size_t size = backtrace(stackArray, 10);
+	Logger::get().error() << "Segmentation fault! Backtrace:";
+	char** backtrace = backtrace_symbols(stackArray, size);
+	for (size_t i = 0; i < size; ++i)
+	{
+		Logger::get().error() << "\t" << backtrace[i];
+	}
+	abort();
+}
+
+inline void exceptionHandler()
+{
+	static bool triedThrow = false;
+	try
+	{
+        if (!triedThrow)
+		{
+			triedThrow = true;
+			throw;
+		}
+    }
+    catch (const std::exception &e) 
+	{
+        Logger::get().error() << "Caught unhandled exception: " << e.what();
+    }
+	catch (...) {}
+
+	void *stackArray[20];
+	size_t size = backtrace(stackArray, 10);
+	char** backtrace = backtrace_symbols(stackArray, size);
+	for (size_t i = 0; i < size; ++i)
+	{
+		Logger::get().error() << "\t" << backtrace[i];
+	}
+	abort();
+}
+

@@ -19,13 +19,15 @@ namespace
 }
 
 BubbleProcessor::BubbleProcessor(const std::string& subsMatPath,
-								 const std::string& hopoMatrixPath):
+								 const std::string& hopoMatrixPath,
+								 bool showProgress):
 	_subsMatrix(subsMatPath),
 	_hopoMatrix(hopoMatrixPath),
 	_generalPolisher(_subsMatrix),
 	_homoPolisher(_subsMatrix, _hopoMatrix),
 	_dinucFixer(_subsMatrix),
-	_verbose(false)
+	_verbose(false),
+	_showProgress(showProgress)
 {
 }
 
@@ -38,6 +40,10 @@ void BubbleProcessor::polishAll(const std::string& inBubbles,
 	_cachedBubbles.reserve(BUBBLES_CACHE);
 
 	size_t fileLength = fileSize(inBubbles);
+	if (!fileLength)
+	{
+		throw std::runtime_error("Empty bubbles file!");
+	}
 	_bubblesFile.open(inBubbles);
 	if (!_bubblesFile.is_open())
 	{
@@ -61,7 +67,7 @@ void BubbleProcessor::polishAll(const std::string& inBubbles,
 	{
 		threads[i].join();
 	}
-	_progress.setDone();
+	if (_showProgress) _progress.setDone();
 }
 
 
@@ -90,7 +96,7 @@ void BubbleProcessor::parallelWorker()
 		{
 			_stateMutex.unlock();
 			_generalPolisher.polishBubble(bubble);
-			_homoPolisher.polishBubble(bubble);
+			//_homoPolisher.polishBubble(bubble);
 			_dinucFixer.fixBubble(bubble);
 			_stateMutex.lock();
 		}
@@ -191,7 +197,7 @@ void BubbleProcessor::cacheBubbles(int maxRead)
 	}
 
 	int64_t filePos = _bubblesFile.tellg();
-	if (filePos > 0)
+	if (_showProgress && filePos > 0)
 	{
 		_progress.setValue(filePos);
 	}

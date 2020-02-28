@@ -9,11 +9,11 @@
 #include <cmath>
 
 
+
 //Estimates the mean coverage and assingns edges multiplicity accordingly
 void MultiplicityInferer::estimateCoverage()
 {
 	const int WINDOW = Config::get("coverage_estimate_window");
-	const int SHORT_EDGE = Config::get("unique_edge_length");
 
 	//alternative coverage
 	std::unordered_map<GraphEdge*, std::vector<int32_t>> wndCoverage;
@@ -26,19 +26,17 @@ void MultiplicityInferer::estimateCoverage()
 
 	for (auto& path : _aligner.getAlignments())
 	{
-		for (size_t i = 0; i < path.size(); ++i)
+		for (size_t pathId = 0; pathId < path.size(); ++pathId)
 		{
-			auto& ovlp = path[i].overlap;
-			auto& coverage = wndCoverage[path[i].edge];
-			for (int pos = ovlp.extBegin / WINDOW + 1; 
-			 	 pos < ovlp.extEnd / WINDOW; ++pos)
-			{
-				if (pos >= 0 && 
-					pos < (int)coverage.size())
-				{
-					++coverage[pos];
-				}
-			}
+			auto& edgeCov = wndCoverage[path[pathId].edge];
+			int covFrom = std::max(0, path[pathId].overlap.extBegin / WINDOW + 1);
+			int covTo = std::min((int)edgeCov.size(), path[pathId].overlap.extEnd / WINDOW);
+
+			//for intermediae alignments, cover the entire edge
+			if (pathId > 0) covFrom = 0;
+			if (pathId < path.size() - 1) covTo = edgeCov.size();
+
+			for (int i = covFrom; i < covTo; ++i) ++edgeCov[i];
 		}
 	}
 
@@ -46,14 +44,13 @@ void MultiplicityInferer::estimateCoverage()
 	int64_t sumLength = 0;
 	for (auto& edgeCoverage : wndCoverage)
 	{
-		if (edgeCoverage.first->length() < SHORT_EDGE) continue;
 		for (auto& cov : edgeCoverage.second)
 		{
 			sumCov += (int64_t)cov;
 			++sumLength;
 		}
 	}
-	_meanCoverage = (sumLength != 0) ? sumCov / sumLength : 1;
+	_meanCoverage = (sumLength != 0) ? sumCov / sumLength : /*defaut*/ 1;
 
 	Logger::get().info() << "Mean edge coverage: " << _meanCoverage;
 
@@ -66,9 +63,7 @@ void MultiplicityInferer::estimateCoverage()
 		int32_t medianCov = (median(wndCoverage[edge]) + 
 						 	 median(wndCoverage[complEdge])) / 2;
 
-		float minMult = (!edge->isTip()) ? 1 : 0;
-		int estMult = std::max(minMult, std::round((float)medianCov / 
-													_meanCoverage));
+		int estMult = std::round((float)medianCov / _meanCoverage);
 		if (estMult == 1)
 		{
 			edgesCoverage.push_back(medianCov);
@@ -85,7 +80,7 @@ void MultiplicityInferer::estimateCoverage()
 		edge->meanCoverage = medianCov;
 	}
 
-	_uniqueCovThreshold = 2;
+	_uniqueCovThreshold = /*default*/ 2;
 	if (!edgesCoverage.empty())
 	{
 		const float MULT = 1.75f;	//at least 1.75x of mean coverage
@@ -94,41 +89,367 @@ void MultiplicityInferer::estimateCoverage()
 	Logger::get().debug() << "Unique coverage threshold " << _uniqueCovThreshold;
 }
 
-//removes edges with low coverage support from the graph
-void MultiplicityInferer::removeUnsupportedEdges()
+int MultiplicityInferer::resolveForks()
 {
-	GraphProcessor proc(_graph, _asmSeqs, _readSeqs);
+	//const int UNIQUE_LEN = (int)Config::get("unique_edge_length");
+	const int MAJOR_TO_MINOR = 5;
+
+	int numDisconnected = 0;
+	std::vector<GraphNode*> originalNodes(_graph.iterNodes().begin(), 
+									      _graph.iterNodes().end());
+	for (GraphNode* node : originalNodes)
+	{
+		//only forks: one in, two out
+		if (node->inEdges.size() != 1 ||
+			node->outEdges.size() != 2) continue;
+
+		GraphEdge* inEdge = node->inEdges.front();
+		GraphEdge* outMajor = node->outEdges[0];
+		GraphEdge* outMinor = node->outEdges[1];
+		if (outMinor->meanCoverage > outMajor->meanCoverage)
+		{
+			std::swap(outMajor, outMinor);
+		}
+
+		//confirming the correct structure
+		if (inEdge->selfComplement || inEdge->isLooped() ||
+			outMajor->selfComplement || outMajor->isLooped() ||
+			outMinor->selfComplement || outMinor->isLooped()) continue;
+
+		//we want out input edge to be unique. This is not the
+		//most reliable way to tell, but at least something
+		//if (inEdge->length() < UNIQUE_LEN) continue;
+
+		//we want coverage of major edges significantly higher than minor
+		if (std::min(outMajor->meanCoverage, inEdge->meanCoverage) < 
+			outMinor->meanCoverage * MAJOR_TO_MINOR) continue;
+
+		//looks like all is good
+		Logger::get().debug() << "Disconnected fork: " << outMinor->edgeId.signedId();
+		_graph.disconnectLeft(outMinor);
+		_graph.disconnectRight(_graph.complementEdge(outMinor));
+		++numDisconnected;
+	}
+
+	_aligner.updateAlignments();
+	Logger::get().debug() << "[SIMPL] Simplified " << numDisconnected << " forks";
+	return numDisconnected;
+}
+
+//Masks out edges with low coverage (but not removes them)
+/*int MultiplicityInferer::maskUnsupportedEdges()
+{
+
+	GraphProcessor proc(_graph, _asmSeqs);
 	auto unbranchingPaths = proc.getUnbranchingPaths();
 
-	int32_t coverageThreshold = this->getMeanCoverage() / 
-								Config::get("graph_cov_drop_rate");
+	int32_t coverageThreshold = 0;
+	const int MIN_CUTOFF = std::round((float)Config::get("min_read_cov_cutoff"));
+	if (!Parameters::get().unevenCoverage)
+	{
+		coverageThreshold = std::round((float)this->getMeanCoverage() / 
+										Config::get("graph_cov_drop_rate"));
+		coverageThreshold = std::max(MIN_CUTOFF, coverageThreshold);
+	}
+	else
+	{
+		coverageThreshold = MIN_CUTOFF;
+	}
 	Logger::get().debug() << "Read coverage cutoff: " << coverageThreshold;
 
-	std::unordered_set<GraphEdge*> edgesRemove;
+	int numMasked = 0;
 	for (auto& path : unbranchingPaths)
 	{
 		if (!path.id.strand()) continue;
 
-		if (path.meanCoverage <= coverageThreshold)
+		//it's a dead end
+		//if (path.nodeRight()->outEdges.size() > 0) continue;
+
+		if (path.meanCoverage < coverageThreshold)
 		{
-			Logger::get().debug() << "Low coverage: " 
-				<< path.edgesStr() << " " << path.meanCoverage;
+			//Logger::get().debug() << "Low coverage: " 
+			//	<< path.edgesStr() << " " << path.meanCoverage;
 			for (auto& edge : path.path)
 			{
-				edgesRemove.insert(edge);
-				edgesRemove.insert(_graph.complementEdge(edge));
+				edge->unreliable = true;
+				_graph.complementEdge(edge)->unreliable = true;
+			}
+			++numMasked;
+		}
+	}
+	Logger::get().debug() << "[SIMPL] Masked " << numMasked
+		<< " paths with low coverage";
+
+	return numMasked;
+}*/
+
+//removes the edges with low coverage, with an option to
+//only remove tips
+int MultiplicityInferer::removeUnsupportedEdges(bool onlyTips)
+{
+	GraphProcessor proc(_graph, _asmSeqs);
+	auto unbranchingPaths = proc.getUnbranchingPaths();
+
+	int32_t coverageThreshold = 0;
+	const int MIN_CUTOFF = std::round((float)Config::get("min_read_cov_cutoff"));
+	if (!Parameters::get().unevenCoverage)
+	{
+		coverageThreshold = std::round((float)this->getMeanCoverage() / 
+										Config::get("graph_cov_drop_rate"));
+		coverageThreshold = std::max(MIN_CUTOFF, coverageThreshold);
+	}
+	else
+	{
+		coverageThreshold = MIN_CUTOFF;
+	}
+	Logger::get().debug() << "Read coverage cutoff: " << coverageThreshold;
+
+	std::unordered_set<GraphEdge*> toRemove;
+	int removedPaths = 0;
+	for (auto& path : unbranchingPaths)
+	{
+		if (!path.id.strand()) continue;
+
+		//check if it's a tip
+		if (onlyTips && !path.path.back()->isRightTerminal()) continue;
+
+		if (path.meanCoverage < coverageThreshold)
+		{
+			++removedPaths;
+			for (auto& edge : path.path)
+			{
+				toRemove.insert(edge);
+				toRemove.insert(_graph.complementEdge(edge));
 			}
 		}
 	}
-	for (auto& edge : edgesRemove) _graph.removeEdge(edge);
-	Logger::get().debug() << "Removed " << edgesRemove.size() / 2
-		<< " unsupported edges";
+
+	for (auto& edge : toRemove) _graph.removeEdge(edge);
+	Logger::get().debug() << "[SIMPL] Removed " << removedPaths
+		<< " paths with low coverage";
 
 	_aligner.updateAlignments();
+	return toRemove.size() / 2;
 }
 
-void MultiplicityInferer::removeUnsupportedConnections()
+int MultiplicityInferer::disconnectMinorPaths()
 {
+	const int DETACH_RATE = 5;
+
+	auto nodeDegree = [](GraphNode* node)
+	{
+		std::vector<int> coverages;
+		for (auto& edge : node->inEdges) 
+		{
+			if (!edge->isLooped()) coverages.push_back(edge->meanCoverage);
+		}
+		for (auto& edge : node->outEdges) 
+		{
+			if (!edge->isLooped()) coverages.push_back(edge->meanCoverage);
+		}
+		if (coverages.size() < 3) return 0;
+		return median(coverages);
+
+		/*int maxIn = 0;
+		int maxOut = 0;
+		for (auto& edge : node->inEdges) 
+		{
+			if (!edge->isLooped()) maxIn = std::max(maxIn, edge->meanCoverage);
+		}
+		for (auto& edge : node->outEdges) 
+		{
+			if (!edge->isLooped()) maxOut = std::max(maxOut, edge->meanCoverage);
+		}
+		return std::min(maxIn, maxOut);*/
+	};
+
+	int numDisconnected = 0;
+	GraphProcessor proc(_graph, _asmSeqs);
+	auto unbranchingPaths = proc.getUnbranchingPaths();
+
+	std::unordered_set<FastaRecord::Id> toRemove;
+	for (auto& path : unbranchingPaths)
+	{
+		if (!path.id.strand() || 
+			path.isLooped() ||
+			path.path.front()->selfComplement) continue;
+		if (path.nodeLeft()->inEdges.empty() ||
+			path.nodeRight()->outEdges.empty())	continue; //already detached or tip
+
+		bool weakLeft = path.nodeLeft()->inEdges.empty() || 
+						nodeDegree(path.nodeLeft()) > path.meanCoverage * DETACH_RATE;
+		bool weakRight = path.nodeRight()->outEdges.empty() || 
+						 nodeDegree(path.nodeRight()) > path.meanCoverage * DETACH_RATE;
+		if (weakLeft && weakRight) toRemove.insert(path.id);
+	}
+	
+	for (auto& path : unbranchingPaths)
+	{
+		if (toRemove.count(path.id))
+		{
+			_graph.disconnectLeft(path.path.front());
+			_graph.disconnectLeft(_graph.complementEdge(path.path.back()));
+			_graph.disconnectRight(path.path.back());
+			_graph.disconnectRight(_graph.complementEdge(path.path.front()));
+			++numDisconnected;
+			Logger::get().debug() << "Fragile path: " << path.edgesStr();
+		}
+	}
+
+	_aligner.updateAlignments();
+	Logger::get().debug() << "[SIMPL] Disconnected "
+		<< numDisconnected << " minor paths";
+
+	return numDisconnected;
+}
+
+//Checks each node in the graph if all edges form a single
+//connectivity cluster based on read alignment. If
+//there are multiple cluster, the node is split into 
+//multiple corresponding nodes. This, for example,
+//addresses chimeric connections
+int MultiplicityInferer::splitNodes()
+{
+	static const int MIN_JCT_SUPPORT = 1;
+
+	Logger::get().debug() << "Splitting nodes";
+	int numSplit = 0;
+
+	//storing connectivity information
+	std::unordered_map<GraphEdge*, 
+					   std::unordered_map<GraphEdge*, int>> readSupport;
+	for (auto& readPath : _aligner.getAlignments())
+	{
+		if (readPath.size() < 2) continue;
+		
+		for (size_t i = 0; i < readPath.size() - 1; ++i)
+		{
+			//if (readPath[i].edge == readPath[i + 1].edge &&
+			//	readPath[i].edge->isLooped()) continue;
+			if (readPath[i].edge->edgeId == 
+				readPath[i + 1].edge->edgeId.rc()) continue;
+
+			++readSupport[readPath[i].edge][readPath[i + 1].edge];
+		}
+	}
+
+	std::unordered_set<GraphNode*> usedNodes;
+	std::vector<GraphNode*> originalNodes(_graph.iterNodes().begin(), 
+									      _graph.iterNodes().end());
+	for (auto& nodeToSplit : originalNodes)
+	{
+		if (nodeToSplit->inEdges.size() < 2 ||
+			nodeToSplit->outEdges.size() < 2) continue;
+		if (usedNodes.count(nodeToSplit)) continue;
+		usedNodes.insert(_graph.complementNode(nodeToSplit));
+		bool selfComplNode = nodeToSplit == _graph.complementNode(nodeToSplit);
+
+		//initializing sets (to cluster them later)
+		struct EdgeDir
+		{
+			GraphEdge* edge;
+			bool isInput;
+		};
+		typedef SetNode<EdgeDir> SetElement;
+		SetVec<EdgeDir> allElements;
+		std::unordered_map<GraphEdge*, SetElement*> inputElements;
+		std::unordered_map<GraphEdge*, SetElement*> outputElements;
+		for (GraphEdge* edge : nodeToSplit->inEdges) 
+		{
+			allElements.push_back(new SetElement({edge, true}));
+			inputElements[edge] = allElements.back();
+		}
+		for (GraphEdge* edge : nodeToSplit->outEdges) 
+		{
+			allElements.push_back(new SetElement({edge, false}));
+			outputElements[edge] = allElements.back();
+		}
+
+		//grouping edges if they are connected by reads
+		for (GraphEdge* inEdge : nodeToSplit->inEdges)
+		{
+			for (auto outEdge : readSupport[inEdge])
+			{
+				if (outEdge.second >= MIN_JCT_SUPPORT)
+				{
+					unionSet(inputElements[inEdge], 
+							 outputElements[outEdge.first]);
+				}
+			}
+		}
+
+		auto clusters = groupBySet(allElements);
+		if (clusters.size() > 1)	//need to split the node!
+		{
+			numSplit += 1;
+			Logger::get().debug() << "Node " 
+				<< nodeToSplit->inEdges.size() + nodeToSplit->outEdges.size()
+				<< " clusters: " << clusters.size() << " " << selfComplNode;
+
+			for (auto& cl : clusters)
+			{
+				Logger::get().debug() << "\tCl: " << cl.second.size();
+				for (auto edgeDir : cl.second)
+				{
+					Logger::get().debug() << "\t\t" << edgeDir.edge->edgeId.signedId() << " " 
+						<< edgeDir.edge->length() << " " << edgeDir.edge->meanCoverage << " "
+						<< edgeDir.isInput;
+				}
+			}
+
+			for (auto& cl : clusters)
+			{
+				auto switchNode = [](GraphEdge* edge, 
+									 GraphNode* newNode,
+									 bool isInput)
+				{
+					if (!isInput)
+					{
+						vecRemove(edge->nodeLeft->outEdges, edge);
+						edge->nodeLeft = newNode;
+						newNode->outEdges.push_back(edge);
+					}
+					else
+					{
+						vecRemove(edge->nodeRight->inEdges, edge);
+						edge->nodeRight = newNode;
+						newNode->inEdges.push_back(edge);
+					}
+
+				};
+
+				GraphNode* newNode = _graph.addNode();
+				GraphNode* newComplNode = _graph.addNode();
+				for (auto edgeDir : cl.second)
+				{
+					GraphEdge* complEdge = _graph.complementEdge(edgeDir.edge);
+					//GraphNode* complSplit = _graph.complementNode(nodeToSplit);
+					switchNode(edgeDir.edge, newNode, edgeDir.isInput);
+					//if (!edgeDir.edge->selfComplement && !selfComplNode)
+					if (!selfComplNode)
+					{
+						switchNode(complEdge, newComplNode, 
+								   !edgeDir.isInput);
+					}
+				}
+			}
+		}
+	}
+
+	_aligner.updateAlignments();
+	Logger::get().debug() << "[SIMPL] Split " << numSplit << " nodes";
+
+	return numSplit;
+}
+
+
+//Disconnects edges, which had low number of reads that connect them
+//with the rest of the graph. #of reads is relative to the
+//edge coverage
+int MultiplicityInferer::removeUnsupportedConnections()
+{
+	static const int MIN_JCT_SUPPORT = 2;
+
 	std::unordered_map<GraphEdge*, int32_t> rightConnections;
 	std::unordered_map<GraphEdge*, int32_t> leftConnections;
 
@@ -142,8 +463,8 @@ void MultiplicityInferer::removeUnsupportedConnections()
 
 		for (size_t i = 0; i < readPath.size() - 1; ++i)
 		{
-			if (readPath[i].edge == readPath[i + 1].edge &&
-				readPath[i].edge->isLooped()) continue;
+			//if (readPath[i].edge == readPath[i + 1].edge &&
+			//	readPath[i].edge->isLooped()) continue;
 			if (readPath[i].edge->edgeId == 
 				readPath[i + 1].edge->edgeId.rc()) continue;
 
@@ -156,28 +477,16 @@ void MultiplicityInferer::removeUnsupportedConnections()
 		}
 	}
 
-	auto disconnectRight = [this](GraphEdge* edge)
-	{
-		GraphNode* newNode = _graph.addNode();
-		vecRemove(edge->nodeRight->inEdges, edge);
-		edge->nodeRight = newNode;
-		edge->nodeRight->inEdges.push_back(edge);
-	};
-	auto disconnectLeft = [this](GraphEdge* edge)
-	{
-		GraphNode* newNode = _graph.addNode();
-		vecRemove(edge->nodeLeft->outEdges, edge);
-		edge->nodeLeft = newNode;
-		edge->nodeLeft->outEdges.push_back(edge);
-	};
-
+	int numDisconnected = 0;
 	for (auto& edge : _graph.iterEdges())
 	{
 		if (!edge->edgeId.strand() || edge->isLooped()) continue;
 		GraphEdge* complEdge = _graph.complementEdge(edge);
 
-		int32_t coverageThreshold = edge->meanCoverage / 
-								Config::get("graph_cov_drop_rate");
+		//int32_t coverageThreshold = edge->meanCoverage / 
+		//						Config::get("graph_cov_drop_rate");
+		//coverageThreshold = std::max(MIN_JCT_SUPPORT, coverageThreshold);
+		int32_t coverageThreshold = MIN_JCT_SUPPORT;
 
 		//Logger::get().debug() << "Adjacencies: " << edge->edgeId.signedId() << " "
 		//	<< leftConnections[edge] / 2 << " " << rightConnections[edge] / 2;
@@ -186,11 +495,12 @@ void MultiplicityInferer::removeUnsupportedConnections()
 			edge->nodeRight->isBifurcation() &&
 			rightConnections[edge] / 2 < coverageThreshold)
 		{
+			++numDisconnected;
 			Logger::get().debug() << "Chimeric right: " <<
 				edge->edgeId.signedId() << " " << rightConnections[edge] / 2;
 
-			disconnectRight(edge);
-			disconnectLeft(complEdge);
+			_graph.disconnectRight(edge);
+			_graph.disconnectLeft(complEdge);
 
 			if (edge->selfComplement) continue;	//already discinnected
 		}
@@ -198,190 +508,123 @@ void MultiplicityInferer::removeUnsupportedConnections()
 			edge->nodeLeft->isBifurcation() &&
 			leftConnections[edge] / 2 < coverageThreshold)
 		{
+			++numDisconnected;
 			Logger::get().debug() << "Chimeric left: " <<
 				edge->edgeId.signedId() << " " << leftConnections[edge] / 2;
 
-			disconnectLeft(edge);
-			disconnectRight(complEdge);
+			_graph.disconnectLeft(edge);
+			_graph.disconnectRight(complEdge);
 		}
 	}
 
-	GraphProcessor proc(_graph, _asmSeqs, _readSeqs);
-	proc.trimTips();
+	Logger::get().debug() << "[SIMPL] Disconnected " << numDisconnected << " edges";
+
 	_aligner.updateAlignments();
+	return numDisconnected;
 }
 
-//collapse loops (that also could be viewed as
-//bubbles with one branch of length 0)
-void MultiplicityInferer::collapseHeterozygousLoops()
+void MultiplicityInferer::trimTipsIteration(int& outShort, int& outLong)
 {
-	const float COV_MULT = 1.5;
+	const int SHORT_TIP = Config::get("short_tip_length");
+	const int LONG_TIP = Config::get("long_tip_length");
+	const int COV_RATE = 2;
+	const int LEN_RATE = 2;
 
-	GraphProcessor proc(_graph, _asmSeqs, _readSeqs);
-	auto unbranchingPaths = proc.getUnbranchingPaths();
-
-	std::unordered_set<FastaRecord::Id> toUnroll;
 	std::unordered_set<FastaRecord::Id> toRemove;
-	for (auto& loop : unbranchingPaths)
-	{
-		if (!loop.isLooped()) continue;
-
-		GraphNode* node = loop.nodeLeft();
-		if (node->inEdges.size() != 2 ||
-			node->outEdges.size() != 2) continue;
-
-		UnbranchingPath* entrancePath = nullptr;
-		UnbranchingPath* exitPath = nullptr;
-		for (auto& cand : unbranchingPaths)
-		{
-			if (cand.nodeRight() == node &&
-				loop.id != cand.id) entrancePath = &cand;
-			if (cand.nodeLeft() == node &&
-				loop.id != cand.id) exitPath = &cand;
-		}
-
-		if (entrancePath->isLooped()) continue;
-		if (entrancePath->id == exitPath->id.rc()) continue;
-
-		//loop coverage should be roughly equal or less
-		if (loop.meanCoverage > COV_MULT * entrancePath->meanCoverage ||
-			loop.meanCoverage > COV_MULT * entrancePath->meanCoverage) continue;
-
-		//loop should not be longer than other branches
-		if (loop.length > entrancePath->length ||
-			loop.length > exitPath->length) continue;
-
-		if (loop.meanCoverage < 
-			(entrancePath->meanCoverage + exitPath->meanCoverage) / 4)
-		{
-			toRemove.insert(loop.id);
-		}
-		else
-		{
-			toUnroll.insert(loop.id.rc());
-		}
-	}
-
-	for (auto& path : unbranchingPaths)
-	{
-		if (toUnroll.count(path.id))
-		{
-			GraphNode* newNode = _graph.addNode();
-			size_t id = path.nodeLeft()->inEdges[0] == path.path.front();
-			GraphEdge* prevEdge = path.nodeLeft()->inEdges[id];
-
-			vecRemove(path.nodeLeft()->outEdges, path.path.front());
-			vecRemove(path.nodeLeft()->inEdges, prevEdge);
-			path.nodeLeft() = newNode;
-			newNode->outEdges.push_back(path.path.front());
-			prevEdge->nodeRight = newNode;
-			newNode->inEdges.push_back(prevEdge);
-		}
-		if (toRemove.count(path.id))
-		{
-			GraphNode* newLeft = _graph.addNode();
-			GraphNode* newRight = _graph.addNode();
-
-			vecRemove(path.nodeLeft()->outEdges, path.path.front());
-			vecRemove(path.nodeLeft()->inEdges, path.path.back());
-			path.nodeLeft() = newLeft;
-			newRight->inEdges.push_back(path.path.back());
-			path.nodeRight() = newRight;
-			newLeft->outEdges.push_back(path.path.front());
-		}
-	}
-
-	Logger::get().debug() << "Unrolled " << toUnroll.size() / 2
-		<< " heterozygous loops";
-	Logger::get().debug() << "Removed " << toRemove.size() / 2
-		<< " heterozygous loops";
-	_aligner.updateAlignments();
-}
-
-void MultiplicityInferer::collapseHeterozygousBulges()
-{
-	const float MAX_COV_VAR = 0.20;
-	const float MAX_LEN_VAR = 0.50;
-
-	GraphProcessor proc(_graph, _asmSeqs, _readSeqs);
+	GraphProcessor proc(_graph, _asmSeqs);
 	auto unbranchingPaths = proc.getUnbranchingPaths();
-
-	std::unordered_set<FastaRecord::Id> toSeparate;
+	std::unordered_map<GraphEdge*, UnbranchingPath*> ubIndex;
 	for (auto& path : unbranchingPaths)
 	{
-		if (path.isLooped()) continue;
+		for (auto& edge: path.path) ubIndex[edge] = &path;
+	}
 
-		std::vector<UnbranchingPath*> twoPaths;
-		for (auto& candEdge : unbranchingPaths)
+	int shortClipped = 0;
+	int longClipped = 0;
+
+	for (auto& tipPath : unbranchingPaths)
+	{
+		if (!tipPath.path.back()->isRightTerminal()) continue;	//right-tip
+		if (tipPath.nodeLeft()->outEdges.size() == 1) continue;	//already detached from the left
+		if (tipPath.path.front()->selfComplement) continue;		//never-ever!
+
+		//short tip, remove regardless of coverage
+		if (tipPath.length < SHORT_TIP)
 		{
-			if (candEdge.nodeLeft() == path.nodeLeft() &&
-				candEdge.nodeRight() == path.nodeRight()) 
+			toRemove.insert(tipPath.id);
+			++shortClipped;
+			continue;
+		}
+
+		//longer then max long tip, continue
+		if (tipPath.length > LONG_TIP) continue;
+
+		//tip longer than short, and shorter than long :)
+		//need to check the graph structure and coverage
+		
+		//get "true path" entrance and exit. There must be
+		//exactly one of each. True edges should be of sufficient
+		//length and/or continue into the rest of the graph
+		GraphNode* tipNode = tipPath.nodeLeft();
+		std::vector<UnbranchingPath*> entrances;
+		for (GraphEdge* edge : tipNode->inEdges)
+		{
+			UnbranchingPath& path = *ubIndex[edge];
+			if (path.path.back() == edge)
 			{
-				twoPaths.push_back(&candEdge);
+				if (path.length > LEN_RATE * tipPath.length ||
+					path.nodeLeft()->inEdges.size() > 0) entrances.push_back(&path);
 			}
 		}
-
-		//making sure the structure is ok
-		if (twoPaths.size() != 2) continue;
-		if (twoPaths[0]->id == twoPaths[1]->id.rc()) continue;
-		if (toSeparate.count(twoPaths[0]->id) || 
-			toSeparate.count(twoPaths[1]->id)) continue;
-		if (twoPaths[0]->nodeLeft()->inEdges.size() != 1 ||
-			twoPaths[0]->nodeRight()->outEdges.size() != 1) continue;
-
-		UnbranchingPath* entrancePath = nullptr;
-		UnbranchingPath* exitPath = nullptr;
-		for (auto& cand : unbranchingPaths)
+		std::vector<UnbranchingPath*> exits;
+		for (GraphEdge* edge : tipNode->outEdges)
 		{
-			if (cand.nodeRight() == 
-				twoPaths[0]->nodeLeft()) entrancePath = &cand;
-			if (cand.nodeLeft() == twoPaths[0]->nodeRight()) exitPath = &cand;
+			UnbranchingPath& path = *ubIndex[edge];
+			if (path.path.front() == edge)
+			{
+				if (path.length > LEN_RATE * tipPath.length ||
+					path.nodeRight()->outEdges.size() > 0) exits.push_back(&path);
+			}
 		}
+		if (entrances.size() != 1 || exits.size() != 1) continue;
 
-		//coverage requirement: sum over two branches roughly equals to
-		//exit and entrance coverage
-		float covSum = twoPaths[0]->meanCoverage + twoPaths[1]->meanCoverage;
-		float entranceDiff = fabsf(covSum - entrancePath->meanCoverage) / covSum;
-		float exitDiff = fabsf(covSum - exitPath->meanCoverage) / covSum;
-		if (entranceDiff > MAX_COV_VAR || exitDiff > MAX_COV_VAR) continue;
-
-		//length requirement: branches have roughly the same length
-		//and are significantly shorter than entrance/exits
-		if (abs(twoPaths[0]->length - twoPaths[1]->length) >
-			MAX_LEN_VAR * std::min(twoPaths[0]->length, 
-					 			   twoPaths[1]->length)) continue;
-		float bubbleSize = (twoPaths[0]->length + twoPaths[1]->length) / 2;
-		if (bubbleSize > entrancePath->length ||
-			bubbleSize > exitPath->length) continue;
-
-		if (twoPaths[0]->meanCoverage < twoPaths[1]->meanCoverage)
+		//remove the tip if its coverage or length is
+		//significantly lower than the true path's
+		int trueCov = std::max(entrances.front()->meanCoverage, 
+					 		   exits.front()->meanCoverage);
+		int trueLen = std::max(entrances.front()->length, exits.front()->length);
+		if (trueCov > COV_RATE * tipPath.meanCoverage ||
+			trueLen > LEN_RATE * tipPath.length)
 		{
-			toSeparate.insert(twoPaths[0]->id);
-			toSeparate.insert(twoPaths[0]->id.rc());
-		}
-		else
-		{
-			toSeparate.insert(twoPaths[1]->id);
-			toSeparate.insert(twoPaths[1]->id.rc());
+			toRemove.insert(tipPath.id);
+			++longClipped;
 		}
 	}
-
+	
 	for (auto& path : unbranchingPaths)
 	{
-		if (toSeparate.count(path.id))
+		if (toRemove.count(path.id))
 		{
-			GraphNode* newLeft = _graph.addNode();
-			GraphNode* newRight = _graph.addNode();
-			vecRemove(path.nodeLeft()->outEdges, path.path.front());
-			vecRemove(path.nodeRight()->inEdges, path.path.back());
-			path.nodeLeft() = newLeft;
-			path.nodeRight() = newRight;
-			newLeft->outEdges.push_back(path.path.front());
-			newRight->inEdges.push_back(path.path.back());
+			//Logger::get().debug() << "Tip " << path.edgesStr() 
+			//	<< " len:" << path.length << " cov:" << path.meanCoverage;
+
+			GraphEdge* targetEdge = path.path.front();
+			GraphEdge* complEdge = _graph.complementEdge(targetEdge);
+
+			vecRemove(targetEdge->nodeLeft->outEdges, targetEdge);
+			targetEdge->nodeLeft = _graph.addNode();
+			targetEdge->nodeLeft->outEdges.push_back(targetEdge);
+
+			//if (targetEdge->selfComplement) continue;
+
+			vecRemove(complEdge->nodeRight->inEdges, complEdge);
+			complEdge->nodeRight = _graph.addNode();
+			complEdge->nodeRight->inEdges.push_back(complEdge);
 		}
 	}
-
-	Logger::get().debug() << "Popped " << toSeparate.size() / 2 
-		<< " heterozygous bulges";
 	_aligner.updateAlignments();
+	outShort = shortClipped;
+	outLong = longClipped;
 }
+
+

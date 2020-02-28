@@ -61,8 +61,20 @@ FastaRecord::Id SequenceContainer::addSequence(const FastaRecord& seqRec)
 
 	_seqIndex.emplace_back(seqRec.sequence, "+" + seqRec.description, 
 						   newId);
+
+	if (_nameIndex.count(_seqIndex.back().description))
+	{
+		throw ParseException("The input contain reads with duplicated IDs. "
+							 "Make sure all reads have unique IDs and restart. "
+							 "The first problematic ID was: " +
+			 				 _seqIndex.back().description.substr(1));
+	}
+	_nameIndex[_seqIndex.back().description] = _seqIndex.back().id;
+
 	_seqIndex.emplace_back(seqRec.sequence.complement(), 
 						   "-" + seqRec.description, newId.rc());
+	_nameIndex[_seqIndex.back().description] = _seqIndex.back().id;
+
 	return _seqIndex.back().id.rc();
 }
 
@@ -80,11 +92,12 @@ void SequenceContainer::loadFromFile(const std::string& fileName,
 	}
 	
 	//shuffling input reads
-	std::vector<size_t> indicesPerm(records.size());
-	for (size_t i = 0; i < indicesPerm.size(); ++i) indicesPerm[i] = i;
-	std::random_shuffle(indicesPerm.begin(), indicesPerm.end());
+	//std::vector<size_t> indicesPerm(records.size());
+	//for (size_t i = 0; i < indicesPerm.size(); ++i) indicesPerm[i] = i;
+	//std::random_shuffle(indicesPerm.begin(), indicesPerm.end());
 
-	for (size_t i : indicesPerm)
+	//for (size_t i : indicesPerm)
+	for (size_t i = 0; i < records.size(); ++i)
 	{
 		if (records[i].sequence.length() > (size_t)minReadLength)
 		{
@@ -97,7 +110,7 @@ int SequenceContainer::computeNxStat(float fraction) const
 {
 	std::vector<int32_t> readLengths;
 	int64_t totalLengh = 0;
-	for (auto& read : _seqIndex) 
+	for (const auto& read : _seqIndex) 
 	{
 		readLengths.push_back(read.sequence.length());
 		totalLengh += read.sequence.length();
@@ -292,17 +305,13 @@ size_t SequenceContainer::readFastq(std::vector<FastaRecord>& record,
 
 void SequenceContainer::validateHeader(std::string& header)
 {
-	size_t delim = header.find(' ');
-	if (delim == std::string::npos)
+	size_t delim = 0;
+	for (delim = 0; delim < header.length(); ++delim)
 	{
-		delim = header.length() - 1;
-	}
-	else
-	{
-		--delim;
+		if (std::isspace(header[delim])) break;
 	}
 
-	header = header.substr(1, delim);
+	header = header.substr(1, delim - 1);
 	if (header.empty()) throw ParseException("empty header");
 }
 
@@ -319,7 +328,8 @@ void SequenceContainer::validateSequence(std::string& sequence)
 }
 
 void SequenceContainer::writeFasta(const std::vector<FastaRecord>& records, 
-								   const std::string& filename)
+								   const std::string& filename,
+								   bool onlyPositiveStrand)
 {
 	static const size_t FASTA_SLICE = 80;
 
@@ -327,14 +337,18 @@ void SequenceContainer::writeFasta(const std::vector<FastaRecord>& records,
 	FILE* fout = fopen(filename.c_str(), "w");
 	if (!fout) throw std::runtime_error("Can't open " + filename);
 	
-	for (auto& rec : records)
+	for (const auto& rec : records)
 	{
+		if (onlyPositiveStrand && !rec.id.strand()) continue;
+
 		std::string contigSeq;
 		for (size_t c = 0; c < rec.sequence.length(); c += FASTA_SLICE)
 		{
 			contigSeq += rec.sequence.substr(c, FASTA_SLICE).str() + "\n";
 		}
-		std::string header = ">" + rec.description + "\n";
+		std::string header = onlyPositiveStrand ? 
+							 ">" + rec.description.substr(1) + "\n":
+							 ">" + rec.description + "\n";
 		fwrite(header.data(), sizeof(header.data()[0]), 
 			   header.size(), fout);
 		fwrite(contigSeq.data(), sizeof(contigSeq.data()[0]), 
@@ -344,25 +358,32 @@ void SequenceContainer::writeFasta(const std::vector<FastaRecord>& records,
 
 void SequenceContainer::buildPositionIndex()
 {
+	Logger::get().debug() << "Building positional index";
 	size_t offset = 0;
 	_sequenceOffsets.reserve(_seqIndex.size());
-	for (auto& seq : _seqIndex)
+	for (const auto& seq : _seqIndex)
 	{
-		_sequenceOffsets.push_back(offset);
+		_sequenceOffsets.push_back({offset, seq.sequence.length()});
 		offset += seq.sequence.length();
 	}
+	_sequenceOffsets.push_back({offset, 0});
+	if (offset == 0) return;
 
 	_offsetsHint.reserve(offset / CHUNK + 1);
-	for (size_t i = 0; i <= offset / CHUNK; ++i)
+	size_t idx = 0;
+	for (size_t i = 0; i <= (offset - 1) / CHUNK; ++i)
 	{
-		size_t idx = std::upper_bound(_sequenceOffsets.begin(), 
-									  _sequenceOffsets.end(),
-									  i * CHUNK) - _sequenceOffsets.begin();
+		while (i * CHUNK >= _sequenceOffsets[idx + 1].offset) ++idx;
+		//size_t newIdx = std::upper_bound(_sequenceOffsets.begin(), 
+		//							     _sequenceOffsets.end(),
+		//							     i * CHUNK) - _sequenceOffsets.begin();
+		//Logger::get().debug() << idx << " " << newIdx;
+		//assert(idx == newIdx);
 		_offsetsHint.push_back(idx);
 	}
 
 	Logger::get().debug() << "Total sequence: " << offset / 2 << " bp";
-	if (offset > MAX_SEQUENCE)
+	if (offset >= MAX_SEQUENCE)
 	{
 		Logger::get().error() << "Maximum sequence limit reached ("
 			<< MAX_SEQUENCE / 2 << ")";

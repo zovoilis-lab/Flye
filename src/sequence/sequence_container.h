@@ -144,12 +144,6 @@ public:
 		{}
 	};
 
-	/*struct SeqPos
-	{
-		FastaRecord::Id seqId;
-		int32_t position;
-	};*/
-
 	typedef std::vector<FastaRecord> SequenceIndex;
 
 	SequenceContainer():
@@ -158,7 +152,8 @@ public:
 	void loadFromFile(const std::string& filename, int minReadLength = 0);
 
 	static void writeFasta(const std::vector<FastaRecord>& records,
-						   const std::string& fileName);
+						   const std::string& fileName,
+						   bool  onlyPositiveStrand = false);
 
 	static size_t getMaxSeqId() {return g_nextSeqId;}
 
@@ -172,24 +167,28 @@ public:
 
 	const FastaRecord& getRecord(FastaRecord::Id seqId) const
 	{
+		assert(seqId._id - _seqIdOffest < _seqIndex.size());
 		assert(_seqIndex[seqId._id - _seqIdOffest].id == seqId);
 		return _seqIndex[seqId._id - _seqIdOffest];
 	}
 
 	const DnaSequence& getSeq(FastaRecord::Id readId) const
 	{
+		assert(readId._id - _seqIdOffest < _seqIndex.size());
 		assert(_seqIndex[readId._id - _seqIdOffest].id == readId);
 		return _seqIndex[readId._id - _seqIdOffest].sequence;
 	}
 
 	int32_t seqLen(FastaRecord::Id readId) const
 	{
+		assert(readId._id - _seqIdOffest < _seqIndex.size());
 		assert(_seqIndex[readId._id - _seqIdOffest].id == readId);
 		return _seqIndex[readId._id - _seqIdOffest].sequence.length();
 	}
 
 	std::string seqName(FastaRecord::Id readId) const
 	{
+		assert(readId._id - _seqIdOffest < _seqIndex.size());
 		assert(_seqIndex[readId._id - _seqIdOffest].id == readId);
 		return _seqIndex[readId._id - _seqIdOffest].description;
 	}
@@ -200,21 +199,49 @@ public:
 
 	size_t globalPosition(FastaRecord::Id seqId, int32_t position) const
 	{
-		return _sequenceOffsets[seqId._id - _seqIdOffest] + position;
+		assert(position >= 0 && position < this->seqLen(seqId));
+		assert(seqId._id - _seqIdOffest < _seqIndex.size());
+		#ifndef NDEBUG
+		auto checkGlob = _sequenceOffsets[seqId._id - _seqIdOffest].offset + position;
+		FastaRecord::Id checkId;
+		int32_t checkPos;
+		int32_t outLen;
+		this->seqPosition(checkGlob, checkId, checkPos, outLen);
+		assert(checkId == seqId && checkPos == position);
+		#endif
+		return _sequenceOffsets[seqId._id - _seqIdOffest].offset + position;
+	}
+
+	const FastaRecord& recordByName(const std::string& name) const
+	{
+		return this->getRecord(_nameIndex.at(name));
 	}
 
 	void seqPosition(size_t globPos, FastaRecord::Id& outSeqId, 
-					 int32_t& outPosition) const
+					 int32_t& outPosition, int32_t& outLen) const
 	{
-		size_t hint = _offsetsHint[globPos / CHUNK];
-		while (hint < _sequenceOffsets.size() &&
-			   _sequenceOffsets[hint] <= globPos) ++hint;
+		assert(globPos < _sequenceOffsets.back().offset);
 
-		outSeqId = FastaRecord::Id(_seqIdOffest + hint - 1);
-		outPosition = globPos - _sequenceOffsets[hint - 1];
+		size_t hint = _offsetsHint[globPos / CHUNK];
+		while (_sequenceOffsets[hint + 1].offset <= globPos) ++hint;
+
+		outSeqId = FastaRecord::Id(_seqIdOffest + hint);
+		outPosition = globPos - _sequenceOffsets[hint].offset;
+		outLen = (int32_t)_sequenceOffsets[hint].length;
+
+		assert(outSeqId._id - _seqIdOffest < _seqIndex.size());
+		assert(outPosition >= 0 && outPosition < outLen);
+		//assert(this->globalPosition(outSeqId, outPosition) == globPos);
 	}
+	static size_t g_nextSeqId;
 
 private:
+	struct OffsetPair
+	{
+		size_t offset;
+		size_t length;
+	};
+
 	FastaRecord::Id addSequence(const FastaRecord& sequence);
 
 	size_t readFasta(std::vector<FastaRecord>& record, 
@@ -229,15 +256,16 @@ private:
 
 	void   validateHeader(std::string& header);
 
-	SequenceIndex _seqIndex;
-	size_t _seqIdOffest;
-	bool   _offsetInitialized;
-	static size_t g_nextSeqId;
+	SequenceIndex 	_seqIndex;
+	size_t 			_seqIdOffest;
+	bool   			_offsetInitialized;
+	std::unordered_map<std::string, 
+					   FastaRecord::Id> _nameIndex;
 
 	//global/local position convertions
 	const size_t MAX_SEQUENCE = 1ULL << (8 * 5);
 	const size_t CHUNK = 1000;
-	std::vector<size_t> _sequenceOffsets;
-	std::vector<size_t> _offsetsHint;
+	std::vector<OffsetPair> _sequenceOffsets;
+	std::vector<size_t> 	_offsetsHint;
 };
 

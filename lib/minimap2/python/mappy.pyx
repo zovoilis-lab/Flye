@@ -3,7 +3,7 @@ from libc.stdlib cimport free
 cimport cmappy
 import sys
 
-__version__ = '2.11'
+__version__ = '2.17'
 
 cmappy.mm_reset_timer()
 
@@ -142,7 +142,7 @@ cdef class Aligner:
 			if fn_idx_out is None:
 				r = cmappy.mm_idx_reader_open(str.encode(fn_idx_in), &self.idx_opt, NULL)
 			else:
-				r = cmappy.mm_idx_reader_open(str.encode(fn_idx_in), &self.idx_opt, fn_idx_out)
+				r = cmappy.mm_idx_reader_open(str.encode(fn_idx_in), &self.idx_opt, str.encode(fn_idx_out))
 			if r is not NULL:
 				self._idx = cmappy.mm_idx_reader_read(r, n_threads) # NB: ONLY read the first part
 				cmappy.mm_idx_reader_close(r)
@@ -220,6 +220,16 @@ cdef class Aligner:
 
 	@property
 	def n_seq(self): return self._idx.n_seq
+
+	@property
+	def seq_names(self):
+		cdef char *p
+		sn = []
+		for i in range(self._idx.n_seq):
+			p = self._idx.seq[i].name
+			s = p if isinstance(p, str) else p.decode()
+			sn.append(s)
+		return sn
 
 def fastx_read(fn, read_comment=False):
 	cdef cmappy.kseq_t *ks

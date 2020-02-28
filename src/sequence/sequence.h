@@ -9,6 +9,7 @@
 #include <vector>
 #include <iostream>
 #include <algorithm>
+#include <stdexcept>
 
 //Immutable dna sequence class
 class DnaSequence
@@ -94,6 +95,9 @@ public:
 
 	DnaSequence& operator=(DnaSequence&& other)
 	{
+		--_data->useCount;
+		if (_data->useCount == 0) delete _data;
+
 		_data = other._data;
 		_complement = other._complement;
 		other._data = nullptr;
@@ -189,6 +193,9 @@ inline std::string DnaSequence::str() const
 
 inline DnaSequence DnaSequence::substr(size_t start, size_t length) const 
 {
+	if (length == 0) throw std::runtime_error("Zero length subtring");
+	if (start >= _data->length) throw std::runtime_error("Incorrect substring start");
+
 	if (start + length > _data->length)
 	{
 		length = _data->length - start;
