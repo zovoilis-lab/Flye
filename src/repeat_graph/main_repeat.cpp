@@ -222,26 +222,15 @@ int repeat_main(int argc, char** argv)
 	//outGen.outputGfa(proc.getEdgesPaths(), outFolder + "/graph_before_rr.gfa");
 	outGen.outputFasta(proc.getEdgesPaths(), outFolder + "/graph_before_rr.fasta");
 
-	//repResolver.resolveSimpleRepeats();
-
-	//for debugging only
-	/*multInf.trimTips();
-	hapResolver.findSuperbubbles();
-	hapResolver.findHeterozygousLoops();
-	hapResolver.findHeterozygousBulges();
-	hapResolver.findRoundabouts();
-	hapResolver.resetEdges();
-	outGen.outputDot(proc.getEdgesPaths(), 
-					 outFolder + "/graph_before_bulges.gv");*/
-
-	int iterNum = 0;
-	while (true)
+	if (isMeta) 
 	{
-		++iterNum;
+		repResolver.resolveSimpleRepeats();
+	}
+	for (int iterNum = 1; ;++iterNum)
+	{
 		int actions = 0;
 		Logger::get().debug() << "[SIMPL] == Iteration " << iterNum << " ==";
 
-		//initial simplification
 		actions += multInf.splitNodes();
 		//actions += multInf.removeUnsupportedConnections();
 		if (isMeta) 
@@ -260,6 +249,7 @@ int repeat_main(int argc, char** argv)
 			hapResolver.findSuperbubbles();
 		}
 
+		//resolving repeats
 		repResolver.findRepeats();
 		actions += repResolver.resolveRepeats();
 
