@@ -235,6 +235,7 @@ int MultiplicityInferer::removeUnsupportedEdges(bool onlyTips)
 int MultiplicityInferer::disconnectMinorPaths()
 {
 	const int DETACH_RATE = (int)Config::get("weak_detach_rate");
+	const int MAX_LEN = 50000;
 
 	auto nodeDegree = [](GraphNode* node)
 	{
@@ -272,7 +273,8 @@ int MultiplicityInferer::disconnectMinorPaths()
 	{
 		if (!path.id.strand() || 
 			path.isLooped() ||
-			path.path.front()->selfComplement) continue;
+			path.path.front()->selfComplement ||
+			path.length > MAX_LEN) continue;
 		if (path.nodeLeft()->inEdges.empty() ||
 			path.nodeRight()->outEdges.empty())	continue; //already detached or tip
 
