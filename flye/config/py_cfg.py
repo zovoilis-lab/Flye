@@ -30,9 +30,9 @@ vals = {
             "subasm" : [31, 31]
         },
         "min_overlap_range" : {
-            "raw" : [1000, 7000],
-            "corrected" : [1000, 7000],
-            "hifi" : [1000, 7000],
+            "raw" : [1000, 5000],
+            "corrected" : [1000, 5000],
+            "hifi" : [1000, 5000],
             "subasm" : [1000, 1000]
         },
         "max_meta_overlap" : 3000,
