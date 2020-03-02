@@ -51,9 +51,11 @@ def setup_params(args):
         GRADE = 1000
         int_min_ovlp = int(round(reads_n90 / GRADE)) * GRADE
 
-        parameters["min_overlap"] = \
-            max(cfg.vals["min_overlap_range"][args.read_type][0],
-                min(cfg.vals["min_overlap_range"][args.read_type][1], int_min_ovlp))
+        MIN_OVLP = cfg.vals["min_overlap_range"][args.read_type][0]
+        MAX_OVLP = cfg.vals["min_overlap_range"][args.read_type][1]
+        if args.meta:
+            MAX_OVLP = min(MAX_OVLP, cfg.vals["max_meta_overlap"])
+        parameters["min_overlap"] = max(MIN_OVLP, min(MAX_OVLP, int_min_ovlp))
         logger.info("Minimum overlap set to %d", parameters["min_overlap"])
     else:
         parameters["min_overlap"] = args.min_overlap
