@@ -264,9 +264,9 @@ class JobFinalize(Job):
 
     def run(self):
         super(JobFinalize, self).run()
-        #shutil.copy2(self.contigs_file, self.out_files["contigs"])
-        shutil.copy2(self.graph_file, self.out_files["graph"])
-        shutil.copy2(self.polished_gfa, self.out_files["gfa"])
+        #shutil.copy(self.contigs_file, self.out_files["contigs"])
+        shutil.copy(self.graph_file, self.out_files["graph"])
+        shutil.copy(self.polished_gfa, self.out_files["gfa"])
 
         scaffolds = scf.generate_scaffolds(self.contigs_file, self.scaffold_links,
                                            self.out_files["assembly"])
