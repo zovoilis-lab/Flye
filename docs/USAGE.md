@@ -105,7 +105,7 @@ The original dataset is available at the
 We coverted the raw `bas.h5` file to the FASTA format for the convenience.
 
     wget https://zenodo.org/record/1172816/files/E.coli_PacBio_40x.fasta
-	flye --pacbio-raw E.coli_PacBio_40x.fasta --out-dir out_pacbio --genome-size 5m --threads 4
+    flye --pacbio-raw E.coli_PacBio_40x.fasta --out-dir out_pacbio --genome-size 5m --threads 4
 
 with `5m` being the expected genome size, the threads argument being optional 
 (you may adjust it for your environment), and `out_pacbio` being the directory
@@ -117,7 +117,7 @@ The dataset was originally released by the
 [Loman lab](http://lab.loman.net/2015/09/24/first-sqk-map-006-experiment/).
 
     wget https://zenodo.org/record/1172816/files/Loman_E.coli_MAP006-1_2D_50x.fasta
-	flye --nano-raw Loman_E.coli_MAP006-1_2D_50x.fasta --out-dir out_nano --genome-size 5m --threads 4
+    flye --nano-raw Loman_E.coli_MAP006-1_2D_50x.fasta --out-dir out_nano --genome-size 5m --threads 4
 
 
 ## <a name="inputdata"></a> Supported Input Data
@@ -132,6 +132,9 @@ however we saw examples of incorrect third-party raw -> fastq conversions,
 which resulted into incorrectly trimmed data. In case Flye is failing to
 get reasonable assemblies, make sure that your reads are properly preprocessed.
 
+Flye now supports assembly of PacBio HiFi protocol via `--pacbio-hifi` option.
+The expected read error is <1%.
+
 ### Oxford Nanopore data
 
 We performed our benchmarks with raw ONT reads (R7-R9) with error rate ~15%.
@@ -142,7 +145,7 @@ ONT data than with PacBio data, especially in homopolymer regions.
 
 While Flye was designed for assembly of raw reads (and this is the recommended way),
 it also supports error-corrected PacBio/ONT reads as input (use the ```corr``` option).
-The parameters are optimized for error rates <2%. If you are getting highly 
+The parameters are optimized for error rates <3%. If you are getting highly 
 fragmented assembly - most likely error rates in your reads are higher. In this case,
 consider to assemble using the raw reads instead.
 
@@ -181,18 +184,36 @@ based on the read length distribution (reads N90) and does not require manual se
 Typical value is 3k-5k (and down to 1k for datasets with shorter read length).
 Intuitively, we want to set this parameter as high as possible, so the
 repeat graph is less tangled. However, higher values might lead to assembly gaps.
-In some *rare* cases (for example in case of biased read length distribution)
-it makes sense to set this parameter manualy.
+
+In some *rare* cases it makes sense to manually increase minimum overlap
+for assemblies of big genomes with long reads and high coverage.
 
 ### Metagenome mode
 
-Metagenome assembly mode, that is designed for highly non-uniform coverage and 
-is sensitive to underrepresented sequence at low coverage (as low as 2x). 
-In some examples of simple metagenomes, we observed that the normal (isolate) 
+Metagenome assembly mode, that is designed for highly non-uniform coverage and
+is sensitive to underrepresented sequence at low coverage (as low as 2x).
+In some examples of simple metagenomes, we observed that the normal (isolate)
 Flye mode assembled more contigious bacterial
 consensus sequence, while the metagenome mode was slightly more fragmented, but
 revealed strain mixtures. For relatively complex metagenome `--meta` mode
 is the recommended way.
+
+### Haplotype mode
+
+By default, Flye (and metaFlye) collapses graph structures caused by
+alternative haplotypes (bubbles, superbubbles, roundabouts) to produce
+longer consensus contigs. The option `--keep-haplotypes` retains
+the alternative paths on the graph, producing less contigouos, but
+more detailed assembly.
+
+### Trestle
+
+Trestle is an extra module that resolves simple repeats of
+multipicity 2 that were not bridged by reads. Depending on the
+datasets, it might resolve a few extra repeats, which is helpfu;
+for small (bacterial genomes). Use `--trestle` option to enable the module.
+On large genomes, the contiguity improvements are usually minimal,
+but the computation might take a lot of time.
 
 ### Reduced contig assembly coverage
 
@@ -253,12 +274,14 @@ It is a tab-delimited table with the columns as follows:
 * Is circular (representing circular sequence, such as bacterial chromosome or plasmid)
 * Is repetitive (represents repeated, rather than unique sequence)
 * Multiplicity (inferred multiplicity based on coverage)
+* Alternative group
 * Graph path (repeat graph path corresponding to this contig/scaffold).
+
 Scaffold gaps are marked with `??` symbols, and `*` symbol denotes a
 terminal graph node.
 
-`scaffolds.fasta` file is a symlink to `assembly.fasta`, which is
-retained for the backward compatibility.
+Alternative contigs (representing alternative haplotypes) will have the same
+alt. group ID. Primary contigs are marked by `*`
 
 ## <a name="graph"></a> Repeat graph
 

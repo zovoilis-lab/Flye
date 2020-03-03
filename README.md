@@ -3,17 +3,28 @@ Flye assembler
 
 [![BioConda Install](https://img.shields.io/conda/dn/bioconda/flye.svg?style=flag&label=BioConda%20install)](https://anaconda.org/bioconda/flye)
 
-### Version: 2.7b
+### Version: 2.7
 
 Flye is a de novo assembler for single molecule sequencing reads,
 such as those produced by PacBio and Oxford Nanopore Technologies.
 It is designed for a wide range of datasets, from small bacterial projects
 to large mammalian-scale assemblies. The package represents a complete
-pipeline: it takes raw PB / ONT reads as input and outputs polished contigs.
-Flye also includes a special mode for metagenome assembly.
+pipeline: it takes raw PacBio / ONT reads as input and outputs polished contigs.
+Flye also has a special mode for metagenome assembly.
 
 Latest updates
 --------------
+
+### Flye 2.7 release (03 Mar 2020)
+* Better assemblies of real (and comlpex) metagenomes
+* New option to retain alternative haplotypes, rather than collapsing them (`--keep-haplotypes`)
+* PacBio HiFi mode
+* Using Bam instead of Sam to reduce storage requirements and IO load
+* Improved human assemblies
+* Annotation of alternative contigs
+* Better polishing quality for the newest ONT datasets
+* Trestle module is disabled by default (use `--trestle` to enable)
+* Many big fixes and improvements
 
 ### Flye 2.6 release (19 Sep 2019)
 * This release introduces Python 3 support (no other changes)
@@ -155,7 +166,7 @@ Before posting an issue/question, consider to look through the FAQ
 and existing issues (opened and closed) - it is possble that your question
 has already been answered.
 
-If you reporting a problem, please include the `flye.log` file and provide some 
-details about your dataset (if possible).
+If you reporting a problem, please include the `flye.log` file and provide
+details about your dataset.
 
 In case you prefer personal communication, please contact Mikhail at fenderglass@gmail.com.

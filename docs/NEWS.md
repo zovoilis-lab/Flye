@@ -1,3 +1,15 @@
+Flye 2.7 release (03 Mar 2020)
+==============================
+* Better assemblies of real (and comlpex) metagenomes
+* New option to retain alternative haplotypes, rather than collapsing them (`--keep-haplotypes`)
+* PacBio HiFi mode
+* Using Bam instead of Sam to reduce storage requirements and IO load
+* Improved human assemblies
+* Annotation of alternative contigs
+* Better polishing quality for the newest ONT datasets
+* Trestle module is disabled by default (use `--trestle` to enable)
+* Many big fixes and improvements
+
 Flye 2.6 release (19 Sep 2019)
 ==============================
 * This release introduces Python 3 support (no other changes)
