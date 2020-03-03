@@ -12,6 +12,13 @@ to large mammalian-scale assemblies. The package represents a complete
 pipeline: it takes raw PacBio / ONT reads as input and outputs polished contigs.
 Flye also has a special mode for metagenome assembly.
 
+Manuals
+-------
+
+- [Installation instructions](docs/INSTALL.md)
+- [Usage](docs/USAGE.md)
+- [FAQ](docs/FAQ.md)
+
 Latest updates
 --------------
 
@@ -36,13 +43,6 @@ Latest updates
 * Improvements for human genome assemblies
 * Various bugfixes and performance optimizations
 * Also check the new [FAQ section](docs/FAQ.md)
-
-Manuals
--------
-
-- [Installation instructions](docs/INSTALL.md)
-- [Usage](docs/USAGE.md)
-- [FAQ](docs/FAQ.md)
 
 
 Repeat graph
