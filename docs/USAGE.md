@@ -210,7 +210,7 @@ more detailed assembly.
 
 Trestle is an extra module that resolves simple repeats of
 multipicity 2 that were not bridged by reads. Depending on the
-datasets, it might resolve a few extra repeats, which is helpfu;
+datasets, it might resolve a few extra repeats, which is helpful
 for small (bacterial genomes). Use `--trestle` option to enable the module.
 On large genomes, the contiguity improvements are usually minimal,
 but the computation might take a lot of time.
