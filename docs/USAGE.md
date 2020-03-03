@@ -17,15 +17,16 @@ Table of Contents
 ## <a name="quickusage"></a> Quick usage
 
 ```
-usage: flye (--pacbio-raw | --pacbio-corr | --nano-raw |
+usage: flye (--pacbio-raw | --pacbio-corr | --pacbio-hifi | --nano-raw |
          --nano-corr | --subassemblies) file1 [file_2 ...]
          --genome-size SIZE --out-dir PATH
+
          [--threads int] [--iterations int] [--min-overlap int]
          [--meta] [--plasmids] [--trestle] [--polish-target]
-         [--debug] [--version] [--help] [--resume] 
-         [--resume-from] [--stop-after]
+         [--keep-haplotypes] [--debug] [--version] [--help] 
+         [--resume] [--resume-from] [--stop-after]
 
-Assembly of long and error-prone reads
+Assembly of long reads with repeat graphs
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -33,6 +34,8 @@ optional arguments:
                         PacBio raw reads
   --pacbio-corr path [path ...]
                         PacBio corrected reads
+  --pacbio-hifi path [path ...]
+                        PacBio HiFi reads
   --nano-raw path [path ...]
                         ONT raw reads
   --nano-corr path [path ...]
@@ -53,6 +56,7 @@ optional arguments:
                         set]
   --plasmids            rescue short unassembled plasmids
   --meta                metagenome / uneven coverage mode
+  --keep-haplotypes     do not collapse alternative haplotypes
   --trestle             enable Trestle [disabled]
   --polish-target path  run polisher on the target sequence
   --resume              resume from the last completed stage
@@ -62,17 +66,17 @@ optional arguments:
                         stop after the specified stage completed
   --debug               enable debug output
   -v, --version         show program's version number and exit
-
 ```
 
 Input reads can be in FASTA or FASTQ format, uncompressed
-or compressed with `gz`. Currently, raw and corrected reads
-from PacBio and ONT are supported. Expected error rates are
-<30% for raw and <2% for corrected reads. Additionally, the
-`--subassemblies` option performs a consensus assembly of multiple
+or compressed with gz. Currently, PacBio (raw, corrected, HiFi)
+and ONT reads (raw, corrected) are supported. Expected error rates are
+<30% for raw, <3% for corrected, and <1% for HiFi. Note that Flye
+was primarily developed to run on raw reads. Additionally, the
+--subassemblies option performs a consensus assembly of multiple
 sets of high-quality contigs. You may specify multiple
 files with reads (separated by spaces). Mixing different read
-types is not yet supported. The `--meta` option enables the mode
+types is not yet supported. The --meta option enables the mode
 for metagenome/uneven coverage assembly.
 
 You must provide an estimate of the genome size as input,
@@ -83,11 +87,11 @@ should be provided.
 
 To reduce memory consumption for large genome assemblies,
 you can use a subset of the longest reads for initial disjointig
-assembly by specifying `--asm-coverage` option. Typically,
-30x coverage is enough to produce good disjointigs.
+assembly by specifying --asm-coverage option. Typically,
+40x coverage is enough to produce good disjointigs.
 
-You can separately run Flye polisher on a target sequence 
-using `--polish-target` option.
+You can run Flye polisher as a standalone tool using
+--polish-target option.
 
 
 ## <a name="examples"></a> Examples

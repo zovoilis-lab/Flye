@@ -608,9 +608,10 @@ def _usage():
 
 def _epilog():
     return ("Input reads can be in FASTA or FASTQ format, uncompressed\n"
-            "or compressed with gz. Currently, raw and corrected reads\n"
-            "from PacBio and ONT are supported. Expected error rates are\n"
-            "<30% for raw and <2% for corrected reads. Additionally, the\n"
+            "or compressed with gz. Currently, PacBio (raw, corrected, HiFi)\n"
+            "and ONT reads (raw, corrected) are supported. Expected error rates are\n"
+            "<30% for raw, <3% for corrected, and <1% for HiFi. Note that Flye\n"
+            "was primarily developed to run on raw reads. Additionally, the\n"
             "--subassemblies option performs a consensus assembly of multiple\n"
             "sets of high-quality contigs. You may specify multiple\n"
             "files with reads (separated by spaces). Mixing different read\n"
@@ -624,9 +625,9 @@ def _epilog():
             "To reduce memory consumption for large genome assemblies,\n"
             "you can use a subset of the longest reads for initial disjointig\n"
             "assembly by specifying --asm-coverage option. Typically,\n"
-            "30x coverage is enough to produce good disjointigs.\n\n"
-            "You can separately run Flye polisher on a target sequence \n"
-            "using --polish-target option.")
+            "40x coverage is enough to produce good disjointigs.\n\n"
+            "You can run Flye polisher as a standalone tool using\n"
+            "--polish-target option.")
 
 
 def _version():
@@ -655,7 +656,7 @@ def main():
         return ival
 
     parser = argparse.ArgumentParser \
-        (description="Assembly of long and error-prone reads",
+        (description="Assembly of long reads with repeat graphs",
          formatter_class=argparse.RawDescriptionHelpFormatter,
          usage=_usage(), epilog=_epilog())
 
