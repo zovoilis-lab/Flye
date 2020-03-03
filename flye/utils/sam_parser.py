@@ -223,9 +223,8 @@ class SynchronizedSamReader(object):
             gz = gzip.open(self.aln_path, "rb")
             aln_file = io.BufferedReader(gz)
         elif self.aln_path.endswith(".bam"):
-            proc = subprocess.Popen(SAMTOOLS_BIN + " view -@4 " + self.aln_path,
-                                    shell=True, stdout=subprocess.PIPE).stdout
-            aln_file = io.BufferedReader(proc)
+            aln_file = subprocess.Popen(SAMTOOLS_BIN + " view -@4 " + self.aln_path,
+                                        shell=True, stdout=subprocess.PIPE).stdout
         else:
             aln_file = open(self.aln_path, "rb")
 
