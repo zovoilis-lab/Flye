@@ -83,6 +83,13 @@ void OutputGenerator::outputGfa(const std::vector<UnbranchingPath>& paths,
 							    const std::string& filename)
 {
 	auto sequences = this->generatePathSequences(paths);
+	std::unordered_map<GraphNode*, std::vector<const UnbranchingPath*>> leftNodes;
+	std::unordered_map<GraphNode*, std::vector<const UnbranchingPath*>> rightNodes;
+	for (auto& path : paths)
+	{
+		leftNodes[path.path.front()->nodeLeft].push_back(&path);
+		rightNodes[path.path.back()->nodeRight].push_back(&path);
+	}
 
 	Logger::get().debug() << "Writing Gfa";
 	FILE* fout = fopen(filename.c_str(), "w");
@@ -99,27 +106,29 @@ void OutputGenerator::outputGfa(const std::vector<UnbranchingPath>& paths,
 	}
 
 	std::unordered_set<std::pair<GraphEdge*, GraphEdge*>, pairhash> usedPairs;
-	for (auto& contigLeft : paths)
+	for (auto& nodeIt : leftNodes)
 	{
-		for (auto& contigRight : paths)
+		for (auto& contigRight : nodeIt.second)
 		{
-			GraphEdge* edgeLeft = contigLeft.path.back();
-			GraphEdge* edgeRight = contigRight.path.front();
-			if (edgeLeft->nodeRight != edgeRight->nodeLeft) continue;
+			for (auto& contigLeft : rightNodes[nodeIt.first])
+			{
+				GraphEdge* edgeLeft = contigLeft->path.back();
+				GraphEdge* edgeRight = contigRight->path.front();
 
-			if (usedPairs.count(std::make_pair(edgeLeft, edgeRight))) continue;
-			usedPairs.insert(std::make_pair(edgeLeft, edgeRight));
-			usedPairs.insert(std::make_pair(_graph.complementEdge(edgeRight), 
-											_graph.complementEdge(edgeLeft)));
+				if (usedPairs.count(std::make_pair(edgeLeft, edgeRight))) continue;
+				usedPairs.insert(std::make_pair(edgeLeft, edgeRight));
+				usedPairs.insert(std::make_pair(_graph.complementEdge(edgeRight), 
+												_graph.complementEdge(edgeLeft)));
 
-			std::string leftSign = contigLeft.id.strand() ? "+" :"-";
-			std::string leftName = contigLeft.nameUnsigned();
+				std::string leftSign = contigLeft->id.strand() ? "+" :"-";
+				std::string leftName = contigLeft->nameUnsigned();
 
-			std::string rightSign = contigRight.id.strand() ? "+" :"-";
-			std::string rightName = contigRight.nameUnsigned();
+				std::string rightSign = contigRight->id.strand() ? "+" :"-";
+				std::string rightName = contigRight->nameUnsigned();
 
-			fprintf(fout, "L\t%s\t%s\t%s\t%s\t0M\n", leftName.c_str(), 
-					leftSign.c_str(), rightName.c_str(), rightSign.c_str());
+				fprintf(fout, "L\t%s\t%s\t%s\t%s\t0M\n", leftName.c_str(), 
+						leftSign.c_str(), rightName.c_str(), rightSign.c_str());
+			}
 		}
 	}
 }
