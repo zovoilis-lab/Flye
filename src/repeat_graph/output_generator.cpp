@@ -133,6 +133,78 @@ void OutputGenerator::outputGfa(const std::vector<UnbranchingPath>& paths,
 	}
 }
 
+void OutputGenerator::outputGfaCompact(const std::vector<UnbranchingPath>& paths,
+							    	   const std::string& filename)
+{
+	auto sequences = this->generatePathSequences(paths);
+	std::unordered_map<GraphNode*, std::vector<const UnbranchingPath*>> leftNodes;
+	std::unordered_map<GraphNode*, std::vector<const UnbranchingPath*>> rightNodes;
+	for (auto& path : paths)
+	{
+		leftNodes[path.path.front()->nodeLeft].push_back(&path);
+		rightNodes[path.path.back()->nodeRight].push_back(&path);
+	}
+
+	Logger::get().debug() << "Writing Gfa";
+	FILE* fout = fopen(filename.c_str(), "w");
+	if (!fout) throw std::runtime_error("Can't open " + filename);
+
+	fprintf(fout, "H\tVN:Z:1.0\n");
+	for (size_t i = 0; i < paths.size(); ++i)
+	{
+		if (!paths[i].id.strand()) continue;
+
+		//size_t kmerCount = sequences[i].sequence.length() * paths[i].meanCoverage;
+		fprintf(fout, "S\t%s\t%s\tdp:i:%d\n", paths[i].name().c_str(), 
+				sequences[i].sequence.str().c_str(), (int)paths[i].meanCoverage);
+	}
+
+	std::unordered_map<GraphNode*, int> signedNodeIds;
+	for (auto& nodeIt : leftNodes)
+	{
+		if (rightNodes.count(nodeIt.first))
+		{
+			if (!signedNodeIds.count(nodeIt.first))
+			{
+				signedNodeIds[nodeIt.first] = (int)nodeIt.first->nodeId;
+				GraphNode* complNode = _graph.complementNode(nodeIt.first);
+				if (complNode != nodeIt.first) 
+				{
+					signedNodeIds[complNode] = -(int)nodeIt.first->nodeId;
+				}
+
+				std::string nodeId = "node_" + std::to_string(nodeIt.first->nodeId);
+				fprintf(fout, "S\t%s\t*\n", nodeId.c_str());
+			}
+		}
+	}
+
+	for (auto& path : paths)
+	{
+		std::string ctgSign = path.id.strand() ? "+" :"-";
+		std::string ctgName = path.nameUnsigned();
+
+		GraphNode* nodeLeft = path.path.front()->nodeLeft;
+		GraphNode* nodeRight = path.path.back()->nodeRight;
+
+		if (rightNodes.count(nodeLeft))
+		{
+			std::string nodeId = "node_" + std::to_string(abs(signedNodeIds.at(nodeLeft)));
+			std::string nodeSign = signedNodeIds.at(nodeLeft) > 0 ? "+" : "-";
+			fprintf(fout, "L\t%s\t%s\t%s\t%s\t0M\n", nodeId.c_str(), 
+					nodeSign.c_str(), ctgName.c_str(), ctgSign.c_str());
+		}
+
+		if (leftNodes.count(nodeRight))
+		{
+			std::string nodeId = "node_" + std::to_string(abs(signedNodeIds.at(nodeRight)));
+			std::string nodeSign = signedNodeIds.at(nodeRight) > 0 ? "+" : "-";
+			fprintf(fout, "L\t%s\t%s\t%s\t%s\t0M\n", ctgName.c_str(), 
+					ctgSign.c_str(), nodeId.c_str(), nodeSign.c_str());
+		}
+	}
+}
+
 void OutputGenerator::outputDot(const std::vector<UnbranchingPath>& paths,
 								const std::string& filename)
 {
