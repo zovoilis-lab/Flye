@@ -23,6 +23,8 @@ public:
 				   const std::string& filename);
 	void outputGfa(const std::vector<UnbranchingPath>& paths, 
 				   const std::string& filename);
+	void outputGfaCompact(const std::vector<UnbranchingPath>& paths,
+						  const std::string& filename);
 	void outputFasta(const std::vector<UnbranchingPath>& paths, 
 					 const std::string& filename);
 	std::vector<FastaRecord> 
