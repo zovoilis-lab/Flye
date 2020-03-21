@@ -7,6 +7,7 @@
 #include <fstream>
 
 #include "consensus_generator.h"
+#include "../sequence/alignment.h"
 
 #include "../common/config.h"
 #include "../common/logger.h"
@@ -14,7 +15,7 @@
 #include "../common/matrix.h"
 
 
-namespace
+/*namespace
 {
 	//banded glocal alignment
 	void pairwiseAlignment(const std::string& seqOne, const std::string& seqTwo,
@@ -122,7 +123,7 @@ namespace
 		std::reverse(outOne.begin(), outOne.end());
 		std::reverse(outTwo.begin(), outTwo.end());
 	}
-}
+}*/
 
 
 std::vector<FastaRecord> 
@@ -202,7 +203,7 @@ ConsensusGenerator::AlignmentsMap
 		const ContigPath* path = task.first;
 		size_t i = task.second;
 
-		int32_t leftStart = path->overlaps[i].curBegin;
+		/*int32_t leftStart = path->overlaps[i].curBegin;
 		int32_t leftLen = path->overlaps[i].curRange();
 		std::string leftSeq = path->sequences[i].substr(leftStart, leftLen).str();
 
@@ -214,22 +215,49 @@ ConsensusGenerator::AlignmentsMap
 		const int bandWidth = abs((int)leftSeq.length() - 
 								  (int)rightSeq.length()) + 
 								  		Config::get("maximum_jump");
-		/*if (abs((int)leftSeq.length() - (int)rightSeq.length()) >
+		if (abs((int)leftSeq.length() - (int)rightSeq.length()) >
 			std::min((int)leftSeq.length(), (int)rightSeq.length()))
 		{
 			Logger::get().warning() << "Aligning sequence that are too "
 				<< " different - something is terribly wrong!";
 		}*/
 
+		std::vector<CigOp> cigar;
+		const float maxErr = 0.3;
 		std::string alignedLeft;
 		std::string alignedRight;
-		pairwiseAlignment(leftSeq, rightSeq, alignedLeft, 
-						  alignedRight, bandWidth);
+		getAlignmentCigarKsw(path->sequences[i], path->overlaps[i].curBegin, path->overlaps[i].curRange(),
+			   			     path->sequences[i + 1], path->overlaps[i].extBegin, path->overlaps[i].extRange(),
+			   			   	 /*match*/ 1, /*mm*/ -2, /*gap open*/ 2, /*gap ext*/ 1, maxErr, cigar);
+		decodeCigar(cigar, path->sequences[i], path->overlaps[i].curBegin,
+				 	path->sequences[i + 1], path->overlaps[i].extBegin,
+				 	alignedLeft, alignedRight);
+
+		/*const int WIDTH = 100;
+		for (size_t chunk = 0; chunk <= alignedLeft.size() / WIDTH; ++chunk)
+		{
+			for (size_t i = chunk * WIDTH; 
+				 i < std::min((chunk + 1) * WIDTH, alignedLeft.size()); ++i)
+			{
+				std::cout << alignedLeft[i];
+			}
+			std::cout << "\n";
+			for (size_t i = chunk * WIDTH; 
+				 i < std::min((chunk + 1) * WIDTH, alignedRight.size()); ++i)
+			{
+				std::cout << alignedRight[i];
+			}
+			std::cout << "\n\n";
+		}*/
+
+		//pairwiseAlignment(leftSeq, rightSeq, alignedLeft, 
+		//				  alignedRight, bandWidth);
 
 		{
 			std::lock_guard<std::mutex> lock(mapMutex);
 			alnMap[&path->overlaps[i]] = {alignedLeft, alignedRight, 
-						 				  leftStart, rightStart};
+						 				  path->overlaps[i].curBegin, 
+										  path->overlaps[i].extBegin};
 		}
 	};
 
@@ -274,7 +302,7 @@ ConsensusGenerator::getSwitchPositions(const AlignmentInfo& aln,
 		}
 	}
 
-	//Logger::get().debug() << "No jump found!";
+	Logger::get().debug() << "No jump found!";
 	prevSwitch = std::max(prevSwitch + 1, aln.startOne);
 	return {prevSwitch, aln.startTwo};
 }

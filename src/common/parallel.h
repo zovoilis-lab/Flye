@@ -20,6 +20,7 @@ void processInParallel(const std::vector<T>& scheduledTasks,
 
 	std::atomic<size_t> jobId(0);
 	ProgressPercent progress(scheduledTasks.size());
+	if (progressBar) progress.advance(0);
 
 	auto threadWorker = [&jobId, &scheduledTasks, &updateFun, 
 						 &progress, progressBar]()
