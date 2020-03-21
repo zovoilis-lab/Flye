@@ -258,6 +258,11 @@ private:
 				   int maxOverlaps) const;
 
 	bool    overlapTest(const OverlapRange& ovlp, bool& outSuggestChimeric) const;
+
+	std::vector<OverlapRange> 
+		checkIdyAndTrim(OverlapRange& ovlp, const DnaSequence& trgSeq,
+						const DnaSequence& qrySeq, float maxDivergence,
+						int32_t minOverlap, bool showAlignment);
 	
 	const int   _maxJump;
 	const int   _minOverlap;

@@ -226,7 +226,7 @@ int assemble_main(int argc, char** argv)
 						 /*only max*/ true,
 						 /*no div threshold*/ 1.0f,
 						 /* bad end adjustment*/ 0.0f,
-						 /* nucl alignent*/ false);
+						 /* nucl alignent*/ true);
 	OverlapContainer readOverlaps(ovlp, readsContainer);
 	readOverlaps.estimateOverlaperParameters();
 	readOverlaps.setRelativeDivergenceThreshold(

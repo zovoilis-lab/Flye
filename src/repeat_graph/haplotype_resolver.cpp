@@ -49,8 +49,9 @@ int HaplotypeResolver::findHeterozygousBulges()
 
 		UnbranchingPath* entrancePath = pathIndex[path.nodeLeft()->inEdges[0]];
 		UnbranchingPath* exitPath = pathIndex[path.nodeRight()->outEdges[0]];
-		if (entrancePath->id == exitPath->id ||
-			entrancePath->id == exitPath->id.rc()) continue;
+
+		//if (entrancePath->id == exitPath->id ||
+		if (entrancePath->id == exitPath->id.rc()) continue;
 
 		//sanity check for maximum bubble size
 		if (std::max(twoPaths[0]->length, twoPaths[1]->length) > 
