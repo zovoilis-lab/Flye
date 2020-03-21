@@ -200,52 +200,6 @@ float getAlignmentErrKsw(const OverlapRange& ovlp,
 	//visualize alignents if needed
 	/*if (showAlignment)
 	{
-		std::vector<uint8_t> trgByte;
-		std::vector<uint8_t> qryByte;
-		trgByte.assign(ovlp.curRange(), 0);
-		qryByte.assign(ovlp.extRange(), 0);
-		for (size_t i = 0; i < (size_t)ovlp.curRange(); ++i)
-		{
-			trgByte[i] = trgSeq.atRaw(i + ovlp.curBegin);
-		}
-		for (size_t i = 0; i < (size_t)ovlp.extRange(); ++i)
-		{
-			qryByte[i] = qrySeq.atRaw(i + ovlp.extBegin);
-		}
-
-		std::string strQ;
-		std::string strT;
-		std::string alnQry;
-		std::string alnTrg;
-
-		for (auto x : qryByte) strQ += "ACGT"[x];
-		for (auto x : trgByte) strT += "ACGT"[x];
-
-		size_t posQry = 0;
-		size_t posTrg = 0;
-		for (auto& op : decodedCigar)
-		{
-			if (op.op == '=' || op.op == 'X')
-			{
-				alnQry += strQ.substr(posQry, op.len);
-				alnTrg += strT.substr(posTrg, op.len);
-				posQry += op.len;
-				posTrg += op.len;
-			}
-			else if (op.op == 'I')
-			{
-				alnQry += strQ.substr(posQry, op.len);
-				alnTrg += std::string(op.len, '-');
-				posQry += op.len;
-			}
-			else
-			{
-				alnQry += std::string(op.len, '-');
-				alnTrg += strT.substr(posTrg, op.len);
-				posTrg += op.len;
-			}
-		}
-
 		const int WIDTH = 100;
 		for (size_t chunk = 0; chunk <= alnQry.size() / WIDTH; ++chunk)
 		{
@@ -265,4 +219,61 @@ float getAlignmentErrKsw(const OverlapRange& ovlp,
 	}*/
 
 	return errRate;
+}
+
+
+void decodeCigar(const std::vector<CigOp>& cigar, 
+				 const DnaSequence& trgSeq, size_t trgBegin,
+				 const DnaSequence& qrySeq, size_t qryBegin,
+				 std::string& outAlnTrg, std::string& outAlnQry)
+{
+	/*std::vector<uint8_t> trgByte;
+	std::vector<uint8_t> qryByte;
+	trgByte.assign(ovlp.curRange(), 0);
+	qryByte.assign(ovlp.extRange(), 0);
+	for (size_t i = 0; i < (size_t)ovlp.curRange(); ++i)
+	{
+		trgByte[i] = trgSeq.atRaw(i + ovlp.curBegin);
+	}
+	for (size_t i = 0; i < (size_t)ovlp.extRange(); ++i)
+	{
+		qryByte[i] = qrySeq.atRaw(i + ovlp.extBegin);
+	}*/
+
+	//std::string strQ;
+	//std::string strT;
+	//std::string alnQry;
+	//std::string alnTrg;
+
+	//for (auto x : qryByte) strQ += "ACGT"[x];
+	//for (auto x : trgByte) strT += "ACGT"[x];
+
+	outAlnTrg.clear();
+	outAlnQry.clear();
+	size_t posQry = 0;
+	size_t posTrg = 0;
+	for (auto& op : cigar)
+	{
+		if (op.op == '=' || op.op == 'X')
+		{
+			//alnQry += strQ.substr(posQry, op.len);
+			//alnTrg += strT.substr(posTrg, op.len);
+			outAlnQry += qrySeq.substr(qryBegin + posQry, op.len).str();
+			outAlnTrg += trgSeq.substr(trgBegin + posTrg, op.len).str();
+			posQry += op.len;
+			posTrg += op.len;
+		}
+		else if (op.op == 'I')
+		{
+			outAlnQry += qrySeq.substr(qryBegin + posQry, op.len).str();
+			outAlnTrg += std::string(op.len, '-');
+			posQry += op.len;
+		}
+		else
+		{
+			outAlnQry += std::string(op.len, '-');
+			outAlnTrg += trgSeq.substr(trgBegin + posTrg, op.len).str();
+			posTrg += op.len;
+		}
+	}
 }
