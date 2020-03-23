@@ -428,99 +428,43 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 				ovlp.leftShift = median(shifts);
 				ovlp.rightShift = extLen - curLen + ovlp.leftShift;
 
-				if(_nuclAlignment)	//identity using base-level alignment
+				//estimating identity using k-mers
+				int32_t filteredPositions = 0;
+				for (auto pos : curFilteredPos)
 				{
-					ovlp.seqDivergence = getAlignmentErrEdlib(ovlp, fastaRec.sequence, 
-													  		   _seqContainer.getSeq(extId),
-													  		   _maxDivergence);
+					if (pos < ovlp.curBegin) continue;
+					if (pos > ovlp.curEnd) break;
+					++filteredPositions;
 				}
-				else				//estimate identity with k-mers
-				{
-					int32_t filteredPositions = 0;
-					for (auto pos : curFilteredPos)
-					{
-						if (pos < ovlp.curBegin) continue;
-						if (pos > ovlp.curEnd) break;
-						++filteredPositions;
-					}
-
-					float normLen = std::max(ovlp.curRange(), 
-											 ovlp.extRange()) - filteredPositions;
-					float matchRate = (float)chainLength * 
-									  _vertexIndex.getSampleRate() / normLen;
-					matchRate = std::min(matchRate, 1.0f);
-					//float repeatRate = (float)filteredPositions / ovlp.curRange();
-					ovlp.seqDivergence = std::log(1 / matchRate) / kmerSize;
-					//ovlp.seqDivergence += _estimatorBias;
-				}
-
-				if (ovlp.seqDivergence < _maxDivergence)
-				{
-					extOverlaps.push_back(ovlp);
-				}
-				else if (_partitionBadMappings)
-				{
-					auto trimmedOverlaps = 
-						checkIdyAndTrim(ovlp, fastaRec.sequence, 
-										_seqContainer.getSeq(extId),
-										_maxDivergence, _minOverlap,
-										/*show alignment*/ false);
-					for (auto& trimOvlp : trimmedOverlaps)
-					{
-						extOverlaps.push_back(trimOvlp);
-					}
-				}
-
-				//statistics
-				size_t wnd = ovlp.curBegin / STAT_WND;
-				if (ovlp.curRange() > divStatWindows[wnd].curRange())
-				{
-					divStatWindows[wnd] = ovlp;
-				}
-
-				//benchmarking divergence
-				/*float alnDiff = kswAlign(fastaRec.sequence, ovlp.curBegin, ovlp.curRange(),
-										 _seqContainer.getSeq(extId), ovlp.extBegin, 
-										  ovlp.extRange(), 1, -2, 2, 1, false);
-				fout << alnDiff << " " << ovlp.seqDivergence << std::endl;*/
-				/*if (0.15 > alnDiff && ovlp.seqDivergence > 0.20)
-				{
-					kswAlign(fastaRec.sequence
-								.substr(ovlp.curBegin, ovlp.curRange()),
-							 _seqContainer.getSeq(extId)
-								.substr(ovlp.extBegin, ovlp.extRange()),
-							 1, -2, 2, 1, true);
-					std::cout << alnDiff << " " << ovlp.seqDivergence << 
-						" " << (float)filteredPositions / ovlp.curRange() << std::endl;
-				}*/
+				float normLen = std::max(ovlp.curRange(), 
+										 ovlp.extRange()) - filteredPositions;
+				float matchRate = (float)chainLength * 
+								  _vertexIndex.getSampleRate() / normLen;
+				matchRate = std::min(matchRate, 1.0f);
+				//float repeatRate = (float)filteredPositions / ovlp.curRange();
+				ovlp.seqDivergence = std::log(1 / matchRate) / kmerSize;
+				//ovlp.seqDivergence += _estimatorBias;
+				extOverlaps.push_back(ovlp);
 			}
 		}
 		
-		//selecting the best
-		if (_onlyMaxExt)
+		//now we have a lits of (possibly multiple) putative overlaps
+		//agains a singe ext sequence. Now, select the list of primary overlaps
+		std::vector<OverlapRange> primaryOverlaps;
+		std::sort(extOverlaps.begin(), extOverlaps.end(),
+				  [](const OverlapRange& r1, const OverlapRange& r2)
+				  {return r1.score > r2.score;});
+
+		if (_onlyMaxExt)	//select single best overlap
 		{
-			const OverlapRange* maxOvlp = nullptr;
-			for (const auto& ovlp : extOverlaps)
-			{
-				if (!maxOvlp || ovlp.score > maxOvlp->score)
-				{
-					maxOvlp = &ovlp;
-				}
-			}
-			if (maxOvlp) detectedOverlaps.push_back(*maxOvlp);
+			if (!extOverlaps.empty()) primaryOverlaps.push_back(extOverlaps.front());
 		}
 		else
 		{
-			std::vector<OverlapRange> primOverlaps;
-			//sort by decreasing score
-			std::sort(extOverlaps.begin(), extOverlaps.end(),
-					  [](const OverlapRange& r1, const OverlapRange& r2)
-					  {return r1.score > r2.score;});
-			
 			for (const auto& ovlp : extOverlaps)
 			{
 				bool isContained = false;
-				for (const auto& prim : primOverlaps)
+				for (const auto& prim : primaryOverlaps)
 				{
 					if (ovlp.containedBy(prim) && prim.score > ovlp.score)
 					{
@@ -530,12 +474,43 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 				}
 				if (!isContained)
 				{
-					primOverlaps.push_back(ovlp);
+					primaryOverlaps.push_back(ovlp);
 				}
 			}
-			for (const auto& ovlp : primOverlaps)
+		}
+
+		//divergence check for the selected primary overlaps
+		for (auto& ovlp : primaryOverlaps)
+		{
+			if(_nuclAlignment)	//identity using base-level alignment
+			{
+				ovlp.seqDivergence = getAlignmentErrEdlib(ovlp, fastaRec.sequence, 
+														   _seqContainer.getSeq(extId),
+														   _maxDivergence);
+			}
+
+			if (ovlp.seqDivergence < _maxDivergence)
 			{
 				detectedOverlaps.push_back(ovlp);
+			}
+			else if (_partitionBadMappings)
+			{
+				auto trimmedOverlaps = 
+					checkIdyAndTrim(ovlp, fastaRec.sequence, 
+									_seqContainer.getSeq(extId),
+									_maxDivergence, _minOverlap,
+									/*show alignment*/ false);
+				for (auto& trimOvlp : trimmedOverlaps)
+				{
+					detectedOverlaps.push_back(trimOvlp);
+				}
+			}
+
+			//statistics
+			size_t wnd = ovlp.curBegin / STAT_WND;
+			if (ovlp.curRange() > divStatWindows[wnd].curRange())
+			{
+				divStatWindows[wnd] = ovlp;
 			}
 		}
 	}
