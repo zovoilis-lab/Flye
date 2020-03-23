@@ -151,8 +151,8 @@ void ReadAligner::alignReads()
 									/*no overhang*/ 0, /*no max ovlp count*/ 0,
 									/*keep alignment*/ false, /*only max*/ false,
 									/*no max divergence*/ 1.0f,
-									/*bad end adjust*/ 0.0f, 
-									/*nucl alignment*/ false);
+									/*nucl alignment*/ true,
+									/*partition bad map*/ false);
 	OverlapContainer readsOverlaps(readsOverlapper, _readSeqs);
 	static const float MAX_DIVERGENCE = Config::get("read_align_ovlp_divergence");
 

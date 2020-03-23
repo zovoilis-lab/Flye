@@ -229,8 +229,8 @@ public:
 					const VertexIndex& vertexIndex,
 					int maxJump, int minOverlap, int maxOverhang,
 					int maxCurOverlaps, bool keepAlignment, bool onlyMaxExt,
-					float maxDivergence, float badEndAdjustment,
-					bool nuclAlignment):
+					float maxDivergence, bool nuclAlignment,
+					bool partitionBadMappings):
 		_maxJump(maxJump),
 		_minOverlap(minOverlap),
 		_maxOverhang(maxOverhang),
@@ -239,9 +239,10 @@ public:
 		_keepAlignment(keepAlignment),
 		_onlyMaxExt(onlyMaxExt),
 		_nuclAlignment(nuclAlignment),
+		_partitionBadMappings(partitionBadMappings),
 		_maxDivergence(maxDivergence),
-		_badEndAdjustment(badEndAdjustment),
-		_estimatorBias(0.0f),
+		//_badEndAdjustment(badEndAdjustment),
+		//_estimatorBias(0.0f),
 		_vertexIndex(vertexIndex),
 		_seqContainer(seqContainer)
 		//_seqHitCounter(_seqContainer.getMaxSeqId())
@@ -262,7 +263,7 @@ private:
 	std::vector<OverlapRange> 
 		checkIdyAndTrim(OverlapRange& ovlp, const DnaSequence& trgSeq,
 						const DnaSequence& qrySeq, float maxDivergence,
-						int32_t minOverlap, bool showAlignment);
+						int32_t minOverlap, bool showAlignment) const;
 	
 	const int   _maxJump;
 	const int   _minOverlap;
@@ -272,10 +273,11 @@ private:
 	const bool  _keepAlignment;
 	const bool  _onlyMaxExt;
 	const bool  _nuclAlignment;
+	const bool  _partitionBadMappings;
 
 	mutable float _maxDivergence;
-	mutable float _badEndAdjustment;
-	mutable float _estimatorBias;
+	//mutable float _badEndAdjustment;
+	//mutable float _estimatorBias;
 
 	const VertexIndex& _vertexIndex;
 	const SequenceContainer& _seqContainer;
@@ -293,7 +295,7 @@ public:
 		_ovlpDetect(ovlpDetect),
 		_queryContainer(queryContainer),
 		_indexSize(0),
-		_kmerIdyEstimateBias(0),
+		//_kmerIdyEstimateBias(0),
 		_meanTrueOvlpDiv(0)
 	{}
 
@@ -367,6 +369,6 @@ private:
 	std::unordered_map<FastaRecord::Id, 
 					   IntervalTree<const OverlapRange*>> _ovlpTree;
 
-	float _kmerIdyEstimateBias;
+	//float _kmerIdyEstimateBias;
 	float _meanTrueOvlpDiv;
 };

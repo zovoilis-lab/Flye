@@ -84,7 +84,8 @@ void RepeatGraph::build()
 								  /*no overhang*/ 0, /*all overlaps*/ 0,
 								  /*keep alignment*/ true, /*only max*/ false,
 								  (float)Config::get("repeat_graph_ovlp_divergence"),
-								  /* no bad end*/ 0, /*nucl alignment*/ true);
+								  /*nucl alignment*/ true, 
+								  /*partition bad map*/ true);
 
 	OverlapContainer asmOverlaps(asmOverlapper, _asmSeqs);
 	asmOverlaps.findAllOverlaps();

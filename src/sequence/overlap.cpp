@@ -428,59 +428,47 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 				ovlp.leftShift = median(shifts);
 				ovlp.rightShift = extLen - curLen + ovlp.leftShift;
 
-				int32_t filteredPositions = 0;
-				for (auto pos : curFilteredPos)
+				if(_nuclAlignment)	//identity using base-level alignment
 				{
-					if (pos < ovlp.curBegin) continue;
-					if (pos > ovlp.curEnd) break;
-					++filteredPositions;
-				}
-
-				float normLen = std::max(ovlp.curRange(), 
-										 ovlp.extRange()) - filteredPositions;
-				float matchRate = (float)chainLength * 
-								  _vertexIndex.getSampleRate() / normLen;
-				matchRate = std::min(matchRate, 1.0f);
-				//float repeatRate = (float)filteredPositions / ovlp.curRange();
-				ovlp.seqDivergence = std::log(1 / matchRate) / kmerSize;
-				ovlp.seqDivergence += _estimatorBias;
-
-				/*auto tx = std::chrono::system_clock::now();
-				ovlp.seqDivergence = getAlignmentErr(ovlp, fastaRec.sequence, 
-													 _seqContainer.getSeq(extId),
-													 _maxDivergence);
-				auto tx2 = std::chrono::system_clock::now();
-				float edlibErr = getAlignmentErrEdlib(ovlp, fastaRec.sequence, 
-													  _seqContainer.getSeq(extId),
-													  _maxDivergence);
-				auto tx3 = std::chrono::system_clock::now();
-				Logger::get().debug() << ovlp.seqDivergence << " " << edlibErr;
-
-				Logger::get().debug() << "ksw: " << 
-					std::chrono::duration_cast<std::chrono::duration<float>>(tx2 - tx).count();
-				Logger::get().debug() << "edlib: " << 
-					std::chrono::duration_cast<std::chrono::duration<float>>(tx3 - tx2).count();*/
-
-
-				if(_nuclAlignment)
-				{
-					//auto trimmedOverlaps = 
-					//	checkIdyAndTrim(ovlp, fastaRec.sequence, 
-					//					_seqContainer.getSeq(extId),
-					//					_maxDivergence, _minOverlap,
-					//					/*show alignment*/ false);
-					//for (auto& trimOvlp : trimmedOverlaps)
-					//{
-					//	extOverlaps.push_back(trimOvlp);
-					//}
-					ovlp.seqDivergence =  getAlignmentErrEdlib(ovlp, fastaRec.sequence, 
+					ovlp.seqDivergence = getAlignmentErrEdlib(ovlp, fastaRec.sequence, 
 													  		   _seqContainer.getSeq(extId),
 													  		   _maxDivergence);
-					if (ovlp.seqDivergence < _maxDivergence) extOverlaps.push_back(ovlp);
 				}
-				else if (ovlp.seqDivergence < _maxDivergence)
+				else				//estimate identity with k-mers
+				{
+					int32_t filteredPositions = 0;
+					for (auto pos : curFilteredPos)
+					{
+						if (pos < ovlp.curBegin) continue;
+						if (pos > ovlp.curEnd) break;
+						++filteredPositions;
+					}
+
+					float normLen = std::max(ovlp.curRange(), 
+											 ovlp.extRange()) - filteredPositions;
+					float matchRate = (float)chainLength * 
+									  _vertexIndex.getSampleRate() / normLen;
+					matchRate = std::min(matchRate, 1.0f);
+					//float repeatRate = (float)filteredPositions / ovlp.curRange();
+					ovlp.seqDivergence = std::log(1 / matchRate) / kmerSize;
+					//ovlp.seqDivergence += _estimatorBias;
+				}
+
+				if (ovlp.seqDivergence < _maxDivergence)
 				{
 					extOverlaps.push_back(ovlp);
+				}
+				else if (_partitionBadMappings)
+				{
+					auto trimmedOverlaps = 
+						checkIdyAndTrim(ovlp, fastaRec.sequence, 
+										_seqContainer.getSeq(extId),
+										_maxDivergence, _minOverlap,
+										/*show alignment*/ false);
+					for (auto& trimOvlp : trimmedOverlaps)
+					{
+						extOverlaps.push_back(trimOvlp);
+					}
 				}
 
 				//statistics
@@ -838,22 +826,22 @@ void OverlapContainer::estimateOverlaperParameters()
 	if (!trueDivergence.empty())
 	{
 		//_kmerIdyEstimateBias = median(biases);
-		_kmerIdyEstimateBias = 0;
+		//_kmerIdyEstimateBias = 0;
 		_meanTrueOvlpDiv = median(trueDivergence);
 
 		//set the parameters and reset statistics
-		_ovlpDetect._estimatorBias = _kmerIdyEstimateBias;
+		//_ovlpDetect._estimatorBias = _kmerIdyEstimateBias;
 		_divergenceStats.vecSize = 0;
 	}
 	else
 	{
 		Logger::get().warning() << "No overlaps found - unable to estimate parameters";
 		_meanTrueOvlpDiv = 0.5f;
-		_kmerIdyEstimateBias = 0.0f;
+		//_kmerIdyEstimateBias = 0.0f;
 	}
 
 	Logger::get().debug() << "Median overlap divergence: " << _meanTrueOvlpDiv;
-	Logger::get().debug() << "K-mer estimate bias (true - est): " << _kmerIdyEstimateBias;
+	//Logger::get().debug() << "K-mer estimate bias (true - est): " << _kmerIdyEstimateBias;
 }
 
 
@@ -966,7 +954,7 @@ std::vector<Interval<const OverlapRange*>>
 std::vector<OverlapRange> 
 	OverlapDetector::checkIdyAndTrim(OverlapRange& ovlp, const DnaSequence& trgSeq,
 								 	 const DnaSequence& qrySeq, float maxDivergence,
-									 int32_t minOverlap, bool showAlignment)
+									 int32_t minOverlap, bool showAlignment) const
 {
 	std::vector<CigOp> decodedCigar;
 	float errRate = getAlignmentCigarKsw(trgSeq, ovlp.curBegin, ovlp.curRange(),
