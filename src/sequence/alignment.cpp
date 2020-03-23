@@ -169,10 +169,11 @@ float getAlignmentErrEdlib(const OverlapRange& ovlp,
 		qryByte[i] = qrySeq.atRaw(i + ovlp.extBegin);
 	}
 
-	//int bandWidth = 1000;
-	int bandWidth = std::max(10.0f, maxAlnErr * std::max(ovlp.curRange(), 
-														 ovlp.extRange()));
-	auto edlibCfg = edlibNewAlignConfig(bandWidth, EDLIB_MODE_NW, 
+	//int bandWidth = std::max(10.0f, maxAlnErr * std::max(ovlp.curRange(), 
+	//													 ovlp.extRange()));
+	//letting edlib find k byt iterating over powers of 2. Seems like
+	//it is in fact a little faster, than having a hard upper limit.
+	auto edlibCfg = edlibNewAlignConfig(-1, EDLIB_MODE_NW, 
 										EDLIB_TASK_DISTANCE, nullptr, 0);
 	auto result = edlibAlign(&qryByte[0], qryByte.size(),
 							 &trgByte[0], trgByte.size(), edlibCfg);
