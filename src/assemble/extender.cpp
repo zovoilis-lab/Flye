@@ -196,7 +196,8 @@ void Extender::assembleDisjointigs()
 	}
 	
 	std::mutex indexMutex;
-	auto processRead = [this, &indexMutex, &coveredReads, totalReads] 
+	ProgressPercent progress(totalReads);
+	auto processRead = [this, &indexMutex, &coveredReads, totalReads, &progress] 
 		(FastaRecord::Id startRead)
 	{
 		//most of the reads will fall into the inner categoty -
@@ -282,7 +283,7 @@ void Extender::assembleDisjointigs()
 			<< "\n\tInner reads: " << innerCount
 			<< "\n\tLength: " << exInfo.assembledLength;
 
-		Logger::get().debug() << "Ovlp index size: " << _ovlpContainer.indexSize();
+		//Logger::get().debug() << "Ovlp index size: " << _ovlpContainer.indexSize();
 		
 		//update inner read index
 		std::unordered_set<FastaRecord::Id> rightExtended;
@@ -317,6 +318,7 @@ void Extender::assembleDisjointigs()
 		Logger::get().debug() << "Inner: " << 
 			_innerReads.size() << " covered: " << coveredReads.size()
 			<< " total: "<< totalReads;
+		progress.setValue(coveredReads.size());
 		
 		_readLists.push_back(std::move(exInfo));
 	};
@@ -335,9 +337,14 @@ void Extender::assembleDisjointigs()
 			allReads.push_back(seq.id);
 		}
 	}
-	std::random_shuffle(allReads.begin(), allReads.end());
+	//std::random_shuffle(allReads.begin(), allReads.end());
+	//deterministic shuffling
+	std::sort(allReads.begin(), allReads.end(), 
+			  [](const FastaRecord::Id& id1, const FastaRecord::Id& id2)
+			  {return id1.hash() < id2.hash();});
 	processInParallel(allReads, threadWorker,
-					  Parameters::get().numThreads, true);
+					  Parameters::get().numThreads, /*progress*/ false);
+	progress.setDone();
 	//_ovlpContainer.ensureTransitivity(/*only max*/ true);
 
 	bool addSingletons = (bool)Config::get("add_unassembled_reads");
