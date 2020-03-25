@@ -147,8 +147,7 @@ namespace
 void VertexIndex::buildIndexUnevenCoverage(int minCoverage, float selectRate,
 										   int tandemFreq)
 {
-	//_solidMultiplier = 2;
-	_solidMultiplier = 1;
+	//_solidMultiplier = 1;
 
 	std::vector<FastaRecord::Id> allReads;
 	for (const auto& seq : _seqContainer.iterSeqs())
@@ -356,7 +355,7 @@ void VertexIndex::setRepeatCutoff(int minCoverage)
 void VertexIndex::buildIndex(int minCoverage)
 {
 	if (_outputProgress) Logger::get().info() << "Filling index table";
-	_solidMultiplier = 1;
+	//_solidMultiplier = 1;
 	
 	//"Replacing" k-mer couns with k-mer index. We need multiple passes
 	//to avoid peaks in memory usage during the hash table extensions +
@@ -474,7 +473,6 @@ void VertexIndex::buildIndex(int minCoverage)
 				  	{return p1.get() < p2.get();});
 	}
 }
-
 
 void VertexIndex::clear()
 {
