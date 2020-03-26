@@ -170,6 +170,7 @@ public:
 	void buildIndex(int minCoverage);
 	void buildIndexUnevenCoverage(int minCoverage, float selectRate, 
 								  int tandemFreq);
+	void buildIndexMinimizers(int minCoverage, int wndLen);
 	void clear();
 
 	IterHelper iterKmerPos(Kmer kmer) const
@@ -214,6 +215,9 @@ public:
 
 private:
 	void addFastaSequence(const FastaRecord& fastaRecord);
+	std::vector<KmerPosition> 
+		yieldMinimizers(const FastaRecord::Id& seqId, int window);
+	void allocateIndexMemory();
 
 	const SequenceContainer& _seqContainer;
 	KmerDistribution 		 _kmerDistribution;

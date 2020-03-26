@@ -199,26 +199,7 @@ void VertexIndex::buildIndexUnevenCoverage(int minCoverage, float selectRate,
 	processInParallel(allReads, initializeIndex, 
 					  Parameters::get().numThreads, _outputProgress);
 	
-	_memoryChunks.push_back(new IndexChunk[MEM_CHUNK]);
-	size_t chunkOffset = 0;
-	//Important: since packed structures are apparently not thread-safe,
-	//make sure that adjacent k-mer index arrays (that are accessed in parallel)
-	//do not overlap within 8-byte window
-	const size_t PADDING = 1;
-	for (auto& kmer : _kmerIndex.lock_table())
-	{
-		if (MEM_CHUNK < kmer.second.capacity + PADDING) 
-		{
-			throw std::runtime_error("k-mer is too frequent");
-		}
-		if (MEM_CHUNK - chunkOffset < kmer.second.capacity + PADDING)
-		{
-			_memoryChunks.push_back(new IndexChunk[MEM_CHUNK]);
-			chunkOffset = 0;
-		}
-		kmer.second.data = _memoryChunks.back() + chunkOffset;
-		chunkOffset += kmer.second.capacity + PADDING;
-	}
+	this->allocateIndexMemory();
 
 	if (_outputProgress) Logger::get().info() << "Filling index table (2/2)";
 	std::function<void(const FastaRecord::Id&)> indexUpdate = 
@@ -305,6 +286,8 @@ void VertexIndex::buildIndexUnevenCoverage(int minCoverage, float selectRate,
 	}
 	Logger::get().debug() << "Selected k-mers: " << _kmerIndex.size();
 	Logger::get().debug() << "Index size: " << totalEntries;
+	Logger::get().debug() << "Mean k-mer frequency: " 
+		<< (float)totalEntries / _kmerIndex.size();
 }
 
 namespace
@@ -376,12 +359,7 @@ void VertexIndex::buildIndex(int minCoverage)
 			_repetitiveKmers.insert(kmer.first, true);
 		}
 	}
-	Logger::get().debug() << "Sampling rate: " << _sampleRate;
-	Logger::get().debug() << "Solid k-mers: " << solidKmers;
-	Logger::get().debug() << "K-mer index size: " << kmerEntries;
-	Logger::get().debug() << "Mean k-mer frequency: " 
-		<< (float)kmerEntries / solidKmers;
-
+	
 	_kmerIndex.reserve(solidKmers);
 	for (const auto& kmer : _kmerCounts.lock_table())
 	{
@@ -395,28 +373,7 @@ void VertexIndex::buildIndex(int minCoverage)
 	_kmerCounts.clear();
 	_kmerCounts.reserve(0);
 
-	_memoryChunks.push_back(new IndexChunk[MEM_CHUNK]);
-	size_t chunkOffset = 0;
-	//Important: since packed structures are apparently not thread-safe,
-	//make sure that adjacent k-mer index arrays (that are accessed in parallel)
-	//do not overlap within 8-byte window
-	const size_t PADDING = 1;
-	for (auto& kmer : _kmerIndex.lock_table())
-	{
-		if (MEM_CHUNK < kmer.second.capacity + PADDING) 
-		{
-			throw std::runtime_error("k-mer is too frequent");
-		}
-		if (MEM_CHUNK - chunkOffset < kmer.second.capacity + PADDING)
-		{
-			_memoryChunks.push_back(new IndexChunk[MEM_CHUNK]);
-			chunkOffset = 0;
-		}
-		kmer.second.data = _memoryChunks.back() + chunkOffset;
-		chunkOffset += kmer.second.capacity + PADDING;
-	}
-	//Logger::get().debug() << "Total chunks " << _memoryChunks.size()
-	//	<< " wasted space: " << wasted;
+	this->allocateIndexMemory();
 
 	std::function<void(const FastaRecord::Id&)> indexUpdate = 
 	[this] (const FastaRecord::Id& readId)
@@ -424,7 +381,6 @@ void VertexIndex::buildIndex(int minCoverage)
 		if (!readId.strand()) return;
 
 		int32_t nextKmerPos = _sampleRate;
-		//int32_t seqLen = _seqContainer.seqLen(readId);
 		for (auto kmerPos : IterKmers(_seqContainer.getSeq(readId)))
 		{
 			if (_sampleRate > 1) //subsampling
@@ -451,8 +407,6 @@ void VertexIndex::buildIndex(int minCoverage)
 							.globalPosition(targetRead, kmerPos.position);
 					//if (globPos > MAX_INDEX) throw std::runtime_error("Too much!");
 					rv.data[rv.size].set(globPos);
-					//rv.data[rv.size] = ReadPosition(targetRead, 
-					//								kmerPos.position);
 					++rv.size;
 				});
 		}
@@ -472,7 +426,176 @@ void VertexIndex::buildIndex(int minCoverage)
 				  [](const IndexChunk& p1, const IndexChunk& p2)
 				  	{return p1.get() < p2.get();});
 	}
+
+	//Logger::get().debug() << "Sampling rate: " << _sampleRate;
+	Logger::get().debug() << "Selected k-mers: " << solidKmers;
+	Logger::get().debug() << "K-mer index size: " << kmerEntries;
+	Logger::get().debug() << "Mean k-mer frequency: " 
+		<< (float)kmerEntries / solidKmers;
 }
+
+std::vector<KmerPosition> 
+	VertexIndex::yieldMinimizers(const FastaRecord::Id& seqId, int window)
+{
+	struct KmerAndHash
+	{
+		KmerPosition kp;
+		size_t hash;
+	};
+	thread_local std::deque<KmerAndHash> miniQueue;
+	miniQueue.clear();
+
+	std::vector<KmerPosition> minimizers;
+	minimizers.reserve(_seqContainer.seqLen(seqId) / window * 2);
+
+	for (auto kmerPos : IterKmers(_seqContainer.getSeq(seqId)))
+	{
+		kmerPos.kmer.standardForm();
+		size_t curHash = kmerPos.kmer.hash();
+		
+		while (!miniQueue.empty() && miniQueue.back().hash > curHash)
+		{
+			miniQueue.pop_back();
+		}
+		miniQueue.push_back({kmerPos, curHash});
+		if (miniQueue.front().kp.position <= kmerPos.position - window)
+		{
+			while (miniQueue.front().kp.position <= kmerPos.position - window)
+			{
+				miniQueue.pop_front();
+			}
+			while (miniQueue.size() >= 2 && miniQueue[0].hash == miniQueue[1].hash)
+			{
+				miniQueue.pop_front();
+			}
+		}
+		if (minimizers.empty() || minimizers.back().position != miniQueue.front().kp.position)
+		{
+			minimizers.push_back(miniQueue.front().kp);
+		}
+	}
+
+	//Logger::get().debug() << _seqContainer.seqLen(seqId) << " " << minimizers.size();
+	return minimizers;
+}
+
+void VertexIndex::allocateIndexMemory()
+{
+	_memoryChunks.push_back(new IndexChunk[MEM_CHUNK]);
+	size_t chunkOffset = 0;
+	//Important: since packed structures are apparently not thread-safe,
+	//make sure that adjacent k-mer index arrays (that are accessed in parallel)
+	//do not overlap within 8-byte window
+	const size_t PADDING = 1;
+	for (auto& kmer : _kmerIndex.lock_table())
+	{
+		if (MEM_CHUNK < kmer.second.capacity + PADDING) 
+		{
+			throw std::runtime_error("k-mer is too frequent");
+		}
+		if (MEM_CHUNK - chunkOffset < kmer.second.capacity + PADDING)
+		{
+			_memoryChunks.push_back(new IndexChunk[MEM_CHUNK]);
+			chunkOffset = 0;
+		}
+		kmer.second.data = _memoryChunks.back() + chunkOffset;
+		chunkOffset += kmer.second.capacity + PADDING;
+	}
+
+	//Logger::get().debug() << "Total chunks " << _memoryChunks.size()
+	//	<< " wasted space: " << wasted;
+}
+
+void VertexIndex::buildIndexMinimizers(int minCoverage, int wndLen)
+{
+	if (_outputProgress) Logger::get().info() << "Building minimizer index";
+
+	std::vector<FastaRecord::Id> allReads;
+	for (const auto& seq : _seqContainer.iterSeqs())
+	{
+		allReads.push_back(seq.id);
+	}
+
+	_kmerIndex.reserve(1000000);
+	if (_outputProgress) Logger::get().info() << "Pre-calculating index storage";
+	std::function<void(const FastaRecord::Id&)> initializeIndex = 
+	[this, minCoverage, wndLen] (const FastaRecord::Id& readId)
+	{
+		if (!readId.strand()) return;
+
+		auto minimizers = this->yieldMinimizers(readId, wndLen);
+		for (auto kmerPos : minimizers)
+		{
+			ReadVector defVec((uint32_t)1, (uint32_t)0);
+			_kmerIndex.upsert(kmerPos.kmer, 
+							  [](ReadVector& rv){++rv.capacity;}, defVec);
+		}
+	};
+	processInParallel(allReads, initializeIndex, 
+					  Parameters::get().numThreads, _outputProgress);
+	this->allocateIndexMemory();
+	
+	if (_outputProgress) Logger::get().info() << "Filling index";
+	std::function<void(const FastaRecord::Id&)> indexUpdate = 
+	[this, minCoverage, wndLen] (const FastaRecord::Id& readId)
+	{
+		if (!readId.strand()) return;
+		auto minimizers = this->yieldMinimizers(readId, wndLen);
+		for (auto kmerPos : minimizers)
+		{
+			FastaRecord::Id targetRead = readId;
+			bool revCmp = kmerPos.kmer.standardForm();
+			if (revCmp)
+			{
+				kmerPos.position = _seqContainer.seqLen(readId) - 
+										kmerPos.position -
+										Parameters::get().kmerSize;
+				targetRead = targetRead.rc();
+			}
+
+			//if (kmerFreq.freq > _repetitiveFrequency ||
+			//	localFreq[kmerPos.kmer] > (size_t)tandemFreq) continue;
+
+			_kmerIndex.update_fn(kmerPos.kmer, 
+				[targetRead, &kmerPos, this](ReadVector& rv)
+				{
+					if (rv.size == rv.capacity) 
+					{
+						Logger::get().warning() << "Index size mismatch " << rv.capacity;
+						return;
+					}
+					size_t globPos = _seqContainer
+							.globalPosition(targetRead, kmerPos.position);
+					rv.data[rv.size].set(globPos);
+					++rv.size;
+				});
+		}
+	};
+	processInParallel(allReads, indexUpdate, 
+					  Parameters::get().numThreads, _outputProgress);
+
+	//_kmerCounts.clear();
+	//_kmerCounts.reserve(0);
+
+	Logger::get().debug() << "Sorting k-mer index";
+	for (const auto& kmerVec : _kmerIndex.lock_table())
+	{
+		std::sort(kmerVec.second.data, kmerVec.second.data + kmerVec.second.size,
+				  [](const IndexChunk& p1, const IndexChunk& p2)
+				  	{return p1.get() < p2.get();});
+	}
+	
+	size_t totalEntries = 0;
+	for (const auto& kmerRec : _kmerIndex.lock_table())
+	{
+		totalEntries += kmerRec.second.size;
+	}
+	Logger::get().debug() << "Selected k-mers: " << _kmerIndex.size();
+	Logger::get().debug() << "K-mer index size: " << totalEntries;
+	Logger::get().debug() << "Mean k-mer frequency: " 
+		<< (float)totalEntries / _kmerIndex.size();
+}
+
 
 void VertexIndex::clear()
 {
