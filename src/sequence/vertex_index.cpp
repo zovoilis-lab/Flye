@@ -450,8 +450,9 @@ std::vector<KmerPosition>
 
 	for (auto kmerPos : IterKmers(_seqContainer.getSeq(seqId)))
 	{
-		kmerPos.kmer.standardForm();
-		size_t curHash = kmerPos.kmer.hash();
+		auto stdKmer = kmerPos.kmer;
+		stdKmer.standardForm();
+		size_t curHash = stdKmer.hash();
 		
 		while (!miniQueue.empty() && miniQueue.back().hash > curHash)
 		{
@@ -526,8 +527,10 @@ void VertexIndex::buildIndexMinimizers(int minCoverage, int wndLen)
 		auto minimizers = this->yieldMinimizers(readId, wndLen);
 		for (auto kmerPos : minimizers)
 		{
+			auto stdKmer = kmerPos.kmer;
+			stdKmer.standardForm();
 			ReadVector defVec((uint32_t)1, (uint32_t)0);
-			_kmerIndex.upsert(kmerPos.kmer, 
+			_kmerIndex.upsert(stdKmer, 
 							  [](ReadVector& rv){++rv.capacity;}, defVec);
 		}
 	};
