@@ -51,23 +51,9 @@ void VertexIndex::countKmers(size_t hardThreshold, int genomeSize)
 	{
 		if (!readId.strand()) return;
 		
-		int32_t nextKmerPos = _sampleRate;
 		for (auto kmerPos : IterKmers(_seqContainer.getSeq(readId)))
 		{
-			if (_sampleRate > 1) //subsampling
-			{
-				if (--nextKmerPos > 0) continue;
-				nextKmerPos = _sampleRate + 
-					(int32_t)((kmerPos.kmer.hash() ^ readId.hash()) % 3) - 1;
-			}
-
-			bool revCmp = kmerPos.kmer.standardForm();
-			if (revCmp)
-			{
-				kmerPos.position = _seqContainer.seqLen(readId) - 
-										kmerPos.position -
-										Parameters::get().kmerSize;
-			}
+			kmerPos.kmer.standardForm();
 			size_t kmerBucket = kmerPos.kmer.hash() % preCountSize;
 
 			unsigned char expected = 0;
@@ -98,24 +84,9 @@ void VertexIndex::countKmers(size_t hardThreshold, int genomeSize)
 	{
 		if (!readId.strand()) return;
 
-		int32_t nextKmerPos = _sampleRate;
 		for (auto kmerPos : IterKmers(_seqContainer.getSeq(readId)))
 		{
-			if (_sampleRate > 1) //subsampling
-			{
-				if (--nextKmerPos > 0) continue;
-				nextKmerPos = _sampleRate + 
-					(int32_t)((kmerPos.kmer.hash() ^ readId.hash()) % 3) - 1;
-			}
-
 			kmerPos.kmer.standardForm();
-			/*if (revCmp)
-			{
-				kmerPos.position = _seqContainer.seqLen(readId) - 
-										kmerPos.position -
-										Parameters::get().kmerSize;
-			}*/
-
 			size_t count = preCounters[kmerPos.kmer.hash() % preCountSize];
 			if (count >= hardThreshold)
 			{
@@ -248,8 +219,7 @@ void VertexIndex::buildIndexUnevenCoverage(int minCoverage, float selectRate,
 			if (kmerFreq.freq > _repetitiveFrequency ||
 				localFreq[kmerPos.kmer] > (size_t)tandemFreq) continue;
 
-			//in case kmer not in index yet, creates a new vector
-			//with a single element in it
+			//will not trigger update for k-mer not in the index
 			_kmerIndex.update_fn(kmerPos.kmer, 
 				[targetRead, &kmerPos, this](ReadVector& rv)
 				{
@@ -400,6 +370,7 @@ void VertexIndex::buildIndex(int minCoverage)
 				targetRead = targetRead.rc();
 			}
 			
+			//will not trigger update if the k-mer is not already in index
 			_kmerIndex.update_fn(kmerPos.kmer, 
 				[targetRead, &kmerPos, this](ReadVector& rv)
 				{
