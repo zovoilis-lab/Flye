@@ -197,6 +197,7 @@ void Extender::assembleDisjointigs()
 	
 	std::mutex indexMutex;
 	ProgressPercent progress(totalReads);
+	progress.setValue(0);
 	auto processRead = [this, &indexMutex, &coveredReads, totalReads, &progress] 
 		(FastaRecord::Id startRead)
 	{
