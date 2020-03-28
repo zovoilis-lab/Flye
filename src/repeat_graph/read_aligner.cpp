@@ -144,14 +144,13 @@ void ReadAligner::alignReads()
 	VertexIndex pathsIndex(_graph.edgeSequences(), 
 						   (int)Config::get("read_align_kmer_sample"));
 	pathsIndex.countKmers(/*min freq*/ 1, /* genome size*/ 0);
-	pathsIndex.setRepeatCutoff(/*min freq*/ 1);
 	pathsIndex.buildIndex(/*min freq*/ 1);
 	OverlapDetector readsOverlapper(_graph.edgeSequences(), pathsIndex, 
 									(int)Config::get("maximum_jump"), SMALL_ALN,
 									/*no overhang*/ 0, /*no max ovlp count*/ 0,
 									/*keep alignment*/ false, /*only max*/ false,
 									/*no max divergence*/ 1.0f,
-									/*nucl alignment*/ true,
+									/*nucl alignment*/ false,
 									/*partition bad map*/ false);
 	OverlapContainer readsOverlaps(readsOverlapper, _readSeqs);
 	static const float MAX_DIVERGENCE = Config::get("read_align_ovlp_divergence");

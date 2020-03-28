@@ -166,7 +166,6 @@ public:
 	};
 
 	void countKmers(size_t hardThreshold, int genomeSize);
-	void setRepeatCutoff(int minCoverage);
 	void buildIndex(int minCoverage);
 	void buildIndexUnevenCoverage(int minCoverage, float selectRate, 
 								  int tandemFreq);
@@ -214,7 +213,7 @@ public:
 	int getSampleRate() const {return _sampleRate;}
 
 private:
-	void addFastaSequence(const FastaRecord& fastaRecord);
+	void setRepeatCutoff(int minCoverage);
 
 	std::vector<KmerPosition> 
 		yieldMinimizers(const FastaRecord::Id& seqId, int window);
@@ -230,6 +229,7 @@ private:
 						   float selctRate, int tandemFreq);
 
 	void allocateIndexMemory();
+	void filterFrequentKmers(float rate);
 
 	const SequenceContainer& _seqContainer;
 	KmerDistribution 		 _kmerDistribution;

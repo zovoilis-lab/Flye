@@ -190,6 +190,7 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 		if (_vertexIndex.isRepetitive(curKmerPos.kmer))
 		{
 			curFilteredPos.push_back(curKmerPos.position);
+			continue;
 		}
 		if (!_vertexIndex.kmerFreq(curKmerPos.kmer)) continue;
 

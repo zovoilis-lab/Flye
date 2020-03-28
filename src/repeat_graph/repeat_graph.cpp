@@ -74,7 +74,6 @@ void RepeatGraph::build()
 	VertexIndex asmIndex(_asmSeqs, 
 						 (int)Config::get("repeat_graph_kmer_sample"));
 	asmIndex.countKmers(/*min freq*/ 1, /*genome size*/ 0);
-	asmIndex.setRepeatCutoff(/*min freq*/ 1);
 	asmIndex.buildIndex(/*min freq*/ 1);
 
 	//float badEndAdj = (float)Config::get("repeat_graph_ovlp_end_adjust");

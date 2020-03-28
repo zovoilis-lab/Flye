@@ -186,27 +186,37 @@ int assemble_main(int argc, char** argv)
 	int coverage = sumLength / 2 / genomeSize;
 	Logger::get().debug() << "Expected read coverage: " << coverage;
 
-	Logger::get().info() << "Generating solid k-mer index";
+	//Logger::get().info() << "Generating k-mer index";
+	//if (!Parameters::get().unevenCoverage)
+	//{
+	//	size_t hardThreshold = std::min(5, std::max(2, 
+	//			coverage / (int)Config::get("hard_min_coverage_rate")));
+	//	vertexIndex.countKmers(hardThreshold, genomeSize);
+	//}
+	//else
+	//{
+	//	vertexIndex.countKmers(/*hard threshold*/ 2, genomeSize);
+	//}
+	//ParametersEstimator estimator(readsContainer, vertexIndex, genomeSize);
+	//estimator.estimateMinKmerCount();
+	//int minKmerCov = estimator.minKmerCount();
+	//vertexIndex.setRepeatCutoff(minKmerCov);
 	if (!Parameters::get().unevenCoverage)
 	{
 		size_t hardThreshold = std::min(5, std::max(2, 
 				coverage / (int)Config::get("hard_min_coverage_rate")));
 		vertexIndex.countKmers(hardThreshold, genomeSize);
+		ParametersEstimator estimator(readsContainer, vertexIndex, genomeSize);
+		estimator.estimateMinKmerCount();
+		int minKmerCov = estimator.minKmerCount();
+		vertexIndex.buildIndex(minKmerCov);
+
+		//vertexIndex.buildIndexMinimizers(2, 10);
 	}
-	else
+	
+	else	//meta
 	{
 		vertexIndex.countKmers(/*hard threshold*/ 2, genomeSize);
-	}
-	ParametersEstimator estimator(readsContainer, vertexIndex, genomeSize);
-	estimator.estimateMinKmerCount();
-	int minKmerCov = estimator.minKmerCount();
-	vertexIndex.setRepeatCutoff(minKmerCov);
-	if (!Parameters::get().unevenCoverage)
-	{
-		vertexIndex.buildIndex(minKmerCov);
-	}
-	else
-	{
 		static const float SELECT_RATE = Config::get("meta_read_top_kmer_rate");
 		static const int TANDEM_FREQ = Config::get("meta_read_filter_kmer_freq");
 		vertexIndex.buildIndexUnevenCoverage(/*min coverage*/ 2, SELECT_RATE, 

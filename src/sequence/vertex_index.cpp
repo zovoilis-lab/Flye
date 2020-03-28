@@ -108,6 +108,8 @@ void VertexIndex::countKmers(size_t hardThreshold, int genomeSize)
 void VertexIndex::buildIndexUnevenCoverage(int globalMinFreq, float selectRate,
 										   int tandemFreq)
 {
+	this->setRepeatCutoff(globalMinFreq);
+
 	//_solidMultiplier = 1;
 
 	std::vector<FastaRecord::Id> allReads;
@@ -218,6 +220,7 @@ namespace
 
 }
 
+//TODO: switch to the markRepeats function below
 void VertexIndex::setRepeatCutoff(int minCoverage)
 {
 	size_t totalKmers = 0;
@@ -251,8 +254,44 @@ void VertexIndex::setRepeatCutoff(int minCoverage)
 						  filteredRate << ")";
 }
 
+void VertexIndex::filterFrequentKmers(float rate)
+{
+	size_t totalKmers = 0;
+	size_t uniqueKmers = _kmerIndex.size();
+	for (const auto& kmer : _kmerIndex.lock_table())
+	{
+		totalKmers += kmer.second.capacity;
+	}
+	float meanFrequency = (float)totalKmers / (uniqueKmers + 1);
+	_repetitiveFrequency = rate * meanFrequency;
+	
+	size_t repetitiveKmers = 0;
+	for (const auto& kmer : _kmerIndex.lock_table())
+	{
+		if (kmer.second.capacity > _repetitiveFrequency)
+		{
+			repetitiveKmers += kmer.second.capacity;
+			_repetitiveKmers.insert(kmer.first, true);
+		}
+	}
+
+	for (const auto& kmer : _repetitiveKmers.lock_table())
+	{
+		_kmerIndex.erase(kmer.first);
+	}
+
+	float filteredRate = (float)repetitiveKmers / uniqueKmers;
+	Logger::get().debug() << "Repetitive k-mer frequency: " 
+						  << _repetitiveFrequency;
+	Logger::get().debug() << "Filtered " << repetitiveKmers 
+						  << " repetitive k-mers (" <<
+						  filteredRate << ")";
+}
+
 void VertexIndex::buildIndex(int minCoverage)
 {
+	this->setRepeatCutoff(minCoverage);
+
 	if (_outputProgress) Logger::get().info() << "Filling index table";
 	//_solidMultiplier = 1;
 	
@@ -504,6 +543,8 @@ void VertexIndex::buildIndexMinimizers(int minCoverage, int wndLen)
 	};
 	processInParallel(allReads, initializeIndex, 
 					  Parameters::get().numThreads, _outputProgress);
+
+	this->filterFrequentKmers((float)Config::get("repeat_kmer_rate"));
 	this->allocateIndexMemory();
 	
 	if (_outputProgress) Logger::get().info() << "Filling index";
@@ -524,8 +565,7 @@ void VertexIndex::buildIndexMinimizers(int minCoverage, int wndLen)
 				targetRead = targetRead.rc();
 			}
 
-			//if (kmerFreq.freq > _repetitiveFrequency ||
-			//	localFreq[kmerPos.kmer] > (size_t)tandemFreq) continue;
+			if (_repetitiveKmers.contains(kmerPos.kmer)) continue;
 
 			_kmerIndex.update_fn(kmerPos.kmer, 
 				[targetRead, &kmerPos, this](ReadVector& rv)
@@ -544,9 +584,6 @@ void VertexIndex::buildIndexMinimizers(int minCoverage, int wndLen)
 	};
 	processInParallel(allReads, indexUpdate, 
 					  Parameters::get().numThreads, _outputProgress);
-
-	//_kmerCounts.clear();
-	//_kmerCounts.reserve(0);
 
 	Logger::get().debug() << "Sorting k-mer index";
 	for (const auto& kmerVec : _kmerIndex.lock_table())
