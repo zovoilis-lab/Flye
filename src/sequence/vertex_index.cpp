@@ -105,17 +105,7 @@ void VertexIndex::countKmers(size_t hardThreshold, int genomeSize)
 	delete[] preCounters;
 }
 
-namespace
-{
-	struct KmerFreq
-	{
-		Kmer kmer;
-		size_t position;
-		size_t freq;
-	};
-}
-
-void VertexIndex::buildIndexUnevenCoverage(int minCoverage, float selectRate,
+void VertexIndex::buildIndexUnevenCoverage(int globalMinFreq, float selectRate,
 										   int tandemFreq)
 {
 	//_solidMultiplier = 1;
@@ -130,37 +120,17 @@ void VertexIndex::buildIndexUnevenCoverage(int minCoverage, float selectRate,
 	_kmerIndex.reserve(_kmerCounts.size() / 10);
 	if (_outputProgress) Logger::get().info() << "Filling index table (1/2)";
 	std::function<void(const FastaRecord::Id&)> initializeIndex = 
-	[this, minCoverage, selectRate, tandemFreq] (const FastaRecord::Id& readId)
+	[this, globalMinFreq, selectRate, tandemFreq] (const FastaRecord::Id& readId)
 	{
 		if (!readId.strand()) return;
 
-		thread_local std::unordered_map<Kmer, size_t> localFreq;
-		localFreq.clear();
-		std::vector<KmerFreq> topKmers;
-		topKmers.reserve(_seqContainer.seqLen(readId));
-
-		for (auto kmerPos : IterKmers(_seqContainer.getSeq(readId)))
-		{
-			kmerPos.kmer.standardForm();
-			size_t freq = 1;
-			_kmerCounts.find(kmerPos.kmer, freq);
-
-			topKmers.push_back({kmerPos.kmer, (size_t)kmerPos.position, freq});
-			++localFreq[kmerPos.kmer];
-		}
-
-		if (topKmers.empty()) return;
-		std::sort(topKmers.begin(), topKmers.end(),
-				  [](const KmerFreq& k1, const KmerFreq& k2)
-				   {return k1.freq > k2.freq;});
-		const size_t maxKmers = selectRate * topKmers.size();
-		const size_t minFreq = std::max((size_t)minCoverage, topKmers[maxKmers].freq);
-
+		auto topKmers = this->yieldFrequentKmers(readId, selectRate, tandemFreq);
 		for (auto kmerFreq : topKmers)
 		{
-			if (kmerFreq.freq < minFreq) break;
-			if (kmerFreq.freq > _repetitiveFrequency ||
-				localFreq[kmerFreq.kmer] > (size_t)tandemFreq) continue;
+			kmerFreq.kmer.standardForm();
+
+			if (kmerFreq.freq < (size_t)globalMinFreq ||
+				kmerFreq.freq > _repetitiveFrequency) continue;
 
 			ReadVector defVec((uint32_t)1, (uint32_t)0);
 			_kmerIndex.upsert(kmerFreq.kmer, 
@@ -174,36 +144,15 @@ void VertexIndex::buildIndexUnevenCoverage(int minCoverage, float selectRate,
 
 	if (_outputProgress) Logger::get().info() << "Filling index table (2/2)";
 	std::function<void(const FastaRecord::Id&)> indexUpdate = 
-	[this, minCoverage, selectRate, tandemFreq] (const FastaRecord::Id& readId)
+	[this, globalMinFreq, selectRate, tandemFreq] (const FastaRecord::Id& readId)
 	{
 		if (!readId.strand()) return;
 
-		thread_local std::unordered_map<Kmer, size_t> localFreq;
-		localFreq.clear();
-		std::vector<KmerFreq> topKmers;
-		topKmers.reserve(_seqContainer.seqLen(readId));
-
-		for (const auto& kmerPos : IterKmers(_seqContainer.getSeq(readId)))
-		{
-			auto stdKmer = kmerPos.kmer;
-			stdKmer.standardForm();
-			size_t freq = 1;
-			_kmerCounts.find(stdKmer, freq);
-
-			++localFreq[stdKmer];
-			topKmers.push_back({kmerPos.kmer, (size_t)kmerPos.position, freq});
-		}
-
-		if (topKmers.empty()) return;
-		std::sort(topKmers.begin(), topKmers.end(),
-				  [](const KmerFreq& k1, const KmerFreq& k2)
-				   {return k1.freq > k2.freq;});
-		const size_t maxKmers = selectRate * topKmers.size();
-		const size_t minFreq = std::max((size_t)minCoverage, topKmers[maxKmers].freq);
-
+		auto topKmers = this->yieldFrequentKmers(readId, selectRate, tandemFreq);
 		for (auto kmerFreq : topKmers)
 		{
-			if (kmerFreq.freq < minFreq) break;
+			if (kmerFreq.freq < (size_t)globalMinFreq ||
+				kmerFreq.freq > _repetitiveFrequency) continue;
 
 			KmerPosition kmerPos(kmerFreq.kmer, kmerFreq.position);
 			FastaRecord::Id targetRead = readId;
@@ -215,9 +164,6 @@ void VertexIndex::buildIndexUnevenCoverage(int minCoverage, float selectRate,
 										Parameters::get().kmerSize;
 				targetRead = targetRead.rc();
 			}
-
-			if (kmerFreq.freq > _repetitiveFrequency ||
-				localFreq[kmerPos.kmer] > (size_t)tandemFreq) continue;
 
 			//will not trigger update for k-mer not in the index
 			_kmerIndex.update_fn(kmerPos.kmer, 
@@ -405,6 +351,56 @@ void VertexIndex::buildIndex(int minCoverage)
 		<< (float)kmerEntries / solidKmers;
 }
 
+std::vector<VertexIndex::KmerFreq>
+	VertexIndex::yieldFrequentKmers(const FastaRecord::Id& seqId,
+									float selectRate, int tandemFreq)
+{
+	thread_local std::unordered_map<Kmer, size_t> localFreq;
+	localFreq.clear();
+	std::vector<KmerFreq> topKmers;
+	topKmers.reserve(_seqContainer.seqLen(seqId));
+
+	for (const auto& kmerPos : IterKmers(_seqContainer.getSeq(seqId)))
+	{
+		auto stdKmer = kmerPos.kmer;
+		stdKmer.standardForm();
+		size_t freq = 1;
+		_kmerCounts.find(stdKmer, freq);
+
+		++localFreq[stdKmer];
+		topKmers.push_back({kmerPos.kmer, kmerPos.position, freq});
+	}
+
+	if (topKmers.empty()) return {};
+	std::sort(topKmers.begin(), topKmers.end(),
+			  [](const KmerFreq& k1, const KmerFreq& k2)
+			   {return k1.freq > k2.freq;});
+	const size_t maxKmers = selectRate * topKmers.size();
+	const size_t minFreq = topKmers[maxKmers].freq;
+
+	auto itVec = topKmers.begin();
+	while(itVec != topKmers.end() && itVec->freq >= minFreq) ++itVec;
+	topKmers.erase(itVec, topKmers.end());
+
+	topKmers.erase(std::remove_if(topKmers.begin(), topKmers.end(),
+				   		[tandemFreq](KmerFreq kf)
+						{
+							kf.kmer.standardForm();
+							return localFreq[kf.kmer] > (size_t)tandemFreq;
+						}), 
+				   topKmers.end());
+
+	/*std::vector<KmerPosition> result;
+	result.reserve(topKmers.size());
+	for (auto kmerFreq : topKmers)
+	{
+		if (kmerFreq.freq <= tandemFreq) 
+			result.push_back({kmerFreq.kmer, kmerFreq.position});
+	}*/
+
+	return topKmers;
+}
+
 std::vector<KmerPosition> 
 	VertexIndex::yieldMinimizers(const FastaRecord::Id& seqId, int window)
 {
@@ -441,7 +437,8 @@ std::vector<KmerPosition>
 				miniQueue.pop_front();
 			}
 		}
-		if (minimizers.empty() || minimizers.back().position != miniQueue.front().kp.position)
+		if (minimizers.empty() || minimizers.back().position != 
+								  miniQueue.front().kp.position)
 		{
 			minimizers.push_back(miniQueue.front().kp);
 		}

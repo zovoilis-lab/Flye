@@ -215,8 +215,20 @@ public:
 
 private:
 	void addFastaSequence(const FastaRecord& fastaRecord);
+
 	std::vector<KmerPosition> 
 		yieldMinimizers(const FastaRecord::Id& seqId, int window);
+
+	struct KmerFreq
+	{
+		Kmer kmer;
+		int32_t position;
+		size_t freq;
+	};
+	std::vector<KmerFreq>
+		yieldFrequentKmers(const FastaRecord::Id& seqId,
+						   float selctRate, int tandemFreq);
+
 	void allocateIndexMemory();
 
 	const SequenceContainer& _seqContainer;
