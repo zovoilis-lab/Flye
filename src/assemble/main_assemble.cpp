@@ -203,15 +203,15 @@ int assemble_main(int argc, char** argv)
 	//vertexIndex.setRepeatCutoff(minKmerCov);
 	if (!Parameters::get().unevenCoverage)
 	{
-		size_t hardThreshold = std::min(5, std::max(2, 
+		/*size_t hardThreshold = std::min(5, std::max(2, 
 				coverage / (int)Config::get("hard_min_coverage_rate")));
 		vertexIndex.countKmers(hardThreshold, genomeSize);
 		ParametersEstimator estimator(readsContainer, vertexIndex, genomeSize);
 		estimator.estimateMinKmerCount();
 		int minKmerCov = estimator.minKmerCount();
-		vertexIndex.buildIndex(minKmerCov);
+		vertexIndex.buildIndex(minKmerCov);*/
 
-		//vertexIndex.buildIndexMinimizers(2, 10);
+		vertexIndex.buildIndexMinimizers(2, 10);
 	}
 	
 	else	//meta
