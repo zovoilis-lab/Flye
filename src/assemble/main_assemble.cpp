@@ -187,29 +187,28 @@ int assemble_main(int argc, char** argv)
 	Logger::get().debug() << "Expected read coverage: " << coverage;
 
 	Logger::get().info() << "Generating solid k-mer index";
-	if (!Parameters::get().unevenCoverage)
+	if (!Parameters::get().unevenCoverage)	//isolate mode
 	{
 		size_t hardThreshold = std::min(5, std::max(2, 
 				coverage / (int)Config::get("hard_min_coverage_rate")));
 		vertexIndex.countKmers(hardThreshold, genomeSize);
-	}
-	else
-	{
-		vertexIndex.countKmers(/*hard threshold*/ 2, genomeSize);
-	}
-	ParametersEstimator estimator(readsContainer, vertexIndex, genomeSize);
-	estimator.estimateMinKmerCount();
-	int minKmerCov = estimator.minKmerCount();
-	vertexIndex.setRepeatCutoff(minKmerCov);
-	if (!Parameters::get().unevenCoverage)
-	{
+
+		ParametersEstimator estimator(readsContainer, vertexIndex, genomeSize);
+		estimator.estimateMinKmerCount();
+		int minKmerCov = estimator.minKmerCount();
+
+		vertexIndex.setRepeatCutoff(minKmerCov);
 		vertexIndex.buildIndex(minKmerCov);
 	}
-	else
+	else //meta mode
 	{
-		static const float SELECT_RATE = Config::get("meta_read_top_kmer_rate");
-		static const int TANDEM_FREQ = Config::get("meta_read_filter_kmer_freq");
-		vertexIndex.buildIndexUnevenCoverage(/*min coverage*/ 2, SELECT_RATE, 
+		const int META_MIN_FREQ = 2;
+		const float SELECT_RATE = Config::get("meta_read_top_kmer_rate");
+		const int TANDEM_FREQ = Config::get("meta_read_filter_kmer_freq");
+
+		vertexIndex.countKmers(META_MIN_FREQ, genomeSize);
+		vertexIndex.setRepeatCutoff(META_MIN_FREQ);
+		vertexIndex.buildIndexUnevenCoverage(META_MIN_FREQ, SELECT_RATE, 
 											 TANDEM_FREQ);
 	}
 
