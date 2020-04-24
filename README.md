@@ -22,7 +22,7 @@ Manuals
 Latest updates
 --------------
 
-###Flye 2.7.1. release (24 Apr 2020)
+### Flye 2.7.1. release (24 Apr 2020)
 * Fixes very long GFA generation time for some large assemblies (no other changes)
 
 ### Flye 2.7 release (03 Mar 2020)
