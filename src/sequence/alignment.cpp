@@ -151,7 +151,8 @@ float getAlignmentCigarKsw(const DnaSequence& trgSeq, size_t trgBegin, size_t tr
 float getAlignmentErrEdlib(const OverlapRange& ovlp,
 					  	   const DnaSequence& trgSeq,
 					  	   const DnaSequence& qrySeq,
-						   float maxAlnErr)
+						   float maxAlnErr,
+						   bool useHpc)
 {
 	thread_local ThreadMemPool buf;
 	thread_local std::vector<char> trgByte;
@@ -160,14 +161,23 @@ float getAlignmentErrEdlib(const OverlapRange& ovlp,
 	trgByte.assign(ovlp.curRange(), 0);
 	qryByte.assign(ovlp.extRange(), 0);
 
+	size_t hpcPos = 0;
 	for (size_t i = 0; i < (size_t)ovlp.curRange(); ++i)
 	{
-		trgByte[i] = trgSeq.atRaw(i + ovlp.curBegin);
+		trgByte[hpcPos] = trgSeq.atRaw(i + ovlp.curBegin);
+		if (!useHpc || hpcPos == 0 || 
+			trgByte[hpcPos - 1] != trgByte[hpcPos]) ++hpcPos;
 	}
+	trgByte.erase(trgByte.begin() + hpcPos, trgByte.end());
+
+	hpcPos = 0;
 	for (size_t i = 0; i < (size_t)ovlp.extRange(); ++i)
 	{
-		qryByte[i] = qrySeq.atRaw(i + ovlp.extBegin);
+		qryByte[hpcPos] = qrySeq.atRaw(i + ovlp.extBegin);
+		if (!useHpc || hpcPos == 0 || 
+			qryByte[hpcPos - 1] != qryByte[hpcPos]) ++hpcPos;
 	}
+	qryByte.erase(qryByte.begin() + hpcPos, qryByte.end());
 
 	//int bandWidth = std::max(10.0f, maxAlnErr * std::max(ovlp.curRange(), 
 	//													 ovlp.extRange()));
@@ -182,7 +192,7 @@ float getAlignmentErrEdlib(const OverlapRange& ovlp,
 	{
 		return 1.0f;
 	}
-	return (float)result.editDistance / std::max(ovlp.curRange(), ovlp.extRange());
+	return (float)result.editDistance / std::max(trgByte.size(), qryByte.size());
 	//return (float)result.editDistance / result.alignmentLength;
 }
 

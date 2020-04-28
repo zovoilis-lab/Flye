@@ -15,7 +15,8 @@ float getAlignmentErrKsw(const OverlapRange& ovlp,
 float getAlignmentErrEdlib(const OverlapRange& ovlp,
 					  	   const DnaSequence& trgSeq,
 					  	   const DnaSequence& qrySeq,
-						   float maxAlnErr);
+						   float maxAlnErr,
+						   bool useHpc);
 
 struct CigOp
 {
