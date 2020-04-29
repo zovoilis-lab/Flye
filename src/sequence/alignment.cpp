@@ -49,7 +49,7 @@ float getAlignmentCigarKsw(const DnaSequence& trgSeq, size_t trgBegin, size_t tr
 			   			   float maxAlnErr, std::vector<CigOp>& cigarOut)
 {
 	//static const int32_t MAX_JUMP = Config::get("maximum_jump");
-	const int KMER_SIZE = Parameters::get().kmerSize;
+	//const int KMER_SIZE = Parameters::get().kmerSize;
 
 	thread_local ThreadMemPool buf;
 	thread_local std::vector<uint8_t> trgByte;
@@ -133,13 +133,13 @@ float getAlignmentCigarKsw(const DnaSequence& trgSeq, size_t trgBegin, size_t tr
 		{
 			cigarOut.push_back({'I', size});
 			posQry += size;
-			numIndels += std::min(size, KMER_SIZE);
+			numIndels += size;
 		}
 		else //D
 		{
 			cigarOut.push_back({'D', size});
 			posTrg += size;
-			numIndels += std::min(size, KMER_SIZE);
+			numIndels += size;
 		}
 	}
 	float errRate = 1 - float(numMatches) / (numMatches + numMiss + numIndels);
