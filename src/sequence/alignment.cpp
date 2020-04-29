@@ -142,7 +142,8 @@ float getAlignmentCigarKsw(const DnaSequence& trgSeq, size_t trgBegin, size_t tr
 			numIndels += size;
 		}
 	}
-	float errRate = 1 - float(numMatches) / (numMatches + numMiss + numIndels);
+	//float errRate = 1 - float(numMatches) / (numMatches + numMiss + numIndels);
+	float errRate = float(numMiss + numIndels) / std::max(trgLen, qryLen);
 
 	kfree(buf.memPool, ez.cigar);
 	return errRate;
@@ -179,6 +180,7 @@ float getAlignmentErrEdlib(const OverlapRange& ovlp,
 	}
 	qryByte.erase(qryByte.begin() + hpcPos, qryByte.end());
 
+	(void)maxAlnErr;
 	//int bandWidth = std::max(10.0f, maxAlnErr * std::max(ovlp.curRange(), 
 	//													 ovlp.extRange()));
 	//letting edlib find k byt iterating over powers of 2. Seems like
