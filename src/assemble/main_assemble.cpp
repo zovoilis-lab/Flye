@@ -186,41 +186,33 @@ int assemble_main(int argc, char** argv)
 	int coverage = sumLength / 2 / genomeSize;
 	Logger::get().debug() << "Expected read coverage: " << coverage;
 
-	//Logger::get().info() << "Generating k-mer index";
-	//if (!Parameters::get().unevenCoverage)
-	//{
-	//	size_t hardThreshold = std::min(5, std::max(2, 
-	//			coverage / (int)Config::get("hard_min_coverage_rate")));
-	//	vertexIndex.countKmers(hardThreshold, genomeSize);
-	//}
-	//else
-	//{
-	//	vertexIndex.countKmers(/*hard threshold*/ 2, genomeSize);
-	//}
-	//ParametersEstimator estimator(readsContainer, vertexIndex, genomeSize);
-	//estimator.estimateMinKmerCount();
-	//int minKmerCov = estimator.minKmerCount();
-	//vertexIndex.setRepeatCutoff(minKmerCov);
-	if (!Parameters::get().unevenCoverage)
+	//Building index
+	bool useMinimizers = Config::get("use_minimizers");
+	if (useMinimizers)
 	{
-		/*size_t hardThreshold = std::min(5, std::max(2, 
+		const int MIN_FREQ = 2;
+		const int WINDOW = 10;
+		vertexIndex.buildIndexMinimizers(MIN_FREQ, WINDOW);
+	}
+	else if (Parameters::get().unevenCoverage)	//noisy meta
+	{
+		const int MIN_FREQ = 2;
+		static const float SELECT_RATE = Config::get("meta_read_top_kmer_rate");
+		static const int TANDEM_FREQ = Config::get("meta_read_filter_kmer_freq");
+		vertexIndex.countKmers(MIN_FREQ, genomeSize);
+		vertexIndex.buildIndexUnevenCoverage(MIN_FREQ, SELECT_RATE, 
+											 TANDEM_FREQ);
+
+	}
+	else	//noisy solid
+	{
+		size_t hardThreshold = std::min(5, std::max(2, 
 				coverage / (int)Config::get("hard_min_coverage_rate")));
 		vertexIndex.countKmers(hardThreshold, genomeSize);
 		ParametersEstimator estimator(readsContainer, vertexIndex, genomeSize);
 		estimator.estimateMinKmerCount();
 		int minKmerCov = estimator.minKmerCount();
-		vertexIndex.buildIndex(minKmerCov);*/
-
-		vertexIndex.buildIndexMinimizers(2, 10);
-	}
-	
-	else	//meta
-	{
-		vertexIndex.countKmers(/*hard threshold*/ 2, genomeSize);
-		static const float SELECT_RATE = Config::get("meta_read_top_kmer_rate");
-		static const int TANDEM_FREQ = Config::get("meta_read_filter_kmer_freq");
-		vertexIndex.buildIndexUnevenCoverage(/*min coverage*/ 2, SELECT_RATE, 
-											 TANDEM_FREQ);
+		vertexIndex.buildIndex(minKmerCov);
 	}
 
 	Logger::get().debug() << "Peak RAM usage: " 
