@@ -116,7 +116,9 @@ void ContigExtender::generateContigs()
 					i < path.size() - 1)
 				{
 					size_t j = i + 1;
-					while (j < path.size() && path[j].edge->repetitive &&
+					while (j < path.size() && 
+						   path[j].edge->repetitive &&
+						   !path[j].edge->altHaplotype &&
 						   canTraverse(path[j].edge)) ++j;
 					if (j == i + 1) break;
 
