@@ -228,24 +228,24 @@ public:
 	OverlapDetector(const SequenceContainer& seqContainer,
 					const VertexIndex& vertexIndex,
 					int maxJump, int minOverlap, int maxOverhang,
-					int maxCurOverlaps, bool keepAlignment, bool onlyMaxExt,
+					bool keepAlignment, bool onlyMaxExt,
 					float maxDivergence, bool nuclAlignment,
-					bool partitionBadMappings):
+					bool partitionBadMappings, bool useHpc):
 		_maxJump(maxJump),
 		_minOverlap(minOverlap),
 		_maxOverhang(maxOverhang),
-		_maxCurOverlaps(maxCurOverlaps),
+		_maxCurOverlaps(0),	//no max overlaps
 		_checkOverhang(maxOverhang > 0),
 		_keepAlignment(keepAlignment),
 		_onlyMaxExt(onlyMaxExt),
 		_nuclAlignment(nuclAlignment),
 		_partitionBadMappings(partitionBadMappings),
+		_useHpc(useHpc),
 		_maxDivergence(maxDivergence),
 		//_badEndAdjustment(badEndAdjustment),
 		//_estimatorBias(0.0f),
 		_vertexIndex(vertexIndex),
 		_seqContainer(seqContainer)
-		//_seqHitCounter(_seqContainer.getMaxSeqId())
 	{
 	}
 
@@ -274,6 +274,7 @@ private:
 	const bool  _onlyMaxExt;
 	const bool  _nuclAlignment;
 	const bool  _partitionBadMappings;
+	const bool  _useHpc;
 
 	mutable float _maxDivergence;
 	//mutable float _badEndAdjustment;
@@ -281,9 +282,6 @@ private:
 
 	const VertexIndex& _vertexIndex;
 	const SequenceContainer& _seqContainer;
-
-	//typedef unsigned char CounterType;
-	//std::vector<CounterType> _seqHitCounter;
 };
 
 

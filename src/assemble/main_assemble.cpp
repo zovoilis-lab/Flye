@@ -223,12 +223,12 @@ int assemble_main(int argc, char** argv)
 						 (int)Config::get("maximum_jump"), 
 						 Parameters::get().minimumOverlap,
 						 (int)Config::get("maximum_overhang"),
-						 /*no max overlaps*/ 0, 
 						 /*store alignment*/ false,
-						 /*only max*/ true,
+						 /*only max ovlp*/ true,
 						 /*no div threshold*/ 1.0f,
 						 /*nucl alignent*/ true,
-						 /*partition bad map*/ false);
+						 /*partition bad map*/ false,
+						 (bool)Config::get("hpc_scoring_on"));
 	OverlapContainer readOverlaps(ovlp, readsContainer);
 	readOverlaps.estimateOverlaperParameters();
 	readOverlaps.setRelativeDivergenceThreshold(

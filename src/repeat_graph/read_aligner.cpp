@@ -147,11 +147,10 @@ void ReadAligner::alignReads()
 	pathsIndex.buildIndex(/*min freq*/ 1);
 	OverlapDetector readsOverlapper(_graph.edgeSequences(), pathsIndex, 
 									(int)Config::get("maximum_jump"), SMALL_ALN,
-									/*no overhang*/ 0, /*no max ovlp count*/ 0,
-									/*keep alignment*/ false, /*only max*/ false,
-									/*no max divergence*/ 1.0f,
+									/*no overhang*/ 0, /*keep alignment*/ false, 
+									/*only max*/ false, /*no max divergence*/ 1.0f,
 									/*nucl alignment*/ false,
-									/*partition bad map*/ false);
+									/*partition bad map*/ false, /*hpc scoring*/ false);
 	OverlapContainer readsOverlaps(readsOverlapper, _readSeqs);
 	static const float MAX_DIVERGENCE = Config::get("read_align_ovlp_divergence");
 

@@ -487,8 +487,7 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 			{
 				ovlp.seqDivergence = getAlignmentErrEdlib(ovlp, fastaRec.sequence, 
 														   _seqContainer.getSeq(extId),
-														   _maxDivergence,
-														   /*use hpc*/ true);
+														   _maxDivergence, _useHpc);
 			}
 
 			if (ovlp.seqDivergence < _maxDivergence)
