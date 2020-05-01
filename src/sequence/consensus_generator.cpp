@@ -15,117 +15,6 @@
 #include "../common/matrix.h"
 
 
-/*namespace
-{
-	//banded glocal alignment
-	void pairwiseAlignment(const std::string& seqOne, const std::string& seqTwo,
-						   std::string& outOne, std::string& outTwo, 
-						   int bandWidth)
-	{
-		static const int32_t MATCH = 5;
-		static const int32_t SUBST = -5;
-		static const int32_t INDEL = -3;
-
-		static const int32_t matchScore[] = {SUBST, MATCH};
-		static const int32_t indelScore[] = {INDEL, 0};
-
-		const size_t numRows = seqOne.length() + 1;
-		const size_t numCols = 2 * bandWidth + 1;
-
-		Matrix<char> backtrackMatrix(numRows, numCols);
-		std::vector<int32_t> scoreRowOne(numCols, 0);
-		std::vector<int32_t> scoreRowTwo(numCols, 0);
-
-
-		for (size_t i = 0; i < numRows; ++i) 
-		{
-			size_t j = std::max(0, bandWidth - (int)i);
-			backtrackMatrix.at(i, j) = 1;
-		}
-		for (size_t i = 0; i < numCols; ++i) 
-		{
-			backtrackMatrix.at(0, i) = 0;
-		}
-
-		//filling DP matrices
-		for (size_t i = 1; i < numRows; ++i)
-		{
-			int leftOverhang = bandWidth - (int)i + 1;
-			int rightOverhand = (int)i + bandWidth - (int)seqTwo.length();
-			size_t colLeft = std::max(0, leftOverhang);
-			size_t colRight = std::min((int)numCols, (int)numCols - rightOverhand);
-
-			for (int j = colLeft; j < (int)colRight; ++j)
-			{
-				size_t twoCoord = j + i - bandWidth;
-				int32_t cross = scoreRowOne[j] + 
-								matchScore[seqOne[i - 1] == seqTwo[twoCoord - 1]];
-				char maxStep = 2;
-				int32_t maxScore = cross;
-
-				if (j < (int)numCols - 1) //up
-				{
-					int32_t up = scoreRowOne[j + 1] +
-								 indelScore[twoCoord == seqTwo.length()];
-					if (up > maxScore)
-					{
-						maxStep = 1;
-						maxScore = up;
-					}
-				}
-
-				if (j > 0) //left
-				{
-					int32_t left = scoreRowTwo[j - 1] + 
-								   indelScore[i == seqOne.length()];
-					if (left > maxScore)
-					{
-						maxStep = 0;
-						maxScore = left;
-					}
-				}
-
-				scoreRowTwo[j] = maxScore;
-				backtrackMatrix.at(i, j) = maxStep;
-			}
-			scoreRowOne.swap(scoreRowTwo);
-		}
-
-		//backtrack
-		outOne.reserve(seqOne.length() * 3 / 2);
-		outTwo.reserve(seqTwo.length() * 3 / 2);
-
-		int i = numRows - 1;
-		int j = bandWidth - (int)numRows + (int)seqTwo.length() + 1;
-		while (i != 0 || j != bandWidth) 
-		{
-			size_t twoCoord = j + i - bandWidth;
-			if(backtrackMatrix.at(i, j) == 1) //up
-			{
-				outOne += seqOne[i - 1];
-				outTwo += '-';
-				i -= 1;
-				j += 1;
-			}
-			else if (backtrackMatrix.at(i, j) == 0) //left
-			{
-				outOne += '-';
-				outTwo += seqTwo[twoCoord - 1];
-				j -= 1;
-			}
-			else	//cross
-			{
-				outOne += seqOne[i - 1];
-				outTwo += seqTwo[twoCoord - 1];
-				i -= 1;
-			}
-		}
-		std::reverse(outOne.begin(), outOne.end());
-		std::reverse(outTwo.begin(), outTwo.end());
-	}
-}*/
-
-
 std::vector<FastaRecord> 
 	ConsensusGenerator::generateConsensuses(const std::vector<ContigPath>& contigs, 
 											bool verbose)
@@ -152,6 +41,7 @@ std::vector<FastaRecord>
 	}
 	return consensuses;
 }
+
 
 FastaRecord ConsensusGenerator::generateLinear(const ContigPath& path, 
 											   const AlignmentsMap& alnMap)
@@ -203,25 +93,6 @@ ConsensusGenerator::AlignmentsMap
 		const ContigPath* path = task.first;
 		size_t i = task.second;
 
-		/*int32_t leftStart = path->overlaps[i].curBegin;
-		int32_t leftLen = path->overlaps[i].curRange();
-		std::string leftSeq = path->sequences[i].substr(leftStart, leftLen).str();
-
-		int32_t rightStart = path->overlaps[i].extBegin;
-		int32_t rightLen = path->overlaps[i].extRange();
-		std::string rightSeq = path->sequences[i + 1].substr(rightStart, 
-															 rightLen).str();
-		
-		const int bandWidth = abs((int)leftSeq.length() - 
-								  (int)rightSeq.length()) + 
-								  		Config::get("maximum_jump");
-		if (abs((int)leftSeq.length() - (int)rightSeq.length()) >
-			std::min((int)leftSeq.length(), (int)rightSeq.length()))
-		{
-			Logger::get().warning() << "Aligning sequence that are too "
-				<< " different - something is terribly wrong!";
-		}*/
-
 		std::vector<CigOp> cigar;
 		const float maxErr = 0.3;
 		std::string alignedLeft;
@@ -232,26 +103,6 @@ ConsensusGenerator::AlignmentsMap
 		decodeCigar(cigar, path->sequences[i], path->overlaps[i].curBegin,
 				 	path->sequences[i + 1], path->overlaps[i].extBegin,
 				 	alignedLeft, alignedRight);
-
-		/*const int WIDTH = 100;
-		for (size_t chunk = 0; chunk <= alignedLeft.size() / WIDTH; ++chunk)
-		{
-			for (size_t i = chunk * WIDTH; 
-				 i < std::min((chunk + 1) * WIDTH, alignedLeft.size()); ++i)
-			{
-				std::cout << alignedLeft[i];
-			}
-			std::cout << "\n";
-			for (size_t i = chunk * WIDTH; 
-				 i < std::min((chunk + 1) * WIDTH, alignedRight.size()); ++i)
-			{
-				std::cout << alignedRight[i];
-			}
-			std::cout << "\n\n";
-		}*/
-
-		//pairwiseAlignment(leftSeq, rightSeq, alignedLeft, 
-		//				  alignedRight, bandWidth);
 
 		{
 			std::lock_guard<std::mutex> lock(mapMutex);
