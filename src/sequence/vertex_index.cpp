@@ -51,8 +51,16 @@ void VertexIndex::countKmers(size_t hardThreshold, int genomeSize)
 	{
 		if (!readId.strand()) return;
 		
+		int32_t nextKmerPos = _sampleRate;
 		for (auto kmerPos : IterKmers(_seqContainer.getSeq(readId)))
 		{
+			if (_sampleRate > 1) //subsampling
+			{
+				if (--nextKmerPos > 0) continue;
+				nextKmerPos = _sampleRate + 
+					(int32_t)((kmerPos.kmer.hash() ^ readId.hash()) % 3) - 1;
+			}
+
 			kmerPos.kmer.standardForm();
 			size_t kmerBucket = kmerPos.kmer.hash() % preCountSize;
 
@@ -84,8 +92,16 @@ void VertexIndex::countKmers(size_t hardThreshold, int genomeSize)
 	{
 		if (!readId.strand()) return;
 
+		int32_t nextKmerPos = _sampleRate;
 		for (auto kmerPos : IterKmers(_seqContainer.getSeq(readId)))
 		{
+			if (_sampleRate > 1) //subsampling
+			{
+				if (--nextKmerPos > 0) continue;
+				nextKmerPos = _sampleRate + 
+					(int32_t)((kmerPos.kmer.hash() ^ readId.hash()) % 3) - 1;
+			}
+
 			kmerPos.kmer.standardForm();
 			size_t count = preCounters[kmerPos.kmer.hash() % preCountSize];
 			if (count >= hardThreshold)
