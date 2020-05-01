@@ -494,13 +494,14 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 			{
 				detectedOverlaps.push_back(ovlp);
 			}
+			//if alignment not passing thrshold, check if its parts do
 			else if (_partitionBadMappings)
 			{
 				auto trimmedOverlaps = 
-					checkIdyAndTrim(ovlp, fastaRec.sequence, 
-									_seqContainer.getSeq(extId),
-									_maxDivergence, _minOverlap,
-									/*show alignment*/ false);
+					this->checkIdyAndTrim(ovlp, fastaRec.sequence, 
+										  _seqContainer.getSeq(extId),
+										  _maxDivergence, _minOverlap,
+										  /*show alignment*/ false);
 				for (auto& trimOvlp : trimmedOverlaps)
 				{
 					detectedOverlaps.push_back(trimOvlp);
@@ -816,7 +817,7 @@ void OverlapContainer::estimateOverlaperParameters()
 		//_kmerIdyEstimateBias = 0.0f;
 	}
 
-	Logger::get().debug() << "Median overlap divergence: " << _meanTrueOvlpDiv;
+	//Logger::get().debug() << "Median overlap divergence: " << _meanTrueOvlpDiv;
 	//Logger::get().debug() << "K-mer estimate bias (true - est): " << _kmerIdyEstimateBias;
 }
 
@@ -927,33 +928,38 @@ std::vector<Interval<const OverlapRange*>>
 	return _ovlpTree.at(seqId).findOverlapping(start, end);
 }
 
+
 std::vector<OverlapRange> 
-	OverlapDetector::checkIdyAndTrim(OverlapRange& ovlp, const DnaSequence& trgSeq,
-								 	 const DnaSequence& qrySeq, float maxDivergence,
+	OverlapDetector::checkIdyAndTrim(OverlapRange& ovlp, const DnaSequence& curSeq,
+								 	 const DnaSequence& extSeq, float maxDivergence,
 									 int32_t minOverlap, bool showAlignment) const
 {
-	std::vector<CigOp> decodedCigar;
-	float errRate = getAlignmentCigarKsw(trgSeq, ovlp.curBegin, ovlp.curRange(),
-							 			 qrySeq, ovlp.extBegin, ovlp.extRange(),
+	//recomput base alignment with cigar output
+	std::vector<CigOp> cigar;
+	float errRate = getAlignmentCigarKsw(curSeq, ovlp.curBegin, ovlp.curRange(),
+							 			 extSeq, ovlp.extBegin, ovlp.extRange(),
 							 			 /*match*/ 1, /*mm*/ -2, /*gap open*/ 2, 
-							 			 /*gap ext*/ 1, maxDivergence, decodedCigar);
-	//the original alignment is already passing the threshold
-	ovlp.seqDivergence = errRate;
-	if (errRate < maxDivergence) 
+							 			 /*gap ext*/ 1, maxDivergence, cigar);
+
+	if (errRate < maxDivergence) 	//should not normally happen now
 	{
+		ovlp.seqDivergence = errRate;
 		return {ovlp};
 	}
 
-	//if not, then...
+	/*std::string alignedCur;
+	std::string alignedExt;
+	decodeCigar(cigar, curSeq, ovlp.curBegin, extSeq, ovlp.extBegin,
+				alignedCur, alignedExt);*/
 
 	//precomputing some stuff
-	std::vector<int> sumMatches;
-	sumMatches.reserve(decodedCigar.size() + 1);
-	sumMatches.push_back(0);
-	std::vector<int> sumLength;
-	sumLength.reserve(decodedCigar.size() + 1);
-	sumLength.push_back(0);
-	for (auto op : decodedCigar)
+	std::vector<int> sumMatches = {0};
+	sumMatches.reserve(cigar.size() + 1);
+
+	std::vector<int> sumLength = {0};
+	sumLength.reserve(cigar.size() + 1);
+
+	for (auto op : cigar)
 	{
 		sumLength.push_back(sumLength.back() + op.len);
 		int match = (op.op == '=') ? op.len : 0;
@@ -963,10 +969,10 @@ std::vector<OverlapRange>
 	std::vector<std::pair<int, int>> goodIntervals;
 	const float EPS = 0.005;
 
-	for (int intLen = (int)decodedCigar.size(); intLen > 0; --intLen)
+	for (int intLen = (int)cigar.size(); intLen > 0; --intLen)
 	{
 		for (int intStart = 0; 
-			intStart < (int)decodedCigar.size() - intLen + 1; ++intStart)
+			intStart < (int)cigar.size() - intLen + 1; ++intStart)
 		{
 			int i = intStart;
 			int j = intStart + intLen - 1;
@@ -1002,10 +1008,10 @@ std::vector<OverlapRange>
 	std::vector<OverlapRange> trimmedAlignments;
 	for (auto intCand : nonIntersecting)
 	{
-		while (intCand.first < (int)decodedCigar.size() && 
-			   decodedCigar[intCand.first].op != '=') ++intCand.first;
+		while (intCand.first < (int)cigar.size() && 
+			   cigar[intCand.first].op != '=') ++intCand.first;
 		while (intCand.second > 0 && 
-			   decodedCigar[intCand.second].op != '=') ++intCand.second;
+			   cigar[intCand.second].op != '=') ++intCand.second;
 		if (intCand.second - intCand.first < 1) continue;
 
 		int rangeLen = sumLength[intCand.second + 1] - sumLength[intCand.first];
@@ -1016,20 +1022,20 @@ std::vector<OverlapRange>
 		newOvlp.seqDivergence = newDivergence;
 		size_t posQry = 0;
 		size_t posTrg = 0;
-		for (int i = 0; i < (int)decodedCigar.size(); ++i)
+		for (int i = 0; i < (int)cigar.size(); ++i)
 		{
-			if (decodedCigar[i].op == '=' || decodedCigar[i].op == 'X')
+			if (cigar[i].op == '=' || cigar[i].op == 'X')
 			{
-				posQry += decodedCigar[i].len;
-				posTrg += decodedCigar[i].len;
+				posQry += cigar[i].len;
+				posTrg += cigar[i].len;
 			}
-			else if (decodedCigar[i].op == 'I')
+			else if (cigar[i].op == 'I')
 			{
-				posQry += decodedCigar[i].len;
+				posQry += cigar[i].len;
 			}
 			else
 			{
-				posTrg += decodedCigar[i].len;
+				posTrg += cigar[i].len;
 			}
 			if (i == intCand.first)
 			{
