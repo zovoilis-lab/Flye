@@ -1030,7 +1030,7 @@ std::vector<OverlapRange>
 		while (intCand.first < (int)cigar.size() && 
 			   cigar[intCand.first].op != '=') ++intCand.first;
 		while (intCand.second > 0 && 
-			   cigar[intCand.second].op != '=') ++intCand.second;
+			   cigar[intCand.second].op != '=') --intCand.second;
 		if (intCand.second - intCand.first < 1) continue;
 
 		//int rangeLen = sumLength[intCand.second + 1] - sumLength[intCand.first];
