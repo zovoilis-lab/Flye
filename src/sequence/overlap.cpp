@@ -953,17 +953,35 @@ std::vector<OverlapRange>
 				alignedCur, alignedExt);*/
 
 	//precomputing some stuff
-	std::vector<int> sumMatches = {0};
-	sumMatches.reserve(cigar.size() + 1);
+	//std::vector<int> sumMatches = {0};
+	//sumMatches.reserve(cigar.size() + 1);
 
-	std::vector<int> sumLength = {0};
-	sumLength.reserve(cigar.size() + 1);
+	//std::vector<int> sumLength = {0};
+	//sumLength.reserve(cigar.size() + 1);
+	std::vector<int> sumErrors = {0};
+	sumErrors.reserve(cigar.size() + 1);
+	std::vector<int> sumCurLen = {0};
+	sumCurLen.reserve(cigar.size() + 1);
+	std::vector<int> sumExtLen = {0};
+	sumExtLen.reserve(cigar.size() + 1);
 
 	for (auto op : cigar)
 	{
-		sumLength.push_back(sumLength.back() + op.len);
-		int match = (op.op == '=') ? op.len : 0;
-		sumMatches.push_back(sumMatches.back() + match);
+		int curConsumed = op.len;
+		int extConsumed = op.len;
+		if (op.op == 'I')
+		{
+			curConsumed = 0;
+		}
+		else if (op.op == 'D')
+		{
+			extConsumed = 0;
+		}
+		int errLen = (op.op != '=') ? op.len : 0;
+
+		sumCurLen.push_back(sumCurLen.back() + curConsumed);
+		sumExtLen.push_back(sumExtLen.back() + extConsumed);
+		sumErrors.push_back(sumErrors.back() + errLen);
 	}
 
 	std::vector<std::pair<int, int>> goodIntervals;
@@ -976,9 +994,10 @@ std::vector<OverlapRange>
 		{
 			int i = intStart;
 			int j = intStart + intLen - 1;
-			int rangeLen = sumLength[j + 1] - sumLength[i];
-			int rangeMatch = sumMatches[j + 1] - sumMatches[i];
-			if (1.0f - float(rangeMatch) / rangeLen < maxDivergence - EPS)
+			int rangeLen = std::max(sumCurLen[j + 1] - sumCurLen[i],
+									sumExtLen[j + 1] - sumExtLen[i]);
+			int rangeErr = sumErrors[j + 1] - sumErrors[i];
+			if (float(rangeErr) / rangeLen < maxDivergence - EPS)
 			{
 				if (j - i >= 1) goodIntervals.emplace_back(i, j);
 			}
@@ -1014,9 +1033,12 @@ std::vector<OverlapRange>
 			   cigar[intCand.second].op != '=') ++intCand.second;
 		if (intCand.second - intCand.first < 1) continue;
 
-		int rangeLen = sumLength[intCand.second + 1] - sumLength[intCand.first];
-		int rangeMatch = sumMatches[intCand.second + 1] - sumMatches[intCand.first];
-		float newDivergence = 1.0f - float(rangeMatch) / rangeLen;
+		//int rangeLen = sumLength[intCand.second + 1] - sumLength[intCand.first];
+		//int rangeMatch = sumMatches[intCand.second + 1] - sumMatches[intCand.first];
+		int rangeLen = std::max(sumCurLen[intCand.second + 1] - sumCurLen[intCand.first],
+								sumExtLen[intCand.second + 1] - sumExtLen[intCand.first]);
+		int rangeErr = sumErrors[intCand.second + 1] - sumErrors[intCand.first];
+		float newDivergence = float(rangeErr) / rangeLen;
 
 		OverlapRange newOvlp = ovlp;
 		newOvlp.seqDivergence = newDivergence;
