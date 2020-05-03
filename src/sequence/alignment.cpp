@@ -48,9 +48,6 @@ float getAlignmentCigarKsw(const DnaSequence& trgSeq, size_t trgBegin, size_t tr
 			   			   int matchScore, int misScore, int gapOpen, int gapExtend,
 			   			   float maxAlnErr, std::vector<CigOp>& cigarOut)
 {
-	//static const int32_t MAX_JUMP = Config::get("maximum_jump");
-	//const int KMER_SIZE = Parameters::get().kmerSize;
-
 	thread_local ThreadMemPool buf;
 	thread_local std::vector<uint8_t> trgByte;
 	thread_local std::vector<uint8_t> qryByte;
@@ -67,10 +64,6 @@ float getAlignmentCigarKsw(const DnaSequence& trgSeq, size_t trgBegin, size_t tr
 		qryByte[i] = qrySeq.atRaw(i + qryBegin);
 	}
 
-	//int seqDiff = abs((int)trgByte.size() - (int)qryByte.size());
-	//int bandWidth = seqDiff + MAX_JUMP;
-	int bandWidth = std::max(10.0f, maxAlnErr * std::max(trgLen, qryLen));
-
 	//substitution matrix
 	int8_t a = matchScore;
 	int8_t b = misScore < 0 ? misScore : -misScore; // a > 0 and b < 0
@@ -80,18 +73,31 @@ float getAlignmentCigarKsw(const DnaSequence& trgSeq, size_t trgBegin, size_t tr
 						b, b, b, a, 0, 
 						0, 0, 0, 0, 0};
 
-	ksw_extz_t ez;
-	memset(&ez, 0, sizeof(ksw_extz_t));
 	const int NUM_NUCL = 5;
 	const int Z_DROP = -1;
 	const int FLAG = KSW_EZ_APPROX_MAX | KSW_EZ_APPROX_DROP;
 	const int END_BONUS = 0;
-	//ksw_extf2_sse(0, qseq.size(), &qseq[0], tseq.size(), &tseq[0], matchScore,
-	//		 	  misScore, gapOpen, bandWidth, Z_DROP, &ez);
-	ksw_extz2_sse(buf.memPool, qryByte.size(), &qryByte[0], 
-				  trgByte.size(), &trgByte[0], NUM_NUCL,
-				  subsMat, gapOpen, gapExtend, bandWidth, Z_DROP, 
-				  END_BONUS, FLAG, &ez);
+	
+	//int seqDiff = abs((int)trgByte.size() - (int)qryByte.size());
+	//int bandWidth = seqDiff + MAX_JUMP;
+	//int bandWidth = std::max(10.0f, maxAlnErr * std::max(trgLen, qryLen));
+	(void)maxAlnErr;
+
+	//dynamic band selection
+	ksw_extz_t ez;
+	int bandWidth = 64;
+	for (;;)
+	{
+		memset(&ez, 0, sizeof(ksw_extz_t));
+		ksw_extz2_sse(buf.memPool, qryByte.size(), &qryByte[0], 
+					  trgByte.size(), &trgByte[0], NUM_NUCL,
+					  subsMat, gapOpen, gapExtend, bandWidth, Z_DROP, 
+					  END_BONUS, FLAG, &ez);
+		if (!ez.zdropped) break;
+		if (bandWidth > std::max(qryByte.size(), trgByte.size())) break; //just in case
+		bandWidth *= 2;
+	}
+	//std::cout << bandWidth << std::endl;
 	
 	int numMatches = 0;
 	int numMiss = 0;
@@ -240,27 +246,6 @@ void decodeCigar(const std::vector<CigOp>& cigar,
 				 const DnaSequence& qrySeq, size_t qryBegin,
 				 std::string& outAlnTrg, std::string& outAlnQry)
 {
-	/*std::vector<uint8_t> trgByte;
-	std::vector<uint8_t> qryByte;
-	trgByte.assign(ovlp.curRange(), 0);
-	qryByte.assign(ovlp.extRange(), 0);
-	for (size_t i = 0; i < (size_t)ovlp.curRange(); ++i)
-	{
-		trgByte[i] = trgSeq.atRaw(i + ovlp.curBegin);
-	}
-	for (size_t i = 0; i < (size_t)ovlp.extRange(); ++i)
-	{
-		qryByte[i] = qrySeq.atRaw(i + ovlp.extBegin);
-	}*/
-
-	//std::string strQ;
-	//std::string strT;
-	//std::string alnQry;
-	//std::string alnTrg;
-
-	//for (auto x : qryByte) strQ += "ACGT"[x];
-	//for (auto x : trgByte) strT += "ACGT"[x];
-
 	outAlnTrg.clear();
 	outAlnQry.clear();
 	size_t posQry = 0;
