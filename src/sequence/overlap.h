@@ -263,7 +263,7 @@ private:
 	std::vector<OverlapRange> 
 		checkIdyAndTrim(OverlapRange& ovlp, const DnaSequence& trgSeq,
 						const DnaSequence& qrySeq, float maxDivergence,
-						int32_t minOverlap, bool showAlignment) const;
+						int32_t minOverlap) const;
 	
 	const int   _maxJump;
 	const int   _minOverlap;
