@@ -934,30 +934,19 @@ std::vector<OverlapRange>
 								 	 const DnaSequence& extSeq, float maxDivergence,
 									 int32_t minOverlap, bool showAlignment) const
 {
-	//recomput base alignment with cigar output
+	//recompute base alignment with cigar output
 	std::vector<CigOp> cigar;
 	float errRate = getAlignmentCigarKsw(curSeq, ovlp.curBegin, ovlp.curRange(),
 							 			 extSeq, ovlp.extBegin, ovlp.extRange(),
-							 			 /*match*/ 1, /*mm*/ -2, /*gap open*/ 2, 
+							 			 /*match*/ 1, /*mm*/ -1, /*gap open*/ 1, 
 							 			 /*gap ext*/ 1, maxDivergence, cigar);
 
-	if (errRate < maxDivergence) 	//should not normally happen now
+	/*if (errRate < maxDivergence) 	//should not normally happen
 	{
 		ovlp.seqDivergence = errRate;
 		return {ovlp};
-	}
+	}*/
 
-	/*std::string alignedCur;
-	std::string alignedExt;
-	decodeCigar(cigar, curSeq, ovlp.curBegin, extSeq, ovlp.extBegin,
-				alignedCur, alignedExt);*/
-
-	//precomputing some stuff
-	//std::vector<int> sumMatches = {0};
-	//sumMatches.reserve(cigar.size() + 1);
-
-	//std::vector<int> sumLength = {0};
-	//sumLength.reserve(cigar.size() + 1);
 	std::vector<int> sumErrors = {0};
 	sumErrors.reserve(cigar.size() + 1);
 	std::vector<int> sumCurLen = {0};

@@ -94,7 +94,7 @@ float getAlignmentCigarKsw(const DnaSequence& trgSeq, size_t trgBegin, size_t tr
 					  subsMat, gapOpen, gapExtend, bandWidth, Z_DROP, 
 					  END_BONUS, FLAG, &ez);
 		if (!ez.zdropped) break;
-		if (bandWidth > std::max(qryByte.size(), trgByte.size())) break; //just in case
+		if (bandWidth > (int)std::max(qryByte.size(), trgByte.size())) break; //just in case
 		bandWidth *= 2;
 	}
 	//std::cout << bandWidth << std::endl;
@@ -213,7 +213,7 @@ float getAlignmentErrKsw(const OverlapRange& ovlp,
 	std::vector<CigOp> decodedCigar;
 	float errRate = getAlignmentCigarKsw(trgSeq, ovlp.curBegin, ovlp.curRange(),
 							 			 qrySeq, ovlp.extBegin, ovlp.extRange(),
-							 			 /*match*/ 1, /*mm*/ -2, /*gap open*/ 2, 
+							 			 /*match*/ 1, /*mm*/ -1, /*gap open*/ 1, 
 							 			 /*gap ext*/ 1, maxAlnErr, decodedCigar);
 
 	//visualize alignents if needed
