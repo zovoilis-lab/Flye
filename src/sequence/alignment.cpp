@@ -41,6 +41,37 @@ namespace
 		time_point<system_clock> prevCleanup;
 		void* memPool;
 	};
+
+	struct CompressedSeq
+	{
+		DnaSequence seq;
+		std::vector<int32_t> offsetTable;
+	};
+
+	CompressedSeq homopolymerCompression(const DnaSequence& seq, int32_t start, int32_t length,
+										 bool doCompression)
+	{
+		std::string newSeq;
+		newSeq.reserve(length);
+		std::vector<int32_t> offsetTable;
+		offsetTable.reserve(length);
+
+		size_t offset = 0;
+		for (size_t i = 0; i < (size_t)length; ++i)
+		{
+			if (!doCompression || i == 0 || newSeq.back() != seq.at(i + start))
+			{
+				newSeq += seq.at(i + start);
+				offsetTable.push_back(i + offset);
+			}
+			else
+			{
+				++offset;
+			}
+			
+		}
+		return {DnaSequence(newSeq), offsetTable};
+	}
 }
 
 float getAlignmentCigarKsw(const DnaSequence& trgSeq, size_t trgBegin, size_t trgLen,
@@ -155,20 +186,20 @@ float getAlignmentCigarKsw(const DnaSequence& trgSeq, size_t trgBegin, size_t tr
 	return errRate;
 }
 
-float getAlignmentErrEdlib(const OverlapRange& ovlp,
-					  	   const DnaSequence& trgSeq,
-					  	   const DnaSequence& qrySeq,
-						   float maxAlnErr,
-						   bool useHpc)
+float getAlignmentErrEdlib(const OverlapRange& ovlp, const DnaSequence& trgSeq,
+					  	   const DnaSequence& qrySeq, float maxAlnErr, bool useHpc)
 {
 	thread_local ThreadMemPool buf;
-	thread_local std::vector<char> trgByte;
-	thread_local std::vector<char> qryByte;
+	//thread_local std::vector<char> trgByte;
+	//thread_local std::vector<char> qryByte;
 	buf.cleanIter();
-	trgByte.assign(ovlp.curRange(), 0);
-	qryByte.assign(ovlp.extRange(), 0);
 
-	size_t hpcPos = 0;
+	auto trgCompressed = homopolymerCompression(trgSeq, ovlp.curBegin, 
+												ovlp.curRange(), useHpc);
+	auto qryCompressed = homopolymerCompression(qrySeq, ovlp.extBegin, 
+												ovlp.extRange(), useHpc);
+
+	/*size_t hpcPos = 0;
 	for (size_t i = 0; i < (size_t)ovlp.curRange(); ++i)
 	{
 		trgByte[hpcPos] = trgSeq.atRaw(i + ovlp.curBegin);
@@ -184,7 +215,7 @@ float getAlignmentErrEdlib(const OverlapRange& ovlp,
 		if (!useHpc || hpcPos == 0 || 
 			qryByte[hpcPos - 1] != qryByte[hpcPos]) ++hpcPos;
 	}
-	qryByte.erase(qryByte.begin() + hpcPos, qryByte.end());
+	qryByte.erase(qryByte.begin() + hpcPos, qryByte.end());*/
 
 	(void)maxAlnErr;
 	//int bandWidth = std::max(10.0f, maxAlnErr * std::max(ovlp.curRange(), 
@@ -193,14 +224,16 @@ float getAlignmentErrEdlib(const OverlapRange& ovlp,
 	//it is in fact a little faster, than having a hard upper limit.
 	auto edlibCfg = edlibNewAlignConfig(-1, EDLIB_MODE_NW, 
 										EDLIB_TASK_DISTANCE, nullptr, 0);
-	auto result = edlibAlign(&qryByte[0], qryByte.size(),
-							 &trgByte[0], trgByte.size(), edlibCfg);
+	auto result = edlibAlign(&qryCompressed.seq.str().c_str()[0], qryCompressed.seq.length(),
+							 &trgCompressed.seq.str().c_str()[0], trgCompressed.seq.length(), 
+							 edlibCfg);
 	//Logger::get().debug() << result.editDistance << " " << result.alignmentLength;
 	if (result.editDistance < 0)
 	{
 		return 1.0f;
 	}
-	return (float)result.editDistance / std::max(trgByte.size(), qryByte.size());
+	return (float)result.editDistance / std::max(qryCompressed.seq.length(), 
+												 trgCompressed.seq.length());
 	//return (float)result.editDistance / result.alignmentLength;
 }
 
@@ -275,6 +308,8 @@ void decodeCigar(const std::vector<CigOp>& cigar,
 		}
 	}
 }
+
+
 
 std::vector<OverlapRange> 
 	checkIdyAndTrim(OverlapRange& ovlp, const DnaSequence& curSeq,
