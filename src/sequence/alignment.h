@@ -18,11 +18,17 @@ float getAlignmentErrEdlib(const OverlapRange& ovlp,
 						   float maxAlnErr,
 						   bool useHpc);
 
+std::vector<OverlapRange> 
+	checkIdyAndTrim(OverlapRange& ovlp, const DnaSequence& curSeq,
+					const DnaSequence& extSeq, float maxDivergence,
+					int32_t minOverlap);
+
 struct CigOp
 {
 	char op;
 	int len;
 };
+
 float getAlignmentCigarKsw(const DnaSequence& trgSeq, size_t trgBegin, size_t trgLen,
 			   			   const DnaSequence& qrySeq, size_t qryBegin, size_t qryLen,
 			   			   int matchScore, int misScore, int gapOpen, int gapExtend,
