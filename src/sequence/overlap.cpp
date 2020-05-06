@@ -654,7 +654,10 @@ void OverlapContainer::findAllOverlaps()
 	std::vector<FastaRecord::Id> allQueries;
 	for (const auto& seq : _queryContainer.iterSeqs())
 	{
-		allQueries.push_back(seq.id);
+		if (seq.id.strand())
+		{
+			allQueries.push_back(seq.id);
+		}
 	}
 
 	std::mutex indexMutex;
