@@ -448,7 +448,7 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 				extOverlaps.push_back(ovlp);
 			}
 		}
-		
+
 		//now we have a lits of (possibly multiple) putative overlaps
 		//agains a singe ext sequence. Now, select the list of primary overlaps
 		std::vector<OverlapRange> primaryOverlaps;
@@ -500,7 +500,7 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 				auto trimmedOverlaps = 
 					checkIdyAndTrim(ovlp, fastaRec.sequence, 
 								    _seqContainer.getSeq(extId),
-								    _maxDivergence, _minOverlap);
+								    _maxDivergence, _minOverlap, _useHpc);
 				for (auto& trimOvlp : trimmedOverlaps)
 				{
 					detectedOverlaps.push_back(trimOvlp);

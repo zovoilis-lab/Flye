@@ -21,7 +21,7 @@ float getAlignmentErrEdlib(const OverlapRange& ovlp,
 std::vector<OverlapRange> 
 	checkIdyAndTrim(OverlapRange& ovlp, const DnaSequence& curSeq,
 					const DnaSequence& extSeq, float maxDivergence,
-					int32_t minOverlap);
+					int32_t minOverlap, bool useHpc);
 
 struct CigOp
 {

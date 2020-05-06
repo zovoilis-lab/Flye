@@ -56,22 +56,45 @@ namespace
 		std::vector<int32_t> offsetTable;
 		offsetTable.reserve(length);
 
-		size_t offset = 0;
 		for (size_t i = 0; i < (size_t)length; ++i)
 		{
 			if (!doCompression || i == 0 || newSeq.back() != seq.at(i + start))
 			{
 				newSeq += seq.at(i + start);
-				offsetTable.push_back(i + offset);
-			}
-			else
-			{
-				++offset;
+				offsetTable.push_back(i);
 			}
 			
 		}
 		return {DnaSequence(newSeq), offsetTable};
 	}
+
+	/*void printAlignment(const std::string& alnQry, const std::string& alnTrg)
+	{
+		const int WIDTH = 100;
+		std::stringstream ss;
+		for (size_t chunk = 0; chunk <= alnQry.size() / WIDTH; ++chunk)
+		{
+			for (size_t i = chunk * WIDTH; 
+				 i < std::min((chunk + 1) * WIDTH, alnQry.size()); ++i)
+			{
+				ss << alnQry[i];
+			}
+			ss << "\n";
+			for (size_t i = chunk * WIDTH; 
+				 i < std::min((chunk + 1) * WIDTH, alnQry.size()); ++i)
+			{
+				ss << (alnQry[i] == alnTrg[i] ? '|' : '*');
+			}
+			ss << "\n";
+			for (size_t i = chunk * WIDTH; 
+				 i < std::min((chunk + 1) * WIDTH, alnQry.size()); ++i)
+			{
+				ss << alnTrg[i];
+			}
+			ss << "\n\n";
+		}
+		Logger::get().debug() << "\n" << ss.str();
+	}*/
 }
 
 float getAlignmentCigarKsw(const DnaSequence& trgSeq, size_t trgBegin, size_t trgLen,
@@ -190,32 +213,12 @@ float getAlignmentErrEdlib(const OverlapRange& ovlp, const DnaSequence& trgSeq,
 					  	   const DnaSequence& qrySeq, float maxAlnErr, bool useHpc)
 {
 	thread_local ThreadMemPool buf;
-	//thread_local std::vector<char> trgByte;
-	//thread_local std::vector<char> qryByte;
 	buf.cleanIter();
 
 	auto trgCompressed = homopolymerCompression(trgSeq, ovlp.curBegin, 
 												ovlp.curRange(), useHpc);
 	auto qryCompressed = homopolymerCompression(qrySeq, ovlp.extBegin, 
 												ovlp.extRange(), useHpc);
-
-	/*size_t hpcPos = 0;
-	for (size_t i = 0; i < (size_t)ovlp.curRange(); ++i)
-	{
-		trgByte[hpcPos] = trgSeq.atRaw(i + ovlp.curBegin);
-		if (!useHpc || hpcPos == 0 || 
-			trgByte[hpcPos - 1] != trgByte[hpcPos]) ++hpcPos;
-	}
-	trgByte.erase(trgByte.begin() + hpcPos, trgByte.end());
-
-	hpcPos = 0;
-	for (size_t i = 0; i < (size_t)ovlp.extRange(); ++i)
-	{
-		qryByte[hpcPos] = qrySeq.atRaw(i + ovlp.extBegin);
-		if (!useHpc || hpcPos == 0 || 
-			qryByte[hpcPos - 1] != qryByte[hpcPos]) ++hpcPos;
-	}
-	qryByte.erase(qryByte.begin() + hpcPos, qryByte.end());*/
 
 	(void)maxAlnErr;
 	//int bandWidth = std::max(10.0f, maxAlnErr * std::max(ovlp.curRange(), 
@@ -252,23 +255,7 @@ float getAlignmentErrKsw(const OverlapRange& ovlp,
 	//visualize alignents if needed
 	/*if (showAlignment)
 	{
-		const int WIDTH = 100;
-		for (size_t chunk = 0; chunk <= alnQry.size() / WIDTH; ++chunk)
-		{
-			for (size_t i = chunk * WIDTH; 
-				 i < std::min((chunk + 1) * WIDTH, alnQry.size()); ++i)
-			{
-				std::cout << alnQry[i];
-			}
-			std::cout << "\n";
-			for (size_t i = chunk * WIDTH; 
-				 i < std::min((chunk + 1) * WIDTH, alnQry.size()); ++i)
-			{
-				std::cout << alnTrg[i];
-			}
-			std::cout << "\n\n";
-		}
-	}*/
+			}*/
 
 	return errRate;
 }
@@ -314,12 +301,18 @@ void decodeCigar(const std::vector<CigOp>& cigar,
 std::vector<OverlapRange> 
 	checkIdyAndTrim(OverlapRange& ovlp, const DnaSequence& curSeq,
 					const DnaSequence& extSeq, float maxDivergence,
-					int32_t minOverlap)
+					int32_t minOverlap, bool useHpc)
 {
+	//homopolymer-compressed, if needed
+	auto curCompressed = homopolymerCompression(curSeq, ovlp.curBegin, 
+												ovlp.curRange(), useHpc);
+	auto extCompressed = homopolymerCompression(extSeq, ovlp.extBegin, 
+												ovlp.extRange(), useHpc);
+
 	//recompute base alignment with cigar output
 	std::vector<CigOp> cigar;
-	float errRate = getAlignmentCigarKsw(curSeq, ovlp.curBegin, ovlp.curRange(),
-							 			 extSeq, ovlp.extBegin, ovlp.extRange(),
+	float errRate = getAlignmentCigarKsw(curCompressed.seq, 0, curCompressed.seq.length(),
+							 			 extCompressed.seq, 0, extCompressed.seq.length(),
 							 			 /*match*/ 1, /*mm*/ -1, /*gap open*/ 1, 
 							 			 /*gap ext*/ 1, maxDivergence, cigar);
 	(void)errRate;
@@ -363,7 +356,7 @@ std::vector<OverlapRange>
 		float divergence;
 	};
 	std::vector<IntervalDiv> goodIntervals;
-	const float EPS = 0.005;
+	//const float EPS = 0.0001;
 
 	for (int intLen = (int)cigar.size(); intLen > 0; --intLen)
 	{
@@ -380,7 +373,7 @@ std::vector<OverlapRange>
 			int rangeErr = sumErrors[j + 1] - sumErrors[i];
 			float divergence = float(rangeErr) / rangeLen;
 
-			if (divergence < maxDivergence - EPS)
+			if (divergence < maxDivergence)
 			{
 				if (j - i >= 1) goodIntervals.push_back({i, j, divergence});
 			}
@@ -406,6 +399,7 @@ std::vector<OverlapRange>
 	}
 
 	//now, for each interesting interval check its length and create new overlaps
+	//also need to transofrm back from HPC to original coordinates
 	std::vector<OverlapRange> trimmedAlignments;
 	for (auto intCand : nonIntersecting)
 	{
@@ -415,6 +409,12 @@ std::vector<OverlapRange>
 		size_t posTrg = 0;
 		for (int i = 0; i < (int)cigar.size(); ++i)
 		{
+			if (i == intCand.start)
+			{
+				newOvlp.curBegin += curCompressed.offsetTable[posTrg];
+				newOvlp.extBegin += extCompressed.offsetTable[posQry];
+			}
+
 			if (cigar[i].op == '=' || cigar[i].op == 'X')
 			{
 				posQry += cigar[i].len;
@@ -428,16 +428,13 @@ std::vector<OverlapRange>
 			{
 				posTrg += cigar[i].len;
 			}
-			if (i == intCand.start)
-			{
-				newOvlp.curBegin += posTrg;
-				newOvlp.extBegin += posQry;
-			}
+
 			if (i == intCand.end)
 			{
-				newOvlp.curEnd = ovlp.curBegin + posTrg;
-				newOvlp.extEnd = ovlp.extBegin + posQry;
+				newOvlp.curEnd = ovlp.curBegin + curCompressed.offsetTable[posTrg - 1];
+				newOvlp.extEnd = ovlp.extBegin + extCompressed.offsetTable[posQry - 1];
 			}
+
 		}
 		//TODO: updating score and k-mer matches?
 		
@@ -445,21 +442,43 @@ std::vector<OverlapRange>
 			newOvlp.extRange() > minOverlap)
 		{
 			trimmedAlignments.push_back(newOvlp);
+
 		}	
 	}
 
-	
-	/*Logger::get().debug() << "Adj from " << ovlp.curBegin 
-		<< " " << ovlp.curRange() << 
-		" " << ovlp.extBegin << " " << ovlp.extRange() 
-		<< " " << errRate;
-
-	for (auto& newOvlp : trimmedAlignments)
+	//debugging block
+	/*static std::mutex logLock;
+	if (!trimmedAlignments.empty())
 	{
-		Logger::get().debug() << "      to " << newOvlp.curBegin 
-			<< " " << newOvlp.curRange() << 
-			" " << newOvlp.extBegin << " " << newOvlp.extRange() 
-			<< " " << newOvlp.seqDivergence;
+		std::lock_guard<std::mutex> locko(logLock);
+
+		std::vector<CigOp> cigar;
+		std::string alnCur;
+		std::string alnExt;
+		float noHpcErr = 
+			getAlignmentCigarKsw(curSeq, ovlp.curBegin, ovlp.curRange(),
+								 extSeq, ovlp.extBegin, ovlp.extRange(),
+								 1, -1, 1, 1, maxDivergence, cigar);
+		decodeCigar(cigar, curSeq, ovlp.curBegin, extSeq, ovlp.extBegin,
+					alnCur, alnExt);
+		printAlignment(alnCur, alnExt);
+		Logger::get().debug() << "Idy w/o hpc: " << noHpcErr << " with hpc: " << errRate;
+
+		Logger::get().debug() << "Adj from cb:" << ovlp.curBegin 
+			<< " cl:" << ovlp.curRange() << 
+			" eb:" << ovlp.extBegin << " el:" << ovlp.extRange() 
+			<< " cid:" << ovlp.curId << " eid:" << ovlp.extId
+			<< " err:" << errRate;
+
+		for (auto& newOvlp : trimmedAlignments)
+		{
+			Logger::get().debug() << "      to cb:" << newOvlp.curBegin 
+				<< " cl:" << newOvlp.curRange() << 
+				" eb:" << newOvlp.extBegin << " el:" << newOvlp.extRange() 
+				<< " err:" << newOvlp.seqDivergence
+				<< " checkErr:" << getAlignmentErrEdlib(newOvlp, curSeq, extSeq, 1, false)
+				<< " checkErrHpc:" << getAlignmentErrEdlib(newOvlp, curSeq, extSeq, 1, true);
+		}
 	}*/
 
 	return trimmedAlignments;
