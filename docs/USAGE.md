@@ -271,11 +271,11 @@ It is a tab-delimited table with the columns as follows:
 * Contig/scaffold id
 * Length
 * Coverage
-* Is circular (representing circular sequence, such as bacterial chromosome or plasmid)
-* Is repetitive (represents repeated, rather than unique sequence)
-* Multiplicity (inferred multiplicity based on coverage)
+* Is circular, (Y)es or (N)o
+* Is repetitive, (Y)es or (N)o
+* Multiplicity (based on coverage)
 * Alternative group
-* Graph path (repeat graph path corresponding to this contig/scaffold).
+* Graph path (graph path corresponding to this contig/scaffold).
 
 Scaffold gaps are marked with `??` symbols, and `*` symbol denotes a
 terminal graph node.
