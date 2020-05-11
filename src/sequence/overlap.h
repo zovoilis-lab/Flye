@@ -327,7 +327,7 @@ public:
 
 	void estimateOverlaperParameters();
 
-	void setRelativeDivergenceThreshold(float relThreshold);
+	void setDivergenceThreshold(float threshold, bool isRelative);
 
 	//The functions below are NOT thread safe.
 	//Do not mix them with any other functions

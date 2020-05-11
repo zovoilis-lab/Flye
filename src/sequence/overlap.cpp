@@ -824,9 +824,11 @@ void OverlapContainer::estimateOverlaperParameters()
 }
 
 
-void OverlapContainer::setRelativeDivergenceThreshold(float relThreshold)
+void OverlapContainer::setDivergenceThreshold(float threshold, bool isRelative)
 {
-	_ovlpDetect._maxDivergence = _meanTrueOvlpDiv + relThreshold;
+
+	_ovlpDetect._maxDivergence = (isRelative ? _meanTrueOvlpDiv : 0.0f) + threshold;
+	Logger::get().debug() << "Relative threshold: " << "NY"[(size_t)isRelative];
 	Logger::get().debug() << "Max divergence threshold set to " 
 		<< _ovlpDetect._maxDivergence;
 }

@@ -231,8 +231,8 @@ int assemble_main(int argc, char** argv)
 						 (bool)Config::get("hpc_scoring_on"));
 	OverlapContainer readOverlaps(ovlp, readsContainer);
 	readOverlaps.estimateOverlaperParameters();
-	readOverlaps.setRelativeDivergenceThreshold(
-		(float)Config::get("assemble_ovlp_relative_divergence"));
+	readOverlaps.setDivergenceThreshold((float)Config::get("assemble_ovlp_divergence"),
+										(bool)Config::get("assemble_divergence_relative"));
 
 	Extender extender(readsContainer, readOverlaps);
 	extender.assembleDisjointigs();
