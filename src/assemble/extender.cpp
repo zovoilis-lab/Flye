@@ -62,8 +62,9 @@ Extender::ExtensionInfo Extender::extendDisjointig(FastaRecord::Id startRead)
 		bool foundExtension = false;
 
 		//getting extension
-		int minExtensions = std::max(1, (int)median(numExtensions) / 
-										(int)Config::get("max_coverage_drop_rate"));
+		const float COV_DROP = 3.0f;
+		int minExtensions = std::max(1.0f, std::roundf((float)median(numExtensions) / 
+														COV_DROP));
 
 		/*Logger::get().debug() << _readsContainer.seqName(currentRead) 
 			<< "\t" << overlaps.size();
