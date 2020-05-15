@@ -153,7 +153,7 @@ ConsensusGenerator::getSwitchPositions(const AlignmentInfo& aln,
 		}
 	}
 
-	Logger::get().info() << "No jump found!";
+	//Logger::get().info() << "No jump found!";
 	prevSwitch = std::max(prevSwitch + 1, aln.startOne);
 	return {prevSwitch, aln.startTwo};
 }
