@@ -116,6 +116,12 @@ struct OverlapRange
 		}
 	}
 
+	int32_t lrOverhang() const
+	{
+		return std::max(std::min(curBegin, extBegin),
+						std::min(curLen - curEnd, extLen - extEnd));
+	}
+
 	bool contains(int32_t curPos, int32_t extPos) const
 	{
 		return curBegin <= curPos && curPos <= curEnd &&
