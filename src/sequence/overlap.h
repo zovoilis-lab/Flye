@@ -329,7 +329,7 @@ public:
 	std::vector<OverlapRange> quickSeqOverlaps(FastaRecord::Id readId, 
 											   int maxOverlaps=0);
 
-	size_t indexSize() {return _indexSize;}
+	//size_t indexSize() {return _indexSize;}
 
 	void estimateOverlaperParameters();
 
@@ -370,4 +370,67 @@ private:
 
 	//float _kmerIdyEstimateBias;
 	float _meanTrueOvlpDiv;
+};
+
+//a helper to iterate over overlaps with no overhangs
+class OvlpIterator
+{
+public:
+	OvlpIterator(std::vector<OverlapRange>::const_iterator it,
+				 std::vector<OverlapRange>::const_iterator end,
+				 bool onlyNoOverhang):
+		it(it), end(end), onlyNoOverhang(onlyNoOverhang)
+	{}
+
+	bool operator==(const OvlpIterator& other) const
+	{
+		return it == other.it && onlyNoOverhang == other.onlyNoOverhang;
+	}
+	bool operator!=(const OvlpIterator& other) const
+	{
+		return !(*this == other);
+	}
+
+	//__attribute__((always_inline))
+	const OverlapRange& operator*() const
+	{
+		return *it;
+	}
+
+	OvlpIterator& operator++()
+	{
+		static const int MAX_OVERHANG = Config::get("maximum_overhang");
+		++it;
+		if (onlyNoOverhang)
+		{
+			while(it != end && it->lrOverhang() > MAX_OVERHANG) ++it;
+		}
+		return *this;
+	}
+
+private:
+	std::vector<OverlapRange>::const_iterator it;
+	std::vector<OverlapRange>::const_iterator end;
+	bool onlyNoOverhang;
+};
+
+class IterNoOverhang
+{
+public:
+	IterNoOverhang(const std::vector<OverlapRange>& ovlps): 
+		ovlps(ovlps), onlyNoOverhang(true) {}
+
+	OvlpIterator begin()
+	{
+		return OvlpIterator(ovlps.begin(), ovlps.end(), onlyNoOverhang);
+	}
+
+	OvlpIterator end()
+	{
+		return OvlpIterator(ovlps.end(), ovlps.end(), onlyNoOverhang);
+	}
+
+private:
+	const std::vector<OverlapRange>& ovlps;
+	bool onlyNoOverhang;
 };

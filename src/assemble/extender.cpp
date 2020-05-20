@@ -30,7 +30,7 @@ Extender::ExtensionInfo Extender::extendDisjointig(FastaRecord::Id startRead)
 
 	auto leftExtendsStart = [startRead, this](const FastaRecord::Id readId)
 	{
-		for (const auto& ovlp : _ovlpContainer.lazySeqOverlaps(startRead))
+		for (const auto& ovlp : IterNoOverhang(_ovlpContainer.lazySeqOverlaps(startRead)))
 		{
 			if (ovlp.extId == readId &&
 				ovlp.leftShift < -(int)Config::get("maximum_jump")) 
@@ -43,10 +43,9 @@ Extender::ExtensionInfo Extender::extendDisjointig(FastaRecord::Id startRead)
 
 	while(true)
 	{
-		const auto& overlaps = _ovlpContainer.lazySeqOverlaps(currentRead);
 		std::vector<OverlapRange> extensions;
 		//int innerOverlaps = 0;
-		for (const auto& ovlp : overlaps)
+		for (const auto& ovlp : IterNoOverhang(_ovlpContainer.lazySeqOverlaps(currentRead)))
 		{
 			//if (_innerReads.contains(ovlp.extId)) ++innerOverlaps;
 			if (this->extendsRight(ovlp)) extensions.push_back(ovlp);
@@ -121,6 +120,19 @@ Extender::ExtensionInfo Extender::extendDisjointig(FastaRecord::Id startRead)
 			exInfo.reads.push_back(currentRead);
 			overlapSizes.push_back(maxExtension->curRange());
 			//overlapsVisited |= currentReads.count(currentRead);
+			if (maxExtension->curRange() < 5000) ++exInfo.shortExtensions;
+
+			/*static std::mutex logMutex;
+			logMutex.lock();
+			if (median(numExtensions) > 0 && 
+				extensions.size() / median(numExtensions) > 3) Logger::get().debug() << "\tRepeat!";
+
+			Logger::get().debug() << "\tMean ext: " << median(numExtensions) 
+				<< " cur: " << extensions.size();
+
+			this->isRepeatConnection(*maxExtension);
+			this->isRepeatConnection(maxExtension->reverse().complement());
+			logMutex.unlock();*/
 		}
 		else
 		{
@@ -279,6 +291,7 @@ void Extender::assembleDisjointigs()
 			<< "\n\tleftTip: " << exInfo.leftTip 
 			<< " rightTip: " << exInfo.rightTip
 			<< "\n\tSuspicious: " << exInfo.numSuspicious
+			<< "\n\tShort ext: " << exInfo.shortExtensions
 			<< "\n\tMean extensions: " << exInfo.meanOverlaps
 			<< "\n\tAvg overlap len: " << exInfo.avgOverlapSize
 			<< "\n\tMin overlap len: " << exInfo.minOverlapSize
@@ -304,7 +317,7 @@ void Extender::assembleDisjointigs()
 			//	this->countRightExtensions(readId.rc()) > maxExtensions) continue;
 
 			//so each read is covered from the left and right
-			for (const auto& ovlp : _ovlpContainer.lazySeqOverlaps(readId))
+			for (const auto& ovlp : IterNoOverhang(_ovlpContainer.lazySeqOverlaps(readId)))
 			{
 				allOverlaps.push_back(ovlp);
 				coveredReads.insert(ovlp.extId, true);
@@ -372,7 +385,7 @@ void Extender::assembleDisjointigs()
 		{
 			if (!coveredLocal.count(readId))
 			{
-				for (const auto& ovlp : _ovlpContainer.lazySeqOverlaps(readId))
+				for (const auto& ovlp : IterNoOverhang(_ovlpContainer.lazySeqOverlaps(readId)))
 				{
 					if (ovlp.leftShift >= 0 && ovlp.rightShift <= 0)
 					{
@@ -486,7 +499,7 @@ void Extender::convertToDisjointigs()
 			bool found = false;
 			OverlapRange readsOvlp;
 
-			for (const auto& ovlp : _ovlpContainer.lazySeqOverlaps(exInfo.reads[i]))
+			for (const auto& ovlp : IterNoOverhang(_ovlpContainer.lazySeqOverlaps(exInfo.reads[i])))
 			{
 				if (ovlp.extId == exInfo.reads[i + 1]) 
 				{
@@ -497,7 +510,7 @@ void Extender::convertToDisjointigs()
 			}
 			if (!found)
 			{
-				for (const auto& ovlp : _ovlpContainer.lazySeqOverlaps(exInfo.reads[i + 1]))
+				for (const auto& ovlp : IterNoOverhang(_ovlpContainer.lazySeqOverlaps(exInfo.reads[i + 1])))
 				{
 					if (ovlp.extId == exInfo.reads[i]) 
 					{
@@ -520,7 +533,7 @@ void Extender::convertToDisjointigs()
 int Extender::countRightExtensions(const std::vector<OverlapRange>& ovlps) const
 {
 	int count = 0;
-	for (const auto& ovlp : ovlps)
+	for (const auto& ovlp : IterNoOverhang(ovlps))
 	{
 		if (this->extendsRight(ovlp)) ++count;
 	}
