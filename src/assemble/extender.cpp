@@ -499,7 +499,7 @@ void Extender::convertToDisjointigs()
 			bool found = false;
 			OverlapRange readsOvlp;
 
-			for (const auto& ovlp : IterNoOverhang(_ovlpContainer.lazySeqOverlaps(exInfo.reads[i])))
+			for (const auto& ovlp : _ovlpContainer.lazySeqOverlaps(exInfo.reads[i]))
 			{
 				if (ovlp.extId == exInfo.reads[i + 1]) 
 				{
@@ -510,7 +510,7 @@ void Extender::convertToDisjointigs()
 			}
 			if (!found)
 			{
-				for (const auto& ovlp : IterNoOverhang(_ovlpContainer.lazySeqOverlaps(exInfo.reads[i + 1])))
+				for (const auto& ovlp : _ovlpContainer.lazySeqOverlaps(exInfo.reads[i + 1]))
 				{
 					if (ovlp.extId == exInfo.reads[i]) 
 					{
