@@ -35,7 +35,7 @@ bool ChimeraDetector::isChimeric(FastaRecord::Id readId,
 	if (!_chimeras.contains(readId))
 	{
 		bool result = this->testReadByCoverage(readId, readOvlps);
-		for (const auto& ovlp : readOvlps)
+		for (const auto& ovlp : IterNoOverhang(readOvlps))
 		{
 			if (ovlp.curId == ovlp.extId.rc()) 
 			{
@@ -117,7 +117,7 @@ std::vector<int32_t>
 	if (numWindows - 2 * FLANK <= 0) return {0};
 
 	coverage.assign(numWindows - 2 * FLANK, 0);
-	for (const auto& ovlp : readOverlaps)
+	for (const auto& ovlp : IterNoOverhang(readOverlaps))
 	{
 		if (ovlp.curId == ovlp.extId.rc() ||
 			ovlp.curId == ovlp.extId) continue;

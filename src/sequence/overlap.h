@@ -380,7 +380,13 @@ public:
 				 std::vector<OverlapRange>::const_iterator end,
 				 bool onlyNoOverhang):
 		it(it), end(end), onlyNoOverhang(onlyNoOverhang)
-	{}
+	{
+		if (onlyNoOverhang)
+		{
+			static const int MAX_OVERHANG = Config::get("maximum_overhang");
+			while(it != end && it->lrOverhang() > MAX_OVERHANG) ++it;
+		}
+	}
 
 	bool operator==(const OvlpIterator& other) const
 	{
@@ -399,10 +405,10 @@ public:
 
 	OvlpIterator& operator++()
 	{
-		static const int MAX_OVERHANG = Config::get("maximum_overhang");
 		++it;
 		if (onlyNoOverhang)
 		{
+			static const int MAX_OVERHANG = Config::get("maximum_overhang");
 			while(it != end && it->lrOverhang() > MAX_OVERHANG) ++it;
 		}
 		return *this;
