@@ -108,7 +108,6 @@ std::vector<int32_t>
 									 const std::vector<OverlapRange>& readOverlaps)
 {
 	static const int WINDOW = Config::get("chimera_window");
-	//const int FLANK = (int)Config::get("maximum_overhang") / WINDOW;
 	const int FLANK = 1;
 
 	std::vector<int> coverage;
@@ -126,12 +125,8 @@ std::vector<int32_t>
 		for (int pos = ovlp.curBegin / WINDOW + FLANK; 		
 			 pos <= ovlp.curEnd / WINDOW - FLANK; ++pos)
 		{
-			if (pos - FLANK >= 0 && 					//shouldn't happen, but just in case..
-				pos - FLANK < (int)coverage.size())
-			{
-				//assert(pos - FLANK >= 0 && pos - FLANK < (int)coverage.size());
-				++coverage[pos - FLANK];
-			}
+			//assert(pos - FLANK >= 0 && pos - FLANK < (int)coverage.size());
+			++coverage.at(pos - FLANK);
 		}
 	}
 
@@ -154,7 +149,6 @@ bool ChimeraDetector::testReadByCoverage(FastaRecord::Id readId,
 		maxCov = std::max(maxCov, cov);
 		sumCov += cov;
 	}
-	//int32_t meanCoverage = sumCov / coverage.size();
 	int32_t medianCoverage = median(coverage);
 	if (sumCov == 0) return false;	//no overlaps found, but it's not chimeric either
 
@@ -166,34 +160,15 @@ bool ChimeraDetector::testReadByCoverage(FastaRecord::Id readId,
 	}
 	else
 	{
-		/*threshold = std::round((float)std::min(_overlapCoverage, maxCov) /
-							   MAX_DROP_RATE);*/
-		/*threshold = 1;*/
 		threshold = std::max(1L, std::lround(medianCoverage / MAX_DROP_RATE));
 	}
 
 	int32_t goodStart = 0;
 	int32_t goodEnd = coverage.size() - 1;
-	//if (!Parameters::get().unevenCoverage)
-	//{
 	const int MAX_FLANK = (int)Config::get("maximum_overhang") / 
 							Config::get("chimera_window");
 	goodStart = MAX_FLANK;
 	goodEnd = coverage.size() - MAX_FLANK - 1;
-	//}
-	/*else
-	{
-		for (goodEnd = 0; goodStart < (int)coverage.size(); ++goodStart)
-		{
-			if (coverage[goodStart] >= threshold) break;
-			if (goodStart > 0 && coverage[goodStart] < coverage[goodStart - 1]) break;
-		}
-		for (goodEnd = coverage.size() - 1; goodEnd >= 0; --goodEnd)
-		{
-			if (coverage[goodEnd] >= threshold) break;
-			if (goodEnd > 0 && coverage[goodEnd] > coverage[goodEnd - 1]) break;
-		}
-	}*/
 	
 	bool lowCoverage = false;
 	if (goodEnd <= goodStart) lowCoverage = true;
