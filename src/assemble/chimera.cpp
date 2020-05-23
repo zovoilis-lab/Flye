@@ -74,8 +74,7 @@ void ChimeraDetector::estimateGlobalCoverage()
 	for (const auto& seq : _seqContainer.iterSeqs())
 	{
 		if (rand() % sampleRate) continue;
-		const auto& overlaps = _ovlpContainer.lazySeqOverlaps(seq.id);
-		auto coverage = this->getReadCoverage(seq.id, overlaps);
+		auto coverage = this->getReadCoverage(seq.id, _ovlpContainer.lazySeqOverlaps(seq.id));
 		bool nonZero = false;
 		for (auto c : coverage) nonZero |= (c != 0);
 		if (!nonZero) continue;

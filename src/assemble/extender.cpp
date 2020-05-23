@@ -228,11 +228,14 @@ void Extender::assembleDisjointigs()
 														  /*max overlaps*/ 100);
 		std::vector<OverlapRange> revOverlaps;
 		revOverlaps.reserve(startOvlps.size());
-		for (const auto& ovlp : startOvlps) revOverlaps.push_back(ovlp.complement());
+		for (const auto& ovlp : IterNoOverhang(startOvlps)) 
+		{
+			revOverlaps.push_back(ovlp.complement());
+		}
 
 		int numInnerOvlp = 0;
 		int totalOverlaps = 0;
-		for (const auto& ovlp : startOvlps)
+		for (const auto& ovlp : IterNoOverhang(startOvlps))
 		{
 			if (_innerReads.contains(ovlp.extId)) ++numInnerOvlp;
 			++totalOverlaps;
