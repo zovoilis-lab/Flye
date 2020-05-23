@@ -200,3 +200,129 @@ bool ChimeraDetector::testReadByCoverage(FastaRecord::Id readId,
 
 	return lowCoverage;
 }
+
+bool ChimeraDetector::isRepetitiveRegion(FastaRecord::Id readId, int32_t start, 
+										 int32_t end)
+{
+	static const int WINDOW = Config::get("chimera_window");
+	static const int MAX_OVERHANG = Config::get("maximum_overhang");
+	const int FLANK = 1;
+
+	int numWindows = std::ceil((float)_seqContainer.seqLen(readId) / WINDOW) + 1;
+	int vecSize = numWindows - 2 * FLANK;
+	if (vecSize <= 0) return false;
+
+	std::vector<int> coverage(vecSize, 0);
+	std::vector<int> junctions(vecSize, 0);
+	for (const auto& ovlp : _ovlpContainer.lazySeqOverlaps(readId))
+	{
+		if (ovlp.curId == ovlp.extId.rc() ||
+			ovlp.curId == ovlp.extId) continue;
+
+		for (int pos = ovlp.curBegin / WINDOW + FLANK; 
+			 pos <= ovlp.curEnd / WINDOW - FLANK; ++pos)
+		{
+			if (ovlp.lrOverhang() > MAX_OVERHANG)
+			{
+				++junctions.at(pos - FLANK);
+			}
+			else
+			{
+				++coverage.at(pos - FLANK);
+			}
+		}
+	}
+
+	int numOverflows = 0;
+	int rangeLen = 0;
+	for (int32_t pos = std::max(0, start / WINDOW); 
+		 pos < std::min((int32_t)coverage.size(), end / WINDOW); ++pos)
+	{
+		if (coverage[pos] < junctions[pos]) ++numOverflows;
+		++rangeLen;
+	}
+	/*for (size_t i = 0; i < coverage.size(); ++i)
+	{
+		if (coverage[i] < junctions[i]) ++numOverflows;
+	}*/
+
+	//static std::mutex logLock;
+	//logLock.lock();
+	Logger::get().debug() << "Checking repeat";
+	std::string covStr;
+	std::string juncStr;
+	for (int32_t i = 0; i < (int)coverage.size() - 1; ++i)
+	{
+		covStr += std::to_string(coverage[i]) + " ";
+		juncStr += std::to_string(junctions[i]) + " ";
+	}
+	Logger::get().debug() << _seqContainer.seqName(readId) << " " << _seqContainer.seqLen(readId);
+	Logger::get().debug() << covStr;
+	Logger::get().debug() << juncStr;
+
+	if ((float)numOverflows / rangeLen > 0.75f)
+	{
+		Logger::get().debug() << "Flagged";
+		return true;
+	}
+	return false;
+	//logLock.unlock();
+}
+
+/*bool ChimeraDetector::isRepeatConnection(const OverlapRange& testOvlp) const
+{
+	std::unordered_set<FastaRecord::Id> curCandidates;
+	//std::unordered_set<FastaRecord::Id> extCandidates;
+
+	int numCurExt = 0;
+	int numOverlaps = 0;
+	//Logger::get().debug() << "\tcb: " << testOvlp.curBegin << " ce: " << testOvlp.curEnd 
+	//<< " cl: " << testOvlp.curLen <<
+	//	" eb: " << testOvlp.extBegin << " ee: " << testOvlp.extEnd << " el: " 
+	//	<< testOvlp.extLen << " ls: " << testOvlp.leftShift
+	//	<< " rs: " << testOvlp.rightShift; 
+	for (auto& candOvlp : IterNoOverhang(_ovlpContainer.lazySeqOverlaps(testOvlp.curId)))
+	{
+		if (!this->extendsRight(candOvlp) ||
+			candOvlp.extId == testOvlp.extId) continue;
+
+		int32_t leftShift = candOvlp.leftShift - testOvlp.leftShift;
+		int32_t rightShift = candOvlp.rightShift - testOvlp.rightShift;
+		int32_t ovlpSize = testOvlp.extLen - std::max(0, leftShift) 
+										   - std::max(0, -rightShift);
+		if (ovlpSize > Parameters::get().minimumOverlap) 
+		{
+			curCandidates.insert(candOvlp.extId);
+
+
+			//Logger::get().debug() << "\t\tcb: " << candOvlp.curBegin << " ce: " << 
+			//candOvlp.curEnd << " cl: " << candOvlp.curLen <<
+			//	" eb: " << candOvlp.extBegin << " ee: " << candOvlp.extEnd << " el: " 
+			//	<< candOvlp.extLen << " ls: " << candOvlp.leftShift
+			//	<< " rs: " << candOvlp.rightShift << " nls: " << leftShift << " nrs: " << rightShift
+			//	<< " ovlp: " << ovlpSize;
+		}
+		++numCurExt;
+	}
+
+	//Logger::get().debug() << "--------";
+	for (auto& candOvlp : IterNoOverhang(_ovlpContainer.lazySeqOverlaps(testOvlp.extId)))
+	{
+		if (curCandidates.count(candOvlp.extId))
+		{
+			++numOverlaps;
+
+			//Logger::get().debug() << "\t\tcb: " << candOvlp.curBegin << " ce: " << 
+			//candOvlp.curEnd << " cl: " << candOvlp.curLen <<
+			//	" eb: " << candOvlp.extBegin << " ee: " << candOvlp.extEnd << " el: " << candOvlp.extLen 
+			//	<< " ls: " << candOvlp.leftShift
+			//	<< " rs: " << candOvlp.rightShift; 
+		}
+	}
+
+	float rate = (float)numOverlaps / curCandidates.size();
+	Logger::get().debug() << "\tTest ovlp: " << testOvlp.curRange() << " ext: " <<
+		numCurExt << " cand: " << curCandidates.size() << " rate: " << rate;
+
+	return rate < 0.9;
+}*/
