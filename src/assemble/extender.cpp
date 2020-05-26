@@ -61,7 +61,7 @@ Extender::ExtensionInfo Extender::extendDisjointig(FastaRecord::Id startRead)
 		bool foundExtension = false;
 
 		//getting extension
-		const float COV_DROP = 3.0f;
+		const float COV_DROP = Config::get("max_extensions_drop_rate");
 		int minExtensions = std::max(1.0f, std::roundf((float)median(numExtensions) / 
 														COV_DROP));
 
