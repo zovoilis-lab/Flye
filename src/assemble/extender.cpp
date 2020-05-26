@@ -87,7 +87,19 @@ Extender::ExtensionInfo Extender::extendDisjointig(FastaRecord::Id startRead)
 			//be complications when we initiate extension of startRead
 			//to the left
 			if (leftExtendsStart(ovlp.extId)) continue;
-			if (_ovlpContainer.hasSelfOverlaps(ovlp.extId)) continue;
+
+			//if (_ovlpContainer.hasSelfOverlaps(ovlp.extId)) continue;
+
+			if (std::min(ovlp.curRange(), ovlp.extRange()) < _safeOverlap)
+			{
+				if (std::min(ovlp.curLen, ovlp.extLen) < _safeOverlap) continue;
+
+				bool curRepeat = 
+					_chimDetector.isRepetitiveRegion(ovlp.curId, ovlp.curBegin, ovlp.curEnd);
+				bool extRepeat = 
+					_chimDetector.isRepetitiveRegion(ovlp.extId, ovlp.extBegin, ovlp.extEnd);
+				if (curRepeat && extRepeat) continue;
+			}
 
 			//try to find a good one
 			if (!_chimDetector.isChimeric(ovlp.extId) &&
@@ -120,18 +132,23 @@ Extender::ExtensionInfo Extender::extendDisjointig(FastaRecord::Id startRead)
 			exInfo.reads.push_back(currentRead);
 			overlapSizes.push_back(maxExtension->curRange());
 			//overlapsVisited |= currentReads.count(currentRead);
-			if (maxExtension->curRange() < 5000) ++exInfo.shortExtensions;
+			if (maxExtension->curRange() < _safeOverlap) ++exInfo.shortExtensions;
 
 			/*static std::mutex logMutex;
 			logMutex.lock();
 			if (median(numExtensions) > 0 && 
 				extensions.size() / median(numExtensions) > 3) Logger::get().debug() << "\tRepeat!";
 
-			Logger::get().debug() << "\tMean ext: " << median(numExtensions) 
-				<< " cur: " << extensions.size();
 
-			this->isRepeatConnection(*maxExtension);
-			this->isRepeatConnection(maxExtension->reverse().complement());
+			bool cr = _chimDetector.isRepetitiveRegion(maxExtension->curId, maxExtension->curBegin, 
+											 maxExtension->curEnd);
+			bool er = _chimDetector.isRepetitiveRegion(maxExtension->extId, maxExtension->extBegin, 
+											 maxExtension->extEnd);
+
+			Logger::get().debug() << "\tMean ext: " << median(numExtensions) 
+				<< " cur: " << extensions.size() << " len: " << maxExtension->curRange()
+				<< " curRep: " << cr << " extRep: " << er;
+
 			logMutex.unlock();*/
 		}
 		else

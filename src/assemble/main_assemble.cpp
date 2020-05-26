@@ -151,7 +151,8 @@ int assemble_main(int argc, char** argv)
 	Config::load(configPath);
 	Parameters::get().numThreads = numThreads;
 	Parameters::get().kmerSize = kmerSize;
-	Parameters::get().minimumOverlap = minOverlap;
+	Parameters::get().minimumOverlap = 1000;
+	//Parameters::get().minimumOverlap = minOverlap;
 	Parameters::get().unevenCoverage = unevenCov;
 	Logger::get().debug() << "Running with k-mer size: " << 
 		Parameters::get().kmerSize; 
@@ -222,7 +223,6 @@ int assemble_main(int argc, char** argv)
 	OverlapDetector ovlp(readsContainer, vertexIndex,
 						 (int)Config::get("maximum_jump"), 
 						 Parameters::get().minimumOverlap,
-						 //(int)Config::get("maximum_overhang"),
 						 /*no max overhang*/ 0,
 						 /*store alignment*/ false,
 						 /*only max ovlp*/ true,
@@ -235,7 +235,7 @@ int assemble_main(int argc, char** argv)
 	readOverlaps.setDivergenceThreshold((float)Config::get("assemble_ovlp_divergence"),
 										(bool)Config::get("assemble_divergence_relative"));
 
-	Extender extender(readsContainer, readOverlaps);
+	Extender extender(readsContainer, readOverlaps, minOverlap);
 	extender.assembleDisjointigs();
 	vertexIndex.clear();
 

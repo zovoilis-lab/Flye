@@ -15,7 +15,9 @@ class Extender
 {
 public:
 	Extender(const SequenceContainer& readsContainer, 
-			 OverlapContainer& ovlpContainer):
+			 OverlapContainer& ovlpContainer,
+			 int safeOverlap):
+		_safeOverlap(safeOverlap),
 		_readsContainer(readsContainer), 
 		_ovlpContainer(ovlpContainer),
 		_chimDetector(readsContainer, ovlpContainer)
@@ -49,6 +51,8 @@ private:
 		int  rightAsmOverlap;
 		int  shortExtensions;
 	};
+
+	const int _safeOverlap;
 
 	ExtensionInfo extendDisjointig(FastaRecord::Id startingRead);
 	int   countRightExtensions(FastaRecord::Id readId) const;
