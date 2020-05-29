@@ -286,7 +286,8 @@ void VertexIndex::filterFrequentKmers(float rate)
 	{
 		if (kmer.second.capacity > _repetitiveFrequency)
 		{
-			repetitiveKmers += kmer.second.capacity;
+			++repetitiveKmers;
+			//repetitiveKmers += kmer.second.capacity;
 			_repetitiveKmers.insert(kmer.first, true);
 		}
 	}
