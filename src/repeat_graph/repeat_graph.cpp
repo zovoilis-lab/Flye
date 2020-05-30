@@ -71,10 +71,14 @@ std::unordered_set<GraphEdge*> GraphEdge::adjacentEdges()
 void RepeatGraph::build()
 {
 	//getting overlaps
-	VertexIndex asmIndex(_asmSeqs, 
-						 (int)Config::get("repeat_graph_kmer_sample"));
-	asmIndex.countKmers(/*min freq*/ 1, /*genome size*/ 0);
-	asmIndex.buildIndex(/*min freq*/ 1);
+	VertexIndex asmIndex(_asmSeqs, (int)Config::get("repeat_graph_kmer_sample"));
+
+	bool useMinimizers = Config::get("use_minimizers");
+	int minWnd = useMinimizers ? Config::get("minimizer_window") : 1;
+	asmIndex.buildIndexMinimizers(/*min freq*/ 1, minWnd);
+
+	//asmIndex.countKmers(/*min freq*/ 1, /*genome size*/ 0);
+	//asmIndex.buildIndex(/*min freq*/ 1);
 
 	//float badEndAdj = (float)Config::get("repeat_graph_ovlp_end_adjust");
 	OverlapDetector asmOverlapper(_asmSeqs, asmIndex, 

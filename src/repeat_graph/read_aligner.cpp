@@ -143,8 +143,12 @@ void ReadAligner::alignReads()
 	//index it and align reads
 	VertexIndex pathsIndex(_graph.edgeSequences(), 
 						   (int)Config::get("read_align_kmer_sample"));
-	pathsIndex.countKmers(/*min freq*/ 1, /* genome size*/ 0);
-	pathsIndex.buildIndex(/*min freq*/ 1);
+	bool useMinimizers = Config::get("use_minimizers");
+	int minWnd = useMinimizers ? Config::get("minimizer_window") : 1;
+	pathsIndex.buildIndexMinimizers(/*min freq*/ 1, minWnd);
+
+	//pathsIndex.countKmers(/*min freq*/ 1, /* genome size*/ 0);
+	//pathsIndex.buildIndex(/*min freq*/ 1);
 	OverlapDetector readsOverlapper(_graph.edgeSequences(), pathsIndex, 
 									(int)Config::get("maximum_jump"), SMALL_ALN,
 									/*no overhang*/ 0, /*keep alignment*/ false, 

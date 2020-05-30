@@ -191,9 +191,8 @@ int assemble_main(int argc, char** argv)
 	bool useMinimizers = Config::get("use_minimizers");
 	if (useMinimizers)
 	{
-		const int MIN_FREQ = 2;
-		const int WINDOW = 10;
-		vertexIndex.buildIndexMinimizers(MIN_FREQ, WINDOW);
+		const int minWnd = Config::get("minimizer_window");
+		vertexIndex.buildIndexMinimizers(/*min freq*/ 1, minWnd);
 	}
 	else if (Parameters::get().unevenCoverage)	//noisy meta
 	{
