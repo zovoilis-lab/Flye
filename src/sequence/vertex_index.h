@@ -26,7 +26,7 @@ public:
 	{
 		this->clear();
 	}
-	VertexIndex(const SequenceContainer& seqContainer, int sampleRate):
+	VertexIndex(const SequenceContainer& seqContainer, float sampleRate):
 		_seqContainer(seqContainer), _outputProgress(false), 
 		_sampleRate(sampleRate), _repetitiveFrequency(0)
 		//_solidMultiplier(1)
@@ -210,7 +210,7 @@ public:
 		return _kmerDistribution;
 	}
 
-	int getSampleRate() const {return _sampleRate;}
+	float getSampleRate() const {return _sampleRate;}
 
 private:
 	void setRepeatCutoff(int minCoverage);
@@ -234,7 +234,7 @@ private:
 	const SequenceContainer& _seqContainer;
 	KmerDistribution 		 _kmerDistribution;
 	bool    _outputProgress;
-	int32_t _sampleRate;
+	float   _sampleRate;
 	size_t  _repetitiveFrequency;
 	//int32_t _solidMultiplier;
 

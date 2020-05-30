@@ -536,9 +536,11 @@ void VertexIndex::buildIndexMinimizers(int minCoverage, int wndLen)
 	if (_outputProgress) Logger::get().info() << "Building minimizer index";
 
 	std::vector<FastaRecord::Id> allReads;
+	size_t totalLen = 0;
 	for (const auto& seq : _seqContainer.iterSeqs())
 	{
 		allReads.push_back(seq.id);
+		if (seq.id.strand()) totalLen += seq.sequence.length();
 	}
 
 	_kmerIndex.reserve(1000000);
@@ -619,6 +621,10 @@ void VertexIndex::buildIndexMinimizers(int minCoverage, int wndLen)
 	Logger::get().debug() << "K-mer index size: " << totalEntries;
 	Logger::get().debug() << "Mean k-mer frequency: " 
 		<< (float)totalEntries / _kmerIndex.size();
+
+	float minimizerRate = (float)totalLen / totalEntries;
+	Logger::get().debug() << "Minimizer rate: " << minimizerRate;
+	_sampleRate = minimizerRate;
 }
 
 
