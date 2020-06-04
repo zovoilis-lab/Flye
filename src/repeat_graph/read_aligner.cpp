@@ -3,6 +3,7 @@
 //Released under the BSD license (see LICENSE file)
 
 #include "read_aligner.h"
+#include "../sequence/alignment.h"
 #include "../common/parallel.h"
 #include <cmath>
 #include <iomanip>
@@ -127,6 +128,9 @@ void ReadAligner::alignReads()
 	static const int BIG_ALN = 500;
 	static const int LONG_EDGE = 900;
 
+	const bool BASE_ALN = true;
+	static const float MAX_DIVERGENCE = Config::get("read_align_ovlp_divergence");
+
 	//create database
 	std::unordered_map<FastaRecord::Id, 
 					   std::pair<GraphEdge*, EdgeSequence>> idToSegment;
@@ -154,9 +158,9 @@ void ReadAligner::alignReads()
 									/*no overhang*/ 0, /*keep alignment*/ false, 
 									/*only max*/ false, /*no max divergence*/ 1.0f,
 									/*nucl alignment*/ false,
-									/*partition bad map*/ false, /*hpc scoring*/ false);
+									/*partition bad map*/ false,
+								    (bool)Config::get("hpc_scoring_on"));
 	OverlapContainer readsOverlaps(readsOverlapper, _readSeqs);
-	static const float MAX_DIVERGENCE = Config::get("read_align_ovlp_divergence");
 
 	std::vector<FastaRecord::Id> allQueries;
 	int64_t totalLength = 0;
@@ -201,20 +205,11 @@ void ReadAligner::alignReads()
 			{return e1.overlap.curBegin < e2.overlap.curBegin;});
 		auto readChains = this->chainReadAlignments(alignments);
 
-		//check divergence
+		//check divergence once the chain is formed
 		std::vector<GraphAlignment> goodChains;
 		for (auto& chain : readChains)
 		{
-			float sumMatched = 0;
-			int alnLen = 0;
-			//int alnLen = chain.back().overlap.curEnd - 
-			//			 chain.front().overlap.curBegin;
-			for (auto& aln : chain)
-			{
-				sumMatched += aln.overlap.curRange() * (1 - aln.overlap.seqDivergence);
-				alnLen += aln.overlap.curRange();
-			}
-			float chainDivergence = 1 - (float)sumMatched / alnLen;
+			float chainDivergence = this->getChainBaseDivergence(chain, BASE_ALN);
 			divergenceStats.add(chainDivergence);
 			if (chainDivergence < MAX_DIVERGENCE)
 			{
@@ -379,4 +374,30 @@ ReadAligner::AlnIndex ReadAligner::makeAlignmentIndex()
 		}
 	}
 	return alnIndex;
+}
+
+float ReadAligner::getChainBaseDivergence(const GraphAlignment& chain, bool realign)
+{
+	static const float MAX_DIVERGENCE = Config::get("read_align_ovlp_divergence");
+	static const bool USE_HPC = (bool)Config::get("hpc_scoring_on");
+
+	float sumMatched = 0;
+	int alnLen = 0;
+	for (auto& aln : chain)
+	{
+		float ovlpDivergence = aln.overlap.seqDivergence;
+		if (realign)
+		{
+			ovlpDivergence = 
+				getAlignmentErrEdlib(aln.overlap, _readSeqs.getSeq(aln.overlap.curId), 
+									 _graph.edgeSequences().getSeq(aln.overlap.extId),
+									 MAX_DIVERGENCE, USE_HPC);
+		}
+
+		sumMatched += aln.overlap.curRange() * (1 - ovlpDivergence);
+		alnLen += aln.overlap.curRange();
+	}
+	float chainDivergence = 1 - (float)sumMatched / alnLen;
+	
+	return chainDivergence;
 }
