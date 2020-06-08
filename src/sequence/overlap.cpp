@@ -754,7 +754,7 @@ void OverlapContainer::estimateOverlaperParameters()
 {
 	Logger::get().debug() << "Estimating k-mer identity bias";
 
-	const int NEDEED_OVERLAPS = 1000;
+	//const int NEDEED_OVERLAPS = 1000;
 	const int MAX_SEQS = 1000;
 
 	std::vector<FastaRecord::Id> readsToCheck;
@@ -771,21 +771,35 @@ void OverlapContainer::estimateOverlaperParameters()
 	[this, &storageMutex, &biases, &trueDivergence] (const FastaRecord::Id& seqId)
 	{
 		auto overlaps = this->quickSeqOverlaps(seqId, /*max ovlps*/ 0);
-		for (const auto& ovlp : overlaps)
+		OverlapRange* maxOvlp = nullptr;
+		for (auto& ovlp : overlaps)
 		{
-			/*float trueDiv = 
+			if (!maxOvlp || ovlp.curRange() > maxOvlp->curRange())
+			{
+				maxOvlp = &ovlp;
+			}
+		}
+		if (maxOvlp)
+		{
+			std::lock_guard<std::mutex> lock(storageMutex);
+			trueDivergence.push_back(maxOvlp->seqDivergence);
+		}
+
+		/*for (const auto& ovlp : overlaps)
+		{
+			float trueDiv = 
 				getAlignmentErrEdlib(ovlp, _queryContainer.getSeq(seqId),
 									 _ovlpDetect._seqContainer.getSeq(ovlp.extId),
 									 0.5f);
 
 			std::lock_guard<std::mutex> lock(storageMutex);
 			biases.push_back(trueDiv - ovlp.seqDivergence);
-			trueDivergence.push_back(trueDiv);*/
+			trueDivergence.push_back(trueDiv);
 
 			std::lock_guard<std::mutex> lock(storageMutex);
 			trueDivergence.push_back(ovlp.seqDivergence);
 			if (trueDivergence.size() >= NEDEED_OVERLAPS) return;
-		}
+		}*/
 	};
 	processInParallel(readsToCheck, computeParallel, 
 					  Parameters::get().numThreads, false);
@@ -807,7 +821,7 @@ void OverlapContainer::estimateOverlaperParameters()
 		//_kmerIdyEstimateBias = 0.0f;
 	}
 
-	//Logger::get().debug() << "Median overlap divergence: " << _meanTrueOvlpDiv;
+	Logger::get().debug() << "Initial divergence estimate : " << _meanTrueOvlpDiv;
 	//Logger::get().debug() << "K-mer estimate bias (true - est): " << _kmerIdyEstimateBias;
 }
 
