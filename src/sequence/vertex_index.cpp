@@ -438,21 +438,16 @@ std::vector<VertexIndex::KmerFreq>
 	while(itVec != topKmers.end() && itVec->freq >= minFreq) ++itVec;
 	topKmers.erase(itVec, topKmers.end());
 
-	topKmers.erase(std::remove_if(topKmers.begin(), topKmers.end(),
-				   		[tandemFreq](KmerFreq kf)
-						{
-							kf.kmer.standardForm();
-							return localFreq[kf.kmer] > (size_t)tandemFreq;
-						}), 
-				   topKmers.end());
-
-	/*std::vector<KmerPosition> result;
-	result.reserve(topKmers.size());
-	for (auto kmerFreq : topKmers)
+	if (tandemFreq > 0)
 	{
-		if (kmerFreq.freq <= tandemFreq) 
-			result.push_back({kmerFreq.kmer, kmerFreq.position});
-	}*/
+		topKmers.erase(std::remove_if(topKmers.begin(), topKmers.end(),
+							[tandemFreq](KmerFreq kf)
+							{
+								kf.kmer.standardForm();
+								return localFreq[kf.kmer] > (size_t)tandemFreq;
+							}), 
+					   topKmers.end());
+	}
 
 	return topKmers;
 }

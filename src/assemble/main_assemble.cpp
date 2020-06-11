@@ -187,6 +187,10 @@ int assemble_main(int argc, char** argv)
 	int coverage = sumLength / 2 / genomeSize;
 	Logger::get().debug() << "Expected read coverage: " << coverage;
 
+	const int MIN_FREQ = 2;
+	static const float SELECT_RATE = Config::get("meta_read_top_kmer_rate");
+	static const int TANDEM_FREQ = Config::get("meta_read_filter_kmer_freq");
+
 	//Building index
 	bool useMinimizers = Config::get("use_minimizers");
 	if (useMinimizers)
@@ -196,23 +200,21 @@ int assemble_main(int argc, char** argv)
 	}
 	else if (Parameters::get().unevenCoverage)	//noisy meta
 	{
-		const int MIN_FREQ = 2;
-		static const float SELECT_RATE = Config::get("meta_read_top_kmer_rate");
-		static const int TANDEM_FREQ = Config::get("meta_read_filter_kmer_freq");
 		vertexIndex.countKmers(MIN_FREQ, genomeSize);
 		vertexIndex.buildIndexUnevenCoverage(MIN_FREQ, SELECT_RATE, 
 											 TANDEM_FREQ);
-
 	}
 	else	//noisy solid
 	{
 		size_t hardThreshold = std::min(5, std::max(2, 
 				coverage / (int)Config::get("hard_min_coverage_rate")));
 		vertexIndex.countKmers(hardThreshold, genomeSize);
-		ParametersEstimator estimator(readsContainer, vertexIndex, genomeSize);
-		estimator.estimateMinKmerCount();
-		int minKmerCov = estimator.minKmerCount();
-		vertexIndex.buildIndex(minKmerCov);
+		vertexIndex.buildIndexUnevenCoverage(MIN_FREQ, SELECT_RATE, 
+											 /* no tandem freq*/ 0);
+		//ParametersEstimator estimator(readsContainer, vertexIndex, genomeSize);
+		//estimator.estimateMinKmerCount();
+		//int minKmerCov = estimator.minKmerCount();
+		//vertexIndex.buildIndex(minKmerCov);
 	}
 
 	Logger::get().debug() << "Peak RAM usage: " 
