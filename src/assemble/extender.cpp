@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <iomanip>
 #include <stack>
+#include <cmath>
 
 #include "../common/config.h"
 #include "../common/logger.h"
