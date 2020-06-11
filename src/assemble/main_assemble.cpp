@@ -226,7 +226,7 @@ int assemble_main(int argc, char** argv)
 						 /*store alignment*/ false,
 						 /*only max ovlp*/ true,
 						 /*no div threshold*/ 1.0f,
-						 /*nucl alignent*/ true,
+						 (bool)Config::get("reads_base_alignment"),
 						 /*partition bad map*/ false,
 						 (bool)Config::get("hpc_scoring_on"));
 	OverlapContainer readOverlaps(ovlp, readsContainer);

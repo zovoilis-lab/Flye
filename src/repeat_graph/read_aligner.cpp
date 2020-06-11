@@ -128,7 +128,6 @@ void ReadAligner::alignReads()
 	static const int BIG_ALN = 500;
 	static const int LONG_EDGE = 900;
 
-	const bool BASE_ALN = true;
 	static const float MAX_DIVERGENCE = Config::get("read_align_ovlp_divergence");
 
 	//create database
@@ -209,7 +208,8 @@ void ReadAligner::alignReads()
 		std::vector<GraphAlignment> goodChains;
 		for (auto& chain : readChains)
 		{
-			float chainDivergence = this->getChainBaseDivergence(chain, BASE_ALN);
+			float chainDivergence = 
+				this->getChainBaseDivergence(chain, (bool)Config::get("reads_base_alignment"));
 			divergenceStats.add(chainDivergence);
 			if (chainDivergence < MAX_DIVERGENCE)
 			{
