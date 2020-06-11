@@ -22,12 +22,11 @@ vals = {
         },
 
         #assembly parameters
-        "big_genome_kmer" : 29000000,
         "kmer_size" : {
-            "raw" : [15, 17],
-            "corrected" : [17, 17],
-            "hifi" : [17, 17],
-            "subasm" : [31, 31]
+            "raw" : 17,
+            "corrected" : 17,
+            "hifi" : 17,
+            "subasm" : 31
         },
         "min_overlap_range" : {
             "raw" : [1000, 5000],
