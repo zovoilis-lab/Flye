@@ -19,6 +19,50 @@
 #include "../common/config.h"
 #include "../common/logger.h"
 
+
+typedef std::map<size_t, size_t> KmerDistribution;
+
+class KmerCounter
+{
+public:
+	KmerCounter(const SequenceContainer& seqContainer):
+		_seqContainer(seqContainer), 
+		_flatCounter(nullptr), _numKmers(0)
+	{}
+
+	~KmerCounter()
+	{
+		if (_flatCounter) 
+		{
+			delete[] _flatCounter;
+			_flatCounter = nullptr;
+		}
+	}
+
+	const KmerDistribution& getKmerHist() const
+	{
+		return _kmerDistribution;
+	}
+
+	void   count(bool useFlatCounter);
+	size_t getFreq(Kmer kmer) const;
+	size_t getKmerNum() const;
+	void clear();
+	void setOutputProgress(bool progress) {_outputProgress = progress;}
+
+private:
+	const SequenceContainer& 	_seqContainer;
+	bool _outputProgress;
+	bool _useFlatCounter;
+
+	std::atomic<char>*				_flatCounter;
+	//std::vector<std::atomic<char>>  _flatCounter;
+	cuckoohash_map<Kmer, size_t> 	_hashCounter;
+	KmerDistribution _kmerDistribution;
+
+	std::atomic<size_t> _numKmers;
+};
+
 class VertexIndex
 {
 public:
@@ -28,7 +72,8 @@ public:
 	}
 	VertexIndex(const SequenceContainer& seqContainer, float sampleRate):
 		_seqContainer(seqContainer), _outputProgress(false), 
-		_sampleRate(sampleRate), _repetitiveFrequency(0)
+		_sampleRate(sampleRate), _repetitiveFrequency(0),
+		_kmerCounter(seqContainer)
 		//_solidMultiplier(1)
 		//_flankRepeatSize(flankRepeatSize)
 	{}
@@ -203,11 +248,13 @@ public:
 	void outputProgress(bool set) 
 	{
 		_outputProgress = set;
+		_kmerCounter.setOutputProgress(set);
 	}
 
 	const KmerDistribution& getKmerHist() const
 	{
-		return _kmerDistribution;
+		return _kmerCounter.getKmerHist();
+		//return _kmerDistribution;
 	}
 
 	float getSampleRate() const {return _sampleRate;}
@@ -229,10 +276,10 @@ private:
 						   float selctRate, int tandemFreq);
 
 	void allocateIndexMemory();
-	void filterFrequentKmers(float rate);
+	void filterFrequentKmers(int minCoverage, float rate);
 
 	const SequenceContainer& _seqContainer;
-	KmerDistribution 		 _kmerDistribution;
+	//KmerDistribution 		 _kmerDistribution;
 	bool    _outputProgress;
 	float   _sampleRate;
 	size_t  _repetitiveFrequency;
@@ -242,6 +289,8 @@ private:
 	std::vector<IndexChunk*> _memoryChunks;
 
 	cuckoohash_map<Kmer, ReadVector> _kmerIndex;
-	cuckoohash_map<Kmer, size_t> 	 _kmerCounts;
+	//cuckoohash_map<Kmer, size_t> 	 _kmerCounts;
 	cuckoohash_map<Kmer, char> 	 	 _repetitiveKmers;
+
+	KmerCounter _kmerCounter;
 };

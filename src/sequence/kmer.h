@@ -15,7 +15,9 @@ static_assert(sizeof(size_t) == 8, "32-bit architectures are not supported");
 class Kmer
 {
 public:
-	Kmer(): _representation(0) {}
+	typedef size_t KmerRepr;
+
+	explicit Kmer(KmerRepr repr=0): _representation(repr) {}
 
 	Kmer(const DnaSequence& dnaString, 
 		   size_t start, size_t length):
@@ -78,12 +80,13 @@ public:
 		_representation += dnaSymbol << shift;
 	}
 
-	typedef size_t KmerRepr;
 
 	bool operator == (const Kmer& other) const
 		{return this->_representation == other._representation;}
+
 	bool operator != (const Kmer& other) const
 		{return !(*this == other);}
+
 	size_t hash() const
 	{
 		size_t x = _representation;
@@ -92,10 +95,13 @@ public:
 		z = (z ^ (z >> 27)) * 0x94D049BB133111EBULL;
 		return z ^ (z >> 31);
 	}
+
 	bool operator< (const Kmer& other)
 	{
 		return _representation < other._representation;
 	}
+
+	size_t numRepr() {return _representation;}
 
 private:
 	KmerRepr _representation;
