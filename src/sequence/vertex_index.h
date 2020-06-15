@@ -55,7 +55,7 @@ private:
 	bool _outputProgress;
 	bool _useFlatCounter;
 
-	std::atomic<char>*				_flatCounter;
+	std::atomic<uint8_t>*			_flatCounter;
 	//std::vector<std::atomic<char>>  _flatCounter;
 	cuckoohash_map<Kmer, size_t> 	_hashCounter;
 	KmerDistribution _kmerDistribution;

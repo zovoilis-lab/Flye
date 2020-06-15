@@ -175,7 +175,7 @@ void VertexIndex::filterFrequentKmers(int minCoverage, float rate)
 	size_t uniqueKmers = 0;
 	for (const auto& kmer : _kmerIndex.lock_table())
 	{
-		if (kmer.second.capacity >= minCoverage)
+		if (kmer.second.capacity >= (size_t)minCoverage)
 		{
 			totalKmers += kmer.second.capacity;
 			uniqueKmers += 1;
@@ -554,10 +554,10 @@ void KmerCounter::count(bool useFlatCounter)
 	static const size_t COUNTER_LEN = std::pow(4, Parameters::get().kmerSize) / 2;
 	if (useFlatCounter)
 	{
-		_flatCounter = new std::atomic<char>[COUNTER_LEN];
-		//_flatCounter.assign(COUNTER_LEN, 0);
+		_flatCounter = new std::atomic<uint8_t>[COUNTER_LEN];
+		std::memset(_flatCounter, 0, COUNTER_LEN);
 	}
-
+ 
 	if (_outputProgress) Logger::get().info() << "Counting k-mers:";
 	std::function<void(const FastaRecord::Id&)> readUpdate = 
 	[this] (const FastaRecord::Id& readId)
@@ -575,14 +575,14 @@ void KmerCounter::count(bool useFlatCounter)
 
 				while (true)
 				{
-					char expected = _flatCounter[arrayPos]; 
-					char count = highBits ? expected >> 4 : expected & 15;
+					uint8_t expected = _flatCounter[arrayPos]; 
+					uint8_t count = highBits ? (expected >> 4) : (expected & 15);
 					if (count == 15)
 					{
 						break;
 					}
 
-					char updated = highBits ? count + 16 : count + 1;
+					uint8_t updated = highBits ? (expected + 16) : (expected + 1);
 					if (_flatCounter[arrayPos].compare_exchange_weak(expected,  updated))
 					{
 						if (count == 0) ++_numKmers;
@@ -641,7 +641,7 @@ size_t KmerCounter::getFreq(Kmer kmer) const
 	{
 		size_t arrayPos = kmer.numRepr() / 2;
 		bool highBits = kmer.numRepr() % 2;
-		char count = highBits ? _flatCounter[arrayPos] >> 4 : _flatCounter[arrayPos] & 15;
+		uint8_t count = highBits ? (_flatCounter[arrayPos]) >> 4 : (_flatCounter[arrayPos] & 15);
 		if (count < 15) 
 		{
 			return count;
