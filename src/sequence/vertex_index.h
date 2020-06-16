@@ -260,7 +260,7 @@ public:
 	float getSampleRate() const {return _sampleRate;}
 
 private:
-	void setRepeatCutoff(int minCoverage);
+	//void setRepeatCutoff(int minCoverage);
 
 	std::vector<KmerPosition> 
 		yieldMinimizers(const FastaRecord::Id& seqId, int window);

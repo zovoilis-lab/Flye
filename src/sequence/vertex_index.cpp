@@ -24,7 +24,7 @@ void VertexIndex::countKmers(size_t hardThreshold, int genomeSize)
 void VertexIndex::buildIndexUnevenCoverage(int globalMinFreq, float selectRate,
 										   int tandemFreq)
 {
-	this->setRepeatCutoff(globalMinFreq);
+	//this->setRepeatCutoff(globalMinFreq);
 
 	//_solidMultiplier = 1;
 
@@ -47,8 +47,7 @@ void VertexIndex::buildIndexUnevenCoverage(int globalMinFreq, float selectRate,
 		{
 			kmerFreq.kmer.standardForm();
 
-			if (kmerFreq.freq < (size_t)globalMinFreq ||
-				kmerFreq.freq > _repetitiveFrequency) continue;
+			if (kmerFreq.freq < (size_t)globalMinFreq) continue;
 
 			ReadVector defVec((uint32_t)1, (uint32_t)0);
 			_kmerIndex.upsert(kmerFreq.kmer, 
@@ -58,6 +57,7 @@ void VertexIndex::buildIndexUnevenCoverage(int globalMinFreq, float selectRate,
 	processInParallel(allReads, initializeIndex, 
 					  Parameters::get().numThreads, _outputProgress);
 	
+	this->filterFrequentKmers(globalMinFreq, (float)Config::get("repeat_kmer_rate"));
 	this->allocateIndexMemory();
 
 	if (_outputProgress) Logger::get().info() << "Filling index table (2/2)";
@@ -136,7 +136,7 @@ namespace
 }
 
 //TODO: switch to the markRepeats function below
-void VertexIndex::setRepeatCutoff(int minCoverage)
+/*void VertexIndex::setRepeatCutoff(int minCoverage)
 {
 	size_t totalKmers = 0;
 	size_t uniqueKmers = 0;
@@ -167,7 +167,7 @@ void VertexIndex::setRepeatCutoff(int minCoverage)
 	Logger::get().debug() << "Filtered " << repetitiveKmers 
 						  << " repetitive k-mers (" <<
 						  filteredRate << ")";
-}
+}*/
 
 void VertexIndex::filterFrequentKmers(int minCoverage, float rate)
 {
