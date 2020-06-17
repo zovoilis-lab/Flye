@@ -25,7 +25,7 @@ vals = {
         "kmer_size" : {
             "raw" : 17,
             "corrected" : 17,
-            "hifi" : 31,
+            "hifi" : 17,
             "subasm" : 31
         },
         "min_overlap_range" : {
