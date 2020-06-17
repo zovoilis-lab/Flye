@@ -119,7 +119,7 @@ void VertexIndex::buildIndexUnevenCoverage(int globalMinFreq, float selectRate,
 	}
 	Logger::get().debug() << "Selected k-mers: " << _kmerIndex.size();
 	Logger::get().debug() << "Index size: " << totalEntries;
-	Logger::get().debug() << "Mean k-mer frequency: " 
+	Logger::get().debug() << "Mean k-mer index frequency: " 
 		<< (float)totalEntries / _kmerIndex.size();
 }
 
@@ -189,8 +189,8 @@ void VertexIndex::filterFrequentKmers(int minCoverage, float rate)
 	{
 		if (kmer.second.capacity > _repetitiveFrequency)
 		{
-			++repetitiveKmers;
-			//repetitiveKmers += kmer.second.capacity;
+			//++repetitiveKmers;
+			repetitiveKmers += kmer.second.capacity;
 			_repetitiveKmers.insert(kmer.first, true);
 		}
 	}
@@ -200,7 +200,9 @@ void VertexIndex::filterFrequentKmers(int minCoverage, float rate)
 		_kmerIndex.erase(kmer.first);
 	}
 
-	float filteredRate = (float)repetitiveKmers / uniqueKmers;
+	float filteredRate = (float)repetitiveKmers / totalKmers;
+	Logger::get().debug() << "Mean k-mer frequency: " 
+						  << meanFrequency;
 	Logger::get().debug() << "Repetitive k-mer frequency: " 
 						  << _repetitiveFrequency;
 	Logger::get().debug() << "Filtered " << repetitiveKmers 
