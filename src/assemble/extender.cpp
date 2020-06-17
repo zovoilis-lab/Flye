@@ -45,10 +45,8 @@ Extender::ExtensionInfo Extender::extendDisjointig(FastaRecord::Id startRead)
 	while(true)
 	{
 		std::vector<OverlapRange> extensions;
-		//int innerOverlaps = 0;
 		for (const auto& ovlp : IterNoOverhang(_ovlpContainer.lazySeqOverlaps(currentRead)))
 		{
-			//if (_innerReads.contains(ovlp.extId)) ++innerOverlaps;
 			if (this->extendsRight(ovlp)) extensions.push_back(ovlp);
 		}
 		numExtensions.push_back(extensions.size());
@@ -58,10 +56,7 @@ Extender::ExtensionInfo Extender::extendDisjointig(FastaRecord::Id startRead)
 				  [](const OverlapRange& a, const OverlapRange& b)
 					 {return a.curRange() > b.curRange();});
 
-		//checking if read overlaps with one of the used reads
 		bool foundExtension = false;
-
-		//getting extension
 		const float COV_DROP = Config::get("max_extensions_drop_rate");
 		int minExtensions = std::max(1.0f, std::roundf((float)median(numExtensions) / 
 														COV_DROP));
@@ -91,6 +86,9 @@ Extender::ExtensionInfo Extender::extendDisjointig(FastaRecord::Id startRead)
 
 			//if (_ovlpContainer.hasSelfOverlaps(ovlp.extId)) continue;
 
+			//if overlap is shorter than minOverlap parameter (which happens rarely)
+			//do an additional repeat check. Also require that each read 
+			//is actually longer than minOverlap
 			if (std::min(ovlp.curRange(), ovlp.extRange()) < _safeOverlap)
 			{
 				if (std::min(ovlp.curLen, ovlp.extLen) < _safeOverlap) continue;
@@ -102,7 +100,8 @@ Extender::ExtensionInfo Extender::extendDisjointig(FastaRecord::Id startRead)
 				if (curRepeat && extRepeat) continue;
 			}
 
-			//try to find a good one
+			//pick the first available non-chmeric extenion (which will
+			//also be the longest as extensions are sorted)
 			if (!_chimDetector.isChimeric(ovlp.extId) &&
 				this->countRightExtensions(ovlp.extId) >= minExtensions)
 			{
@@ -113,12 +112,14 @@ Extender::ExtensionInfo Extender::extendDisjointig(FastaRecord::Id startRead)
 				break;
 			}
 
+			//keep track of the farthest possible extention (could be chimeric)
 			if (!maxExtension || maxExtension->rightShift < ovlp.rightShift)
 			{
 				maxExtension = &ovlp;
 			}
 		}
-		//in case of suspicious extension make the farthest jump possible
+
+		//in case no "preferred" extension, make the farthest jump possible
 		if (!foundExtension && maxExtension)
 		{
 			++exInfo.numSuspicious;
@@ -175,7 +176,8 @@ Extender::ExtensionInfo Extender::extendDisjointig(FastaRecord::Id startRead)
 					exInfo.reads[i] = exInfo.reads[i].rc();
 				}
 			}
-			//done with extension
+
+			//both left and right are done
 			else
 			{
 				break;
@@ -197,14 +199,14 @@ Extender::ExtensionInfo Extender::extendDisjointig(FastaRecord::Id startRead)
 												  overlapSizes.end());
 	}
 
-	if (_innerReads.contains(exInfo.reads.front())) 
+	/*if (_innerReads.contains(exInfo.reads.front())) 
 	{
 		exInfo.leftAsmOverlap = _readsContainer.seqLen(exInfo.reads.front());
 	}
 	if (_innerReads.contains(exInfo.reads.back())) 
 	{
 		exInfo.rightAsmOverlap = _readsContainer.seqLen(exInfo.reads.back());
-	}
+	}*/
 
 	return exInfo;
 }
@@ -212,7 +214,6 @@ Extender::ExtensionInfo Extender::extendDisjointig(FastaRecord::Id startRead)
 
 void Extender::assembleDisjointigs()
 {
-	//static const int MAX_JUMP = Config::get("maximum_jump");
 	Logger::get().info() << "Extending reads";
 	_chimDetector.estimateGlobalCoverage();
 	_ovlpContainer.overlapDivergenceStats();

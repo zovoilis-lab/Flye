@@ -540,8 +540,8 @@ void VertexIndex::clear()
 
 void KmerCounter::count(bool useFlatCounter)
 {
-	Logger::get().debug() << "Before counter: " 
-		<< getPeakRSS() / 1024 / 1024 / 1024 << " Gb";
+	//Logger::get().debug() << "Before counter: " 
+	//	<< getPeakRSS() / 1024 / 1024 / 1024 << " Gb";
 
 	if (useFlatCounter && Parameters::get().kmerSize > 17)
 	{
@@ -624,8 +624,8 @@ void KmerCounter::count(bool useFlatCounter)
 		}
 	}
 
-	Logger::get().debug() << "After counter: " 
-		<< getPeakRSS() / 1024 / 1024 / 1024 << " Gb";
+	//Logger::get().debug() << "After counter: " 
+	//	<< getPeakRSS() / 1024 / 1024 / 1024 << " Gb";
 
 	Logger::get().debug() << "Hash size: " << _hashCounter.size();
 	Logger::get().debug() << "Total k-mers " << _numKmers;
