@@ -210,7 +210,7 @@ int assemble_main(int argc, char** argv)
 				coverage / (int)Config::get("hard_min_coverage_rate")));
 		vertexIndex.countKmers(hardThreshold, genomeSize);
 		vertexIndex.buildIndexUnevenCoverage(MIN_FREQ, SELECT_RATE, 
-											 /* no tandem freq*/ 0);
+											 TANDEM_FREQ);
 		//ParametersEstimator estimator(readsContainer, vertexIndex, genomeSize);
 		//estimator.estimateMinKmerCount();
 		//int minKmerCov = estimator.minKmerCount();
