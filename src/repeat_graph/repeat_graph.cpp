@@ -641,6 +641,8 @@ void RepeatGraph::collapseTandems()
 
 			size_t tandemId = seqPoints.second[leftId].pointId;
 			//size_t complId = complPoints[tandemId];
+			
+			//not a tandem, or long tangem (longer than minOverlap)
 			if (rightId - leftId == 1 || bigTandems.count(tandemId))
 			{
 				for (size_t i = leftId; i < rightId; ++i)
@@ -648,26 +650,28 @@ void RepeatGraph::collapseTandems()
 					newPoints.push_back(seqPoints.second[i]);
 				}
 			}
+
+			//tandem, check if we can safely collapse it
 			else	//see if we can collapse this tandem repeat
 			{
 				//making sure graph remains symmetric
-				bool leftDetemined = tandemLefts[tandemId].size() == 1;
+				bool leftDetermined = tandemLefts[tandemId].size() == 1;
 									 //tandemRights[complId].size() == 1;
-				bool rightDetemined = tandemRights[tandemId].size() == 1;
+				bool rightDetermined = tandemRights[tandemId].size() == 1;
 									  //tandemLefts[complId].size() == 1;
-				if (!leftDetemined && !rightDetemined)
+				if (!leftDetermined && !rightDetermined)
 				{
 					for (size_t i = leftId; i < rightId; ++i)
 					{
 						newPoints.push_back(seqPoints.second[i]);
 					}
 				}
-				else if(leftDetemined && !rightDetemined)
+				else if(leftDetermined && !rightDetermined)
 				{
 					newPoints.push_back(seqPoints.second[rightId - 1]);
 					++collapsedLeft;
 				}
-				else if (!leftDetemined && rightDetemined)
+				else if (!leftDetermined && rightDetermined)
 				{
 					newPoints.push_back(seqPoints.second[leftId]);
 					++collapsedRight;
@@ -686,7 +690,7 @@ void RepeatGraph::collapseTandems()
 		seqPoints.second = newPoints;
 	}
 
-	Logger::get().debug() << "Tandems removed: " << collapsedLeft << " left, " 
+	Logger::get().debug() << "Artificial loops removed: " << collapsedLeft << " left, " 
 		<< collapsedRight << " right, " << collapsedBoth << " both";
 }
 
@@ -1037,9 +1041,9 @@ void RepeatGraph::logEdges()
 								  << _asmSeqs.seqName(beginSeg->origSeqId) << "\t"
 								  << beginSeg->origSeqStart << "\t" 
 								  << endSeg->origSeqEnd << "\t"
-								  << endSeg->origSeqEnd - beginSeg->origSeqStart << "\t"
-								  << mult 
-								  << "\t" << edge->nodeLeft->nodeId << "\t" << edge->nodeRight->nodeId;
+								  << endSeg->origSeqEnd - beginSeg->origSeqStart << "\t";
+								  //<< mult
+								  //<< "\t" << edge->nodeLeft->nodeId << "\t" << edge->nodeRight->nodeId;
 			begin = end;
 		}
 	}
