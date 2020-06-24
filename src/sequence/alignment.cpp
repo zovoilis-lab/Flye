@@ -3,6 +3,7 @@
 //Released under the BSD license (see LICENSE file)
 
 #include <chrono>
+#include <iomanip>
 
 #include "alignment.h"
 
@@ -74,18 +75,19 @@ namespace
 		std::stringstream ss;
 		for (size_t chunk = 0; chunk <= alnQry.size() / WIDTH; ++chunk)
 		{
+			ss << std::setw(6) << chunk * WIDTH << " ";
 			for (size_t i = chunk * WIDTH; 
 				 i < std::min((chunk + 1) * WIDTH, alnQry.size()); ++i)
 			{
 				ss << alnQry[i];
 			}
-			ss << "\n";
+			ss << "\n       ";
 			for (size_t i = chunk * WIDTH; 
 				 i < std::min((chunk + 1) * WIDTH, alnQry.size()); ++i)
 			{
 				ss << (alnQry[i] == alnTrg[i] ? '|' : '*');
 			}
-			ss << "\n";
+			ss << "\n       ";
 			for (size_t i = chunk * WIDTH; 
 				 i < std::min((chunk + 1) * WIDTH, alnQry.size()); ++i)
 			{
@@ -375,7 +377,7 @@ std::vector<OverlapRange>
 
 			if (divergence < maxDivergence)
 			{
-				if (j - i >= 1) goodIntervals.push_back({i, j, divergence});
+				if (j - i >= 0) goodIntervals.push_back({i, j, divergence});
 			}
 		}
 	}
@@ -387,7 +389,7 @@ std::vector<OverlapRange>
 		bool intersects = false;
 		for (auto& otherInt : nonIntersecting)
 		{
-			int ovl = std::min(interval.end, otherInt.end) - 
+			int ovl = std::min(interval.end + 1, otherInt.end + 1) - 
 					  std::max(interval.start, otherInt.start);
 			if (ovl > 0) 
 			{
