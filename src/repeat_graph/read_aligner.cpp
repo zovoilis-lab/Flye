@@ -7,12 +7,12 @@
 #include "../common/parallel.h"
 #include <cmath>
 #include <iomanip>
+#include <queue>
 
 namespace
 {
 	struct Chain
 	{
-		//Chain(): score(0) {}
 		std::vector<const EdgeAlignment*> aln;
 		int32_t score;
 	};
@@ -25,79 +25,110 @@ std::vector<GraphAlignment>
 	ReadAligner::chainReadAlignments(const std::vector<EdgeAlignment>& ovlps) const
 {
 	static const int32_t MAX_JUMP = Config::get("maximum_jump");
-	//static const int32_t MAX_SEP = Config::get("max_separation");
 	static const int32_t MAX_READ_OVLP = 50;
-	//static const int32_t KMER_SIZE = Parameters::get().kmerSize;
+	static const int32_t MIN_ALN = Parameters::get().minimumOverlap;
+	static const int32_t MAX_SEP = (int)Config::get("max_separation");
 
-	//std::list<Chain> activeChains;
-	std::vector<Chain> activeChains;
+	std::deque<Chain> activeChains;
+	std::deque<Chain> frozenChains;
 	for (auto& edgeAlignment : ovlps)
 	{
-		//std::list<Chain> newChains;
 		int32_t maxScore = 0;
 		Chain* maxChain = nullptr;
-		for (auto& chain : activeChains)
+		int numOutdated = 0;
+
+		bool canExtend = edgeAlignment.overlap.extBegin < MAX_JUMP;
+		bool canBeExtended = edgeAlignment.overlap.extLen - 
+						   	 edgeAlignment.overlap.extEnd < MAX_JUMP;
+
+		if (canExtend)
 		{
-			const OverlapRange& nextOvlp = edgeAlignment.overlap;
-			const OverlapRange& prevOvlp = chain.aln.back()->overlap;
-
-			int32_t readDiff = nextOvlp.curBegin - prevOvlp.curEnd;
-			int32_t graphLeftDiff = nextOvlp.extBegin;
-			int32_t graphRightDiff = prevOvlp.extLen - prevOvlp.extEnd;
-
-			if (chain.aln.back()->edge->nodeRight == edgeAlignment.edge->nodeLeft &&
-				MAX_JUMP > readDiff && readDiff > -MAX_READ_OVLP &&
-				graphLeftDiff + graphRightDiff < MAX_JUMP)
+			for (auto& chain : activeChains)
 			{
-				//int32_t gapCost = std::max(-readDiff, 0);
-				int32_t jumpDiv = abs(readDiff - (graphLeftDiff + graphRightDiff));
-				int32_t gapCost = (jumpDiv > 100) ? jumpDiv / 50 : 0;
-				int32_t score = chain.score + nextOvlp.score - gapCost;
-				if (score > maxScore)
+				const OverlapRange& nextOvlp = edgeAlignment.overlap;
+				const OverlapRange& prevOvlp = chain.aln.back()->overlap;
+
+				int32_t readDiff = nextOvlp.curBegin - prevOvlp.curEnd;
+				int32_t graphLeftDiff = nextOvlp.extBegin;
+				int32_t graphRightDiff = prevOvlp.extLen - prevOvlp.extEnd;
+
+				if (chain.aln.back()->edge->nodeRight == edgeAlignment.edge->nodeLeft &&
+					MAX_JUMP > readDiff && readDiff > -MAX_READ_OVLP &&
+					graphLeftDiff + graphRightDiff < MAX_JUMP)
 				{
-					maxScore = score;
-					maxChain = &chain;
+					int32_t jumpDiv = abs(readDiff - (graphLeftDiff + graphRightDiff));
+					int32_t gapCost = (jumpDiv > 100) ? jumpDiv / 50 : 0;
+					int32_t score = chain.score + nextOvlp.score - gapCost;
+					if (score > maxScore)
+					{
+						maxScore = score;
+						maxChain = &chain;
+					}
 				}
+
+				if (readDiff > MAX_JUMP) ++numOutdated;
 			}
 		}
 
-		if (maxChain)	//found continuation
+		//found chain to continue
+		if (maxChain)
 		{
-			Chain origChain = *maxChain;
-			maxChain->aln.push_back(&edgeAlignment);
-			maxChain->score = maxScore;
-			activeChains.push_back(origChain);	//keep the original chain as well
+			activeChains.push_back(*maxChain);		//add a copy of the extended chain
+			activeChains.back().aln.push_back(&edgeAlignment);
+			activeChains.back().score = maxScore;
 		}
-		else			//no continuation, initiate new chain
+		//can't continue, create a new chain
+		else
 		{
-			activeChains.push_back({{&edgeAlignment}, 
-									 edgeAlignment.overlap.score});
-		}
-		
-		/*if (maxChain)
-		{
-			newChains.push_back(*maxChain);
-			maxChain->aln.push_back(&edgeAlignment);
-			maxChain->score = maxScore;
+			if (canBeExtended)
+			{
+				activeChains.push_back({{&edgeAlignment}, 
+										 edgeAlignment.overlap.score});
+			}
+			else
+			{
+				frozenChains.push_back({{&edgeAlignment}, 
+										 edgeAlignment.overlap.score});
+			}
 		}
 
-		activeChains.splice(activeChains.end(), newChains);
-		activeChains.push_back(Chain());
-		activeChains.back().aln.push_back(&edgeAlignment);
-		activeChains.back().score = edgeAlignment.overlap.score;*/
+		//cleaning up if too much outdated chains
+		if (numOutdated > (int)activeChains.size() / 2)
+		{
+			auto itInsert = activeChains.begin();
+			auto itCur = activeChains.begin();
+			while(itCur != activeChains.end())
+			{
+				bool outdated = edgeAlignment.overlap.curBegin - 
+								itCur->aln.back()->overlap.curEnd > MAX_JUMP;
+				if (outdated)
+				{
+					frozenChains.push_back(*itCur);
+				}
+				else
+				{
+					if (itInsert != itCur) *itInsert = *itCur;
+					++itInsert;
+				}
+				++itCur;
+			}
+			activeChains.erase(itInsert, activeChains.end());
+		}
 	}
 
-	//greedily choose non-intersecting set of alignments
-	std::vector<GraphAlignment> acceptedAlignments;
-	//std::vector<Chain> sortedChains(activeChains.begin(), activeChains.end());
+	activeChains.insert(activeChains.end(), frozenChains.begin(), 
+						frozenChains.end());	
 	std::sort(activeChains.begin(), activeChains.end(),
 			  [](const Chain& c1, const Chain& c2)
 			  {return c1.score > c2.score;});
+
+	//greedily choose non-intersecting set of alignments
+	std::vector<GraphAlignment> acceptedAlignments;
 	for (auto& chain : activeChains)
 	{
 		int32_t alnLen = chain.aln.back()->overlap.curEnd - 
 					 	 chain.aln.front()->overlap.curBegin;
-		if (alnLen < Parameters::get().minimumOverlap) continue;
+		if (alnLen < MIN_ALN) continue;
 
 		//check if it overlaps with other accepted chains
 		bool overlaps = false;
@@ -110,7 +141,7 @@ std::vector<GraphAlignment>
 
 			int32_t overlapRate = std::min(curEnd, existEnd) - 
 									std::max(curStart, existStart);
-			if (overlapRate > (int)Config::get("max_separation")) overlaps = true;
+			if (overlapRate > MAX_SEP) overlaps = true;
 		}
 		if (!overlaps) 
 		{
