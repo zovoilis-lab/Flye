@@ -588,8 +588,8 @@ void RepeatGraph::collapseTandems()
 				++rightId;
 			}
 
-			if (rightId - leftId > 1)
-			{
+			//if (rightId - leftId > 1)
+			//{
 				size_t tandemId = seqPoints.second[leftId].pointId;
 				if (seqPoints.second[rightId - 1].position - 
 						seqPoints.second[leftId].position > 
@@ -617,7 +617,7 @@ void RepeatGraph::collapseTandems()
 				{
 					tandemLefts[tandemId].insert(-1);
 				}
-			}
+			//}
 			leftId = rightId;
 		}
 	}
