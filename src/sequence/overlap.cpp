@@ -327,56 +327,44 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 		std::vector<int32_t> shifts;
 		std::vector<std::pair<int32_t, int32_t>> kmerMatches;
 		
-		for (int32_t chainStart = backtrackTable.size() - 1; 
-			 chainStart > 0; --chainStart)
+		//initiate chains from the highest scores in the table (e.g. local maximums)
+		std::vector<size_t> orderedScores(backtrackTable.size());
+		std::iota(orderedScores.begin(), orderedScores.end(), 0);
+		std::sort(orderedScores.begin(), orderedScores.end(),
+				  [](size_t a, size_t b) {return scoreTable[a] > scoreTable[b];});
+
+		//for (int32_t chainStart = backtrackTable.size() - 1; 
+		//	 chainStart > 0; --chainStart)
+		for (int32_t chainStart : orderedScores)
 		{
 			if (backtrackTable[chainStart] == -1) continue;
 
-			int32_t chainMaxScore = scoreTable[chainStart];
+			//int32_t chainMaxScore = scoreTable[chainStart];
 			int32_t lastMatch = chainStart;
 			int32_t firstMatch = 0;
 
 			int32_t chainLength = 0;
 			shifts.clear();
 			kmerMatches.clear();
-			//int32_t totalMatch = kmerSize;
-			//int32_t totalGap = 0;
 			
 			int32_t pos = chainStart;
 			while (pos != -1)
 			{
 				//found a new maximum, shorten the chain end
-				if (scoreTable[pos] > chainMaxScore)
+				/*if (scoreTable[pos] > chainMaxScore)
 				{
 					chainMaxScore = scoreTable[pos];
 					lastMatch = pos;
 					chainLength = 0;
 					shifts.clear();
 					kmerMatches.clear();
-				}
+				}*/
 
 				firstMatch = pos;
 				shifts.push_back(matchesList[pos].curPos - 
 								 matchesList[pos].extPos);
 				++chainLength;
 
-				/*int32_t prevPos = backtrackTable[pos];
-				if (prevPos != -1)
-				{
-					int32_t curNext = matchesList[pos].curPos;
-					int32_t extNext = matchesList[pos].extPos;
-					int32_t curPrev = matchesList[prevPos].curPos;
-					int32_t extPrev = matchesList[prevPos].extPos;
-					int32_t matchScore = 
-							std::min(std::min(curNext - curPrev, extNext - extPrev),
-											  kmerSize);
-					int32_t jumpDiv = abs((curNext - curPrev) - 
-										  (extNext - extPrev));
-					int32_t gapCost = (jumpDiv > 50) ? 2 * jumpDiv : jumpDiv;
-
-					totalMatch += matchScore;
-					totalGap += gapCost;
-				}*/
 				if (_keepAlignment)
 				{
 					if (kmerMatches.empty() || 
