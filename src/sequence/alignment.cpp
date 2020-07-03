@@ -101,9 +101,13 @@ namespace
 
 float getAlignmentCigarKsw(const DnaSequence& trgSeq, size_t trgBegin, size_t trgLen,
 			   			   const DnaSequence& qrySeq, size_t qryBegin, size_t qryLen,
-			   			   int matchScore, int misScore, int gapOpen, int gapExtend,
 			   			   float maxAlnErr, std::vector<CigOp>& cigarOut)
 {
+	int matchScore = 2;
+	int misScore = -4;
+	int gapOpen = 4;
+	int gapExtend = 2;
+
 	thread_local ThreadMemPool buf;
 	thread_local std::vector<uint8_t> trgByte;
 	thread_local std::vector<uint8_t> qryByte;
@@ -251,8 +255,7 @@ float getAlignmentErrKsw(const OverlapRange& ovlp,
 	std::vector<CigOp> decodedCigar;
 	float errRate = getAlignmentCigarKsw(trgSeq, ovlp.curBegin, ovlp.curRange(),
 							 			 qrySeq, ovlp.extBegin, ovlp.extRange(),
-							 			 /*match*/ 1, /*mm*/ -1, /*gap open*/ 1, 
-							 			 /*gap ext*/ 1, maxAlnErr, decodedCigar);
+							 			 maxAlnErr, decodedCigar);
 
 	//visualize alignents if needed
 	/*if (showAlignment)
@@ -315,8 +318,7 @@ std::vector<OverlapRange>
 	std::vector<CigOp> cigar;
 	float errRate = getAlignmentCigarKsw(curCompressed.seq, 0, curCompressed.seq.length(),
 							 			 extCompressed.seq, 0, extCompressed.seq.length(),
-							 			 /*match*/ 1, /*mm*/ -1, /*gap open*/ 1, 
-							 			 /*gap ext*/ 1, maxDivergence, cigar);
+							 			 maxDivergence, cigar);
 	(void)errRate;
 
 	/*if (errRate < maxDivergence) 	//should not normally happen
@@ -356,6 +358,7 @@ std::vector<OverlapRange>
 		int start;
 		int end;
 		float divergence;
+		int realLen;
 	};
 	std::vector<IntervalDiv> goodIntervals;
 	//const float EPS = 0.0001;
@@ -377,12 +380,17 @@ std::vector<OverlapRange>
 
 			if (divergence < maxDivergence)
 			{
-				if (j - i >= 0) goodIntervals.push_back({i, j, divergence});
+				if (j - i >= 0) goodIntervals.push_back({i, j, divergence, rangeLen});
 			}
 		}
 	}
 
-	//select non-intersecting set
+	//sort intervals by acual length (not cigar length).
+	std::sort(goodIntervals.begin(), goodIntervals.end(),
+			  [](const IntervalDiv& i1, const IntervalDiv& i2)
+			  {return i1.realLen > i2.realLen;});
+	
+	//greedily select non-intersecting set
 	std::vector<IntervalDiv> nonIntersecting;
 	for (auto& interval : goodIntervals)
 	{
@@ -460,7 +468,7 @@ std::vector<OverlapRange>
 		float noHpcErr = 
 			getAlignmentCigarKsw(curSeq, ovlp.curBegin, ovlp.curRange(),
 								 extSeq, ovlp.extBegin, ovlp.extRange(),
-								 1, -1, 1, 1, maxDivergence, cigar);
+								 maxDivergence, cigar);
 		decodeCigar(cigar, curSeq, ovlp.curBegin, extSeq, ovlp.extBegin,
 					alnCur, alnExt);
 		printAlignment(alnCur, alnExt);

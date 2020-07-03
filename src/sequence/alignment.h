@@ -31,7 +31,6 @@ struct CigOp
 
 float getAlignmentCigarKsw(const DnaSequence& trgSeq, size_t trgBegin, size_t trgLen,
 			   			   const DnaSequence& qrySeq, size_t qryBegin, size_t qryLen,
-			   			   int matchScore, int misScore, int gapOpen, int gapExtend,
 			   			   float maxAlnErr, std::vector<CigOp>& cigarOut);
 
 void decodeCigar(const std::vector<CigOp>& cigar, const DnaSequence& trgSeq, size_t trgBegin,

@@ -99,7 +99,7 @@ ConsensusGenerator::AlignmentsMap
 		std::string alignedRight;
 		getAlignmentCigarKsw(path->sequences[i], path->overlaps[i].curBegin, path->overlaps[i].curRange(),
 			   			     path->sequences[i + 1], path->overlaps[i].extBegin, path->overlaps[i].extRange(),
-			   			   	 /*match*/ 1, /*mm*/ -2, /*gap open*/ 2, /*gap ext*/ 1, maxErr, cigar);
+			   			   	 maxErr, cigar);
 		decodeCigar(cigar, path->sequences[i], path->overlaps[i].curBegin,
 				 	path->sequences[i + 1], path->overlaps[i].extBegin,
 				 	alignedLeft, alignedRight);
