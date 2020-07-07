@@ -202,11 +202,14 @@ bool ChimeraDetector::testReadByCoverage(FastaRecord::Id readId,
 }
 
 bool ChimeraDetector::isRepetitiveRegion(FastaRecord::Id readId, int32_t start, 
-										 int32_t end)
+										 int32_t end, bool debug)
 {
-	static const int WINDOW = Config::get("chimera_window");
-	static const int MAX_OVERHANG = Config::get("maximum_overhang");
+	const int WINDOW = Config::get("chimera_window");
+	const int MAX_OVERHANG = Config::get("maximum_overhang");
 	const int FLANK = 1;
+	const float HANG_END_RATE = 0.5f;
+	const float REPEAT_WINDOW_RATE = 0.75f;
+	
 
 	int numWindows = std::ceil((float)_seqContainer.seqLen(readId) / WINDOW) + 1;
 	int vecSize = numWindows - 2 * FLANK;
@@ -233,12 +236,15 @@ bool ChimeraDetector::isRepetitiveRegion(FastaRecord::Id readId, int32_t start,
 		}
 	}
 
-	int numOverflows = 0;
+	int numSuspicious = 0;
 	int rangeLen = 0;
 	for (int32_t pos = std::max(0, start / WINDOW); 
 		 pos < std::min((int32_t)coverage.size(), end / WINDOW); ++pos)
 	{
-		if (coverage[pos] < junctions[pos]) ++numOverflows;
+		if (HANG_END_RATE * coverage[pos] <= junctions[pos])	//if both are 0, it's suspicious
+		{
+			++numSuspicious;
+		}
 		++rangeLen;
 	}
 	/*for (size_t i = 0; i < coverage.size(); ++i)
@@ -246,25 +252,29 @@ bool ChimeraDetector::isRepetitiveRegion(FastaRecord::Id readId, int32_t start,
 		if (coverage[i] < junctions[i]) ++numOverflows;
 	}*/
 
-	//static std::mutex logLock;
-	//logLock.lock();
-	/*Logger::get().debug() << "Checking repeat";
-	std::string covStr;
-	std::string juncStr;
-	for (int32_t i = 0; i < (int)coverage.size() - 1; ++i)
+	if (debug)
 	{
-		covStr += std::to_string(coverage[i]) + " ";
-		juncStr += std::to_string(junctions[i]) + " ";
+		//static std::mutex logLock;
+		//logLock.lock();
+		Logger::get().debug() << "Checking repeat";
+		std::string covStr;
+		std::string juncStr;
+		for (int32_t i = 0; i < (int)coverage.size() - 1; ++i)
+		{
+			covStr += std::to_string(coverage[i]) + " ";
+			juncStr += std::to_string(junctions[i]) + " ";
+		}
+		//Logger::get().debug() << _seqContainer.seqName(readId);
+		Logger::get().debug() << _seqContainer.seqLen(readId) << " " << start << " " << end;
+		Logger::get().debug() << covStr;
+		Logger::get().debug() << juncStr;
+		
+		if ((float)numSuspicious / rangeLen > REPEAT_WINDOW_RATE) Logger::get().debug() << "Flagged";
 	}
-	Logger::get().debug() << _seqContainer.seqName(readId) << " " << _seqContainer.seqLen(readId);
-	Logger::get().debug() << covStr;
-	Logger::get().debug() << juncStr;*/
 
-	if ((float)numOverflows / rangeLen > 0.75f)
+	if ((float)numSuspicious / rangeLen > REPEAT_WINDOW_RATE)
 	{
-		//Logger::get().debug() << "Flagged";
 		return true;
 	}
 	return false;
-	//logLock.unlock();
 }

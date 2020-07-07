@@ -24,7 +24,7 @@ public:
 					const std::vector<OverlapRange>& readOvlps);
 	int  getOverlapCoverage() const {return _overlapCoverage;}
 	int  getRightTrim(FastaRecord::Id readId);
-	bool isRepetitiveRegion(FastaRecord::Id readId, int32_t start, int32_t end);
+	bool isRepetitiveRegion(FastaRecord::Id readId, int32_t start, int32_t end, bool debug=false);
 
 private:
 	std::vector<int32_t> 
