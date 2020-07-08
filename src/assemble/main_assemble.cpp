@@ -30,15 +30,15 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 	auto printUsage = []()
 	{
 		std::cerr << "Usage: flye-assemble "
-				  << " --reads path --out-asm path --genome-size size --config path\n"
+				  << " --reads path --out-asm path --config path [--genome-size size]\n"
 				  << "\t\t[--min-read length] [--log path] [--treads num]\n"
 				  << "\t\t[--kmer size] [--meta] [--min-ovlp size] [--debug] [-h]\n\n"
 				  << "Required arguments:\n"
 				  << "  --reads path\tcomma-separated list of read files\n"
 				  << "  --out-asm path\tpath to output file\n"
-				  << "  --genome-size size\tgenome size in bytes\n"
 				  << "  --config path\tpath to the config file\n\n"
 				  << "Optional arguments:\n"
+				  << "  --genome-size size\tgenome size in bytes\n"
 				  << "  --kmer size\tk-mer size [default = 15] \n"
 				  << "  --min-ovlp size\tminimum overlap between reads "
 				  << "[default = 5000] \n"
@@ -105,7 +105,7 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 		}
 	}
 	if (readsFasta.empty() || outAssembly.empty() || 
-		genomeSize == 0 || configPath.empty())
+		configPath.empty())
 	{
 		printUsage();
 		return false;
@@ -151,13 +151,15 @@ int assemble_main(int argc, char** argv)
 	Config::load(configPath);
 	Parameters::get().numThreads = numThreads;
 	Parameters::get().kmerSize = kmerSize;
-	Parameters::get().minimumOverlap = 1000;
-	//Parameters::get().minimumOverlap = minOverlap;
+	Parameters::get().minimumOverlap = minOverlap;
 	Parameters::get().unevenCoverage = unevenCov;
 	Logger::get().debug() << "Running with k-mer size: " << 
 		Parameters::get().kmerSize; 
 	Logger::get().debug() << "Running with minimum overlap " << minOverlap;
 	Logger::get().debug() << "Metagenome mode: " << "NY"[unevenCov];
+
+	//TODO: unify minimumOverlap ad safeOverlap consepts
+	Parameters::get().minimumOverlap = 1000;
 
 	SequenceContainer readsContainer;
 	std::vector<std::string> readsList = splitString(readsFasta, ',');
@@ -179,13 +181,13 @@ int assemble_main(int argc, char** argv)
 							(int)Config::get("assemble_kmer_sample"));
 	vertexIndex.outputProgress(true);
 
-	int64_t sumLength = 0;
+	/*int64_t sumLength = 0;
 	for (auto& seq : readsContainer.iterSeqs())
 	{
 		sumLength += seq.sequence.length();
 	}
 	int coverage = sumLength / 2 / genomeSize;
-	Logger::get().debug() << "Expected read coverage: " << coverage;
+	Logger::get().debug() << "Expected read coverage: " << coverage;*/
 
 	const int MIN_FREQ = 2;
 	static const float SELECT_RATE = Config::get("meta_read_top_kmer_rate");
@@ -198,23 +200,11 @@ int assemble_main(int argc, char** argv)
 		const int minWnd = Config::get("minimizer_window");
 		vertexIndex.buildIndexMinimizers(/*min freq*/ 1, minWnd);
 	}
-	else if (Parameters::get().unevenCoverage)	//noisy meta
+	else	//indexing using solid k-mers
 	{
-		vertexIndex.countKmers(MIN_FREQ, genomeSize);
+		vertexIndex.countKmers();
 		vertexIndex.buildIndexUnevenCoverage(MIN_FREQ, SELECT_RATE, 
 											 TANDEM_FREQ);
-	}
-	else	//noisy solid
-	{
-		size_t hardThreshold = std::min(5, std::max(2, 
-				coverage / (int)Config::get("hard_min_coverage_rate")));
-		vertexIndex.countKmers(hardThreshold, genomeSize);
-		vertexIndex.buildIndexUnevenCoverage(MIN_FREQ, SELECT_RATE, 
-											 TANDEM_FREQ);
-		//ParametersEstimator estimator(readsContainer, vertexIndex, genomeSize);
-		//estimator.estimateMinKmerCount();
-		//int minKmerCov = estimator.minKmerCount();
-		//vertexIndex.buildIndex(minKmerCov);
 	}
 
 	Logger::get().debug() << "Peak RAM usage: " 

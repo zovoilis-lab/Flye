@@ -210,7 +210,7 @@ public:
 		const SequenceContainer& seqContainer;
 	};
 
-	void countKmers(size_t hardThreshold, int genomeSize);
+	void countKmers();
 	void buildIndex(int minCoverage);
 	void buildIndexUnevenCoverage(int minCoverage, float selectRate, 
 								  int tandemFreq);

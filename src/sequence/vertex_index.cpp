@@ -16,7 +16,7 @@
 #include "../common/memory_info.h"
 
 
-void VertexIndex::countKmers(size_t hardThreshold, int genomeSize)
+void VertexIndex::countKmers()
 {
 	_kmerCounter.count(/*use flat counter*/ true);
 }
