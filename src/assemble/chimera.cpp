@@ -207,7 +207,7 @@ bool ChimeraDetector::isRepetitiveRegion(FastaRecord::Id readId, int32_t start,
 	const int WINDOW = Config::get("chimera_window");
 	const int MAX_OVERHANG = Config::get("maximum_overhang");
 	const int FLANK = 1;
-	const float HANG_END_RATE = 0.5f;
+	const float HANG_END_RATE = 0.75f;
 	const float REPEAT_WINDOW_RATE = 0.75f;
 	
 
