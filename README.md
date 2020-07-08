@@ -3,7 +3,7 @@ Flye assembler
 
 [![BioConda Install](https://img.shields.io/conda/dn/bioconda/flye.svg?style=flag&label=BioConda%20install)](https://anaconda.org/bioconda/flye)
 
-### Version: 2.7
+### Version: 2.7.1
 
 Flye is a de novo assembler for single molecule sequencing reads,
 such as those produced by PacBio and Oxford Nanopore Technologies.
@@ -21,6 +21,9 @@ Manuals
 
 Latest updates
 --------------
+
+### Flye 2.7.1. release (24 Apr 2020)
+* Fixes very long GFA generation time for some large assemblies (no other changes)
 
 ### Flye 2.7 release (03 Mar 2020)
 * Better assemblies of real (and comlpex) metagenomes
@@ -114,7 +117,7 @@ Flye benchmarks
 The assemblies generated using Flye 2.7 could be downloaded from [Zenodo](https://zenodo.org/record/3694400).
 All datasets were run with default parameters for the corresponding read type
 with the following exceptions: CHM13 T2T was run with `--min-overlap 10000 --asm-coverage 50`;
-CHM1 was run with `--asm-overage 40`.
+CHM1 was run with `--asm-coverage 40`.
 
 Third-party
 -----------
