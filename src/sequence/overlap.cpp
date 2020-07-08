@@ -14,7 +14,7 @@
 #include <ctime>
 #include <cstring>
 #include <iomanip>
-
+#include <numeric>
 
 #include "overlap.h"
 #include "alignment.h"

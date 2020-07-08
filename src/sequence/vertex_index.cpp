@@ -7,6 +7,7 @@
 #include <unordered_set>
 #include <algorithm>
 #include <queue>
+#include <cmath>
 
 #include "vertex_index.h"
 #include "../common/logger.h"
