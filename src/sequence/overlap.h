@@ -29,6 +29,7 @@ struct OverlapRange
 	{}
 	int32_t curRange() const {return curEnd - curBegin;}
 	int32_t extRange() const {return extEnd - extBegin;}
+	int32_t minRange() const {return std::min(curRange(), extRange());}
 
 	OverlapRange reverse() const
 	{
