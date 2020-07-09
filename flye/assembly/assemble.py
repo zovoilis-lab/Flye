@@ -41,12 +41,14 @@ def assemble(args, run_params, out_file, log_file, config_path):
     logger.info("Assembling disjointigs")
     logger.debug("-----Begin assembly log------")
     cmdline = [ASSEMBLE_BIN, "assemble", "--reads", ",".join(args.reads), "--out-asm", out_file,
-               "--genome-size", str(args.genome_size), "--config", config_path,
-               "--log", log_file, "--threads", str(args.threads)]
+               "--config", config_path, "--log", log_file, "--threads", str(args.threads)]
     if args.debug:
         cmdline.append("--debug")
     if args.meta:
         cmdline.append("--meta")
+    if args.genome_size:
+        cmdline.extend(["--genome-size", str(args.genome_size)])
+
     cmdline.extend(["--min-ovlp", str(run_params["min_overlap"])])
     cmdline.extend(["--kmer", str(run_params["kmer_size"])])
     if run_params["min_read_length"] > 0:

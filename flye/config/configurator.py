@@ -36,15 +36,16 @@ def setup_params(args):
     #Selecting minimum overlap
     logger.info("Total read length: %d", total_length)
 
-    coverage = total_length // args.genome_size
-    logger.info("Input genome size: %d", args.genome_size)
-    logger.info("Estimated coverage: %d", coverage)
-    if coverage < 5 or coverage > 1000:
-        logger.warning("Expected read coverage is " + str(coverage) +
-                       ", the assembly is not " +
-                       "guaranteed to be optimal in this setting." +
-                       " Are you sure that the genome size " +
-                       "was entered correctly?")
+    if args.genome_size:
+        coverage = total_length // args.genome_size
+        logger.info("Input genome size: %d", args.genome_size)
+        logger.info("Estimated coverage: %d", coverage)
+        if coverage < 5 or coverage > 1000:
+            logger.warning("Expected read coverage is " + str(coverage) +
+                           ", the assembly is not " +
+                           "guaranteed to be optimal in this setting." +
+                           " Are you sure that the genome size " +
+                           "was entered correctly?")
 
     logger.info("Reads N50/N90: %d / %d", reads_n50, reads_n90)
     if args.min_overlap is None:
@@ -69,8 +70,6 @@ def setup_params(args):
     target_cov = None
     if args.asm_coverage and args.asm_coverage < coverage:
         target_cov = args.asm_coverage
-    #if not args.asm_coverage and args.genome_size >= 10 ** 9:
-    #    target_cov = cfg.vals["reduced_asm_cov"]
 
     if target_cov:
         logger.info("Using longest %dx reads for contig assembly", target_cov)

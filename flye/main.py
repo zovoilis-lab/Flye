@@ -526,6 +526,9 @@ def _run(args):
     logger.debug("Cmd: %s", " ".join(sys.argv))
     logger.debug("Python version: " + sys.version)
 
+    if args.genome_size:
+        _set_genome_size(args)
+
     for read_file in args.reads:
         if not os.path.exists(read_file):
             raise ResumeException("Can't open " + read_file)
@@ -599,11 +602,11 @@ def _enable_logging(log_file, debug, overwrite):
 def _usage():
     return ("flye (--pacbio-raw | --pacbio-corr | --pacbio-hifi | --nano-raw |\n"
             "\t     --nano-corr | --subassemblies) file1 [file_2 ...]\n"
-            "\t     --genome-size SIZE --out-dir PATH\n\n"
-            "\t     [--threads int] [--iterations int] [--min-overlap int]\n"
+            "\t     --out-dir PATH\n\n"
+            "\t     [--genome-size SIZE] [--threads int] [--iterations int]\n"
             "\t     [--meta] [--plasmids] [--trestle] [--polish-target]\n"
             "\t     [--keep-haplotypes] [--debug] [--version] [--help] \n"
-            "\t     [--resume] [--resume-from] [--stop-after]")
+            "\t     [--resume] [--resume-from] [--stop-after] [--min-overlap SIZE]")
 
 
 def _epilog():
@@ -617,14 +620,11 @@ def _epilog():
             "files with reads (separated by spaces). Mixing different read\n"
             "types is not yet supported. The --meta option enables the mode\n"
             "for metagenome/uneven coverage assembly.\n\n"
-            "You must provide an estimate of the genome size as input,\n"
-            "which is used for solid k-mers selection. Standard size\n"
-            "modifiers are supported (e.g. 5m or 2.6g). In the case\n"
-            "of metagenome assembly, the expected total assembly size\n"
-            "should be provided.\n\n"
+            "Genome size estimate is no longer a required option. You\n"
+            "need to provide an estimate if using --asm-coverage option.\n\n"
             "To reduce memory consumption for large genome assemblies,\n"
             "you can use a subset of the longest reads for initial disjointig\n"
-            "assembly by specifying --asm-coverage option. Typically,\n"
+            "assembly by specifying --asm-coverage and --genome-size options. Typically,\n"
             "40x coverage is enough to produce good disjointigs.\n\n"
             "You can run Flye polisher as a standalone tool using\n"
             "--polish-target option.")
@@ -680,7 +680,7 @@ def main():
                         default=None, metavar="path",
                         help="high-quality contigs input")
     parser.add_argument("-g", "--genome-size", dest="genome_size",
-                        metavar="size", required=False,
+                        metavar="size", required=False, default=None,
                         help="estimated genome size (for example, 5m or 2.6g)")
     parser.add_argument("-o", "--out-dir", dest="out_dir",
                         default=None, required=True,
@@ -729,9 +729,15 @@ def main():
     parser.add_argument("-v", "--version", action="version", version=_version())
     args = parser.parse_args()
 
-    if not args.genome_size and not args.polish_target:
-        parser.error("Genome size argument (-g/--genome-size) "
-                     "is required for assembly")
+    if args.asm_coverage and (args.genome_size is None):
+        parser.error("--asm-coverage option requires genome size estimate (--genome-size)")
+
+    if args.asm_coverage and args.meta:
+        parser.error("--asm-coverage is incompatible with --meta")
+
+    #if not args.genome_size and not args.polish_target:
+    #    parser.error("Genome size argument (-g/--genome-size) "
+    #                 "is required for assembly")
 
     if args.pacbio_raw:
         args.reads = args.pacbio_raw
@@ -776,7 +782,6 @@ def main():
         repeat.check_binaries()
 
         if not args.polish_target:
-            _set_genome_size(args)
             _run(args)
         else:
             _run_polisher_only(args)
