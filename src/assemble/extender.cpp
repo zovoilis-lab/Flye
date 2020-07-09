@@ -34,7 +34,7 @@ Extender::ExtensionInfo Extender::extendDisjointig(FastaRecord::Id startRead)
 		for (const auto& ovlp : IterNoOverhang(_ovlpContainer.lazySeqOverlaps(startRead)))
 		{
 			if (ovlp.extId == readId &&
-				ovlp.leftShift < -(int)Config::get("maximum_jump")) 
+				ovlp.leftShift() < -(int)Config::get("maximum_jump")) 
 			{
 				return true;
 			}
@@ -120,7 +120,7 @@ Extender::ExtensionInfo Extender::extendDisjointig(FastaRecord::Id startRead)
 			}
 			else
 			{
-				if (!bestDeadEnd || bestDeadEnd->rightShift < ovlp.rightShift)
+				if (!bestDeadEnd || bestDeadEnd->rightShift() < ovlp.rightShift())
 				{
 					bestDeadEnd = &ovlp;
 				}
@@ -145,7 +145,7 @@ Extender::ExtensionInfo Extender::extendDisjointig(FastaRecord::Id startRead)
 
 		if (selectedExtension)
 		{
-			exInfo.assembledLength += selectedExtension->rightShift;
+			exInfo.assembledLength += selectedExtension->rightShift();
 			currentRead = selectedExtension->extId;
 			if (selectedExtension->minRange() < _safeOverlap) ++exInfo.shortExtensions;
 			exInfo.reads.push_back(currentRead);
@@ -414,7 +414,7 @@ void Extender::assembleDisjointigs()
 			{
 				for (const auto& ovlp : IterNoOverhang(_ovlpContainer.lazySeqOverlaps(readId)))
 				{
-					if (ovlp.leftShift >= 0 && ovlp.rightShift <= 0)
+					if (ovlp.leftShift() >= 0 && ovlp.rightShift() <= 0)
 					{
 						coveredLocal.insert(ovlp.extId);
 						coveredLocal.insert(ovlp.extId.rc());
@@ -575,5 +575,5 @@ int Extender::countRightExtensions(FastaRecord::Id readId) const
 bool Extender::extendsRight(const OverlapRange& ovlp) const
 {
 	static const int MAX_JUMP = Config::get("maximum_jump");
-	return ovlp.rightShift > MAX_JUMP;
+	return ovlp.rightShift() > MAX_JUMP;
 }

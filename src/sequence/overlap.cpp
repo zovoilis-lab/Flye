@@ -324,7 +324,7 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 
 		//backtracking
 		std::vector<OverlapRange> extOverlaps;
-		std::vector<int32_t> shifts;
+		//std::vector<int32_t> shifts;
 		std::vector<std::pair<int32_t, int32_t>> kmerMatches;
 		
 		//initiate chains from the highest scores in the table (e.g. local maximums)
@@ -344,7 +344,7 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 			int32_t firstMatch = 0;
 
 			int32_t chainLength = 0;
-			shifts.clear();
+			//shifts.clear();
 			kmerMatches.clear();
 			
 			int32_t pos = chainStart;
@@ -361,8 +361,8 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 				}*/
 
 				firstMatch = pos;
-				shifts.push_back(matchesList[pos].curPos - 
-								 matchesList[pos].extPos);
+				//shifts.push_back(matchesList[pos].curPos - 
+				//				 matchesList[pos].extPos);
 				++chainLength;
 
 				if (_keepAlignment)
@@ -400,10 +400,11 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 					kmerMatches.emplace_back(ovlp.curBegin, ovlp.extBegin);
 					std::reverse(kmerMatches.begin(), kmerMatches.end());
 					kmerMatches.emplace_back(ovlp.curEnd, ovlp.extEnd);
-					ovlp.kmerMatches = kmerMatches;
+					ovlp.kmerMatches = new std::vector<std::pair<int32_t, int32_t>>();
+					ovlp.kmerMatches->swap(kmerMatches);
 				}
-				ovlp.leftShift = median(shifts);
-				ovlp.rightShift = extLen - curLen + ovlp.leftShift;
+				//ovlp.leftShift = median(shifts);
+				//ovlp.rightShift = extLen - curLen + ovlp.leftShift;
 
 				//estimating identity using k-mers
 				int32_t filteredPositions = 0;
