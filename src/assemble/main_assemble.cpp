@@ -158,7 +158,7 @@ int assemble_main(int argc, char** argv)
 	Logger::get().debug() << "Running with minimum overlap " << minOverlap;
 	Logger::get().debug() << "Metagenome mode: " << "NY"[unevenCov];
 
-	//TODO: unify minimumOverlap ad safeOverlap consepts
+	//TODO: unify minimumOverlap ad safeOverlap concepts
 	Parameters::get().minimumOverlap = 1000;
 
 	SequenceContainer readsContainer;
@@ -166,6 +166,9 @@ int assemble_main(int argc, char** argv)
 	Logger::get().info() << "Reading sequences";
 	try
 	{
+		//only use reads that are longer than minOverlap,
+		//or a specified threshold (used for downsampling)
+		minReadLength = std::max(minReadLength, minOverlap);
 		for (auto& readsFile : readsList)
 		{
 			readsContainer.loadFromFile(readsFile, minReadLength);
