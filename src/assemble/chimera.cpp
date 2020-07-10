@@ -20,8 +20,8 @@ bool ChimeraDetector::isChimeric(FastaRecord::Id readId)
 	if (!_chimeras.contains(readId))
 	{
 		const auto& ovlps = _ovlpContainer.lazySeqOverlaps(readId);
-		bool result = this->testReadByCoverage(readId, ovlps) ||
-					  _ovlpContainer.hasSelfOverlaps(readId);
+		bool result = this->testReadByCoverage(readId, ovlps);
+					  //_ovlpContainer.hasSelfOverlaps(readId);
 		_chimeras.insert(readId, result);
 		_chimeras.insert(readId.rc(), result);
 	}
@@ -31,11 +31,11 @@ bool ChimeraDetector::isChimeric(FastaRecord::Id readId)
 bool ChimeraDetector::isChimeric(FastaRecord::Id readId,
 								 const std::vector<OverlapRange>& readOvlps)
 {
-	const int JUMP = Config::get("maximum_jump");
+	//const int JUMP = Config::get("maximum_jump");
 	if (!_chimeras.contains(readId))
 	{
 		bool result = this->testReadByCoverage(readId, readOvlps);
-		for (const auto& ovlp : IterNoOverhang(readOvlps))
+		/*for (const auto& ovlp : IterNoOverhang(readOvlps))
 		{
 			if (ovlp.curId == ovlp.extId.rc()) 
 			{
@@ -45,7 +45,7 @@ bool ChimeraDetector::isChimeric(FastaRecord::Id readId,
 					result = true;
 				}
 			}
-		}
+		}*/
 		_chimeras.insert(readId, result);
 		_chimeras.insert(readId.rc(), result);
 	}
