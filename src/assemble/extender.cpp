@@ -29,23 +29,21 @@ Extender::ExtensionInfo Extender::extendDisjointig(FastaRecord::Id startRead)
 	exInfo.reads.push_back(startRead);
 	exInfo.assembledLength = _readsContainer.seqLen(startRead);
 
-	auto leftExtendsStart = [startRead, this](const FastaRecord::Id readId)
+	auto startOverlaps = _ovlpContainer.lazySeqOverlaps(startRead);
+	auto leftExtendsStart = [startRead, this, &startOverlaps](const FastaRecord::Id readId)
 	{
-		for (const auto& ovlp : IterNoOverhang(_ovlpContainer.lazySeqOverlaps(startRead)))
+		for (const auto& ovlp : IterNoOverhang(startOverlaps))
 		{
-			if (ovlp.extId == readId &&
-				ovlp.leftShift() < -(int)Config::get("maximum_jump")) 
-			{
-				return true;
-			}
+			if (ovlp.extId == readId && this->extendsLeft(ovlp)) return true;
 		}
 		return false;
 	};
 
 	while(true)
 	{
+		const std::vector<OverlapRange>& curOverlaps = _ovlpContainer.lazySeqOverlaps(currentRead);
 		std::vector<OverlapRange> extensions;
-		for (const auto& ovlp : IterNoOverhang(_ovlpContainer.lazySeqOverlaps(currentRead)))
+		for (const auto& ovlp : IterNoOverhang(curOverlaps))
 		{
 			if (this->extendsRight(ovlp)) extensions.push_back(ovlp);
 		}
@@ -82,31 +80,28 @@ Extender::ExtensionInfo Extender::extendDisjointig(FastaRecord::Id startRead)
 		for (const auto& ovlp : extensions)
 		{
 			//need to check this condition, otherwise there will
-			//be complications when we initiate extension of startRead
-			//to the left
+			//be complications when we initiate extension of startRead to the left
 			if (leftExtendsStart(ovlp.extId)) continue;
-
-			//if (_ovlpContainer.hasSelfOverlaps(ovlp.extId)) continue;
 
 			//only using reads longer than safeOverlap
 			if (ovlp.extLen < _safeOverlap) continue;
 
+			std::vector<OverlapRange> extOverlaps = _ovlpContainer.lazySeqOverlaps(ovlp.extId);
+
 			//if overlap is shorter than minOverlap parameter (which happens rarely)
 			//do an additional repeat check. Also require that each read 
 			//is actually longer than minOverlap
-			if (std::min(ovlp.curRange(), ovlp.extRange()) < _safeOverlap)
+			if (ovlp.minRange() < _safeOverlap)
 			{
-				bool curRepeat = 
-					_chimDetector.isRepetitiveRegion(ovlp.curId, ovlp.curBegin, ovlp.curEnd);
-				bool extRepeat = 
-					_chimDetector.isRepetitiveRegion(ovlp.extId, ovlp.extBegin, ovlp.extEnd);
+				bool curRepeat = _chimDetector.isRepetitiveRegion(ovlp.curId, ovlp.curBegin, ovlp.curEnd);
+				bool extRepeat = _chimDetector.isRepetitiveRegion(ovlp.extId, ovlp.extBegin, ovlp.extEnd);
 				if (curRepeat && extRepeat) continue;
 			}
 
 			//pick the first available highly reliable extenion (which will
 			//also be the longest as extensions are sorted)
-			if (!_chimDetector.isChimeric(ovlp.extId) &&
-				this->countRightExtensions(ovlp.extId) >= minExtensions &&
+			if (!_chimDetector.isChimeric(ovlp.extId, extOverlaps) &&
+				this->countRightExtensions(extOverlaps) >= minExtensions &&
 				ovlp.minRange() > _safeOverlap)
 			{
 				bestPreferered = &ovlp;
@@ -114,9 +109,10 @@ Extender::ExtensionInfo Extender::extendDisjointig(FastaRecord::Id startRead)
 			}
 
 			//suspicious extentions
-			if (this->countRightExtensions(ovlp.extId) > 0)
+			if (this->countRightExtensions(extOverlaps) > 0)
 			{
 				if (!bestSuspicious) bestSuspicious = &ovlp;
+				if (ovlp.minRange() < _safeOverlap) break;
 			}
 			else
 			{
@@ -248,13 +244,6 @@ void Extender::assembleDisjointigs()
 		//that won't result into disjointig extension
 		auto startOvlps = _ovlpContainer.quickSeqOverlaps(startRead, 
 														  /*max overlaps*/ 100);
-		std::vector<OverlapRange> revOverlaps;
-		revOverlaps.reserve(startOvlps.size());
-		for (const auto& ovlp : IterNoOverhang(startOvlps)) 
-		{
-			revOverlaps.push_back(ovlp.complement());
-		}
-
 		int numInnerOvlp = 0;
 		int totalOverlaps = 0;
 		for (const auto& ovlp : IterNoOverhang(startOvlps))
@@ -264,9 +253,8 @@ void Extender::assembleDisjointigs()
 		}
 
 		int maxStartExt = _chimDetector.getOverlapCoverage() * 10;
-		//int minStartExt = std::max(1, _chimDetector.getOverlapCoverage() / 50);
 		int minStartExt = 1;
-		int extLeft = this->countRightExtensions(revOverlaps);
+		int extLeft = this->countLeftExtensions(startOvlps);
 		int extRight = this->countRightExtensions(startOvlps);
 
 		if (_chimDetector.isChimeric(startRead, startOvlps) ||
@@ -278,8 +266,16 @@ void Extender::assembleDisjointigs()
 		//Good to go!
 		ExtensionInfo exInfo = this->extendDisjointig(startRead);
 
+		//Exclusive part - updating the overall assembly
+		std::lock_guard<std::mutex> guard(indexMutex);
+
 		if (exInfo.reads.size() - exInfo.numSuspicious < 
-			(size_t)Config::get("min_reads_in_disjointig")) return;
+			(size_t)Config::get("min_reads_in_disjointig"))
+		{
+			//Logger::get().debug() << "Thrown away: " << exInfo.reads.size() << " " << exInfo.numSuspicious
+			//	<< " " << exInfo.leftTip << " " << exInfo.rightTip;
+			return;
+		}
 
 		/*if (exInfo.leftAsmOverlap + exInfo.rightAsmOverlap > 
 			exInfo.assembledLength + 2 * Parameters::get().minimumOverlap)
@@ -288,8 +284,6 @@ void Extender::assembleDisjointigs()
 			return;
 		}*/
 
-		//Exclusive part - updating the overall assembly
-		std::lock_guard<std::mutex> guard(indexMutex);
 		
 		int innerCount = 0;
 		//do not count first and last reads - they are inner by defalut
@@ -567,13 +561,29 @@ int Extender::countRightExtensions(const std::vector<OverlapRange>& ovlps) const
 	return count;
 }
 
-int Extender::countRightExtensions(FastaRecord::Id readId) const
+/*int Extender::countRightExtensions(FastaRecord::Id readId) const
 {
 	return this->countRightExtensions(_ovlpContainer.lazySeqOverlaps(readId));
-}
+}*/
 
 bool Extender::extendsRight(const OverlapRange& ovlp) const
 {
 	static const int MAX_JUMP = Config::get("maximum_jump");
 	return ovlp.rightShift() > MAX_JUMP;
+}
+
+int Extender::countLeftExtensions(const std::vector<OverlapRange>& ovlps) const
+{
+	int count = 0;
+	for (const auto& ovlp : IterNoOverhang(ovlps))
+	{
+		if (this->extendsLeft(ovlp)) ++count;
+	}
+	return count;
+}
+
+bool Extender::extendsLeft(const OverlapRange& ovlp) const
+{
+	static const int MAX_JUMP = Config::get("maximum_jump");
+	return ovlp.leftShift() < -MAX_JUMP;
 }

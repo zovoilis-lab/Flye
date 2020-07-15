@@ -55,9 +55,11 @@ private:
 	const int _safeOverlap;
 
 	ExtensionInfo extendDisjointig(FastaRecord::Id startingRead);
-	int   countRightExtensions(FastaRecord::Id readId) const;
+	//int   countRightExtensions(FastaRecord::Id readId) const;
 	int   countRightExtensions(const std::vector<OverlapRange>&) const;
+	int   countLeftExtensions(const std::vector<OverlapRange>&) const;
 	bool  extendsRight(const OverlapRange& ovlp) const;
+	bool  extendsLeft(const OverlapRange& ovlp) const;
 	void  convertToDisjointigs();
 	std::vector<FastaRecord::Id> 
 		getInnerReads(const std::vector<OverlapRange>& ovlps);
