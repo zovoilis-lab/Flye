@@ -19,7 +19,7 @@ public:
 	{}
 
 	void estimateGlobalCoverage();
-	bool isChimeric(FastaRecord::Id readId);
+	//bool isChimeric(FastaRecord::Id readId);
 	bool isChimeric(FastaRecord::Id readId, 
 					const std::vector<OverlapRange>& readOvlps);
 	int  getOverlapCoverage() const {return _overlapCoverage;}

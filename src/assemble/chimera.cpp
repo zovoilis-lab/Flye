@@ -15,7 +15,7 @@
 
 
 
-bool ChimeraDetector::isChimeric(FastaRecord::Id readId)
+/*bool ChimeraDetector::isChimeric(FastaRecord::Id readId)
 {
 	if (!_chimeras.contains(readId))
 	{
@@ -26,7 +26,7 @@ bool ChimeraDetector::isChimeric(FastaRecord::Id readId)
 		_chimeras.insert(readId.rc(), result);
 	}
 	return _chimeras.find(readId);
-}
+}*/
 
 bool ChimeraDetector::isChimeric(FastaRecord::Id readId,
 								 const std::vector<OverlapRange>& readOvlps)
