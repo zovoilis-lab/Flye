@@ -58,8 +58,8 @@ Extender::ExtensionInfo Extender::extendDisjointig(FastaRecord::Id startRead)
 
 		//bool foundExtension = false;
 		const float COV_DROP = Config::get("max_extensions_drop_rate");
-		int minExtensions = std::max(1.0f, std::roundf((float)median(numExtensions) / 
-														COV_DROP));
+		int minExtensions = std::roundf((float)median(numExtensions) / COV_DROP);
+		minExtensions = std::min(10, std::max(1, minExtensions));
 
 		/*Logger::get().debug() << _readsContainer.seqName(currentRead) 
 			<< "\t" << overlaps.size();
