@@ -340,11 +340,11 @@ public:
 private:
 	std::vector<OverlapRange> 
 	getSeqOverlaps(const FastaRecord& fastaRec, 
-				   bool& outSuggestChiemeric,
+				   bool forceLocal,
 				   OvlpDivStats& divergenceStats,
 				   int maxOverlaps) const;
 
-	bool    overlapTest(const OverlapRange& ovlp, bool& outSuggestChimeric) const;
+	bool    overlapTest(const OverlapRange& ovlp, bool forceLocal) const;
 
 	const int   _maxJump;
 	const int   _minOverlap;
@@ -407,9 +407,10 @@ public:
 
 	//finds and returns overlaps - no caching is done	
 	std::vector<OverlapRange> quickSeqOverlaps(FastaRecord::Id readId, 
-											   int maxOverlaps=0);
+											   int maxOverlaps=0,
+											   bool forceLocal=false);
 
-	//size_t indexSize() {return _indexSize;}
+	size_t indexSize() {return _indexSize;}
 
 	void estimateOverlaperParameters();
 

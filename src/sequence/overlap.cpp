@@ -27,7 +27,7 @@
 
 //Check if it is a proper overlap
 bool OverlapDetector::overlapTest(const OverlapRange& ovlp,
-								  bool& outSuggestChimeric) const
+								  bool forceLocal) const
 {
 	if (ovlp.curRange() < _minOverlap || 
 		ovlp.extRange() < _minOverlap) 
@@ -63,7 +63,7 @@ bool OverlapDetector::overlapTest(const OverlapRange& ovlp,
 		if (intersect > ovlp.curRange() / 2) return false;
 	}
 
-	if (_checkOverhang && ovlp.lrOverhang() > _maxOverhang) return false;
+	if (!forceLocal && _checkOverhang && ovlp.lrOverhang() > _maxOverhang) return false;
 
 	return true;
 }
@@ -98,7 +98,7 @@ namespace
 //might be used in parallel
 std::vector<OverlapRange> 
 OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec, 
-								bool& outSuggestChimeric,
+								bool forceLocal,
 								OvlpDivStats& divStats,
 								int maxOverlaps) const
 {
@@ -111,7 +111,7 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 	const float LG_GAP = 2;
 	const float SM_GAP = 0.5;
 
-	outSuggestChimeric = false;
+	//outSuggestChimeric = false;
 	int32_t curLen = fastaRec.sequence.length();
 	std::vector<int32_t> curFilteredPos;
 
@@ -254,7 +254,7 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 		}
 		if (maxCur - minCur < _minOverlap || 
 			maxExt - minExt < _minOverlap) continue;
-		if (_checkOverhang)
+		if (_checkOverhang && !forceLocal)
 		{
 			if (std::min(minCur, minExt) > _maxOverhang) continue;
 			if (std::min(curLen - maxCur, 
@@ -393,7 +393,7 @@ OverlapDetector::getSeqOverlaps(const FastaRecord& fastaRec,
 			ovlp.score = scoreTable[lastMatch] - scoreTable[firstMatch] + 
 						 kmerSize - 1;
 
-			if (this->overlapTest(ovlp, outSuggestChimeric))
+			if (this->overlapTest(ovlp, forceLocal))
 			{
 				if (_keepAlignment)
 				{
@@ -516,11 +516,12 @@ bool OverlapContainer::hasSelfOverlaps(FastaRecord::Id readId)
 
 
 std::vector<OverlapRange> 
-	OverlapContainer::quickSeqOverlaps(FastaRecord::Id readId, int maxOverlaps)
+	OverlapContainer::quickSeqOverlaps(FastaRecord::Id readId, int maxOverlaps, 
+									   bool forceLocal)
 {
-	bool suggestChimeric;
+	//bool suggestChimeric;
 	const FastaRecord& record = _queryContainer.getRecord(readId);
-	return _ovlpDetect.getSeqOverlaps(record, suggestChimeric, 
+	return _ovlpDetect.getSeqOverlaps(record, forceLocal, 
 									  _divergenceStats, maxOverlaps);
 }
 
@@ -542,9 +543,10 @@ const std::vector<OverlapRange>&
 
 	//otherwise, need to compute overlaps.
 	//do it for forward strand to be distinct
-	bool suggestChimeric;
+	//bool suggestChimeric;
+	const bool DEFAULT_LOCAL = false;
 	const FastaRecord& record = _queryContainer.getRecord(readId);
-	auto overlaps = _ovlpDetect.getSeqOverlaps(record, suggestChimeric, 
+	auto overlaps = _ovlpDetect.getSeqOverlaps(record, DEFAULT_LOCAL, 
 											   _divergenceStats,
 											   _ovlpDetect._maxCurOverlaps);
 	overlaps.shrink_to_fit();
@@ -554,7 +556,7 @@ const std::vector<OverlapRange>&
 	for (const auto& ovlp : overlaps) revOverlaps.push_back(ovlp.complement());
 
 	_overlapIndex.update_fn(readId,
-		[&wrapper, &overlaps, &revOverlaps, &suggestChimeric, this]
+		[&wrapper, &overlaps, &revOverlaps, this]
 		(IndexVecWrapper& val)
 		{
 			if (!val.cached)
@@ -562,7 +564,7 @@ const std::vector<OverlapRange>&
 				_indexSize += overlaps.size();
 				*val.fwdOverlaps = std::move(overlaps);
 				*val.revOverlaps = std::move(revOverlaps);
-				val.suggestChimeric = suggestChimeric;
+				//val.suggestChimeric = suggestChimeric;
 				val.cached = true;
 			}
 			wrapper = val;

@@ -204,20 +204,18 @@ bool ChimeraDetector::testReadByCoverage(FastaRecord::Id readId,
 bool ChimeraDetector::isRepetitiveRegion(FastaRecord::Id readId, int32_t start, 
 										 int32_t end, bool debug)
 {
-	const int WINDOW = Config::get("chimera_window");
-	const int MAX_OVERHANG = Config::get("maximum_overhang");
-	const int FLANK = 1;
 	const float HANG_END_RATE = 0.75f;
 	const float REPEAT_WINDOW_RATE = 0.75f;
+	const int WINDOW = Config::get("chimera_window");
 	
-
-	int numWindows = std::ceil((float)_seqContainer.seqLen(readId) / WINDOW) + 1;
+	/*int numWindows = std::ceil((float)_seqContainer.seqLen(readId) / WINDOW) + 1;
 	int vecSize = numWindows - 2 * FLANK;
 	if (vecSize <= 0) return false;
 
 	std::vector<int> coverage(vecSize, 0);
 	std::vector<int> junctions(vecSize, 0);
-	for (const auto& ovlp : _ovlpContainer.lazySeqOverlaps(readId))
+	for (const auto& ovlp : this->getLocalOverlaps(readId))
+	//for (const auto& ovlp : _containNoOverhangs.lazySeqOverlaps(readId))
 	{
 		if (ovlp.curId == ovlp.extId.rc() ||
 			ovlp.curId == ovlp.extId) continue;
@@ -234,7 +232,11 @@ bool ChimeraDetector::isRepetitiveRegion(FastaRecord::Id readId, int32_t start,
 				++coverage.at(pos - FLANK);
 			}
 		}
-	}
+	}*/
+
+	auto cachedCoverage = this->getCachedCoverage(readId);
+	const std::vector<int32_t>& coverage = *cachedCoverage.coverageFullAln;
+	const std::vector<int32_t>& junctions = *cachedCoverage.coverageIncomleteAln;
 
 	int numSuspicious = 0;
 	int rangeLen = 0;
@@ -247,10 +249,6 @@ bool ChimeraDetector::isRepetitiveRegion(FastaRecord::Id readId, int32_t start,
 		}
 		++rangeLen;
 	}
-	/*for (size_t i = 0; i < coverage.size(); ++i)
-	{
-		if (coverage[i] < junctions[i]) ++numOverflows;
-	}*/
 
 	if (debug)
 	{
@@ -277,4 +275,69 @@ bool ChimeraDetector::isRepetitiveRegion(FastaRecord::Id readId, int32_t start,
 		return true;
 	}
 	return false;
+}
+
+ChimeraDetector::CachedCoverage
+	ChimeraDetector::getCachedCoverage(FastaRecord::Id readId)
+{
+	//upsert creates default value if it does not exist
+	CachedCoverage cached;
+	_localOvlpsStorage.upsert(readId, 	
+		[&cached](CachedCoverage& val)
+			{cached = val;}, CachedCoverage());
+	if (cached.cached)
+	{
+		return cached;
+	}
+
+	//not cached - need to copmute
+	const int WINDOW = Config::get("chimera_window");
+	const int MAX_OVERHANG = Config::get("maximum_overhang");
+	const int FLANK = 1;
+
+	int numWindows = std::ceil((float)_seqContainer.seqLen(readId) / WINDOW) + 1;
+	int vecSize = numWindows - 2 * FLANK;
+	if (vecSize <= 0) throw std::runtime_error("Zero-sized coverage vector");
+
+	std::vector<int> coverage(vecSize, 0);
+	std::vector<int> junctions(vecSize, 0);
+	auto overlaps = _ovlpContainer.quickSeqOverlaps(readId, /*max ovlps*/ 0, /*force local*/ true);
+	for (const auto& ovlp : overlaps)
+	{
+		if (ovlp.curId == ovlp.extId.rc() ||
+			ovlp.curId == ovlp.extId) continue;
+
+		for (int pos = ovlp.curBegin / WINDOW + FLANK; 
+			 pos <= ovlp.curEnd / WINDOW - FLANK; ++pos)
+		{
+			if (ovlp.lrOverhang() > MAX_OVERHANG)
+			{
+				++junctions.at(pos - FLANK);
+			}
+			else
+			{
+				++coverage.at(pos - FLANK);
+			}
+		}
+	}
+	//
+
+	//updating cache
+	_localOvlpsStorage.update_fn(readId,
+		[&cached, &coverage, &junctions, this]
+		(CachedCoverage& val)
+		{
+			if (!val.cached)
+			{
+				val.coverageFullAln = new std::vector<int32_t>;
+				val.coverageFullAln->swap(coverage);
+				val.coverageIncomleteAln = new std::vector<int32_t>;
+				val.coverageIncomleteAln->swap(junctions);
+				val.cached = true;
+			}
+			cached = val;
+		});
+
+	return cached;
+
 }
