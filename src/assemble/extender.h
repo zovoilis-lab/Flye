@@ -34,7 +34,7 @@ private:
 			numSuspicious(0), meanOverlaps(0), stepsToTurn(0),
 			assembledLength(0), singleton(false),
 			avgOverlapSize(0), minOverlapSize(0),
-			leftAsmOverlap(0), rightAsmOverlap(0),
+			//leftAsmOverlap(0), rightAsmOverlap(0),
 			shortExtensions(0) {}
 
 		std::vector<FastaRecord::Id> reads;
@@ -47,8 +47,8 @@ private:
 		bool singleton;
 		int  avgOverlapSize;
 		int  minOverlapSize;
-		int  leftAsmOverlap;
-		int  rightAsmOverlap;
+		//int  leftAsmOverlap;
+		//int  rightAsmOverlap;
 		int  shortExtensions;
 	};
 

@@ -86,17 +86,16 @@ Extender::ExtensionInfo Extender::extendDisjointig(FastaRecord::Id startRead)
 			//only using reads longer than safeOverlap
 			if (ovlp.extLen < _safeOverlap) continue;
 
-			std::vector<OverlapRange> extOverlaps = _ovlpContainer.lazySeqOverlaps(ovlp.extId);
-
 			//if overlap is shorter than minOverlap parameter (which happens rarely)
-			//do an additional repeat check. Also require that each read 
-			//is actually longer than minOverlap
+			//do an additional repeat check. 
 			if (ovlp.minRange() < _safeOverlap)
 			{
 				bool curRepeat = _chimDetector.isRepetitiveRegion(ovlp.curId, ovlp.curBegin, ovlp.curEnd);
 				bool extRepeat = _chimDetector.isRepetitiveRegion(ovlp.extId, ovlp.extBegin, ovlp.extEnd);
 				if (curRepeat && extRepeat) continue;
 			}
+
+			const std::vector<OverlapRange>& extOverlaps = _ovlpContainer.lazySeqOverlaps(ovlp.extId);
 
 			//pick the first available highly reliable extenion (which will
 			//also be the longest as extensions are sorted)
