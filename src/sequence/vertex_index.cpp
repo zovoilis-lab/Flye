@@ -357,52 +357,7 @@ std::vector<VertexIndex::KmerFreq>
 	return topKmers;
 }
 
-std::vector<KmerPosition> 
-	VertexIndex::yieldMinimizers(const FastaRecord::Id& seqId, int window)
-{
-	struct KmerAndHash
-	{
-		KmerPosition kp;
-		size_t hash;
-	};
-	thread_local std::deque<KmerAndHash> miniQueue;
-	miniQueue.clear();
 
-	std::vector<KmerPosition> minimizers;
-	minimizers.reserve(_seqContainer.seqLen(seqId) / window * 2);
-
-	for (auto kmerPos : IterKmers(_seqContainer.getSeq(seqId)))
-	{
-		auto stdKmer = kmerPos.kmer;
-		stdKmer.standardForm();
-		size_t curHash = stdKmer.hash();
-		
-		while (!miniQueue.empty() && miniQueue.back().hash > curHash)
-		{
-			miniQueue.pop_back();
-		}
-		miniQueue.push_back({kmerPos, curHash});
-		if (miniQueue.front().kp.position <= kmerPos.position - window)
-		{
-			while (miniQueue.front().kp.position <= kmerPos.position - window)
-			{
-				miniQueue.pop_front();
-			}
-			while (miniQueue.size() >= 2 && miniQueue[0].hash == miniQueue[1].hash)
-			{
-				miniQueue.pop_front();
-			}
-		}
-		if (minimizers.empty() || minimizers.back().position != 
-								  miniQueue.front().kp.position)
-		{
-			minimizers.push_back(miniQueue.front().kp);
-		}
-	}
-
-	//Logger::get().debug() << _seqContainer.seqLen(seqId) << " " << minimizers.size();
-	return minimizers;
-}
 
 void VertexIndex::allocateIndexMemory()
 {
@@ -450,7 +405,7 @@ void VertexIndex::buildIndexMinimizers(int minCoverage, int wndLen)
 	{
 		if (!readId.strand()) return;
 
-		auto minimizers = this->yieldMinimizers(readId, wndLen);
+		auto minimizers = yieldMinimizers(_seqContainer.getSeq(readId), wndLen);
 		for (auto kmerPos : minimizers)
 		{
 			auto stdKmer = kmerPos.kmer;
@@ -471,7 +426,7 @@ void VertexIndex::buildIndexMinimizers(int minCoverage, int wndLen)
 	[this, minCoverage, wndLen] (const FastaRecord::Id& readId)
 	{
 		if (!readId.strand()) return;
-		auto minimizers = this->yieldMinimizers(readId, wndLen);
+		auto minimizers = yieldMinimizers(_seqContainer.getSeq(readId), wndLen);
 		for (auto kmerPos : minimizers)
 		{
 			FastaRecord::Id targetRead = readId;

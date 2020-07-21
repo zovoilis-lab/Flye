@@ -262,8 +262,6 @@ public:
 private:
 	//void setRepeatCutoff(int minCoverage);
 
-	std::vector<KmerPosition> 
-		yieldMinimizers(const FastaRecord::Id& seqId, int window);
 
 	struct KmerFreq
 	{
