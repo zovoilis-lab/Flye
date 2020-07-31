@@ -22,7 +22,7 @@ public:
 	void resetEdges();
 	int  findHeterozygousLoops();
 	int  findHeterozygousBulges();
-	int  findComplexHaplotypes();
+	int  findRoundabouts();
 	int  findSuperbubbles();
 	void collapseHaplotypes();
 

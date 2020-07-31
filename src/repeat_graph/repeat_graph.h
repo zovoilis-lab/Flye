@@ -5,6 +5,7 @@
 #pragma once
 
 #include <list>
+#include <set>
 
 #include "../sequence/sequence_container.h"
 #include "../sequence/overlap.h"
@@ -150,6 +151,8 @@ struct GraphEdge
 
 struct GraphNode
 {
+	GraphNode(size_t nodeId): nodeId(nodeId) {}
+
 	bool isBifurcation() const
 		{return outEdges.size() != 1 || inEdges.size() != 1;}
 
@@ -221,6 +224,7 @@ struct GraphNode
 
 	std::vector<GraphEdge*> inEdges;
 	std::vector<GraphEdge*> outEdges;
+	size_t nodeId;
 };
 
 typedef std::vector<GraphEdge*> GraphPath;
@@ -230,11 +234,13 @@ class RepeatGraph
 {
 public:
 	RepeatGraph(const SequenceContainer& asmSeqs, SequenceContainer* graphSeqs):
-		 _nextEdgeId(0), _asmSeqs(asmSeqs), _edgeSeqsContainer(graphSeqs)
+		 _nextEdgeId(0), _nextNodeId(0), _asmSeqs(asmSeqs), 
+		 _edgeSeqsContainer(graphSeqs)
 	{}
 	~RepeatGraph();
 
 	void build();
+	void updateEdgeSequences();
 	void storeGraph(const std::string& filename);
 	void loadGraph(const std::string& filename);
 
@@ -247,8 +253,9 @@ public:
 	//nodes
 	GraphNode* addNode()
 	{
-		GraphNode* node = new GraphNode();
+		GraphNode* node = new GraphNode(_nextNodeId);
 		_graphNodes.insert(node);
+		++_nextNodeId;
 		return node;
 	}
 
@@ -271,11 +278,15 @@ public:
 	//edges
 	GraphEdge* addEdge(GraphEdge&& edge)
 	{
+		if (this->getEdge(edge.edgeId))
+		{
+			throw std::runtime_error("Adding edge with duplicated id");
+		}
+
 		GraphEdge* newEdge = new GraphEdge(edge);
-		_graphEdges.insert(newEdge);
 		newEdge->nodeLeft->outEdges.push_back(newEdge);
 		newEdge->nodeRight->inEdges.push_back(newEdge);
-		
+		_sortedEdges.insert(newEdge);
 		_idToEdge[newEdge->edgeId] = newEdge;
 		if (newEdge->selfComplement)
 		{
@@ -283,10 +294,11 @@ public:
 		}
 		return newEdge;
 	}
-	bool hasEdge(GraphEdge* edge)
+	/*bool hasEdge(GraphEdge* edge)
 	{
-		return _graphEdges.count(edge);
-	}
+		return _idToEdge.count(edge->edgeId);
+		//return _sortedEdges.count(edge);
+	}*/
 	GraphEdge* getEdge(FastaRecord::Id edgeId)
 	{
 		if (_idToEdge.count(edgeId)) return _idToEdge[edgeId];
@@ -297,10 +309,10 @@ public:
 	public:
 		IterEdges(RepeatGraph& graph): _graph(graph) {}
 
-		std::unordered_set<GraphEdge*>::iterator begin() 
-			{return _graph._graphEdges.begin();}
-		std::unordered_set<GraphEdge*>::iterator end() 
-			{return _graph._graphEdges.end();}
+		std::set<GraphEdge*>::iterator begin() 
+			{return _graph._sortedEdges.begin();}
+		std::set<GraphEdge*>::iterator end() 
+			{return _graph._sortedEdges.end();}
 	
 	private:
 		RepeatGraph& _graph;
@@ -312,9 +324,10 @@ public:
 	{
 		vecRemove(edge->nodeRight->inEdges, edge);
 		vecRemove(edge->nodeLeft->outEdges, edge);
-		_graphEdges.erase(edge);
+		_sortedEdges.erase(edge);
 		_idToEdge.erase(edge->edgeId);
-		delete edge;
+		_deletedEdges.insert(edge);
+		//delete edge;
 	}
 
 	void removeNode(GraphNode* node)
@@ -332,11 +345,14 @@ public:
 		}
 		for (auto& edge : toRemove)
 		{
-			_graphEdges.erase(edge);
-			delete edge;
+			_sortedEdges.erase(edge);
+			_idToEdge.erase(edge->edgeId);
+			_deletedEdges.insert(edge);
+			//delete edge;
 		}
 		_graphNodes.erase(node);
-		delete node;
+		_deletedNodes.insert(node);
+		//delete node;
 	}
 
 	//
@@ -385,6 +401,7 @@ public:
 
 private:
 	size_t _nextEdgeId;
+	size_t _nextNodeId;
 
 	struct GluePoint
 	{
@@ -415,7 +432,6 @@ private:
 	void collapseTandems();
 	void logEdges();
 	void checkGluepointProjections(const OverlapContainer& asmOverlaps);
-	void updateEdgeSequences();
 	
 	const SequenceContainer& _asmSeqs;
 	SequenceContainer* 		 _edgeSeqsContainer;
@@ -424,7 +440,15 @@ private:
 	std::unordered_map<FastaRecord::Id, 
 					   std::vector<GluePoint>> _gluePoints;
 
-	std::unordered_set<GraphNode*> _graphNodes;
-	std::unordered_set<GraphEdge*> _graphEdges;
 	std::unordered_map<FastaRecord::Id, GraphEdge*> _idToEdge;
+	std::unordered_set<GraphEdge*> _deletedEdges;
+	std::unordered_set<GraphNode*> _graphNodes;
+	std::unordered_set<GraphNode*> _deletedNodes;
+
+	struct CmpId 
+	{
+		bool operator() (GraphEdge* const &e1, GraphEdge* const &e2) const
+		{return e1->edgeId < e2->edgeId;}
+	};
+	std::set<GraphEdge*, CmpId> _sortedEdges;
 };

@@ -19,22 +19,34 @@ public:
 	{}
 
 	void estimateGlobalCoverage();
-	bool isChimeric(FastaRecord::Id readId);
+	//bool isChimeric(FastaRecord::Id readId);
 	bool isChimeric(FastaRecord::Id readId, 
 					const std::vector<OverlapRange>& readOvlps);
 	int  getOverlapCoverage() const {return _overlapCoverage;}
 	int  getRightTrim(FastaRecord::Id readId);
+	bool isRepetitiveRegion(FastaRecord::Id readId, int32_t start, int32_t end, bool debug=false);
 
 private:
-	std::vector<int32_t> 
-		getReadCoverage(FastaRecord::Id readId,
-						const std::vector<OverlapRange>& readOvlps);
+	std::vector<int32_t> getReadCoverage(FastaRecord::Id readId,
+										 const std::vector<OverlapRange>& readOvlps);
+
 	bool testReadByCoverage(FastaRecord::Id readId,
 							const std::vector<OverlapRange>& readOvlps);
 
-	const SequenceContainer& _seqContainer;
-	OverlapContainer& _ovlpContainer;
+	struct CachedCoverage
+	{
+		CachedCoverage():
+			cached(false) {}
 
+		std::vector<int32_t>* coverageFullAln;
+		std::vector<int32_t>* coverageIncomleteAln;
+		bool cached;
+	};
+	CachedCoverage getCachedCoverage(FastaRecord::Id readId);
+
+	const SequenceContainer& _seqContainer;
+	OverlapContainer& 		 _ovlpContainer;
 	cuckoohash_map<FastaRecord::Id, bool> _chimeras;
+	cuckoohash_map<FastaRecord::Id, CachedCoverage> _localOvlpsStorage;
 	int _overlapCoverage;
 };

@@ -83,6 +83,13 @@ void OutputGenerator::outputGfa(const std::vector<UnbranchingPath>& paths,
 							    const std::string& filename)
 {
 	auto sequences = this->generatePathSequences(paths);
+	std::unordered_map<GraphNode*, std::vector<const UnbranchingPath*>> leftNodes;
+	std::unordered_map<GraphNode*, std::vector<const UnbranchingPath*>> rightNodes;
+	for (auto& path : paths)
+	{
+		leftNodes[path.path.front()->nodeLeft].push_back(&path);
+		rightNodes[path.path.back()->nodeRight].push_back(&path);
+	}
 
 	Logger::get().debug() << "Writing Gfa";
 	FILE* fout = fopen(filename.c_str(), "w");
@@ -99,27 +106,101 @@ void OutputGenerator::outputGfa(const std::vector<UnbranchingPath>& paths,
 	}
 
 	std::unordered_set<std::pair<GraphEdge*, GraphEdge*>, pairhash> usedPairs;
-	for (auto& contigLeft : paths)
+	for (auto& nodeIt : leftNodes)
 	{
-		for (auto& contigRight : paths)
+		for (auto& contigRight : nodeIt.second)
 		{
-			GraphEdge* edgeLeft = contigLeft.path.back();
-			GraphEdge* edgeRight = contigRight.path.front();
-			if (edgeLeft->nodeRight != edgeRight->nodeLeft) continue;
+			for (auto& contigLeft : rightNodes[nodeIt.first])
+			{
+				GraphEdge* edgeLeft = contigLeft->path.back();
+				GraphEdge* edgeRight = contigRight->path.front();
 
-			if (usedPairs.count(std::make_pair(edgeLeft, edgeRight))) continue;
-			usedPairs.insert(std::make_pair(edgeLeft, edgeRight));
-			usedPairs.insert(std::make_pair(_graph.complementEdge(edgeRight), 
-											_graph.complementEdge(edgeLeft)));
+				if (usedPairs.count(std::make_pair(edgeLeft, edgeRight))) continue;
+				usedPairs.insert(std::make_pair(edgeLeft, edgeRight));
+				usedPairs.insert(std::make_pair(_graph.complementEdge(edgeRight), 
+												_graph.complementEdge(edgeLeft)));
 
-			std::string leftSign = contigLeft.id.strand() ? "+" :"-";
-			std::string leftName = contigLeft.nameUnsigned();
+				std::string leftSign = contigLeft->id.strand() ? "+" :"-";
+				std::string leftName = contigLeft->nameUnsigned();
 
-			std::string rightSign = contigRight.id.strand() ? "+" :"-";
-			std::string rightName = contigRight.nameUnsigned();
+				std::string rightSign = contigRight->id.strand() ? "+" :"-";
+				std::string rightName = contigRight->nameUnsigned();
 
-			fprintf(fout, "L\t%s\t%s\t%s\t%s\t0M\n", leftName.c_str(), 
-					leftSign.c_str(), rightName.c_str(), rightSign.c_str());
+				fprintf(fout, "L\t%s\t%s\t%s\t%s\t0M\n", leftName.c_str(), 
+						leftSign.c_str(), rightName.c_str(), rightSign.c_str());
+			}
+		}
+	}
+}
+
+void OutputGenerator::outputGfaCompact(const std::vector<UnbranchingPath>& paths,
+							    	   const std::string& filename)
+{
+	auto sequences = this->generatePathSequences(paths);
+	std::unordered_map<GraphNode*, std::vector<const UnbranchingPath*>> leftNodes;
+	std::unordered_map<GraphNode*, std::vector<const UnbranchingPath*>> rightNodes;
+	for (auto& path : paths)
+	{
+		leftNodes[path.path.front()->nodeLeft].push_back(&path);
+		rightNodes[path.path.back()->nodeRight].push_back(&path);
+	}
+
+	Logger::get().debug() << "Writing Gfa";
+	FILE* fout = fopen(filename.c_str(), "w");
+	if (!fout) throw std::runtime_error("Can't open " + filename);
+
+	fprintf(fout, "H\tVN:Z:1.0\n");
+	for (size_t i = 0; i < paths.size(); ++i)
+	{
+		if (!paths[i].id.strand()) continue;
+
+		//size_t kmerCount = sequences[i].sequence.length() * paths[i].meanCoverage;
+		fprintf(fout, "S\t%s\t%s\tdp:i:%d\n", paths[i].name().c_str(), 
+				sequences[i].sequence.str().c_str(), (int)paths[i].meanCoverage);
+	}
+
+	std::unordered_map<GraphNode*, int> signedNodeIds;
+	for (auto& nodeIt : leftNodes)
+	{
+		if (rightNodes.count(nodeIt.first))
+		{
+			if (!signedNodeIds.count(nodeIt.first))
+			{
+				signedNodeIds[nodeIt.first] = (int)nodeIt.first->nodeId;
+				GraphNode* complNode = _graph.complementNode(nodeIt.first);
+				if (complNode != nodeIt.first) 
+				{
+					signedNodeIds[complNode] = -(int)nodeIt.first->nodeId;
+				}
+
+				std::string nodeId = "node_" + std::to_string(nodeIt.first->nodeId);
+				fprintf(fout, "S\t%s\t*\n", nodeId.c_str());
+			}
+		}
+	}
+
+	for (auto& path : paths)
+	{
+		std::string ctgSign = path.id.strand() ? "+" :"-";
+		std::string ctgName = path.nameUnsigned();
+
+		GraphNode* nodeLeft = path.path.front()->nodeLeft;
+		GraphNode* nodeRight = path.path.back()->nodeRight;
+
+		if (rightNodes.count(nodeLeft))
+		{
+			std::string nodeId = "node_" + std::to_string(abs(signedNodeIds.at(nodeLeft)));
+			std::string nodeSign = signedNodeIds.at(nodeLeft) > 0 ? "+" : "-";
+			fprintf(fout, "L\t%s\t%s\t%s\t%s\t0M\n", nodeId.c_str(), 
+					nodeSign.c_str(), ctgName.c_str(), ctgSign.c_str());
+		}
+
+		if (leftNodes.count(nodeRight))
+		{
+			std::string nodeId = "node_" + std::to_string(abs(signedNodeIds.at(nodeRight)));
+			std::string nodeSign = signedNodeIds.at(nodeRight) > 0 ? "+" : "-";
+			fprintf(fout, "L\t%s\t%s\t%s\t%s\t0M\n", ctgName.c_str(), 
+					ctgSign.c_str(), nodeId.c_str(), nodeSign.c_str());
 		}
 	}
 }

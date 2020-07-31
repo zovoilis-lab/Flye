@@ -616,7 +616,7 @@ std::vector<RepeatResolver::Connection>
 	RepeatResolver::getConnections()
 {
 	
-	auto safeEdge = [this](GraphEdge* edge)
+	auto safeEdge = [](GraphEdge* edge)
 	{
 		return !edge->isRepetitive();
 	};
@@ -800,7 +800,7 @@ void RepeatResolver::clearResolvedRepeats()
 
 int RepeatResolver::resolveSimpleRepeats()
 {
-	static const int MIN_JCT_SUPPORT = 2;
+	static const int MIN_JCT_SUPPORT = 1;
 
 	auto alnIndex = _aligner.makeAlignmentIndex();
 

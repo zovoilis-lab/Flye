@@ -36,42 +36,40 @@ def setup_params(args):
     #Selecting minimum overlap
     logger.info("Total read length: %d", total_length)
 
-    coverage = total_length // args.genome_size
-    logger.info("Input genome size: %d", args.genome_size)
-    logger.info("Estimated coverage: %d", coverage)
-    if coverage < 5 or coverage > 1000:
-        logger.warning("Expected read coverage is " + str(coverage) +
-                       ", the assembly is not " +
-                       "guaranteed to be optimal in this setting." +
-                       " Are you sure that the genome size " +
-                       "was entered correctly?")
+    if args.genome_size:
+        coverage = total_length // args.genome_size
+        logger.info("Input genome size: %d", args.genome_size)
+        logger.info("Estimated coverage: %d", coverage)
+        if coverage < 5 or coverage > 1000:
+            logger.warning("Expected read coverage is " + str(coverage) +
+                           ", the assembly is not " +
+                           "guaranteed to be optimal in this setting." +
+                           " Are you sure that the genome size " +
+                           "was entered correctly?")
 
     logger.info("Reads N50/N90: %d / %d", reads_n50, reads_n90)
     if args.min_overlap is None:
         GRADE = 1000
         int_min_ovlp = int(round(reads_n90 / GRADE)) * GRADE
 
-        parameters["min_overlap"] = \
-            max(cfg.vals["min_overlap_range"][args.read_type][0],
-                min(cfg.vals["min_overlap_range"][args.read_type][1], int_min_ovlp))
+        MIN_OVLP = cfg.vals["min_overlap_range"][args.read_type][0]
+        MAX_OVLP = cfg.vals["min_overlap_range"][args.read_type][1]
+        if args.meta:
+            MAX_OVLP = min(MAX_OVLP, cfg.vals["max_meta_overlap"])
+        parameters["min_overlap"] = max(MIN_OVLP, min(MAX_OVLP, int_min_ovlp))
         logger.info("Minimum overlap set to %d", parameters["min_overlap"])
     else:
         parameters["min_overlap"] = args.min_overlap
         logger.info("Selected minimum overlap: %d", parameters["min_overlap"])
 
     #Selecting k-mer size
-    if args.genome_size < cfg.vals["big_genome_kmer"]:
-        parameters["kmer_size"] = cfg.vals["kmer_size"][args.read_type][0]
-    else:
-        parameters["kmer_size"] = cfg.vals["kmer_size"][args.read_type][1]
+    parameters["kmer_size"] = cfg.vals["kmer_size"][args.read_type]
     logger.info("Selected k-mer size: %d", parameters["kmer_size"])
 
     #Downsampling reads for the first assembly stage to save memory
     target_cov = None
     if args.asm_coverage and args.asm_coverage < coverage:
         target_cov = args.asm_coverage
-    #if not args.asm_coverage and args.genome_size >= 10 ** 9:
-    #    target_cov = cfg.vals["reduced_asm_cov"]
 
     if target_cov:
         logger.info("Using longest %dx reads for contig assembly", target_cov)

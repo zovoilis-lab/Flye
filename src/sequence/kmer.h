@@ -6,6 +6,7 @@
 
 #include <unordered_map>
 #include <memory>
+#include <deque>
 
 #include "sequence_container.h"
 #include "../common/config.h"
@@ -15,7 +16,9 @@ static_assert(sizeof(size_t) == 8, "32-bit architectures are not supported");
 class Kmer
 {
 public:
-	Kmer(): _representation(0) {}
+	typedef size_t KmerRepr;
+
+	explicit Kmer(KmerRepr repr=0): _representation(repr) {}
 
 	Kmer(const DnaSequence& dnaString, 
 		   size_t start, size_t length):
@@ -78,12 +81,13 @@ public:
 		_representation += dnaSymbol << shift;
 	}
 
-	typedef size_t KmerRepr;
 
 	bool operator == (const Kmer& other) const
 		{return this->_representation == other._representation;}
+
 	bool operator != (const Kmer& other) const
 		{return !(*this == other);}
+
 	size_t hash() const
 	{
 		size_t x = _representation;
@@ -92,10 +96,13 @@ public:
 		z = (z ^ (z >> 27)) * 0x94D049BB133111EBULL;
 		return z ^ (z >> 31);
 	}
+
 	bool operator< (const Kmer& other)
 	{
 		return _representation < other._representation;
 	}
+
+	size_t numRepr() {return _representation;}
 
 private:
 	KmerRepr _representation;
@@ -195,3 +202,61 @@ private:
 	const size_t _start;
 	const size_t _length;
 };
+
+inline std::vector<KmerPosition> yieldMinimizers(const DnaSequence& sequence, int window)
+{
+	if (window < 1) throw std::runtime_error("wrong minimizer length");
+
+	struct KmerAndHash
+	{
+		KmerPosition kp;
+		size_t hash;
+	};
+	thread_local std::deque<KmerAndHash> miniQueue;
+	miniQueue.clear();
+
+	std::vector<KmerPosition> minimizers;
+	const size_t expectedSize = sequence.length() / window * 2;
+	minimizers.reserve(1.5 * expectedSize);
+
+	if (window == 1)
+	{
+		for (auto kmerPos : IterKmers(sequence))
+		{
+			minimizers.push_back(kmerPos);
+		}
+		return minimizers;
+	}
+
+	for (auto kmerPos : IterKmers(sequence))
+	{
+		auto stdKmer = kmerPos.kmer;
+		stdKmer.standardForm();
+		size_t curHash = stdKmer.hash();
+		
+		while (!miniQueue.empty() && miniQueue.back().hash > curHash)
+		{
+			miniQueue.pop_back();
+		}
+		miniQueue.push_back({kmerPos, curHash});
+		if (miniQueue.front().kp.position <= kmerPos.position - window)
+		{
+			while (miniQueue.front().kp.position <= kmerPos.position - window)
+			{
+				miniQueue.pop_front();
+			}
+			while (miniQueue.size() >= 2 && miniQueue[0].hash == miniQueue[1].hash)
+			{
+				miniQueue.pop_front();
+			}
+		}
+		if (minimizers.empty() || minimizers.back().position != 
+								  miniQueue.front().kp.position)
+		{
+			minimizers.push_back(miniQueue.front().kp);
+		}
+	}
+
+	//Logger::get().debug() << _seqContainer.seqLen(seqId) << " " << minimizers.size();
+	return minimizers;
+}

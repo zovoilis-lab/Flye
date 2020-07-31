@@ -19,6 +19,50 @@
 #include "../common/config.h"
 #include "../common/logger.h"
 
+
+typedef std::map<size_t, size_t> KmerDistribution;
+
+class KmerCounter
+{
+public:
+	KmerCounter(const SequenceContainer& seqContainer):
+		_seqContainer(seqContainer), 
+		_flatCounter(nullptr), _numKmers(0)
+	{}
+
+	~KmerCounter()
+	{
+		if (_flatCounter) 
+		{
+			delete[] _flatCounter;
+			_flatCounter = nullptr;
+		}
+	}
+
+	const KmerDistribution& getKmerHist() const
+	{
+		return _kmerDistribution;
+	}
+
+	void   count(bool useFlatCounter);
+	size_t getFreq(Kmer kmer) const;
+	size_t getKmerNum() const;
+	void clear();
+	void setOutputProgress(bool progress) {_outputProgress = progress;}
+
+private:
+	const SequenceContainer& 	_seqContainer;
+	bool _outputProgress;
+	bool _useFlatCounter;
+
+	std::atomic<uint8_t>*			_flatCounter;
+	//std::vector<std::atomic<char>>  _flatCounter;
+	cuckoohash_map<Kmer, size_t> 	_hashCounter;
+	KmerDistribution _kmerDistribution;
+
+	std::atomic<size_t> _numKmers;
+};
+
 class VertexIndex
 {
 public:
@@ -26,10 +70,11 @@ public:
 	{
 		this->clear();
 	}
-	VertexIndex(const SequenceContainer& seqContainer, int sampleRate):
+	VertexIndex(const SequenceContainer& seqContainer, float sampleRate):
 		_seqContainer(seqContainer), _outputProgress(false), 
 		_sampleRate(sampleRate), _repetitiveFrequency(0),
-		_solidMultiplier(1)
+		_kmerCounter(seqContainer)
+		//_solidMultiplier(1)
 		//_flankRepeatSize(flankRepeatSize)
 	{}
 
@@ -165,11 +210,11 @@ public:
 		const SequenceContainer& seqContainer;
 	};
 
-	void countKmers(size_t hardThreshold, int genomeSize);
-	void setRepeatCutoff(int minCoverage);
+	void countKmers();
 	void buildIndex(int minCoverage);
 	void buildIndexUnevenCoverage(int minCoverage, float selectRate, 
 								  int tandemFreq);
+	void buildIndexMinimizers(int minCoverage, int wndLen);
 	void clear();
 
 	IterHelper iterKmerPos(Kmer kmer) const
@@ -203,29 +248,47 @@ public:
 	void outputProgress(bool set) 
 	{
 		_outputProgress = set;
+		_kmerCounter.setOutputProgress(set);
 	}
 
 	const KmerDistribution& getKmerHist() const
 	{
-		return _kmerDistribution;
+		return _kmerCounter.getKmerHist();
+		//return _kmerDistribution;
 	}
 
-	int getSampleRate() const {return _sampleRate * _solidMultiplier;}
+	float getSampleRate() const {return _sampleRate;}
 
 private:
-	void addFastaSequence(const FastaRecord& fastaRecord);
+	//void setRepeatCutoff(int minCoverage);
+
+
+	struct KmerFreq
+	{
+		Kmer kmer;
+		int32_t position;
+		size_t freq;
+	};
+	std::vector<KmerFreq>
+		yieldFrequentKmers(const FastaRecord::Id& seqId,
+						   float selctRate, int tandemFreq);
+
+	void allocateIndexMemory();
+	void filterFrequentKmers(int minCoverage, float rate);
 
 	const SequenceContainer& _seqContainer;
-	KmerDistribution 		 _kmerDistribution;
+	//KmerDistribution 		 _kmerDistribution;
 	bool    _outputProgress;
-	int32_t _sampleRate;
+	float   _sampleRate;
 	size_t  _repetitiveFrequency;
-	int32_t _solidMultiplier;
+	//int32_t _solidMultiplier;
 
 	const size_t MEM_CHUNK = 32 * 1024 * 1024 / sizeof(IndexChunk);
 	std::vector<IndexChunk*> _memoryChunks;
 
 	cuckoohash_map<Kmer, ReadVector> _kmerIndex;
-	cuckoohash_map<Kmer, size_t> 	 _kmerCounts;
+	//cuckoohash_map<Kmer, size_t> 	 _kmerCounts;
 	cuckoohash_map<Kmer, char> 	 	 _repetitiveKmers;
+
+	KmerCounter _kmerCounter;
 };

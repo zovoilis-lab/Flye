@@ -24,7 +24,7 @@ from flye.six import iteritems
 from flye.six.moves import range
 
 
-POLISH_BIN = "flye-polish"
+POLISH_BIN = "flye-modules"
 
 logger = logging.getLogger()
 
@@ -39,7 +39,7 @@ def check_binaries():
                               "Did you run 'make'?")
     try:
         devnull = open(os.devnull, "w")
-        subprocess.check_call([POLISH_BIN, "-h"], stderr=devnull)
+        subprocess.check_call([POLISH_BIN, "polisher", "-h"], stderr=devnull)
     except subprocess.CalledProcessError as e:
         if e.returncode == -9:
             logger.error("Looks like the system ran out of memory")
@@ -79,7 +79,7 @@ def polish(contig_seqs, read_seqs, work_dir, num_iters, num_threads, error_mode,
 
         ####
         logger.info("Running minimap2")
-        alignment_file = os.path.join(work_dir, "minimap_{0}.sam".format(i + 1))
+        alignment_file = os.path.join(work_dir, "minimap_{0}.bam".format(i + 1))
         make_alignment(chunks_file, read_seqs, num_threads,
                        work_dir, error_mode, alignment_file,
                        reference_mode=True, sam_output=True)
@@ -147,7 +147,7 @@ def generate_polished_edges(edges_file, gfa_file, polished_contigs, work_dir,
     """
     logger.debug("Generating polished GFA")
 
-    alignment_file = os.path.join(work_dir, "edges_aln.sam")
+    alignment_file = os.path.join(work_dir, "edges_aln.bam")
     polished_dict = fp.read_sequence_dict(polished_contigs)
     make_alignment(polished_contigs, [edges_file], num_threads,
                    work_dir, error_mode, alignment_file,
@@ -155,7 +155,6 @@ def generate_polished_edges(edges_file, gfa_file, polished_contigs, work_dir,
     aln_reader = SynchronizedSamReader(alignment_file,
                                        polished_dict,
                                        cfg.vals["max_read_coverage"])
-    aln_reader.init_reading()
     aln_by_edge = defaultdict(list)
 
     #getting one best alignment for each contig
@@ -163,7 +162,7 @@ def generate_polished_edges(edges_file, gfa_file, polished_contigs, work_dir,
         _, ctg_aln = aln_reader.get_chunk()
         for aln in ctg_aln:
             aln_by_edge[aln.qry_id].append(aln)
-    aln_reader.stop_reading()
+    aln_reader.close()
 
     MIN_CONTAINMENT = 0.9
     updated_seqs = 0
@@ -267,7 +266,7 @@ def _run_polish_bin(bubbles_in, subs_matrix, hopo_matrix,
     """
     Invokes polishing binary
     """
-    cmdline = [POLISH_BIN, "--bubbles", bubbles_in, "--subs-mat", subs_matrix,
+    cmdline = [POLISH_BIN, "polisher", "--bubbles", bubbles_in, "--subs-mat", subs_matrix,
                "--hopo-mat", hopo_matrix, "--out", consensus_out,
                "--threads", str(num_threads)]
     if not output_progress:

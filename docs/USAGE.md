@@ -17,15 +17,16 @@ Table of Contents
 ## <a name="quickusage"></a> Quick usage
 
 ```
-usage: flye (--pacbio-raw | --pacbio-corr | --nano-raw |
-	     --nano-corr | --subassemblies) file1 [file_2 ...]
-	     --genome-size SIZE --out-dir PATH
-	     [--threads int] [--iterations int] [--min-overlap int]
-	     [--meta] [--plasmids] [--no-trestle] [--polish-target]
-	     [--debug] [--version] [--help] [--resume] 
-	     [--resume-from] [--stop-after]
+usage: flye (--pacbio-raw | --pacbio-corr | --pacbio-hifi | --nano-raw |
+         --nano-corr | --subassemblies) file1 [file_2 ...]
+         --genome-size SIZE --out-dir PATH
 
-Assembly of long and error-prone reads
+         [--threads int] [--iterations int] [--min-overlap int]
+         [--meta] [--plasmids] [--trestle] [--polish-target]
+         [--keep-haplotypes] [--debug] [--version] [--help] 
+         [--resume] [--resume-from] [--stop-after]
+
+Assembly of long reads with repeat graphs
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -33,6 +34,8 @@ optional arguments:
                         PacBio raw reads
   --pacbio-corr path [path ...]
                         PacBio corrected reads
+  --pacbio-hifi path [path ...]
+                        PacBio HiFi reads
   --nano-raw path [path ...]
                         ONT raw reads
   --nano-corr path [path ...]
@@ -53,7 +56,8 @@ optional arguments:
                         set]
   --plasmids            rescue short unassembled plasmids
   --meta                metagenome / uneven coverage mode
-  --no-trestle          skip Trestle stage
+  --keep-haplotypes     do not collapse alternative haplotypes
+  --trestle             enable Trestle [disabled]
   --polish-target path  run polisher on the target sequence
   --resume              resume from the last completed stage
   --resume-from stage_name
@@ -62,17 +66,17 @@ optional arguments:
                         stop after the specified stage completed
   --debug               enable debug output
   -v, --version         show program's version number and exit
-
 ```
 
 Input reads can be in FASTA or FASTQ format, uncompressed
-or compressed with `gz`. Currently, raw and corrected reads
-from PacBio and ONT are supported. Expected error rates are
-<30% for raw and <2% for corrected reads. Additionally, the
-`--subassemblies` option performs a consensus assembly of multiple
+or compressed with gz. Currently, PacBio (raw, corrected, HiFi)
+and ONT reads (raw, corrected) are supported. Expected error rates are
+<30% for raw, <3% for corrected, and <1% for HiFi. Note that Flye
+was primarily developed to run on raw reads. Additionally, the
+--subassemblies option performs a consensus assembly of multiple
 sets of high-quality contigs. You may specify multiple
 files with reads (separated by spaces). Mixing different read
-types is not yet supported. The `--meta` option enables the mode
+types is not yet supported. The --meta option enables the mode
 for metagenome/uneven coverage assembly.
 
 You must provide an estimate of the genome size as input,
@@ -83,11 +87,11 @@ should be provided.
 
 To reduce memory consumption for large genome assemblies,
 you can use a subset of the longest reads for initial disjointig
-assembly by specifying `--asm-coverage` option. Typically,
-30x coverage is enough to produce good disjointigs.
+assembly by specifying --asm-coverage option. Typically,
+40x coverage is enough to produce good disjointigs.
 
-You can separately run Flye polisher on a target sequence 
-using `--polish-target` option.
+You can run Flye polisher as a standalone tool using
+--polish-target option.
 
 
 ## <a name="examples"></a> Examples
@@ -101,7 +105,7 @@ The original dataset is available at the
 We coverted the raw `bas.h5` file to the FASTA format for the convenience.
 
     wget https://zenodo.org/record/1172816/files/E.coli_PacBio_40x.fasta
-	flye --pacbio-raw E.coli_PacBio_40x.fasta --out-dir out_pacbio --genome-size 5m --threads 4
+    flye --pacbio-raw E.coli_PacBio_40x.fasta --out-dir out_pacbio --genome-size 5m --threads 4
 
 with `5m` being the expected genome size, the threads argument being optional 
 (you may adjust it for your environment), and `out_pacbio` being the directory
@@ -113,7 +117,7 @@ The dataset was originally released by the
 [Loman lab](http://lab.loman.net/2015/09/24/first-sqk-map-006-experiment/).
 
     wget https://zenodo.org/record/1172816/files/Loman_E.coli_MAP006-1_2D_50x.fasta
-	flye --nano-raw Loman_E.coli_MAP006-1_2D_50x.fasta --out-dir out_nano --genome-size 5m --threads 4
+    flye --nano-raw Loman_E.coli_MAP006-1_2D_50x.fasta --out-dir out_nano --genome-size 5m --threads 4
 
 
 ## <a name="inputdata"></a> Supported Input Data
@@ -128,6 +132,9 @@ however we saw examples of incorrect third-party raw -> fastq conversions,
 which resulted into incorrectly trimmed data. In case Flye is failing to
 get reasonable assemblies, make sure that your reads are properly preprocessed.
 
+Flye now supports assembly of PacBio HiFi protocol via `--pacbio-hifi` option.
+The expected read error is <1%.
+
 ### Oxford Nanopore data
 
 We performed our benchmarks with raw ONT reads (R7-R9) with error rate ~15%.
@@ -138,7 +145,7 @@ ONT data than with PacBio data, especially in homopolymer regions.
 
 While Flye was designed for assembly of raw reads (and this is the recommended way),
 it also supports error-corrected PacBio/ONT reads as input (use the ```corr``` option).
-The parameters are optimized for error rates <2%. If you are getting highly 
+The parameters are optimized for error rates <3%. If you are getting highly 
 fragmented assembly - most likely error rates in your reads are higher. In this case,
 consider to assemble using the raw reads instead.
 
@@ -177,18 +184,36 @@ based on the read length distribution (reads N90) and does not require manual se
 Typical value is 3k-5k (and down to 1k for datasets with shorter read length).
 Intuitively, we want to set this parameter as high as possible, so the
 repeat graph is less tangled. However, higher values might lead to assembly gaps.
-In some *rare* cases (for example in case of biased read length distribution)
-it makes sense to set this parameter manualy.
+
+In some *rare* cases it makes sense to manually increase minimum overlap
+for assemblies of big genomes with long reads and high coverage.
 
 ### Metagenome mode
 
-Metagenome assembly mode, that is designed for highly non-uniform coverage and 
-is sensitive to underrepresented sequence at low coverage (as low as 2x). 
-In some examples of simple metagenomes, we observed that the normal (isolate) 
+Metagenome assembly mode, that is designed for highly non-uniform coverage and
+is sensitive to underrepresented sequence at low coverage (as low as 2x).
+In some examples of simple metagenomes, we observed that the normal (isolate)
 Flye mode assembled more contigious bacterial
 consensus sequence, while the metagenome mode was slightly more fragmented, but
 revealed strain mixtures. For relatively complex metagenome `--meta` mode
 is the recommended way.
+
+### Haplotype mode
+
+By default, Flye (and metaFlye) collapses graph structures caused by
+alternative haplotypes (bubbles, superbubbles, roundabouts) to produce
+longer consensus contigs. The option `--keep-haplotypes` retains
+the alternative paths on the graph, producing less contigouos, but
+more detailed assembly.
+
+### Trestle
+
+Trestle is an extra module that resolves simple repeats of
+multipicity 2 that were not bridged by reads. Depending on the
+datasets, it might resolve a few extra repeats, which is helpful
+for small (bacterial genomes). Use `--trestle` option to enable the module.
+On large genomes, the contiguity improvements are usually minimal,
+but the computation might take a lot of time.
 
 ### Reduced contig assembly coverage
 
@@ -196,7 +221,7 @@ Typically, assemblies of large genomes at high coverage require
 a hundreds of RAM. For high coverage assemblies, you can reduce memory usage
 by using only a subset of longest reads for initial contig extension
 stage (usually, the memory bottleneck). The parameter `--asm-coverage`
-specifies the target coverage of the longest reads. For a typicall assembly, 30x
+specifies the target coverage of the longest reads. For a typical assembly, 30x
 is enough to produce good initial contigs. Regardless of this parameter,
 all reads will be used at the later pipeline stages.
 
@@ -246,15 +271,17 @@ It is a tab-delimited table with the columns as follows:
 * Contig/scaffold id
 * Length
 * Coverage
-* Is circular (representing circular sequence, such as bacterial chromosome or plasmid)
-* Is repetitive (represents repeated, rather than unique sequence)
-* Multiplicity (inferred multiplicity based on coverage)
-* Graph path (repeat graph path corresponding to this contig/scaffold).
+* Is circular, (Y)es or (N)o
+* Is repetitive, (Y)es or (N)o
+* Multiplicity (based on coverage)
+* Alternative group
+* Graph path (graph path corresponding to this contig/scaffold).
+
 Scaffold gaps are marked with `??` symbols, and `*` symbol denotes a
 terminal graph node.
 
-`scaffolds.fasta` file is a symlink to `assembly.fasta`, which is
-retained for the backward compatibility.
+Alternative contigs (representing alternative haplotypes) will have the same
+alt. group ID. Primary contigs are marked by `*`
 
 ## <a name="graph"></a> Repeat graph
 
@@ -298,14 +325,14 @@ the `20-repeat/graph_before_rr.gv` file.
 | Genome                   | Data           | Asm.Size  | NG50     | CPU time  | RAM    |
 |--------------------------|----------------|-----------|----------|-----------|--------|
 | [E.coli][ecoli]          | PB 50x         | 4.6 Mb    | 4.6 Mb   | 2 h       | 2 Gb   |
-| [C.elegans][ce]          | PB 40x         | 102 Mb    | 2.9 Mb   | 100 h     | 31 Gb  |
-| [A.thaliana][at]         | PB 75x         | 120 Mb    | 10.7 Mb  | 100 h     | 46 Gb  |
-| [D.melanogaster][dm-ont] | ONT 30x        | 139 Mb    | 17.5 Mb  | 130 h     | 31 Gb  |     
-| [D.melanogaster][dm-pb]  | PB 120x        | 142 Mb    | 17.5 Mb  | 150 h     | 75 Gb  |     
-| [Human NA12878][na12878] | ONT 35x (rel6) | 2.9 Gb    | 22.6 Mb  | 2500 h    | 714 Gb |
-| [Human CHM13 T2T][t2t]   | ONT 50x (rel2) | 2.9 Gb    | 57.9 Mb  | 3600 h    | 871 Gb |
-| [Human HG002][hg002]     | PB CCS 30x     | 2.9 Gb    | 30.4 Mb  | 1400 h    | 272 Gb |
-| [Human CHM1][chm1]       | PB 100x        | 2.8 Gb    | 18.8 Mb  | 2700 h    | 676 Gb |
+| [C.elegans][ce]          | PB 40x         | 102 Mb    | 3.6 Mb   | 100 h     | 31 Gb  |
+| [A.thaliana][at]         | PB 75x         | 120 Mb    | 9.5 Mb   | 100 h     | 46 Gb  |
+| [D.melanogaster][dm-ont] | ONT 30x        | 139 Mb    | 10.6 Mb  | 130 h     | 31 Gb  |
+| [D.melanogaster][dm-pb]  | PB 120x        | 142 Mb    | 18.8 Mb  | 150 h     | 75 Gb  |
+| [Human NA12878][na12878] | ONT 35x (rel6) | 2.9 Gb    | 33.2 Mb  | 2500 h    | 714 Gb |
+| [Human CHM13 T2T][t2t]   | ONT 120x (rel3)| 2.9 Gb    | 75.1 Mb  | 5000 h    | 871 Gb |
+| [Human HG002][hg002]     | PB CCS 30x     | 2.9 Gb    | 27.5 Mb  | 1400 h    | 272 Gb |
+| [Human CHM1][chm1]       | PB 100x        | 2.8 Gb    | 21.5 Mb  | 2700 h    | 676 Gb |
 | [HMP mock][hmp]          | PB meta 7 Gb   | 66 Mb     | 2.6 Mb   | 60 h      | 72 Gb  |
 | [Zymo Even][zymo]        | ONT meta 14 Gb | 64 Mb     | 0.6 Mb   | 60 h      | 129 Gb |
 | [Zymo Log][zymo]         | ONT meta 16 Gb | 23 Mb     | 1.3 Mb   | 100 h     | 76 Gb  |
@@ -322,11 +349,10 @@ the `20-repeat/graph_before_rr.gv` file.
 [t2t]: https://github.com/nanopore-wgs-consortium/CHM13
 [zymo]: https://github.com/LomanLab/mockcommunity
 
-The assemblies generated using Flye 2.5 could be downloaded from [Zenodo](https://zenodo.org/record/3353665).
-All datasets were run with default parameters with the following exceptions:
-CHM13 T2T was run with `--min-overlap 10000`; CHM1 was run with `--asm-overage 40`;
-HG002 was run with maximum read error rate set to 1%.
-
+The assemblies generated using Flye 2.7 could be downloaded from [Zenodo](https://zenodo.org/record/3694400).
+All datasets were run with default parameters for the corresponding read type
+with the following exceptions: CHM13 T2T was run with `--min-overlap 10000 --asm-coverage 50`;
+CHM1 was run with `--asm-coverage 40`.
 
 ## <a name="algorithm"></a> Algorithm Description
 
@@ -349,7 +375,7 @@ calls a consensus. Afterwards, Flye performs repeat analysis as follows:
 * The algorithm resolves repeats using the read information and graph structure
 * The unbranching paths in the graph are output as contigs
 
-After resolving bridged repeats, Trestle module attempts to resolve simple unbridged
+If enabled, after resolving bridged repeats, Trestle module attempts to resolve simple unbridged
 repeats (of multiplicity 2) using the heterogeneities between repeat copies.
 Finally, Flye performs polishing of the resulting assembly
 to correct the remaining errors:

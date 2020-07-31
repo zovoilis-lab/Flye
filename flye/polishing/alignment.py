@@ -12,24 +12,27 @@ import os
 from collections import namedtuple
 import subprocess
 import logging
+import datetime
 
 import flye.utils.fasta_parser as fp
 from flye.utils.utils import which
-from flye.utils.sam_parser import AlignmentException, preprocess_sam
+from flye.utils.sam_parser import AlignmentException
 from flye.six import iteritems
 from flye.six.moves import range
 
 
 logger = logging.getLogger()
 MINIMAP_BIN = "flye-minimap2"
-
+SAMTOOLS_BIN = "flye-samtools"
 
 ContigInfo = namedtuple("ContigInfo", ["id", "length", "type"])
 
 
 def check_binaries():
     if not which(MINIMAP_BIN):
-        raise AlignmentException("Minimap2 is not installed")
+        raise AlignmentException("minimap2 is not installed")
+    if not which(SAMTOOLS_BIN):
+        raise AlignmentException("samtools is not installed")
     if not which("sort"):
         raise AlignmentException("UNIX sort utility is not available")
 
@@ -47,8 +50,8 @@ def make_alignment(reference_file, reads_file, num_proc,
     _run_minimap(reference_file, reads_file, num_proc, mode,
                  out_alignment, sam_output)
 
-    if sam_output:
-        preprocess_sam(out_alignment, work_dir)
+    #if sam_output:
+    #    preprocess_sam(out_alignment, work_dir)
 
 
 def get_contigs_info(contigs_file):
@@ -197,20 +200,53 @@ def merge_chunks(fasta_in, fold_function=lambda l: "".join(l)):
 
 def _run_minimap(reference_file, reads_files, num_proc, mode, out_file,
                  sam_output):
+    #SAM_HEADER = "\'@PG|@HD|@SQ|@RG|@CO\'"
+    work_dir = os.path.dirname(out_file)
+    stderr_file = os.path.join(work_dir, "minimap.stderr")
+    SORT_THREADS = "4"
+    SORT_MEM = "4G" if os.path.getsize(reference_file) > 100 * 1024 * 1024 else "1G"
+
     cmdline = [MINIMAP_BIN, reference_file]
     cmdline.extend(reads_files)
     cmdline.extend(["-x", mode, "-t", str(num_proc)])
-    if sam_output:
-        #a = SAM output, p = min primary-to-seconday score
-        #N = max secondary alignments
-        cmdline.extend(["-a", "-p", "0.5", "-N", "10"])
 
+    #Produces gzipped SAM sorted by reference name. Since it's not sorted by
+    #read name anymore, it's important that all reads have SEQ.
+    #is sam_output not set, produces PAF alignment
+    #a = SAM output, p = min primary-to-seconday score
+    #N = max secondary alignments
+    #--sam-hit-only = don't output unmapped reads
+    #--secondary-seq = custom option to output SEQ for seqcondary alignment with hard clipping
+    #-L: move CIGAR strings for ultra-long reads to the separate tag
+    #-Q don't output fastq quality
+    if sam_output:
+        tmp_prefix = os.path.join(os.path.dirname(out_file),
+                                  "sort_" + datetime.datetime.now().strftime("%y%m%d_%H%M%S"))
+        cmdline.extend(["-a", "-p", "0.5", "-N", "10", "--sam-hit-only", "-L",
+                        "-Q", "--secondary-seq"])
+        cmdline.extend(["|", SAMTOOLS_BIN, "view", "-T", reference_file, "-u", "-"])
+        cmdline.extend(["|", SAMTOOLS_BIN, "sort", "-T", tmp_prefix, "-O", "bam",
+                        "-@", SORT_THREADS, "-l", "1", "-m", SORT_MEM])
+    else:
+        pass    #paf output enabled by default
+
+        #cmdline.extend(["|", "grep", "-Ev", SAM_HEADER])    #removes headers
+        #cmdline.extend(["|", "sort", "-k", "3,3", "-T", work_dir,
+        #                "--parallel=8", "-S", "4G"])
+        #cmdline.extend(["|", "gzip", "-1"])
+
+    #logger.debug("Running: " + " ".join(cmdline))
     try:
         devnull = open(os.devnull, "wb")
-        #logger.debug("Running: " + " ".join(cmdline))
-        subprocess.check_call(cmdline, stderr=devnull,
-                              stdout=open(out_file, "wb"))
+        #env = os.environ.copy()
+        #env["LC_ALL"] = "C"
+        subprocess.check_call(["/bin/bash", "-c",
+                              "set -o pipefail; " + " ".join(cmdline)],
+                              stderr=open(stderr_file, "w"),
+                              stdout=open(out_file, "w"))
+        os.remove(stderr_file)
+
     except (subprocess.CalledProcessError, OSError) as e:
-        if e.returncode == -9:
-            logger.error("Looks like the system ran out of memory")
+        logger.error("Error running minimap2, terminating. See the alignment error log "
+                     " for details: " + stderr_file)
         raise AlignmentException(str(e))

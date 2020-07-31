@@ -49,8 +49,9 @@ int HaplotypeResolver::findHeterozygousBulges()
 
 		UnbranchingPath* entrancePath = pathIndex[path.nodeLeft()->inEdges[0]];
 		UnbranchingPath* exitPath = pathIndex[path.nodeRight()->outEdges[0]];
-		if (entrancePath->id == exitPath->id ||
-			entrancePath->id == exitPath->id.rc()) continue;
+
+		//if (entrancePath->id == exitPath->id ||
+		if (entrancePath->id == exitPath->id.rc()) continue;
 
 		//sanity check for maximum bubble size
 		if (std::max(twoPaths[0]->length, twoPaths[1]->length) > 
@@ -137,7 +138,7 @@ int HaplotypeResolver::findHeterozygousBulges()
 //3. Loop coverage is roughly equal or less than coverage of entrance/exit
 int HaplotypeResolver::findHeterozygousLoops()
 {
-	const float COV_MULT = 1.5;
+	const float COV_MULT = (float)Config::get("loop_coverage_rate");
 	const int MAX_LOOP_LEN = Config::get("max_bubble_length");
 
 	GraphProcessor proc(_graph, _asmSeqs);
@@ -250,7 +251,7 @@ HaplotypeResolver::VariantPaths
 	if (outPaths.empty()) return VariantPaths();
 
 	std::sort(outPaths.begin(), outPaths.end(),
-			  [](GraphAlignment& a1, GraphAlignment& a2)
+			  [](const GraphAlignment& a1, const GraphAlignment& a2)
 			  {return a1.back().overlap.curEnd - a1.front().overlap.curEnd >
 					  a2.back().overlap.curEnd - a2.front().overlap.curEnd;});
 
@@ -300,7 +301,7 @@ HaplotypeResolver::VariantPaths
 	}
 
 	pathGroups.erase(std::remove_if(pathGroups.begin(), pathGroups.end(),
-					 [MIN_SCORE](PathWithScore& p)
+					 [](PathWithScore& p)
 					 {return p.score < MIN_SCORE;}), pathGroups.end());
 
 	/*for (auto& aln : pathGroups)
@@ -481,7 +482,7 @@ HaplotypeResolver::VariantPaths
 
 //this function reveals complex heterogenities on the graph
 //(more than just two alternative branches) using read-paths
-int HaplotypeResolver::findComplexHaplotypes()
+int HaplotypeResolver::findRoundabouts()
 {
 	auto alnIndex = _aligner.makeAlignmentIndex();
 
@@ -536,7 +537,7 @@ int HaplotypeResolver::findComplexHaplotypes()
 		if (newVariant)
 		{
 			++foundNew;
-			Logger::get().debug() << "Complex bulge: " 
+			Logger::get().debug() << "Rounabout: " 
 				<< varSegment.startEdge->edgeId.signedId()
 				<< " : " << varSegment.endEdge->edgeId.signedId();
 		}
@@ -582,7 +583,7 @@ void HaplotypeResolver::collapseHaplotypes()
 		if (separatedEdges.count(inEdge)) continue;
 
 		GraphEdge* outEdge = inEdge->rightLink;
-		if (!_graph.hasEdge(outEdge))
+		if (!_graph.getEdge(outEdge->edgeId))
 		{
 			Logger::get().warning() << "Missing linked edge";
 			continue;

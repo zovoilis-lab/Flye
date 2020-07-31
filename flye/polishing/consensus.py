@@ -35,8 +35,6 @@ class Profile(object):
 def _thread_worker(aln_reader, contigs_info, platform, results_queue,
                    error_queue):
     try:
-        aln_reader.init_reading()
-
         while not aln_reader.is_eof():
             ctg_id, ctg_aln = aln_reader.get_chunk()
             if ctg_id is None:
@@ -46,8 +44,6 @@ def _thread_worker(aln_reader, contigs_info, platform, results_queue,
                                                   contigs_info[ctg_id].length)
             sequence = _flatten_profile(profile)
             results_queue.put((ctg_id, sequence, aln_errors))
-
-        aln_reader.stop_reading()
 
     except Exception as e:
         error_queue.put(e)
@@ -93,6 +89,7 @@ def get_consensus(alignment_path, contigs_path, contigs_info, num_proc,
 
     if not error_queue.empty():
         raise error_queue.get()
+    aln_reader.close()
 
     out_fasta = {}
     total_aln_errors = []
@@ -171,10 +168,10 @@ def _flatten_profile(profile):
 
         max_match = pos_nucl
         if len(pos_matches):
-            max_match = max(pos_matches, key=pos_matches.get)
+            max_match = max(sorted(pos_matches), key=pos_matches.get)
         max_insert = None
         if ins_group:
-            max_insert = max(ins_group, key=ins_group.get)
+            max_insert = max(sorted(ins_group), key=ins_group.get)
 
         if max_match != "-":
             growing_seq.append(max_match)

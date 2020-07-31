@@ -40,6 +40,8 @@ private:
 	std::vector<GraphAlignment> 
 		chainReadAlignments(const std::vector<EdgeAlignment>& ovlps) const;
 
+	float getChainBaseDivergence(const GraphAlignment& aln, bool realign);
+
 	std::vector<GraphAlignment> _readAlignments;
 
 	RepeatGraph& _graph;

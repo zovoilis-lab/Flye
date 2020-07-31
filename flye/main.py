@@ -264,9 +264,9 @@ class JobFinalize(Job):
 
     def run(self):
         super(JobFinalize, self).run()
-        #shutil.copy2(self.contigs_file, self.out_files["contigs"])
-        shutil.copy2(self.graph_file, self.out_files["graph"])
-        shutil.copy2(self.polished_gfa, self.out_files["gfa"])
+        #shutil.copy(self.contigs_file, self.out_files["contigs"])
+        shutil.copy(self.graph_file, self.out_files["graph"])
+        shutil.copy(self.polished_gfa, self.out_files["gfa"])
 
         scaffolds = scf.generate_scaffolds(self.contigs_file, self.scaffold_links,
                                            self.out_files["assembly"])
@@ -313,7 +313,7 @@ class JobConsensus(Job):
         fp.write_fasta_dict(chunks, chunks_file)
 
         logger.info("Running Minimap2")
-        out_alignment = os.path.join(self.consensus_dir, "minimap.sam")
+        out_alignment = os.path.join(self.consensus_dir, "minimap.bam")
         aln.make_alignment(chunks_file, self.args.reads, self.args.threads,
                            self.consensus_dir, self.args.platform, out_alignment,
                            reference_mode=True, sam_output=True)
@@ -416,10 +416,10 @@ class JobTrestle(Job):
                                      fp.read_sequence_dict(resolved_repeats_seqs))
         except KeyboardInterrupt as e:
             raise
-        except Exception as e:
-            logger.warning("Caught unhandled exception: " + str(e))
-            logger.warning("Continuing to the next pipeline stage. "
-                           "Please submit a bug report along with the full log file")
+        #except Exception as e:
+        #    logger.warning("Caught unhandled exception: " + str(e))
+        #    logger.warning("Continuing to the next pipeline stage. "
+        #                   "Please submit a bug report along with the full log file")
 
         repeat_graph.dump_to_file(self.out_files["repeat_graph"])
         fp.write_fasta_dict(repeat_graph.edges_fasta,
@@ -452,7 +452,8 @@ def _create_job_list(args, work_dir, log_file):
     reads_alignment = jobs[-1].out_files["reads_alignment"]
 
     #Trestle: Resolve Unbridged Repeats
-    if not args.no_trestle and not args.meta and args.read_type == "raw":
+    #if not args.no_trestle and not args.meta and args.read_type == "raw":
+    if args.trestle:
         jobs.append(JobTrestle(args, work_dir, log_file,
                     repeat_graph, repeat_graph_edges,
                     reads_alignment))
@@ -525,6 +526,9 @@ def _run(args):
     logger.debug("Cmd: %s", " ".join(sys.argv))
     logger.debug("Python version: " + sys.version)
 
+    if args.genome_size:
+        _set_genome_size(args)
+
     for read_file in args.reads:
         if not os.path.exists(read_file):
             raise ResumeException("Can't open " + read_file)
@@ -533,7 +537,7 @@ def _run(args):
     jobs = _create_job_list(args, args.out_dir, args.log_file)
 
     if args.stop_after and not args.stop_after in [j.name for j in jobs]:
-        raise ResumeException("Stop after: unkown stage '{0}'"
+        raise ResumeException("Stop after: unknown stage '{0}'"
                                 .format(args.stop_after))
 
     current_job = 0
@@ -596,40 +600,38 @@ def _enable_logging(log_file, debug, overwrite):
 
 
 def _usage():
-    return ("flye (--pacbio-raw | --pacbio-corr | --nano-raw |\n"
+    return ("flye (--pacbio-raw | --pacbio-corr | --pacbio-hifi | --nano-raw |\n"
             "\t     --nano-corr | --subassemblies) file1 [file_2 ...]\n"
-            "\t     --genome-size SIZE --out-dir PATH\n\n"
-            "\t     [--threads int] [--iterations int] [--min-overlap int]\n"
-            "\t     [--meta] [--plasmids] [--no-trestle] [--polish-target]\n"
+            "\t     --out-dir PATH\n\n"
+            "\t     [--genome-size SIZE] [--threads int] [--iterations int]\n"
+            "\t     [--meta] [--plasmids] [--trestle] [--polish-target]\n"
             "\t     [--keep-haplotypes] [--debug] [--version] [--help] \n"
-            "\t     [--resume] [--resume-from] [--stop-after]")
+            "\t     [--resume] [--resume-from] [--stop-after] [--min-overlap SIZE]")
 
 
 def _epilog():
     return ("Input reads can be in FASTA or FASTQ format, uncompressed\n"
-            "or compressed with gz. Currently, raw and corrected reads\n"
-            "from PacBio and ONT are supported. Expected error rates are\n"
-            "<30% for raw and <2% for corrected reads. Additionally, the\n"
+            "or compressed with gz. Currently, PacBio (raw, corrected, HiFi)\n"
+            "and ONT reads (raw, corrected) are supported. Expected error rates are\n"
+            "<30% for raw, <3% for corrected, and <1% for HiFi. Note that Flye\n"
+            "was primarily developed to run on raw reads. Additionally, the\n"
             "--subassemblies option performs a consensus assembly of multiple\n"
             "sets of high-quality contigs. You may specify multiple\n"
             "files with reads (separated by spaces). Mixing different read\n"
             "types is not yet supported. The --meta option enables the mode\n"
             "for metagenome/uneven coverage assembly.\n\n"
-            "You must provide an estimate of the genome size as input,\n"
-            "which is used for solid k-mers selection. Standard size\n"
-            "modifiers are supported (e.g. 5m or 2.6g). In the case\n"
-            "of metagenome assembly, the expected total assembly size\n"
-            "should be provided.\n\n"
+            "Genome size estimate is no longer a required option. You\n"
+            "need to provide an estimate if using --asm-coverage option.\n\n"
             "To reduce memory consumption for large genome assemblies,\n"
             "you can use a subset of the longest reads for initial disjointig\n"
-            "assembly by specifying --asm-coverage option. Typically,\n"
-            "30x coverage is enough to produce good disjointigs.\n\n"
-            "You can separately run Flye polisher on a target sequence \n"
-            "using --polish-target option.")
+            "assembly by specifying --asm-coverage and --genome-size options. Typically,\n"
+            "40x coverage is enough to produce good disjointigs.\n\n"
+            "You can run Flye polisher as a standalone tool using\n"
+            "--polish-target option.")
 
 
 def _version():
-    return __version__ + "-" + __build__
+    return __version__ + "-b" + str(__build__)
     """
     repo_root = os.path.dirname((os.path.dirname(__file__)))
     try:
@@ -654,7 +656,7 @@ def main():
         return ival
 
     parser = argparse.ArgumentParser \
-        (description="Assembly of long and error-prone reads",
+        (description="Assembly of long reads with repeat graphs",
          formatter_class=argparse.RawDescriptionHelpFormatter,
          usage=_usage(), epilog=_epilog())
 
@@ -665,6 +667,9 @@ def main():
     read_group.add_argument("--pacbio-corr", dest="pacbio_corrected",
                         default=None, metavar="path", nargs="+",
                         help="PacBio corrected reads")
+    read_group.add_argument("--pacbio-hifi", dest="pacbio_hifi",
+                        default=None, metavar="path", nargs="+",
+                        help="PacBio HiFi reads")
     read_group.add_argument("--nano-raw", dest="nano_raw", nargs="+",
                         default=None, metavar="path",
                         help="ONT raw reads")
@@ -675,7 +680,7 @@ def main():
                         default=None, metavar="path",
                         help="high-quality contigs input")
     parser.add_argument("-g", "--genome-size", dest="genome_size",
-                        metavar="size", required=False,
+                        metavar="size", required=False, default=None,
                         help="estimated genome size (for example, 5m or 2.6g)")
     parser.add_argument("-o", "--out-dir", dest="out_dir",
                         default=None, required=True,
@@ -702,9 +707,9 @@ def main():
     parser.add_argument("--keep-haplotypes", action="store_true",
                         dest="keep_haplotypes", default=False,
                         help="do not collapse alternative haplotypes")
-    parser.add_argument("--no-trestle", action="store_true",
-                        dest="no_trestle", default=False,
-                        help="skip Trestle stage")
+    parser.add_argument("--trestle", action="store_true",
+                        dest="trestle", default=False,
+                        help="enable Trestle [disabled]")
     parser.add_argument("--polish-target", dest="polish_target",
                         metavar="path", required=False,
                         help="run polisher on the target sequence")
@@ -724,9 +729,15 @@ def main():
     parser.add_argument("-v", "--version", action="version", version=_version())
     args = parser.parse_args()
 
-    if not args.genome_size and not args.polish_target:
-        parser.error("Genome size argument (-g/--genome-size) "
-                     "is required for assembly")
+    if args.asm_coverage and (args.genome_size is None):
+        parser.error("--asm-coverage option requires genome size estimate (--genome-size)")
+
+    if args.asm_coverage and args.meta:
+        parser.error("--asm-coverage is incompatible with --meta")
+
+    #if not args.genome_size and not args.polish_target:
+    #    parser.error("Genome size argument (-g/--genome-size) "
+    #                 "is required for assembly")
 
     if args.pacbio_raw:
         args.reads = args.pacbio_raw
@@ -736,6 +747,10 @@ def main():
         args.reads = args.pacbio_corrected
         args.platform = "pacbio"
         args.read_type = "corrected"
+    if args.pacbio_hifi:
+        args.reads = args.pacbio_hifi
+        args.platform = "pacbio"
+        args.read_type = "hifi"
     if args.nano_raw:
         args.reads = args.nano_raw
         args.platform = "nano"
@@ -767,7 +782,6 @@ def main():
         repeat.check_binaries()
 
         if not args.polish_target:
-            _set_genome_size(args)
             _run(args)
         else:
             _run_polisher_only(args)
@@ -776,6 +790,7 @@ def main():
             asm.AssembleException, repeat.RepeatException,
             ResumeException, fp.FastaError) as e:
         logger.error(e)
+        logger.error("Pipeline aborted")
         return 1
 
     return 0

@@ -38,8 +38,6 @@ class Profile(object):
 def _thread_worker(aln_reader, contigs_info, platform, results_queue,
                    error_queue):
     try:
-        aln_reader.init_reading()
-
         while not aln_reader.is_eof():
             ctg_id, ctg_aln = aln_reader.get_chunk()
             if ctg_id is None:
@@ -49,8 +47,6 @@ def _thread_worker(aln_reader, contigs_info, platform, results_queue,
                                                   contigs_info[ctg_id].length)
             #sequence = _flatten_profile(profile)
             results_queue.put((ctg_id, profile, aln_errors))
-
-        aln_reader.stop_reading()
 
     except Exception as e:
         error_queue.put(e)
@@ -204,6 +200,7 @@ def find_divergence(alignment_path, contigs_path, contigs_info,
 
     if not error_queue.empty():
         raise error_queue.get()
+    aln_reader.close()
 
     total_aln_errors = []
     while not results_queue.empty():

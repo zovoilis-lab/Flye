@@ -64,7 +64,7 @@ void ContigExtender::generateContigs()
 
 	bool graphContinue = (bool)Config::get("extend_contigs_with_repeats");
 
-	OutputGenerator outGen(_graph, _aligner, _readSeqs);
+	OutputGenerator outGen(_graph);
 	auto coreSeqs = outGen.generatePathSequences(_unbranchingPaths);
 	std::unordered_map<UnbranchingPath*, FastaRecord*> upathsSeqs;
 	for (size_t i = 0; i < _unbranchingPaths.size(); ++i)
@@ -116,7 +116,9 @@ void ContigExtender::generateContigs()
 					i < path.size() - 1)
 				{
 					size_t j = i + 1;
-					while (j < path.size() && path[j].edge->repetitive &&
+					while (j < path.size() && 
+						   path[j].edge->repetitive &&
+						   !path[j].edge->altHaplotype &&
 						   canTraverse(path[j].edge)) ++j;
 					if (j == i + 1) break;
 

@@ -26,19 +26,17 @@ void MultiplicityInferer::estimateCoverage()
 
 	for (auto& path : _aligner.getAlignments())
 	{
-		for (size_t i = 0; i < path.size(); ++i)
+		for (size_t pathId = 0; pathId < path.size(); ++pathId)
 		{
-			auto& ovlp = path[i].overlap;
-			auto& coverage = wndCoverage[path[i].edge];
-			for (int pos = ovlp.extBegin / WINDOW + 1; 
-			 	 pos < ovlp.extEnd / WINDOW; ++pos)
-			{
-				if (pos >= 0 && 
-					pos < (int)coverage.size())
-				{
-					++coverage[pos];
-				}
-			}
+			auto& edgeCov = wndCoverage[path[pathId].edge];
+			int covFrom = std::max(0, path[pathId].overlap.extBegin / WINDOW + 1);
+			int covTo = std::min((int)edgeCov.size(), path[pathId].overlap.extEnd / WINDOW);
+
+			//for intermediae alignments, cover the entire edge
+			if (pathId > 0) covFrom = 0;
+			if (pathId < path.size() - 1) covTo = edgeCov.size();
+
+			for (int i = covFrom; i < covTo; ++i) ++edgeCov[i];
 		}
 	}
 
@@ -85,7 +83,7 @@ void MultiplicityInferer::estimateCoverage()
 	_uniqueCovThreshold = /*default*/ 2;
 	if (!edgesCoverage.empty())
 	{
-		const float MULT = 1.75f;	//at least 1.75x of mean coverage
+		const float MULT = (float)Config::get("repeat_edge_cov_mult");	//1.75
 		_uniqueCovThreshold = MULT * quantile(edgesCoverage, 75);
 	}
 	Logger::get().debug() << "Unique coverage threshold " << _uniqueCovThreshold;
@@ -94,7 +92,7 @@ void MultiplicityInferer::estimateCoverage()
 int MultiplicityInferer::resolveForks()
 {
 	//const int UNIQUE_LEN = (int)Config::get("unique_edge_length");
-	const int MAJOR_TO_MINOR = 5;
+	const int MAJOR_TO_MINOR = (int)Config::get("weak_detach_rate");
 
 	int numDisconnected = 0;
 	std::vector<GraphNode*> originalNodes(_graph.iterNodes().begin(), 
@@ -236,14 +234,15 @@ int MultiplicityInferer::removeUnsupportedEdges(bool onlyTips)
 
 int MultiplicityInferer::disconnectMinorPaths()
 {
-	const int DETACH_RATE = 5;
+	const int DETACH_RATE = (int)Config::get("weak_detach_rate");
+	const int MAX_LEN = 50000;
 
 	auto nodeDegree = [](GraphNode* node)
 	{
 		std::vector<int> coverages;
 		for (auto& edge : node->inEdges) 
 		{
-			coverages.push_back(edge->meanCoverage);
+			if (!edge->isLooped()) coverages.push_back(edge->meanCoverage);
 		}
 		for (auto& edge : node->outEdges) 
 		{
@@ -274,9 +273,10 @@ int MultiplicityInferer::disconnectMinorPaths()
 	{
 		if (!path.id.strand() || 
 			path.isLooped() ||
-			path.path.front()->selfComplement) continue;
-		if (path.nodeLeft()->inEdges.empty() && 
-			path.nodeRight()->outEdges.empty())	continue; //already detached
+			path.path.front()->selfComplement ||
+			path.length > MAX_LEN) continue;
+		if (path.nodeLeft()->inEdges.empty() ||
+			path.nodeRight()->outEdges.empty())	continue; //already detached or tip
 
 		bool weakLeft = path.nodeLeft()->inEdges.empty() || 
 						nodeDegree(path.nodeLeft()) > path.meanCoverage * DETACH_RATE;
@@ -312,7 +312,7 @@ int MultiplicityInferer::disconnectMinorPaths()
 //addresses chimeric connections
 int MultiplicityInferer::splitNodes()
 {
-	static const int MIN_JCT_SUPPORT = 2;
+	static const int MIN_JCT_SUPPORT = 1;
 
 	Logger::get().debug() << "Splitting nodes";
 	int numSplit = 0;
@@ -401,9 +401,9 @@ int MultiplicityInferer::splitNodes()
 
 			for (auto& cl : clusters)
 			{
-				auto switchNode = [&nodeToSplit](GraphEdge* edge, 
-												 GraphNode* newNode,
-												 bool isInput)
+				auto switchNode = [](GraphEdge* edge, 
+									 GraphNode* newNode,
+									 bool isInput)
 				{
 					if (!isInput)
 					{
@@ -427,7 +427,8 @@ int MultiplicityInferer::splitNodes()
 					GraphEdge* complEdge = _graph.complementEdge(edgeDir.edge);
 					//GraphNode* complSplit = _graph.complementNode(nodeToSplit);
 					switchNode(edgeDir.edge, newNode, edgeDir.isInput);
-					if (!edgeDir.edge->selfComplement && !selfComplNode)
+					//if (!edgeDir.edge->selfComplement && !selfComplNode)
+					if (!selfComplNode)
 					{
 						switchNode(complEdge, newComplNode, 
 								   !edgeDir.isInput);
@@ -457,10 +458,6 @@ int MultiplicityInferer::removeUnsupportedConnections()
 	for (auto& readPath : _aligner.getAlignments())
 	{
 		if (readPath.size() < 2) continue;
-		//int overhang = std::max(readPath.front().overlap.curBegin,
-		//						readPath.back().overlap.curLen - 
-		//							readPath.back().overlap.curEnd);
-		//if (overhang > (int)Config::get("maximum_overhang")) continue;
 
 		for (size_t i = 0; i < readPath.size() - 1; ++i)
 		{
@@ -528,8 +525,8 @@ void MultiplicityInferer::trimTipsIteration(int& outShort, int& outLong)
 {
 	const int SHORT_TIP = Config::get("short_tip_length");
 	const int LONG_TIP = Config::get("long_tip_length");
-	const int COV_RATE = 2;
-	const int LEN_RATE = 2;
+	const int COV_RATE = (int)Config::get("tip_coverage_rate");
+	const int LEN_RATE = (int)Config::get("tip_length_rate");
 
 	std::unordered_set<FastaRecord::Id> toRemove;
 	GraphProcessor proc(_graph, _asmSeqs);

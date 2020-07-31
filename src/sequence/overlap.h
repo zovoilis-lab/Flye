@@ -25,10 +25,72 @@ struct OverlapRange
 				 int32_t curLen = 0, int32_t extLen = 0): 
 		curId(curId), curBegin(curInit), curEnd(curInit), curLen(curLen),
 		extId(extId), extBegin(extInit), extEnd(extInit), extLen(extLen),
-		leftShift(0), rightShift(0), score(0), seqDivergence(0.0f)
+		score(0), seqDivergence(0.0f), kmerMatches(nullptr)
 	{}
+
+	~OverlapRange()
+	{
+		if (kmerMatches)
+		{
+			delete kmerMatches;
+			kmerMatches = nullptr;
+		}
+	}
+
+	OverlapRange(const OverlapRange& other):
+		curId(other.curId), curBegin(other.curBegin), curEnd(other.curEnd), curLen(other.curLen), 
+		extId(other.extId), extBegin(other.extBegin), extEnd(other.extEnd), extLen(other.extLen),
+		score(other.score), seqDivergence(other.seqDivergence), kmerMatches(nullptr)
+	{
+		if (other.kmerMatches)
+		{
+			kmerMatches = new std::vector<std::pair<int32_t, int32_t>>();
+			*kmerMatches = *other.kmerMatches;
+		}
+	}
+
+	OverlapRange& operator=(const OverlapRange& other)
+	{
+		curId = other.curId;
+		curBegin = other.curBegin;
+		curEnd = other.curEnd; 
+		curLen = other.curLen;
+		extId = other.extId;
+		extBegin = other.extBegin;
+		extEnd = other.extEnd;
+		extLen = other.extLen;
+		score = other.score;
+		seqDivergence = other.seqDivergence;
+
+		if (!other.kmerMatches)
+		{
+			if (kmerMatches) delete kmerMatches;
+			kmerMatches = nullptr;
+		}
+		else
+		{
+			if (!kmerMatches) kmerMatches = new std::vector<std::pair<int32_t, int32_t>>();
+			kmerMatches->clear();
+			*kmerMatches = *other.kmerMatches;
+		}
+
+		return *this;
+	}
+
+	OverlapRange(OverlapRange&& other):
+		curId(other.curId), curBegin(other.curBegin), curEnd(other.curEnd), curLen(other.curLen), 
+		extId(other.extId), extBegin(other.extBegin), extEnd(other.extEnd), extLen(other.extLen),
+		score(other.score), seqDivergence(other.seqDivergence), kmerMatches(other.kmerMatches)
+	{
+		other.kmerMatches = nullptr;
+	}
+
+
 	int32_t curRange() const {return curEnd - curBegin;}
+
 	int32_t extRange() const {return extEnd - extBegin;}
+
+	int32_t minRange() const {return std::min(curRange(), extRange());}
 
 	OverlapRange reverse() const
 	{
@@ -37,17 +99,18 @@ struct OverlapRange
 		std::swap(rev.curBegin, rev.extBegin);
 		std::swap(rev.curEnd, rev.extEnd);
 		std::swap(rev.curLen, rev.extLen);
-		rev.leftShift = -rev.leftShift;
-		rev.rightShift = -rev.rightShift;
 
-		for (auto& posPair : rev.kmerMatches) 
+		if (rev.kmerMatches)
 		{
-			std::swap(posPair.first, posPair.second);
+			for (auto& posPair : *rev.kmerMatches) 
+			{
+				std::swap(posPair.first, posPair.second);
+			}
+			std::sort(rev.kmerMatches->begin(), rev.kmerMatches->end(),
+					  [](const std::pair<int32_t, int32_t>& p1,
+						 const std::pair<int32_t, int32_t>& p2)
+						 {return p1.first < p2.first;});
 		}
-		std::sort(rev.kmerMatches.begin(), rev.kmerMatches.end(),
-				  [](const std::pair<int32_t, int32_t>& p1,
-				  	 const std::pair<int32_t, int32_t>& p2)
-				  	 {return p1.first < p2.first;});
 
 		return rev;
 	}
@@ -55,9 +118,9 @@ struct OverlapRange
 	OverlapRange complement() const
 	{
 		OverlapRange comp(*this);
-		std::swap(comp.leftShift, comp.rightShift);
-		comp.leftShift = -comp.leftShift;
-		comp.rightShift = -comp.rightShift;
+		//std::swap(comp.leftShift, comp.rightShift);
+		//comp.leftShift = -comp.leftShift;
+		//comp.rightShift = -comp.rightShift;
 
 		std::swap(comp.curBegin, comp.curEnd);
 		comp.curBegin = curLen - comp.curBegin - 1;
@@ -70,12 +133,15 @@ struct OverlapRange
 		comp.curId = comp.curId.rc();
 		comp.extId = comp.extId.rc();
 
-		for (auto& posPair : comp.kmerMatches) 
+		if (comp.kmerMatches)
 		{
-			posPair.first = curLen - posPair.first - 1, 
-			posPair.second = extLen - posPair.second - 1;
+			for (auto& posPair : *comp.kmerMatches) 
+			{
+				posPair.first = curLen - posPair.first - 1, 
+				posPair.second = extLen - posPair.second - 1;
+			}
+			std::reverse(comp.kmerMatches->begin(), comp.kmerMatches->end());
 		}
-		std::reverse(comp.kmerMatches.begin(), comp.kmerMatches.end());
 
 		return comp;
 	}
@@ -85,7 +151,7 @@ struct OverlapRange
 		if (curPos <= curBegin) return extBegin;
 		if (curPos >= curEnd) return extEnd;
 
-		if (kmerMatches.empty())
+		if (!kmerMatches)
 		{
 			float lengthRatio = (float)this->extRange() / this->curRange();
 			int32_t projectedPos = extBegin +
@@ -97,23 +163,39 @@ struct OverlapRange
 			auto cmpFirst = [] (const std::pair<int32_t, int32_t>& pair,
 							  	int32_t value)
 								{return pair.first < value;};
-			size_t i = std::lower_bound(kmerMatches.begin(), kmerMatches.end(),
-										curPos, cmpFirst) - kmerMatches.begin();
-			if(i == 0 || i == kmerMatches.size()) 
+			size_t i = std::lower_bound(kmerMatches->begin(), kmerMatches->end(),
+										curPos, cmpFirst) - kmerMatches->begin();
+			if(i == 0 || i == kmerMatches->size()) 
 			{
 				throw std::runtime_error("Error in overlap projection");
 			}
 
-			int32_t curInt = kmerMatches[i].first -
-							 kmerMatches[i - 1].first;
-			int32_t extInt = kmerMatches[i].second -
-							 kmerMatches[i - 1].second;
+			int32_t curInt = (*kmerMatches)[i].first -
+							 (*kmerMatches)[i - 1].first;
+			int32_t extInt = (*kmerMatches)[i].second -
+							 (*kmerMatches)[i - 1].second;
 			float lengthRatio = (float)extInt / curInt;
-			int32_t projectedPos = kmerMatches[i - 1].second +
-							float(curPos - kmerMatches[i - 1].first) * lengthRatio;
-			return std::max(kmerMatches[i - 1].second,
-							std::min(projectedPos, kmerMatches[i].second));
+			int32_t projectedPos = (*kmerMatches)[i - 1].second +
+							float(curPos - (*kmerMatches)[i - 1].first) * lengthRatio;
+			return std::max((*kmerMatches)[i - 1].second,
+							std::min(projectedPos, (*kmerMatches)[i].second));
 		}
+	}
+
+	int32_t leftShift() const
+	{
+		return curBegin - extBegin;
+	}
+
+	int32_t rightShift() const
+	{
+		return (extLen - extEnd) - (curLen - curEnd);
+	}
+
+	int32_t lrOverhang() const
+	{
+		return std::max(std::min(curBegin, extBegin),
+						std::min(curLen - curEnd, extLen - extEnd));
 	}
 
 	bool contains(int32_t curPos, int32_t extPos) const
@@ -149,18 +231,21 @@ struct OverlapRange
 		   << curBegin << " " << curEnd << " " 
 		   << curLen << " " << extContainer.seqName(extId) 
 		   << " " << extBegin << " " << extEnd << " " << extLen << " " 
-		   << leftShift << " " << rightShift << " " 
+		   << -1 << " " << -1 << " " 
 		   << score << " " << seqDivergence;
 	}
 
 	void load(std::istream& is, const SequenceContainer& curContainer,
 			  const SequenceContainer& extContainer)
 	{
+		int32_t placeholderOne;	//for backward compatibility
+		int32_t placeholderTwo;
+
 		std::string curSeqName;
 		std::string extSeqName;
 		is >> curSeqName >> curBegin >> curEnd 
 		   >> curLen >> extSeqName >> extBegin >> extEnd >> extLen
-		   >> leftShift >> rightShift >> score >> seqDivergence;
+		   >> placeholderOne >> placeholderTwo >> score >> seqDivergence;
 		curId = curContainer.recordByName(curSeqName).id;
 		extId = extContainer.recordByName(extSeqName).id;
 	}
@@ -184,12 +269,13 @@ struct OverlapRange
 	int32_t extEnd;
 	int32_t extLen;
 
-	int32_t leftShift;
-	int32_t rightShift;
+	//int32_t leftShift;
+	//int32_t rightShift;
 
 	int32_t score;
 	float   seqDivergence;
-	std::vector<std::pair<int32_t, int32_t>> kmerMatches;
+
+	std::vector<std::pair<int32_t, int32_t>>* kmerMatches;
 };
 
 
@@ -228,23 +314,24 @@ public:
 	OverlapDetector(const SequenceContainer& seqContainer,
 					const VertexIndex& vertexIndex,
 					int maxJump, int minOverlap, int maxOverhang,
-					int maxCurOverlaps, bool keepAlignment, bool onlyMaxExt,
-					float maxDivergence, float badEndAdjustment,
-					bool nuclAlignment):
+					bool keepAlignment, bool onlyMaxExt,
+					float maxDivergence, bool nuclAlignment,
+					bool partitionBadMappings, bool useHpc):
 		_maxJump(maxJump),
 		_minOverlap(minOverlap),
 		_maxOverhang(maxOverhang),
-		_maxCurOverlaps(maxCurOverlaps),
+		_maxCurOverlaps(0),	//no max overlaps
 		_checkOverhang(maxOverhang > 0),
 		_keepAlignment(keepAlignment),
 		_onlyMaxExt(onlyMaxExt),
 		_nuclAlignment(nuclAlignment),
+		_partitionBadMappings(partitionBadMappings),
+		_useHpc(useHpc),
 		_maxDivergence(maxDivergence),
-		_badEndAdjustment(badEndAdjustment),
-		_estimatorBias(0.0f),
+		//_badEndAdjustment(badEndAdjustment),
+		//_estimatorBias(0.0f),
 		_vertexIndex(vertexIndex),
 		_seqContainer(seqContainer)
-		//_seqHitCounter(_seqContainer.getMaxSeqId())
 	{
 	}
 
@@ -253,12 +340,12 @@ public:
 private:
 	std::vector<OverlapRange> 
 	getSeqOverlaps(const FastaRecord& fastaRec, 
-				   bool& outSuggestChiemeric,
+				   bool forceLocal,
 				   OvlpDivStats& divergenceStats,
 				   int maxOverlaps) const;
 
-	bool    overlapTest(const OverlapRange& ovlp, bool& outSuggestChimeric) const;
-	
+	bool    overlapTest(const OverlapRange& ovlp, bool forceLocal) const;
+
 	const int   _maxJump;
 	const int   _minOverlap;
 	const int   _maxOverhang;
@@ -267,16 +354,15 @@ private:
 	const bool  _keepAlignment;
 	const bool  _onlyMaxExt;
 	const bool  _nuclAlignment;
+	const bool  _partitionBadMappings;
+	const bool  _useHpc;
 
 	mutable float _maxDivergence;
-	mutable float _badEndAdjustment;
-	mutable float _estimatorBias;
+	//mutable float _badEndAdjustment;
+	//mutable float _estimatorBias;
 
 	const VertexIndex& _vertexIndex;
 	const SequenceContainer& _seqContainer;
-
-	//typedef unsigned char CounterType;
-	//std::vector<CounterType> _seqHitCounter;
 };
 
 
@@ -288,7 +374,7 @@ public:
 		_ovlpDetect(ovlpDetect),
 		_queryContainer(queryContainer),
 		_indexSize(0),
-		_kmerIdyEstimateBias(0),
+		//_kmerIdyEstimateBias(0),
 		_meanTrueOvlpDiv(0)
 	{}
 
@@ -321,13 +407,14 @@ public:
 
 	//finds and returns overlaps - no caching is done	
 	std::vector<OverlapRange> quickSeqOverlaps(FastaRecord::Id readId, 
-											   int maxOverlaps=0);
+											   int maxOverlaps=0,
+											   bool forceLocal=false);
 
 	size_t indexSize() {return _indexSize;}
 
 	void estimateOverlaperParameters();
 
-	void setRelativeDivergenceThreshold(float relThreshold);
+	void setDivergenceThreshold(float threshold, bool isRelative);
 
 	//The functions below are NOT thread safe.
 	//Do not mix them with any other functions
@@ -362,6 +449,75 @@ private:
 	std::unordered_map<FastaRecord::Id, 
 					   IntervalTree<const OverlapRange*>> _ovlpTree;
 
-	float _kmerIdyEstimateBias;
+	//float _kmerIdyEstimateBias;
 	float _meanTrueOvlpDiv;
+};
+
+//a helper to iterate over overlaps with no overhangs
+class OvlpIterator
+{
+public:
+	OvlpIterator(std::vector<OverlapRange>::const_iterator it,
+				 std::vector<OverlapRange>::const_iterator end,
+				 bool onlyNoOverhang):
+		it(it), end(end), onlyNoOverhang(onlyNoOverhang)
+	{
+		if (onlyNoOverhang)
+		{
+			static const int MAX_OVERHANG = Config::get("maximum_overhang");
+			while(it != end && it->lrOverhang() > MAX_OVERHANG) ++it;
+		}
+	}
+
+	bool operator==(const OvlpIterator& other) const
+	{
+		return it == other.it && onlyNoOverhang == other.onlyNoOverhang;
+	}
+	bool operator!=(const OvlpIterator& other) const
+	{
+		return !(*this == other);
+	}
+
+	//__attribute__((always_inline))
+	const OverlapRange& operator*() const
+	{
+		return *it;
+	}
+
+	OvlpIterator& operator++()
+	{
+		++it;
+		if (onlyNoOverhang)
+		{
+			static const int MAX_OVERHANG = Config::get("maximum_overhang");
+			while(it != end && it->lrOverhang() > MAX_OVERHANG) ++it;
+		}
+		return *this;
+	}
+
+private:
+	std::vector<OverlapRange>::const_iterator it;
+	std::vector<OverlapRange>::const_iterator end;
+	bool onlyNoOverhang;
+};
+
+class IterNoOverhang
+{
+public:
+	IterNoOverhang(const std::vector<OverlapRange>& ovlps): 
+		ovlps(ovlps), onlyNoOverhang(true) {}
+
+	OvlpIterator begin()
+	{
+		return OvlpIterator(ovlps.begin(), ovlps.end(), onlyNoOverhang);
+	}
+
+	OvlpIterator end()
+	{
+		return OvlpIterator(ovlps.end(), ovlps.end(), onlyNoOverhang);
+	}
+
+private:
+	const std::vector<OverlapRange>& ovlps;
+	bool onlyNoOverhang;
 };

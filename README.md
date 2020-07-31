@@ -3,17 +3,38 @@ Flye assembler
 
 [![BioConda Install](https://img.shields.io/conda/dn/bioconda/flye.svg?style=flag&label=BioConda%20install)](https://anaconda.org/bioconda/flye)
 
-### Version: 2.7b
+### Version: 2.7.1
 
 Flye is a de novo assembler for single molecule sequencing reads,
 such as those produced by PacBio and Oxford Nanopore Technologies.
 It is designed for a wide range of datasets, from small bacterial projects
 to large mammalian-scale assemblies. The package represents a complete
-pipeline: it takes raw PB / ONT reads as input and outputs polished contigs.
-Flye also includes a special mode for metagenome assembly.
+pipeline: it takes raw PacBio / ONT reads as input and outputs polished contigs.
+Flye also has a special mode for metagenome assembly.
+
+Manuals
+-------
+
+- [Installation instructions](docs/INSTALL.md)
+- [Usage](docs/USAGE.md)
+- [FAQ](docs/FAQ.md)
 
 Latest updates
 --------------
+
+### Flye 2.7.1. release (24 Apr 2020)
+* Fixes very long GFA generation time for some large assemblies (no other changes)
+
+### Flye 2.7 release (03 Mar 2020)
+* Better assemblies of real (and comlpex) metagenomes
+* New option to retain alternative haplotypes, rather than collapsing them (`--keep-haplotypes`)
+* PacBio HiFi mode
+* Using Bam instead of Sam to reduce storage requirements and IO load
+* Improved human assemblies
+* Annotation of alternative contigs
+* Better polishing quality for the newest ONT datasets
+* Trestle module is disabled by default (use `--trestle` to enable)
+* Many big fixes and improvements
 
 ### Flye 2.6 release (19 Sep 2019)
 * This release introduces Python 3 support (no other changes)
@@ -25,13 +46,6 @@ Latest updates
 * Improvements for human genome assemblies
 * Various bugfixes and performance optimizations
 * Also check the new [FAQ section](docs/FAQ.md)
-
-Manuals
--------
-
-- [Installation instructions](docs/INSTALL.md)
-- [Usage](docs/USAGE.md)
-- [FAQ](docs/FAQ.md)
 
 
 Repeat graph
@@ -76,14 +90,14 @@ Flye benchmarks
 | Genome                   | Data           | Asm.Size  | NG50     | CPU time  | RAM    |
 |--------------------------|----------------|-----------|----------|-----------|--------|
 | [E.coli][ecoli]          | PB 50x         | 4.6 Mb    | 4.6 Mb   | 2 h       | 2 Gb   |
-| [C.elegans][ce]          | PB 40x         | 102 Mb    | 2.9 Mb   | 100 h     | 31 Gb  |
-| [A.thaliana][at]         | PB 75x         | 120 Mb    | 10.7 Mb  | 100 h     | 46 Gb  |
-| [D.melanogaster][dm-ont] | ONT 30x        | 139 Mb    | 17.5 Mb  | 130 h     | 31 Gb  |     
-| [D.melanogaster][dm-pb]  | PB 120x        | 142 Mb    | 17.5 Mb  | 150 h     | 75 Gb  |     
-| [Human NA12878][na12878] | ONT 35x (rel6) | 2.9 Gb    | 22.6 Mb  | 2500 h    | 714 Gb |
-| [Human CHM13 T2T][t2t]   | ONT 50x (rel2) | 2.9 Gb    | 57.9 Mb  | 3600 h    | 871 Gb |
-| [Human HG002][hg002]     | PB CCS 30x     | 2.9 Gb    | 30.4 Mb  | 1400 h    | 272 Gb |
-| [Human CHM1][chm1]       | PB 100x        | 2.8 Gb    | 18.8 Mb  | 2700 h    | 676 Gb |
+| [C.elegans][ce]          | PB 40x         | 102 Mb    | 3.6 Mb   | 100 h     | 31 Gb  |
+| [A.thaliana][at]         | PB 75x         | 120 Mb    | 9.5 Mb   | 100 h     | 46 Gb  |
+| [D.melanogaster][dm-ont] | ONT 30x        | 139 Mb    | 10.6 Mb  | 130 h     | 31 Gb  |
+| [D.melanogaster][dm-pb]  | PB 120x        | 142 Mb    | 18.8 Mb  | 150 h     | 75 Gb  |
+| [Human NA12878][na12878] | ONT 35x (rel6) | 2.9 Gb    | 33.2 Mb  | 2500 h    | 714 Gb |
+| [Human CHM13 T2T][t2t]   | ONT 120x (rel3)| 2.9 Gb    | 75.1 Mb  | 5000 h    | 871 Gb |
+| [Human HG002][hg002]     | PB CCS 30x     | 2.9 Gb    | 27.5 Mb  | 1400 h    | 272 Gb |
+| [Human CHM1][chm1]       | PB 100x        | 2.8 Gb    | 21.5 Mb  | 2700 h    | 676 Gb |
 | [HMP mock][hmp]          | PB meta 7 Gb   | 66 Mb     | 2.6 Mb   | 60 h      | 72 Gb  |
 | [Zymo Even][zymo]        | ONT meta 14 Gb | 64 Mb     | 0.6 Mb   | 60 h      | 129 Gb |
 | [Zymo Log][zymo]         | ONT meta 16 Gb | 23 Mb     | 1.3 Mb   | 100 h     | 76 Gb  |
@@ -100,10 +114,10 @@ Flye benchmarks
 [t2t]: https://github.com/nanopore-wgs-consortium/CHM13
 [zymo]: https://github.com/LomanLab/mockcommunity
 
-The assemblies generated using Flye 2.5 could be downloaded from [Zenodo](https://zenodo.org/record/3353665).
-All datasets were run with default parameters with the following exceptions:
-CHM13 T2T was run with `--min-overlap 10000`; CHM1 was run with `--asm-overage 40`;
-HG002 was run with maximum read error rate set to 1%.
+The assemblies generated using Flye 2.7 could be downloaded from [Zenodo](https://zenodo.org/record/3694400).
+All datasets were run with default parameters for the corresponding read type
+with the following exceptions: CHM13 T2T was run with `--min-overlap 10000 --asm-coverage 50`;
+CHM1 was run with `--asm-coverage 40`.
 
 Third-party
 -----------
@@ -114,6 +128,7 @@ Flye package includes some third-party software:
 * [intervaltree](https://github.com/ekg/intervaltree)
 * [lemon](http://lemon.cs.elte.hu/trac/lemon)
 * [minimap2](https://github.com/lh3/minimap2)
+* [samtools](https://https://github.com/samtools/samtools)
 
 
 License
@@ -154,7 +169,7 @@ Before posting an issue/question, consider to look through the FAQ
 and existing issues (opened and closed) - it is possble that your question
 has already been answered.
 
-If you reporting a problem, please include the `flye.log` file and provide some 
-details about your dataset (if possible).
+If you reporting a problem, please include the `flye.log` file and provide
+details about your dataset.
 
 In case you prefer personal communication, please contact Mikhail at fenderglass@gmail.com.
