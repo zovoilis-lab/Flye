@@ -103,7 +103,7 @@ We coverted the raw `bas.h5` file to the FASTA format for the convenience.
     wget https://zenodo.org/record/1172816/files/E.coli_PacBio_40x.fasta
     flye --pacbio-raw E.coli_PacBio_40x.fasta --out-dir out_pacbio --threads 4
 
-with `the threads argument being optional (you may adjust it for your environment), 
+with the `threads` argument being optional (you may adjust it for your environment), 
 and `out_pacbio` being the directory where the assembly results will be placed.
 
 ### E. coli Oxford Nanopore Technologies data
