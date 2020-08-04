@@ -3,7 +3,7 @@ Flye assembler
 
 [![BioConda Install](https://img.shields.io/conda/dn/bioconda/flye.svg?style=flag&label=BioConda%20install)](https://anaconda.org/bioconda/flye)
 
-### Version: 2.7.1
+### Version: 2.8
 
 Flye is a de novo assembler for single molecule sequencing reads,
 such as those produced by PacBio and Oxford Nanopore Technologies.
@@ -21,6 +21,15 @@ Manuals
 
 Latest updates
 --------------
+
+### Flye 2.8 release (08 Aug 2020)
+* Improvements in contiguity and speed for PacBio HiFi mode
+* Using the `--meta` k-mer selection strategy in isolate assemblies as well.
+This strategy is more robust to drops in coverage/contamination and reqires less memory
+* 1.5-2x RAM footprint reduction for large assemblies (e.g. human ONT assembly now uses 400-500 Gb)
+* Genome size parameter is no longer required (it is still needed for downsampling though `--asm-coverage`)
+* Flye now can occasionally use overlaps shorter than "minOverlap" parameter to close disjointig gaps
+* Various improvements and bugfixes
 
 ### Flye 2.7.1. release (24 Apr 2020)
 * Fixes very long GFA generation time for some large assemblies (no other changes)
@@ -90,17 +99,18 @@ Flye benchmarks
 | Genome                   | Data           | Asm.Size  | NG50     | CPU time  | RAM    |
 |--------------------------|----------------|-----------|----------|-----------|--------|
 | [E.coli][ecoli]          | PB 50x         | 4.6 Mb    | 4.6 Mb   | 2 h       | 2 Gb   |
-| [C.elegans][ce]          | PB 40x         | 102 Mb    | 3.6 Mb   | 100 h     | 31 Gb  |
-| [A.thaliana][at]         | PB 75x         | 120 Mb    | 9.5 Mb   | 100 h     | 46 Gb  |
-| [D.melanogaster][dm-ont] | ONT 30x        | 139 Mb    | 10.6 Mb  | 130 h     | 31 Gb  |
-| [D.melanogaster][dm-pb]  | PB 120x        | 142 Mb    | 18.8 Mb  | 150 h     | 75 Gb  |
-| [Human NA12878][na12878] | ONT 35x (rel6) | 2.9 Gb    | 33.2 Mb  | 2500 h    | 714 Gb |
-| [Human CHM13 T2T][t2t]   | ONT 120x (rel3)| 2.9 Gb    | 75.1 Mb  | 5000 h    | 871 Gb |
-| [Human HG002][hg002]     | PB CCS 30x     | 2.9 Gb    | 27.5 Mb  | 1400 h    | 272 Gb |
-| [Human CHM1][chm1]       | PB 100x        | 2.8 Gb    | 21.5 Mb  | 2700 h    | 676 Gb |
-| [HMP mock][hmp]          | PB meta 7 Gb   | 66 Mb     | 2.6 Mb   | 60 h      | 72 Gb  |
-| [Zymo Even][zymo]        | ONT meta 14 Gb | 64 Mb     | 0.6 Mb   | 60 h      | 129 Gb |
-| [Zymo Log][zymo]         | ONT meta 16 Gb | 23 Mb     | 1.3 Mb   | 100 h     | 76 Gb  |
+| [C.elegans][ce]          | PB 40x         | 106 Mb    | 4.3 Mb   | 100 h     | 31 Gb  |
+| [A.thaliana][at]         | PB 75x         | 119 Mb    | 11.9 Mb  | 100 h     | 59 Gb  |
+| [D.melanogaster][dm-ont] | ONT 30x        | 136 Mb    | 19.9 Mb  | 130 h     | 33 Gb  |
+| [D.melanogaster][dm-pb]  | PB 120x        | 141 Mb    | 18.8 Mb  | 150 h     | 70 Gb  |
+| [Human NA12878][na12878] | ONT 35x (rel6) | 2.8 Gb    | 37.9 Mb  | 3100 h    | 394 Gb |
+| [Human CHM13 ONT][t2t]   | ONT 120x (rel5)| 2.9 Gb    | 69.4 Mb  | 4000 h    | 450 Gb |
+| [Human CHM13 HiFi][t2t]  | PB HiFi 30x    | 3.0 Gb    | 39.8 Mb  | 780 h     | 141 Gb |
+| [Human HG002][hg002]     | PB HiFi 30x    | 3.0 Gb    | 33.5 Mb  | 630 h     | 138 Gb |
+| [Human CHM1][chm1]       | PB 100x        | 2.8 Gb    | 18.3 Mb  | 2700 h    | 444 Gb |
+| [HMP mock][hmp]          | PB meta 7 Gb   | 68 Mb     | 2.6 Mb   | 60 h      | 72 Gb  |
+| [Zymo Even][zymo]        | ONT meta 14 Gb | 65 Mb     | 0.7 Mb   | 60 h      | 129 Gb |
+| [Zymo Log][zymo]         | ONT meta 16 Gb | 29 Mb     | 0.2 Mb   | 100 h     | 76 Gb  |
 
 [na12878]: https://github.com/nanopore-wgs-consortium/NA12878/blob/master/Genome.md
 [ce]: https://github.com/PacificBiosciences/DevNet/wiki/C.-elegans-data-set
@@ -114,10 +124,11 @@ Flye benchmarks
 [t2t]: https://github.com/nanopore-wgs-consortium/CHM13
 [zymo]: https://github.com/LomanLab/mockcommunity
 
-The assemblies generated using Flye 2.7 could be downloaded from [Zenodo](https://zenodo.org/record/3694400).
+The assemblies generated using Flye 2.8 could be downloaded from [Zenodo](https://zenodo.org/record/3965035).
 All datasets were run with default parameters for the corresponding read type
 with the following exceptions: CHM13 T2T was run with `--min-overlap 10000 --asm-coverage 50`;
-CHM1 was run with `--asm-coverage 40`.
+CHM1 was run with `--asm-coverage 50`. CHM13 HiFi and HG002 HiFi datasets were run in
+`--pacbio-hifi` mode and reduced error rate threshold (0.003%).
 
 Third-party
 -----------
@@ -142,8 +153,9 @@ Credits
 
 Flye is developed in [Pavel Pevzner's lab at UCSD](http://cseweb.ucsd.edu/~ppevzner/)
 
-Code contributions:
+Main code contributors:
 
+* metaFlye: Mikhail Kolmogorov
 * Repeat graph and current package maintaining: Mikhail Kolmogorov
 * Trestle module and original polisher code: Jeffrey Yuan
 * Original contig extension code: Yu Lin
@@ -155,6 +167,10 @@ Publications
 Mikhail Kolmogorov, Jeffrey Yuan, Yu Lin and Pavel Pevzner, 
 "Assembly of Long Error-Prone Reads Using Repeat Graphs", Nature Biotechnology, 2019
 [doi:10.1038/s41587-019-0072-8](https://doi.org/10.1038/s41587-019-0072-8)
+
+Mikhail Kolmogorov, Mikhail Rayko, Jeffrey Yuan, Evgeny Polevikov, Pavel Pevzner,
+"metaFlye: scalable long-read metagenome assembly using repeat graphs", bioRxiv, 2019
+[doi:10.1101/637637](https://doi.org/10.1101/637637)
 
 Yu Lin, Jeffrey Yuan, Mikhail Kolmogorov, Max W Shen, Mark Chaisson and Pavel Pevzner, 
 "Assembly of Long Error-Prone Reads Using de Bruijn Graphs", PNAS, 2016

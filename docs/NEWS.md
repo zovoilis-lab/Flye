@@ -1,3 +1,13 @@
+Flye 2.8 release (08 Aug 2020)
+==============================
+* Improvements in contiguity and speed for PacBio HiFi mode
+* Using the `--meta` k-mer selection strategy in isolate assemblies as well.
+This strategy is more robust to drops in coverage/contamination and reqires less memory
+* 1.5-2x RAM footprint reduction for large assemblies (e.g. human ONT assembly now uses 400-500 Gb)
+* Genome size parameter is no longer required (it is still needed for downsampling though `--asm-coverage`)
+* Flye now can occasionally use overlaps shorter than "minOverlap" parameter to close disjointig gaps
+* Various improvements and bugfixes
+
 Flye 2.7.1. release (24 Apr 2020)
 =================================
 * Fixes very long GFA generation time for some large assemblies (no other changes)

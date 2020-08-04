@@ -325,17 +325,18 @@ the `20-repeat/graph_before_rr.gv` file.
 | Genome                   | Data           | Asm.Size  | NG50     | CPU time  | RAM    |
 |--------------------------|----------------|-----------|----------|-----------|--------|
 | [E.coli][ecoli]          | PB 50x         | 4.6 Mb    | 4.6 Mb   | 2 h       | 2 Gb   |
-| [C.elegans][ce]          | PB 40x         | 102 Mb    | 3.6 Mb   | 100 h     | 31 Gb  |
-| [A.thaliana][at]         | PB 75x         | 120 Mb    | 9.5 Mb   | 100 h     | 46 Gb  |
-| [D.melanogaster][dm-ont] | ONT 30x        | 139 Mb    | 10.6 Mb  | 130 h     | 31 Gb  |
-| [D.melanogaster][dm-pb]  | PB 120x        | 142 Mb    | 18.8 Mb  | 150 h     | 75 Gb  |
-| [Human NA12878][na12878] | ONT 35x (rel6) | 2.9 Gb    | 33.2 Mb  | 2500 h    | 714 Gb |
-| [Human CHM13 T2T][t2t]   | ONT 120x (rel3)| 2.9 Gb    | 75.1 Mb  | 5000 h    | 871 Gb |
-| [Human HG002][hg002]     | PB CCS 30x     | 2.9 Gb    | 27.5 Mb  | 1400 h    | 272 Gb |
-| [Human CHM1][chm1]       | PB 100x        | 2.8 Gb    | 21.5 Mb  | 2700 h    | 676 Gb |
-| [HMP mock][hmp]          | PB meta 7 Gb   | 66 Mb     | 2.6 Mb   | 60 h      | 72 Gb  |
-| [Zymo Even][zymo]        | ONT meta 14 Gb | 64 Mb     | 0.6 Mb   | 60 h      | 129 Gb |
-| [Zymo Log][zymo]         | ONT meta 16 Gb | 23 Mb     | 1.3 Mb   | 100 h     | 76 Gb  |
+| [C.elegans][ce]          | PB 40x         | 106 Mb    | 4.3 Mb   | 100 h     | 31 Gb  |
+| [A.thaliana][at]         | PB 75x         | 119 Mb    | 11.9 Mb  | 100 h     | 59 Gb  |
+| [D.melanogaster][dm-ont] | ONT 30x        | 136 Mb    | 19.9 Mb  | 130 h     | 33 Gb  |
+| [D.melanogaster][dm-pb]  | PB 120x        | 141 Mb    | 18.8 Mb  | 150 h     | 70 Gb  |
+| [Human NA12878][na12878] | ONT 35x (rel6) | 2.8 Gb    | 37.9 Mb  | 3100 h    | 394 Gb |
+| [Human CHM13 ONT][t2t]   | ONT 120x (rel5)| 2.9 Gb    | 69.4 Mb  | 4000 h    | 450 Gb |
+| [Human CHM13 HiFi][t2t]  | PB HiFi 30x    | 3.0 Gb    | 39.8 Mb  | 780 h     | 141 Gb |
+| [Human HG002][hg002]     | PB HiFi 30x    | 3.0 Gb    | 33.5 Mb  | 630 h     | 138 Gb |
+| [Human CHM1][chm1]       | PB 100x        | 2.8 Gb    | 18.3 Mb  | 2700 h    | 444 Gb |
+| [HMP mock][hmp]          | PB meta 7 Gb   | 68 Mb     | 2.6 Mb   | 60 h      | 72 Gb  |
+| [Zymo Even][zymo]        | ONT meta 14 Gb | 65 Mb     | 0.7 Mb   | 60 h      | 129 Gb |
+| [Zymo Log][zymo]         | ONT meta 16 Gb | 29 Mb     | 0.2 Mb   | 100 h     | 76 Gb  |
 
 [na12878]: https://github.com/nanopore-wgs-consortium/NA12878/blob/master/Genome.md
 [ce]: https://github.com/PacificBiosciences/DevNet/wiki/C.-elegans-data-set
@@ -349,10 +350,11 @@ the `20-repeat/graph_before_rr.gv` file.
 [t2t]: https://github.com/nanopore-wgs-consortium/CHM13
 [zymo]: https://github.com/LomanLab/mockcommunity
 
-The assemblies generated using Flye 2.7 could be downloaded from [Zenodo](https://zenodo.org/record/3694400).
+The assemblies generated using Flye 2.8 could be downloaded from [Zenodo](https://zenodo.org/record/3965035).
 All datasets were run with default parameters for the corresponding read type
 with the following exceptions: CHM13 T2T was run with `--min-overlap 10000 --asm-coverage 50`;
-CHM1 was run with `--asm-coverage 40`.
+CHM1 was run with `--asm-coverage 50`. CHM13 HiFi and HG002 HiFi datasets were run in
+`--pacbio-hifi` mode and reduced error rate threshold (0.003%).
 
 ## <a name="algorithm"></a> Algorithm Description
 
