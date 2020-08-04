@@ -18,13 +18,13 @@ Table of Contents
 
 ```
 usage: flye (--pacbio-raw | --pacbio-corr | --pacbio-hifi | --nano-raw |
-         --nano-corr | --subassemblies) file1 [file_2 ...]
-         --genome-size SIZE --out-dir PATH
+	     --nano-corr | --subassemblies) file1 [file_2 ...]
+	     --out-dir PATH
 
-         [--threads int] [--iterations int] [--min-overlap int]
-         [--meta] [--plasmids] [--trestle] [--polish-target]
-         [--keep-haplotypes] [--debug] [--version] [--help] 
-         [--resume] [--resume-from] [--stop-after]
+	     [--genome-size SIZE] [--threads int] [--iterations int]
+	     [--meta] [--plasmids] [--trestle] [--polish-target]
+	     [--keep-haplotypes] [--debug] [--version] [--help] 
+	     [--resume] [--resume-from] [--stop-after] [--min-overlap SIZE]
 
 Assembly of long reads with repeat graphs
 
@@ -79,20 +79,16 @@ files with reads (separated by spaces). Mixing different read
 types is not yet supported. The --meta option enables the mode
 for metagenome/uneven coverage assembly.
 
-You must provide an estimate of the genome size as input,
-which is used for solid k-mers selection. Standard size
-modifiers are supported (e.g. 5m or 2.6g). In the case
-of metagenome assembly, the expected total assembly size
-should be provided.
+Genome size estimate is no longer a required option. You
+need to provide an estimate if using --asm-coverage option.
 
 To reduce memory consumption for large genome assemblies,
 you can use a subset of the longest reads for initial disjointig
-assembly by specifying --asm-coverage option. Typically,
+assembly by specifying --asm-coverage and --genome-size options. Typically,
 40x coverage is enough to produce good disjointigs.
 
 You can run Flye polisher as a standalone tool using
 --polish-target option.
-
 
 ## <a name="examples"></a> Examples
 
@@ -105,11 +101,10 @@ The original dataset is available at the
 We coverted the raw `bas.h5` file to the FASTA format for the convenience.
 
     wget https://zenodo.org/record/1172816/files/E.coli_PacBio_40x.fasta
-    flye --pacbio-raw E.coli_PacBio_40x.fasta --out-dir out_pacbio --genome-size 5m --threads 4
+    flye --pacbio-raw E.coli_PacBio_40x.fasta --out-dir out_pacbio --threads 4
 
-with `5m` being the expected genome size, the threads argument being optional 
-(you may adjust it for your environment), and `out_pacbio` being the directory
-where the assembly results will be placed.
+with `the threads argument being optional (you may adjust it for your environment), 
+and `out_pacbio` being the directory where the assembly results will be placed.
 
 ### E. coli Oxford Nanopore Technologies data
 
@@ -117,7 +112,7 @@ The dataset was originally released by the
 [Loman lab](http://lab.loman.net/2015/09/24/first-sqk-map-006-experiment/).
 
     wget https://zenodo.org/record/1172816/files/Loman_E.coli_MAP006-1_2D_50x.fasta
-    flye --nano-raw Loman_E.coli_MAP006-1_2D_50x.fasta --out-dir out_nano --genome-size 5m --threads 4
+    flye --nano-raw Loman_E.coli_MAP006-1_2D_50x.fasta --out-dir out_nano --threads 4
 
 
 ## <a name="inputdata"></a> Supported Input Data
@@ -162,19 +157,15 @@ is <1%. You might want to skip the polishing stage with ```--iterations 0``` arg
 Flye works directly with base-called raw reads and does not require any 
 prior error correction. Flye automatically detects chimeric reads or reads with low quality ends, 
 so you do not need to curate them before the assembly. However, it is always
-worth checking for possible contamination in the reads, since it may affect the 
-automatic selection of estimated parameters for solid kmers and genome size / coverage.
+worth checking for possible contamination in the reads.
 
 
 ## <a name="parameters"></a> Parameter descriptions
 
-### Estimated genome size (required)
+### Estimated genome size (optional since 2.8)
 
-You must provide an estimate of the genome size as input,
-which is used for solid k-mers selection. The estimate could
-be rough (e.g. withing 0.5x-2x range) and does not affect
-the other assembly stages. Standard size modificators are
-supported (e.g. 5m or 2.6g)
+No longer reuired as input. However, it must be used in conjunction with
+`--asm-coverage` option.
 
 ### Minimum overlap length
 
