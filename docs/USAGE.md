@@ -117,24 +117,26 @@ The dataset was originally released by the
 
 ## <a name="inputdata"></a> Supported Input Data
 
-### PacBio data
+### Oxford Nanopore
 
-Flye was tested on raw PacBio reads (P5C3 and P6C4) with error rate ~15%.
+We performed our benchmarks with raw ONT reads (R7-R10) with error rate 5-15%.
+Due to the biased error pattern, per-nucleotide accuracy is usually lower for 
+ONT data than with PacBio data, especially in homopolymer regions.
+
+### PacBio HiFi
+
+Flye now supports assembly of PacBio HiFi protocol via `--pacbio-hifi` option.
+The expected read error is <1%.
+
+### PacBio CLR
+
+Flye was tested on raw PacBio CLR reads (P5C3 and P6C4) with error rate ~15%.
 Note that Flye assumes that the input files represent PacBio subreads,
 e.g. adaptors and noise are trimmed and multiple passes of the same insertion
 sequence are separated. This is typically handled by PacBio instruments/toolchains,
 however we saw examples of incorrect third-party raw -> fastq conversions, 
 which resulted into incorrectly trimmed data. In case Flye is failing to
 get reasonable assemblies, make sure that your reads are properly preprocessed.
-
-Flye now supports assembly of PacBio HiFi protocol via `--pacbio-hifi` option.
-The expected read error is <1%.
-
-### Oxford Nanopore data
-
-We performed our benchmarks with raw ONT reads (R7-R9) with error rate ~15%.
-Due to the biased error pattern, per-nucleotide accuracy is usually lower for 
-ONT data than with PacBio data, especially in homopolymer regions.
 
 ### Error-corrected reads input
 

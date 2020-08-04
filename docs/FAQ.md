@@ -54,7 +54,7 @@ Is Flye suitable for assembly of very short sequences, such as viruses, phages, 
 -------------------------------------------------------------------------------------------------
 
 No guarantees. Currently, the support of very short sequences, such as viruses, 
-phages, mitochondria is limited. We excpect this to improve in the future versions.
+phages, mitochondria is limited. We expect this to improve in the future versions.
 Assembly of short plasmids *is* supported through the `--plasmids` option.
 
 How much resources (CPU / RAM) do I need for my genome?
