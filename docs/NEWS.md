@@ -1,4 +1,4 @@
-Flye 2.8 release (08 Aug 2020)
+Flye 2.8 release (04 Aug 2020)
 ==============================
 * Improvements in contiguity and speed for PacBio HiFi mode
 * Using the `--meta` k-mer selection strategy in isolate assemblies as well.
