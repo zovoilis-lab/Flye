@@ -121,7 +121,7 @@ int assemble_main(int argc, char** argv)
 	std::set_terminate(exceptionHandler);
 	#endif
 
-	int kmerSize = 15;
+	int kmerSize = -1;
 	int minReadLength = 0;
 	size_t genomeSize = 0;
 	int minOverlap = 5000;
@@ -149,6 +149,10 @@ int assemble_main(int argc, char** argv)
 	Logger::get().debug() << "Total CPUs: " << std::thread::hardware_concurrency();
 
 	Config::load(configPath);
+	if (kmerSize == -1)
+	{
+		kmerSize = Config::get("kmer_size");
+	}
 	Parameters::get().numThreads = numThreads;
 	Parameters::get().kmerSize = kmerSize;
 	Parameters::get().minimumOverlap = minOverlap;

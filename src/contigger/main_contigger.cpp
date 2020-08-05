@@ -132,7 +132,7 @@ int contigger_main(int argc, char** argv)
 
 	bool debugging = false;
 	size_t numThreads = 1;
-	int kmerSize = 15;
+	int kmerSize = -1;
 	int minOverlap = 5000;
 	bool noScaffold = false;
 	std::string readsFasta;
@@ -160,6 +160,10 @@ int contigger_main(int argc, char** argv)
 
 	
 	Config::load(configPath);
+	if (kmerSize == -1)
+	{
+		kmerSize = Config::get("kmer_size");
+	}
 	Parameters::get().numThreads = numThreads;
 	Parameters::get().kmerSize = kmerSize;
 	Parameters::get().minimumOverlap = minOverlap;
