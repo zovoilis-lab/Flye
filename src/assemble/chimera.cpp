@@ -150,7 +150,7 @@ bool ChimeraDetector::testReadByCoverage(FastaRecord::Id readId,
 		sumCov += cov;
 	}
 	int32_t medianCoverage = median(coverage);
-	if (sumCov == 0) return false;	//no overlaps found, but it's not chimeric either
+	if (sumCov == 0) return true;
 
 	int threshold = 0;	
 	if (!Parameters::get().unevenCoverage)
