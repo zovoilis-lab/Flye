@@ -81,6 +81,20 @@ public:
 		return itVal->second;
 	}
 
+	static void addParameters(const std::string& paramsString)
+	{
+		Logger::get().debug() << "Extrta parameters:";
+		auto params = splitString(paramsString, ',');
+		for (auto param : params)
+		{
+			auto keyVal = splitString(param, '=');
+			std::string key = trimString(keyVal[0]);
+			std::string value = trimString(keyVal[1]);
+			Config::instance()._parameters[key] = std::atof(value.c_str());
+			Logger::get().debug() << "\t" << key << "=" << value;
+		}
+	}
+
 private:
 	Config(){}
 	std::unordered_map<std::string, float> _parameters;
