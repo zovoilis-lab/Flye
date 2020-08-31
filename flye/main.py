@@ -606,7 +606,8 @@ def _usage():
             "\t     [--genome-size SIZE] [--threads int] [--iterations int]\n"
             "\t     [--meta] [--plasmids] [--trestle] [--polish-target]\n"
             "\t     [--keep-haplotypes] [--debug] [--version] [--help] \n"
-            "\t     [--resume] [--resume-from] [--stop-after] [--min-overlap SIZE]")
+            "\t     [--resume] [--resume-from] [--stop-after] \n"
+            "\t     [--hifi-error] [--min-overlap SIZE]")
 
 
 def _epilog():
@@ -698,6 +699,9 @@ def main():
     parser.add_argument("--asm-coverage", dest="asm_coverage", metavar="int",
                         default=None, help="reduced coverage for initial "
                         "disjointig assembly [not set]", type=int)
+    parser.add_argument("--hifi-error", dest="hifi_error", metavar="float",
+                        default=None, help="expected HiFi reads error rate (e.g. 0.01 or 0.001)"
+                        " [0.01]", type=float)
     parser.add_argument("--plasmids", action="store_true",
                         dest="plasmids", default=False,
                         help="rescue short unassembled plasmids")
@@ -734,6 +738,9 @@ def main():
 
     if args.asm_coverage and args.meta:
         parser.error("--asm-coverage is incompatible with --meta")
+
+    if args.hifi_error and not args.pacbio_hifi:
+        parser.error("--hifi-error can only be used with --pacbio-hifi")
 
     #if not args.genome_size and not args.polish_target:
     #    parser.error("Genome size argument (-g/--genome-size) "

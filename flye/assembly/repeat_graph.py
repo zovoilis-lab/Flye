@@ -53,6 +53,10 @@ def analyse_repeats(args, run_params, input_assembly, out_folder,
     #    cmdline.extend(["--kmer", str(args.kmer_size)])
     cmdline.extend(["--min-ovlp", str(run_params["min_overlap"])])
 
+    if args.hifi_error:
+        cmdline.extend(["--extra-params",
+                        "repeat_graph_ovlp_divergence={}".format(args.hifi_error)])
+
     try:
         logger.debug("Running: " + " ".join(cmdline))
         subprocess.check_call(cmdline)

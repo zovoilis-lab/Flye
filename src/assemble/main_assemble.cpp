@@ -25,13 +25,14 @@
 bool parseArgs(int argc, char** argv, std::string& readsFasta, 
 			   std::string& outAssembly, std::string& logFile, size_t& genomeSize,
 			   int& kmerSize, bool& debug, size_t& numThreads, int& minOverlap, 
-			   std::string& configPath, int& minReadLength, bool& unevenCov)
+			   std::string& configPath, int& minReadLength, bool& unevenCov, 
+			   std::string& extraParams)
 {
 	auto printUsage = []()
 	{
 		std::cerr << "Usage: flye-assemble "
 				  << " --reads path --out-asm path --config path [--genome-size size]\n"
-				  << "\t\t[--min-read length] [--log path] [--treads num]\n"
+				  << "\t\t[--min-read length] [--log path] [--treads num] [--extra-params]\n"
 				  << "\t\t[--kmer size] [--meta] [--min-ovlp size] [--debug] [-h]\n\n"
 				  << "Required arguments:\n"
 				  << "  --reads path\tcomma-separated list of read files\n"
@@ -46,6 +47,8 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 				  << "[default = false] \n"
 				  << "  --meta \t\tenable uneven coverage (metagenome) mode "
 				  << "[default = false] \n"
+				  << "  --extra-params additional config parameters "
+				  << "[default = not set] \n"
 				  << "  --log log_file\toutput log to file "
 				  << "[default = not set] \n"
 				  << "  --threads num_threads\tnumber of parallel threads "
@@ -64,6 +67,7 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 		{"threads", required_argument, 0, 0},
 		{"kmer", required_argument, 0, 0},
 		{"min-ovlp", required_argument, 0, 0},
+		{"extra-params", required_argument, 0, 0},
 		{"meta", no_argument, 0, 0},
 		{"debug", no_argument, 0, 0},
 		{0, 0, 0, 0}
@@ -97,6 +101,8 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 				genomeSize = atoll(optarg);
 			else if (!strcmp(longOptions[optionIndex].name, "config"))
 				configPath = optarg;
+			else if (!strcmp(longOptions[optionIndex].name, "extra-params"))
+				extraParams = optarg;
 			break;
 
 		case 'h':
@@ -132,10 +138,11 @@ int assemble_main(int argc, char** argv)
 	std::string outAssembly;
 	std::string logFile;
 	std::string configPath;
+	std::string extraParams;
 
 	if (!parseArgs(argc, argv, readsFasta, outAssembly, logFile, genomeSize,
 				   kmerSize, debugging, numThreads, minOverlap, configPath, 
-				   minReadLength, unevenCov)) return 1;
+				   minReadLength, unevenCov, extraParams)) return 1;
 
 	Logger::get().setDebugging(debugging);
 	if (!logFile.empty()) Logger::get().setOutputFile(logFile);
@@ -149,6 +156,7 @@ int assemble_main(int argc, char** argv)
 	Logger::get().debug() << "Total CPUs: " << std::thread::hardware_concurrency();
 
 	Config::load(configPath);
+	if (!extraParams.empty()) Config::addParameters(extraParams);
 	if (kmerSize == -1)
 	{
 		kmerSize = Config::get("kmer_size");
