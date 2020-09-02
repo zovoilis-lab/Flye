@@ -3,7 +3,7 @@ Flye assembler
 
 [![BioConda Install](https://img.shields.io/conda/dn/bioconda/flye.svg?style=flag&label=BioConda%20install)](https://anaconda.org/bioconda/flye)
 
-### Version: 2.8
+### Version: 2.8.1
 
 Flye is a de novo assembler for single molecule sequencing reads,
 such as those produced by PacBio and Oxford Nanopore Technologies.
@@ -21,6 +21,9 @@ Manuals
 
 Latest updates
 --------------
+
+### Flye 2.8.1 release (02 Sep 2020)
+* Added a new option `--hifi-error` to control the expected error rate of HiFi reads (no other changes)
 
 ### Flye 2.8 release (04 Aug 2020)
 * Improvements in contiguity and speed for PacBio HiFi mode
@@ -128,7 +131,7 @@ The assemblies generated using Flye 2.8 could be downloaded from [Zenodo](https:
 All datasets were run with default parameters for the corresponding read type
 with the following exceptions: CHM13 T2T was run with `--min-overlap 10000 --asm-coverage 50`;
 CHM1 was run with `--asm-coverage 50`. CHM13 HiFi and HG002 HiFi datasets were run in
-`--pacbio-hifi` mode and reduced error rate threshold (0.003%).
+`--pacbio-hifi` mode and `--hifi-error 0.003`.
 
 Third-party
 -----------

@@ -54,6 +54,8 @@ optional arguments:
                         minimum overlap between reads [auto]
   --asm-coverage int    reduced coverage for initial disjointig assembly [not
                         set]
+  --hifi-error float    expected HiFi reads error rate (e.g. 0.01 or 0.001)
+                        [0.01]
   --plasmids            rescue short unassembled plasmids
   --meta                metagenome / uneven coverage mode
   --keep-haplotypes     do not collapse alternative haplotypes
@@ -126,7 +128,9 @@ ONT data than with PacBio data, especially in homopolymer regions.
 ### PacBio HiFi
 
 Flye now supports assembly of PacBio HiFi protocol via `--pacbio-hifi` option.
-The expected read error is <1%.
+The expected read error is 1% by default. In case the reads are more accurate,
+you can adjust `--hifi-error` parameter (for example to 0.001) to potentially
+generate more complete assemblies.
 
 ### PacBio CLR
 
@@ -347,7 +351,7 @@ The assemblies generated using Flye 2.8 could be downloaded from [Zenodo](https:
 All datasets were run with default parameters for the corresponding read type
 with the following exceptions: CHM13 T2T was run with `--min-overlap 10000 --asm-coverage 50`;
 CHM1 was run with `--asm-coverage 50`. CHM13 HiFi and HG002 HiFi datasets were run in
-`--pacbio-hifi` mode and reduced error rate threshold (0.003%).
+`--pacbio-hifi` mode and `--hifi-error 0.003`.
 
 ## <a name="algorithm"></a> Algorithm Description
 
