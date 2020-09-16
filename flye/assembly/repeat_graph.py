@@ -49,8 +49,13 @@ def analyse_repeats(args, run_params, input_assembly, out_folder,
         cmdline.append("--meta")
     if args.keep_haplotypes:
         cmdline.append("--keep-haplotypes")
+    #if args.kmer_size:
+    #    cmdline.extend(["--kmer", str(args.kmer_size)])
     cmdline.extend(["--min-ovlp", str(run_params["min_overlap"])])
-    cmdline.extend(["--kmer", str(run_params["kmer_size"])])
+
+    if args.hifi_error:
+        cmdline.extend(["--extra-params",
+                        "repeat_graph_ovlp_divergence={}".format(args.hifi_error)])
 
     try:
         logger.debug("Running: " + " ".join(cmdline))
@@ -76,8 +81,9 @@ def generate_contigs(args, run_params, graph_edges, out_folder,
         cmdline.append("--debug")
     if args.keep_haplotypes:
         cmdline.append("--no-scaffold")
+    #if args.kmer_size:
+    #    cmdline.extend(["--kmer", str(args.kmer_size)])
     cmdline.extend(["--min-ovlp", str(run_params["min_overlap"])])
-    cmdline.extend(["--kmer", str(run_params["kmer_size"])])
 
     try:
         logger.debug("Running: " + " ".join(cmdline))

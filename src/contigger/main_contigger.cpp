@@ -27,7 +27,8 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 			   std::string& inGraphEdges, int& kmerSize,
 			   int& minOverlap, bool& debug, size_t& numThreads, 
 			   std::string& configPath, std::string& inRepeatGraph,
-			   std::string& inReadsAlignment, bool& noScaffold)
+			   std::string& inReadsAlignment, bool& noScaffold,
+			   std::string& extraParams)
 {
 	auto printUsage = []()
 	{
@@ -35,7 +36,7 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 				  << " --graph-edges path --reads path --out-dir path --config path\n"
 				  << "\t\t--repeat-graph path --graph-aln path\n"
 				  << "\t\t[--log path] [--treads num] [--kmer size] [--no-scaffold]\n"
-				  << "\t\t[--min-ovlp size] [--debug] [-h]\n\n"
+				  << "\t\t[--min-ovlp size] [--debug] [--extra-params] [-h]\n\n"
 				  << "Required arguments:\n"
 				  << "  --graph-edges path\tpath to fasta with graph edges\n"
 				  << "  --repeat-graph path\tpath to serialized repeat graph\n"
@@ -52,6 +53,8 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 				  << "  --no-scaffold \t\tdisable scaffolding "
 				  << "[default = false] \n"
 				  << "  --log log_file\toutput log to file "
+				  << "[default = not set] \n"
+				  << "  --extra-params additional config parameters "
 				  << "[default = not set] \n"
 				  << "  --threads num_threads\tnumber of parallel threads "
 				  << "[default = 1] \n";
@@ -70,6 +73,7 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 		{"threads", required_argument, 0, 0},
 		{"kmer", required_argument, 0, 0},
 		{"min-ovlp", required_argument, 0, 0},
+		{"extra-params", required_argument, 0, 0},
 		{"debug", no_argument, 0, 0},
 		{"no-scaffold", no_argument, 0, 0},
 		{0, 0, 0, 0}
@@ -105,6 +109,8 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 				inReadsAlignment = optarg;
 			else if (!strcmp(longOptions[optionIndex].name, "config"))
 				configPath = optarg;
+			else if (!strcmp(longOptions[optionIndex].name, "extra-params"))
+				extraParams = optarg;
 			break;
 
 		case 'h':
@@ -132,7 +138,7 @@ int contigger_main(int argc, char** argv)
 
 	bool debugging = false;
 	size_t numThreads = 1;
-	int kmerSize = 15;
+	int kmerSize = -1;
 	int minOverlap = 5000;
 	bool noScaffold = false;
 	std::string readsFasta;
@@ -142,10 +148,11 @@ int contigger_main(int argc, char** argv)
 	std::string outFolder;
 	std::string logFile;
 	std::string configPath;
+	std::string extraParams;
 	if (!parseArgs(argc, argv, readsFasta, outFolder, logFile, inGraphEdges,
 				   kmerSize, minOverlap, debugging, 
 				   numThreads, configPath, inRepeatGraph, 
-				   inReadsAlignment, noScaffold))  return 1;
+				   inReadsAlignment, noScaffold, extraParams))  return 1;
 	
 	Logger::get().setDebugging(debugging);
 	if (!logFile.empty()) Logger::get().setOutputFile(logFile);
@@ -160,6 +167,11 @@ int contigger_main(int argc, char** argv)
 
 	
 	Config::load(configPath);
+	if (!extraParams.empty()) Config::addParameters(extraParams);
+	if (kmerSize == -1)
+	{
+		kmerSize = Config::get("kmer_size");
+	}
 	Parameters::get().numThreads = numThreads;
 	Parameters::get().kmerSize = kmerSize;
 	Parameters::get().minimumOverlap = minOverlap;

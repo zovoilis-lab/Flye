@@ -18,13 +18,13 @@ Table of Contents
 
 ```
 usage: flye (--pacbio-raw | --pacbio-corr | --pacbio-hifi | --nano-raw |
-         --nano-corr | --subassemblies) file1 [file_2 ...]
-         --genome-size SIZE --out-dir PATH
+	     --nano-corr | --subassemblies) file1 [file_2 ...]
+	     --out-dir PATH
 
-         [--threads int] [--iterations int] [--min-overlap int]
-         [--meta] [--plasmids] [--trestle] [--polish-target]
-         [--keep-haplotypes] [--debug] [--version] [--help] 
-         [--resume] [--resume-from] [--stop-after]
+	     [--genome-size SIZE] [--threads int] [--iterations int]
+	     [--meta] [--plasmids] [--trestle] [--polish-target]
+	     [--keep-haplotypes] [--debug] [--version] [--help] 
+	     [--resume] [--resume-from] [--stop-after] [--min-overlap SIZE]
 
 Assembly of long reads with repeat graphs
 
@@ -54,6 +54,8 @@ optional arguments:
                         minimum overlap between reads [auto]
   --asm-coverage int    reduced coverage for initial disjointig assembly [not
                         set]
+  --hifi-error float    expected HiFi reads error rate (e.g. 0.01 or 0.001)
+                        [0.01]
   --plasmids            rescue short unassembled plasmids
   --meta                metagenome / uneven coverage mode
   --keep-haplotypes     do not collapse alternative haplotypes
@@ -79,20 +81,16 @@ files with reads (separated by spaces). Mixing different read
 types is not yet supported. The --meta option enables the mode
 for metagenome/uneven coverage assembly.
 
-You must provide an estimate of the genome size as input,
-which is used for solid k-mers selection. Standard size
-modifiers are supported (e.g. 5m or 2.6g). In the case
-of metagenome assembly, the expected total assembly size
-should be provided.
+Genome size estimate is no longer a required option. You
+need to provide an estimate if using --asm-coverage option.
 
 To reduce memory consumption for large genome assemblies,
 you can use a subset of the longest reads for initial disjointig
-assembly by specifying --asm-coverage option. Typically,
+assembly by specifying --asm-coverage and --genome-size options. Typically,
 40x coverage is enough to produce good disjointigs.
 
 You can run Flye polisher as a standalone tool using
 --polish-target option.
-
 
 ## <a name="examples"></a> Examples
 
@@ -105,11 +103,10 @@ The original dataset is available at the
 We coverted the raw `bas.h5` file to the FASTA format for the convenience.
 
     wget https://zenodo.org/record/1172816/files/E.coli_PacBio_40x.fasta
-    flye --pacbio-raw E.coli_PacBio_40x.fasta --out-dir out_pacbio --genome-size 5m --threads 4
+    flye --pacbio-raw E.coli_PacBio_40x.fasta --out-dir out_pacbio --threads 4
 
-with `5m` being the expected genome size, the threads argument being optional 
-(you may adjust it for your environment), and `out_pacbio` being the directory
-where the assembly results will be placed.
+with the `threads` argument being optional (you may adjust it for your environment), 
+and `out_pacbio` being the directory where the assembly results will be placed.
 
 ### E. coli Oxford Nanopore Technologies data
 
@@ -117,29 +114,33 @@ The dataset was originally released by the
 [Loman lab](http://lab.loman.net/2015/09/24/first-sqk-map-006-experiment/).
 
     wget https://zenodo.org/record/1172816/files/Loman_E.coli_MAP006-1_2D_50x.fasta
-    flye --nano-raw Loman_E.coli_MAP006-1_2D_50x.fasta --out-dir out_nano --genome-size 5m --threads 4
+    flye --nano-raw Loman_E.coli_MAP006-1_2D_50x.fasta --out-dir out_nano --threads 4
 
 
 ## <a name="inputdata"></a> Supported Input Data
 
-### PacBio data
+### Oxford Nanopore
 
-Flye was tested on raw PacBio reads (P5C3 and P6C4) with error rate ~15%.
+We performed our benchmarks with raw ONT reads (R7-R10) with error rate 5-15%.
+Due to the biased error pattern, per-nucleotide accuracy is usually lower for 
+ONT data than with PacBio data, especially in homopolymer regions.
+
+### PacBio HiFi
+
+Flye now supports assembly of PacBio HiFi protocol via `--pacbio-hifi` option.
+The expected read error is 1% by default. In case the reads are more accurate,
+you can adjust `--hifi-error` parameter (for example to 0.001) to potentially
+generate more complete assemblies.
+
+### PacBio CLR
+
+Flye was tested on raw PacBio CLR reads (P5C3 and P6C4) with error rate ~15%.
 Note that Flye assumes that the input files represent PacBio subreads,
 e.g. adaptors and noise are trimmed and multiple passes of the same insertion
 sequence are separated. This is typically handled by PacBio instruments/toolchains,
 however we saw examples of incorrect third-party raw -> fastq conversions, 
 which resulted into incorrectly trimmed data. In case Flye is failing to
 get reasonable assemblies, make sure that your reads are properly preprocessed.
-
-Flye now supports assembly of PacBio HiFi protocol via `--pacbio-hifi` option.
-The expected read error is <1%.
-
-### Oxford Nanopore data
-
-We performed our benchmarks with raw ONT reads (R7-R9) with error rate ~15%.
-Due to the biased error pattern, per-nucleotide accuracy is usually lower for 
-ONT data than with PacBio data, especially in homopolymer regions.
 
 ### Error-corrected reads input
 
@@ -162,19 +163,15 @@ is <1%. You might want to skip the polishing stage with ```--iterations 0``` arg
 Flye works directly with base-called raw reads and does not require any 
 prior error correction. Flye automatically detects chimeric reads or reads with low quality ends, 
 so you do not need to curate them before the assembly. However, it is always
-worth checking for possible contamination in the reads, since it may affect the 
-automatic selection of estimated parameters for solid kmers and genome size / coverage.
+worth checking for possible contamination in the reads.
 
 
 ## <a name="parameters"></a> Parameter descriptions
 
-### Estimated genome size (required)
+### Estimated genome size (optional since 2.8)
 
-You must provide an estimate of the genome size as input,
-which is used for solid k-mers selection. The estimate could
-be rough (e.g. withing 0.5x-2x range) and does not affect
-the other assembly stages. Standard size modificators are
-supported (e.g. 5m or 2.6g)
+No longer reuired as input. However, it must be used in conjunction with
+`--asm-coverage` option.
 
 ### Minimum overlap length
 
@@ -325,17 +322,18 @@ the `20-repeat/graph_before_rr.gv` file.
 | Genome                   | Data           | Asm.Size  | NG50     | CPU time  | RAM    |
 |--------------------------|----------------|-----------|----------|-----------|--------|
 | [E.coli][ecoli]          | PB 50x         | 4.6 Mb    | 4.6 Mb   | 2 h       | 2 Gb   |
-| [C.elegans][ce]          | PB 40x         | 102 Mb    | 3.6 Mb   | 100 h     | 31 Gb  |
-| [A.thaliana][at]         | PB 75x         | 120 Mb    | 9.5 Mb   | 100 h     | 46 Gb  |
-| [D.melanogaster][dm-ont] | ONT 30x        | 139 Mb    | 10.6 Mb  | 130 h     | 31 Gb  |
-| [D.melanogaster][dm-pb]  | PB 120x        | 142 Mb    | 18.8 Mb  | 150 h     | 75 Gb  |
-| [Human NA12878][na12878] | ONT 35x (rel6) | 2.9 Gb    | 33.2 Mb  | 2500 h    | 714 Gb |
-| [Human CHM13 T2T][t2t]   | ONT 120x (rel3)| 2.9 Gb    | 75.1 Mb  | 5000 h    | 871 Gb |
-| [Human HG002][hg002]     | PB CCS 30x     | 2.9 Gb    | 27.5 Mb  | 1400 h    | 272 Gb |
-| [Human CHM1][chm1]       | PB 100x        | 2.8 Gb    | 21.5 Mb  | 2700 h    | 676 Gb |
-| [HMP mock][hmp]          | PB meta 7 Gb   | 66 Mb     | 2.6 Mb   | 60 h      | 72 Gb  |
-| [Zymo Even][zymo]        | ONT meta 14 Gb | 64 Mb     | 0.6 Mb   | 60 h      | 129 Gb |
-| [Zymo Log][zymo]         | ONT meta 16 Gb | 23 Mb     | 1.3 Mb   | 100 h     | 76 Gb  |
+| [C.elegans][ce]          | PB 40x         | 106 Mb    | 4.3 Mb   | 100 h     | 31 Gb  |
+| [A.thaliana][at]         | PB 75x         | 119 Mb    | 11.9 Mb  | 100 h     | 59 Gb  |
+| [D.melanogaster][dm-ont] | ONT 30x        | 136 Mb    | 19.9 Mb  | 130 h     | 33 Gb  |
+| [D.melanogaster][dm-pb]  | PB 120x        | 141 Mb    | 18.8 Mb  | 150 h     | 70 Gb  |
+| [Human NA12878][na12878] | ONT 35x (rel6) | 2.8 Gb    | 37.9 Mb  | 3100 h    | 394 Gb |
+| [Human CHM13 ONT][t2t]   | ONT 120x (rel5)| 2.9 Gb    | 69.4 Mb  | 4000 h    | 450 Gb |
+| [Human CHM13 HiFi][t2t]  | PB HiFi 30x    | 3.0 Gb    | 39.8 Mb  | 780 h     | 141 Gb |
+| [Human HG002][hg002]     | PB HiFi 30x    | 3.0 Gb    | 33.5 Mb  | 630 h     | 138 Gb |
+| [Human CHM1][chm1]       | PB 100x        | 2.8 Gb    | 18.3 Mb  | 2700 h    | 444 Gb |
+| [HMP mock][hmp]          | PB meta 7 Gb   | 68 Mb     | 2.6 Mb   | 60 h      | 72 Gb  |
+| [Zymo Even][zymo]        | ONT meta 14 Gb | 65 Mb     | 0.7 Mb   | 60 h      | 129 Gb |
+| [Zymo Log][zymo]         | ONT meta 16 Gb | 29 Mb     | 0.2 Mb   | 100 h     | 76 Gb  |
 
 [na12878]: https://github.com/nanopore-wgs-consortium/NA12878/blob/master/Genome.md
 [ce]: https://github.com/PacificBiosciences/DevNet/wiki/C.-elegans-data-set
@@ -349,10 +347,11 @@ the `20-repeat/graph_before_rr.gv` file.
 [t2t]: https://github.com/nanopore-wgs-consortium/CHM13
 [zymo]: https://github.com/LomanLab/mockcommunity
 
-The assemblies generated using Flye 2.7 could be downloaded from [Zenodo](https://zenodo.org/record/3694400).
+The assemblies generated using Flye 2.8 could be downloaded from [Zenodo](https://zenodo.org/record/3965035).
 All datasets were run with default parameters for the corresponding read type
 with the following exceptions: CHM13 T2T was run with `--min-overlap 10000 --asm-coverage 50`;
-CHM1 was run with `--asm-coverage 40`.
+CHM1 was run with `--asm-coverage 50`. CHM13 HiFi and HG002 HiFi datasets were run in
+`--pacbio-hifi` mode and `--hifi-error 0.003`.
 
 ## <a name="algorithm"></a> Algorithm Description
 

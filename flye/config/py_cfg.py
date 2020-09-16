@@ -22,12 +22,12 @@ vals = {
         },
 
         #assembly parameters
-        "kmer_size" : {
-            "raw" : 17,
-            "corrected" : 17,
-            "hifi" : 17,
-            "subasm" : 31
-        },
+        #"kmer_size" : {
+        #    "raw" : 17,
+        #    "corrected" : 17,
+        #    "hifi" : 17,
+        #    "subasm" : 31
+        #},
         "min_overlap_range" : {
             "raw" : [1000, 5000],
             "corrected" : [1000, 5000],

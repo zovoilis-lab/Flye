@@ -28,14 +28,14 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 			   std::string& inAssembly, int& kmerSize,
 			   int& minOverlap, bool& debug, size_t& numThreads, 
 			   std::string& configPath, bool& unevenCov,
-			   bool& keepHaplotypes)
+			   bool& keepHaplotypes, std::string& extraParams)
 {
 	auto printUsage = []()
 	{
 		std::cerr << "Usage: flye-repeat "
 				  << " --disjointigs path --reads path --out-dir path --config path\n"
 				  << "\t\t[--log path] [--treads num] [--kmer size] [--meta] [--keep-haplotypes]\n"
-				  << "\t\t[--min-ovlp size] [--debug] [-h]\n\n"
+				  << "\t\t[--min-ovlp size] [--extra-params] [--debug] [-h]\n\n"
 				  << "Required arguments:\n"
 				  << "  --disjointigs path\tpath to disjointigs file\n"
 				  << "  --reads path\tcomma-separated list of read files\n"
@@ -53,6 +53,8 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 				  << "[default = false] \n"
 				  << "  --log log_file\toutput log to file "
 				  << "[default = not set] \n"
+				  << "  --extra-params additional config parameters "
+				  << "[default = not set] \n"
 				  << "  --threads num_threads\tnumber of parallel threads "
 				  << "[default = 1] \n";
 	};
@@ -68,6 +70,7 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 		{"threads", required_argument, 0, 0},
 		{"kmer", required_argument, 0, 0},
 		{"min-ovlp", required_argument, 0, 0},
+		{"extra-params", required_argument, 0, 0},
 		{"meta", no_argument, 0, 0},
 		{"keep-haplotypes", no_argument, 0, 0},
 		{"debug", no_argument, 0, 0},
@@ -102,6 +105,8 @@ bool parseArgs(int argc, char** argv, std::string& readsFasta,
 				inAssembly = optarg;
 			else if (!strcmp(longOptions[optionIndex].name, "config"))
 				configPath = optarg;
+			else if (!strcmp(longOptions[optionIndex].name, "extra-params"))
+				extraParams = optarg;
 			break;
 
 		case 'h':
@@ -128,7 +133,7 @@ int repeat_main(int argc, char** argv)
 
 	bool debugging = false;
 	size_t numThreads = 1;
-	int kmerSize = 15;
+	int kmerSize = -1;
 	int minOverlap = 5000;
 	bool isMeta = false;
 	bool keepHaplotypes = false; 
@@ -137,9 +142,10 @@ int repeat_main(int argc, char** argv)
 	std::string outFolder;
 	std::string logFile;
 	std::string configPath;
+	std::string extraParams;
 	if (!parseArgs(argc, argv, readsFasta, outFolder, logFile, inAssembly,
 				   kmerSize, minOverlap, debugging, 
-				   numThreads, configPath, isMeta, keepHaplotypes))  return 1;
+				   numThreads, configPath, isMeta, keepHaplotypes, extraParams))  return 1;
 	
 	Logger::get().setDebugging(debugging);
 	if (!logFile.empty()) Logger::get().setOutputFile(logFile);
@@ -153,6 +159,11 @@ int repeat_main(int argc, char** argv)
 	Logger::get().debug() << "Total CPUs: " << std::thread::hardware_concurrency();
 
 	Config::load(configPath);
+	if (!extraParams.empty()) Config::addParameters(extraParams);
+	if (kmerSize == -1)
+	{
+		kmerSize = Config::get("kmer_size");
+	}
 	Parameters::get().numThreads = numThreads;
 	Parameters::get().kmerSize = kmerSize;
 	Parameters::get().minimumOverlap = minOverlap;

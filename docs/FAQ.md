@@ -6,9 +6,9 @@ Which datasets Flye was tested on?
 
 Flye was extensively tested on various whole genome PacBio and ONT datasets.
 In particular, we used Flye to assemble PacBio's P5C3, P6C4, Sequel and Sequel II;
-ONT's R7-R9 basecalled with Albacore, Guppy and Flipflop (fast mode).
-We typically use raw reads, however error-corrected input is also supported
-(for example, for PacBio CCS). Flye is designed for all kinds of genomes,
+ONT's R7-R10 basecalled with Albacore, Guppy and Flipflop (fast mode).
+We typically use raw reads, however error-corrected input is also supported. 
+Flye is designed for all kinds of genomes,
 for various bacteria to mammalians. We are also testing Flye on 
 metagenomic datasets (mock and real). You can also check the table with the Flye 
 benchmarks in the [Usage file](USAGE.md).
@@ -34,31 +34,28 @@ Are metagenomes supported?
 
 Yes, use the `--meta` option. This option also should be applied if you
 expect highly non-uniform read coverage in your dataset.
-A disadvantage of `--meta` mode is that it could be
-slower and consume more RAM. Also, graph simplifications will be less aggressive,
-which can hurt the contiguity of a single genome assembly.
+In this mode, some graph procedures will be less aggressive,
+which can decrease the contiguity of a single genome assembly.
 
 Are very large genomes supported?
 ---------------------------------
 
 In theory - yes, but RAM usage is the limit. We have tested Flye on
-many human assemblies, which typically require ~700Gb of RAM.
+many human assemblies, which typically require ~450Gb of RAM for ONT and ~140Gb for HiFi.
 Memory consumption grows linearly with genome size and reads coverage.
-Thus, genomes beyond ~5Gb is size are unlikely to be supported, currently.
+Thus, genomes beyond ~10Gb is size might be problemmatic to assmeble.
 
-Are PacBio CCS reads supported?
+Are PacBio CCS/HiFi reads supported?
 -------------------------------
 
-Yes, use the `--pacbio-corr` option. Note that this is currently 
-not the primary focus of our developments. More improvements likely
-could be made in the future as more datasets of this kind become available.
+Yes, use the `--pacbio-hifi` option. 
 
 Is Flye suitable for assembly of very short sequences, such as viruses, phages, mitochndria etc.?
 -------------------------------------------------------------------------------------------------
 
-No, support of very short sequences, such as viruses, phages, mitochondria
-is limited. On the other hand, assembly of short plasmids IS supported
-through the `--plasmids` option.
+No guarantees. Currently, the support of very short sequences, such as viruses, 
+phages, mitochondria is limited. We expect this to improve in the future versions.
+Assembly of short plasmids *is* supported through the `--plasmids` option.
 
 How much resources (CPU / RAM) do I need for my genome?
 -------------------------------------------------------
@@ -71,14 +68,14 @@ read coverage. If you coverage is above 100x, consider use
 assembly - this should speed things up.
 
 Mid-size eukaryotes (like C. elegans or D. melanogaster) 
-with coverage around 50x might require 3-4 hours and 30-50Gb RAM
+with coverage around 50x might require 2-3 hours and 30-50Gb RAM
 to assemble (30 threads).
 
-Mammalian assemblies with 40x coverage need ~700Gb of RAM
-and typically finish within 3-4 days using 30 threads.
+Mammalian assemblies with 40x coverage need ~450Gb of RAM (for ONT)
+and typically finishes within 3-4 days using 30 threads.
 
 Various benchmarks are also given in the [Usage file](USAGE.md).
-The time and memory usage usually scales linearly with
+Typically, the time and memory usage usually scale linearly with
 genome size and read coverage. However, highly repetitive
 genomes might require more memory and be slower to assemble.
 Most of the Flye stages run in parallel, so the more threads
@@ -103,6 +100,8 @@ of datasets with coverage below 10x is not recommended.
 
 How do I select genome size if I don't know it in advance?
 ----------------------------------------------------------
+
+(Note: enome size parameter is not required since the version 2.8)
 
 The genome size estimate is used for solid k-mer selection in the
 initial disjointig assembly stage. Flye is not very sensitive to
@@ -196,7 +195,7 @@ On the other hand, PacBio has specialized Quiver/Arrow tools that
 are more advanced, since they use PacBio-specific signal information. 
 It is possible, that you can get a bit of improvement after applying these tools.
 
-For ONT data, Flye still has ~1% errors in consensus due to the systematic error 
+For ONT data, Flye still has 0.5-1% errors in consensus due to the systematic error 
 pattern of ONT reads. One might need an external polisher 
 (such as nanopolish/Medaka) to get higher consensus quality.
 
@@ -209,8 +208,10 @@ for a discussion on the assembly quality.
 Should I use raw or error-corrected reads?
 ------------------------------------------
 
-Flye was designed and tested mainly using raw reads, 
-so it is currently the recommended option.
+Flye was primarily designed and tested  using raw reads, so it is always the recommended option.
+Should you decide to use error-corrected reads, it might be a good idea to perform another assembly
+using raw read input and compare the results. The only exception is PacBio HiFi reads, 
+which should be assembled using `--pacbio-hifi`.
 
 
 Do I need to preprocess my reads in any way?
