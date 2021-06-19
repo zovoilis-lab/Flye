@@ -35,7 +35,7 @@ class MakeBuild(DistutilsBuild):
         if not find_executable("make"):
             sys.exit("ERROR: 'make' command is unavailable")
         try:
-            subprocess.check_call(["make"])
+            subprocess.check_call(["make", "sse2only=1"])
         except subprocess.CalledProcessError as e:
             sys.exit("Compilation error: ", e)
 
